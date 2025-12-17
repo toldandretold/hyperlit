@@ -42,10 +42,17 @@ class PandocConversionJob implements ShouldQueue
         $basePath = resource_path("markdown/{$this->citation_id}");
         $htmlOutputPath = "{$basePath}/intermediate.html";
         $pythonScriptPath = base_path('app/Python/process_document.py');
+        $metadataStripScript = base_path('app/Python/strip_docx_metadata.py');
 
         Log::info("PandocConversionJob started for citation_id: {$this->citation_id}");
 
         try {
+            // Step 0: Strip metadata from DOCX for privacy/security
+            $inputExtension = strtolower(pathinfo($this->inputFilePath, PATHINFO_EXTENSION));
+            if ($inputExtension === 'docx') {
+                $this->stripDocxMetadata($metadataStripScript, $this->inputFilePath);
+            }
+
             // Step 1: Convert DOCX to HTML using Pandoc
             Log::info("Step 1: Converting DOCX to HTML...", [
                 'input' => $this->inputFilePath,
@@ -57,6 +64,7 @@ class PandocConversionJob implements ShouldQueue
                 $this->inputFilePath,
                 '-o',
                 $htmlOutputPath,
+                '--track-changes=accept', // Accept all track changes for clean output
                 '--extract-media=' . $basePath // Extracts images to the folder
             ]);
             $pandocProcess->setTimeout(300); // 5 minutes timeout
@@ -109,6 +117,37 @@ class PandocConversionJob implements ShouldQueue
                 File::delete($htmlOutputPath);
                 Log::info("Cleaned up intermediate file: {$htmlOutputPath}");
             }
+        }
+    }
+
+    /**
+     * Strip metadata from DOCX file for privacy and security
+     */
+    private function stripDocxMetadata(string $scriptPath, string $docxPath): void
+    {
+        $pythonBin = env('PYTHON_PATH', 'python3');
+
+        Log::info("Step 0: Stripping DOCX metadata...", [
+            'script' => $scriptPath,
+            'docx' => $docxPath
+        ]);
+
+        $process = new Process([
+            $pythonBin,
+            $scriptPath,
+            $docxPath // Overwrites the file in place
+        ]);
+        $process->setTimeout(60); // 1 minute timeout
+        $process->run();
+
+        if ($process->isSuccessful()) {
+            Log::info("DOCX metadata stripped successfully");
+        } else {
+            // Log warning but don't fail - metadata stripping is not critical
+            Log::warning("Failed to strip DOCX metadata, continuing anyway", [
+                'error' => $process->getErrorOutput(),
+                'output' => $process->getOutput()
+            ]);
         }
     }
 
