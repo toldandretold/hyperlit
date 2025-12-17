@@ -279,7 +279,12 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
     console.error("Missing target element or scrollable container for consistent scroll");
     return;
   }
-  
+
+  // Skip if content doesn't overflow (nothing to scroll)
+  if (scrollableContainer.scrollHeight <= scrollableContainer.clientHeight) {
+    return;
+  }
+
   // Mark as navigation scroll to prevent user scroll detection interference
   userScrollState.isNavigating = true;
   
@@ -330,24 +335,13 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
 }
 
 export function scrollElementIntoMainContent(targetElement, headerOffset = 50) {
-  // `book` is the ID of your <div class="main-content">
-  const contentContainer = document.getElementById(book);
-  if (!contentContainer) {
-    console.error(`Content container with id ${book} not found!`);
-    // Fallback to basic scroll if container not found
-    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-
-  // Find the actual scrollable parent (e.g., .reader-content-wrapper)
-  const scrollableParent = contentContainer.closest(".reader-content-wrapper") ||
-                           contentContainer.closest(".home-content-wrapper") ||
-                           contentContainer.closest(".user-content-wrapper");
+  // Find scrollable parent from the target element directly (handles lkj vs lkjPrivate etc)
+  const scrollableParent = targetElement.closest(".reader-content-wrapper") ||
+                           targetElement.closest(".home-content-wrapper") ||
+                           targetElement.closest(".user-content-wrapper");
 
   if (!scrollableParent) {
-    console.error("ERROR: No scrollable parent wrapper found for content container!");
-    // Fallback to basic scroll if scrollable parent not found
-    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    console.error("No scrollable parent wrapper found for target element");
     return;
   }
 
@@ -518,6 +512,14 @@ async function fallbackScrollPosition(lazyLoader) {
 
 
 export async function restoreScrollPosition() {
+  // Skip if content doesn't overflow (nothing to scroll)
+  const wrapper = document.querySelector('.home-content-wrapper') ||
+                  document.querySelector('.user-content-wrapper') ||
+                  document.querySelector('.reader-content-wrapper');
+  if (wrapper && wrapper.scrollHeight <= wrapper.clientHeight) {
+    return;
+  }
+
   // Check if user is currently scrolling
   if (shouldSkipScrollRestoration("restoreScrollPosition")) {
     return;

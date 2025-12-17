@@ -8,6 +8,12 @@ class PgHyperlight extends Model
 {
     protected $table = 'hyperlights';
 
+    /**
+     * 🔒 SECURITY: Hide creator_token from JSON responses
+     * This prevents token leakage via API responses
+     */
+    protected $hidden = ['creator_token'];
+
     protected $fillable = [
         'book',
         'hyperlight_id',
@@ -27,9 +33,23 @@ class PgHyperlight extends Model
     protected $casts = [
         'node_id' => 'array',
         'charData' => 'array',
-        'raw_json' => 'array',
         'hidden' => 'boolean'
     ];
+
+    /**
+     * 🔒 SECURITY: Accessor for raw_json that strips creator_token
+     * This ensures creator_token is never leaked even when embedded in raw_json
+     */
+    public function getRawJsonAttribute($value)
+    {
+        $data = is_string($value) ? json_decode($value, true) : $value;
+
+        if (is_array($data)) {
+            unset($data['creator_token']);
+        }
+
+        return $data;
+    }
 
     /**
      * Set highlight data for nodes (ensures consistency between node_id and charData)

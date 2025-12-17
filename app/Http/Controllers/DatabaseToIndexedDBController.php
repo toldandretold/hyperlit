@@ -772,8 +772,10 @@ class DatabaseToIndexedDBController extends Controller
                     // Highlight has username - ONLY check username-based auth (ignore token)
                     $isUserHighlight = $user && $hyperlight->creator === $user->name;
                 } elseif ($hyperlight->creator_token) {
-                    // Highlight has no username, only token - check token-based auth for anonymous users
-                    $isUserHighlight = !$user && $anonymousToken && $hyperlight->creator_token === $anonymousToken;
+                    // Highlight has no username, only token - check token-based auth
+                    // This works for both anonymous users AND logged-in users who created pre-login
+                    // (they still have the same anon_token cookie)
+                    $isUserHighlight = $anonymousToken && $hyperlight->creator_token === $anonymousToken;
                 }
 
                 Log::info('🔍 Processing hyperlight in getHyperlights', [
@@ -787,6 +789,17 @@ class DatabaseToIndexedDBController extends Controller
 
                 // 🔒 SECURITY: Never expose creator_token in API responses
                 // Only the owner needs to know ownership, which is indicated by is_user_highlight
+                // Also sanitize raw_json to remove creator_token
+                // Note: raw_json may be double-encoded (JSON string containing JSON string)
+                $rawJson = json_decode($hyperlight->raw_json ?? '{}', true);
+                if (is_string($rawJson)) {
+                    // Double-encoded - decode again
+                    $rawJson = json_decode($rawJson, true);
+                }
+                if (is_array($rawJson)) {
+                    unset($rawJson['creator_token']);
+                }
+
                 return [
                     'book' => $hyperlight->book,
                     'hyperlight_id' => $hyperlight->hyperlight_id,
@@ -796,7 +809,7 @@ class DatabaseToIndexedDBController extends Controller
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
                     'startLine' => $hyperlight->startLine,
-                    'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
+                    'raw_json' => $rawJson,
                     'time_since' => $hyperlight->time_since,
                     'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
@@ -879,6 +892,17 @@ class DatabaseToIndexedDBController extends Controller
 
         // 🔒 SECURITY: Never expose creator_token in API responses
         // Use is_owner boolean instead so frontend knows ownership without seeing tokens
+        // Also sanitize raw_json to remove creator_token
+        // Note: raw_json may be double-encoded (JSON string containing JSON string)
+        $rawJson = json_decode($library->raw_json ?? '{}', true);
+        if (is_string($rawJson)) {
+            // Double-encoded - decode again
+            $rawJson = json_decode($rawJson, true);
+        }
+        if (is_array($rawJson)) {
+            unset($rawJson['creator_token']);
+        }
+
         return [
             'book' => $library->book,
             'author' => $library->author,
@@ -901,7 +925,7 @@ class DatabaseToIndexedDBController extends Controller
             'is_owner' => $isOwner,
             'visibility' => $library->visibility ?? 'public',
             'listed' => $library->listed ?? true,
-            'raw_json' => json_decode($library->raw_json ?? '{}', true),
+            'raw_json' => $rawJson,
         ];
     }
 

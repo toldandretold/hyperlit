@@ -17,9 +17,13 @@ use App\Http\Controllers\SearchController;
 
 
 
-// Public routes
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/register', [AuthController::class, 'register']);
+// Public routes with rate limiting to prevent brute force and spam
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:20,1') // 20 attempts per minute (reasonable for normal use + typos)
+    ->name('login');
+
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:10,1'); // 10 registrations per minute per IP
 
 // Search routes - public access with rate limiting
 Route::prefix('search')->middleware('throttle:60,1')->group(function () {
