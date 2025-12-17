@@ -396,13 +396,16 @@ async function hasAnonymousContent(token) {
 
 // Call this after successful login to update state
 export function setCurrentUser(user) {
-
   // Set the new user state
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
- 
 
+  // Dispatch event for same-tab UI updates
+  console.log('📡 Dispatching auth-state-changed (login) for same-tab UI update');
+  window.dispatchEvent(new CustomEvent('auth-state-changed', {
+    detail: { type: 'login', user, sameTab: true }
+  }));
 }
 
 
@@ -413,6 +416,12 @@ export async function clearCurrentUser() {
   await clearDatabase();
   // Re-initialize to get new anonymous session
   initializeAuth();
+
+  // Dispatch event for same-tab UI updates
+  console.log('📡 Dispatching auth-state-changed (logout) for same-tab UI update');
+  window.dispatchEvent(new CustomEvent('auth-state-changed', {
+    detail: { type: 'logout', sameTab: true }
+  }));
 }
 
 // ============================================================================
@@ -426,6 +435,37 @@ let authBroadcastChannel = null;
  * Initialize the auth broadcast listener
  * Call this once during app initialization
  */
+/**
+ * Initialize listener for same-tab auth state changes
+ * Updates UI based on page type without full reload (where possible)
+ */
+export function initializeAuthStateListener() {
+  window.addEventListener('auth-state-changed', async (event) => {
+    const { type, sameTab } = event.detail;
+
+    // Only handle same-tab events here (cross-tab handled by broadcast listener)
+    if (!sameTab) return;
+
+    const pageType = document.body.getAttribute('data-page');
+    console.log(`📡 Auth state changed (${type}) on ${pageType} page`);
+
+    if (pageType === 'user') {
+      // User page: reload to get fresh server-rendered delete buttons
+      console.log('🔄 Reloading user page for fresh server-rendered content...');
+      window.location.reload();
+
+    } else if (pageType === 'reader') {
+      // Reader page: just update edit button permissions (no reload needed)
+      console.log('🔄 Updating edit button permissions...');
+      const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+      await checkEditPermissionsAndUpdateUI();
+    }
+    // Home page doesn't need special handling - no auth-dependent UI
+  });
+
+  console.log('📡 Auth state listener initialized');
+}
+
 export function initializeAuthBroadcastListener() {
   if (authBroadcastChannel) {
     console.log('📡 Auth broadcast listener already initialized');
@@ -455,18 +495,29 @@ export function initializeAuthBroadcastListener() {
       window.location.reload();
 
     } else if (type === 'logout') {
-      // Another tab logged out - clear our state and redirect
+      // Another tab logged out - clear our state
       console.log('🔄 Another tab logged out, clearing state...');
       resetAuth();
       await clearDatabase();
 
-      // Dispatch event before redirect so components can clean up
-      window.dispatchEvent(new CustomEvent('auth-state-changed', {
-        detail: { type: 'logout' }
-      }));
+      const pageType = document.body.getAttribute('data-page');
+      console.log(`📡 Handling cross-tab logout on ${pageType} page`);
 
-      // Redirect to home for a fresh start
-      window.location.href = '/';
+      if (pageType === 'user') {
+        // User page: reload to refresh server-rendered delete buttons
+        console.log('🔄 Reloading user page for fresh server-rendered content...');
+        window.location.reload();
+
+      } else if (pageType === 'reader') {
+        // Reader page: update edit button permissions
+        console.log('🔄 Updating edit button permissions...');
+        const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+        await checkEditPermissionsAndUpdateUI();
+
+      } else {
+        // Home page or unknown: redirect to home for fresh start
+        window.location.href = '/';
+      }
     }
   });
 
