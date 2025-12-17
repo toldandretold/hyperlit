@@ -63,7 +63,8 @@ export async function addToHighlightsTable(bookId, highlightData) {
       startLine: highlightData.startLine,
       creator: creator,
       creator_token: creator_token,
-      time_since: Math.floor(Date.now() / 1000)
+      time_since: Math.floor(Date.now() / 1000),
+      is_user_highlight: true  // Always true for locally-created highlights
     };
 
     console.log("💾 Final highlight entry for IndexedDB:", highlightEntry);

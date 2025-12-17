@@ -464,7 +464,15 @@ export class UserContainerManager extends ContainerManager {
         // Update button color to green
         this.updateButtonColor();
 
-        this.showUserProfile();
+        // Check if there's anonymous content to transfer (same as login)
+        if (data.anonymous_content) {
+          this.showAnonymousContentTransfer(data.anonymous_content);
+        } else {
+          // No anonymous content - clear caches and show profile
+          console.log("✅ Registration successful - clearing cached data for fresh auth context");
+          await this.clearAllCachedData();
+          this.showUserProfile();
+        }
       } else {
         this.showRegisterError(
           data.errors || data.message || "Registration failed"

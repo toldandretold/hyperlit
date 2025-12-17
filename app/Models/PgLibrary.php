@@ -12,6 +12,12 @@ class PgLibrary extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
+    /**
+     * 🔒 SECURITY: Hide creator_token from JSON responses
+     * This prevents token leakage via API responses
+     */
+    protected $hidden = ['creator_token'];
+
     protected $fillable = [
         'book',
         'author',
@@ -41,7 +47,6 @@ class PgLibrary extends Model
     ];
 
     protected $casts = [
-        'raw_json' => 'array',
         'timestamp' => 'integer',
         'annotations_updated_at' => 'integer',
         'recent' => 'integer',
@@ -50,6 +55,21 @@ class PgLibrary extends Model
         'total_highlights' => 'integer',
         'listed' => 'boolean'
     ];
+
+    /**
+     * 🔒 SECURITY: Accessor for raw_json that strips creator_token
+     * This ensures creator_token is never leaked even when embedded in raw_json
+     */
+    public function getRawJsonAttribute($value)
+    {
+        $data = is_string($value) ? json_decode($value, true) : $value;
+
+        if (is_array($data)) {
+            unset($data['creator_token']);
+        }
+
+        return $data;
+    }
 
     protected static function booted()
     {

@@ -812,7 +812,7 @@ export function applyHypercites(html, hypercites) {
 
         // Set hypercite intensity for single hypercite (start dim)
         if (actualStatus === 'couple' || actualStatus === 'poly') {
-          underlineElement.style.setProperty('--hypercite-intensity', '0.4');
+          underlineElement.style.cssText = '--hypercite-intensity: 0.4';
         }
       } else {
         // Multiple hypercites overlapping
@@ -836,7 +836,7 @@ export function applyHypercites(html, hypercites) {
         if (finalStatus === 'couple' || finalStatus === 'poly') {
           const overlappingCount = segment.hyperciteIDs.length;
           const intensity = Math.min(1.0, 0.4 + (overlappingCount - 1) * 0.2);
-          underlineElement.style.setProperty('--hypercite-intensity', intensity.toString());
+          underlineElement.style.cssText = `--hypercite-intensity: ${intensity}`;
         }
       }
       
@@ -918,7 +918,8 @@ export function applyHighlights(html, highlights, bookId) {
       // Always set data-highlight-count and intensity
       markElement.setAttribute("data-highlight-count", segment.highlightIDs.length);
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
-      markElement.style.setProperty('--highlight-intensity', intensity);
+      // Use cssText so it serializes properly when we get innerHTML
+      markElement.style.cssText = `--highlight-intensity: ${intensity}`;
 
       // Check if any highlight in this segment belongs to current user using server flag OR is newly created
       const hasUserHighlight = segment.highlightIDs.some(id => {
