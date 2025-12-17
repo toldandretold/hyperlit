@@ -8,6 +8,7 @@ import {
   clearCurrentUser,
   getCurrentUser,
   getAnonymousToken,
+  refreshAuth,
 } from "../utilities/auth.js";
 import { clearDatabase } from "../indexedDB/index.js";
 import { syncBookDataFromDatabase } from "../postgreSQL.js";
@@ -397,6 +398,8 @@ export class UserContainerManager extends ContainerManager {
       if (response.ok && data.success) {
         setCurrentUser(data.user);
         this.user = data.user;
+        // Refresh auth to get new CSRF token and update meta tag
+        await refreshAuth();
         console.log("✅ Login successful for user:", data.user?.name || "user");
 
         // Update button color to green
@@ -459,6 +462,8 @@ export class UserContainerManager extends ContainerManager {
         // MODIFIED: Update state in both places
         setCurrentUser(data.user);
         this.user = data.user;
+        // Refresh auth to get new CSRF token and update meta tag
+        await refreshAuth();
         console.log("✅ Registration successful for user:", data.user?.name || "user");
 
         // Update button color to green
