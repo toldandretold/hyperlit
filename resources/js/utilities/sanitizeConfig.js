@@ -23,7 +23,11 @@ const FORBID_TAGS = [
   'script', 'iframe', 'object', 'embed', 'applet',
   'form', 'input', 'button', 'select', 'textarea',
   'style', 'link', 'meta', 'base',
-  'svg', 'math', // SVG and MathML can contain XSS vectors
+  // SVG allowed for icons, but block dangerous SVG-specific elements
+  'foreignObject',  // Can embed arbitrary HTML inside SVG
+  'set',            // SVG animation that can trigger scripts
+  'animate',        // SVG animation element
+  'animateMotion', 'animateTransform', // More SVG animation elements
   'template', 'slot',
   'noscript', 'canvas',
 ];
