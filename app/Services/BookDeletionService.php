@@ -64,15 +64,34 @@ class BookDeletionService
                 ->update(['visibility' => 'deleted']);
             $stats['library_action'] = 'soft_deleted';
 
-            // Also delete any reference from creator's library nodes
+            // Also delete any reference from creator's library nodes (both public and private user home pages)
             if ($bookCreator) {
+                // Remove spaces from username to match user home book naming convention
+                $sanitizedCreator = str_replace(' ', '', $bookCreator);
+
+                // Node ID pattern: {userHomeBook}_{deletedBookId}_card
+                $publicNodeId = $sanitizedCreator . '_' . $bookId . '_card';
+                $privateNodeId = $sanitizedCreator . 'Private_' . $bookId . '_card';
+
+                // Delete from public user home page
                 DB::table('nodes')
-                    ->where('book', $bookCreator)
-                    ->where('node_id', $bookId)
+                    ->where('book', $sanitizedCreator)
+                    ->where('node_id', $publicNodeId)
                     ->delete();
 
+                // Delete from private user home page
+                DB::table('nodes')
+                    ->where('book', $sanitizedCreator . 'Private')
+                    ->where('node_id', $privateNodeId)
+                    ->delete();
+
+                // Update timestamps on both user home pages
                 DB::table('library')
-                    ->where('book', $bookCreator)
+                    ->where('book', $sanitizedCreator)
+                    ->update(['timestamp' => round(microtime(true) * 1000)]);
+
+                DB::table('library')
+                    ->where('book', $sanitizedCreator . 'Private')
                     ->update(['timestamp' => round(microtime(true) * 1000)]);
             }
 
