@@ -1,5 +1,6 @@
 import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
+import { sanitizeHtml } from './utilities/sanitizeConfig.js';
 import { attachMarkListeners } from "./hyperlights/index.js";
 import {
   //saveNodeChunksToIndexedDB,
@@ -752,7 +753,8 @@ export function createChunkElement(nodes, instance) {
     }
 
     const temp = document.createElement("div");
-    temp.innerHTML = html;
+    // SECURITY: Sanitize HTML to prevent stored XSS from malicious EPUB uploads
+    temp.innerHTML = sanitizeHtml(html);
 
     // 🧹 CLEANUP: Strip navigation classes that shouldn't persist from database
     // Target: <a>, <u>, and arrow icons (<sup>, <span> with .open-icon)

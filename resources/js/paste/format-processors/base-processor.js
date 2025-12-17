@@ -9,7 +9,7 @@ import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements,
 import { generateReferenceKeys } from '../utils/reference-key-generator.js';
 import { processInTextCitations } from '../utils/citation-linker.js';
 import { processFootnoteReferences } from '../utils/footnote-linker.js';
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 
 export class BaseFormatProcessor {
   /**
@@ -126,7 +126,7 @@ export class BaseFormatProcessor {
    */
   createDOM(html) {
     // SECURITY: Sanitize HTML content before creating DOM
-    const sanitizedHtml = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+    const sanitizedHtml = sanitizeHtml(html);
     return createTempDOM(sanitizedHtml);
   }
 

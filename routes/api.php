@@ -37,8 +37,6 @@ Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
 Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
-    Route::get('/db/library/test', [DbLibraryController::class, 'test']);
-
     /* ----------------  Unified Sync Endpoint  ---------------- */
     Route::post(
         '/db/unified-sync',
@@ -171,12 +169,3 @@ Route::prefix('database-to-indexeddb')->group(function () {
         ->name('api.database-to-indexeddb.book-library');
 });
 
-// Test route to verify CORS is working
-Route::get('/test-cors', function (Request $request) {
-    return response()->json([
-        'message' => 'CORS is working!',
-        'origin' => $request->header('Origin'),
-        'method' => $request->method(),
-        'timestamp' => now(),
-    ]);
-});
