@@ -2,6 +2,7 @@
  * Paste module - Handles paste operations in annotation areas
  */
 
+import DOMPurify from 'dompurify';
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
 import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
@@ -50,7 +51,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   if (!clipboardHtml) return false;
 
   const pasteWrapper = document.createElement("div");
-  pasteWrapper.innerHTML = clipboardHtml;
+  pasteWrapper.innerHTML = DOMPurify.sanitize(clipboardHtml, { USE_PROFILES: { html: true } });
 
   const citeLink = pasteWrapper.querySelector(
     'a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon'
