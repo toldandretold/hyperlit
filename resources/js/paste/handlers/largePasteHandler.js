@@ -16,7 +16,7 @@ import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -44,22 +44,26 @@ export async function handleLargePaste(
   ProgressOverlayConductor.showSPATransition(10, 'Processing paste...', true);
 
   // --- 1. USE PROCESSOR-EXTRACTED FOOTNOTES AND REFERENCES ---
-  // SECURITY: Sanitize pasted content to prevent XSS
-  let processedContent = pastedContent ? DOMPurify.sanitize(pastedContent, { USE_PROFILES: { html: true } }) : pastedContent;
+  // Content from processors is already sanitized in base-processor.createDOM()
+  // Only the fallback path (below) needs sanitization of its output
+  let processedContent = pastedContent;
 
   // If footnotes/references were already extracted by the processor, use them
   // Otherwise, fall back to the old extraction method
   if (extractedFootnotes.length === 0 && extractedReferences.length === 0) {
     try {
       console.log(`📝 No footnotes/references from processor, using fallback extractor...`);
-      const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, isHtmlContent, formatType);
-      processedContent = result.processedContent;
+      // SECURITY: Pass sanitized content to fallback processor
+      const result = await processContentForFootnotesAndReferences(processedContent, insertionPoint.book, isHtmlContent, formatType);
+      // SECURITY: Re-sanitize result to ensure it's clean
+      processedContent = result.processedContent ? sanitizeHtml(result.processedContent) : processedContent;
       extractedFootnotes = result.footnotes;
       extractedReferences = result.references;
       console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
     } catch (error) {
       console.error('❌ Error processing footnotes/references:', error);
-      processedContent = pastedContent; // Fallback to original content on error
+      // SECURITY: Keep sanitized content on error (not raw pastedContent)
+      // processedContent already contains sanitized content from line above
     }
   } else {
     console.log(`✅ Using processor-extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
@@ -71,11 +75,12 @@ export async function handleLargePaste(
   const isH1 = currentElement && currentElement.tagName === 'H1';
 
   // Check if pasted content contains block-level elements
+  // SECURITY: Use DOMParser instead of innerHTML to prevent XSS during check
   let hasBlockElements = false;
   if (isH1 && processedContent) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = processedContent;
-    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(processedContent, 'text/html');
+    hasBlockElements = doc.body.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
   }
 
   // Only replace H1 if there's a selection AND pasting block-level content

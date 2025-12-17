@@ -4,6 +4,44 @@ import os
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 import re
+import bleach
+
+# SECURITY: Allowed HTML tags and attributes to prevent XSS
+ALLOWED_TAGS = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
+    'a', 'em', 'strong', 'i', 'b', 'u', 'sub', 'sup', 'span',
+    'ul', 'ol', 'li', 'br', 'hr', 'img', 'table', 'thead', 'tbody',
+    'tr', 'th', 'td', 'figure', 'figcaption', 'cite', 'q', 'abbr', 'mark'
+]
+ALLOWED_ATTRS = {
+    'a': ['href', 'title'],
+    'img': ['src', 'alt', 'title', 'width', 'height'],
+    'td': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan'],
+    '*': ['id', 'class']  # Allow id and class on all elements
+}
+
+def sanitize_html_content(html_string):
+    """
+    SECURITY: Sanitize HTML to prevent XSS attacks from malicious EPUB content.
+    Strips dangerous tags like <script>, <iframe>, event handlers, and javascript: URLs.
+    """
+    # bleach.clean strips disallowed tags and attributes
+    # Also filter dangerous URL schemes
+    def filter_url(tag, name, value):
+        if name in ('href', 'src'):
+            # Block javascript:, data:, and vbscript: URLs
+            value_lower = value.lower().strip()
+            if value_lower.startswith(('javascript:', 'vbscript:', 'data:text/html')):
+                return None
+        return value
+
+    return bleach.clean(
+        html_string,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        strip=True
+    )
 
 def strip_tag_namespace(tag):
     """Remove namespace from an XML tag if present."""
@@ -253,9 +291,16 @@ def process_epub(epub_dir, output_file):
             debug_log.write("\\n--- Starting Heading Normalization ---\\n")
             normalize_heading_hierarchy(combined_soup, debug_log)
             debug_log.write("--- Finished Heading Normalization ---\\n")
-            
+
+            # SECURITY: Sanitize HTML to prevent XSS from malicious EPUB content
+            debug_log.write("\\n--- Starting HTML Sanitization ---\\n")
+            final_html = str(combined_soup)
+            sanitized_html = sanitize_html_content(final_html)
+            debug_log.write(f"Sanitized HTML: {len(final_html)} -> {len(sanitized_html)} chars\\n")
+            debug_log.write("--- Finished HTML Sanitization ---\\n")
+
             with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(str(combined_soup))
+                f.write(sanitized_html)
 
     except Exception as e:
         # Write any exception to the debug log as well

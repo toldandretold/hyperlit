@@ -92,15 +92,17 @@ export const FORMAT_REGISTRY = {
     description: 'Taylor & Francis content with CIT IDs'
   },
 
-  // Sage - Priority 1
+  // Sage - Priority 3 (above T&F since both use data-pb-dropzone)
   'sage': {
     selectors: [
+      'a[href*="sagepub.com"]',        // SAGE domain links (most reliable)
+      'a[role="doc-noteref"]',         // SAGE footnote links
       '.citations',
       '.ref',
       '[role="listitem"]'
     ],
     processor: SageProcessor,
-    priority: 1,
+    priority: 3,
     description: 'Sage Publications content'
   },
 

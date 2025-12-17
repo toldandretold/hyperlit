@@ -3,6 +3,7 @@ import '../utilities/debugLog.js';
 import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { getCurrentUser, getAnonymousToken } from "../utilities/auth.js";
 import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
+import { escapeHtml } from '../paste/utils/normalizer.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // Add the helper functions from createNewBook.js
@@ -440,7 +441,7 @@ function setupFormSubmission() {
         const list = document.getElementById('validation-list');
         if (summary && list) {
             if (errors.length > 0) {
-                list.innerHTML = errors.map(e => `<li>${e.field}: ${e.message}</li>`).join('');
+                list.innerHTML = errors.map(e => `<li>${escapeHtml(e.field)}: ${escapeHtml(e.message)}</li>`).join('');
                 summary.style.display = 'block';
             } else {
                 summary.style.display = 'none';
@@ -894,7 +895,7 @@ function setupRealTimeValidation() {
         const errors = validations.filter(v => !v.result.valid && v.result.message);
         
         if (errors.length > 0) {
-            list.innerHTML = errors.map(e => `<li>${e.field}: ${e.result.message}</li>`).join('');
+            list.innerHTML = errors.map(e => `<li>${escapeHtml(e.field)}: ${escapeHtml(e.result.message)}</li>`).join('');
             summary.style.display = 'block';
         } else {
             summary.style.display = 'none';

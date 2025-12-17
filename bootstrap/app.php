@@ -19,14 +19,16 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Add CORS middleware for API routes
+        // Add CORS and security headers middleware for API routes
         $middleware->api(prepend: [
+            \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
-        
-        // Add CORS middleware for web routes too (in case you need it)
+
+        // Add CORS and security headers middleware for web routes
         $middleware->web(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,
         ]);
         
@@ -37,7 +39,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/register',
             'api/auth-check',
             'api/anonymous-session',
-            'api/test-cors',
             'api/search/*',            // Public search endpoints
             'api/database-to-indexeddb/*',  // Public read-only data endpoints
         ]);

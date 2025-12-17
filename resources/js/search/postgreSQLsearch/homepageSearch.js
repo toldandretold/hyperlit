@@ -3,6 +3,7 @@
  * Handles server-side PostgreSQL search for library and full-text modes
  */
 
+import DOMPurify from 'dompurify';
 import { log, verbose } from '../../utilities/logger.js';
 
 // Configuration
@@ -201,7 +202,7 @@ function renderResults(results, mode) {
             html += `
                 <li class="search-result-item">
                     <a href="/${encodeURIComponent(result.book)}" class="search-result-link">
-                        <span class="search-result-headline">${result.headline}</span>
+                        <span class="search-result-headline">${DOMPurify.sanitize(result.headline, { ALLOWED_TAGS: ['b', 'mark'] })}</span>
                     </a>
                 </li>
             `;
@@ -227,7 +228,7 @@ function renderResults(results, mode) {
                         <a href="/${encodeURIComponent(bookResult.book)}${nodeAnchor}"
                            class="search-result-match-link"
                            data-highlight-query="${escapeHtml(currentSearchQuery)}">
-                            <span class="search-result-snippet">${match.headline}</span>
+                            <span class="search-result-snippet">${DOMPurify.sanitize(match.headline, { ALLOWED_TAGS: ['b', 'mark'] })}</span>
                         </a>
                     </li>
                 `;
