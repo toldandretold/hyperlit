@@ -283,37 +283,32 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Bulk update using UPDATE FROM VALUES (efficient for many rows)
+     * Bulk update using parameterized queries (secure for many rows)
+     * 🔒 SECURITY: Uses parameterized queries instead of PDO::quote()
+     * PDO::quote() can be bypassed with multibyte character attacks (GBK/SJIS)
      */
     private function bulkUpdateNodeIds(array $updates): void
     {
         if (empty($updates)) return;
 
-        $pdo = DB::connection()->getPdo();
-        $values = [];
-
-        foreach ($updates as $update) {
-            $book = $pdo->quote($update['book']);
-            $startLine = $update['startLine'];
-            $nodeId = $pdo->quote($update['node_id']);
-            $content = $pdo->quote($update['content']);
-            $rawJson = $pdo->quote($update['raw_json']);
-
-            $values[] = "({$book}, {$startLine}, {$nodeId}, {$content}, {$rawJson})";
+        // Process in chunks to avoid memory issues while using parameterized queries
+        foreach (array_chunk($updates, 50) as $chunk) {
+            foreach ($chunk as $update) {
+                // 🔒 SECURITY: Use parameterized query instead of PDO::quote()
+                // PDO::quote() can be bypassed with multibyte character attacks
+                DB::statement(
+                    'UPDATE nodes SET node_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                    [
+                        $update['node_id'],
+                        $update['content'],
+                        $update['raw_json'],
+                        now(),
+                        $update['book'],
+                        $update['startLine']
+                    ]
+                );
+            }
         }
-
-        $valuesSql = implode(', ', $values);
-
-        $sql = "UPDATE nodes AS nc
-            SET
-                node_id = v.node_id,
-                content = v.content,
-                raw_json = v.raw_json::jsonb,
-                updated_at = NOW()
-            FROM (VALUES {$valuesSql}) AS v(book, startLine, node_id, content, raw_json)
-            WHERE nc.book = v.book AND nc.\"startLine\" = v.startLine::numeric";
-
-        DB::statement($sql);
     }
 
     /**
