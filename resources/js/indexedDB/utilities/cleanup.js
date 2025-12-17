@@ -45,3 +45,69 @@ export async function clearDatabase() {
     throw error;
   }
 }
+
+/**
+ * Delete all data for a specific book from IndexedDB
+ * Used when deleting a book from the user profile page
+ *
+ * @param {string} bookId - The book ID to delete
+ * @returns {Promise<{success: boolean, bookId: string, deleted: Object}>}
+ */
+export async function deleteBookFromIndexedDB(bookId) {
+  console.log(`🧹 Deleting book "${bookId}" from IndexedDB...`);
+
+  try {
+    const db = await openDatabase();
+    const deleted = {};
+
+    // Stores with "book" index
+    const storesWithBookIndex = ['nodes', 'hyperlights', 'hypercites', 'footnotes', 'bibliography'];
+
+    const tx = db.transaction([...storesWithBookIndex, 'library'], 'readwrite');
+
+    // Delete from stores using "book" index
+    for (const storeName of storesWithBookIndex) {
+      const store = tx.objectStore(storeName);
+      const index = store.index('book');
+      const range = IDBKeyRange.only(bookId);
+
+      let count = 0;
+      const request = index.openCursor(range);
+
+      await new Promise((resolve, reject) => {
+        request.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            cursor.delete();
+            count++;
+            cursor.continue();
+          } else {
+            deleted[storeName] = count;
+            console.log(`  - Deleted ${count} records from ${storeName}`);
+            resolve();
+          }
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // Delete library metadata (keyPath is "book")
+    const libraryStore = tx.objectStore('library');
+    await new Promise((resolve, reject) => {
+      const request = libraryStore.delete(bookId);
+      request.onsuccess = () => {
+        deleted.library = 1;
+        console.log(`  - Deleted library record`);
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    console.log(`✅ Book "${bookId}" deleted from IndexedDB`);
+    return { success: true, bookId, deleted };
+
+  } catch (error) {
+    console.error(`❌ Error deleting book "${bookId}" from IndexedDB:`, error);
+    throw error;
+  }
+}

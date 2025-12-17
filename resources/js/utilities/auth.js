@@ -100,6 +100,8 @@ export async function logout() {
   } catch (error) {
     console.error('Error during logout fetch:', error);
   } finally {
+    // Broadcast logout to other tabs BEFORE clearing local state
+    broadcastAuthChange('logout');
     await clearCurrentUser(); // Wipes IndexedDB
     await clearBrowserCache(); // Wipes CacheStorage
     window.location.href = '/'; // Redirect to home for a fresh start
@@ -411,6 +413,86 @@ export async function clearCurrentUser() {
   await clearDatabase();
   // Re-initialize to get new anonymous session
   initializeAuth();
+}
+
+// ============================================================================
+// CROSS-TAB AUTH SYNC
+// Broadcasts auth changes to other tabs so they stay in sync
+// ============================================================================
+
+let authBroadcastChannel = null;
+
+/**
+ * Initialize the auth broadcast listener
+ * Call this once during app initialization
+ */
+export function initializeAuthBroadcastListener() {
+  if (authBroadcastChannel) {
+    console.log('📡 Auth broadcast listener already initialized');
+    return; // Already initialized
+  }
+
+  console.log('📡 Initializing auth broadcast listener...');
+  authBroadcastChannel = new BroadcastChannel('auth-sync');
+
+  authBroadcastChannel.addEventListener('message', async (event) => {
+    const { type, user, timestamp } = event.data;
+
+    console.log(`📡 RECEIVED auth broadcast: ${type}`, event.data);
+
+    if (type === 'login') {
+      // Another tab logged in - refresh our auth state
+      console.log('🔄 Another tab logged in, refreshing auth state...');
+      await refreshAuth();
+
+      // Update UI to reflect logged-in state
+      // Dispatch a custom event that components can listen for
+      window.dispatchEvent(new CustomEvent('auth-state-changed', {
+        detail: { type: 'login', user }
+      }));
+
+      // Reload the page to get fresh server-rendered content
+      window.location.reload();
+
+    } else if (type === 'logout') {
+      // Another tab logged out - clear our state and redirect
+      console.log('🔄 Another tab logged out, clearing state...');
+      resetAuth();
+      await clearDatabase();
+
+      // Dispatch event before redirect so components can clean up
+      window.dispatchEvent(new CustomEvent('auth-state-changed', {
+        detail: { type: 'logout' }
+      }));
+
+      // Redirect to home for a fresh start
+      window.location.href = '/';
+    }
+  });
+
+  console.log('📡 Auth broadcast listener initialized successfully');
+}
+
+/**
+ * Broadcast an auth change to other tabs
+ * @param {'login' | 'logout'} type - The type of auth change
+ * @param {Object|null} user - The user object (for login) or null (for logout)
+ */
+export function broadcastAuthChange(type, user = null) {
+  console.log(`📡 Broadcasting auth change: ${type}`, user);
+
+  if (!authBroadcastChannel) {
+    console.log('📡 Creating new BroadcastChannel for sending');
+    authBroadcastChannel = new BroadcastChannel('auth-sync');
+  }
+
+  authBroadcastChannel.postMessage({
+    type,
+    user,
+    timestamp: Date.now()
+  });
+
+  console.log(`📡 Auth change broadcasted successfully: ${type}`);
 }
 
 

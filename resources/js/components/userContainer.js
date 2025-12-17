@@ -9,6 +9,7 @@ import {
   getCurrentUser,
   getAnonymousToken,
   refreshAuth,
+  broadcastAuthChange,
 } from "../utilities/auth.js";
 import { clearDatabase } from "../indexedDB/index.js";
 import { syncBookDataFromDatabase } from "../postgreSQL.js";
@@ -398,6 +399,8 @@ export class UserContainerManager extends ContainerManager {
       if (response.ok && data.success) {
         setCurrentUser(data.user);
         this.user = data.user;
+        // Broadcast login to other tabs
+        broadcastAuthChange('login', data.user);
         // Refresh auth to get new CSRF token and update meta tag
         await refreshAuth();
         console.log("✅ Login successful for user:", data.user?.name || "user");
@@ -462,6 +465,8 @@ export class UserContainerManager extends ContainerManager {
         // MODIFIED: Update state in both places
         setCurrentUser(data.user);
         this.user = data.user;
+        // Broadcast login to other tabs
+        broadcastAuthChange('login', data.user);
         // Refresh auth to get new CSRF token and update meta tag
         await refreshAuth();
         console.log("✅ Registration successful for user:", data.user?.name || "user");
@@ -508,6 +513,9 @@ export class UserContainerManager extends ContainerManager {
       });
 
       if (response.ok) {
+        // Broadcast logout to other tabs FIRST
+        broadcastAuthChange('logout');
+
         // MODIFIED: Centralize state clearing
         clearCurrentUser();
         this.user = null;
@@ -526,6 +534,7 @@ export class UserContainerManager extends ContainerManager {
         this.closeContainer();
       } else {
         console.error("Logout failed:", response.status);
+        broadcastAuthChange('logout');
         clearCurrentUser();
         this.user = null;
         this.updateButtonColor();
@@ -533,6 +542,7 @@ export class UserContainerManager extends ContainerManager {
       }
     } catch (error) {
       console.error("Logout error:", error);
+      broadcastAuthChange('logout');
       clearCurrentUser();
       this.user = null;
       this.updateButtonColor();
