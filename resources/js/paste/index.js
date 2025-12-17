@@ -20,7 +20,7 @@
  * ================================================================================================
  */
 
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { marked } from 'marked';
 import { book } from '../app.js';
 import { getCurrentChunk } from '../chunkManager.js';
@@ -71,7 +71,16 @@ export function isPasteOperationActive() {
 
 export function addPasteListener(editableDiv) {
   console.log("Adding modular paste listener");
-  editableDiv.addEventListener("paste", handlePaste);
+  // Use capture phase to intercept before browser's native handling
+  editableDiv.addEventListener("paste", handlePaste, { capture: true });
+
+  // Also add beforeinput handler to catch insertFromPaste
+  editableDiv.addEventListener("beforeinput", (event) => {
+    if (event.inputType === "insertFromPaste") {
+      console.log("🛑 beforeinput: insertFromPaste - preventing default");
+      event.preventDefault();
+    }
+  }, { capture: true });
 }
 
 // Export extractQuotedText for external use
@@ -133,6 +142,10 @@ async function syncPasteToPostgreSQL(bookId) {
  * Routes paste operations to appropriate handlers based on content type and size
  */
 async function handlePaste(event) {
+  // CRITICAL: Prevent browser's default paste IMMEDIATELY before any processing
+  // This stops the browser from inserting unsanitized content
+  event.preventDefault();
+
   // 🎯 Generate unique paste operation ID for tracing
   const pasteOpId = `paste_${Date.now()}`;
   console.log(`🎯 [${pasteOpId}] Starting paste operation`);
@@ -204,7 +217,7 @@ async function handlePaste(event) {
       // Clear rawHtml to force plaintext path, then convert to HTML
       rawHtml = '';
       const dirty = marked(transformedText);
-      htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+      htmlContent = sanitizeHtml(dirty);
       console.log(`✅ [${pasteOpId}] YouTube transcript transformed and converted to HTML`);
     }
 
@@ -313,7 +326,7 @@ async function handlePaste(event) {
             const dirty = await processMarkdownInChunks(plainText, (percent, current, total) => {
               ProgressOverlayConductor.updateProgress(percent, `Processing chunk ${current}/${total}`);
             });
-            htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+            htmlContent = sanitizeHtml(dirty);
             // Don't hide overlay yet - wait until after paste and scroll complete
           } catch (error) {
             console.error("Error during chunked conversion:", error);
@@ -322,7 +335,7 @@ async function handlePaste(event) {
           }
         } else {
           const dirty = marked(plainText);
-          htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+          htmlContent = sanitizeHtml(dirty);
         }
       }
     }

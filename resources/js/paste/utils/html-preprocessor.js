@@ -46,6 +46,8 @@ export function isRealLink(href) {
  * @returns {string} - Preprocessed HTML
  */
 export function preprocessHTMLContent(htmlContent) {
+  // NOTE: Using innerHTML here is safe because content is already sanitized
+  // before reaching this function (sanitized in base-processor.js)
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
 

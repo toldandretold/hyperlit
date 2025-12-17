@@ -28,6 +28,8 @@ export function isBlockElement(tagName) {
  * @returns {Array<string>} - Array of block-level HTML strings
  */
 export function parseHtmlToBlocks(htmlContent) {
+  // NOTE: Using innerHTML here is safe because content is already sanitized
+  // before reaching this function (sanitized in largePasteHandler.js)
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
 

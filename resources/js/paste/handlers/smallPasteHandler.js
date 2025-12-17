@@ -7,7 +7,7 @@
 
 import { generateIdBetween, setElementIds, generateNodeId } from '../../utilities/IDfunctions.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 
 const SMALL_NODE_LIMIT = 10;
 
@@ -25,13 +25,16 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     return false; // Not a small paste, continue to large paste handler
   }
 
+  // CRITICAL: Prevent default IMMEDIATELY to stop browser's unsanitized paste
+  event.preventDefault();
+
   console.log(
     `Small paste (≈${nodeCount} nodes); handling with browser insertion and ID fix-up.`
   );
 
   // --- 1. PREPARE THE CONTENT (initial) ---
   // SECURITY: Sanitize HTML content to prevent XSS
-  let finalHtmlToInsert = htmlContent ? DOMPurify.sanitize(htmlContent, { USE_PROFILES: { html: true } }) : null;
+  let finalHtmlToInsert = htmlContent ? sanitizeHtml(htmlContent) : null;
 
   // --- 2. GET INSERTION CONTEXT (BEFORE PASTING) ---
   const selection = window.getSelection();
@@ -75,7 +78,18 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     }
   }
 
+  // If there's nothing to insert, we're done.
+  if (!finalHtmlToInsert) {
+    return true;
+  }
+
+  // SECURITY: Sanitize BEFORE any innerHTML assignment to prevent XSS
+  // This MUST happen before the unwrap check below, because setting innerHTML
+  // on even a detached element will execute onerror/onload handlers!
+  finalHtmlToInsert = sanitizeHtml(finalHtmlToInsert);
+
   // If pasting HTML with a single <p> wrapper into an existing <p>, unwrap it
+  // SAFE: Content is already sanitized above
   if (finalHtmlToInsert && currentBlock) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = finalHtmlToInsert;
@@ -88,61 +102,84 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     }
   }
 
-  // If there's nothing to insert, we're done.
-  if (!finalHtmlToInsert) {
-    return true;
-  }
-
   // --- 3. PERFORM THE PASTE ---
-  event.preventDefault(); // Take control from the browser!
+  // (event.preventDefault already called at top of function)
 
   // Save currentBlock's data-node-id before paste (execCommand may replace the element)
   const savedNodeId = currentBlock ? currentBlock.getAttribute('data-node-id') : null;
   const savedBlockId = currentBlock ? currentBlock.id : null;
 
-  // Check if we're pasting into an H1 AND pasting block-level content
-  const isH1Destination = currentBlock && currentBlock.tagName === 'H1';
-
   // Detect if pasted content contains block-level elements
+  // SECURITY: Use DOMParser to avoid XSS when checking content structure
   let hasBlockElements = false;
-  if (isH1Destination && finalHtmlToInsert) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = finalHtmlToInsert;
-    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+  let pastedBlocks = [];
+  if (finalHtmlToInsert) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(finalHtmlToInsert, 'text/html');
+    hasBlockElements = doc.body.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table') !== null;
+    pastedBlocks = Array.from(doc.body.children);
   }
 
-  if (isH1Destination && hasBlockElements) {
-    console.log(`H1 destination with block-level content - using manual insertion to prevent nesting`);
+  // Check if we're pasting block-level content into any block element
+  const isBlockDestination = currentBlock && /^(P|H[1-6]|DIV|BLOCKQUOTE|PRE)$/i.test(currentBlock.tagName);
 
-    // Parse the HTML content to extract individual blocks
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = finalHtmlToInsert;
-    const blocks = Array.from(tempDiv.children);
+  if (isBlockDestination && hasBlockElements && pastedBlocks.length > 0) {
+    console.log(`Block destination (${currentBlock.tagName}) with block-level content - inserting as siblings`);
 
-    if (blocks.length > 0) {
-      // 1. Replace H1 content with first block's content (but keep it as H1)
-      const firstBlock = blocks[0];
-      if (firstBlock.tagName === 'H1') {
-        // If first pasted block is also H1, use its content
-        currentBlock.innerHTML = firstBlock.innerHTML;
-      } else {
-        // Convert first pasted block content to H1 content
-        currentBlock.innerHTML = firstBlock.innerHTML;
-      }
+    // For H1: merge first block's content into the H1, then insert rest as siblings
+    // For other blocks (P, DIV, etc.): insert ALL blocks as siblings AFTER current block
+    const isH1Destination = currentBlock.tagName === 'H1';
 
-      // 2. Insert remaining blocks AFTER the H1 as siblings
+    if (isH1Destination) {
+      // H1 special case: merge first block content into H1
+      const firstBlock = pastedBlocks[0];
+      currentBlock.innerHTML = firstBlock.innerHTML || firstBlock.textContent;
+
+      // Insert remaining blocks after H1
       let insertAfter = currentBlock;
-      for (let i = 1; i < blocks.length; i++) {
-        const blockToInsert = blocks[i].cloneNode(true);
+      for (let i = 1; i < pastedBlocks.length; i++) {
+        const blockToInsert = pastedBlocks[i].cloneNode(true);
         insertAfter.parentNode.insertBefore(blockToInsert, insertAfter.nextSibling);
         insertAfter = blockToInsert;
       }
-
-      console.log(`Manually inserted ${blocks.length} blocks: 1 into H1, ${blocks.length - 1} as siblings`);
+      console.log(`H1: merged first block, inserted ${pastedBlocks.length - 1} siblings`);
+    } else {
+      // For P, DIV, etc: insert ALL blocks as siblings after current block
+      // Don't modify the current block's content
+      let insertAfter = currentBlock;
+      for (let i = 0; i < pastedBlocks.length; i++) {
+        const blockToInsert = pastedBlocks[i].cloneNode(true);
+        insertAfter.parentNode.insertBefore(blockToInsert, insertAfter.nextSibling);
+        insertAfter = blockToInsert;
+      }
+      console.log(`${currentBlock.tagName}: inserted ${pastedBlocks.length} blocks as siblings`);
     }
   } else {
-    // Normal paste - use execCommand (safe for text/inline content or non-H1 destinations)
-    document.execCommand("insertHTML", false, finalHtmlToInsert);
+    // Normal paste (inline content or no block destination) - insert at cursor
+    console.log('🔴 INSERTING inline content via DOM manipulation:', finalHtmlToInsert.substring(0, 200));
+
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+
+      // Create a temporary container with our sanitized HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = finalHtmlToInsert;
+
+      // Insert each child node at the cursor position
+      const fragment = document.createDocumentFragment();
+      while (tempDiv.firstChild) {
+        fragment.appendChild(tempDiv.firstChild);
+      }
+
+      range.insertNode(fragment);
+
+      // Move cursor to end of inserted content
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
   }
 
   // --- 4. FIX-UP: ASSIGN IDS TO NEWLY CREATED ELEMENTS ---

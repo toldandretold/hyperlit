@@ -18,8 +18,11 @@ export function estimatePasteNodeCount(content) {
   const isHTML = /<([a-z]+)(?:\s[^>]*)?>/i.test(content);
 
   if (isHTML) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
+    // SECURITY: Use DOMParser instead of innerHTML to prevent XSS
+    // DOMParser creates an inert document that doesn't execute scripts or event handlers
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const tempDiv = doc.body;
 
     let count = 0;
 
