@@ -68,7 +68,12 @@ async function initializeAuth() {
     // We get it from the response body to avoid timing issues with cookies.
     if (data.csrf_token) {
       window.csrfToken = data.csrf_token;
-      verbose.init("CSRF token received", "/utilities/auth.js");
+      // Also update the meta tag so all existing code that reads from it works
+      const metaTag = document.querySelector('meta[name="csrf-token"]');
+      if (metaTag) {
+        metaTag.setAttribute('content', data.csrf_token);
+      }
+      verbose.init("CSRF token received and meta tag updated", "/utilities/auth.js");
     }
 
     authInitialized = true;
