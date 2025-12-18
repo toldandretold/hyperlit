@@ -61,7 +61,9 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            // Use custom RLS-aware provider that bypasses Row Level Security during login
+            // Falls back to standard eloquent if RLS is not enabled
+            'driver' => env('AUTH_USER_PROVIDER', 'rls-eloquent'),
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
 

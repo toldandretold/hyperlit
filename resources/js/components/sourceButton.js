@@ -34,9 +34,34 @@ function getRecord(db, storeName, key) {
  */
 async function buildSourceHtml(currentBookId) {
   const db = await openDatabase();
-  const record = await getRecord(db, "library", book);
+  let record = await getRecord(db, "library", book);
 
-  console.log("buildSourceHtml got:", { book, record });
+  // If not in IndexedDB, try fetching from server
+  let accessDenied = false;
+  if (!record) {
+    try {
+      const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(book)}/library`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.library) {
+          record = data.library;
+          // Cache it in IndexedDB for next time
+          const tx = db.transaction("library", "readwrite");
+          tx.objectStore("library").put(record);
+        }
+      } else if (response.status === 404 || response.status === 403) {
+        // Book not accessible - might be private and user logged out
+        accessDenied = true;
+        console.warn("Library record not accessible - book may be private");
+      }
+    } catch (error) {
+      console.warn("Failed to fetch library record from server:", error);
+    }
+  }
+
+  console.log("buildSourceHtml got:", { book, record, accessDenied });
 
   let bibtex = record?.bibtex || "";
   
@@ -69,8 +94,8 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     canEdit = false;
   }
 
-  // Only show edit button if user can edit
-  const editButtonHtml = canEdit ? `
+  // Only show edit button if user can edit AND we have access to the record
+  const editButtonHtml = (canEdit && !accessDenied && record) ? `
     <!-- Edit Button in bottom right corner -->
     <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; z-index: 1002;">
       <svg
@@ -86,9 +111,10 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       </svg>
     </button>` : '';
 
-  // Only show privacy toggle if user can edit
+  // Only show privacy toggle if user can edit AND we have access to the record
+  // Don't show toggle if access was denied (e.g., private book after logout)
   const isPrivate = record?.visibility === 'private';
-  const privacyToggleHtml = canEdit ? `
+  const privacyToggleHtml = (canEdit && !accessDenied && record) ? `
     <!-- Privacy Toggle in top right corner -->
     <button id="privacy-toggle"
             data-is-private="${isPrivate}"
@@ -401,14 +427,20 @@ export class SourceContainerManager extends ContainerManager {
       }
 
       // Update visibility status (string: 'public' or 'private')
-      record.visibility = isCurrentlyPrivate ? 'public' : 'private';
+      const newVisibility = isCurrentlyPrivate ? 'public' : 'private';
+      record.visibility = newVisibility;
 
-      // Save to IndexedDB
+      // Save to IndexedDB - properly wait for the transaction to complete
       const tx = db.transaction("library", "readwrite");
       const store = tx.objectStore("library");
-      await store.put(record);
+      await new Promise((resolve, reject) => {
+        const request = store.put(record);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
 
-      // Sync to backend
+      // Sync to backend - use the explicit newVisibility to ensure correct value
+      console.log(`📤 Syncing visibility change to backend: ${newVisibility}`);
       await this.syncLibraryRecordToBackend(record);
 
       // Update button
@@ -418,7 +450,7 @@ export class SourceContainerManager extends ContainerManager {
         ? 'Book is Private - Click to make public'
         : 'Book is Public - Click to make private';
 
-      console.log(`✅ Book privacy updated to: ${!isCurrentlyPrivate ? 'private' : 'public'}`);
+      console.log(`✅ Book privacy updated to: ${newVisibility}`);
 
     } catch (error) {
       console.error("Error updating privacy status:", error);

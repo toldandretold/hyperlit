@@ -586,16 +586,35 @@ async function updateEmbeddedAnnotationsInNodes(db, bookId, hyperlights, hyperci
     }
   }
 
-  // Process hypercites
+  // Process hypercites - each can span multiple nodes (like hyperlights)
   if (hypercites && hypercites.length > 0) {
     for (const hc of hypercites) {
-      const nodeId = hc.node_id;
-      if (!nodeId) continue;
+      // node_id is an array of node IDs this hypercite spans
+      const nodeIds = Array.isArray(hc.node_id) ? hc.node_id : [hc.node_id];
+      const charData = hc.charData || {};
 
-      if (!hypercitesByNodeId.has(nodeId)) {
-        hypercitesByNodeId.set(nodeId, []);
+      for (const nodeId of nodeIds) {
+        if (!nodeId) continue;
+
+        // Get the char data specific to this node
+        const nodeCharData = charData[nodeId] || {};
+
+        // Create node-specific hypercite entry
+        const nodeHypercite = {
+          hyperciteId: hc.hyperciteId,
+          charStart: nodeCharData.charStart ?? 0,
+          charEnd: nodeCharData.charEnd ?? 0,
+          hypercitedText: hc.hypercitedText,
+          hypercitedHTML: hc.hypercitedHTML,
+          relationshipStatus: hc.relationshipStatus,
+          citedIN: hc.citedIN
+        };
+
+        if (!hypercitesByNodeId.has(nodeId)) {
+          hypercitesByNodeId.set(nodeId, []);
+        }
+        hypercitesByNodeId.get(nodeId).push(nodeHypercite);
       }
-      hypercitesByNodeId.get(nodeId).push(hc);
     }
   }
 

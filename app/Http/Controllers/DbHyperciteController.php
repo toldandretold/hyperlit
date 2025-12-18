@@ -7,6 +7,7 @@ use App\Models\PgNodeChunk;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
@@ -427,6 +428,9 @@ class DbHyperciteController extends Controller
      * Update annotations_updated_at timestamp for the given books.
      * This is called after any citation modification to enable efficient sync.
      *
+     * Uses SECURITY DEFINER function to bypass RLS, allowing users to update
+     * the timestamp on public books they don't own (when adding citations).
+     *
      * @param array $bookIds - Array of book IDs that had citations modified
      */
     private function updateAnnotationsTimestamp(array $bookIds)
@@ -438,8 +442,10 @@ class DbHyperciteController extends Controller
         $now = round(microtime(true) * 1000);
         $uniqueBookIds = array_unique($bookIds);
 
-        PgLibrary::whereIn('book', $uniqueBookIds)
-            ->update(['annotations_updated_at' => $now]);
+        // Use SECURITY DEFINER function to bypass RLS for this specific update
+        foreach ($uniqueBookIds as $bookId) {
+            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+        }
 
         Log::info('Updated annotations_updated_at for books (hypercites)', [
             'books' => $uniqueBookIds,

@@ -24,19 +24,9 @@ class UserHomeServerController extends Controller
      */
     public function show(string $username)
     {
-        // Check if user exists - try exact match first, then sanitized match
-        $user = \App\Models\User::where('name', $username)->first();
-
-        // If no exact match, try to find by sanitized username (handles spaces)
-        if (!$user) {
-            $users = \App\Models\User::all();
-            foreach ($users as $potentialUser) {
-                if ($this->sanitizeUsername($potentialUser->name) === $this->sanitizeUsername($username)) {
-                    $user = $potentialUser;
-                    break;
-                }
-            }
-        }
+        // Check if user exists using RLS bypass function (returns only public fields)
+        // This allows looking up other users' profiles without exposing sensitive data
+        $user = \App\Models\User::findByNamePublic($username);
 
         if (!$user) {
             abort(404, 'User not found');

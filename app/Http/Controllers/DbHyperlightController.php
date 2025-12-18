@@ -6,6 +6,7 @@ use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
@@ -531,6 +532,9 @@ class DbHyperlightController extends Controller
      * Update annotations_updated_at timestamp for the given books.
      * This is called after any highlight modification to enable efficient sync.
      *
+     * Uses SECURITY DEFINER function to bypass RLS, allowing users to update
+     * the timestamp on public books they don't own (when adding highlights).
+     *
      * @param array $bookIds - Array of book IDs that had highlights modified
      */
     private function updateAnnotationsTimestamp(array $bookIds)
@@ -542,8 +546,10 @@ class DbHyperlightController extends Controller
         $now = round(microtime(true) * 1000);
         $uniqueBookIds = array_unique($bookIds);
 
-        PgLibrary::whereIn('book', $uniqueBookIds)
-            ->update(['annotations_updated_at' => $now]);
+        // Use SECURITY DEFINER function to bypass RLS for this specific update
+        foreach ($uniqueBookIds as $bookId) {
+            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+        }
 
         Log::info('Updated annotations_updated_at for books', [
             'books' => $uniqueBookIds,

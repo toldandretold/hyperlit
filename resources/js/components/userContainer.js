@@ -84,11 +84,12 @@ export class UserContainerManager extends ContainerManager {
   }
 
   handleDocumentClick(e) {
-      // Only handle clicks inside user-container or on user-overlay
+      // Handle clicks inside user-container, user-overlay, or custom-alert (for private book login modal)
       const isInUserContainer = e.target.closest('#user-container');
       const isUserOverlay = e.target.closest('#user-overlay');
+      const isInCustomAlert = e.target.closest('.custom-alert');
 
-      if (!isInUserContainer && !isUserOverlay) {
+      if (!isInUserContainer && !isUserOverlay && !isInCustomAlert) {
         return;
       }
 
