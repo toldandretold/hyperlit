@@ -331,8 +331,11 @@ class DailyStatsJob implements ShouldQueue
 
     private function createStatsBook(array $stats, Carbon $today): void
     {
+        // Use admin connection to bypass RLS for system-generated content
+        $adminDb = DB::connection('pgsql_admin');
+
         // Step 1: Ensure stats book exists in library
-        $library = PgLibrary::firstOrCreate(
+        $adminDb->table('library')->updateOrInsert(
             ['book' => self::BOOK_ID],
             [
                 'title' => 'Hyperlit Platform Statistics',
@@ -348,20 +351,22 @@ class DailyStatsJob implements ShouldQueue
                     'purpose' => 'daily_statistics',
                     'book_id' => self::BOOK_ID
                 ]),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]
         );
 
         // Update timestamp to reflect latest data
-        $library->update(['timestamp' => now()->timestamp]);
+        $adminDb->table('library')->where('book', self::BOOK_ID)->update(['timestamp' => now()->timestamp]);
 
         // Step 2: Delete all existing nodes (full replacement strategy)
-        PgNodeChunk::where('book', self::BOOK_ID)->delete();
+        $adminDb->table('nodes')->where('book', self::BOOK_ID)->delete();
 
         // Step 3: Build nodes from stats data
         $nodes = $this->buildStatsNodes($stats, $today);
 
         // Step 4: Bulk insert new nodes
-        PgNodeChunk::insert($nodes);
+        $adminDb->table('nodes')->insert($nodes);
 
         Log::info('Stats book created/updated', [
             'book' => self::BOOK_ID,

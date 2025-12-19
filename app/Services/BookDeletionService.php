@@ -4,9 +4,29 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\ConnectionInterface;
 
 class BookDeletionService
 {
+    private ?ConnectionInterface $db = null;
+
+    /**
+     * Set a specific database connection (e.g., admin connection to bypass RLS)
+     */
+    public function useConnection(ConnectionInterface $connection): self
+    {
+        $this->db = $connection;
+        return $this;
+    }
+
+    /**
+     * Get the database connection to use
+     */
+    private function db()
+    {
+        return $this->db ?? DB::connection();
+    }
+
     /**
      * Delete a book with proper cleanup
      * - Deletes content (nodes, footnotes, bibliography)
@@ -30,8 +50,10 @@ class BookDeletionService
             'library_action' => null,
         ];
 
+        $db = $this->db();
+
         // Get book record first (need creator info)
-        $book = DB::table('library')->where('book', $bookId)->first();
+        $book = $db->table('library')->where('book', $bookId)->first();
         if (!$book) {
             Log::warning('BookDeletionService: Book not found', ['book' => $bookId]);
             return $stats;
@@ -40,26 +62,26 @@ class BookDeletionService
         $bookCreator = $book->creator;
         $bookCreatorToken = $book->creator_token;
 
-        DB::beginTransaction();
+        $db->beginTransaction();
         try {
             // 1. Delete content (nodes, footnotes, bibliography)
-            $stats['nodes_deleted'] = DB::table('nodes')->where('book', $bookId)->delete();
-            $stats['footnotes_deleted'] = DB::table('footnotes')->where('book', $bookId)->delete();
-            $stats['bibliography_deleted'] = DB::table('bibliography')->where('book', $bookId)->delete();
+            $stats['nodes_deleted'] = $db->table('nodes')->where('book', $bookId)->delete();
+            $stats['footnotes_deleted'] = $db->table('footnotes')->where('book', $bookId)->delete();
+            $stats['bibliography_deleted'] = $db->table('bibliography')->where('book', $bookId)->delete();
 
             // 2. Keep hypercites (needed for citation display when pastes link to this book)
-            $stats['hypercites_kept'] = DB::table('hypercites')->where('book', $bookId)->count();
+            $stats['hypercites_kept'] = $db->table('hypercites')->where('book', $bookId)->count();
 
             // 3. Delete only the book owner's highlights (preserve others as orphaned)
-            $stats['hyperlights_deleted'] = $this->deleteOwnerHighlights($bookId, $bookCreator, $bookCreatorToken);
+            $stats['hyperlights_deleted'] = $this->deleteOwnerHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
 
             // Count orphaned highlights (by other users)
-            $stats['hyperlights_orphaned'] = DB::table('hyperlights')
+            $stats['hyperlights_orphaned'] = $db->table('hyperlights')
                 ->where('book', $bookId)
                 ->count();
 
             // 4. Always soft delete library record
-            DB::table('library')
+            $db->table('library')
                 ->where('book', $bookId)
                 ->update(['visibility' => 'deleted']);
             $stats['library_action'] = 'soft_deleted';
@@ -74,28 +96,28 @@ class BookDeletionService
                 $privateNodeId = $sanitizedCreator . 'Private_' . $bookId . '_card';
 
                 // Delete from public user home page
-                DB::table('nodes')
+                $db->table('nodes')
                     ->where('book', $sanitizedCreator)
                     ->where('node_id', $publicNodeId)
                     ->delete();
 
                 // Delete from private user home page
-                DB::table('nodes')
+                $db->table('nodes')
                     ->where('book', $sanitizedCreator . 'Private')
                     ->where('node_id', $privateNodeId)
                     ->delete();
 
                 // Update timestamps on both user home pages
-                DB::table('library')
+                $db->table('library')
                     ->where('book', $sanitizedCreator)
                     ->update(['timestamp' => round(microtime(true) * 1000)]);
 
-                DB::table('library')
+                $db->table('library')
                     ->where('book', $sanitizedCreator . 'Private')
                     ->update(['timestamp' => round(microtime(true) * 1000)]);
             }
 
-            DB::commit();
+            $db->commit();
 
             // 5. Delink orphaned hypercites in other books (outside transaction)
             $stats['hypercites_delinked'] = $this->delinkOrphanedHypercites($bookId);
@@ -108,7 +130,7 @@ class BookDeletionService
             return $stats;
 
         } catch (\Exception $e) {
-            DB::rollBack();
+            $db->rollBack();
             Log::error('BookDeletionService: Failed to delete book', [
                 'book' => $bookId,
                 'error' => $e->getMessage()
@@ -120,9 +142,9 @@ class BookDeletionService
     /**
      * Delete only highlights made by the book owner
      */
-    private function deleteOwnerHighlights(string $bookId, ?string $bookCreator, ?string $bookCreatorToken): int
+    private function deleteOwnerHighlights(string $bookId, ?string $bookCreator, ?string $bookCreatorToken, $db): int
     {
-        $query = DB::table('hyperlights')->where('book', $bookId);
+        $query = $db->table('hyperlights')->where('book', $bookId);
 
         if ($bookCreator !== null) {
             // Book has a logged-in creator - delete their highlights
@@ -144,9 +166,11 @@ class BookDeletionService
      */
     public function delinkOrphanedHypercites(string $deletedBook): int
     {
+        $db = $this->db();
+
         // Find hypercites where citedIN contains references to deleted book
         // citedIN format: ["bookId#hypercite_xyz", ...]
-        $hypercites = DB::table('hypercites')
+        $hypercites = $db->table('hypercites')
             ->whereRaw('"citedIN"::text LIKE ?', ['%"' . $deletedBook . '#%'])
             ->get();
 
@@ -170,7 +194,7 @@ class BookDeletionService
                     default => 'poly'
                 };
 
-                DB::table('hypercites')
+                $db->table('hypercites')
                     ->where('id', $hypercite->id)
                     ->update([
                         'citedIN' => json_encode($filtered),
