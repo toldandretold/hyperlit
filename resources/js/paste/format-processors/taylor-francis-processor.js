@@ -53,8 +53,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               // Get HTML content and clean thoroughly
               let htmlContent = nextElement.innerHTML.trim();
 
-              // Remove leading number (handles both plain text and HTML)
-              htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+              // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+              htmlContent = htmlContent
+                .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
               // Clean up T&F citation links in footnote content
               htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -86,8 +88,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                   // Get HTML content and clean thoroughly
                   let htmlContent = p.innerHTML.trim();
 
-                  // Remove leading number (handles both plain text and HTML)
-                  htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                  // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+                  htmlContent = htmlContent
+                    .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                    .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
                   // Clean up T&F citation links in footnote content
                   htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -125,8 +129,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     // Get HTML content and clean thoroughly
                     let htmlContent = p.innerHTML.trim();
 
-                    // Remove leading number (handles both plain text and HTML)
-                    htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                    // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+                    htmlContent = htmlContent
+                      .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                      .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
                     // Clean up T&F citation links in footnote content
                     htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -174,8 +180,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             // Get HTML content and clean thoroughly
             let htmlContent = p.innerHTML.trim();
 
-            // Remove leading number (handles both plain text and HTML)
-            htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+            // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+            htmlContent = htmlContent
+              .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+              .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
             // Clean up T&F citation links in footnote content
             htmlContent = cleanTFFootnoteContent(htmlContent);
