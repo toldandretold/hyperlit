@@ -69,13 +69,6 @@ export function sanitizeHtml(html) {
     KEEP_CONTENT: true,     // Keep text content of removed tags
   });
 
-  // Only log when sanitization actually modified the content
-  if (result !== html) {
-    console.log('🛡️ SANITIZE: Content was modified');
-    console.log('  INPUT (first 200 chars):', html.substring(0, 200));
-    console.log('  OUTPUT (first 200 chars):', result.substring(0, 200));
-  }
-
   return result;
 }
 
@@ -113,7 +106,6 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
     ];
 
     if (dangerousPatterns.some(pattern => value.includes(pattern))) {
-      console.log('🛡️ Blocked dangerous style:', data.attrValue);
       data.attrValue = '';
       data.keepAttr = false;
     }
