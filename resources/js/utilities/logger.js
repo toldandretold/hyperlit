@@ -237,9 +237,4 @@ if (typeof window !== 'undefined') {
   window.logger = logger;
 }
 
-// Log initialization message
-if (isVerboseMode()) {
-  console.log('%c[LOGGER] Verbose mode enabled - showing all logs', 'color: #10B981; font-weight: bold');
-} else {
-  console.log('%c[LOGGER] Normal mode - showing checkpoints only (run logger.help() for commands)', 'color: #6B7280');
-}
+// Startup banner is now in app.js to ensure it runs first
