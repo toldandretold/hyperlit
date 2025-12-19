@@ -33,7 +33,8 @@ class TextController extends Controller
                 $isCurrentUserOwner = \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->name === $username;
                 Log::info('Regenerating user page due to count mismatch or non-existence.', ['username' => $username, 'book_count' => $bookCount, 'node_count' => $nodeCount, 'is_owner' => $isCurrentUserOwner]);
                 $generator = new \App\Http\Controllers\UserHomeServerController();
-                $generator->generateUserHomeBook($username, $isCurrentUserOwner);
+                // RLS allows user home page writes via type='user_home' exception
+                $generator->generateUserHomeBook($username, $isCurrentUserOwner, 'public');
             }
             
             $book = $username;

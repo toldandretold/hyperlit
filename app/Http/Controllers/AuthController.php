@@ -61,16 +61,28 @@ class AuthController extends Controller
             'name.unique' => 'This username is already taken.',
         ]);
 
-        $user = User::create([
+        // Use admin connection for registration - trusted operation that bypasses RLS
+        // This is safe: validation already checked unique constraints, we control all inputs
+        $userToken = \Illuminate\Support\Str::uuid()->toString();
+        $userId = DB::connection('pgsql_admin')->table('users')->insertGetId([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'user_token' => $userToken,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        Auth::login($user);
-
-        // Check for anonymous content to transfer (same as login)
+        // Check for anonymous content BEFORE setting RLS context
+        // (RLS would block seeing records with the anonymous token after context is set to new user)
         $anonymousContent = $this->checkAnonymousContent($request);
+
+        // Set RLS context so we can read the new user
+        DB::statement("SELECT set_config('app.current_user', ?, false)", [$request->name]);
+        DB::statement("SELECT set_config('app.current_token', ?, false)", [$userToken]);
+
+        $user = User::find($userId);
+        Auth::login($user);
 
         return response()->json([
             'success' => true,
@@ -143,52 +155,35 @@ class AuthController extends Controller
             ]);
         }
 
-        // 🔒 SECURITY: Atomic rate-limited token creation using transaction + advisory lock
-        // This prevents TOCTOU race conditions where concurrent requests bypass the limit
+        // 🔒 SECURITY: Cache-based rate limiting (works with RLS)
+        // Using cache instead of DB count because RLS restricts visibility to own sessions only
         try {
-            $result = DB::transaction(function () use ($ip, $maxTokensPerHour, $request) {
-                $oneHourAgo = now()->subHour();
+            $rateLimitKey = 'anon_session_rate:' . $ip;
+            $currentCount = Cache::get($rateLimitKey, 0);
 
-                // Use PostgreSQL advisory lock based on IP hash to serialize requests from same IP
-                // This is more efficient than row locking for rate limiting
-                $lockKey = crc32('anon_rate:' . $ip);
-                DB::statement("SELECT pg_advisory_xact_lock(?)", [$lockKey]);
-
-                // Now we can safely count and insert atomically
-                $recentCount = DB::table('anonymous_sessions')
-                    ->where('ip_address', $ip)
-                    ->where('created_at', '>', $oneHourAgo)
-                    ->count();
-
-                if ($recentCount >= $maxTokensPerHour) {
-                    return ['error' => true, 'count' => $recentCount];
-                }
-
-                // Generate and insert new token within the same transaction
-                $token = Str::uuid()->toString();
-
-                DB::table('anonymous_sessions')->insert([
-                    'token' => $token,
-                    'created_at' => now(),
-                    'last_used_at' => now(),
-                    'ip_address' => $ip,
-                    'user_agent' => substr($request->userAgent() ?? '', 0, 500),
-                ]);
-
-                return ['error' => false, 'token' => $token];
-            });
-
-            if ($result['error']) {
+            if ($currentCount >= $maxTokensPerHour) {
                 Log::warning('Anonymous token rate limit exceeded', [
                     'ip' => $ip,
-                    'count' => $result['count']
+                    'count' => $currentCount
                 ]);
                 return response()->json([
                     'error' => 'Too many session requests. Please try again later.'
                 ], 429);
             }
 
-            $token = $result['token'];
+            // Increment rate limit counter (expires after 1 hour)
+            Cache::put($rateLimitKey, $currentCount + 1, 3600);
+
+            // Generate and insert new token
+            $token = Str::uuid()->toString();
+
+            DB::table('anonymous_sessions')->insert([
+                'token' => $token,
+                'created_at' => now(),
+                'last_used_at' => now(),
+                'ip_address' => $ip,
+                'user_agent' => substr($request->userAgent() ?? '', 0, 500),
+            ]);
 
             Log::info('New anonymous session created', [
                 'token_prefix' => substr($token, 0, 8) . '...',
@@ -278,10 +273,15 @@ class AuthController extends Controller
             Cache::put($rateLimitKey, $attempts + 1, 60); // 1 minute window
         }
 
-        return DB::table('anonymous_sessions')
-            ->where('token', $token)
-            ->where('created_at', '>', now()->subDays(self::TOKEN_EXPIRY_DAYS))
-            ->exists();
+        // Use SECURITY DEFINER function to bypass RLS
+        // This is needed because when logged in, app.current_token is empty
+        // but we need to validate the user's former anonymous token
+        $result = DB::selectOne(
+            'SELECT validate_anonymous_token(?, ?) as valid',
+            [$token, self::TOKEN_EXPIRY_DAYS]
+        );
+
+        return $result->valid ?? false;
     }
 
     public function getSessionInfo(Request $request)
@@ -344,6 +344,13 @@ class AuthController extends Controller
 
     public function associateContent(Request $request)
     {
+        Log::info('🔄 associateContent called', [
+            'has_user' => (bool)$request->user(),
+            'user_name' => $request->user()?->name,
+            'requested_token' => $request->input('anonymous_token') ? substr($request->input('anonymous_token'), 0, 8) . '...' : null,
+            'cookie_token' => $request->cookie('anon_token') ? substr($request->cookie('anon_token'), 0, 8) . '...' : null,
+        ]);
+
         $request->validate([
             'anonymous_token' => 'required|string|uuid',
         ]);
@@ -352,6 +359,7 @@ class AuthController extends Controller
         $requestedToken = $request->input('anonymous_token');
 
         if (!$user) {
+            Log::warning('associateContent: No authenticated user');
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -379,25 +387,34 @@ class AuthController extends Controller
             ], 400);
         }
 
-        $modelsToUpdate = [
-            \App\Models\PgLibrary::class,
-            \App\Models\PgHyperlight::class,
-            \App\Models\PgHypercite::class,
-        ];
-
         try {
             $updatedCounts = [];
 
-            DB::transaction(function () use ($modelsToUpdate, $requestedToken, $user, &$updatedCounts) {
-                foreach ($modelsToUpdate as $modelClass) {
-                    // Only update content that hasn't already been claimed
-                    $count = $modelClass::where('creator_token', $requestedToken)
-                        ->whereNull('creator')
-                        ->update([
-                            'creator' => $user->name,
-                        ]);
-                    $updatedCounts[class_basename($modelClass)] = $count;
-                }
+            // Use SECURITY DEFINER functions to bypass RLS for ownership transfer
+            // The secure transfer functions require app.current_token to match the
+            // anonymous token being transferred. We must temporarily set it here
+            // since after login, middleware sets it to the user's token instead.
+            DB::transaction(function () use ($requestedToken, $user, &$updatedCounts) {
+                // Temporarily set app.current_token to the anonymous token for transfer validation
+                DB::statement("SELECT set_config('app.current_token', ?, true)", [$requestedToken]);
+
+                $libraryCount = DB::selectOne(
+                    'SELECT transfer_anonymous_library(?, ?) as count',
+                    [$requestedToken, $user->name]
+                );
+                $updatedCounts['PgLibrary'] = $libraryCount->count ?? 0;
+
+                $hyperlightsCount = DB::selectOne(
+                    'SELECT transfer_anonymous_hyperlights(?, ?) as count',
+                    [$requestedToken, $user->name]
+                );
+                $updatedCounts['PgHyperlight'] = $hyperlightsCount->count ?? 0;
+
+                $hypercitesCount = DB::selectOne(
+                    'SELECT transfer_anonymous_hypercites(?, ?) as count',
+                    [$requestedToken, $user->name]
+                );
+                $updatedCounts['PgHypercite'] = $hypercitesCount->count ?? 0;
             });
 
             Log::info('Content associated successfully', [

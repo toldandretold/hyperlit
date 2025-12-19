@@ -19,11 +19,22 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Add RLS context middleware to set PostgreSQL session variables
+        // This must run after session starts but before any database queries
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\SetDatabaseSessionContext::class,
+        ]);
+
         // Add CORS and security headers middleware for API routes
         $middleware->api(prepend: [
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+
+        // Add RLS context for API routes too
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\SetDatabaseSessionContext::class,
         ]);
 
         // Add CORS and security headers middleware for web routes

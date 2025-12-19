@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Auth;
 use App\Services\DocumentImport\ValidationService;
 use App\Services\DocumentImport\SanitizationService;
 use App\Services\DocumentImport\FileHelpers;
@@ -18,6 +19,7 @@ use App\Models\PgHypercite;
 use App\Policies\LibraryPolicy;
 use App\Policies\HyperlightPolicy;
 use App\Policies\HypercitePolicy;
+use App\Auth\RlsUserProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -51,5 +53,11 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Database\Console\Migrations\FreshCommand::prohibit();
         \Illuminate\Database\Console\Migrations\RefreshCommand::prohibit();
         \Illuminate\Database\Console\Migrations\ResetCommand::prohibit();
+
+        // Register custom RLS-aware user provider for authentication
+        // This uses a SECURITY DEFINER function to bypass RLS during login
+        Auth::provider('rls-eloquent', function ($app, array $config) {
+            return new RlsUserProvider($app['hash'], $config['model']);
+        });
     }
 }

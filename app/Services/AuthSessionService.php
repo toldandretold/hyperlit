@@ -22,6 +22,9 @@ class AuthSessionService
         $user = Auth::user();
 
         if ($user) {
+            // For logged-in users, creator_token is explicitly null
+            // RLS policies use JOIN to users table for authentication instead
+            // This prevents user_token from being stored in content tables where it could be exposed
             return [
                 'creator' => $user->name,
                 'creator_token' => null,
@@ -82,7 +85,9 @@ class AuthSessionService
     {
         $user = Auth::user();
 
-        // Logged-in user check
+        // Logged-in user check - match username
+        // Note: For new content, creator_token is NULL (RLS uses JOIN to users table)
+        // For legacy content with creator_token, RLS still handles security
         if ($user && $creator && $creator === $user->name) {
             return true;
         }

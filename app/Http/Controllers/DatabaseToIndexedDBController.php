@@ -11,73 +11,106 @@ use Illuminate\Support\Facades\Auth;
 class DatabaseToIndexedDBController extends Controller
 {
     /**
+     * Check book visibility using SECURITY DEFINER function (bypasses RLS).
+     * This allows distinguishing between "book doesn't exist" and "book exists but is private".
+     *
+     * @return object|null Returns object with book_exists, visibility, creator, creator_token or null if book doesn't exist
+     */
+    private function checkBookVisibility(string $bookId): ?object
+    {
+        $result = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$bookId]);
+        return $result;
+    }
+
+    /**
+     * Check authorization for a book and return appropriate error response if unauthorized.
+     *
+     * @return JsonResponse|null Returns error response if unauthorized, null if authorized
+     */
+    private function checkBookAuthorization(Request $request, string $bookId): ?JsonResponse
+    {
+        // Use SECURITY DEFINER function to bypass RLS and check if book exists
+        $bookInfo = $this->checkBookVisibility($bookId);
+
+        // Book doesn't exist at all
+        if (!$bookInfo) {
+            return response()->json([
+                'error' => 'Book not found',
+                'book_id' => $bookId
+            ], 404);
+        }
+
+        // Book is deleted
+        if ($bookInfo->visibility === 'deleted') {
+            Log::info('🗑️ Deleted book accessed', [
+                'book_id' => $bookId
+            ]);
+
+            return response()->json([
+                'error' => 'book_deleted',
+                'message' => 'This book has been deleted',
+                'is_deleted' => true,
+                'book_id' => $bookId
+            ], 410);
+        }
+
+        // Book is private - check authorization
+        if ($bookInfo->visibility === 'private') {
+            $user = Auth::user();
+            $anonymousToken = $request->cookie('anon_token');
+
+            $authorized = false;
+
+            // Check creator (username-based auth)
+            if ($user && $bookInfo->creator === $user->name) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via username', [
+                    'book_id' => $bookId,
+                    'user' => $user->name
+                ]);
+            }
+            // Check creator_token (anonymous token-based auth)
+            elseif (!$user && $anonymousToken && $bookInfo->creator_token === $anonymousToken) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via anonymous token', [
+                    'book_id' => $bookId
+                ]);
+            }
+
+            if (!$authorized) {
+                Log::warning('🔒 Private book access denied', [
+                    'book_id' => $bookId,
+                    'user' => $user ? $user->name : 'anonymous',
+                    'has_token' => !empty($anonymousToken)
+                ]);
+
+                return response()->json([
+                    'error' => 'access_denied',
+                    'message' => 'You do not have permission to access this private book',
+                    'is_private' => true,
+                    'book_id' => $bookId
+                ], 403);
+            }
+        }
+
+        // Authorized - no error response needed
+        return null;
+    }
+
+    /**
      * Get complete book data for IndexedDB import
      */
     public function getBookData(Request $request, string $bookId): JsonResponse
     {
         try {
-            // 🔒 CRITICAL: Check book visibility and access permissions
+            // 🔒 CRITICAL: Check book visibility and access permissions (bypasses RLS)
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            // Now query with RLS - will return the record since user is authorized
             $library = DB::table('library')->where('book', $bookId)->first();
-
-            if (!$library) {
-                return response()->json([
-                    'error' => 'Book not found',
-                    'book_id' => $bookId
-                ], 404);
-            }
-
-            // If book is deleted, return 410 Gone
-            if ($library->visibility === 'deleted') {
-                Log::info('🗑️ Deleted book accessed', [
-                    'book_id' => $bookId
-                ]);
-
-                return response()->json([
-                    'error' => 'book_deleted',
-                    'message' => 'This book has been deleted',
-                    'is_deleted' => true,
-                    'book_id' => $bookId
-                ], 410);
-            }
-
-            // If book is private, check authorization
-            if ($library->visibility === 'private') {
-                $user = Auth::user();
-                $anonymousToken = $request->cookie('anon_token');
-
-                $authorized = false;
-
-                // Check creator (username-based auth)
-                if ($user && $library->creator === $user->name) {
-                    $authorized = true;
-                    Log::info('📗 Private book access granted via username', [
-                        'book_id' => $bookId,
-                        'user' => $user->name
-                    ]);
-                }
-                // Check creator_token (anonymous token-based auth)
-                elseif (!$user && $anonymousToken && $library->creator_token === $anonymousToken) {
-                    $authorized = true;
-                    Log::info('📗 Private book access granted via anonymous token', [
-                        'book_id' => $bookId
-                    ]);
-                }
-
-                if (!$authorized) {
-                    Log::warning('🔒 Private book access denied', [
-                        'book_id' => $bookId,
-                        'user' => $user ? $user->name : 'anonymous',
-                        'has_token' => !empty($anonymousToken)
-                    ]);
-
-                    return response()->json([
-                        'error' => 'access_denied',
-                        'message' => 'You do not have permission to access this private book',
-                        'is_private' => true,
-                        'book_id' => $bookId
-                    ], 403);
-                }
-            }
 
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
 
@@ -985,50 +1018,10 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookMetadata(Request $request, string $bookId): JsonResponse
     {
         try {
-            // 🔒 CRITICAL: Check book visibility and access permissions
-            $library = DB::table('library')->where('book', $bookId)->first();
-
-            if (!$library) {
-                return response()->json([
-                    'error' => 'Book not found',
-                    'book_id' => $bookId
-                ], 404);
-            }
-
-            // If book is deleted, return 410 Gone
-            if ($library->visibility === 'deleted') {
-                return response()->json([
-                    'error' => 'book_deleted',
-                    'message' => 'This book has been deleted',
-                    'is_deleted' => true,
-                    'book_id' => $bookId
-                ], 410);
-            }
-
-            // If book is private, check authorization
-            if ($library->visibility === 'private') {
-                $user = Auth::user();
-                $anonymousToken = $request->cookie('anon_token');
-
-                $authorized = false;
-
-                // Check creator (username-based auth)
-                if ($user && $library->creator === $user->name) {
-                    $authorized = true;
-                }
-                // Check creator_token (anonymous token-based auth)
-                elseif (!$user && $anonymousToken && $library->creator_token === $anonymousToken) {
-                    $authorized = true;
-                }
-
-                if (!$authorized) {
-                    return response()->json([
-                        'error' => 'access_denied',
-                        'message' => 'You do not have permission to access this private book',
-                        'is_private' => true,
-                        'book_id' => $bookId
-                    ], 403);
-                }
+            // 🔒 CRITICAL: Check book visibility and access permissions (bypasses RLS)
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
             }
 
             $chunkCount = DB::table('nodes')

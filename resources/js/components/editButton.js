@@ -350,7 +350,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   }
 }
 
-function disableEditMode() {
+export function disableEditMode() {
   window.isEditing = false; // Reset state immediately
 
   // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
