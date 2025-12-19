@@ -75,26 +75,29 @@ class HomePageServerController extends Controller
             ->whereNotIn('visibility', ['private', 'deleted'])
             ->get();
 
+        // Use admin connection to bypass RLS for system-generated content
+        $adminDb = DB::connection('pgsql_admin');
+
         // Recalculate stats from hyperlights/hypercites tables to ensure accuracy
-        $this->recalculateLibraryStats($libraryRecords);
+        $this->recalculateLibraryStats($libraryRecords, $adminDb);
 
         // Calculate rankings
         $rankings = $this->calculateRankings($libraryRecords);
 
         // Clear existing entries for our special books
-        DB::table('nodes')->whereIn('book', [
-            'most-recent', 
-            'most-connected', 
+        $adminDb->table('nodes')->whereIn('book', [
+            'most-recent',
+            'most-connected',
             'most-lit'
         ])->delete();
 
         // Clear/create library entries for our special books
-        $this->createLibraryEntries();
+        $this->createLibraryEntries($adminDb);
 
         // Create entries for each special book
-        $this->createNodeChunksForBook('most-recent', $libraryRecords, $rankings['mostRecent']);
-        $this->createNodeChunksForBook('most-connected', $libraryRecords, $rankings['mostConnected']);
-        $this->createNodeChunksForBook('most-lit', $libraryRecords, $rankings['mostLit']);
+        $this->createNodeChunksForBook('most-recent', $libraryRecords, $rankings['mostRecent'], $adminDb);
+        $this->createNodeChunksForBook('most-connected', $libraryRecords, $rankings['mostConnected'], $adminDb);
+        $this->createNodeChunksForBook('most-lit', $libraryRecords, $rankings['mostLit'], $adminDb);
 
         return response()->json([
             'success' => true,
@@ -104,13 +107,13 @@ class HomePageServerController extends Controller
         ]);
     }
 
-      private function createLibraryEntries()
+    private function createLibraryEntries($adminDb)
     {
         $currentTime = Carbon::now();
         $specialBooks = ['most-recent', 'most-connected', 'most-lit'];
 
         // Delete existing entries for special books
-        DB::table('library')->whereIn('book', $specialBooks)->delete();
+        $adminDb->table('library')->whereIn('book', $specialBooks)->delete();
 
         // Create new entries
         $libraryEntries = [];
@@ -125,17 +128,17 @@ class HomePageServerController extends Controller
                     'purpose' => 'homepage_ranking',
                     'book_id' => $bookId
                 ]),
-                'timestamp' => round(microtime(true) * 1000), // ← Fixed: add field name and remove $
+                'timestamp' => round(microtime(true) * 1000),
                 'created_at' => $currentTime,
                 'updated_at' => $currentTime
             ];
         }
 
         // Insert all library entries
-        DB::table('library')->insert($libraryEntries);
+        $adminDb->table('library')->insert($libraryEntries);
     }
 
-    private function createNodeChunksForBook($bookName, $libraryRecords, $positionData)
+    private function createNodeChunksForBook($bookName, $libraryRecords, $positionData, $adminDb)
     {
         $chunks = [];
         $currentTime = Carbon::now();
@@ -180,7 +183,7 @@ class HomePageServerController extends Controller
 
         // Insert all chunks for this book
         if (!empty($chunks)) {
-            DB::table('nodes')->insert($chunks);
+            $adminDb->table('nodes')->insert($chunks);
         }
     }
 
@@ -561,13 +564,13 @@ class HomePageServerController extends Controller
      * Recalculate total_highlights and total_citations for all listed books.
      * Called before ranking calculation to ensure fresh stats.
      */
-    private function recalculateLibraryStats($libraryRecords)
+    private function recalculateLibraryStats($libraryRecords, $adminDb)
     {
         foreach ($libraryRecords as $record) {
             $highlightCount = PgHyperlight::where('book', $record->book)->count();
             $totalCites = $this->countCitationsForBook($record->book);
 
-            DB::table('library')->where('book', $record->book)->update([
+            $adminDb->table('library')->where('book', $record->book)->update([
                 'total_highlights' => $highlightCount,
                 'total_citations' => $totalCites
             ]);

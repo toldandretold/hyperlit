@@ -49,13 +49,16 @@ class DatabaseCleanupJob implements ShouldQueue
     {
         $cutoffDate = Carbon::now()->subDays(30);
 
-        $oldBooks = DB::table('library')
+        // Use admin connection to bypass RLS for cleanup job
+        $adminDb = DB::connection('pgsql_admin');
+
+        $oldBooks = $adminDb->table('library')
             ->whereNull('creator')
             ->where('visibility', 'private')
             ->where('created_at', '<', $cutoffDate)
             ->pluck('book');
 
-        $service = new BookDeletionService();
+        $service = (new BookDeletionService())->useConnection($adminDb);
 
         $totals = [
             'processed' => 0,
