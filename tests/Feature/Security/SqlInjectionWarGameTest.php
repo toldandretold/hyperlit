@@ -908,6 +908,128 @@ test('WAR GAME G3: unicode/multibyte characters do not bypass RLS', function () 
     }
 });
 
+// ==========================================
+// SECTION H: CONTENT THEFT PREVENTION
+// ==========================================
+
+test('WAR GAME H1: attacker cannot steal anonymous content via transfer function', function () {
+    // This tests the fix for the content theft vulnerability:
+    // Previously, attacker could:
+    // 1. Get creator_token via check_book_visibility
+    // 2. Call transfer_anonymous_library to steal content
+    // Now: Transfer functions require session token to match
+
+    $anonToken = Str::uuid()->toString();
+
+    // Create anonymous content
+    DB::connection('pgsql_admin')->table('library')->insert([
+        'book' => 'wartest-h1-anon',
+        'title' => 'Anonymous Content',
+        'creator' => null,
+        'creator_token' => $anonToken,
+        'visibility' => 'private',
+        'raw_json' => '{}',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Attacker has no valid session (or wrong token)
+    setAttackerSession('', '');
+
+    // Attacker gets the token via check_book_visibility
+    $visibility = DB::selectOne('SELECT * FROM check_book_visibility(?)', ['wartest-h1-anon']);
+    $stolenToken = $visibility->creator_token;
+
+    // Attacker tries to transfer using stolen token - should be blocked!
+    $exceptionThrown = false;
+    try {
+        DB::select('SELECT transfer_anonymous_library(?, ?)', [$stolenToken, 'attacker']);
+    } catch (\Exception $e) {
+        $exceptionThrown = true;
+        expect($e->getMessage())->toContain('Unauthorized');
+    }
+
+    expect($exceptionThrown)->toBeTrue('SECURITY BREACH: Transfer function accepted stolen token!');
+
+    // Verify content was not stolen
+    $book = DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h1-anon')->first();
+    expect($book->creator)->toBeNull('SECURITY BREACH: Content owner was changed!');
+    expect($book->creator_token)->toBe($anonToken, 'SECURITY BREACH: Content token was modified!');
+
+    // Cleanup
+    DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h1-anon')->delete();
+});
+
+test('WAR GAME H2: legitimate owner CAN transfer their anonymous content', function () {
+    $anonToken = Str::uuid()->toString();
+
+    // Create anonymous content
+    DB::connection('pgsql_admin')->table('library')->insert([
+        'book' => 'wartest-h2-anon',
+        'title' => 'My Content',
+        'creator' => null,
+        'creator_token' => $anonToken,
+        'visibility' => 'private',
+        'raw_json' => '{}',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Owner sets their session with the correct token (simulates login with anon_token cookie)
+    DB::statement("SELECT set_config('app.current_user', 'new_user', false)");
+    DB::statement("SELECT set_config('app.current_token', ?, false)", [$anonToken]);
+
+    // Owner transfers their own content - should work!
+    $result = DB::selectOne('SELECT transfer_anonymous_library(?, ?)', [$anonToken, 'new_user']);
+    expect($result->transfer_anonymous_library)->toBe(1);
+
+    // Verify transfer worked
+    $book = DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h2-anon')->first();
+    expect($book->creator)->toBe('new_user');
+    expect($book->creator_token)->toBeNull(); // Cleared after transfer
+
+    // Cleanup
+    DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h2-anon')->delete();
+});
+
+test('WAR GAME H3: attacker with different token cannot steal content', function () {
+    $victimToken = Str::uuid()->toString();
+    $attackerToken = Str::uuid()->toString();
+
+    // Create victim's anonymous content
+    DB::connection('pgsql_admin')->table('library')->insert([
+        'book' => 'wartest-h3-victim',
+        'title' => 'Victim Content',
+        'creator' => null,
+        'creator_token' => $victimToken,
+        'visibility' => 'private',
+        'raw_json' => '{}',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Attacker has their own valid token (different from victim's)
+    DB::statement("SELECT set_config('app.current_user', '', false)");
+    DB::statement("SELECT set_config('app.current_token', ?, false)", [$attackerToken]);
+
+    // Attacker somehow got victim's token and tries to transfer
+    $exceptionThrown = false;
+    try {
+        DB::select('SELECT transfer_anonymous_library(?, ?)', [$victimToken, 'attacker']);
+    } catch (\Exception $e) {
+        $exceptionThrown = true;
+    }
+
+    expect($exceptionThrown)->toBeTrue('SECURITY BREACH: Cross-token transfer was allowed!');
+
+    // Verify content was not stolen
+    $book = DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h3-victim')->first();
+    expect($book->creator)->toBeNull();
+
+    // Cleanup
+    DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h3-victim')->delete();
+});
+
 test('WAR GAME G4: invalid UTF-8 sequences are rejected by PostgreSQL (security feature)', function () {
     // This test verifies that PostgreSQL rejects invalid UTF-8 sequences
     // This is a SECURITY FEATURE - not a vulnerability

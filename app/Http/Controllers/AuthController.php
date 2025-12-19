@@ -73,15 +73,16 @@ class AuthController extends Controller
             'updated_at' => now(),
         ]);
 
+        // Check for anonymous content BEFORE setting RLS context
+        // (RLS would block seeing records with the anonymous token after context is set to new user)
+        $anonymousContent = $this->checkAnonymousContent($request);
+
         // Set RLS context so we can read the new user
         DB::statement("SELECT set_config('app.current_user', ?, false)", [$request->name]);
         DB::statement("SELECT set_config('app.current_token', ?, false)", [$userToken]);
 
         $user = User::find($userId);
         Auth::login($user);
-
-        // Check for anonymous content to transfer (same as login)
-        $anonymousContent = $this->checkAnonymousContent($request);
 
         return response()->json([
             'success' => true,
@@ -390,12 +391,13 @@ class AuthController extends Controller
             $updatedCounts = [];
 
             // Use SECURITY DEFINER functions to bypass RLS for ownership transfer
-            // This is needed because after login:
-            // - app.current_user is set (logged-in user)
-            // - app.current_token is empty
-            // - Records have creator=NULL and creator_token=uuid
-            // - RLS UPDATE requires creator OR creator_token match, neither does
+            // The secure transfer functions require app.current_token to match the
+            // anonymous token being transferred. We must temporarily set it here
+            // since after login, middleware sets it to the user's token instead.
             DB::transaction(function () use ($requestedToken, $user, &$updatedCounts) {
+                // Temporarily set app.current_token to the anonymous token for transfer validation
+                DB::statement("SELECT set_config('app.current_token', ?, true)", [$requestedToken]);
+
                 $libraryCount = DB::selectOne(
                     'SELECT transfer_anonymous_library(?, ?) as count',
                     [$requestedToken, $user->name]
