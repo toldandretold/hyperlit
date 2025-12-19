@@ -150,10 +150,10 @@ export class UserContainerManager extends ContainerManager {
     return `
       <div class="user-form">
         <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Login</h3>
-        <form id="login-form-embedded">
-          <input type="email" id="loginEmail" placeholder="Email" required
+        <form id="login-form-embedded" action="/login" method="post" autocomplete="on">
+          <input type="email" id="loginEmail" name="email" placeholder="Email" required autocomplete="email"
                  style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
-          <input type="password" id="loginPassword" placeholder="Password" required
+          <input type="password" id="loginPassword" name="password" placeholder="Password" required autocomplete="current-password"
                  style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
           <button type="submit" id="loginSubmit"
                   style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
@@ -174,16 +174,16 @@ export class UserContainerManager extends ContainerManager {
     return `
       <div class="user-form">
         <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Register</h3>
-        <form id="register-form-embedded">
+        <form id="register-form-embedded" action="/register" method="post" autocomplete="on">
           <div style="margin-bottom: 10px;">
-            <input type="text" id="registerName" placeholder="Username" required style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+            <input type="text" id="registerName" name="nickname" placeholder="Username" required autocomplete="nickname" style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
             <div style="font-size: 11px; color: var(--color-text); opacity: 0.6; margin-top: 4px; line-height: 1.3;">
               Used publicly when sharing hypertext (e.g., /u/username)
             </div>
             <div id="usernameError" style="font-size: 11px; color: var(--color-primary); margin-top: 4px; display: none;"></div>
           </div>
-          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
-          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <input type="email" id="registerEmail" name="email" placeholder="Email" required autocomplete="email" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <input type="password" id="registerPassword" name="password" placeholder="Password" required autocomplete="new-password" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
           <button type="submit" id="registerSubmit" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
           <button type="button" id="showLogin" style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">Switch to Login</button>
         </form>
@@ -463,23 +463,17 @@ export class UserContainerManager extends ContainerManager {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // MODIFIED: Update state in both places
+        // Update state
         setCurrentUser(data.user);
         this.user = data.user;
-        // Broadcast login to other tabs
         broadcastAuthChange('login', data.user);
-        // Refresh auth to get new CSRF token and update meta tag
         await refreshAuth();
         console.log("✅ Registration successful for user:", data.user?.name || "user");
-
-        // Update button color to green
         this.updateButtonColor();
 
-        // Check if there's anonymous content to transfer (same as login)
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
-          // No anonymous content - clear caches and show profile
           console.log("✅ Registration successful - clearing cached data for fresh auth context");
           await this.clearAllCachedData();
           this.showUserProfile();

@@ -7,11 +7,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    /**
+     * Boot method to auto-generate user_token UUID on creation.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($user) {
+            if (empty($user->user_token)) {
+                $user->user_token = Str::uuid()->toString();
+            }
+        });
+    }
 
     /**
      * Find a user by name using RLS bypass function.
@@ -45,6 +60,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'user_token',
     ];
 
     /**
@@ -55,6 +71,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'user_token', // Secret UUID for RLS - never expose to frontend
     ];
 
     /**

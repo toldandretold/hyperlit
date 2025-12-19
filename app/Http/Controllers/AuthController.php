@@ -61,12 +61,23 @@ class AuthController extends Controller
             'name.unique' => 'This username is already taken.',
         ]);
 
-        $user = User::create([
+        // Use admin connection for registration - trusted operation that bypasses RLS
+        // This is safe: validation already checked unique constraints, we control all inputs
+        $userToken = \Illuminate\Support\Str::uuid()->toString();
+        $userId = DB::connection('pgsql_admin')->table('users')->insertGetId([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'user_token' => $userToken,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
+        // Set RLS context so we can read the new user
+        DB::statement("SELECT set_config('app.current_user', ?, false)", [$request->name]);
+        DB::statement("SELECT set_config('app.current_token', ?, false)", [$userToken]);
+
+        $user = User::find($userId);
         Auth::login($user);
 
         // Check for anonymous content to transfer (same as login)

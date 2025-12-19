@@ -36,13 +36,13 @@ class UserHomeServerController extends Controller
         $actualUsername = $user->name;
         $sanitizedUsername = $this->sanitizeUsername($actualUsername);
 
-        // Generate user's library books
+        // Check if viewer is owner (for delete buttons)
         $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
 
-        // Always generate public book - pass actual username for DB queries
+        // Generate user home books - RLS allows this via user_home type exception
         $this->generateUserHomeBook($actualUsername, $isOwner, 'public');
 
-        // Only generate private book if user is owner
+        // Only generate private book if owner
         if ($isOwner) {
             $this->generateUserHomeBook($actualUsername, $isOwner, 'private');
         }
@@ -95,16 +95,19 @@ class UserHomeServerController extends Controller
             }
         }
 
-        DB::table('library')->updateOrInsert(
+        // User home pages use admin connection - trusted backend operation
+        // Safe because: PHP controls book name, only affects user home pages, user verified above
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $bookName],
             [
-                'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username, 'creator_token' => null,
+                'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
+                'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
                 'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
             ]
         );
 
-        DB::table('nodes')->where('book', $bookName)->delete();
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
 
         $chunks = [];
 
@@ -124,7 +127,7 @@ class UserHomeServerController extends Controller
         }
 
         foreach (array_chunk($chunks, 500) as $batch) {
-            DB::table('nodes')->insert($batch);
+            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
         }
 
         return ['success' => true, 'count' => count($chunks)];
@@ -152,8 +155,8 @@ class UserHomeServerController extends Controller
             // For addBookToUserPage, always use current auth state (compare sanitized)
             $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
-            DB::table('nodes')->insert($chunk);
-            DB::table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
+            DB::connection('pgsql_admin')->table('nodes')->insert($chunk);
+            DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
         return ['success' => true];
@@ -184,14 +187,14 @@ class UserHomeServerController extends Controller
             ]);
             $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
 
-            DB::table('nodes')->where('id', $chunkToUpdate->id)->update([
+            DB::connection('pgsql_admin')->table('nodes')->where('id', $chunkToUpdate->id)->update([
                 'content' => $newContent,
                 'raw_json' => $newRawJson,
                 'plainText' => $newPlainText,
                 'updated_at' => now(),
             ]);
 
-            DB::table('library')
+            DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookName)
                 ->update(['timestamp' => round(microtime(true) * 1000)]);
         }
@@ -300,4 +303,5 @@ class UserHomeServerController extends Controller
         }
         return $html;
     }
+
 }

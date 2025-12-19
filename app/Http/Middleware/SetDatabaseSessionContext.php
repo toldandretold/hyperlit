@@ -37,8 +37,14 @@ class SetDatabaseSessionContext
         }
 
         if ($user) {
-            // Authenticated user - set username, clear token
-            $this->setSessionVariables($user->name, '', $sessionId);
+            // Authenticated user - set username AND user_token for RLS
+            // Fetch user_token via admin connection (not exposed via SQL functions)
+            // This protects user_token from SQL injection attacks
+            $userToken = DB::connection('pgsql_admin')
+                ->table('users')
+                ->where('id', $user->id)
+                ->value('user_token') ?? '';
+            $this->setSessionVariables($user->name, $userToken, $sessionId);
         } elseif ($anonymousToken) {
             // Anonymous user with token - set token, clear username
             $this->setSessionVariables('', $anonymousToken, $sessionId);

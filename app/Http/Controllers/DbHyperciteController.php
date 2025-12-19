@@ -143,6 +143,8 @@ class DbHyperciteController extends Controller
 
             foreach ($data['data'] as $index => $item) {
                 // Backend sets the creator fields based on auth state
+                // For logged-in users: creator_token = null (RLS uses JOIN to users table)
+                // For anonymous users: creator_token = anon token (RLS checks this)
                 $creator = $user ? $user->name : null;
                 $creator_token = $user ? null : $anonymousToken;
 
@@ -268,6 +270,8 @@ class DbHyperciteController extends Controller
                         $creator_token = $existingRecord->creator_token;
                     } else {
                         // New record - use backend-generated auth
+                        // For logged-in users: creator_token = null (RLS uses JOIN to users table)
+                        // For anonymous users: creator_token = anon token (RLS checks this)
                         $creator = $user ? $user->name : null;
                         $creator_token = $user ? null : $anonymousToken;
 
