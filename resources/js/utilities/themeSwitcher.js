@@ -33,8 +33,6 @@ function applyThemeClass(themeName) {
 
   // Add the new theme class
   body.classList.add(`theme-${themeName}`);
-
-  console.log(`🎨 Applied theme class: theme-${themeName}`);
 }
 
 /**
@@ -42,8 +40,6 @@ function applyThemeClass(themeName) {
  * @param {string} theme - Theme to switch to ('dark', 'light', or 'sepia')
  */
 export function switchTheme(theme) {
-  console.log(`🎨 Switching to ${theme} theme`);
-
   // Validate theme
   if (!Object.values(THEMES).includes(theme)) {
     console.warn(`Unknown theme: ${theme}`);
@@ -70,11 +66,9 @@ export function initializeTheme() {
   const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
 
   if (savedTheme && Object.values(THEMES).includes(savedTheme)) {
-    console.log(`🎨 Restoring saved theme: ${savedTheme}`);
     currentTheme = savedTheme;
     applyThemeClass(savedTheme);
   } else {
-    console.log(`🎨 Using default dark theme`);
     currentTheme = THEMES.DARK;
     applyThemeClass(THEMES.DARK);
   }

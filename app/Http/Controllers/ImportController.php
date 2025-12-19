@@ -200,12 +200,8 @@ class ImportController extends Controller
                 ], 401);
             }
 
-            // Save node chunks to database if DOCX processing
-            if ($isDocxProcessing) {
-                $this->saveNodeChunksToDatabase($path, $bookId);
-            }
-
-            // Create/update library record
+            // IMPORTANT: Create library record FIRST (before nodes)
+            // RLS policy requires a matching library record to INSERT nodes
             $createdRecord = PgLibrary::updateOrCreate(
                 ['book' => $bookId],
                 [
@@ -227,6 +223,12 @@ class ImportController extends Controller
                     'raw_json' => json_encode($request->all())
                 ]
             );
+
+            // Save node chunks to database AFTER library record exists
+            // (RLS policy checks for matching library.creator/creator_token)
+            if ($isDocxProcessing) {
+                $this->saveNodeChunksToDatabase($path, $bookId);
+            }
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
             Log::info('Complete processing finished successfully', [

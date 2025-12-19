@@ -65,7 +65,6 @@ class ContainerCustomizer {
     });
 
     this.styleElement.textContent = css;
-    console.log('🎨 Applied container customizations:', customizations);
   }
 
   updateContainer(containerId, styles) {
