@@ -114,7 +114,8 @@ class DbLibraryController extends Controller
         $user = Auth::user();
         
         if ($user) {
-            // Authenticated user
+            // Authenticated user - creator_token is null (RLS uses JOIN to users table)
+            // This prevents user_token from being stored in content tables where it could be exposed
             Log::info('Using authenticated user', ['user' => $user->name]);
             return [
                 'creator' => $user->name,

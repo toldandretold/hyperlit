@@ -270,14 +270,24 @@ async function fetchLibraryFromServer(bookId) {
 
 export async function canUserEditBook(bookId) {
   try {
+    // Check for pending new book creation
     const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-
     if (pendingSyncJSON) {
       const pendingData = JSON.parse(pendingSyncJSON);
       // Check if the pending book ID matches the one we're checking permissions for.
       if (pendingData.bookId === bookId) {
         return true; // Grant permission immediately
       }
+    }
+
+    // Check for pending/recently imported book
+    const pendingImport = sessionStorage.getItem("pending_import_book");
+    if (pendingImport === bookId) {
+      return true; // Grant permission for imported book
+    }
+    const importedBookFlag = sessionStorage.getItem("imported_book_flag");
+    if (importedBookFlag === bookId) {
+      return true; // Grant permission for imported book
     }
 
     // Ensure auth is initialized
@@ -414,10 +424,10 @@ export async function clearCurrentUser() {
   resetAuth();
   // NEW: Clear all local data on logout
   await clearDatabase();
-  // Re-initialize to get new anonymous session
-  initializeAuth();
+  // Re-initialize to get new anonymous session and WAIT for it
+  await initializeAuth();
 
-  // Dispatch event for same-tab UI updates
+  // Dispatch event for same-tab UI updates AFTER auth is re-initialized
   console.log('📡 Dispatching auth-state-changed (logout) for same-tab UI update');
   window.dispatchEvent(new CustomEvent('auth-state-changed', {
     detail: { type: 'logout', sameTab: true }
@@ -455,8 +465,46 @@ export function initializeAuthStateListener() {
       window.location.reload();
 
     } else if (pageType === 'reader') {
-      // Reader page: just update edit button permissions (no reload needed)
+      // Reader page: update edit button permissions
+      // With RLS, we need to ensure auth state is fully settled before making API calls
       console.log('🔄 Updating edit button permissions...');
+
+      // If user is in edit mode and logging out, exit edit mode first
+      if (type === 'logout' && window.isEditing) {
+        console.log('🔄 User was in edit mode, disabling edit mode on logout...');
+        const { disableEditMode } = await import('../components/editButton.js');
+        disableEditMode();
+      }
+
+      // Wait for any pending auth initialization to complete
+      await ensureAuthInitialized();
+
+      // Small delay to ensure server-side session is fully established
+      // This is needed because RLS queries depend on session context being set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // After logout, check if user still has access to this book
+      // If it's a private book they no longer have access to, show access denied
+      if (type === 'logout') {
+        const { book } = await import('../app.js');
+        if (book) {
+          try {
+            const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(book)}/library`, {
+              credentials: 'include'
+            });
+            if (response.status === 404 || response.status === 403) {
+              // User no longer has access to this book
+              console.log('🔒 User lost access to private book after logout');
+              const { handlePrivateBookAccessDenied } = await import('../initializePage.js');
+              handlePrivateBookAccessDenied(book);
+              return; // Don't continue with edit button updates
+            }
+          } catch (error) {
+            console.warn('Failed to check book access after logout:', error);
+          }
+        }
+      }
+
       const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
       await checkEditPermissionsAndUpdateUI();
     }

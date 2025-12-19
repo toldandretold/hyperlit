@@ -53,8 +53,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               // Get HTML content and clean thoroughly
               let htmlContent = nextElement.innerHTML.trim();
 
-              // Remove leading number (handles both plain text and HTML)
-              htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+              // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+              htmlContent = htmlContent
+                .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
               // Clean up T&F citation links in footnote content
               htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -69,8 +71,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             }
           } else if (nextElement.tagName === 'DIV') {
             // Look inside divs (like summation-section)
-            // Check if this div itself has a footnote RID (EN or FN format)
-            const divHasFootnoteId = nextElement.id && (nextElement.id.startsWith('EN') || nextElement.id.startsWith('FN'));
+            // Check if this div itself has a footnote RID (EN or FN format, case-insensitive)
+            const divHasFootnoteId = nextElement.id && /^(EN|FN)/i.test(nextElement.id);
 
             if (divHasFootnoteId) {
               // This div itself has a footnote ID - process its paragraphs
@@ -86,8 +88,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                   // Get HTML content and clean thoroughly
                   let htmlContent = p.innerHTML.trim();
 
-                  // Remove leading number (handles both plain text and HTML)
-                  htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                  // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+                  htmlContent = htmlContent
+                    .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                    .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
                   // Clean up T&F citation links in footnote content
                   htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -99,10 +103,11 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     this.generateFootnoteRefId(bookId, identifier),
                     'taylor-francis'
                   );
-                  // Store the RID for linking - could be "EN" or "FN" format
-                  if (footnoteRid.startsWith('EN')) {
+                  // Store the RID for linking - could be "EN" or "FN" format (case-insensitive)
+                  const upperRid = footnoteRid.toUpperCase();
+                  if (upperRid.startsWith('EN')) {
                     footnote.enId = footnoteRid;
-                  } else if (footnoteRid.startsWith('FN')) {
+                  } else if (upperRid.startsWith('FN')) {
                     footnote.fnId = footnoteRid;
                   }
                   footnotes.push(footnote);
@@ -110,7 +115,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               });
             } else {
               // This div is a container (like summation-section) - process each child div separately
-              const childDivs = nextElement.querySelectorAll('div[id^="EN"], div[id^="FN"]');
+              const childDivs = nextElement.querySelectorAll('div[id^="EN"], div[id^="FN"], div[id^="en"], div[id^="fn"]');
               childDivs.forEach(childDiv => {
                 const footnoteRid = childDiv.id;
                 const paragraphs = childDiv.querySelectorAll('p');
@@ -124,8 +129,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     // Get HTML content and clean thoroughly
                     let htmlContent = p.innerHTML.trim();
 
-                    // Remove leading number (handles both plain text and HTML)
-                    htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                    // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+                    htmlContent = htmlContent
+                      .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+                      .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
                     // Clean up T&F citation links in footnote content
                     htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -137,10 +144,11 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                       this.generateFootnoteRefId(bookId, identifier),
                       'taylor-francis'
                     );
-                    // Store the RID for linking - could be "EN" or "FN" format
-                    if (footnoteRid.startsWith('EN')) {
+                    // Store the RID for linking - could be "EN" or "FN" format (case-insensitive)
+                    const upperRid = footnoteRid.toUpperCase();
+                    if (upperRid.startsWith('EN')) {
                       footnote.enId = footnoteRid;
-                    } else if (footnoteRid.startsWith('FN')) {
+                    } else if (upperRid.startsWith('FN')) {
                       footnote.fnId = footnoteRid;
                     }
                     footnotes.push(footnote);
@@ -155,10 +163,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     });
 
-    // Also check for summation-section divs specifically (both "EN" and "FN" formats)
-    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"], div[id^="FN"]');
+    // Also check for summation-section divs specifically (both "EN" and "FN" formats, case-insensitive)
+    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"], div[id^="FN"], div[id^="en"], div[id^="fn"]');
     summationSections.forEach(section => {
-      const footnoteRid = section.id; // e.g., "EN0001" or "FN0002"
+      const footnoteRid = section.id; // e.g., "EN0001", "FN0002", "fn0003"
       const paragraphs = section.querySelectorAll('p');
       paragraphs.forEach(p => {
         const pText = p.textContent.trim();
@@ -172,8 +180,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             // Get HTML content and clean thoroughly
             let htmlContent = p.innerHTML.trim();
 
-            // Remove leading number (handles both plain text and HTML)
-            htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+            // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
+            htmlContent = htmlContent
+              .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
+              .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
 
             // Clean up T&F citation links in footnote content
             htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -185,10 +195,11 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               this.generateFootnoteRefId(bookId, identifier),
               'taylor-francis'
             );
-            // Store the RID for linking - could be "EN" or "FN" format
-            if (footnoteRid && footnoteRid.startsWith('EN')) {
+            // Store the RID for linking - could be "EN" or "FN" format (case-insensitive)
+            const upperRid = footnoteRid ? footnoteRid.toUpperCase() : '';
+            if (upperRid.startsWith('EN')) {
               footnote.enId = footnoteRid;
-            } else if (footnoteRid && footnoteRid.startsWith('FN')) {
+            } else if (upperRid.startsWith('FN')) {
               footnote.fnId = footnoteRid;
             }
             footnotes.push(footnote);
@@ -328,16 +339,21 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     // T&F has unique structures that require special handling:
     // - Format 1: <a data-rid="EN0001"><sup>1</sup></a> (endnotes)
     // - Format 2: <a data-rid="FN0002"><sup>2</sup></a> (footnotes)
+    // - Format 3: <a data-rid="fn0003"><sup>3</sup></a> (lowercase footnotes)
 
-    // Convert T&F footnote links from data-rid to href (both "EN" and "FN" formats)
-    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"], a[data-rid^="FN"]');
+    // Convert T&F footnote links from data-rid to href (both "EN" and "FN" formats, case-insensitive)
+    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"], a[data-rid^="FN"], a[data-rid^="en"], a[data-rid^="fn"]');
     let convertedCount = 0;
 
     footnoteLinks.forEach(link => {
-      const footnoteRid = link.getAttribute('data-rid'); // e.g., "EN0001" or "FN0002"
+      const footnoteRid = link.getAttribute('data-rid'); // e.g., "EN0001", "FN0002", or "fn0003"
 
-      // Find the footnote with this RID (could be stored as enId or fnId)
-      const footnote = footnotes.find(fn => fn.enId === footnoteRid || fn.fnId === footnoteRid);
+      // Find the footnote with this RID (could be stored as enId or fnId, case-insensitive match)
+      const upperRid = footnoteRid.toUpperCase();
+      const footnote = footnotes.find(fn =>
+        (fn.enId && fn.enId.toUpperCase() === upperRid) ||
+        (fn.fnId && fn.fnId.toUpperCase() === upperRid)
+      );
 
       if (footnote) {
         // Extract the number from the <sup> tag inside the link BEFORE any processing

@@ -46,6 +46,13 @@
   opacity: 1;
 }
 
+/* Remove Chrome's blue focus outline on contenteditable main-content */
+.main-content[contenteditable="true"]:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 .video-delete-btn:hover {
   background: #EE4A95; /* Pink on hover */
   border-color: #fff;
