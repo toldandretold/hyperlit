@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust Cloudflare and other proxies to get real client IP
+        // Required for proper IP detection when behind a CDN/proxy
+        $middleware->trustProxies(at: '*');
+
         // Add RLS context middleware to set PostgreSQL session variables
         // This must run after session starts but before any database queries
         $middleware->appendToGroup('web', [
