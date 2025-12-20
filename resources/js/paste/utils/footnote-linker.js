@@ -34,6 +34,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
       const mapping = footnoteMappings.get(identifier);
       sup.id = mapping.uniqueRefId;
       sup.setAttribute('fn-count-id', identifier);
+      // Store footnote ID for easy extraction when building nodes.footnotes array
+      sup.setAttribute('data-footnote-id', mapping.uniqueId);
 
       // Create or update link
       let link = sup.querySelector('a');
@@ -87,7 +89,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
       if (footnoteMappings.has(identifier)) {
         const mapping = footnoteMappings.get(identifier);
-        const supHTML = `<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+        // Include data-footnote-id for easy extraction when building nodes.footnotes array
+        const supHTML = `<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}" data-footnote-id="${mapping.uniqueId}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
 
         replacements.push({
           start: match.index,
@@ -113,7 +116,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
         if (footnoteMappings.has(identifier)) {
           const mapping = footnoteMappings.get(identifier);
-          const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+          // Include data-footnote-id for easy extraction when building nodes.footnotes array
+          const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}" data-footnote-id="${mapping.uniqueId}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
 
           replacements.push({
             start: match.index,

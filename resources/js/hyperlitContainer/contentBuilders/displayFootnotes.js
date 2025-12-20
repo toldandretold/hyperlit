@@ -5,6 +5,7 @@
 
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index.js';
+import { getDisplayNumber } from '../../footnotes/FootnoteNumberingService.js';
 
 /**
  * Build footnote content section
@@ -52,17 +53,22 @@ export async function buildFootnoteContent(contentType, db = null) {
         .replace(/<\/?p[^>]*>/g, '') // Remove <p> tags
         .replace(/<\/?div[^>]*>/g, ''); // Remove <div> tags
 
+      // Use dynamic display number from FootnoteNumberingService, fallback to fnCountId
+      const displayNumber = getDisplayNumber(footnoteId) || fnCountId;
+
       return `
         <div class="footnotes-section" data-content-id="${footnoteId}">
           <div class="footnote-content">
-            <div class="footnote-text" style="display: flex; align-items: flex-start;"><sup style="margin-right: 1em; flex-shrink: 0;">${fnCountId}</sup><span style="flex: 1;">${inlineContent}</span></div>
+            <div class="footnote-text" style="display: flex; align-items: flex-start;"><sup style="margin-right: 1em; flex-shrink: 0;">${displayNumber}</sup><span style="flex: 1;">${inlineContent}</span></div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">
         </div>`;
     } else {
+      // Use dynamic display number for error case too
+      const displayNumber = getDisplayNumber(footnoteId) || fnCountId;
       return `
         <div class="footnotes-section" data-content-id="${footnoteId}">
-          <sup>${fnCountId}</sup>
+          <sup>${displayNumber}</sup>
           <div class="error">Footnote not found: ${footnoteId}</div>
           <hr>
         </div>`;
@@ -71,9 +77,11 @@ export async function buildFootnoteContent(contentType, db = null) {
     console.error('Error building footnote content:', error);
     const footnoteId = contentType.elementId || 'unknown';
     const fnCountId = contentType.fnCountId || '?';
+    // Use dynamic display number for error case too
+    const displayNumber = getDisplayNumber(footnoteId) || fnCountId;
     return `
       <div class="footnotes-section" data-content-id="${footnoteId}">
-        <sup>${fnCountId}</sup>
+        <sup>${displayNumber}</sup>
         <div class="error">Error loading footnote</div>
         <hr>
       </div>`;

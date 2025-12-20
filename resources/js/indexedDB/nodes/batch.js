@@ -855,6 +855,26 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
           }
         }
 
+        // 📝 Trigger footnote renumbering after batch update if footnotes were affected
+        // Check if any nodes had footnotes changes by comparing before/after
+        const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node =>
+          node.footnotes && node.footnotes.length > 0
+        );
+
+        if (nodesWithFootnoteChanges.length > 0 || affectedNodeUUIDs.length > 0) {
+          try {
+            const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
+            const { getNodeChunksFromIndexedDB } = await import('../index.js');
+            const allNodes = await getNodeChunksFromIndexedDB(bookId);
+            if (allNodes && allNodes.length > 0) {
+              await rebuildAndRenumber(bookId, allNodes);
+            }
+          } catch (error) {
+            console.error('❌ Error triggering footnote renumbering:', error);
+            // Don't fail the whole operation if renumbering fails
+          }
+        }
+
         resolve();
       };
       tx.onerror = (e) => reject(e.target.error);

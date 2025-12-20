@@ -853,7 +853,15 @@ def main(html_file_path, output_dir, book_id):
                 node.insert(0, original_anchor)
         
         references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
-        footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]
+        # Extract footnote IDs from href (new format) instead of display numbers (old format)
+        # This enables dynamic renumbering when footnotes are added/deleted
+        footnotes_in_node = []
+        for sup in node.find_all('sup'):
+            fn_link = sup.find('a', class_='footnote-ref')
+            if fn_link and fn_link.get('href'):
+                footnote_id = fn_link['href'].lstrip('#')
+                if footnote_id:
+                    footnotes_in_node.append(footnote_id)
         node_object = {
             "id": node_key, "book": book_id, "chunk_id": chunk_id, 
             "startLine": start_line_counter, "content": str(node), 

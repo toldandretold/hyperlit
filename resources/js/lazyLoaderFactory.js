@@ -20,6 +20,41 @@ import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
+import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
+
+/**
+ * Apply dynamic footnote numbers to rendered HTML element.
+ * Looks up display numbers from FootnoteNumberingService and updates
+ * the fn-count-id attribute and link text.
+ *
+ * @param {HTMLElement} element - The DOM element containing footnote references
+ */
+function applyDynamicFootnoteNumbers(element) {
+  // Find all footnote reference links
+  const footnoteLinks = element.querySelectorAll('sup a.footnote-ref, a.footnote-ref');
+
+  for (const link of footnoteLinks) {
+    const href = link.getAttribute('href');
+    if (!href) continue;
+
+    // Extract footnote ID from href (e.g., "#bookId_Fn1758412345001" → "bookId_Fn1758412345001")
+    const footnoteId = href.replace(/^#/, '');
+    if (!footnoteId) continue;
+
+    // Get the dynamic display number from the service
+    const displayNumber = getDisplayNumber(footnoteId);
+
+    if (displayNumber) {
+      // Update the parent sup's fn-count-id attribute
+      const sup = link.closest('sup');
+      if (sup) {
+        sup.setAttribute('fn-count-id', displayNumber.toString());
+      }
+      // Update the visible link text
+      link.textContent = displayNumber.toString();
+    }
+  }
+}
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -765,6 +800,10 @@ export function createChunkElement(nodes, instance) {
         el.classList.remove(className);
       });
     });
+
+    // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
+    // This replaces the old static fn-count-id with dynamically calculated numbers
+    applyDynamicFootnoteNumbers(temp);
 
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;
