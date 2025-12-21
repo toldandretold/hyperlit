@@ -42,6 +42,7 @@ class EditToolbar {
     this.headingSubmenu = document.getElementById("heading-submenu");
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
+    this.footnoteButton = document.getElementById("footnoteButton");
     this.undoButton = document.getElementById("undoButton");
     this.redoButton = document.getElementById("redoButton");
 
@@ -179,6 +180,11 @@ class EditToolbar {
         element: this.codeButton,
         name: "code",
         action: () => this.formatBlock("code"),
+      },
+      {
+        element: this.footnoteButton,
+        name: "footnote",
+        action: () => this.insertFootnote(),
       },
       {
         element: this.undoButton,
@@ -332,6 +338,43 @@ class EditToolbar {
     return this.blockFormatter.formatBlock(type, headingLevel);
   }
 
+  /**
+   * Insert a footnote at the current cursor position
+   */
+  async insertFootnote() {
+    if (!this.currentBookId) {
+      console.warn("EditToolbar: Cannot insert footnote: currentBookId is not set.");
+      return;
+    }
+
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    if (!range) {
+      console.warn("EditToolbar: Cannot insert footnote: no cursor position.");
+      return;
+    }
+
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { insertFootnoteAtCursor, openFootnoteForEditing } = await import('../footnotes/footnoteInserter.js');
+
+      // Insert the footnote
+      const { footnoteId, supElement } = await insertFootnoteAtCursor(
+        range,
+        this.currentBookId,
+        (id, html) => this.saveToIndexedDB(id, html)
+      );
+
+      console.log(`Footnote inserted: ${footnoteId}`);
+
+      // Open the hyperlit container with the footnote
+      await openFootnoteForEditing(footnoteId, supElement);
+
+    } catch (error) {
+      console.error("Error inserting footnote:", error);
+    }
+  }
 
   /**
    * Helper method to update IndexedDB record (for a single item)

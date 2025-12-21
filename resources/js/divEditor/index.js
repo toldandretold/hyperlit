@@ -131,6 +131,9 @@ function clearInputHandlerCache() {
 // 🔧 FIX 7b: Track video delete handler for cleanup
 let videoDeleteHandler = null;
 
+// 🎯 SUP TAG ESCAPE: Prevent typing inside sup elements (footnotes, hypercites)
+let supEscapeHandler = null;
+
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
 let saveQueue = null;
 
@@ -289,6 +292,61 @@ export function startObserving(editableDiv) {
 
   // Attach the handler
   editableDiv.addEventListener('click', videoDeleteHandler);
+
+  // 🎯 SUP TAG ESCAPE: Prevent typing inside sup elements
+  // Sup tags contain generated content (footnote numbers, hypercite arrows) - never user-editable
+  if (supEscapeHandler) {
+    editableDiv.removeEventListener('beforeinput', supEscapeHandler);
+  }
+
+  supEscapeHandler = (e) => {
+    if (!window.isEditing) return;
+
+    // Only handle text insertion events
+    if (!e.inputType || !e.inputType.startsWith('insert')) return;
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    // Use anchorNode which is more reliable for cursor position
+    let node = selection.anchorNode;
+    if (!node) return;
+
+    // Get the element (if text node, get parent)
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!element) return;
+
+    // Check if we're inside a <sup> tag
+    const supElement = element.closest('sup');
+    if (!supElement) return;
+
+    console.log('🎯 INSIDE SUP TAG - escaping!', supElement);
+
+    // We're inside a sup - move cursor outside before the input happens
+    e.preventDefault();
+    e.stopPropagation();
+
+    const textToInsert = e.data || '';
+
+    // Insert text directly after the sup element using insertAdjacentText
+    // This guarantees the text goes AFTER the sup, not inside it
+    supElement.insertAdjacentText('afterend', textToInsert);
+
+    // Now position cursor after the inserted text
+    const nextNode = supElement.nextSibling;
+    if (nextNode && nextNode.nodeType === Node.TEXT_NODE) {
+      const newRange = document.createRange();
+      newRange.setStart(nextNode, nextNode.length);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+
+    console.log(`✅ Escaped from sup tag, inserted: "${textToInsert}"`);
+  };
+
+  // Use capture phase to intercept before other handlers
+  editableDiv.addEventListener('beforeinput', supEscapeHandler, { capture: true });
 
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
@@ -497,6 +555,13 @@ export function stopObserving() {
     editableDiv.removeEventListener('click', videoDeleteHandler);
     videoDeleteHandler = null;
     verbose.content("Video delete handler removed", 'divEditor/index.js');
+  }
+
+  // 🎯 Remove sup escape handler
+  if (supEscapeHandler && editableDiv) {
+    editableDiv.removeEventListener('beforeinput', supEscapeHandler, { capture: true });
+    supEscapeHandler = null;
+    verbose.content("Sup escape handler removed", 'divEditor/index.js');
   }
 
   // 🚀 PERFORMANCE: Remove input event handlers

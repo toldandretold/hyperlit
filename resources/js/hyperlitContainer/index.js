@@ -81,6 +81,41 @@ import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
 let isProcessingClick = false;
 
 // ============================================================================
+// LISTENER CLEANUP INFRASTRUCTURE
+// ============================================================================
+// Prevents listener accumulation by tracking all listeners added during container open
+// and removing them when the container closes
+
+const activeListeners = [];
+
+/**
+ * Register an event listener and track it for cleanup
+ * @param {HTMLElement} element - The element to attach the listener to
+ * @param {string} event - The event type (e.g., 'click', 'input')
+ * @param {Function} handler - The event handler function
+ * @param {Object} options - Optional event listener options
+ */
+function registerListener(element, event, handler, options = {}) {
+  element.addEventListener(event, handler, options);
+  activeListeners.push({ element, event, handler, options });
+}
+
+/**
+ * Clean up all registered listeners
+ * Called when the container closes to prevent listener accumulation
+ */
+export function cleanupContainerListeners() {
+  for (const { element, event, handler, options } of activeListeners) {
+    try {
+      element.removeEventListener(event, handler, options);
+    } catch (e) {
+      // Element may have been removed from DOM, ignore
+    }
+  }
+  activeListeners.length = 0;
+}
+
+// ============================================================================
 // MAIN ORCHESTRATION FUNCTIONS
 // ============================================================================
 
@@ -227,12 +262,9 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
   } finally {
-    // Reset the processing flag after a short delay
-    setTimeout(() => {
-      console.log("🔄 Resetting isProcessingClick flag");
-      isProcessingClick = false;
-    }, 500);
-
+    // Reset the processing flag immediately (no delay needed)
+    isProcessingClick = false;
+    console.log("🔄 Reset isProcessingClick flag");
   }
 }
 
@@ -483,12 +515,16 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
         }, 150);
       }
 
-      // Attach delete/hide button listeners
+      // Attach delete/hide button listeners using event delegation on container
+      // This prevents listener accumulation - one listener handles all buttons
       setTimeout(async () => {
         const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
-        const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
-        deleteButtons.forEach(button => {
-          button.addEventListener('click', async (e) => {
+        const container = document.getElementById('hyperlit-container');
+        if (container) {
+          const handler = async (e) => {
+            const button = e.target.closest('.delete-highlight-btn');
+            if (!button) return;
+
             const highlightId = button.getAttribute('data-highlight-id');
             const action = button.getAttribute('data-action'); // 'delete' or 'hide'
 
@@ -499,12 +535,89 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
               // User deleting their own highlight - permanent removal
               await deleteHighlightById(highlightId);
             }
-          });
-        });
+          };
+          registerListener(container, 'click', handler);
+        }
       }, 200);
 
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
+    }
+  }
+
+  // Handle footnote-specific post-open actions
+  const footnoteType = contentTypes.find(ct => ct.type === 'footnote');
+  if (footnoteType) {
+    try {
+      const { attachFootnoteListener, attachFootnotePlaceholderBehavior } =
+        await import('../footnotes/footnoteAnnotations.js');
+
+      // Get the footnote ID from the content type (already extracted by detection)
+      const footnoteId = footnoteType.footnoteId;
+
+      if (footnoteId) {
+        // Track when container opened for measuring time to first keypress
+        const containerOpenTime = performance.now();
+        console.log(`⏱️ FOOTNOTE CONTAINER OPENED at ${containerOpenTime.toFixed(0)}ms`);
+
+        // Content is now inserted synchronously, so element should exist immediately
+        const footnoteEl = document.querySelector(
+          `.footnote-text[data-footnote-id="${footnoteId}"]`
+        );
+
+        if (footnoteEl) {
+          attachFootnoteListener(footnoteId);
+          attachFootnotePlaceholderBehavior(footnoteId);
+
+          const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+          if (!isMobile) {
+            // Focus immediately to preserve user gesture chain in Safari
+            footnoteEl.focus();
+
+            // Cursor positioning can be slightly delayed
+            requestAnimationFrame(() => {
+              try {
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.selectNodeContents(footnoteEl);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } catch (e) {
+                console.log('Range selection not supported');
+              }
+            });
+          }
+
+          // 🔍 DEBUG: Log when first keypress is received
+          const firstKeypressHandler = (e) => {
+            const keypressTime = performance.now();
+            const delay = keypressTime - containerOpenTime;
+            console.log(`⏱️ FIRST KEYPRESS received at ${keypressTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open)`);
+            footnoteEl.removeEventListener('keydown', firstKeypressHandler);
+          };
+          footnoteEl.addEventListener('keydown', firstKeypressHandler);
+
+          console.log(`⏱️ FOOTNOTE READY FOR INPUT at ${performance.now().toFixed(0)}ms`);
+          console.log(`🔍 Element focused: ${document.activeElement === footnoteEl}`);
+          console.log(`🔍 ContentEditable:`, footnoteEl.contentEditable);
+
+          // 🔍 DEBUG: Heartbeat to detect main thread blocking
+          let heartbeatCount = 0;
+          const heartbeatInterval = setInterval(() => {
+            heartbeatCount++;
+            console.log(`💓 Heartbeat ${heartbeatCount} at ${performance.now().toFixed(0)}ms`);
+            if (heartbeatCount >= 20) {
+              clearInterval(heartbeatInterval);
+            }
+          }, 500);
+        } else {
+          console.error(`❌ Footnote element not found: ${footnoteId}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in footnote post-actions:', error);
     }
   }
 
@@ -513,43 +626,50 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
     // Attach data-content-id link listeners for URL updates
     attachDataContentIdLinkListeners();
 
-    // Defer private book access checks to avoid blocking container opening
-    // Use requestIdleCallback for non-critical background work
-    if (window.requestIdleCallback) {
-      requestIdleCallback(() => checkPrivateBookAccess());
-    } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(() => checkPrivateBookAccess(), 200);
+    // Skip private book checks for footnotes - already checked during content building
+    const hasFootnoteOnly = contentTypes.length === 1 && contentTypes[0].type === 'footnote';
+    if (!hasFootnoteOnly) {
+      // Defer private book access checks to avoid blocking container opening
+      // Use requestIdleCallback for non-critical background work
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => checkPrivateBookAccess());
+      } else {
+        // Fallback for browsers without requestIdleCallback
+        setTimeout(() => checkPrivateBookAccess(), 200);
+      }
     }
 
-    // Attach manage citations button listener
+    // Attach manage citations button listener using registerListener for cleanup
     const manageCitationsBtn = document.querySelector('.manage-citations-btn');
     if (manageCitationsBtn) {
       const { handleManageCitationsClick } = await import('./contentBuilders/displayHypercites.js');
-      manageCitationsBtn.addEventListener('click', handleManageCitationsClick);
+      registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
     }
   }, 100);
 }
 
 /**
  * Attach listeners to data-content-id links for URL updates
+ * Uses registerListener for proper cleanup when container closes
  * @private
  */
 function attachDataContentIdLinkListeners() {
   const links = document.querySelectorAll('[data-content-id]');
   links.forEach(link => {
-    link.addEventListener('click', (e) => {
+    const handler = (e) => {
       const contentId = link.getAttribute('data-content-id');
       if (contentId) {
         console.log(`🔗 Clicked link with content ID: ${contentId}`);
         // URL update logic handled by navigation system
       }
-    });
+    };
+    registerListener(link, 'click', handler);
   });
 }
 
 /**
  * Check private book access and update UI accordingly
+ * Uses registerListener for proper cleanup when container closes
  * @private
  */
 async function checkPrivateBookAccess() {
@@ -565,10 +685,11 @@ async function checkPrivateBookAccess() {
       if (!hasAccess) {
         link.style.opacity = '0.6';
         link.style.cursor = 'not-allowed';
-        link.addEventListener('click', (e) => {
+        const handler = (e) => {
           e.preventDefault();
-          alert('This book is private. You don not have access.');
-        });
+          alert('This book is private. You do not have access.');
+        };
+        registerListener(link, 'click', handler);
       }
     }
   }

@@ -53,9 +53,25 @@ export async function handleFootnoteOrCitationClick(element) {
 }
 
 
+// Store the handler reference so we can remove it
+let footnoteClickHandler = null;
+let initializationCount = 0; // Debug counter
+
 // Initialize click listeners
 export function initializeFootnoteCitationListeners() {
-  document.addEventListener('click', (event) => {
+  initializationCount++;
+  console.warn(`🔧 FOOTNOTE LISTENER INIT #${initializationCount} - Stack trace:`);
+  console.trace();
+
+  // Remove existing listener if it exists (prevent duplicates)
+  if (footnoteClickHandler) {
+    document.removeEventListener('click', footnoteClickHandler, true);
+    console.warn(`🗑️ Removed existing listener (was init #${initializationCount - 1})`);
+    verbose.init('Removed existing footnote/citation click listener', '/footnotesCitations.js');
+  }
+
+  // Create the handler
+  footnoteClickHandler = (event) => {
     const target = event.target;
 
     // Check if the clicked element or its parent is a footnote or citation
@@ -71,8 +87,32 @@ export function initializeFootnoteCitationListeners() {
       event.preventDefault();
       event.stopPropagation();
       handleFootnoteOrCitationClick(target);
+    } else if (target.tagName === 'A') {
+      // Check if this is a footnote link inside a sup (old format without footnote-ref class)
+      const parentSup = target.closest('sup[fn-count-id]');
+      if (parentSup) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleFootnoteOrCitationClick(parentSup);
+      }
     }
-  }, true); // Use capture phase to run before other listeners
+  };
+
+  // Add new listener
+  document.addEventListener('click', footnoteClickHandler, true); // Use capture phase
 
   log.init('Footnote and citation listeners initialized', '/footnotesCitations.js');
+}
+
+/**
+ * Destroy footnote/citation click listeners
+ * Used by buttonRegistry for proper cleanup on SPA transitions
+ */
+export function destroyFootnoteCitationListeners() {
+  if (footnoteClickHandler) {
+    document.removeEventListener('click', footnoteClickHandler, true);
+    footnoteClickHandler = null;
+    initializationCount = 0;
+    verbose.init('Footnote/citation listeners destroyed', '/footnotesCitations.js');
+  }
 }

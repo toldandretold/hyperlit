@@ -1045,6 +1045,36 @@ body[data-page="user"] #userLibraryContainer {
   display: none !important;
 }
 
+/* Footnote text editing styles */
+#hyperlit-container .footnote-text {
+  outline: none;
+  border: none;
+  min-height: 1.5em;
+  line-height: 1.5;
+}
+
+#hyperlit-container .footnote-text[contenteditable="true"] {
+  cursor: text;
+}
+
+#hyperlit-container .footnote-text:empty::before,
+#hyperlit-container .footnote-text.empty-footnote::before {
+  content: "Write footnote content here...";
+  color: #888;
+  pointer-events: none;
+  font-style: italic;
+}
+
+#hyperlit-container .footnote-text:focus::before,
+#hyperlit-container .footnote-text.empty-footnote:focus::before {
+  display: none !important;
+}
+
+#hyperlit-container .footnote-number {
+  font-weight: bold;
+  color: var(--color-primary, #007bff);
+}
+
 /* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
 
 #source-container input,

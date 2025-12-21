@@ -777,6 +777,9 @@ export function createChunkElement(nodes, instance) {
       console.error(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
     }
 
+    // Note: Footnote migration is now handled server-side in DatabaseToIndexedDBController.php
+    // nodes.footnotes is populated before data reaches the client
+
     let html = renderBlockToHtml(node);
 
     if (node.hyperlights && node.hyperlights.length > 0) {
@@ -1072,6 +1075,25 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     const range = document.createRange();
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
+
+    // 🛡️ GUARD: Check if the range ends at offset 0 inside a <sup> or <a> element
+    // This would cause extractContents() to split the element and duplicate content
+    // Instead, extend the range to include the entire sup/a element
+    if (endOffset === 0 && endNode.parentElement) {
+      const parent = endNode.parentElement;
+      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
+        // Extend range to AFTER the entire sup/a element
+        range.setEndAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
+      }
+    }
+
+    // Similarly, if range starts at end of text inside sup/a, adjust to start after it
+    if (startOffset === startNode.textContent.length && startNode.parentElement) {
+      const parent = startNode.parentElement;
+      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
+        range.setStartAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
+      }
+    }
 
     // ✅ Do the tolerant extract/insert directly
     const contents = range.extractContents();

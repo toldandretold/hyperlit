@@ -59,6 +59,11 @@ import {
   destroyHomepageSearch
 } from '../search/postgreSQLsearch/homepageSearch.js';
 
+import {
+  initializeFootnoteCitationListeners,
+  destroyFootnoteCitationListeners
+} from '../footnotesCitations.js';
+
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -177,6 +182,15 @@ export function registerAllComponents() {
       checkHighlightParam();
     },
     destroyFn: destroySearchToolbar,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'footnoteCitationListeners',
+    initFn: initializeFootnoteCitationListeners,
+    destroyFn: destroyFootnoteCitationListeners,
     pages: ['reader'],
     dependencies: [],
     required: false

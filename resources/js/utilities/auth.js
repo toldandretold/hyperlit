@@ -7,6 +7,9 @@ let anonymousToken = null;
 let authInitialized = false;
 let initializeAuthPromise = null;
 
+// Cache for canUserEditBook results to avoid repeated async checks
+const editPermissionCache = new Map();
+
 // Export a getter function
 export function getCurrentUserInfo() {
   return currentUserInfo;
@@ -270,12 +273,18 @@ async function fetchLibraryFromServer(bookId) {
 
 export async function canUserEditBook(bookId) {
   try {
+    // 🚀 PERFORMANCE: Check cache first for instant return
+    if (editPermissionCache.has(bookId)) {
+      return editPermissionCache.get(bookId);
+    }
+
     // Check for pending new book creation
     const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
     if (pendingSyncJSON) {
       const pendingData = JSON.parse(pendingSyncJSON);
       // Check if the pending book ID matches the one we're checking permissions for.
       if (pendingData.bookId === bookId) {
+        editPermissionCache.set(bookId, true);
         return true; // Grant permission immediately
       }
     }
@@ -283,10 +292,12 @@ export async function canUserEditBook(bookId) {
     // Check for pending/recently imported book
     const pendingImport = sessionStorage.getItem("pending_import_book");
     if (pendingImport === bookId) {
+      editPermissionCache.set(bookId, true);
       return true; // Grant permission for imported book
     }
     const importedBookFlag = sessionStorage.getItem("imported_book_flag");
     if (importedBookFlag === bookId) {
+      editPermissionCache.set(bookId, true);
       return true; // Grant permission for imported book
     }
 
@@ -303,18 +314,24 @@ export async function canUserEditBook(bookId) {
       record = await fetchLibraryFromServer(bookId);
 
       if (!record) {
+        editPermissionCache.set(bookId, false);
         return false;
       }
     }
 
     // 3) check login state and use prioritized auth logic
     const user = await getCurrentUser();
+    let result;
     if (user) {
       const userId = user.name || user.username || user.email;
-      return checkUserPermission(record, userId, true);
+      result = checkUserPermission(record, userId, true);
     } else {
-      return checkUserPermission(record, anonymousToken, false);
+      result = checkUserPermission(record, anonymousToken, false);
     }
+
+    // Cache the result for future calls
+    editPermissionCache.set(bookId, result);
+    return result;
   } catch (err) {
     console.error("Error in canUserEditBook:", err);
     return false;
@@ -334,6 +351,21 @@ export function resetAuth() {
   anonymousToken = null;
   authInitialized = false;
   initializeAuthPromise = null;
+  // Clear edit permission cache when auth resets
+  editPermissionCache.clear();
+}
+
+/**
+ * Clear cached edit permission for a specific book
+ * Useful when switching books in SPA mode
+ * @param {string} bookId - The book ID to clear from cache
+ */
+export function clearEditPermissionCache(bookId = null) {
+  if (bookId) {
+    editPermissionCache.delete(bookId);
+  } else {
+    editPermissionCache.clear();
+  }
 }
 
 export async function refreshAuth() {

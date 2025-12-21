@@ -153,6 +153,19 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     }
   });
 
+  // Process footnote references (sup with footnote links)
+  const footnotes = [];
+  const footnoteLinks = node.querySelectorAll('sup[fn-count-id] a, a.footnote-ref');
+  footnoteLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (href) {
+      const footnoteId = href.replace(/^#/, '');
+      if (footnoteId && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+        footnotes.push(footnoteId);
+      }
+    }
+  });
+
   // Create a clone to remove the mark and u tags
   const contentClone = node.cloneNode(true);
 
@@ -216,6 +229,7 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     content: contentClone.outerHTML,
     hyperlights,
     hypercites,
+    footnotes,
   };
   return result;
 }
@@ -533,6 +547,7 @@ export function updateIndexedDBRecord(record) {
         // 🔥 USE PROCESSED CONTENT (WITHOUT MARK/U TAGS)
         if (processedData) {
           toSave.content = processedData.content;
+          toSave.footnotes = processedData.footnotes;
           // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
           // Keep existing arrays or initialize empty if missing
           if (!toSave.hyperlights) toSave.hyperlights = [];
@@ -566,7 +581,8 @@ export function updateIndexedDBRecord(record) {
           node_id: nodeIdFromDOM || null,
           content: processedData ? processedData.content : record.html,
           hyperlights: processedData ? processedData.hyperlights : [],
-          hypercites: processedData ? processedData.hypercites : []
+          hypercites: processedData ? processedData.hypercites : [],
+          footnotes: processedData ? processedData.footnotes : []
         };
         verbose.content(`New nodeChunk record to create: node ${nodeId}, chunk ${toSave.chunk_id}`, 'indexedDB/nodes/batch.js');
       }
@@ -1228,3 +1244,6 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
     }
   });
 }
+
+// Note: batchUpdateMigratedNodes was removed - footnote migration is now handled
+// server-side in DatabaseToIndexedDBController.php

@@ -5,6 +5,8 @@
 
 import { ContainerManager } from '../containerManager.js';
 import { log, verbose } from '../utilities/logger.js';
+// Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
+// to avoid circular dependency (index.js imports from core.js)
 
 // Create the hyperlit container manager instance
 export let hyperlitManager = null;
@@ -100,26 +102,24 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   document.body.classList.add('hyperlit-container-open');
   console.log('🔒 Body scroll locked (KeyboardManager will handle keyboard adjustments)');
 
-  // THEN set the content after the container is opened
-  setTimeout(() => {
-    const scroller = container.querySelector('.scroller');
-    if (scroller) {
-      console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+  // Set content immediately (no setTimeout to preserve user gesture chain for Safari input)
+  const scroller = container.querySelector('.scroller');
+  if (scroller) {
+    console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
 
-      // Clear content again just before setting to ensure no duplicates
-      scroller.innerHTML = '';
-      scroller.innerHTML = content;
-      console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
+    // Clear content again just before setting to ensure no duplicates
+    scroller.innerHTML = '';
+    scroller.innerHTML = content;
+    console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
 
-      // Attach scroll containment handlers
-      attachScrollContainment(scroller);
-    } else {
-      console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
-      // Clear and set content directly
-      container.innerHTML = '';
-      container.innerHTML = content;
-    }
-  }, 50);
+    // Attach scroll containment handlers
+    attachScrollContainment(scroller);
+  } else {
+    console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
+    // Clear and set content directly
+    container.innerHTML = '';
+    container.innerHTML = content;
+  }
 }
 
 /**
@@ -137,6 +137,11 @@ export function closeHyperlitContainer() {
 
   if (hyperlitManager && hyperlitManager.closeContainer) {
     try {
+      // Clean up all registered event listeners to prevent accumulation
+      // Use dynamic imports to avoid circular dependency (index.js imports from core.js)
+      import('./index.js').then(({ cleanupContainerListeners }) => cleanupContainerListeners());
+      import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
+
       // Remove scroll containment handlers
       const container = document.getElementById("hyperlit-container");
       if (container) {

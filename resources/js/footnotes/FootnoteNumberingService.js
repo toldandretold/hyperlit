@@ -48,10 +48,23 @@ export function buildFootnoteMap(bookId, nodes) {
   const orderedFootnoteIds = [];
   const seenIds = new Set();
 
-  // ALWAYS extract from HTML content to get current state
-  // The nodes.footnotes arrays may be stale after edits
-  // HTML content is the source of truth for what footnotes exist
-  extractFootnoteIdsFromContent(sortedNodes, orderedFootnoteIds, seenIds);
+  // Use nodes.footnotes arrays (kept in sync during saves in batch.js)
+  // This is much faster than parsing HTML content for every node
+  for (const node of sortedNodes) {
+    if (node.footnotes && Array.isArray(node.footnotes)) {
+      for (const footnoteId of node.footnotes) {
+        if (footnoteId && !seenIds.has(footnoteId)) {
+          orderedFootnoteIds.push(footnoteId);
+          seenIds.add(footnoteId);
+        }
+      }
+    }
+  }
+
+  // COMMENTED OUT - old HTML parsing approach, kept for potential migration use
+  // console.time('⏱️ extractFootnoteIdsFromContent');
+  // extractFootnoteIdsFromContent(sortedNodes, orderedFootnoteIds, seenIds);
+  // console.timeEnd('⏱️ extractFootnoteIdsFromContent');
 
   // Build the maps
   footnoteMap.clear();
@@ -154,7 +167,12 @@ export async function rebuildAndRenumber(bookId, nodes) {
   verbose.content(`Rebuilding footnote map for book ${bookId}`, 'FootnoteNumberingService.js');
 
   buildFootnoteMap(bookId, nodes);
-  updateFootnoteNumbersInDOM();
+  const affectedStartLines = updateFootnoteNumbersInDOM();
+
+  // Persist the updated fn-count-id values to IndexedDB
+  if (affectedStartLines.size > 0) {
+    await persistRenumberedNodes(bookId, affectedStartLines);
+  }
 
   // Emit event for any listeners
   window.dispatchEvent(new CustomEvent('footnotesRenumbered', {
@@ -167,8 +185,12 @@ export async function rebuildAndRenumber(bookId, nodes) {
 /**
  * Update all visible footnote numbers in the DOM.
  * Called after rebuildAndRenumber or when chunks are loaded.
+ *
+ * @returns {Set<string>} Set of startLine IDs that were modified
  */
 export function updateFootnoteNumbersInDOM() {
+  const affectedStartLines = new Set();
+
   // Find all footnote reference sups in the DOM - support both old and new formats
   // Old format: <sup fn-count-id="2"><a href="#bookIdFn...">2</a></sup> (no .footnote-ref class)
   // New format: <sup fn-count-id="2"><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
@@ -188,10 +210,22 @@ export function updateFootnoteNumbersInDOM() {
       // Update the parent sup's fn-count-id attribute
       const sup = link.closest('sup');
       if (sup) {
-        sup.setAttribute('fn-count-id', displayNumber.toString());
+        const currentValue = sup.getAttribute('fn-count-id');
+        const newValue = displayNumber.toString();
+
+        if (currentValue !== newValue) {
+          sup.setAttribute('fn-count-id', newValue);
+          // Update the visible text
+          link.textContent = newValue;
+
+          // Track the affected node by finding parent block element with numeric startLine id
+          // Skip the sup itself (which has id like "asdfsadf34dddFnref..."), find the actual node (p, div, etc)
+          const nodeElement = sup.closest('p[id], div[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], pre[id]');
+          if (nodeElement && nodeElement.id && /^\d+(\.\d+)?$/.test(nodeElement.id)) {
+            affectedStartLines.add(nodeElement.id);
+          }
+        }
       }
-      // Update the visible text
-      link.textContent = displayNumber.toString();
     }
   }
 
@@ -205,6 +239,34 @@ export function updateFootnoteNumbersInDOM() {
     if (displayNumber) {
       anchor.setAttribute('fn-count-id', displayNumber.toString());
     }
+  }
+
+  return affectedStartLines;
+}
+
+/**
+ * Persist renumbered footnotes to IndexedDB and queue for server sync.
+ * Extracts updated HTML from DOM and saves to database.
+ *
+ * @param {string} bookId - Book identifier
+ * @param {Set<string>} affectedStartLines - Set of startLine IDs that need saving
+ */
+async function persistRenumberedNodes(bookId, affectedStartLines) {
+  if (affectedStartLines.size === 0) return;
+
+  try {
+    const { batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch.js');
+
+    // Convert startLines to records format expected by batchUpdateIndexedDBRecords
+    const recordsToUpdate = Array.from(affectedStartLines).map(startLine => ({
+      id: startLine
+    }));
+
+    await batchUpdateIndexedDBRecords(recordsToUpdate);
+
+    verbose.content(`Persisted ${recordsToUpdate.length} renumbered nodes via batch update`, 'FootnoteNumberingService.js');
+  } catch (error) {
+    log.error('Error persisting renumbered nodes', 'FootnoteNumberingService.js', error);
   }
 }
 

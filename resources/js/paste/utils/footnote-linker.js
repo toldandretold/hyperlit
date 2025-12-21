@@ -32,10 +32,9 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
     const identifier = sup.textContent.trim();
     if (footnoteMappings.has(identifier)) {
       const mapping = footnoteMappings.get(identifier);
-      sup.id = mapping.uniqueRefId;
+      // Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+      sup.id = `${mapping.uniqueId}ref`;
       sup.setAttribute('fn-count-id', identifier);
-      // Store footnote ID for easy extraction when building nodes.footnotes array
-      sup.setAttribute('data-footnote-id', mapping.uniqueId);
 
       // Create or update link
       let link = sup.querySelector('a');
@@ -89,8 +88,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
       if (footnoteMappings.has(identifier)) {
         const mapping = footnoteMappings.get(identifier);
-        // Include data-footnote-id for easy extraction when building nodes.footnotes array
-        const supHTML = `<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}" data-footnote-id="${mapping.uniqueId}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+        // Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+        const supHTML = `<sup fn-count-id="${identifier}" id="${mapping.uniqueId}ref"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
 
         replacements.push({
           start: match.index,
@@ -116,8 +115,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
         if (footnoteMappings.has(identifier)) {
           const mapping = footnoteMappings.get(identifier);
-          // Include data-footnote-id for easy extraction when building nodes.footnotes array
-          const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}" data-footnote-id="${mapping.uniqueId}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+          // Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+          const supHTML = `${punctuation}<sup fn-count-id="${identifier}" id="${mapping.uniqueId}ref"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
 
           replacements.push({
             start: match.index,
