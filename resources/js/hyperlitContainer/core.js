@@ -200,7 +200,22 @@ export function closeHyperlitContainer() {
 
       // Clean up URL hash and history state when closing container
       const currentUrl = window.location;
-      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
+      const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
+      const isFootnotePath = pathSegments.length >= 2 && pathSegments[1]?.includes('_Fn');
+
+      if (isFootnotePath) {
+        // Remove footnote ID from path: /book/footnoteID -> /book
+        const bookSlug = pathSegments[0] || '';
+        const cleanUrl = `/${bookSlug}${currentUrl.search}`;
+        console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
+
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: null
+        };
+        history.pushState(newState, '', cleanUrl);
+      } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
                              currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
         // Remove hyperlit-related hash from URL
         const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;

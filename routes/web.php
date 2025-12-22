@@ -237,3 +237,11 @@ Route::get('/{book}/{hl?}', [TextController::class, 'show'])
        'hl'   => 'HL_[A-Za-z0-9_-]+'
      ])
      ->name('book.show');
+
+// Book with footnote route (footnote IDs contain _Fn)
+Route::get('/{book}/{fn}', [TextController::class, 'show'])
+     ->where([
+       'book' => '[A-Za-z0-9_-]+',
+       'fn'   => '[A-Za-z0-9_-]*_Fn[A-Za-z0-9_-]+'
+     ])
+     ->name('book.footnote');

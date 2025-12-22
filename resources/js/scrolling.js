@@ -132,7 +132,7 @@ import { verbose } from './utilities/logger.js';
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { book, OpenHyperlightID } from "./app.js";
+import { book, OpenHyperlightID, OpenFootnoteID } from "./app.js";
 import { openHighlightById } from './hyperlights/index.js';
 import {
   getNodeChunksFromIndexedDB,
@@ -559,15 +559,21 @@ export async function restoreScrollPosition() {
   // If so, skip scroll restoration - BookToBookTransition will handle navigation
   const pathSegments = window.location.pathname.split('/').filter(Boolean);
   const isHyperlightPath = pathSegments.length >= 2 && pathSegments[1]?.startsWith('HL_');
+  const isFootnotePath = pathSegments.length >= 2 && pathSegments[1]?.includes('_Fn');
   if (isHyperlightPath) {
     console.log(`⏭️ RESTORE SCROLL: Hyperlight path detected (${pathSegments[1]}), skipping scroll restoration`);
     return;
   }
+  if (isFootnotePath) {
+    console.log(`⏭️ RESTORE SCROLL: Footnote path detected (${pathSegments[1]}), skipping scroll restoration`);
+    return;
+  }
 
-  // If we're navigating to an internal ID (like a highlight), prioritize that
-  if (currentLazyLoader.isNavigatingToInternalId && OpenHyperlightID) {
-    console.log(`🔍 Prioritizing navigation to highlight: ${OpenHyperlightID}`);
-    navigateToInternalId(OpenHyperlightID, currentLazyLoader, false); // No overlay for internal highlight navigation
+  // If we're navigating to an internal ID (like a highlight or footnote), prioritize that
+  const targetInternalId = OpenHyperlightID || OpenFootnoteID;
+  if (currentLazyLoader.isNavigatingToInternalId && targetInternalId) {
+    console.log(`🔍 Prioritizing navigation to internal ID: ${targetInternalId}`);
+    navigateToInternalId(targetInternalId, currentLazyLoader, false);
     return; // Exit early, don't proceed with normal scroll restoration
   }
 
@@ -1065,7 +1071,19 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         openHighlightById(targetId);
       }, 200);
     }
-    
+
+    // For footnotes, open them after scrolling starts (same as highlights)
+    if (targetId.includes('_Fn')) {
+      setTimeout(async () => {
+        console.log(`Opening footnote after navigation: ${targetId}`);
+        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
+        const footnoteElement = document.getElementById(targetId);
+        if (footnoteElement) {
+          handleUnifiedContentClick(footnoteElement);
+        }
+      }, 200);
+    }
+
     // For hypercites, highlight the target and dim others
     if (targetId.startsWith('hypercite_')) {
       setTimeout(() => {
