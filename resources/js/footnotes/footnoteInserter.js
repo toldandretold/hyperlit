@@ -9,14 +9,14 @@ import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 
 /**
  * Generate a unique footnote ID
- * Format: {bookId}_Fn{timestamp}{identifier}
+ * Format: {bookId}_Fn{timestamp}_{random}
  * @param {string} bookId
  * @returns {string}
  */
 export function generateFootnoteId(bookId) {
   const timestamp = Date.now();
-  const identifier = '001';
-  return `${bookId}_Fn${timestamp}${identifier}`;
+  const random = Math.random().toString(36).substring(2, 6);
+  return `${bookId}_Fn${timestamp}_${random}`;
 }
 
 /**
@@ -35,10 +35,11 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
   const footnoteId = generateFootnoteId(bookId);
 
   // 2. Create the sup element with placeholder display number "?"
-  // Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+  // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+  // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
   const supElement = document.createElement('sup');
   supElement.setAttribute('fn-count-id', '?');
-  supElement.id = `${footnoteId}ref`;
+  supElement.id = footnoteId;
 
   const anchorElement = document.createElement('a');
   anchorElement.className = 'footnote-ref';
@@ -135,5 +136,6 @@ async function createFootnoteRecord(footnoteId, bookId) {
 export async function openFootnoteForEditing(footnoteId, supElement) {
   // Use handleUnifiedContentClick with the sup element
   // This will detect it as a footnote and build the content
-  await handleUnifiedContentClick(supElement, null, [], false, false, null);
+  // Pass isNewFootnote=true so the container knows to auto-focus
+  await handleUnifiedContentClick(supElement, null, [], false, false, null, true);
 }

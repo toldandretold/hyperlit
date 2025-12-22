@@ -60,7 +60,7 @@ export async function buildFootnoteContent(contentType, db = null) {
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <span class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" style="flex: 1; outline: none;" spellcheck="false" autocorrect="off" autocapitalize="off">${inlineContent}</span>
+              <span class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</span>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">
@@ -73,7 +73,7 @@ export async function buildFootnoteContent(contentType, db = null) {
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <span class="footnote-text empty-footnote" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" style="flex: 1; outline: none;" spellcheck="false" autocorrect="off" autocapitalize="off"></span>
+              <span class="footnote-text empty-footnote" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></span>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">

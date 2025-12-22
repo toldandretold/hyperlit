@@ -320,8 +320,6 @@ export function startObserving(editableDiv) {
     const supElement = element.closest('sup');
     if (!supElement) return;
 
-    console.log('🎯 INSIDE SUP TAG - escaping!', supElement);
-
     // We're inside a sup - move cursor outside before the input happens
     e.preventDefault();
     e.stopPropagation();
@@ -341,8 +339,6 @@ export function startObserving(editableDiv) {
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
-
-    console.log(`✅ Escaped from sup tag, inserted: "${textToInsert}"`);
   };
 
   // Use capture phase to intercept before other handlers

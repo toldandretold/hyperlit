@@ -109,17 +109,29 @@ function extractFootnoteIdsFromContent(nodes, orderedFootnoteIds, seenIds) {
     const temp = document.createElement('div');
     temp.innerHTML = node.content;
 
-    // Find all footnote links - support both old and new formats:
-    // Old format: <sup fn-count-id="2"><a href="#bookIdFn...">2</a></sup> (no .footnote-ref class)
-    // New format: <sup fn-count-id="2"><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
-    const footnoteLinks = temp.querySelectorAll('sup[fn-count-id] a, sup a.footnote-ref, a.footnote-ref');
+    // Find all footnote sups - support both old and new formats:
+    // Old format: <sup fn-count-id="2" id="bookIdFn...ref"><a href="#bookIdFn...">2</a></sup>
+    // New format: <sup fn-count-id="2" id="bookId_Fn..."><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
+    const footnoteSups = temp.querySelectorAll('sup[fn-count-id]');
 
-    for (const link of footnoteLinks) {
-      const href = link.getAttribute('href');
-      if (!href) continue;
+    for (const sup of footnoteSups) {
+      // New format: sup.id directly contains footnoteId (no "ref" suffix)
+      // Old format fallback: extract from anchor href
+      let footnoteId = sup.id;
 
-      // Extract footnote ID from href (e.g., "#bookId_Fn1758412345001" → "bookId_Fn1758412345001")
-      const footnoteId = href.replace(/^#/, '');
+      // If sup.id has "ref" suffix (old format), strip it
+      if (footnoteId && footnoteId.endsWith('ref')) {
+        footnoteId = footnoteId.slice(0, -3);
+      }
+
+      // Fallback to href if no valid id
+      if (!footnoteId || !isFootnoteId(footnoteId)) {
+        const link = sup.querySelector('a');
+        const href = link?.getAttribute('href');
+        if (href) {
+          footnoteId = href.replace(/^#/, '');
+        }
+      }
 
       if (footnoteId && !seenIds.has(footnoteId) && isFootnoteId(footnoteId)) {
         orderedFootnoteIds.push(footnoteId);
@@ -192,38 +204,49 @@ export function updateFootnoteNumbersInDOM() {
   const affectedStartLines = new Set();
 
   // Find all footnote reference sups in the DOM - support both old and new formats
-  // Old format: <sup fn-count-id="2"><a href="#bookIdFn...">2</a></sup> (no .footnote-ref class)
-  // New format: <sup fn-count-id="2"><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
-  const footnoteRefs = document.querySelectorAll('sup[fn-count-id] a, sup a.footnote-ref');
+  // Old format: <sup fn-count-id="2" id="...ref"><a href="#bookIdFn...">2</a></sup>
+  // New format: <sup fn-count-id="2" id="bookId_Fn..."><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
+  const footnoteSups = document.querySelectorAll('sup[fn-count-id]');
 
-  for (const link of footnoteRefs) {
-    const href = link.getAttribute('href');
-    if (!href) continue;
+  for (const sup of footnoteSups) {
+    // New format: sup.id directly contains footnoteId
+    // Old format: sup.id has "ref" suffix, or extract from anchor href
+    let footnoteId = sup.id;
 
-    // Extract footnoteId from href like "#bookId_Fn1758412345001"
-    const footnoteId = href.replace(/^#/, '');
+    // Strip "ref" suffix if present (old format)
+    if (footnoteId && footnoteId.endsWith('ref')) {
+      footnoteId = footnoteId.slice(0, -3);
+    }
+
+    // Fallback to href if no valid id
+    if (!footnoteId) {
+      const link = sup.querySelector('a');
+      const href = link?.getAttribute('href');
+      if (href) {
+        footnoteId = href.replace(/^#/, '');
+      }
+    }
+
     if (!footnoteId) continue;
 
     // Get the new display number
     const displayNumber = getDisplayNumber(footnoteId);
     if (displayNumber) {
-      // Update the parent sup's fn-count-id attribute
-      const sup = link.closest('sup');
-      if (sup) {
-        const currentValue = sup.getAttribute('fn-count-id');
-        const newValue = displayNumber.toString();
+      const currentValue = sup.getAttribute('fn-count-id');
+      const newValue = displayNumber.toString();
 
-        if (currentValue !== newValue) {
-          sup.setAttribute('fn-count-id', newValue);
-          // Update the visible text
+      if (currentValue !== newValue) {
+        sup.setAttribute('fn-count-id', newValue);
+        // Update the visible text in the anchor link
+        const link = sup.querySelector('a');
+        if (link) {
           link.textContent = newValue;
+        }
 
-          // Track the affected node by finding parent block element with numeric startLine id
-          // Skip the sup itself (which has id like "asdfsadf34dddFnref..."), find the actual node (p, div, etc)
-          const nodeElement = sup.closest('p[id], div[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], pre[id]');
-          if (nodeElement && nodeElement.id && /^\d+(\.\d+)?$/.test(nodeElement.id)) {
-            affectedStartLines.add(nodeElement.id);
-          }
+        // Track the affected node by finding parent block element with numeric startLine id
+        const nodeElement = sup.closest('p[id], div[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], pre[id]');
+        if (nodeElement && nodeElement.id && /^\d+(\.\d+)?$/.test(nodeElement.id)) {
+          affectedStartLines.add(nodeElement.id);
         }
       }
     }
@@ -330,15 +353,30 @@ export async function migrateOldFormatFootnotes(bookId, nodes) {
     const temp = document.createElement('div');
     temp.innerHTML = node.content;
 
-    // Find all footnote reference links - check both old format (just <a>) and new format (a.footnote-ref)
-    // Old format: <sup fn-count-id="2"><a href="#bookIdFn...">2</a></sup>
-    // New format: <sup fn-count-id="2"><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
-    const footnoteLinks = temp.querySelectorAll('sup[fn-count-id] a');
-    for (const link of footnoteLinks) {
-      const sup = link.closest('sup');
-      const displayNum = sup?.getAttribute('fn-count-id');
-      const href = link.getAttribute('href');
-      const footnoteId = href?.replace(/^#/, '');
+    // Find all footnote sups - check both old format and new format
+    // Old format: <sup fn-count-id="2" id="...ref"><a href="#bookIdFn...">2</a></sup>
+    // New format: <sup fn-count-id="2" id="bookId_Fn..."><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
+    const footnoteSups = temp.querySelectorAll('sup[fn-count-id]');
+    for (const sup of footnoteSups) {
+      const displayNum = sup.getAttribute('fn-count-id');
+
+      // New format: sup.id directly contains footnoteId
+      // Old format: sup.id has "ref" suffix, or extract from anchor href
+      let footnoteId = sup.id;
+
+      // Strip "ref" suffix if present (old format)
+      if (footnoteId && footnoteId.endsWith('ref')) {
+        footnoteId = footnoteId.slice(0, -3);
+      }
+
+      // Fallback to href if no valid id
+      if (!footnoteId || !isFootnoteId(footnoteId)) {
+        const link = sup.querySelector('a');
+        const href = link?.getAttribute('href');
+        if (href) {
+          footnoteId = href.replace(/^#/, '');
+        }
+      }
 
       if (displayNum && footnoteId && isFootnoteId(footnoteId)) {
         displayToId.set(displayNum, footnoteId);

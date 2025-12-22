@@ -4,6 +4,8 @@ import json
 import time
 import os
 import argparse
+import random
+import string
 from bs4 import BeautifulSoup, NavigableString
 
 # --- UTILITY FUNCTIONS ---
@@ -455,9 +457,9 @@ def process_whole_document_footnotes(soup, book_id):
             
             print(f"Processing whole-doc footnote {identifier}: {content[:50]}...")
             
-            # Generate unique IDs
-            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}{identifier}"
-            unique_fnref_id = f"{book_id}_Fnref{int(time.time() * 1000)}{identifier}"
+            # Generate unique footnote ID (same ID used for both sup and anchor)
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
             
             # Add anchor with unique ID
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -466,7 +468,6 @@ def process_whole_document_footnotes(soup, book_id):
             
             footnote_map[identifier] = {
                 'unique_fn_id': unique_fn_id,
-                'unique_fnref_id': unique_fnref_id,
                 'content': content,
                 'element': element
             }
@@ -551,17 +552,17 @@ def main(html_file_path, output_dir, book_id):
             
             identifier = id_match.group(1)
 
-            # Generate unique IDs for traditional footnotes
-            unique_fn_id = f"{book_id}Fn{int(time.time() * 1000)}{identifier}"
-            unique_fnref_id = f"{book_id}Fnref{int(time.time() * 1000)}{identifier}"
+            # Generate unique footnote ID for traditional footnotes (same ID for sup and anchor)
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
 
             # Add anchor with unique ID and count attribute
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
             anchor_tag['fn-count-id'] = identifier
             li.insert(0, anchor_tag)
 
-            # Update the back-link to point to the unique in-text reference
-            back_link['href'] = f"#{unique_fnref_id}"
+            # Update the back-link to point to the unique in-text reference (same ID)
+            back_link['href'] = f"#{unique_fn_id}"
 
             # Extract content for JSON
             temp_li = BeautifulSoup(str(li), 'html.parser')
@@ -575,8 +576,7 @@ def main(html_file_path, output_dir, book_id):
                 sectioned_footnote_map['traditional'] = {}
             
             sectioned_footnote_map['traditional'][identifier] = {
-                'unique_fn_id': unique_fn_id, 
-                'unique_fnref_id': unique_fnref_id,
+                'unique_fn_id': unique_fn_id,
                 'content': content,
                 'section_id': 'traditional'
             }
@@ -604,9 +604,9 @@ def main(html_file_path, output_dir, book_id):
             content = number_match.group(4).strip()
             print(f"Processing footnote {identifier} in section {section_id}: {content[:30]}...")
             
-            # Generate unique IDs with section prefix
-            unique_fn_id = f"{book_id}_{section_id}_Fn{int(time.time() * 1000)}{identifier}"
-            unique_fnref_id = f"{book_id}_{section_id}_Fnref{int(time.time() * 1000)}{identifier}"
+            # Generate unique footnote ID with section prefix (same ID for sup and anchor)
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            unique_fn_id = f"{book_id}_{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
             
             # Add anchor with unique ID and section info
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -616,7 +616,6 @@ def main(html_file_path, output_dir, book_id):
             
             sectioned_footnote_map[section_id][identifier] = {
                 'unique_fn_id': unique_fn_id,
-                'unique_fnref_id': unique_fnref_id,
                 'content': content,
                 'section_id': section_id,
                 'element': footnote_element
@@ -745,7 +744,7 @@ def main(html_file_path, output_dir, book_id):
 
         footnote_data = find_footnote_data(identifier, a_tag)
         if footnote_data and text_content == identifier:
-            new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
+            new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
             new_sup['fn-count-id'] = identifier
             if 'section_id' in footnote_data:
                 new_sup['fn-section-id'] = footnote_data['section_id']
@@ -760,7 +759,7 @@ def main(html_file_path, output_dir, book_id):
         identifier = sup_tag.get_text(strip=True)
         footnote_data = find_footnote_data(identifier, sup_tag)
         if footnote_data:
-            sup_tag['id'] = footnote_data['unique_fnref_id']
+            sup_tag['id'] = footnote_data['unique_fn_id']
             sup_tag['fn-count-id'] = identifier
             if 'section_id' in footnote_data:
                 sup_tag['fn-section-id'] = footnote_data['section_id']
@@ -792,7 +791,7 @@ def main(html_file_path, output_dir, book_id):
                     footnote_data = find_footnote_data(identifier, text_node.parent)
                     if footnote_data:
                         new_content.append(NavigableString(text[last_index:match.start()]))
-                        new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
+                        new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
                         new_sup['fn-count-id'] = identifier
                         if 'section_id' in footnote_data:
                             new_sup['fn-section-id'] = footnote_data['section_id']

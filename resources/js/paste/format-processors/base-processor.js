@@ -367,22 +367,26 @@ export class BaseFormatProcessor {
 
   /**
    * Generate unique footnote ID
+   * Format: {bookId}_Fn{timestamp}_{random}
    * @param {string} bookId - Book identifier
-   * @param {string|number} identifier - Footnote identifier (e.g., '1')
+   * @param {string|number} identifier - Footnote identifier (e.g., '1') - now unused, kept for compatibility
    * @returns {string} - Unique footnote ID
    */
   generateFootnoteId(bookId, identifier) {
-    return `${bookId}Fn${Date.now()}${identifier}`;
+    const random = Math.random().toString(36).substring(2, 6);
+    return `${bookId}_Fn${Date.now()}_${random}`;
   }
 
   /**
-   * Generate unique footnote reference ID
-   * @param {string} bookId - Book identifier
-   * @param {string|number} identifier - Footnote identifier
-   * @returns {string} - Unique reference ID
+   * Generate footnote reference ID (same as footnote ID - no ref suffix needed)
+   * @param {string} footnoteId - The footnote ID to use
+   * @returns {string} - Same as footnoteId (ref suffix removed)
+   * @deprecated Use footnoteId directly instead
    */
-  generateFootnoteRefId(bookId, identifier) {
-    return `${bookId}Fnref${Date.now()}${identifier}`;
+  generateFootnoteRefId(footnoteId) {
+    // For backward compatibility, return the same ID
+    // The ref suffix is no longer used since footnotes display in popups
+    return footnoteId;
   }
 
   /**
@@ -390,7 +394,7 @@ export class BaseFormatProcessor {
    * @param {string} footnoteId - Unique footnote ID
    * @param {string} content - Footnote content (HTML)
    * @param {string|number} originalIdentifier - Original identifier from source
-   * @param {string} refId - Reference ID for back-linking
+   * @param {string} refId - Reference ID (now same as footnoteId, kept for compatibility)
    * @param {string} type - Type of footnote (e.g., 'html-paragraph-heuristic')
    * @returns {Object} - Footnote object
    */
@@ -399,7 +403,7 @@ export class BaseFormatProcessor {
       footnoteId,
       content,
       originalIdentifier: String(originalIdentifier),
-      refId,
+      refId: footnoteId, // Use footnoteId directly - ref suffix no longer needed
       type
     };
   }

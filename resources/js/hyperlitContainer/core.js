@@ -110,6 +110,10 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     // Clear content again just before setting to ensure no duplicates
     scroller.innerHTML = '';
     scroller.innerHTML = content;
+
+    // 🔑 Force layout flush before focus - Safari needs this to finalize contenteditable setup
+    void scroller.offsetHeight;
+
     console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
 
     // Attach scroll containment handlers

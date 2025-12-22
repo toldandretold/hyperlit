@@ -678,7 +678,8 @@ class DatabaseToIndexedDBController extends Controller
             }
 
             // Canonical format: fn-count-id and id only (no data-footnote-id)
-            $canonicalSupAttrs = ' fn-count-id="' . $fnCountId . '" id="' . $footnoteId . 'ref"';
+            // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
+            $canonicalSupAttrs = ' fn-count-id="' . $fnCountId . '" id="' . $footnoteId . '"';
 
             // Build canonical anchor tag
             $canonicalATag = '<a class="footnote-ref" href="#' . $footnoteId . '">';

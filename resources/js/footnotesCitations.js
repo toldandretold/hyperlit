@@ -78,10 +78,30 @@ export function initializeFootnoteCitationListeners() {
     if (target.tagName === 'SUP' && target.hasAttribute('fn-count-id')) {
       event.preventDefault();
       event.stopPropagation();
+
+      // 🔍 DEBUG: Add IMMEDIATE keydown listener to see when events start
+      const clickTime = performance.now();
+      console.log(`🔍 FOOTNOTE CLICK at ${clickTime.toFixed(0)}ms - adding immediate keydown listener`);
+      const immediateKeyHandler = (e) => {
+        console.log(`🔍 IMMEDIATE KEYDOWN at ${performance.now().toFixed(0)}ms (${(performance.now() - clickTime).toFixed(0)}ms after click) - key: ${e.key}`);
+        document.removeEventListener('keydown', immediateKeyHandler, true);
+      };
+      document.addEventListener('keydown', immediateKeyHandler, true);
+
       handleFootnoteOrCitationClick(target);
     } else if (target.tagName === 'A' && target.classList.contains('footnote-ref')) {
       event.preventDefault();
       event.stopPropagation();
+
+      // 🔍 DEBUG: Add IMMEDIATE keydown listener to see when events start
+      const clickTime = performance.now();
+      console.log(`🔍 FOOTNOTE CLICK at ${clickTime.toFixed(0)}ms - adding immediate keydown listener`);
+      const immediateKeyHandler = (e) => {
+        console.log(`🔍 IMMEDIATE KEYDOWN at ${performance.now().toFixed(0)}ms (${(performance.now() - clickTime).toFixed(0)}ms after click) - key: ${e.key}`);
+        document.removeEventListener('keydown', immediateKeyHandler, true);
+      };
+      document.addEventListener('keydown', immediateKeyHandler, true);
+
       handleFootnoteOrCitationClick(target);
     } else if (target.tagName === 'A' && target.classList.contains('in-text-citation')) {
       event.preventDefault();
