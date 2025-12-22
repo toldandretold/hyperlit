@@ -23,6 +23,55 @@ let inputHandler = null;
 let pasteHandler = null;
 let focusHandler = null;
 let blurHandler = null;
+let supEscapeHandler = null;
+
+/**
+ * SUP TAG ESCAPE: Prevent typing inside sup elements
+ * Sup tags contain generated content (hypercite arrows) - never user-editable
+ */
+function handleSupEscape(e) {
+  // Only handle text insertion events
+  if (!e.inputType || !e.inputType.startsWith('insert')) return;
+
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) return;
+
+  // Use anchorNode which is more reliable for cursor position
+  let node = selection.anchorNode;
+  if (!node) return;
+
+  // Get the element (if text node, get parent)
+  let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  if (!element) return;
+
+  // Only handle if inside our contenteditable elements
+  const isInAnnotation = element.closest('.annotation[data-highlight-id]');
+  const isInFootnote = element.closest('.footnote-text[data-footnote-id]');
+  if (!isInAnnotation && !isInFootnote) return;
+
+  // Check if we're inside a <sup> tag
+  const supElement = element.closest('sup');
+  if (!supElement) return;
+
+  // We're inside a sup - move cursor outside before the input happens
+  e.preventDefault();
+  e.stopPropagation();
+
+  const textToInsert = e.data || '';
+
+  // Insert text directly after the sup element
+  supElement.insertAdjacentText('afterend', textToInsert);
+
+  // Position cursor after the inserted text
+  const nextNode = supElement.nextSibling;
+  if (nextNode && nextNode.nodeType === Node.TEXT_NODE) {
+    const newRange = document.createRange();
+    newRange.setStart(nextNode, nextNode.length);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+  }
+}
 
 /**
  * Attach unified listeners to hyperlit-container
@@ -47,6 +96,10 @@ export function attachNoteListeners() {
   container.addEventListener('focus', focusHandler, true);
   container.addEventListener('blur', blurHandler, true);
 
+  // SUP TAG ESCAPE: Prevent typing inside sup elements (hypercite arrows)
+  supEscapeHandler = handleSupEscape;
+  container.addEventListener('beforeinput', supEscapeHandler, { capture: true });
+
   isAttached = true;
   console.log('Note listeners attached to hyperlit-container');
 }
@@ -62,6 +115,12 @@ export function detachNoteListeners() {
   container.removeEventListener('paste', pasteHandler);
   container.removeEventListener('focus', focusHandler, true);
   container.removeEventListener('blur', blurHandler, true);
+
+  // Remove sup escape handler
+  if (supEscapeHandler) {
+    container.removeEventListener('beforeinput', supEscapeHandler, { capture: true });
+    supEscapeHandler = null;
+  }
 
   // Clear all pending debounce timers
   for (const timer of debounceTimers.values()) {
