@@ -11,6 +11,41 @@ import { log, verbose } from '../utilities/logger.js';
 // Create the hyperlit container manager instance
 export let hyperlitManager = null;
 
+// ============================================================================
+// EDIT MODE STATE MANAGEMENT
+// ============================================================================
+// Persists across container open/close cycles (stored in module memory)
+// When user toggles edit mode, state is remembered for next container open
+
+let isHyperlitEditMode = false;
+
+/**
+ * Get current edit mode state
+ * @returns {boolean} Whether edit mode is enabled
+ */
+export function getHyperlitEditMode() {
+  return isHyperlitEditMode;
+}
+
+/**
+ * Set edit mode state
+ * @param {boolean} enabled - Whether to enable edit mode
+ */
+export function setHyperlitEditMode(enabled) {
+  isHyperlitEditMode = enabled;
+  console.log(`✏️ Hyperlit edit mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
+}
+
+/**
+ * Toggle edit mode state
+ * @returns {boolean} The new edit mode state
+ */
+export function toggleHyperlitEditMode() {
+  isHyperlitEditMode = !isHyperlitEditMode;
+  console.log(`✏️ Hyperlit edit mode toggled to: ${isHyperlitEditMode ? 'ENABLED' : 'DISABLED'}`);
+  return isHyperlitEditMode;
+}
+
 /**
  * Initialize the hyperlit container manager
  * Ensures DOM is ready before initialization
@@ -144,6 +179,7 @@ export function closeHyperlitContainer() {
       // Clean up all registered event listeners to prevent accumulation
       // Use dynamic imports to avoid circular dependency (index.js imports from core.js)
       import('./index.js').then(({ cleanupContainerListeners }) => cleanupContainerListeners());
+      import('./noteListener.js').then(({ detachNoteListeners }) => detachNoteListeners());
       import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
 
       // Remove scroll containment handlers

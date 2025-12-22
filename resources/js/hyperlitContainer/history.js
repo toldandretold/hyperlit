@@ -4,8 +4,9 @@
  */
 
 import { detectHypercites, detectHighlights } from './detection.js';
-import { buildUnifiedContent, handlePostOpenActions } from './index.js';
-import { openHyperlitContainer, hyperlitManager } from './core.js';
+import { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission } from './index.js';
+import { openHyperlitContainer, hyperlitManager, getHyperlitEditMode } from './core.js';
+import { openDatabase } from '../indexedDB/index.js';
 
 /**
  * Determine URL hash for single content types
@@ -53,17 +54,23 @@ export function determineSingleContentHash(contentTypes) {
 
 /**
  * Restore hyperlit container from history state
+ * @param {Object} providedContainerState - Optional container state (if not provided, reads from history.state)
+ * @param {boolean} skipUrlUpdate - Whether to skip URL hash update (used when toggling edit mode)
+ * @param {boolean} skipAutoFocus - Skip auto-focus (used when edit button handles focus separately)
  * @returns {Promise<boolean>} True if successfully restored
  */
-export async function restoreHyperlitContainerFromHistory() {
-  const historyState = history.state;
+export async function restoreHyperlitContainerFromHistory(providedContainerState = null, skipUrlUpdate = false, skipAutoFocus = false) {
+  // Use provided state or fall back to history.state
+  let containerState = providedContainerState;
 
-  if (!historyState || !historyState.hyperlitContainer) {
-    console.log('📊 No hyperlit container state found in history');
-    return false;
+  if (!containerState) {
+    const historyState = history.state;
+    if (!historyState || !historyState.hyperlitContainer) {
+      console.log('📊 No hyperlit container state found in history');
+      return false;
+    }
+    containerState = historyState.hyperlitContainer;
   }
-
-  const containerState = historyState.hyperlitContainer;
   console.log('📊 Restoring hyperlit container from history:', containerState);
 
   try {
@@ -98,12 +105,18 @@ export async function restoreHyperlitContainerFromHistory() {
     }
 
     if (contentTypes.length > 0) {
-      // Build and open the container
-      const unifiedContent = await buildUnifiedContent(contentTypes, containerState.newHighlightIds || []);
+      // Get edit mode state and permission info
+      const db = await openDatabase();
+      const newHighlightIds = containerState.newHighlightIds || [];
+      const editModeEnabled = getHyperlitEditMode();
+      const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+
+      // Build and open the container with edit mode state
+      const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
       openHyperlitContainer(unifiedContent, true); // isBackNavigation = true
 
-      // Handle post-open actions
-      await handlePostOpenActions(contentTypes, containerState.newHighlightIds || []);
+      // Handle post-open actions with edit permission info
+      await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, skipAutoFocus);
 
       console.log('✅ Successfully restored hyperlit container from history');
       return true;

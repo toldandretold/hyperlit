@@ -9,7 +9,7 @@ import { log, verbose } from '../utilities/logger.js';
 import { hideNavigationLoading, navigateToInternalId } from '../scrolling.js';
 import { book } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
-import { navigateToHyperciteTarget } from '../hypercites/index.js';
+import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
 import { currentLazyLoader } from '../initializePage.js';
 import { getLocalStorageKey } from '../indexedDB/index.js';
 import { restoreHyperlitContainerFromHistory, closeHyperlitContainer } from '../hyperlitContainer/index.js';
@@ -256,24 +256,26 @@ export class LinkNavigationHandler {
    */
   static async handleSameBookNavigation(link, linkUrl) {
     verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
-    
+
     try {
       // Check if this is a hyperlight URL pattern
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
-      
+      // Check if this is a footnote URL pattern (format: /book/bookId_Fn...)
+      const isFootnoteURL = pathSegments.length > 1 && pathSegments[1].includes('_Fn');
+
       if (isHyperlightURL) {
         const hyperlightId = pathSegments[1];
         const hyperciteId = linkUrl.hash.substring(1);
 
         verbose.nav(`Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
-        
+
         // navigateToHyperciteTarget already imported statically
         // currentLazyLoader already imported statically
-        
+
         if (currentLazyLoader) {
           const url = new URL(link.href);
-          
+
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
           const targetUrl = url.pathname + url.hash;
@@ -287,6 +289,27 @@ export class LinkNavigationHandler {
             // navigateToInternalId already imported statically
             navigateToInternalId(hyperlightId, currentLazyLoader, false);
           }
+        }
+      } else if (isFootnoteURL) {
+        // Handle footnote navigation (format: /book/bookId_Fn1234#hypercite_abc)
+        const footnoteId = pathSegments[1];
+        const hyperciteId = linkUrl.hash.substring(1);
+
+        verbose.nav(`Same-book footnote navigation: ${footnoteId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
+
+        if (currentLazyLoader) {
+          const url = new URL(link.href);
+
+          // Only update URL if we're not already there
+          const currentUrl = window.location.pathname + window.location.hash;
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
+            verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', url.href);
+            window.history.pushState(null, '', url.href);
+          }
+
+          // Navigate to the footnote and open it in the container
+          await navigateToFootnoteTarget(footnoteId, hyperciteId, currentLazyLoader);
         }
       } else {
         // Regular same-book navigation

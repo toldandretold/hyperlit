@@ -404,9 +404,8 @@ body[data-page="user"] #userLibraryContainer {
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: transparent;
+  background: linear-gradient(to bottom, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
   overscroll-behavior: none; /* Prevent scroll chaining */
   touch-action: none; /* Prevent touch scrolling */
 }
@@ -431,9 +430,8 @@ body[data-page="user"] #userLibraryContainer {
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: transparent;
+  background: linear-gradient(to top, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
   overscroll-behavior: none; /* Prevent scroll chaining */
   touch-action: none; /* Prevent touch scrolling */
 }
@@ -1041,16 +1039,26 @@ body[data-page="user"] #userLibraryContainer {
   -webkit-touch-callout: default;
 }
 
-#hyperlit-container .annotation:empty::before,
-#hyperlit-container .annotation.empty-annotation::before {
+/* Only show placeholder when contenteditable is true (edit mode is ON) */
+#hyperlit-container .annotation[contenteditable="true"]:empty::before,
+#hyperlit-container .annotation[contenteditable="true"].empty-annotation::before {
   content: "Write annotation here...";
   color: #888;
   pointer-events: none;
 }
 
-#hyperlit-container .annotation:focus::before,
-#hyperlit-container .annotation.empty-annotation:focus::before {
+#hyperlit-container .annotation[contenteditable="true"]:focus::before,
+#hyperlit-container .annotation[contenteditable="true"].empty-annotation:focus::before {
   display: none !important;
+}
+
+/* Editable background styling for annotations (when edit mode is ON) */
+#hyperlit-container .annotation[contenteditable="true"] {
+  background-color: var(--editable-bg);
+  border-radius: var(--border-radius-md, 4px);
+  padding: 8px 12px;
+  margin: -8px -12px;
+  cursor: text;
 }
 
 /* Footnote text editing styles */
@@ -1061,6 +1069,12 @@ body[data-page="user"] #userLibraryContainer {
   line-height: 1.5;
 }
 
+/* Editable background on parent .footnote-content when footnote is editable */
+#hyperlit-container .footnote-content:has(.footnote-text[contenteditable="true"]) {
+  background-color: var(--editable-bg);
+  border-radius: var(--border-radius-md, 4px);
+}
+
 #hyperlit-container .footnote-text[contenteditable="true"] {
   cursor: text;
   /* Override global user-select: none for contenteditable elements */
@@ -1069,20 +1083,21 @@ body[data-page="user"] #userLibraryContainer {
   -ms-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
-  /* Safari-specific: Enable immediate keyboard input */
-  -webkit-user-modify: read-write-plaintext-only;
+  /* Allow rich text (HTML) editing - needed for hypercite links */
+  -webkit-user-modify: read-write;
 }
 
-#hyperlit-container .footnote-text:empty::before,
-#hyperlit-container .footnote-text.empty-footnote::before {
+/* Only show placeholder when contenteditable is true (edit mode is ON) */
+#hyperlit-container .footnote-text[contenteditable="true"]:empty::before,
+#hyperlit-container .footnote-text[contenteditable="true"].empty-footnote::before {
   content: "Write footnote content here...";
   color: #888;
   pointer-events: none;
   font-style: italic;
 }
 
-#hyperlit-container .footnote-text:focus::before,
-#hyperlit-container .footnote-text.empty-footnote:focus::before {
+#hyperlit-container .footnote-text[contenteditable="true"]:focus::before,
+#hyperlit-container .footnote-text[contenteditable="true"].empty-footnote:focus::before {
   display: none !important;
 }
 

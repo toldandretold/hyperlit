@@ -134,6 +134,7 @@ export async function buildHyperciteContent(contentType, db = null) {
         const citationParts = citationID.split("#");
         const urlPart = citationParts[0];
         const isHyperlightURL = urlPart.includes("/HL_");
+        const isFootnoteURL = urlPart.includes("_Fn");
 
         let bookID;
         if (isHyperlightURL) {
@@ -147,11 +148,19 @@ export async function buildHyperciteContent(contentType, db = null) {
           if (!bookID) {
             bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
           }
+        } else if (isFootnoteURL) {
+          // Extract bookID from footnoteId format: "/bookId_Fn..." or "/book/bookId_Fn..."
+          const fnMatch = urlPart.match(/\/([^\/]+)_Fn/);
+          if (fnMatch) {
+            bookID = fnMatch[1];
+          } else {
+            bookID = urlPart.replace("/", "").split("_Fn")[0];
+          }
         } else {
           bookID = urlPart.replace("/", "");
         }
 
-        const isSimpleHypercite = !isHyperlightURL && citationParts.length > 1;
+        const isSimpleHypercite = !isHyperlightURL && !isFootnoteURL && citationParts.length > 1;
         const hyperciteIdFromUrl = isSimpleHypercite ? citationParts[1] : null;
 
         return {
@@ -159,6 +168,7 @@ export async function buildHyperciteContent(contentType, db = null) {
           hyperciteId,
           bookID,
           isHyperlightURL,
+          isFootnoteURL,
           isSimpleHypercite,
           hyperciteIdFromUrl
         };
@@ -192,7 +202,7 @@ export async function buildHyperciteContent(contentType, db = null) {
       // 🚀 PERFORMANCE: Process all citations with cached library data
       const linksHTML = await Promise.all(
         citationMetadata.map(async (meta) => {
-          const { citationID, hyperciteId, bookID, isHyperlightURL, isSimpleHypercite, hyperciteIdFromUrl } = meta;
+          const { citationID, hyperciteId, bookID, isHyperlightURL, isFootnoteURL, isSimpleHypercite, hyperciteIdFromUrl } = meta;
 
           // 🚀 PERFORMANCE: Skip permission check during initial render (deferred to post-render)
           // Add placeholder for management buttons that will be injected asynchronously
@@ -226,6 +236,8 @@ export async function buildHyperciteContent(contentType, db = null) {
 
             const citationText = isHyperlightURL
               ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
+              : isFootnoteURL
+              ? `${lockIcon}a <span id="citedInFootnote">Footnote</span> in ${formattedCitation}`
               : `${lockIcon}${formattedCitation}`;
 
             // Add data attributes for private books to enable deferred auth checking
