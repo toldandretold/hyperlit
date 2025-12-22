@@ -112,30 +112,41 @@ export function attachAnnotationListener(highlightId) {
 }
 
 /**
- * Save annotation directly (used by paste handler)
+ * Save annotation directly (used by noteListener)
  * @param {string} highlightId - The highlight ID
  * @param {string} annotationHTML - The annotation HTML
  */
-export function saveHighlightAnnotation(highlightId, annotationHTML) {
-  if (!highlightId) return;
+export const saveHighlightAnnotation = (highlightId, annotationHTML) =>
+  withPending(async () => {
+    if (!highlightId) return;
 
-  openDatabase().then(db => {
+    const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
     const index = store.index("hyperlight_id");
-    const getRequest = index.get(highlightId);
 
-    getRequest.onsuccess = () => {
-      const highlightData = getRequest.result;
-      if (!highlightData) return;
+    const highlightData = await new Promise((res, rej) => {
+      const req = index.get(highlightId);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
 
-      highlightData.annotation = annotationHTML;
+    if (!highlightData) return;
+
+    highlightData.annotation = annotationHTML;
+
+    await new Promise((res, rej) => {
       const updateRequest = store.put(highlightData);
+      updateRequest.onsuccess = () => res();
+      updateRequest.onerror = () => rej(updateRequest.error);
+    });
 
-      updateRequest.onsuccess = () => {
+    await new Promise((res, rej) => {
+      tx.oncomplete = () => {
         console.log(`Successfully saved annotation for highlight ${highlightId}`);
         queueForSync("hyperlights", highlightId, "update", highlightData);
+        res();
       };
-    };
+      tx.onerror = () => rej(tx.error);
+    });
   });
-}

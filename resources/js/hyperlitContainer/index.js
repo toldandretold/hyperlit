@@ -19,7 +19,10 @@ export {
   openHyperlitContainer,
   closeHyperlitContainer,
   destroyHyperlitManager,
-  hyperlitManager
+  hyperlitManager,
+  getHyperlitEditMode,
+  setHyperlitEditMode,
+  toggleHyperlitEditMode
 } from './core.js';
 
 // Content type detection
@@ -64,14 +67,15 @@ export {
 
 import { book } from '../app.js';
 import { openDatabase } from '../indexedDB/index.js';
-import { getCurrentUserId } from "../utilities/auth.js";
-import { openHyperlitContainer } from './core.js';
+import { getCurrentUserId, canUserEditBook } from "../utilities/auth.js";
+import { openHyperlitContainer, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
 import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
+import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -113,6 +117,206 @@ export function cleanupContainerListeners() {
     }
   }
   activeListeners.length = 0;
+}
+
+// ============================================================================
+// EDIT BUTTON HELPERS
+// ============================================================================
+
+/**
+ * Build the edit button HTML
+ * @param {boolean} isActive - Whether edit mode is currently active
+ * @returns {string} HTML string for edit button
+ */
+function buildEditButtonHtml(isActive) {
+  return `
+    <button id="hyperlit-edit-btn" class="${isActive ? 'inverted' : ''}"
+            title="${isActive ? 'Exit edit mode' : 'Enter edit mode'}">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+        <path d="M12 20h9" stroke="#CBCCCC"></path>
+        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#CBCCCC"></path>
+      </svg>
+    </button>`;
+}
+
+/**
+ * Check if user has permission to edit ANY item in the content types
+ * Used to determine whether to show the edit button
+ * @param {Array} contentTypes - Array of content type objects
+ * @param {Array} newHighlightIds - Array of newly created highlight IDs
+ * @param {IDBDatabase} db - Database connection
+ * @returns {Promise<boolean>} Whether user can edit at least one item
+ */
+export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds = [], db = null) {
+  const currentUserId = await getCurrentUserId();
+
+  // Check footnotes and citations (book-level permission)
+  const hasFootnoteOrCitation = contentTypes.some(ct => ct.type === 'footnote' || ct.type === 'citation');
+  if (hasFootnoteOrCitation) {
+    if (await canUserEditBook(book)) {
+      return true;
+    }
+  }
+
+  // Check highlights (item-level permission)
+  const highlightType = contentTypes.find(ct => ct.type === 'highlight');
+  if (highlightType) {
+    // If there are newly created highlights, user can edit those
+    if (newHighlightIds && newHighlightIds.length > 0) {
+      return true;
+    }
+
+    // Check if user owns any of the highlights
+    const database = db || await openDatabase();
+    const tx = database.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
+
+    for (const id of highlightType.highlightIds) {
+      const result = await new Promise((res) => {
+        const req = idx.get(id);
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res(null);
+      });
+
+      if (result) {
+        const isUserHighlight = result.is_user_highlight !== undefined
+          ? result.is_user_highlight
+          : (result.creator ? result.creator === currentUserId : result.creator_token === currentUserId);
+
+        if (isUserHighlight) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Note: Hypercites are intentionally NOT checked here.
+  // The "Cited By" section (for couple/poly hypercites) is read-only,
+  // and "single" hypercites just show an informational message.
+  // Edit button should only show if there's other editable content (footnotes, citations, highlights).
+
+  return false;
+}
+
+/**
+ * Handle edit button click - toggle edit mode in-place without rebuilding content
+ * Preserves scroll position and simply toggles contenteditable attributes
+ */
+async function handleEditButtonClick() {
+  const newState = toggleHyperlitEditMode();
+  const editBtn = document.getElementById('hyperlit-edit-btn');
+  const container = document.getElementById('hyperlit-container');
+  const scroller = container?.querySelector('.scroller');
+
+  // Save scroll position BEFORE any DOM changes
+  const scrollTop = scroller?.scrollTop || 0;
+
+  // Update button visual state
+  if (editBtn) {
+    if (newState) {
+      editBtn.classList.add('inverted');
+      editBtn.title = 'Exit edit mode';
+    } else {
+      editBtn.classList.remove('inverted');
+      editBtn.title = 'Enter edit mode';
+    }
+  }
+
+  // Toggle contenteditable on all editable elements in-place
+  toggleContentEditableInPlace(newState);
+
+  // Attach or detach edit listeners
+  if (newState) {
+    const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
+    attachNoteListeners();
+    initializePlaceholders();
+  } else {
+    const { detachNoteListeners } = await import('./noteListener.js');
+    detachNoteListeners();
+  }
+
+  // Restore scroll position
+  if (scroller) {
+    scroller.scrollTop = scrollTop;
+  }
+
+  // If entering edit mode, focus topmost editable (without scrolling)
+  if (newState) {
+    focusTopmostEditableElement(true); // preventScroll = true
+  }
+}
+
+/**
+ * Focus the topmost editable element in the hyperlit container
+ * Priority: footnote first, then first editable annotation
+ * @param {boolean} preventScroll - If true, prevents scrolling when focusing
+ */
+function focusTopmostEditableElement(preventScroll = false) {
+  const container = document.getElementById('hyperlit-container');
+  if (!container) return;
+
+  // First try to find an editable footnote (always at the top when present)
+  const editableFootnote = container.querySelector('.footnote-text[contenteditable="true"]');
+  if (editableFootnote) {
+    editableFootnote.focus({ preventScroll });
+    // Place cursor at end of content
+    placeCursorAtEnd(editableFootnote);
+    console.log('✏️ Focused topmost editable footnote');
+    return;
+  }
+
+  // Otherwise find the first editable annotation (highlight annotation)
+  const editableAnnotation = container.querySelector('.annotation[contenteditable="true"]');
+  if (editableAnnotation) {
+    editableAnnotation.focus({ preventScroll });
+    // Place cursor at end of content
+    placeCursorAtEnd(editableAnnotation);
+    console.log('✏️ Focused topmost editable annotation');
+    return;
+  }
+
+  console.log('✏️ No editable elements found to focus');
+}
+
+/**
+ * Toggle contenteditable attribute on all editable elements in-place
+ * Uses data-user-can-edit attribute to determine which elements should be toggled
+ * @param {boolean} enabled - Whether edit mode is enabled
+ */
+function toggleContentEditableInPlace(enabled) {
+  const container = document.getElementById('hyperlit-container');
+  if (!container) return;
+
+  // Toggle footnotes (user must have permission - check data attribute)
+  container.querySelectorAll('.footnote-text[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  // Toggle annotations (user must have permission - check data attribute)
+  container.querySelectorAll('.annotation[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  // Toggle highlight text (user must have permission - check data attribute)
+  container.querySelectorAll('.highlight-text[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  console.log(`✏️ Toggled contenteditable=${enabled} on editable elements`);
+}
+
+/**
+ * Place cursor at the end of a contenteditable element
+ * @param {HTMLElement} element - The contenteditable element
+ */
+function placeCursorAtEnd(element) {
+  const range = document.createRange();
+  const selection = window.getSelection();
+  range.selectNodeContents(element);
+  range.collapse(false); // false = collapse to end
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 // ============================================================================
@@ -234,6 +438,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           highlightIds: ct.highlightIds,
           fnCountId: ct.fnCountId,
           elementId: ct.elementId,
+          footnoteId: ct.footnoteId,  // Also store footnoteId for footnotes
           referenceId: ct.referenceId,
           relationshipStatus: ct.relationshipStatus
         })),
@@ -274,8 +479,25 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
       }
     }
 
-    // Build unified content (pass db for reuse)
-    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db);
+    // =========================================================================
+    // EDIT MODE: Auto-enable for newly created items
+    // =========================================================================
+    const hasJustCreatedItem = isNewFootnote || (newHighlightIds && newHighlightIds.length > 0);
+    if (hasJustCreatedItem && !isBackNavigation) {
+      console.log('✏️ Just-created item detected, auto-enabling edit mode');
+      setHyperlitEditMode(true);
+    }
+
+    // Check if user has permission to edit ANY item (determines if edit button shows)
+    const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+    console.log(`✏️ User has edit permission: ${hasAnyEditPermission}`);
+
+    // Get current edit mode state
+    const editModeEnabled = getHyperlitEditMode();
+    console.log(`✏️ Edit mode enabled: ${editModeEnabled}`);
+
+    // Build unified content (pass db for reuse and edit mode state)
+    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
@@ -285,7 +507,8 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // Handle any post-open actions (like cursor placement for editable content)
     // Pass focusPreserver so footnote focus can transfer from it (preserves keyboard on iOS)
     // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
-    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote);
+    // Pass hasAnyEditPermission so we can attach edit button listener
+    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission);
 
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
@@ -305,9 +528,11 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  * @param {Array} contentTypes - Array of content type objects
  * @param {Array} newHighlightIds - Array of new highlight IDs
  * @param {IDBDatabase} db - Reused database connection
+ * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
+ * @param {boolean} hasAnyEditPermission - Whether user has permission to edit any item
  * @returns {Promise<string>} HTML content string
  */
-export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db = null) {
+export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db = null, editModeEnabled = true, hasAnyEditPermission = false) {
   console.log("🔨 Building unified content for types:", contentTypes.map(ct => ct.type));
 
   let contentTypesWithTimestamps;
@@ -403,7 +628,7 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
 
     switch (contentType.type) {
       case 'footnote':
-        const footnoteHtml = await buildFootnoteContent(contentType, db);
+        const footnoteHtml = await buildFootnoteContent(contentType, db, editModeEnabled);
         if (footnoteHtml) {
           console.log(`✅ Added footnote content (${footnoteHtml.length} chars)`);
           contentHtml += footnoteHtml;
@@ -427,7 +652,7 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
         break;
 
       case 'highlight':
-        const highlightHtml = await buildHighlightContent(contentType, newHighlightIds, db);
+        const highlightHtml = await buildHighlightContent(contentType, newHighlightIds, db, editModeEnabled);
         if (highlightHtml) {
           console.log(`✅ Added highlight content (${highlightHtml.length} chars)`);
           contentHtml += highlightHtml;
@@ -453,6 +678,11 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
     contentHtml = '<div class="error">No content available</div>';
   }
 
+  // Append edit button if user has edit permission
+  if (hasAnyEditPermission) {
+    contentHtml += buildEditButtonHtml(editModeEnabled);
+  }
+
   console.log(`📦 Final content HTML (${contentHtml.length} chars):`, contentHtml);
 
   // Return just the content, not the full structure
@@ -466,15 +696,23 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
  * @param {Array} newHighlightIds - Array of new highlight IDs
  * @param {HTMLElement} focusPreserver - Hidden input that preserves user gesture for keyboard (iOS)
  * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
+ * @param {boolean} hasAnyEditPermission - Whether user has permission to edit any item
+ * @param {boolean} skipAutoFocus - Skip auto-focus (used when edit button handles focus separately)
  */
-export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false) {
+export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false, hasAnyEditPermission = false, skipAutoFocus = false) {
+  const editModeEnabled = getHyperlitEditMode();
+
+  // Only attach note listeners if edit mode is enabled
+  // This prevents editing when in read mode
+  if (editModeEnabled) {
+    attachNoteListeners();
+    initializePlaceholders();
+  }
+
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
   if (highlightType) {
     try {
-      // Import the required functions
-      const { attachAnnotationListener, addHighlightContainerPasteListener, attachPlaceholderBehavior } = await import('../hyperlights/index.js');
-
       const { highlightIds } = highlightType;
       const currentUserId = await getCurrentUserId();
 
@@ -495,7 +733,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const results = await Promise.all(reads);
       let firstUserAnnotation = null;
 
-      // Attach listeners for editable highlights
+      // Find first editable highlight for cursor placement
       results.forEach((highlight) => {
         if (highlight) {
           // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
@@ -506,23 +744,15 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
           const isEditable = isUserHighlight || isNewlyCreated;
 
-          if (isEditable) {
-            // Delay listener attachment to ensure DOM is ready
-            setTimeout(() => {
-              attachAnnotationListener(highlight.hyperlight_id);
-              addHighlightContainerPasteListener(highlight.hyperlight_id);
-              attachPlaceholderBehavior(highlight.hyperlight_id);
-            }, 100);
-
-            if (!firstUserAnnotation) {
-              firstUserAnnotation = highlight.hyperlight_id;
-            }
+          if (isEditable && !firstUserAnnotation) {
+            firstUserAnnotation = highlight.hyperlight_id;
           }
         }
       });
 
-      // Place cursor in first user annotation if available
-      if (firstUserAnnotation) {
+      // Place cursor in first user annotation if available AND edit mode is enabled
+      // Skip if skipAutoFocus is true (edit button handles focus separately)
+      if (firstUserAnnotation && editModeEnabled && !skipAutoFocus) {
         setTimeout(() => {
           const annotationDiv = document.querySelector(
             `.annotation[data-highlight-id="${firstUserAnnotation}"]`
@@ -583,9 +813,6 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   const footnoteType = contentTypes.find(ct => ct.type === 'footnote');
   if (footnoteType) {
     try {
-      const { attachFootnoteListener, attachFootnotePlaceholderBehavior } =
-        await import('../footnotes/footnoteAnnotations.js');
-
       // Get the footnote ID from the content type (already extracted by detection)
       const footnoteId = footnoteType.footnoteId;
 
@@ -595,29 +822,31 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           `.footnote-text[data-footnote-id="${footnoteId}"]`
         );
 
-        if (footnoteEl) {
-          attachFootnoteListener(footnoteId);
-          attachFootnotePlaceholderBehavior(footnoteId);
+        // Only focus and place cursor if edit mode is enabled
+        // Skip if skipAutoFocus is true (edit button handles focus separately)
+        if (footnoteEl && editModeEnabled && !skipAutoFocus) {
+          const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+          if (!isMobile) {
+            // Focus the footnote element and place cursor at end
+            footnoteEl.focus();
 
-          // Focus the footnote element and place cursor at end
-          footnoteEl.focus();
-
-          try {
-            const selection = window.getSelection();
-            const range = document.createRange();
-            range.selectNodeContents(footnoteEl);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
-          } catch (e) {
-            // Ignore selection errors
+            try {
+              const selection = window.getSelection();
+              const range = document.createRange();
+              range.selectNodeContents(footnoteEl);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } catch (e) {
+              // Ignore selection errors
+            }
           }
 
           // Clean up the focus preserver
           if (focusPreserver && focusPreserver.parentNode) {
             focusPreserver.remove();
           }
-        } else {
+        } else if (!footnoteEl) {
           console.error(`❌ Footnote element not found: ${footnoteId}`);
         }
       }
@@ -649,6 +878,18 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     if (manageCitationsBtn) {
       const { handleManageCitationsClick } = await import('./contentBuilders/displayHypercites.js');
       registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
+    }
+
+    // Attach edit button click handler if user has edit permission
+    if (hasAnyEditPermission) {
+      const editBtn = document.getElementById('hyperlit-edit-btn');
+      if (editBtn) {
+        registerListener(editBtn, 'click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleEditButtonClick();
+        });
+      }
     }
   }, 100);
 }

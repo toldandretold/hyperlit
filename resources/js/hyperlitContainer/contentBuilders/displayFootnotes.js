@@ -12,12 +12,15 @@ import { canUserEditBook } from '../../utilities/auth.js';
  * Build footnote content section
  * @param {Object} contentType - The footnote content type object
  * @param {IDBDatabase} db - Reused database connection
+ * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
  * @returns {Promise<string>} HTML string for footnote content
  */
-export async function buildFootnoteContent(contentType, db = null) {
+export async function buildFootnoteContent(contentType, db = null, editModeEnabled = true) {
   console.time('buildFootnoteContent-total');
   try {
-    const { fnCountId, footnoteId } = contentType;
+    const { fnCountId } = contentType;
+    // footnoteId may be stored as footnoteId or elementId depending on context
+    const footnoteId = contentType.footnoteId || contentType.elementId;
 
     // footnoteId is already extracted by detection.js
     if (!footnoteId) {
@@ -27,8 +30,11 @@ export async function buildFootnoteContent(contentType, db = null) {
 
     // Check if user can edit this book's footnotes
     console.time('canUserEditBook');
-    const isEditable = await canUserEditBook(book);
+    const hasPermission = await canUserEditBook(book);
     console.timeEnd('canUserEditBook');
+
+    // Final editability: user must have permission AND edit mode must be enabled
+    const isEditable = hasPermission && editModeEnabled;
 
     const database = db || await openDatabase();
     const transaction = database.transaction(["footnotes"], "readonly");
@@ -60,7 +66,7 @@ export async function buildFootnoteContent(contentType, db = null) {
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <span class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</span>
+              <div class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</div>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">
@@ -73,7 +79,7 @@ export async function buildFootnoteContent(contentType, db = null) {
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <span class="footnote-text empty-footnote" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></span>
+              <div class="footnote-text empty-footnote" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></div>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">

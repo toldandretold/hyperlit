@@ -489,6 +489,18 @@ def main(html_file_path, output_dir, book_id):
         soup = BeautifulSoup(f, "html.parser")
 
     # ========================================================================
+    # SAFARI FIX: Remove RTL spans that cause findTextSamplesByVisualExamination lag
+    # Pandoc generates <span dir="rtl">'</span> for smart quotes from DOCX
+    # These trigger Safari's bidirectional text analysis and freeze the browser
+    # ========================================================================
+    rtl_spans = soup.find_all('span', attrs={'dir': 'rtl'})
+    for span in rtl_spans:
+        # Replace the span with just its text content (the quote character)
+        span.replace_with(span.get_text())
+    if rtl_spans:
+        print(f"🔧 SAFARI FIX: Removed {len(rtl_spans)} RTL spans from document")
+
+    # ========================================================================
     # PASS 1: EXTRACT ALL DEFINITIONS
     # ========================================================================
     print("--- PASS 1: Extracting All Definitions ---")

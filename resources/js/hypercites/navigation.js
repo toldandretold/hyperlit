@@ -307,6 +307,72 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
 }
 
 /**
+ * Navigate to footnote targets and open in hyperlit container
+ * @param {string} footnoteId - The footnote ID to navigate to (e.g., "bookId_Fn1234")
+ * @param {string} internalId - Optional internal hypercite ID to scroll to after opening
+ * @param {Object} lazyLoader - The lazy loader instance
+ */
+export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoader) {
+  try {
+    console.log(`🎯 Starting footnote navigation to: ${footnoteId}, internal: ${internalId}`);
+
+    // Clear any conflicting saved scroll positions to prevent interference
+    const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+    console.log(`🧹 Clearing saved scroll positions to prevent navigation interference`);
+    sessionStorage.removeItem(scrollKey);
+
+    // Find the footnote sup element by ID in the document
+    const footnoteElement = document.getElementById(footnoteId);
+    if (!footnoteElement) {
+      console.error(`❌ Footnote element not found: ${footnoteId}`);
+      // Fall back to navigating by internal ID if the element exists elsewhere
+      if (internalId) {
+        navigateToInternalId(internalId, lazyLoader, false);
+      }
+      return;
+    }
+
+    // Scroll to the footnote marker in the document
+    console.log(`📍 Scrolling to footnote element: ${footnoteId}`);
+    footnoteElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Wait a moment for scroll to complete, then trigger the container to open
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Open the footnote in the hyperlit container
+    console.log(`📝 Opening footnote in hyperlit container`);
+    await handleUnifiedContentClick(footnoteElement);
+
+    // If there's a hypercite to scroll to inside the container
+    if (internalId) {
+      // Wait for the container to render
+      setTimeout(() => {
+        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+        if (hyperciteInContainer) {
+          console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
+          hyperciteInContainer.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+          // Highlight the hypercite
+          highlightTargetHypercite(internalId, 500);
+        } else {
+          console.log(`⚠️ Hypercite ${internalId} not found in container`);
+        }
+      }, 400);
+    }
+
+  } catch (error) {
+    console.error(`❌ Error in footnote navigation:`, error);
+    // Fallback: try to navigate by internal ID
+    if (internalId) {
+      navigateToInternalId(internalId, lazyLoader, false);
+    }
+  }
+}
+
+/**
  * Navigate to a hypercite link
  * @param {string} link - The link to navigate to
  * @param {string} clickedHyperciteId - The ID of the clicked hypercite (for loading overlay)
@@ -333,6 +399,20 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
 
       // Use proper sequential navigation with DOM readiness
       await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
+
+      return; // Don't do normal navigation
+    }
+
+    // Check for footnote links (format: /book/bookId_Fn1234#hypercite_abc)
+    const fnMatch = hlSegment && hlSegment.includes("_Fn");
+    if (bookSegment === currentBook && fnMatch) {
+      console.log("✅ Same-book footnote link detected in hypercite");
+
+      const footnoteId = hlSegment; // e.g., "bookId_Fn1234"
+      const internalId = url.hash ? url.hash.slice(1) : null;
+
+      // Navigate to footnote and open in container
+      await navigateToFootnoteTarget(footnoteId, internalId, currentLazyLoader);
 
       return; // Don't do normal navigation
     }

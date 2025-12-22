@@ -12,9 +12,10 @@ import DOMPurify from 'dompurify';
  * @param {Object} contentType - The highlight content type object
  * @param {Array} newHighlightIds - Array of new highlight IDs
  * @param {IDBDatabase} db - Reused database connection
+ * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
  * @returns {Promise<string>} HTML string for highlight content
  */
-export async function buildHighlightContent(contentType, newHighlightIds = [], db = null) {
+export async function buildHighlightContent(contentType, newHighlightIds = [], db = null, editModeEnabled = true) {
   try {
     const { highlightIds } = contentType;
     console.log(`🎨 Building highlight content for IDs:`, highlightIds);
@@ -80,7 +81,10 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
         ? h.is_user_highlight
         : (h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId));
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
-      const isEditable = isUserHighlight || isNewlyCreated;
+      // User has permission if it's their highlight or newly created
+      const hasPermission = isUserHighlight || isNewlyCreated;
+      // Final editability: user must have permission AND edit mode must be enabled
+      const isEditable = hasPermission && editModeEnabled;
       // Sanitize user-controlled content to prevent XSS
       const authorName = DOMPurify.sanitize(h.creator || "Anon", { ALLOWED_TAGS: [] });
       const relativeTime = formatRelativeTime(h.time_since);
@@ -135,19 +139,19 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
       html += `  </div>
 `;
-      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
+      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
       html += `    "${truncatedText}"
 `;
       html += `  </blockquote>
 `;
-      html += `  <div class="annotation" contenteditable="${isEditable}" `;
+      html += `  <div class="annotation" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
-      // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links)
+      // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links + line breaks)
       const sanitizedAnnotation = DOMPurify.sanitize(h.annotation || "", {
-        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'sup', 'span'],
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'sup', 'span', 'div', 'br'],
         ALLOWED_ATTR: ['href', 'id', 'class']
       });
       html += `    ${sanitizedAnnotation}
@@ -163,8 +167,8 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 `;
       }
 
-      // Track first user annotation for cursor placement
-      if (isEditable && !firstUserAnnotation) {
+      // Track first user annotation for cursor placement (based on permission, not current edit mode)
+      if (hasPermission && !firstUserAnnotation) {
         firstUserAnnotation = h.hyperlight_id;
       }
     });

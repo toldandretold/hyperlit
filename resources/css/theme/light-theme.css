@@ -27,6 +27,9 @@ body.theme-light {
   --container-glass-bg: rgba(244, 236, 216, 0.80);
   --container-solid-bg: #EAE0CC;
 
+  /* Editable element background (slightly darker in light mode) */
+  --editable-bg: rgba(0, 0, 0, 0.06);
+
   /* Higher opacity needed on light backgrounds */
   --hypercite-single-opacity: 0.5;
   --hypercite-multi-opacity: 0.7;
