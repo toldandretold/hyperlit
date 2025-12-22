@@ -166,14 +166,9 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   console.log("✅ Setting isProcessingClick to true");
   isProcessingClick = true;
 
-  // 📊 DIAGNOSTIC: Track total time for footnote click handling
-  console.time('📊 handleUnifiedContentClick-TOTAL');
-
   try {
     // 🚀 PERFORMANCE: Open DB once and reuse throughout
-    console.time('📊 openDatabase');
     const db = await openDatabase();
-    console.timeEnd('📊 openDatabase');
     let contentTypes = [];
 
     // If this is a history navigation, we have no element, only an ID.
@@ -215,9 +210,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     } else if (element) {
         // This is a standard click, run the full detection.
         console.log("🎯 Click navigation detected. Running full content detection.");
-        console.time('📊 detectContentTypes');
         contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
-        console.timeEnd('📊 detectContentTypes');
     } else {
         console.warn("handleUnifiedContentClick called with no element or direct ID. Aborting.");
         isProcessingClick = false;
@@ -282,29 +275,20 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     }
 
     // Build unified content (pass db for reuse)
-    console.time('📊 buildUnifiedContent');
     const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db);
-    console.timeEnd('📊 buildUnifiedContent');
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
     // Open the unified container
-    console.time('📊 openHyperlitContainer');
     openHyperlitContainer(unifiedContent, isBackNavigation);
-    console.timeEnd('📊 openHyperlitContainer');
 
     // Handle any post-open actions (like cursor placement for editable content)
     // Pass focusPreserver so footnote focus can transfer from it (preserves keyboard on iOS)
     // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
-    console.time('📊 handlePostOpenActions');
     await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote);
-    console.timeEnd('📊 handlePostOpenActions');
-
-    console.timeEnd('📊 handleUnifiedContentClick-TOTAL');
 
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
-    console.timeEnd('📊 handleUnifiedContentClick-TOTAL');
   } finally {
     // Clean up focus preserver if it wasn't used (e.g., not a footnote after all)
     if (focusPreserver && focusPreserver.parentNode) {
@@ -606,10 +590,6 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const footnoteId = footnoteType.footnoteId;
 
       if (footnoteId) {
-        // Track when container opened for measuring time to first keypress
-        const containerOpenTime = performance.now();
-        console.log(`⏱️ FOOTNOTE CONTAINER OPENED at ${containerOpenTime.toFixed(0)}ms`);
-
         // Content is now inserted synchronously, so element should exist immediately
         const footnoteEl = document.querySelector(
           `.footnote-text[data-footnote-id="${footnoteId}"]`
@@ -619,14 +599,9 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           attachFootnoteListener(footnoteId);
           attachFootnotePlaceholderBehavior(footnoteId);
 
-          // 🔑 Safari Contenteditable Fix
-          // Safari has a ~4 second delay before activating text input on contenteditable
-          // in some books. This appears to be related to page complexity.
-
-          // Strategy: Use execCommand to force the editing context to activate
+          // Focus the footnote element and place cursor at end
           footnoteEl.focus();
 
-          // Place cursor at end first
           try {
             const selection = window.getSelection();
             const range = document.createRange();
@@ -634,113 +609,14 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             range.collapse(false);
             selection.removeAllRanges();
             selection.addRange(range);
-
-            // Force Safari to enter edit mode by issuing an execCommand
-            // This tells the browser we want to start editing NOW
-            document.execCommand('selectAll', false, null);
-            selection.collapseToEnd();
           } catch (e) {
-            console.log('Selection/execCommand failed:', e);
+            // Ignore selection errors
           }
-
-          console.log('🔑 Focus + execCommand applied to footnote element');
 
           // Clean up the focus preserver
           if (focusPreserver && focusPreserver.parentNode) {
             focusPreserver.remove();
-            console.log('🔑 Focus preserver removed');
           }
-
-          // Cursor positioning can be slightly delayed
-          requestAnimationFrame(() => {
-            try {
-              const range = document.createRange();
-              const selection = window.getSelection();
-              range.selectNodeContents(footnoteEl);
-              range.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            } catch (e) {
-              console.log('Range selection not supported');
-            }
-          });
-
-          // 🔍 DEBUG: Log when first keypress is received - DOCUMENT LEVEL (capture phase)
-          let firstDocKeydownReceived = false;
-          const docKeypressHandler = (e) => {
-            if (firstDocKeydownReceived) return;
-            firstDocKeydownReceived = true;
-            const keypressTime = performance.now();
-            const delay = keypressTime - containerOpenTime;
-            console.log(`⏱️ FIRST DOCUMENT KEYDOWN (capture) at ${keypressTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open) - key: ${e.key}, target: ${e.target.tagName}.${e.target.className}`);
-            document.removeEventListener('keydown', docKeypressHandler, true);
-          };
-          document.addEventListener('keydown', docKeypressHandler, true);
-
-          // 🔍 DEBUG: Log when first keypress is received - ON ELEMENT
-          const firstKeypressHandler = (e) => {
-            const keypressTime = performance.now();
-            const delay = keypressTime - containerOpenTime;
-            console.log(`⏱️ FIRST ELEMENT KEYDOWN at ${keypressTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open) - key: ${e.key}`);
-            footnoteEl.removeEventListener('keydown', firstKeypressHandler);
-          };
-          footnoteEl.addEventListener('keydown', firstKeypressHandler);
-
-          // 🔍 DEBUG: Also log first input event
-          const firstInputHandler = (e) => {
-            const inputTime = performance.now();
-            const delay = inputTime - containerOpenTime;
-            console.log(`⏱️ FIRST INPUT received at ${inputTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open)`);
-            footnoteEl.removeEventListener('input', firstInputHandler);
-          };
-          footnoteEl.addEventListener('input', firstInputHandler);
-
-          console.log(`⏱️ FOOTNOTE READY FOR INPUT at ${performance.now().toFixed(0)}ms`);
-          console.log(`🔍 Element focused: ${document.activeElement === footnoteEl}`);
-          console.log(`🔍 ContentEditable:`, footnoteEl.contentEditable);
-          console.log(`🔍 Active element:`, document.activeElement);
-          console.log(`🔍 Active element tag:`, document.activeElement?.tagName);
-          console.log(`🔍 Active element id:`, document.activeElement?.id);
-
-          // 🔍 DEBUG: Check if focus gets stolen within the first 5 seconds
-          let focusCheckCount = 0;
-          const focusCheckInterval = setInterval(() => {
-            focusCheckCount++;
-            const currentActive = document.activeElement;
-            const stillFocused = currentActive === footnoteEl;
-            if (!stillFocused) {
-              console.log(`⚠️ FOCUS CHECK #${focusCheckCount} (${(performance.now() - containerOpenTime).toFixed(0)}ms): Focus LOST to ${currentActive?.tagName}.${currentActive?.className}`);
-            }
-            if (focusCheckCount >= 50) {
-              clearInterval(focusCheckInterval);
-              console.log(`🔍 Focus check complete - stopped after 5 seconds`);
-            }
-          }, 100);
-
-          // 🔍 DEBUG: Track focus changes
-          const focusHandler = (e) => {
-            console.log(`🔍 FOCUS EVENT on footnote at ${performance.now().toFixed(0)}ms`);
-          };
-          const blurHandler = (e) => {
-            console.log(`🔍 BLUR EVENT on footnote at ${performance.now().toFixed(0)}ms - focus moved to:`, document.activeElement);
-          };
-          footnoteEl.addEventListener('focus', focusHandler);
-          footnoteEl.addEventListener('blur', blurHandler);
-
-          // Track global focus changes
-          const globalFocusHandler = (e) => {
-            if (e.target !== footnoteEl) {
-              console.log(`🔍 GLOBAL FOCUS changed to:`, e.target, `at ${performance.now().toFixed(0)}ms`);
-            }
-          };
-          document.addEventListener('focusin', globalFocusHandler);
-
-          // Clean up after 10 seconds
-          setTimeout(() => {
-            footnoteEl.removeEventListener('focus', focusHandler);
-            footnoteEl.removeEventListener('blur', blurHandler);
-            document.removeEventListener('focusin', globalFocusHandler);
-          }, 10000);
         } else {
           console.error(`❌ Footnote element not found: ${footnoteId}`);
         }
