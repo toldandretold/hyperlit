@@ -44,10 +44,16 @@ const pathSegments = window.location.pathname
 
 // 2) Initialize exports
 let _hyperlightId = null;
+let _footnoteId = null;
 
 // 3) If exactly two segments and second starts with "HL_", that's our OpenHyperlightID
-if (pathSegments.length === 2 && pathSegments[1].startsWith("HL_")) {
-  _hyperlightId = pathSegments[1];
+//    If it contains "_Fn", that's a footnote ID
+if (pathSegments.length === 2) {
+  if (pathSegments[1].startsWith("HL_")) {
+    _hyperlightId = pathSegments[1];
+  } else if (pathSegments[1].includes("_Fn")) {
+    _footnoteId = pathSegments[1];
+  }
 }
 
 // 5) Export the book ID (preferring your DOM‐rendered .main-content.id)
@@ -69,7 +75,8 @@ export function setCurrentBook(newBookId) {
   log.init(`Book updated to: ${book}`, 'app.js');
 }
 
-// 6) Export the two HL constants
+// 6) Export the hyperlight and footnote constants
 export const OpenHyperlightID = _hyperlightId;
+export const OpenFootnoteID = _footnoteId;
 
 export const markdownContent = ""; // Store Markdown globally

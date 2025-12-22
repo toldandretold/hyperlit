@@ -1,4 +1,4 @@
-import { book, OpenHyperlightID } from './app.js';
+import { book, OpenHyperlightID, OpenFootnoteID } from './app.js';
 import { log, verbose } from './utilities/logger.js';
 import { navigateToInternalId } from './scrolling.js';
 
@@ -214,6 +214,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
   log.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
   setupOnlineSyncListener();
   const openHyperlightID = OpenHyperlightID || null;
+  const openFootnoteID = OpenFootnoteID || null;
 
   // Import progress functions or use provided callback
   let updatePageLoadProgress, hidePageLoadProgress;
@@ -257,7 +258,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
-      initializeLazyLoader(openHyperlightID, currentBook);
+      initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
       // Note: Interactive features initialization handled by viewManager.js
 
@@ -287,7 +288,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
         buildFootnoteMap(currentBook, dbChunks);
 
         updatePageLoadProgress(90, "Initializing interface...");
-        initializeLazyLoader(openHyperlightID, currentBook);
+        initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
         // Note: Interactive features initialization handled by viewManager.js
 
@@ -456,19 +457,22 @@ export async function initializeLazyLoaderForContainer(bookId) {
 
 
 
-// Your existing helper function - unchanged
-function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId parameter
+// Your existing helper function - updated to handle both hyperlights and footnotes
+function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
   if (!currentLazyLoader) {
+    // Determine which ID to navigate to (hyperlight or footnote)
+    const targetId = openHyperlightID || openFootnoteID;
+
     currentLazyLoader = createLazyLoader({
       nodes: window.nodes,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
-      bookId: bookId, // <-- Use the passed-in bookId
-      isNavigatingToInternalId: !!openHyperlightID,
+      bookId: bookId,
+      isNavigatingToInternalId: !!targetId,
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
-    
+
     // Only manually load first chunk of nodes for homepage/user page contexts
     // Regular reader pages will trigger via intersection observer
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
@@ -480,10 +484,11 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
         currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
     }
-    
-    if (openHyperlightID) {
+
+    // Navigate to hyperlight or footnote if specified in URL
+    if (targetId) {
       setTimeout(() => {
-        navigateToInternalId(openHyperlightID, currentLazyLoader, false);
+        navigateToInternalId(targetId, currentLazyLoader, false);
       }, 300);
     }
   }

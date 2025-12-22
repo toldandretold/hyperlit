@@ -700,6 +700,12 @@ black #221F20;
   fill: var(--icon-background) !important; /* Ensure the rect retains its background fill */
 }
 
+/* Hide undo/redo buttons when hyperlight selection buttons are visible */
+#edit-toolbar.hyperlight-selection-active #undoButton,
+#edit-toolbar.hyperlight-selection-active #redoButton {
+  display: none !important;
+}
+
 #edit-toolbar button {
   background: transparent;
   border: none;
