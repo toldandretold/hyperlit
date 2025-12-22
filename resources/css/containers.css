@@ -453,6 +453,8 @@ body[data-page="user"] #userLibraryContainer {
 
 #hyperlit-container.open {
   transform: translateX(0); /* Slide in to show the gap on the right */
+  /* Ensure container captures all pointer events even with overlay behind it */
+  pointer-events: auto;
 }
 
 #toc-overlay,
@@ -1031,6 +1033,12 @@ body[data-page="user"] #userLibraryContainer {
   width: 100%;
   box-sizing: border-box;
   min-height: 1.5em;
+  /* Override global user-select: none for contenteditable elements */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #hyperlit-container .annotation:empty::before,
@@ -1043,6 +1051,44 @@ body[data-page="user"] #userLibraryContainer {
 #hyperlit-container .annotation:focus::before,
 #hyperlit-container .annotation.empty-annotation:focus::before {
   display: none !important;
+}
+
+/* Footnote text editing styles */
+#hyperlit-container .footnote-text {
+  outline: none;
+  border: none;
+  min-height: 1.5em;
+  line-height: 1.5;
+}
+
+#hyperlit-container .footnote-text[contenteditable="true"] {
+  cursor: text;
+  /* Override global user-select: none for contenteditable elements */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+  /* Safari-specific: Enable immediate keyboard input */
+  -webkit-user-modify: read-write-plaintext-only;
+}
+
+#hyperlit-container .footnote-text:empty::before,
+#hyperlit-container .footnote-text.empty-footnote::before {
+  content: "Write footnote content here...";
+  color: #888;
+  pointer-events: none;
+  font-style: italic;
+}
+
+#hyperlit-container .footnote-text:focus::before,
+#hyperlit-container .footnote-text.empty-footnote:focus::before {
+  display: none !important;
+}
+
+#hyperlit-container .footnote-number {
+  font-weight: bold;
+  color: var(--color-primary, #007bff);
 }
 
 /* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
@@ -1298,10 +1344,11 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 /* Lock body scroll when hyperlit container is open */
+/* NOTE: Avoiding position: fixed on body - Safari has bugs with contenteditable + fixed body */
 body.hyperlit-container-open {
   overflow: hidden;
-  position: fixed;
-  width: 100%;
+  /* position: fixed removed - caused 4+ second delay for keyboard input in Safari */
+  /* width: 100% removed - not needed without position: fixed */
 }
 
 /* Ensure main content doesn't scroll when container is open */

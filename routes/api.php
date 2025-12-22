@@ -11,6 +11,7 @@ use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
 use App\Http\Controllers\BeaconSyncController;
 use App\Http\Controllers\DbReferencesController;
+use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UnifiedSyncController;
 use App\Http\Controllers\SearchController;
@@ -149,8 +150,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [DbHyperciteController::class, 'find']
     );
 
-     // NEW: Routes for syncing footnotes and references
-    Route::post('/db/footnotes/upsert', [DbReferencesController::class, 'upsertFootnotes']);
+    Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
 });
 

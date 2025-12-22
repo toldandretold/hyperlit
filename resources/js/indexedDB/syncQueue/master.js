@@ -57,6 +57,7 @@ export async function executeSyncPayload(payload) {
     hypercites: payload.updates.hypercites || [],
     hyperlights: payload.updates.hyperlights || [],
     hyperlightDeletions: payload.deletions.hyperlights || [],
+    footnotes: payload.updates.footnotes || [],
     library: payload.updates.library || null,
   };
 
@@ -66,6 +67,7 @@ export async function executeSyncPayload(payload) {
   if (unifiedPayload.hypercites.length > 0) syncSummary.push(`${unifiedPayload.hypercites.length} hypercites`);
   if (unifiedPayload.hyperlights.length > 0) syncSummary.push(`${unifiedPayload.hyperlights.length} hyperlights`);
   if (unifiedPayload.hyperlightDeletions.length > 0) syncSummary.push(`${unifiedPayload.hyperlightDeletions.length} hyperlight deletions`);
+  if (unifiedPayload.footnotes.length > 0) syncSummary.push(`${unifiedPayload.footnotes.length} footnotes`);
   if (unifiedPayload.library) syncSummary.push('library record');
 
   console.log(`🔄 Unified sync: ${syncSummary.join(', ')}`);
@@ -128,7 +130,7 @@ export const debouncedMasterSync = debounce(async () => {
 
   const historyLogPayload = {
     book: bookId,
-    updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+    updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null },
     deletions: { nodes: [], hyperlights: [], hypercites: [], library: null },
   };
 
@@ -194,7 +196,7 @@ export const debouncedMasterSync = debounce(async () => {
     if (!navigator.onLine) throw new Error("Offline");
     const syncPayload = {
       book: bookId,
-      updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+      updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null },
       deletions: { nodes: [], hyperlights: [], hypercites: [] },
     };
     for (const item of itemsToSync.values()) {
@@ -203,6 +205,7 @@ export const debouncedMasterSync = debounce(async () => {
           case "nodes": syncPayload.updates.nodes.push(item.data); break;
           case "hypercites": syncPayload.updates.hypercites.push(item.data); break;
           case "hyperlights": syncPayload.updates.hyperlights.push(item.data); break;
+          case "footnotes": syncPayload.updates.footnotes.push(item.data); break;
           case "library": syncPayload.updates.library = item.data; break;
         }
       } else if (item.type === "delete" && item.data) {

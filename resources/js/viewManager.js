@@ -313,13 +313,9 @@ export async function universalPageInitializer(progressCallback = null) {
   await checkEditPermissionsAndUpdateUI();
   verbose.init('Auth state checked and edit permissions updated in reader view', 'viewManager.js');
   
-  // 🔥 Initialize footnote and citation listeners AFTER content loads
-  // This ensures the DOM elements exist before we attach listeners
+  // 🔥 Rebind container managers AFTER content loads
+  // Note: footnoteCitationListeners now handled by ButtonRegistry
   setTimeout(async () => {
-    const { initializeFootnoteCitationListeners } = await import('./footnotesCitations.js');
-    initializeFootnoteCitationListeners();
-    verbose.init('Footnote and citation listeners initialized after content load', 'viewManager.js');
-
     // 🔥 CRITICAL: Rebind the reference container manager after SPA transitions
     // The ContainerManager needs fresh DOM references after HTML replacement
     const { refManager } = await import('./footnotesCitations.js');

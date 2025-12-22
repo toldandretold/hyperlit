@@ -63,14 +63,16 @@ export function getLocalStorageKey(baseKey, bookId = "latest") {
 export function toPublicChunk(chunk) {
   if (!chunk) return null;
 
-  return {
+  const result = {
     book: chunk.book,
     startLine: chunk.startLine,
     node_id: chunk.node_id ?? null, // ✅ Include node_id for renumbering support
     content: chunk.content,
     hyperlights: chunk.hyperlights || [],
     hypercites: chunk.hypercites || [],
-    footnotes: chunk.footnotes || null,
+    footnotes: chunk.footnotes || [],
     chunk_id: chunk.chunk_id ?? 0  // ✅ Default to 0 when undefined (PostgreSQL NOT NULL constraint)
   };
+
+  return result;
 }

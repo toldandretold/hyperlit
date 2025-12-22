@@ -564,12 +564,259 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Migrate footnotes array for nodes where nodes.footnotes doesn't match nodes.content.
+     * Also normalizes HTML to canonical format.
+     * Fixes: empty footnotes column, orphaned IDs, missing IDs, non-canonical HTML.
+     * Similar to migrateNodeIds() - runs once per book, only fixes mismatches.
+     */
+    private function migrateNodeFootnotes(string $bookId): void
+    {
+        // Get all nodes that might have footnotes (quick filter)
+        $nodesWithFootnoteMarkers = DB::table('nodes')
+            ->where('book', $bookId)
+            ->where(function($q) {
+                $q->where('content', 'like', '%fn-count-id%')
+                  ->orWhere('content', 'like', '%Fn%');
+            })
+            ->get();
+
+        if ($nodesWithFootnoteMarkers->isEmpty()) {
+            return;
+        }
+
+        $nodesToFix = [];
+
+        foreach ($nodesWithFootnoteMarkers as $node) {
+            $storedFootnotes = json_decode($node->footnotes ?? '[]', true) ?: [];
+
+            // Normalize HTML to canonical format and extract footnote IDs
+            $normalizedContent = $this->normalizeFootnoteHtml($node->content);
+            $contentFootnotes = $this->extractFootnoteIdsFromHtml($normalizedContent);
+
+            $needsUpdate = false;
+            $updateData = ['updated_at' => now()];
+
+            // Check if footnotes array needs updating
+            if ($storedFootnotes !== $contentFootnotes) {
+                $updateData['footnotes'] = json_encode($contentFootnotes);
+                $needsUpdate = true;
+            }
+
+            // Check if HTML was normalized
+            if ($normalizedContent !== $node->content) {
+                $updateData['content'] = $normalizedContent;
+                $needsUpdate = true;
+            }
+
+            if ($needsUpdate) {
+                $nodesToFix[] = [
+                    'startLine' => $node->startLine,
+                    'updateData' => $updateData,
+                ];
+            }
+        }
+
+        if (empty($nodesToFix)) {
+            return;
+        }
+
+        Log::info('🔄 Fixing footnotes (format + array)', [
+            'book_id' => $bookId,
+            'nodes_to_fix' => count($nodesToFix)
+        ]);
+
+        // Update nodes
+        foreach ($nodesToFix as $fix) {
+            DB::table('nodes')
+                ->where('book', $bookId)
+                ->where('startLine', $fix['startLine'])
+                ->update($fix['updateData']);
+        }
+
+        Log::info('✅ Footnotes fixed, now renumbering', [
+            'book_id' => $bookId,
+            'nodes_fixed' => count($nodesToFix)
+        ]);
+
+        // Renumber all footnotes in document order
+        $this->renumberFootnotes($bookId);
+    }
+
+    /**
+     * Normalize footnote HTML to canonical format.
+     * Canonical: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+     *
+     * Handles old formats:
+     * - data-footnote-id attribute (remove, use href instead)
+     * - Missing class="footnote-ref" on <a>
+     * - Wrong id format on <sup>
+     */
+    private function normalizeFootnoteHtml(string $html): string
+    {
+        // Pattern to match any footnote sup element
+        // Captures: full sup tag, attributes, anchor tag with href, footnote ID, display number
+        $pattern = '/<sup([^>]*)>(\s*<a[^>]*href="#([^"]+)"[^>]*>)(\d+|\?)(<\/a>\s*<\/sup>)/i';
+
+        $normalized = preg_replace_callback($pattern, function($matches) {
+            $supAttrs = $matches[1];
+            $aTagStart = $matches[2];
+            $footnoteId = $matches[3];
+            $displayNumber = $matches[4];
+            $closing = $matches[5];
+
+            // Only process if this looks like a footnote (contains Fn)
+            if (strpos($footnoteId, 'Fn') === false) {
+                return $matches[0];
+            }
+
+            // Build canonical sup attributes
+            // Extract fn-count-id if present, otherwise use display number
+            if (preg_match('/fn-count-id="([^"]*)"/', $supAttrs, $fnMatch)) {
+                $fnCountId = $fnMatch[1];
+            } else {
+                $fnCountId = $displayNumber;
+            }
+
+            // Canonical format: fn-count-id and id only (no data-footnote-id)
+            // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
+            $canonicalSupAttrs = ' fn-count-id="' . $fnCountId . '" id="' . $footnoteId . '"';
+
+            // Build canonical anchor tag
+            $canonicalATag = '<a class="footnote-ref" href="#' . $footnoteId . '">';
+
+            return '<sup' . $canonicalSupAttrs . '>' . $canonicalATag . $displayNumber . '</a></sup>';
+        }, $html);
+
+        return $normalized ?? $html;
+    }
+
+    /**
+     * Renumber all footnotes in a book based on document order (startLine).
+     * Updates fn-count-id attributes and link text in HTML content.
+     */
+    private function renumberFootnotes(string $bookId): void
+    {
+        // Get all nodes with footnotes, ordered by startLine
+        $nodesWithFootnotes = DB::table('nodes')
+            ->where('book', $bookId)
+            ->where(function($q) {
+                $q->where('content', 'like', '%fn-count-id%')
+                  ->orWhere('content', 'like', '%footnote-ref%');
+            })
+            ->orderBy('startLine')
+            ->get();
+
+        if ($nodesWithFootnotes->isEmpty()) {
+            return;
+        }
+
+        // Build footnoteId → displayNumber map in document order
+        $footnoteMap = [];
+        $displayNumber = 1;
+
+        foreach ($nodesWithFootnotes as $node) {
+            $footnoteIds = $this->extractFootnoteIdsFromHtml($node->content);
+            foreach ($footnoteIds as $footnoteId) {
+                if (!isset($footnoteMap[$footnoteId])) {
+                    $footnoteMap[$footnoteId] = $displayNumber++;
+                }
+            }
+        }
+
+        if (empty($footnoteMap)) {
+            return;
+        }
+
+        Log::info('🔢 Renumbering footnotes', [
+            'book_id' => $bookId,
+            'total_footnotes' => count($footnoteMap)
+        ]);
+
+        // Update each node's HTML with correct display numbers
+        $updatedCount = 0;
+        foreach ($nodesWithFootnotes as $node) {
+            $updatedContent = $this->updateFootnoteNumbersInHtml($node->content, $footnoteMap);
+
+            if ($updatedContent !== $node->content) {
+                DB::table('nodes')
+                    ->where('book', $bookId)
+                    ->where('startLine', $node->startLine)
+                    ->update([
+                        'content' => $updatedContent,
+                        'updated_at' => now()
+                    ]);
+                $updatedCount++;
+            }
+        }
+
+        Log::info('✅ Footnote renumbering completed', [
+            'book_id' => $bookId,
+            'nodes_updated' => $updatedCount
+        ]);
+    }
+
+    /**
+     * Update fn-count-id attributes and link text in HTML content
+     */
+    private function updateFootnoteNumbersInHtml(string $html, array $footnoteMap): string
+    {
+        // Update <sup fn-count-id="X"> and the link text inside
+        // Pattern matches: <sup fn-count-id="..."><a ... href="#footnoteId">...</a></sup>
+        $updatedHtml = preg_replace_callback(
+            '/<sup([^>]*fn-count-id="[^"]*"[^>]*)>(\s*<a[^>]*href="#([^"]+)"[^>]*>)[^<]*(<\/a>\s*<\/sup>)/i',
+            function($matches) use ($footnoteMap) {
+                $supAttrs = $matches[1];
+                $aTag = $matches[2];
+                $footnoteId = $matches[3];
+                $closing = $matches[4];
+
+                if (isset($footnoteMap[$footnoteId])) {
+                    $newNumber = $footnoteMap[$footnoteId];
+                    // Update fn-count-id attribute
+                    $supAttrs = preg_replace('/fn-count-id="[^"]*"/', 'fn-count-id="' . $newNumber . '"', $supAttrs);
+                    return '<sup' . $supAttrs . '>' . $aTag . $newNumber . $closing;
+                }
+
+                return $matches[0]; // No change
+            },
+            $html
+        );
+
+        return $updatedHtml ?? $html;
+    }
+
+    /**
+     * Extract footnote IDs from HTML content
+     * Matches href="#bookId_Fn..." or href="#bookIdFn..." patterns
+     */
+    private function extractFootnoteIdsFromHtml(?string $html): array
+    {
+        if (empty($html)) {
+            return [];
+        }
+
+        $footnoteIds = [];
+
+        // Match href="#...Fn..." pattern (captures IDs containing Fn or _Fn)
+        if (preg_match_all('/href="#([^"]*(?:_Fn|Fn)[^"]*)"/', $html, $matches)) {
+            foreach ($matches[1] as $id) {
+                if (!in_array($id, $footnoteIds)) {
+                    $footnoteIds[] = $id;
+                }
+            }
+        }
+
+        return $footnoteIds;
+    }
+
+    /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
     private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
     {
-        // Run migration first (before loading chunks)
+        // Run migrations first (before loading chunks)
         $this->migrateNodeIds($bookId);
+        $this->migrateNodeFootnotes($bookId);
 
         // Get processed highlights with is_user_highlight flag
         $processedHighlights = $this->getHyperlights($bookId);

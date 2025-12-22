@@ -32,7 +32,9 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
     const identifier = sup.textContent.trim();
     if (footnoteMappings.has(identifier)) {
       const mapping = footnoteMappings.get(identifier);
-      sup.id = mapping.uniqueRefId;
+      // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+      // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
+      sup.id = mapping.uniqueId;
       sup.setAttribute('fn-count-id', identifier);
 
       // Create or update link
@@ -87,7 +89,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
       if (footnoteMappings.has(identifier)) {
         const mapping = footnoteMappings.get(identifier);
-        const supHTML = `<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+        // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+        const supHTML = `<sup fn-count-id="${identifier}" id="${mapping.uniqueId}"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
 
         replacements.push({
           start: match.index,
@@ -113,7 +116,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
 
         if (footnoteMappings.has(identifier)) {
           const mapping = footnoteMappings.get(identifier);
-          const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+          // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+          const supHTML = `${punctuation}<sup fn-count-id="${identifier}" id="${mapping.uniqueId}"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
 
           replacements.push({
             start: match.index,

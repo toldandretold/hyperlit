@@ -172,10 +172,13 @@ export class LinkNavigationHandler {
     const isTocLink = link.closest('#toc-container');
     const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
 
+    // Skip footnote links - handled by footnotesCitations.js
+    const isFootnoteLink = link.classList.contains('footnote-ref') || link.closest('sup[fn-count-id]');
+
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
 
-    if (isHypercite || isTocLink || isDeleteButton || isBlobUrl) {
+    if (isHypercite || isTocLink || isDeleteButton || isBlobUrl || isFootnoteLink) {
       return true;
     }
 

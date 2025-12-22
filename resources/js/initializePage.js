@@ -30,6 +30,7 @@ import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 // Add to your imports at the top
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
+import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
 
 let isRetrying = false; // Prevents multiple retries at once
 
@@ -240,7 +241,18 @@ export async function loadHyperText(bookId, progressCallback = null) {
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
+
+      // Migrate old-format footnotes if needed (display numbers → footnote IDs)
+      if (hasOldFormatFootnotes(cached)) {
+        await migrateOldFormatFootnotes(currentBook, cached);
+        // Save migrated nodes back to IndexedDB (lazy migration)
+        await saveAllNodeChunksToIndexedDB(cached, currentBook);
+      }
+
       window.nodes = cached;
+
+      // Build footnote numbering map for dynamic renumbering
+      buildFootnoteMap(currentBook, cached);
 
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -261,7 +273,19 @@ export async function loadHyperText(bookId, progressCallback = null) {
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
         verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL`, 'initializePage.js');
+
+        // Migrate old-format footnotes if needed (display numbers → footnote IDs)
+        if (hasOldFormatFootnotes(dbChunks)) {
+          await migrateOldFormatFootnotes(currentBook, dbChunks);
+          // Save migrated nodes back to IndexedDB (lazy migration)
+          await saveAllNodeChunksToIndexedDB(dbChunks, currentBook);
+        }
+
         window.nodes = dbChunks;
+
+        // Build footnote numbering map for dynamic renumbering
+        buildFootnoteMap(currentBook, dbChunks);
+
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
 

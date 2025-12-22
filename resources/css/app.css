@@ -328,8 +328,7 @@ sup[fn-count-id],
     cursor: pointer;
 }
 
-sup[fn-count-id]::before, 
-.footnote-ref::before, 
+sup[fn-count-id]::before,
 .in-text-citation::before {
     content: '';
     position: absolute;
@@ -341,16 +340,14 @@ sup[fn-count-id]::before,
 }
 
 /* Visual feedback on touch/hover */
-sup[fn-count-id]:hover, 
-.footnote-ref:hover, 
+sup[fn-count-id]:hover,
 .in-text-citation:hover {
     background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
     border-radius: 3px;
 }
 
 /* Active state for touch feedback */
-sup[fn-count-id]:active, 
-.footnote-ref:active, 
+sup[fn-count-id]:active,
 .in-text-citation:active {
     background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
     transform: scale(1.05); /* Slight scale up when tapped */

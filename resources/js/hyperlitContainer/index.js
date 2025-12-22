@@ -81,6 +81,41 @@ import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
 let isProcessingClick = false;
 
 // ============================================================================
+// LISTENER CLEANUP INFRASTRUCTURE
+// ============================================================================
+// Prevents listener accumulation by tracking all listeners added during container open
+// and removing them when the container closes
+
+const activeListeners = [];
+
+/**
+ * Register an event listener and track it for cleanup
+ * @param {HTMLElement} element - The element to attach the listener to
+ * @param {string} event - The event type (e.g., 'click', 'input')
+ * @param {Function} handler - The event handler function
+ * @param {Object} options - Optional event listener options
+ */
+function registerListener(element, event, handler, options = {}) {
+  element.addEventListener(event, handler, options);
+  activeListeners.push({ element, event, handler, options });
+}
+
+/**
+ * Clean up all registered listeners
+ * Called when the container closes to prevent listener accumulation
+ */
+export function cleanupContainerListeners() {
+  for (const { element, event, handler, options } of activeListeners) {
+    try {
+      element.removeEventListener(event, handler, options);
+    } catch (e) {
+      // Element may have been removed from DOM, ignore
+    }
+  }
+  activeListeners.length = 0;
+}
+
+// ============================================================================
 // MAIN ORCHESTRATION FUNCTIONS
 // ============================================================================
 
@@ -92,14 +127,40 @@ let isProcessingClick = false;
  * @param {boolean} skipUrlUpdate - Skip URL hash update
  * @param {boolean} isBackNavigation - Whether this is back navigation
  * @param {string} directHyperciteId - Optional direct hypercite ID
+ * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  */
-export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null) {
+export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null, isNewFootnote = false) {
   const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
   console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId, isProcessingClick });
+
+  // 🔑 iOS Safari Keyboard Fix: Pre-focus a hidden input IMMEDIATELY (synchronously)
+  // This preserves the user gesture chain so the keyboard will open later
+  // The hidden input is positioned inside hyperlit-container so focus transfers naturally
+  let focusPreserver = null;
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // Check if this might be a footnote click (sup with fn-count-id or a.footnote-ref)
+  const mightBeFootnote = element && (
+    (element.tagName === 'SUP' && element.hasAttribute('fn-count-id')) ||
+    (element.tagName === 'A' && element.classList.contains('footnote-ref')) ||
+    element.closest('sup[fn-count-id]')
+  );
+
+  if (mightBeFootnote && !isBackNavigation) {
+    // Create and focus a hidden input synchronously to preserve user gesture
+    focusPreserver = document.createElement('input');
+    focusPreserver.type = 'text';
+    focusPreserver.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+    focusPreserver.id = 'focus-preserver';
+    document.body.appendChild(focusPreserver);
+    focusPreserver.focus();
+    console.log('🔑 Focus preserver activated for potential footnote');
+  }
 
   if (isProcessingClick) {
     console.log("🚫 Click already being processed, ignoring duplicate. Current flag state:", isProcessingClick);
     console.log("🚫 Call stack:", new Error().stack);
+    if (focusPreserver) focusPreserver.remove();
     return;
   }
   console.log("✅ Setting isProcessingClick to true");
@@ -222,17 +283,20 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     openHyperlitContainer(unifiedContent, isBackNavigation);
 
     // Handle any post-open actions (like cursor placement for editable content)
-    await handlePostOpenActions(contentTypes, newHighlightIds);
+    // Pass focusPreserver so footnote focus can transfer from it (preserves keyboard on iOS)
+    // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
+    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote);
 
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
   } finally {
-    // Reset the processing flag after a short delay
-    setTimeout(() => {
-      console.log("🔄 Resetting isProcessingClick flag");
-      isProcessingClick = false;
-    }, 500);
-
+    // Clean up focus preserver if it wasn't used (e.g., not a footnote after all)
+    if (focusPreserver && focusPreserver.parentNode) {
+      focusPreserver.remove();
+    }
+    // Reset the processing flag immediately (no delay needed)
+    isProcessingClick = false;
+    console.log("🔄 Reset isProcessingClick flag");
   }
 }
 
@@ -400,8 +464,10 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
  * Handle post-open actions like cursor placement
  * @param {Array} contentTypes - Array of content type objects
  * @param {Array} newHighlightIds - Array of new highlight IDs
+ * @param {HTMLElement} focusPreserver - Hidden input that preserves user gesture for keyboard (iOS)
+ * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  */
-export async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
+export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false) {
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
   if (highlightType) {
@@ -483,12 +549,16 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
         }, 150);
       }
 
-      // Attach delete/hide button listeners
+      // Attach delete/hide button listeners using event delegation on container
+      // This prevents listener accumulation - one listener handles all buttons
       setTimeout(async () => {
         const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
-        const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
-        deleteButtons.forEach(button => {
-          button.addEventListener('click', async (e) => {
+        const container = document.getElementById('hyperlit-container');
+        if (container) {
+          const handler = async (e) => {
+            const button = e.target.closest('.delete-highlight-btn');
+            if (!button) return;
+
             const highlightId = button.getAttribute('data-highlight-id');
             const action = button.getAttribute('data-action'); // 'delete' or 'hide'
 
@@ -499,12 +569,155 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
               // User deleting their own highlight - permanent removal
               await deleteHighlightById(highlightId);
             }
-          });
-        });
+          };
+          registerListener(container, 'click', handler);
+        }
       }, 200);
 
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
+    }
+  }
+
+  // Handle footnote-specific post-open actions
+  const footnoteType = contentTypes.find(ct => ct.type === 'footnote');
+  if (footnoteType) {
+    try {
+      const { attachFootnoteListener, attachFootnotePlaceholderBehavior } =
+        await import('../footnotes/footnoteAnnotations.js');
+
+      // Get the footnote ID from the content type (already extracted by detection)
+      const footnoteId = footnoteType.footnoteId;
+
+      if (footnoteId) {
+        // Track when container opened for measuring time to first keypress
+        const containerOpenTime = performance.now();
+        console.log(`⏱️ FOOTNOTE CONTAINER OPENED at ${containerOpenTime.toFixed(0)}ms`);
+
+        // Content is now inserted synchronously, so element should exist immediately
+        const footnoteEl = document.querySelector(
+          `.footnote-text[data-footnote-id="${footnoteId}"]`
+        );
+
+        if (footnoteEl) {
+          attachFootnoteListener(footnoteId);
+          attachFootnotePlaceholderBehavior(footnoteId);
+
+          // 🔑 Safari Keyboard Fix: Dispatch a real MouseEvent to activate contenteditable
+          // Safari requires a "trusted" user gesture to activate keyboard input
+          const mouseEvent = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: footnoteEl.getBoundingClientRect().left + 10,
+            clientY: footnoteEl.getBoundingClientRect().top + 10
+          });
+          footnoteEl.dispatchEvent(mouseEvent);
+          footnoteEl.focus();
+          console.log('🔑 Synthetic click + focus applied to footnote element');
+
+          // Clean up the focus preserver
+          if (focusPreserver && focusPreserver.parentNode) {
+            focusPreserver.remove();
+            console.log('🔑 Focus preserver removed');
+          }
+
+          // Cursor positioning can be slightly delayed
+          requestAnimationFrame(() => {
+            try {
+              const range = document.createRange();
+              const selection = window.getSelection();
+              range.selectNodeContents(footnoteEl);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } catch (e) {
+              console.log('Range selection not supported');
+            }
+          });
+
+          // 🔍 DEBUG: Log when first keypress is received - DOCUMENT LEVEL (capture phase)
+          let firstDocKeydownReceived = false;
+          const docKeypressHandler = (e) => {
+            if (firstDocKeydownReceived) return;
+            firstDocKeydownReceived = true;
+            const keypressTime = performance.now();
+            const delay = keypressTime - containerOpenTime;
+            console.log(`⏱️ FIRST DOCUMENT KEYDOWN (capture) at ${keypressTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open) - key: ${e.key}, target: ${e.target.tagName}.${e.target.className}`);
+            document.removeEventListener('keydown', docKeypressHandler, true);
+          };
+          document.addEventListener('keydown', docKeypressHandler, true);
+
+          // 🔍 DEBUG: Log when first keypress is received - ON ELEMENT
+          const firstKeypressHandler = (e) => {
+            const keypressTime = performance.now();
+            const delay = keypressTime - containerOpenTime;
+            console.log(`⏱️ FIRST ELEMENT KEYDOWN at ${keypressTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open) - key: ${e.key}`);
+            footnoteEl.removeEventListener('keydown', firstKeypressHandler);
+          };
+          footnoteEl.addEventListener('keydown', firstKeypressHandler);
+
+          // 🔍 DEBUG: Also log first input event
+          const firstInputHandler = (e) => {
+            const inputTime = performance.now();
+            const delay = inputTime - containerOpenTime;
+            console.log(`⏱️ FIRST INPUT received at ${inputTime.toFixed(0)}ms (${delay.toFixed(0)}ms after open)`);
+            footnoteEl.removeEventListener('input', firstInputHandler);
+          };
+          footnoteEl.addEventListener('input', firstInputHandler);
+
+          console.log(`⏱️ FOOTNOTE READY FOR INPUT at ${performance.now().toFixed(0)}ms`);
+          console.log(`🔍 Element focused: ${document.activeElement === footnoteEl}`);
+          console.log(`🔍 ContentEditable:`, footnoteEl.contentEditable);
+          console.log(`🔍 Active element:`, document.activeElement);
+          console.log(`🔍 Active element tag:`, document.activeElement?.tagName);
+          console.log(`🔍 Active element id:`, document.activeElement?.id);
+
+          // 🔍 DEBUG: Check if focus gets stolen within the first 5 seconds
+          let focusCheckCount = 0;
+          const focusCheckInterval = setInterval(() => {
+            focusCheckCount++;
+            const currentActive = document.activeElement;
+            const stillFocused = currentActive === footnoteEl;
+            if (!stillFocused) {
+              console.log(`⚠️ FOCUS CHECK #${focusCheckCount} (${(performance.now() - containerOpenTime).toFixed(0)}ms): Focus LOST to ${currentActive?.tagName}.${currentActive?.className}`);
+            }
+            if (focusCheckCount >= 50) {
+              clearInterval(focusCheckInterval);
+              console.log(`🔍 Focus check complete - stopped after 5 seconds`);
+            }
+          }, 100);
+
+          // 🔍 DEBUG: Track focus changes
+          const focusHandler = (e) => {
+            console.log(`🔍 FOCUS EVENT on footnote at ${performance.now().toFixed(0)}ms`);
+          };
+          const blurHandler = (e) => {
+            console.log(`🔍 BLUR EVENT on footnote at ${performance.now().toFixed(0)}ms - focus moved to:`, document.activeElement);
+          };
+          footnoteEl.addEventListener('focus', focusHandler);
+          footnoteEl.addEventListener('blur', blurHandler);
+
+          // Track global focus changes
+          const globalFocusHandler = (e) => {
+            if (e.target !== footnoteEl) {
+              console.log(`🔍 GLOBAL FOCUS changed to:`, e.target, `at ${performance.now().toFixed(0)}ms`);
+            }
+          };
+          document.addEventListener('focusin', globalFocusHandler);
+
+          // Clean up after 10 seconds
+          setTimeout(() => {
+            footnoteEl.removeEventListener('focus', focusHandler);
+            footnoteEl.removeEventListener('blur', blurHandler);
+            document.removeEventListener('focusin', globalFocusHandler);
+          }, 10000);
+        } else {
+          console.error(`❌ Footnote element not found: ${footnoteId}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in footnote post-actions:', error);
     }
   }
 
@@ -513,43 +726,50 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
     // Attach data-content-id link listeners for URL updates
     attachDataContentIdLinkListeners();
 
-    // Defer private book access checks to avoid blocking container opening
-    // Use requestIdleCallback for non-critical background work
-    if (window.requestIdleCallback) {
-      requestIdleCallback(() => checkPrivateBookAccess());
-    } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(() => checkPrivateBookAccess(), 200);
+    // Skip private book checks for footnotes - already checked during content building
+    const hasFootnoteOnly = contentTypes.length === 1 && contentTypes[0].type === 'footnote';
+    if (!hasFootnoteOnly) {
+      // Defer private book access checks to avoid blocking container opening
+      // Use requestIdleCallback for non-critical background work
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => checkPrivateBookAccess());
+      } else {
+        // Fallback for browsers without requestIdleCallback
+        setTimeout(() => checkPrivateBookAccess(), 200);
+      }
     }
 
-    // Attach manage citations button listener
+    // Attach manage citations button listener using registerListener for cleanup
     const manageCitationsBtn = document.querySelector('.manage-citations-btn');
     if (manageCitationsBtn) {
       const { handleManageCitationsClick } = await import('./contentBuilders/displayHypercites.js');
-      manageCitationsBtn.addEventListener('click', handleManageCitationsClick);
+      registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
     }
   }, 100);
 }
 
 /**
  * Attach listeners to data-content-id links for URL updates
+ * Uses registerListener for proper cleanup when container closes
  * @private
  */
 function attachDataContentIdLinkListeners() {
   const links = document.querySelectorAll('[data-content-id]');
   links.forEach(link => {
-    link.addEventListener('click', (e) => {
+    const handler = (e) => {
       const contentId = link.getAttribute('data-content-id');
       if (contentId) {
         console.log(`🔗 Clicked link with content ID: ${contentId}`);
         // URL update logic handled by navigation system
       }
-    });
+    };
+    registerListener(link, 'click', handler);
   });
 }
 
 /**
  * Check private book access and update UI accordingly
+ * Uses registerListener for proper cleanup when container closes
  * @private
  */
 async function checkPrivateBookAccess() {
@@ -565,10 +785,11 @@ async function checkPrivateBookAccess() {
       if (!hasAccess) {
         link.style.opacity = '0.6';
         link.style.cursor = 'not-allowed';
-        link.addEventListener('click', (e) => {
+        const handler = (e) => {
           e.preventDefault();
-          alert('This book is private. You don not have access.');
-        });
+          alert('This book is private. You do not have access.');
+        };
+        registerListener(link, 'click', handler);
       }
     }
   }

@@ -72,14 +72,14 @@ def process_html_footnotes(html_file, output_dir, book_id):
                     break
         
         if matching_footnote:
-            # Generate unique IDs
-            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}{footnote_counter}"
-            unique_fnref_id = f"{book_id}_Fnref{int(time.time() * 1000)}{footnote_counter}"
-            
+            # Generate unique footnote ID
+            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}{footnote_counter:03d}"
+
             # Transform <sup> tag into clickable footnote reference
-            sup['id'] = unique_fnref_id
+            # Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
             sup['fn-count-id'] = str(footnote_counter)
-            
+            sup['id'] = f"{unique_fn_id}ref"
+
             # Clear existing content and add clickable link
             sup.clear()
             a_tag = soup.new_tag('a', href=f"#{unique_fn_id}")
@@ -101,7 +101,7 @@ def process_html_footnotes(html_file, output_dir, book_id):
                 "content": matching_footnote['content']
             })
             
-            print(f"  ✅ Created footnote link: {unique_fnref_id} -> {unique_fn_id}")
+            print(f"  ✅ Created footnote link: {unique_fn_id}ref -> {unique_fn_id}")
             footnote_counter += 1
             
         else:
@@ -162,12 +162,14 @@ def create_node_chunks(soup, book_id):
                 # Force it one more time
                 element.attrs['id'] = str(i)
         
-        # Extract footnotes and references from this element
+        # Extract footnote IDs from href (canonical format uses href="#footnoteId")
         footnotes_in_node = []
-        for sup in element.find_all('sup'):
-            fn_count_id = sup.get('fn-count-id')
-            if fn_count_id:
-                footnotes_in_node.append(fn_count_id)
+        for a_tag in element.find_all('a', class_='footnote-ref'):
+            href = a_tag.get('href', '')
+            if href.startswith('#') and 'Fn' in href:
+                footnote_id = href[1:]  # Remove leading #
+                if footnote_id not in footnotes_in_node:
+                    footnotes_in_node.append(footnote_id)
         
         # Basic node structure
         node_object = {

@@ -58,11 +58,15 @@ export async function detectContentTypes(element, providedHighlightIds = null, d
 export function detectFootnote(element) {
   // Check if element is a sup with fn-count-id
   if (element.tagName === 'SUP' && element.hasAttribute('fn-count-id')) {
+    // sup.id now directly contains the footnoteId (no "ref" suffix)
+    // Fallback to href for backward compatibility with old format
+    const footnoteId = element.id || element.querySelector('a.footnote-ref, a[href^="#"]')?.href?.split('#')[1] || null;
+
     return {
       type: 'footnote',
       element: element,
       fnCountId: element.getAttribute('fn-count-id'),
-      elementId: element.id
+      footnoteId: footnoteId
     };
   }
 
@@ -70,11 +74,15 @@ export function detectFootnote(element) {
   if (element.tagName === 'A' && element.classList.contains('footnote-ref')) {
     const supElement = element.closest('sup[fn-count-id]');
     if (supElement) {
+      // sup.id now directly contains the footnoteId (no "ref" suffix)
+      // Fallback to href for backward compatibility with old format
+      const footnoteId = supElement.id || element.href?.split('#')[1] || null;
+
       return {
         type: 'footnote',
         element: supElement,
         fnCountId: supElement.getAttribute('fn-count-id'),
-        elementId: supElement.id
+        footnoteId: footnoteId
       };
     }
   }
