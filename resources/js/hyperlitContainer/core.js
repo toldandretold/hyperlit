@@ -144,6 +144,7 @@ export function closeHyperlitContainer() {
       // Clean up all registered event listeners to prevent accumulation
       // Use dynamic imports to avoid circular dependency (index.js imports from core.js)
       import('./index.js').then(({ cleanupContainerListeners }) => cleanupContainerListeners());
+      import('./noteListener.js').then(({ detachNoteListeners }) => detachNoteListeners());
       import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
 
       // Remove scroll containment handlers

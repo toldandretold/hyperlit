@@ -72,6 +72,7 @@ import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
 import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
+import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -468,13 +469,14 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
  * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  */
 export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false) {
+  // Attach unified note listeners (handles input, paste, placeholder for all editables)
+  attachNoteListeners();
+  initializePlaceholders();
+
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
   if (highlightType) {
     try {
-      // Import the required functions
-      const { attachAnnotationListener, addHighlightContainerPasteListener, attachPlaceholderBehavior } = await import('../hyperlights/index.js');
-
       const { highlightIds } = highlightType;
       const currentUserId = await getCurrentUserId();
 
@@ -495,7 +497,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const results = await Promise.all(reads);
       let firstUserAnnotation = null;
 
-      // Attach listeners for editable highlights
+      // Find first editable highlight for cursor placement
       results.forEach((highlight) => {
         if (highlight) {
           // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
@@ -506,17 +508,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
           const isEditable = isUserHighlight || isNewlyCreated;
 
-          if (isEditable) {
-            // Delay listener attachment to ensure DOM is ready
-            setTimeout(() => {
-              attachAnnotationListener(highlight.hyperlight_id);
-              addHighlightContainerPasteListener(highlight.hyperlight_id);
-              attachPlaceholderBehavior(highlight.hyperlight_id);
-            }, 100);
-
-            if (!firstUserAnnotation) {
-              firstUserAnnotation = highlight.hyperlight_id;
-            }
+          if (isEditable && !firstUserAnnotation) {
+            firstUserAnnotation = highlight.hyperlight_id;
           }
         }
       });
@@ -583,9 +576,6 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   const footnoteType = contentTypes.find(ct => ct.type === 'footnote');
   if (footnoteType) {
     try {
-      const { attachFootnoteListener, attachFootnotePlaceholderBehavior } =
-        await import('../footnotes/footnoteAnnotations.js');
-
       // Get the footnote ID from the content type (already extracted by detection)
       const footnoteId = footnoteType.footnoteId;
 
@@ -596,21 +586,21 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         );
 
         if (footnoteEl) {
-          attachFootnoteListener(footnoteId);
-          attachFootnotePlaceholderBehavior(footnoteId);
+          const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+          if (!isMobile) {
+            // Focus the footnote element and place cursor at end
+            footnoteEl.focus();
 
-          // Focus the footnote element and place cursor at end
-          footnoteEl.focus();
-
-          try {
-            const selection = window.getSelection();
-            const range = document.createRange();
-            range.selectNodeContents(footnoteEl);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
-          } catch (e) {
-            // Ignore selection errors
+            try {
+              const selection = window.getSelection();
+              const range = document.createRange();
+              range.selectNodeContents(footnoteEl);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } catch (e) {
+              // Ignore selection errors
+            }
           }
 
           // Clean up the focus preserver

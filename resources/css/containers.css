@@ -404,9 +404,8 @@ body[data-page="user"] #userLibraryContainer {
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: transparent;
+  background: linear-gradient(to bottom, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
   overscroll-behavior: none; /* Prevent scroll chaining */
   touch-action: none; /* Prevent touch scrolling */
 }
@@ -431,9 +430,8 @@ body[data-page="user"] #userLibraryContainer {
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: transparent;
+  background: linear-gradient(to top, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
   overscroll-behavior: none; /* Prevent scroll chaining */
   touch-action: none; /* Prevent touch scrolling */
 }
@@ -1069,8 +1067,8 @@ body[data-page="user"] #userLibraryContainer {
   -ms-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
-  /* Safari-specific: Enable immediate keyboard input */
-  -webkit-user-modify: read-write-plaintext-only;
+  /* Allow rich text (HTML) editing - needed for hypercite links */
+  -webkit-user-modify: read-write;
 }
 
 #hyperlit-container .footnote-text:empty::before,

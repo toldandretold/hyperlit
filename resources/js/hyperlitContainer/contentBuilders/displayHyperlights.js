@@ -145,9 +145,9 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       html += `  <div class="annotation" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
-      // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links)
+      // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links + line breaks)
       const sanitizedAnnotation = DOMPurify.sanitize(h.annotation || "", {
-        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'sup', 'span'],
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'sup', 'span', 'div', 'br'],
         ALLOWED_ATTR: ['href', 'id', 'class']
       });
       html += `    ${sanitizedAnnotation}

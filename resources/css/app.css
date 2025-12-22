@@ -651,7 +651,8 @@ div::-webkit-scrollbar {
       outline: none;
     }
 
-#citedInHyperlight {
+#citedInHyperlight,
+#citedInFootnote {
     color: var(--color-primary);
 }
 
