@@ -12,12 +12,15 @@ import { canUserEditBook } from '../../utilities/auth.js';
  * Build footnote content section
  * @param {Object} contentType - The footnote content type object
  * @param {IDBDatabase} db - Reused database connection
+ * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
  * @returns {Promise<string>} HTML string for footnote content
  */
-export async function buildFootnoteContent(contentType, db = null) {
+export async function buildFootnoteContent(contentType, db = null, editModeEnabled = true) {
   console.time('buildFootnoteContent-total');
   try {
-    const { fnCountId, footnoteId } = contentType;
+    const { fnCountId } = contentType;
+    // footnoteId may be stored as footnoteId or elementId depending on context
+    const footnoteId = contentType.footnoteId || contentType.elementId;
 
     // footnoteId is already extracted by detection.js
     if (!footnoteId) {
@@ -27,8 +30,11 @@ export async function buildFootnoteContent(contentType, db = null) {
 
     // Check if user can edit this book's footnotes
     console.time('canUserEditBook');
-    const isEditable = await canUserEditBook(book);
+    const hasPermission = await canUserEditBook(book);
     console.timeEnd('canUserEditBook');
+
+    // Final editability: user must have permission AND edit mode must be enabled
+    const isEditable = hasPermission && editModeEnabled;
 
     const database = db || await openDatabase();
     const transaction = database.transaction(["footnotes"], "readonly");

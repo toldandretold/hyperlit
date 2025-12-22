@@ -23,6 +23,9 @@
   --container-glass-bg: rgba(34, 31, 32, 0.60);
   --container-solid-bg: #2A2A2A;
 
+  /* Editable element background (slightly lighter in dark mode) */
+  --editable-bg: rgba(255, 255, 255, 0.08);
+
   /* Interactive Elements */
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);

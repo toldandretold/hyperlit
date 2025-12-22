@@ -1039,16 +1039,26 @@ body[data-page="user"] #userLibraryContainer {
   -webkit-touch-callout: default;
 }
 
-#hyperlit-container .annotation:empty::before,
-#hyperlit-container .annotation.empty-annotation::before {
+/* Only show placeholder when contenteditable is true (edit mode is ON) */
+#hyperlit-container .annotation[contenteditable="true"]:empty::before,
+#hyperlit-container .annotation[contenteditable="true"].empty-annotation::before {
   content: "Write annotation here...";
   color: #888;
   pointer-events: none;
 }
 
-#hyperlit-container .annotation:focus::before,
-#hyperlit-container .annotation.empty-annotation:focus::before {
+#hyperlit-container .annotation[contenteditable="true"]:focus::before,
+#hyperlit-container .annotation[contenteditable="true"].empty-annotation:focus::before {
   display: none !important;
+}
+
+/* Editable background styling for annotations (when edit mode is ON) */
+#hyperlit-container .annotation[contenteditable="true"] {
+  background-color: var(--editable-bg);
+  border-radius: var(--border-radius-md, 4px);
+  padding: 8px 12px;
+  margin: -8px -12px;
+  cursor: text;
 }
 
 /* Footnote text editing styles */
@@ -1057,6 +1067,14 @@ body[data-page="user"] #userLibraryContainer {
   border: none;
   min-height: 1.5em;
   line-height: 1.5;
+}
+
+/* Editable background on parent .footnote-content when footnote is editable */
+#hyperlit-container .footnote-content:has(.footnote-text[contenteditable="true"]) {
+  background-color: var(--editable-bg);
+  border-radius: var(--border-radius-md, 4px);
+  padding: 8px 12px;
+  margin: -8px -12px;
 }
 
 #hyperlit-container .footnote-text[contenteditable="true"] {
@@ -1071,16 +1089,17 @@ body[data-page="user"] #userLibraryContainer {
   -webkit-user-modify: read-write;
 }
 
-#hyperlit-container .footnote-text:empty::before,
-#hyperlit-container .footnote-text.empty-footnote::before {
+/* Only show placeholder when contenteditable is true (edit mode is ON) */
+#hyperlit-container .footnote-text[contenteditable="true"]:empty::before,
+#hyperlit-container .footnote-text[contenteditable="true"].empty-footnote::before {
   content: "Write footnote content here...";
   color: #888;
   pointer-events: none;
   font-style: italic;
 }
 
-#hyperlit-container .footnote-text:focus::before,
-#hyperlit-container .footnote-text.empty-footnote:focus::before {
+#hyperlit-container .footnote-text[contenteditable="true"]:focus::before,
+#hyperlit-container .footnote-text[contenteditable="true"].empty-footnote:focus::before {
   display: none !important;
 }
 
