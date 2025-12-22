@@ -166,9 +166,14 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   console.log("✅ Setting isProcessingClick to true");
   isProcessingClick = true;
 
+  // 📊 DIAGNOSTIC: Track total time for footnote click handling
+  console.time('📊 handleUnifiedContentClick-TOTAL');
+
   try {
     // 🚀 PERFORMANCE: Open DB once and reuse throughout
+    console.time('📊 openDatabase');
     const db = await openDatabase();
+    console.timeEnd('📊 openDatabase');
     let contentTypes = [];
 
     // If this is a history navigation, we have no element, only an ID.
@@ -210,7 +215,9 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     } else if (element) {
         // This is a standard click, run the full detection.
         console.log("🎯 Click navigation detected. Running full content detection.");
+        console.time('📊 detectContentTypes');
         contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
+        console.timeEnd('📊 detectContentTypes');
     } else {
         console.warn("handleUnifiedContentClick called with no element or direct ID. Aborting.");
         isProcessingClick = false;
@@ -275,20 +282,29 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     }
 
     // Build unified content (pass db for reuse)
+    console.time('📊 buildUnifiedContent');
     const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db);
+    console.timeEnd('📊 buildUnifiedContent');
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
     // Open the unified container
+    console.time('📊 openHyperlitContainer');
     openHyperlitContainer(unifiedContent, isBackNavigation);
+    console.timeEnd('📊 openHyperlitContainer');
 
     // Handle any post-open actions (like cursor placement for editable content)
     // Pass focusPreserver so footnote focus can transfer from it (preserves keyboard on iOS)
     // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
+    console.time('📊 handlePostOpenActions');
     await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote);
+    console.timeEnd('📊 handlePostOpenActions');
+
+    console.timeEnd('📊 handleUnifiedContentClick-TOTAL');
 
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
+    console.timeEnd('📊 handleUnifiedContentClick-TOTAL');
   } finally {
     // Clean up focus preserver if it wasn't used (e.g., not a footnote after all)
     if (focusPreserver && focusPreserver.parentNode) {
@@ -603,18 +619,31 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           attachFootnoteListener(footnoteId);
           attachFootnotePlaceholderBehavior(footnoteId);
 
-          // 🔑 Safari Keyboard Fix: Dispatch a real MouseEvent to activate contenteditable
-          // Safari requires a "trusted" user gesture to activate keyboard input
-          const mouseEvent = new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true,
-            clientX: footnoteEl.getBoundingClientRect().left + 10,
-            clientY: footnoteEl.getBoundingClientRect().top + 10
-          });
-          footnoteEl.dispatchEvent(mouseEvent);
+          // 🔑 Safari Contenteditable Fix
+          // Safari has a ~4 second delay before activating text input on contenteditable
+          // in some books. This appears to be related to page complexity.
+
+          // Strategy: Use execCommand to force the editing context to activate
           footnoteEl.focus();
-          console.log('🔑 Synthetic click + focus applied to footnote element');
+
+          // Place cursor at end first
+          try {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(footnoteEl);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            // Force Safari to enter edit mode by issuing an execCommand
+            // This tells the browser we want to start editing NOW
+            document.execCommand('selectAll', false, null);
+            selection.collapseToEnd();
+          } catch (e) {
+            console.log('Selection/execCommand failed:', e);
+          }
+
+          console.log('🔑 Focus + execCommand applied to footnote element');
 
           // Clean up the focus preserver
           if (focusPreserver && focusPreserver.parentNode) {
