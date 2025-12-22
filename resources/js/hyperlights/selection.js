@@ -88,6 +88,12 @@ export function handleSelection() {
     const buttons = document.getElementById("hyperlight-buttons");
     buttons.style.display = "flex";
 
+    // Hide undo/redo buttons in edit toolbar when hyperlight buttons are shown
+    const editToolbar = document.getElementById("edit-toolbar");
+    if (editToolbar) {
+      editToolbar.classList.add("hyperlight-selection-active");
+    }
+
     // Position the buttons below the selection (or above if there's no room below)
     let offset = 100; // Adjust this value to move the buttons further from iOS context menu
     if (rect.bottom + offset > window.innerHeight) {
@@ -112,6 +118,12 @@ export function handleSelection() {
     verbose.content("No text selected. Hiding buttons.", 'hyperlights/selection.js');
     document.getElementById("hyperlight-buttons").style.display = "none";
     document.getElementById("delete-hyperlight").style.display = "none";
+
+    // Show undo/redo buttons again in edit toolbar
+    const editToolbar = document.getElementById("edit-toolbar");
+    if (editToolbar) {
+      editToolbar.classList.remove("hyperlight-selection-active");
+    }
   }
 }
 
@@ -390,6 +402,12 @@ export async function createHighlightHandler(event, bookId) {
   window.getSelection().removeAllRanges();
   document.getElementById("hyperlight-buttons").style.display = "none";
 
+  // Show undo/redo buttons again in edit toolbar
+  const editToolbar = document.getElementById("edit-toolbar");
+  if (editToolbar) {
+    editToolbar.classList.remove("hyperlight-selection-active");
+  }
+
   // Mark highlight as newly created for proper CSS styling in container
   try {
     const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('../utilities/operationState.js');
@@ -530,5 +548,16 @@ export async function deleteHighlightHandler(event, bookId) {
       await reprocessHighlightsForNodes(bookId, Array.from(affectedNodeChunks));
       console.log(`✅ Reprocessed highlights for ${affectedNodeChunks.size} nodes after deletion`);
     }
+  }
+
+  // Clear selection and hide buttons
+  window.getSelection().removeAllRanges();
+  document.getElementById("hyperlight-buttons").style.display = "none";
+  document.getElementById("delete-hyperlight").style.display = "none";
+
+  // Show undo/redo buttons again in edit toolbar
+  const editToolbar = document.getElementById("edit-toolbar");
+  if (editToolbar) {
+    editToolbar.classList.remove("hyperlight-selection-active");
   }
 }

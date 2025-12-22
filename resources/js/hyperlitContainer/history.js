@@ -9,10 +9,10 @@ import { openHyperlitContainer, hyperlitManager, getHyperlitEditMode } from './c
 import { openDatabase } from '../indexedDB/index.js';
 
 /**
- * Determine URL hash for single content types
+ * Determine URL update for single content types
  * Returns null for multiple content types (overlapping content)
  * @param {Array} contentTypes - Array of content type objects
- * @returns {string|null} URL hash string or null
+ * @returns {Object|null} { type: 'hash'|'path', value: string, hash?: string } or null
  */
 export function determineSingleContentHash(contentTypes) {
   if (contentTypes.length !== 1) {
@@ -26,25 +26,27 @@ export function determineSingleContentHash(contentTypes) {
       if (contentType.hyperciteId) {
         // Remove hypercite_ prefix if present, then add it back for consistency
         const cleanId = contentType.hyperciteId.replace(/^hypercite_/, '');
-        return `hypercite_${cleanId}`;
+        return { type: 'hash', value: `hypercite_${cleanId}` };
       }
       break;
 
     case 'highlight':
       if (contentType.highlightIds && contentType.highlightIds.length === 1) {
-        return contentType.highlightIds[0]; // Already has HL_ prefix
+        return { type: 'hash', value: contentType.highlightIds[0] }; // Already has HL_ prefix
       }
       break;
 
     case 'footnote':
       if (contentType.elementId) {
-        return `footnote_${contentType.elementId}`;
+        // Footnotes use path-based URLs: /book/footnoteID
+        // Hash portion is reserved for hypercite within footnote: /book/footnoteID#hyperciteID
+        return { type: 'path', value: contentType.elementId };
       }
       break;
 
     case 'citation':
       if (contentType.referenceId) {
-        return `citation_${contentType.referenceId}`;
+        return { type: 'hash', value: `citation_${contentType.referenceId}` };
       }
       break;
   }

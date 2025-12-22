@@ -456,8 +456,8 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
       console.log('📊 Storing hyperlit container state in history:', containerState);
 
       // Determine if we should update URL (only for single content types)
-      const urlHash = determineSingleContentHash(contentTypes);
-      if (urlHash) {
+      const urlUpdate = determineSingleContentHash(contentTypes);
+      if (urlUpdate) {
         // Check if we already have a specific hypercite target that should be preserved
         const currentHash = window.location.hash.substring(1); // Remove #
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
@@ -467,8 +467,16 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           // Preserve the original hypercite hash for in-container scrolling
           console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
           history.replaceState(newState, '');
+        } else if (urlUpdate.type === 'path') {
+          // Path-based URL (for footnotes): /book/footnoteID
+          const pathSegments = window.location.pathname.split('/').filter(Boolean);
+          const bookSlug = pathSegments[0] || '';
+          const newUrl = `/${bookSlug}/${urlUpdate.value}${window.location.hash || ''}`;
+          console.log(`📊 Updating URL with path for footnote: ${newUrl}`);
+          history.pushState(newState, '', newUrl);
         } else {
-          const newUrl = `${window.location.pathname}${window.location.search}#${urlHash}`;
+          // Hash-based URL (for hypercites, highlights, citations)
+          const newUrl = `${window.location.pathname}${window.location.search}#${urlUpdate.value}`;
           console.log(`📊 Updating URL for single content: ${newUrl}`);
           history.pushState(newState, '', newUrl);
         }
