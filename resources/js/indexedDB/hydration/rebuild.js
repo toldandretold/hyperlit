@@ -1,14 +1,16 @@
 /**
  * Hydration Module
  *
- * Rebuilds node.hyperlights and node.hypercites arrays from normalized tables.
+ * Rebuilds node.hyperlights, node.hypercites, and node.footnotes arrays.
  * This is the NEW SYSTEM philosophy: arrays in nodes table are computed views,
- * rebuilt on-demand from the normalized hyperlights and hypercites tables.
+ * rebuilt on-demand from the normalized hyperlights and hypercites tables,
+ * and footnotes extracted from HTML content.
  *
  * Philosophy:
  * - Normalized tables (hyperlights, hypercites) are the source of truth
  * - node.hyperlights and node.hypercites arrays are denormalized caches for fast rendering
- * - Arrays are NEVER updated directly - always rebuilt from normalized tables
+ * - node.footnotes is rebuilt from HTML content (extracted from footnote links)
+ * - Arrays are NEVER updated directly - always rebuilt from source
  * - Enables dynamic filtering, live updates, and clean separation of concerns
  */
 
@@ -50,7 +52,17 @@ export async function rebuildNodeArrays(nodes) {
       node.hyperlights = buildHyperlightsForNode(node, hyperlights);
       node.hypercites = buildHypercitesForNode(node, hypercites);
 
-      verbose.content(`NEW SYSTEM: Node ${node.node_id} rebuilt with ${node.hyperlights.length} hyperlights, ${node.hypercites.length} hypercites`, 'indexedDB/hydration/rebuild.js');
+      // Rebuild footnotes array from HTML content
+      // Only overwrite if extraction found IDs; preserve existing otherwise
+      const extractedFootnotes = extractFootnoteIdsFromContent(node.content);
+      if (extractedFootnotes.length > 0) {
+        node.footnotes = extractedFootnotes;
+      } else if (!node.footnotes) {
+        node.footnotes = [];
+      }
+      // If extractedFootnotes is empty but node.footnotes exists, keep existing (old format compatibility)
+
+      verbose.content(`NEW SYSTEM: Node ${node.node_id} rebuilt with ${node.hyperlights.length} hyperlights, ${node.hypercites.length} hypercites, ${(node.footnotes || []).length} footnotes`, 'indexedDB/hydration/rebuild.js');
     });
 
     // Update nodes in IndexedDB with new arrays
@@ -318,4 +330,43 @@ export async function getNodesByUUIDs(nodeUUIDs) {
   verbose.content(`NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${nodeUUIDs.length} UUIDs)`, 'indexedDB/hydration/rebuild.js');
 
   return results;
+}
+
+/**
+ * Extract footnote IDs from HTML content.
+ * Looks for footnote reference links and extracts their IDs.
+ *
+ * @param {string} content - HTML content string
+ * @returns {Array<string>} - Array of footnote IDs found in content
+ */
+function extractFootnoteIdsFromContent(content) {
+  if (!content) return [];
+
+  const footnoteIds = [];
+  const seen = new Set();
+
+  // Use regex to extract footnote IDs from href attributes
+  // Matches: href="#bookId_Fn..." or href="#...Fn..."
+  const hrefPattern = /href="#([^"]*(?:_Fn|Fn)[^"]*)"/g;
+  let match;
+
+  while ((match = hrefPattern.exec(content)) !== null) {
+    const footnoteId = match[1];
+    if (footnoteId && !seen.has(footnoteId)) {
+      footnoteIds.push(footnoteId);
+      seen.add(footnoteId);
+    }
+  }
+
+  // Also try data-footnote-id attribute
+  const dataAttrPattern = /data-footnote-id="([^"]*)"/g;
+  while ((match = dataAttrPattern.exec(content)) !== null) {
+    const footnoteId = match[1];
+    if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+      footnoteIds.push(footnoteId);
+      seen.add(footnoteId);
+    }
+  }
+
+  return footnoteIds;
 }

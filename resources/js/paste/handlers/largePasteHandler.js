@@ -17,6 +17,7 @@ import { processContentForFootnotesAndReferences } from '../fallback-processor.j
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
+import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds.js';
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -194,6 +195,9 @@ export async function handleLargePaste(
       });
     }
 
+    // Extract footnote IDs from content (store IDs, not display numbers)
+    const footnoteIds = extractFootnoteIdsFromHtml(content);
+
     nodesInCurrentChunk++;
 
     return {
@@ -204,7 +208,7 @@ export async function handleLargePaste(
       node_id,
       hyperlights: [],
       hypercites: [],
-      footnotes: [],
+      footnotes: footnoteIds,
     };
   });
 

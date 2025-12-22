@@ -240,51 +240,42 @@ export class EnterKeyHandler {
 
       const range = selection.getRangeAt(0);
 
-      // 🔥 FIX: Prevent <br> insertion inside hypercite <sup> elements
+      // 🎯 SUP TAG ESCAPE: Prevent Enter inside any <sup> element
+      // Sup tags contain generated content (footnote numbers, hypercite arrows) - never user-editable
       let checkElement = range.startContainer;
       if (checkElement.nodeType === Node.TEXT_NODE) {
         checkElement = checkElement.parentElement;
       }
 
-      // Walk up the DOM tree to find if we're inside a <sup class="open-icon">
-      const openIconSup = checkElement.closest('sup.open-icon');
-      if (openIconSup) {
-        console.log('🎯 Cursor is inside <sup class="open-icon">, moving outside before Enter');
+      const supElement = checkElement?.closest('sup');
+      if (supElement) {
+        console.log('🎯 Cursor is inside <sup>, moving outside before Enter');
+        event.preventDefault();
 
-        // Find the parent <a> element
-        const hyperciteLink = openIconSup.closest('a[id^="hypercite_"]');
-        if (hyperciteLink) {
-          event.preventDefault();
-
-          // Create text node to position cursor after the link
-          const zwsp = document.createTextNode('\u200B');
-          hyperciteLink.parentNode.insertBefore(zwsp, hyperciteLink.nextSibling);
-
-          // Position cursor after the hypercite link
-          const newRange = document.createRange();
-          newRange.setStart(zwsp, 1);
-          newRange.collapse(true);
-
-          selection.removeAllRanges();
-          selection.addRange(newRange);
-
-          // Insert the line break
-          const br = document.createElement('br');
-          newRange.insertNode(br);
-
-          // Position cursor after the br
-          const finalRange = document.createRange();
-          finalRange.setStartAfter(br);
-          finalRange.collapse(true);
-
-          selection.removeAllRanges();
-          selection.addRange(finalRange);
-
-          console.log('✅ Cursor moved outside hypercite link and line break inserted');
-
+        // Find the best parent to insert after (could be inside an <a> tag)
+        const parent = supElement.parentNode;
+        if (!parent) {
           this.enterCount = 0;
           return;
         }
+
+        // Create zero-width space after the sup if needed
+        let nextNode = supElement.nextSibling;
+        if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
+          nextNode = document.createTextNode('\u200B');
+          parent.insertBefore(nextNode, supElement.nextSibling);
+        }
+
+        // Position cursor after the sup
+        const newRange = document.createRange();
+        newRange.setStart(nextNode, 0);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        console.log('✅ Cursor moved outside sup tag');
+        this.enterCount = 0;
+        return;
       }
 
       let currentNode = range.startContainer;

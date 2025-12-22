@@ -201,6 +201,14 @@
       </svg>
     </button>
 
+    <button type="button" id="footnoteButton" title="Insert footnote">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <text x="6" y="18" font-size="14" font-weight="bold" font-family="serif" stroke-width="0">a</text>
+        <text x="14" y="12" font-size="9" font-weight="bold" font-family="serif" stroke-width="0">1</text>
+      </svg>
+    </button>
+
     <button id="undoButton">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <rect width="24" height="24" />

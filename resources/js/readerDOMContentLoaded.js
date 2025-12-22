@@ -11,8 +11,7 @@ import { openDatabase, initializeDatabaseModules } from "./indexedDB/index.js";
 import { fireAndForgetSync } from "./createNewBook.js";
 import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
-import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
-// ✅ This import is correct. We just need to use it.
+// ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { generateTableOfContents } from "./components/toc.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
@@ -61,7 +60,7 @@ function handlePendingNewBookSync() {
       overlay.style.display = 'none';
     }
 
-    sessionStorage.removeItem("pending_new_book_sync");
+    // Don't remove sessionStorage here - let permission checks work until sync completes
     try {
       const pendingSync = JSON.parse(pendingSyncJSON);
       const { bookId, isNewBook } = pendingSync;
@@ -72,14 +71,21 @@ function handlePendingNewBookSync() {
           isNewBook,
           pendingSync,
         ).finally(() => {
+          // Clean up sessionStorage after sync completes (success or failure)
+          sessionStorage.removeItem("pending_new_book_sync");
           // Also, ensure the promise is cleared from the state manager when done.
           setInitialBookSyncPromise(null);
         });
 
         setInitialBookSyncPromise(syncPromise);
+      } else {
+        // Not a valid new book, clean up immediately
+        sessionStorage.removeItem("pending_new_book_sync");
       }
     } catch (error) {
       log.error("Failed to handle pending book sync", "readerDOMContentLoaded.js", error);
+      // Clean up on error
+      sessionStorage.removeItem("pending_new_book_sync");
       // Ensure the promise is cleared on error too.
       setInitialBookSyncPromise(null);
     }
@@ -118,10 +124,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   await NavigationManager.navigate('fresh-page-load');
 
   // Page-specific initialization after NavigationManager completes
-  if (pageType === "reader") {
-    // Initialize footnote and citation click listeners after page loads
-    initializeFootnoteCitationListeners();
-  } else if (pageType === "user") {
+  // Note: footnoteCitationListeners now handled by ButtonRegistry
+  if (pageType === "user") {
     // User-specific components (in addition to what NavigationManager initialized)
     initializeUserProfilePage();
   }

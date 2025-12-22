@@ -44,38 +44,43 @@ class DbFootnoteController extends Controller
         );
     }
 
-    // Add this new upsert method
     public function upsert(Request $request)
     {
         try {
-            // Log the request
             Log::info('Footnote upsert request received:', [
                 'book' => $request->input('book'),
                 'has_data' => $request->has('data'),
                 'data_type' => gettype($request->input('data'))
             ]);
 
-            // Validate the request
             $validated = $request->validate([
                 'book' => 'required|string',
-                'data' => 'nullable'
+                'data' => 'required|array',
+                'data.*.footnoteId' => 'required|string',
+                'data.*.content' => 'present',
             ]);
 
             $book = $validated['book'];
-            $data = $validated['data'];
+            $footnotes = $validated['data'];
+            $upsertedCount = 0;
 
-            // Use updateOrCreate since 'book' is the primary key for footnotes
-            $footnote = PgFootnote::updateOrCreate(
-                ['book' => $book],
-                [
-                    'data' => $data,
-                    'updated_at' => now(),
-                ]
-            );
+            foreach ($footnotes as $item) {
+                \DB::table('footnotes')->updateOrInsert(
+                    ['book' => $book, 'footnoteId' => $item['footnoteId']],
+                    [
+                        'book' => $book,
+                        'footnoteId' => $item['footnoteId'],
+                        'content' => $item['content'] ?? '',
+                        'updated_at' => now(),
+                    ]
+                );
+                $upsertedCount++;
+            }
 
             Log::info('Footnote upserted successfully', [
                 'book' => $book,
-                'footnote_id' => $footnote->book
+                'footnote_id' => $book,
+                'count' => $upsertedCount
             ]);
 
             return response()->json([

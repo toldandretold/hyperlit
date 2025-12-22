@@ -45,6 +45,7 @@ class UnifiedSyncController extends Controller
                 'hypercites_count' => isset($data['hypercites']) ? count($data['hypercites']) : 0,
                 'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
+                'footnotes_count' => isset($data['footnotes']) ? count($data['footnotes']) : 0,
                 'has_library' => isset($data['library']),
             ]);
 
@@ -55,6 +56,7 @@ class UnifiedSyncController extends Controller
                     'hypercites' => null,
                     'hyperlights' => null,
                     'hyperlightDeletions' => null,
+                    'footnotes' => null,
                     'library' => null,
                 ];
 
@@ -164,7 +166,26 @@ class UnifiedSyncController extends Controller
                     $results['hyperlightDeletions'] = ['success' => true];
                 }
 
-                // 5. Sync library record (if present)
+                // 5. Sync footnotes (if present)
+                if (!empty($data['footnotes'])) {
+                    $footnoteController = new DbFootnoteController();
+                    $footnoteRequest = new Request(['book' => $bookId, 'data' => $data['footnotes']]);
+                    $footnoteRequest->setUserResolver(function () use ($request) {
+                        return $request->user();
+                    });
+                    foreach ($request->cookies as $key => $value) {
+                        $footnoteRequest->cookies->set($key, $value);
+                    }
+
+                    $response = $footnoteController->upsert($footnoteRequest);
+                    $results['footnotes'] = json_decode($response->getContent(), true);
+
+                    if (!($results['footnotes']['success'] ?? false)) {
+                        throw new \Exception('Footnotes sync failed: ' . ($results['footnotes']['message'] ?? 'Unknown error'));
+                    }
+                }
+
+                // 6. Sync library record (if present)
                 if (!empty($data['library'])) {
                     $libraryController = new DbLibraryController();
                     $libraryRequest = new Request(['data' => $data['library']]);

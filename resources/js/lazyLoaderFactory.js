@@ -20,6 +20,41 @@ import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
+import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
+
+/**
+ * Apply dynamic footnote numbers to rendered HTML element.
+ * Looks up display numbers from FootnoteNumberingService and updates
+ * the fn-count-id attribute and link text.
+ *
+ * @param {HTMLElement} element - The DOM element containing footnote references
+ */
+function applyDynamicFootnoteNumbers(element) {
+  // Find all footnote reference links
+  const footnoteLinks = element.querySelectorAll('sup a.footnote-ref, a.footnote-ref');
+
+  for (const link of footnoteLinks) {
+    const href = link.getAttribute('href');
+    if (!href) continue;
+
+    // Extract footnote ID from href (e.g., "#bookId_Fn1758412345001" → "bookId_Fn1758412345001")
+    const footnoteId = href.replace(/^#/, '');
+    if (!footnoteId) continue;
+
+    // Get the dynamic display number from the service
+    const displayNumber = getDisplayNumber(footnoteId);
+
+    if (displayNumber) {
+      // Update the parent sup's fn-count-id attribute
+      const sup = link.closest('sup');
+      if (sup) {
+        sup.setAttribute('fn-count-id', displayNumber.toString());
+      }
+      // Update the visible link text
+      link.textContent = displayNumber.toString();
+    }
+  }
+}
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -742,6 +777,9 @@ export function createChunkElement(nodes, instance) {
       console.error(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
     }
 
+    // Note: Footnote migration is now handled server-side in DatabaseToIndexedDBController.php
+    // nodes.footnotes is populated before data reaches the client
+
     let html = renderBlockToHtml(node);
 
     if (node.hyperlights && node.hyperlights.length > 0) {
@@ -765,6 +803,10 @@ export function createChunkElement(nodes, instance) {
         el.classList.remove(className);
       });
     });
+
+    // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
+    // This replaces the old static fn-count-id with dynamically calculated numbers
+    applyDynamicFootnoteNumbers(temp);
 
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;
@@ -1033,6 +1075,25 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     const range = document.createRange();
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
+
+    // 🛡️ GUARD: Check if the range ends at offset 0 inside a <sup> or <a> element
+    // This would cause extractContents() to split the element and duplicate content
+    // Instead, extend the range to include the entire sup/a element
+    if (endOffset === 0 && endNode.parentElement) {
+      const parent = endNode.parentElement;
+      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
+        // Extend range to AFTER the entire sup/a element
+        range.setEndAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
+      }
+    }
+
+    // Similarly, if range starts at end of text inside sup/a, adjust to start after it
+    if (startOffset === startNode.textContent.length && startNode.parentElement) {
+      const parent = startNode.parentElement;
+      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
+        range.setStartAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
+      }
+    }
 
     // ✅ Do the tolerant extract/insert directly
     const contents = range.extractContents();
