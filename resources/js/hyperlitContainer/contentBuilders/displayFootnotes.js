@@ -66,7 +66,7 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <div class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</div>
+              <div class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</div>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">
@@ -79,7 +79,7 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
           <div class="footnote-content">
             <div class="footnote-header" style="display: flex; align-items: flex-start;">
               <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <div class="footnote-text empty-footnote" contenteditable="${isEditable}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></div>
+              <div class="footnote-text empty-footnote" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></div>
             </div>
           </div>
           <hr style="margin: 2em 0; opacity: 0.5;">

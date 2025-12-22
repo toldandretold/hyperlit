@@ -204,14 +204,19 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
 }
 
 /**
- * Handle edit button click - toggle edit mode and rebuild content
- * @param {Object} containerState - Current container state from history
+ * Handle edit button click - toggle edit mode in-place without rebuilding content
+ * Preserves scroll position and simply toggles contenteditable attributes
  */
-async function handleEditButtonClick(containerState) {
+async function handleEditButtonClick() {
   const newState = toggleHyperlitEditMode();
   const editBtn = document.getElementById('hyperlit-edit-btn');
+  const container = document.getElementById('hyperlit-container');
+  const scroller = container?.querySelector('.scroller');
 
-  // Update button visual state immediately
+  // Save scroll position BEFORE any DOM changes
+  const scrollTop = scroller?.scrollTop || 0;
+
+  // Update button visual state
   if (editBtn) {
     if (newState) {
       editBtn.classList.add('inverted');
@@ -222,35 +227,43 @@ async function handleEditButtonClick(containerState) {
     }
   }
 
-  // Rebuild container content with new edit mode state
-  if (containerState) {
-    // Rebuild by calling handleUnifiedContentClick with state from history
-    // Pass skipAutoFocus=true so we handle focus ourselves below
-    const { restoreHyperlitContainerFromHistory } = await import('./history.js');
-    await restoreHyperlitContainerFromHistory(containerState, true, true); // skipUrlUpdate=true, skipAutoFocus=true
+  // Toggle contenteditable on all editable elements in-place
+  toggleContentEditableInPlace(newState);
 
-    // If edit mode is now ON, focus the topmost editable element
-    if (newState) {
-      // Small delay to allow DOM to update after rebuild
-      setTimeout(() => {
-        focusTopmostEditableElement();
-      }, 100);
-    }
+  // Attach or detach edit listeners
+  if (newState) {
+    const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
+    attachNoteListeners();
+    initializePlaceholders();
+  } else {
+    const { detachNoteListeners } = await import('./noteListener.js');
+    detachNoteListeners();
+  }
+
+  // Restore scroll position
+  if (scroller) {
+    scroller.scrollTop = scrollTop;
+  }
+
+  // If entering edit mode, focus topmost editable (without scrolling)
+  if (newState) {
+    focusTopmostEditableElement(true); // preventScroll = true
   }
 }
 
 /**
  * Focus the topmost editable element in the hyperlit container
  * Priority: footnote first, then first editable annotation
+ * @param {boolean} preventScroll - If true, prevents scrolling when focusing
  */
-function focusTopmostEditableElement() {
+function focusTopmostEditableElement(preventScroll = false) {
   const container = document.getElementById('hyperlit-container');
   if (!container) return;
 
   // First try to find an editable footnote (always at the top when present)
   const editableFootnote = container.querySelector('.footnote-text[contenteditable="true"]');
   if (editableFootnote) {
-    editableFootnote.focus();
+    editableFootnote.focus({ preventScroll });
     // Place cursor at end of content
     placeCursorAtEnd(editableFootnote);
     console.log('✏️ Focused topmost editable footnote');
@@ -260,7 +273,7 @@ function focusTopmostEditableElement() {
   // Otherwise find the first editable annotation (highlight annotation)
   const editableAnnotation = container.querySelector('.annotation[contenteditable="true"]');
   if (editableAnnotation) {
-    editableAnnotation.focus();
+    editableAnnotation.focus({ preventScroll });
     // Place cursor at end of content
     placeCursorAtEnd(editableAnnotation);
     console.log('✏️ Focused topmost editable annotation');
@@ -268,6 +281,33 @@ function focusTopmostEditableElement() {
   }
 
   console.log('✏️ No editable elements found to focus');
+}
+
+/**
+ * Toggle contenteditable attribute on all editable elements in-place
+ * Uses data-user-can-edit attribute to determine which elements should be toggled
+ * @param {boolean} enabled - Whether edit mode is enabled
+ */
+function toggleContentEditableInPlace(enabled) {
+  const container = document.getElementById('hyperlit-container');
+  if (!container) return;
+
+  // Toggle footnotes (user must have permission - check data attribute)
+  container.querySelectorAll('.footnote-text[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  // Toggle annotations (user must have permission - check data attribute)
+  container.querySelectorAll('.annotation[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  // Toggle highlight text (user must have permission - check data attribute)
+  container.querySelectorAll('.highlight-text[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
+  console.log(`✏️ Toggled contenteditable=${enabled} on editable elements`);
 }
 
 /**
@@ -848,12 +888,10 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     if (hasAnyEditPermission) {
       const editBtn = document.getElementById('hyperlit-edit-btn');
       if (editBtn) {
-        // Get current container state from history for rebuild on toggle
-        const containerState = history.state?.hyperlitContainer;
         registerListener(editBtn, 'click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          handleEditButtonClick(containerState);
+          handleEditButtonClick();
         });
       }
     }

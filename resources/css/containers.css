@@ -1073,8 +1073,6 @@ body[data-page="user"] #userLibraryContainer {
 #hyperlit-container .footnote-content:has(.footnote-text[contenteditable="true"]) {
   background-color: var(--editable-bg);
   border-radius: var(--border-radius-md, 4px);
-  padding: 8px 12px;
-  margin: -8px -12px;
 }
 
 #hyperlit-container .footnote-text[contenteditable="true"] {

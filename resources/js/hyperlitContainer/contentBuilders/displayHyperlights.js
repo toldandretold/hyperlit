@@ -139,14 +139,14 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
       html += `  </div>
 `;
-      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
+      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
       html += `    "${truncatedText}"
 `;
       html += `  </blockquote>
 `;
-      html += `  <div class="annotation" contenteditable="${isEditable}" `;
+      html += `  <div class="annotation" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
       // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links + line breaks)
