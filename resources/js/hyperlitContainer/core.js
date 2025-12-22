@@ -111,7 +111,7 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     scroller.innerHTML = '';
     scroller.innerHTML = content;
 
-    // 🔑 Force layout flush before focus - Safari needs this to finalize contenteditable setup
+    // Force layout flush before focus - Safari needs this to finalize contenteditable setup
     void scroller.offsetHeight;
 
     console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
