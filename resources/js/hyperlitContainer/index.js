@@ -191,14 +191,10 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
     }
   }
 
-  // Check hypercites (user can edit their own hypercites)
-  const hyperciteType = contentTypes.find(ct => ct.type === 'hypercite');
-  if (hyperciteType) {
-    // For now, check if user can edit the book that contains the hypercite
-    if (await canUserEditBook(book)) {
-      return true;
-    }
-  }
+  // Note: Hypercites are intentionally NOT checked here.
+  // The "Cited By" section (for couple/poly hypercites) is read-only,
+  // and "single" hypercites just show an informational message.
+  // Edit button should only show if there's other editable content (footnotes, citations, highlights).
 
   return false;
 }
