@@ -106,6 +106,7 @@ export function attachNoteListeners() {
 
 /**
  * Cleanup when container closes
+ * Flushes any pending saves before detaching listeners
  */
 export function detachNoteListeners() {
   const container = document.getElementById('hyperlit-container');
@@ -122,7 +123,10 @@ export function detachNoteListeners() {
     supEscapeHandler = null;
   }
 
-  // Clear all pending debounce timers
+  // Flush pending saves before clearing timers
+  flushPendingSaves(container);
+
+  // Clear all pending debounce timers (saves already flushed)
   for (const timer of debounceTimers.values()) {
     clearTimeout(timer);
   }
@@ -130,6 +134,33 @@ export function detachNoteListeners() {
 
   isAttached = false;
   console.log('Note listeners detached from hyperlit-container');
+}
+
+/**
+ * Flush all pending debounced saves immediately
+ * Called when exiting edit mode to ensure no content is lost
+ */
+function flushPendingSaves(container) {
+  if (debounceTimers.size === 0) return;
+
+  console.log(`Flushing ${debounceTimers.size} pending save(s)...`);
+
+  for (const [id, timer] of debounceTimers.entries()) {
+    // Cancel the pending timer
+    clearTimeout(timer);
+
+    // Determine if this is a highlight or footnote and save immediately
+    const annotation = container.querySelector(`.annotation[data-highlight-id="${id}"]`);
+    const footnote = container.querySelector(`.footnote-text[data-footnote-id="${id}"]`);
+
+    if (annotation) {
+      const content = annotation.innerHTML || '';
+      saveContent('highlight', id, content);
+    } else if (footnote) {
+      const content = footnote.innerHTML || '';
+      saveContent('footnote', id, content);
+    }
+  }
 }
 
 /**

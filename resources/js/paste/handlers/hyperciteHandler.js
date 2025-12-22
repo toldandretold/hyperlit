@@ -16,7 +16,7 @@ import {
   toPublicChunk,
   syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index.js';
-import { parseHyperciteHref } from '../../hypercites/index.js';
+import { parseHyperciteHref, attachUnderlineClickListeners } from '../../hypercites/index.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {
   setHandleHypercitePaste
@@ -467,6 +467,11 @@ export async function handleHypercitePaste(event) {
     // Clear the flag in the finally block to guarantee it's always reset
     setHandleHypercitePaste(false);
     console.log("setHandleHypercitePaste cleared");
+
+    // Attach click listeners to the newly pasted hypercite links
+    // This was previously done by BroadcastListener re-rendering, but we now skip self-broadcasts
+    attachUnderlineClickListeners();
+    console.log("✅ Attached click listeners to pasted hypercite(s)");
   }
 
   return true; // Successfully handled as hypercite

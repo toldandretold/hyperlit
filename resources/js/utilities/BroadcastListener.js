@@ -5,12 +5,25 @@ import { applyHypercites, applyHighlights } from "../lazyLoaderFactory.js"; // a
 import { attachUnderlineClickListeners } from "../hypercites/index.js";
 import { setProgrammaticUpdateInProgress } from "./operationState.js";
 
+// Track recent broadcasts from THIS tab to skip self-processing
+// This prevents the re-render loop where our own broadcast triggers mutation observers
+const locallyBroadcastedUpdates = new Set();
+
 export function initializeBroadcastListener() {
   const channel = new BroadcastChannel("node-updates");
 
   channel.addEventListener("message", (event) => {
     // Destructure with alias to avoid naming collisions.
     const { book: incomingBook, startLine } = event.data;
+
+    // Skip updates that originated from THIS tab (self-broadcasts)
+    const updateKey = `${incomingBook}_${startLine}`;
+    if (locallyBroadcastedUpdates.has(updateKey)) {
+      console.log(`⏭️ Skipping self-broadcast for ${updateKey}`);
+      locallyBroadcastedUpdates.delete(updateKey);
+      return;
+    }
+
     if (incomingBook === book) {
       console.log(`Received update for node with startLine: ${startLine}`);
       updateDomNode(startLine);
@@ -76,8 +89,13 @@ async function updateDomNode(startLine) {
   } catch (error) {
     console.error("❌ Error updating DOM node:", error);
   } finally {
-    console.log("Clearing programmatic update flag.");
-    setProgrammaticUpdateInProgress(false);
+    // Use RAF to delay clearing the flag - this ensures mutations triggered by
+    // the innerHTML update are processed BEFORE the flag is cleared.
+    // MutationProcessor also uses RAF, so this ensures proper ordering.
+    requestAnimationFrame(() => {
+      console.log("Clearing programmatic update flag.");
+      setProgrammaticUpdateInProgress(false);
+    });
     console.groupEnd();
   }
 }
@@ -137,6 +155,15 @@ function getNodeChunkByKey(book, startLine) {
 
 export function broadcastToOpenTabs(booka, startLine) {
   const channel = new BroadcastChannel("node-updates");
+  const updateKey = `${booka}_${startLine}`;
+
+  // Mark this update so we skip it when we receive our own broadcast
+  // This prevents the self-broadcast loop that causes hypercite removal
+  locallyBroadcastedUpdates.add(updateKey);
+
+  // Clear after a short delay (in case message doesn't arrive or is delayed)
+  setTimeout(() => locallyBroadcastedUpdates.delete(updateKey), 200);
+
   console.log(
     `Broadcasting update: book=${booka}, startLine=${startLine}`
   );
