@@ -113,7 +113,8 @@ def main(html_file_path):
                         for key in keys:
                             if key in bibliography_map:
                                 target_id = bibliography_map[key]
-                                a_tag = soup.new_tag("a", href=f"#{target_id}", attrs={'class': 'in-text-citation'})
+                                a_tag = soup.new_tag("a", href=f"#{target_id}")
+                                a_tag['class'] = 'in-text-citation'
                                 a_tag.string = sub_cite
                                 new_content.append(a_tag)
                                 linked = True

@@ -106,15 +106,25 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
     const skipPlainTextPattern = ['cambridge', 'oup', 'taylor-francis', 'sage'].includes(formatType);
 
     if (!skipPlainTextPattern) {
-      // Pattern: punctuation followed by number (at word boundary or end of sentence)
-      // This is for plain text/markdown where footnotes aren't pre-marked
-      const plainFootnotePattern = /([.!?;,:])\s*(\d+)(?=\s|$|[.!?])/g;
+      // CONSERVATIVE pattern for plain-text footnote detection:
+      // Only match small numbers (1-99) immediately after sentence-ending punctuation
+      // when followed by a capital letter (new sentence) or end of text.
+      // This avoids false positives like "Figure 2.", "Page 23.", "Section 5."
+      const plainFootnotePattern = /([.!?])\s*(\d{1,2})(?=\s+[A-Z]|\s*$)/g;
 
       while ((match = plainFootnotePattern.exec(text)) !== null) {
         const identifier = match[2];
         const punctuation = match[1];
+        const numericId = parseInt(identifier, 10);
 
-        if (footnoteMappings.has(identifier)) {
+        // Additional guards against false positives:
+        // 1. Must have a matching footnote definition
+        // 2. Must be a reasonable footnote number (1-99)
+        // 3. Check context: avoid "in 2023." or similar year patterns
+        const contextBefore = text.substring(Math.max(0, match.index - 10), match.index);
+        const looksLikeYear = /\b(in|since|by|from|until|after|before)\s*$/.test(contextBefore);
+
+        if (footnoteMappings.has(identifier) && numericId <= 99 && !looksLikeYear) {
           const mapping = footnoteMappings.get(identifier);
           // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
           const supHTML = `${punctuation}<sup fn-count-id="${identifier}" id="${mapping.uniqueId}"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
