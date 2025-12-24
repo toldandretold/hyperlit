@@ -36,6 +36,8 @@ Phase 1 - Structural Fixes:
 - SpanUnwrapper: Unwraps remaining <span class="calibreN"> styling wrappers
 - CalibreClassStripper: Strips all calibreN classes from elements (clean output)
 - DivToSemanticConverter: Converts divs with semantic class names to proper elements
+- ImageProcessor: Copies images to public storage, fixes paths, converts divs to <figure>
+- SectionUnwrapper: Unwraps section/div containers so each p/h is a separate node
 
 Phase 2 - Footnote Detection:
 - Epub3SemanticFootnoteDetector: Uses epub:type attributes (W3C standard)
@@ -93,15 +95,70 @@ ALLOWED_ATTRS = {
     '*': ['id', 'class', 'epub:type', 'role', 'fn-count-id']
 }
 
+# Safe URL protocols for href and src attributes
+ALLOWED_PROTOCOLS = ['http', 'https', 'mailto', '#']
+
+# Dangerous URL patterns that should be stripped
+DANGEROUS_URL_PATTERNS = re.compile(
+    r'^(javascript|vbscript|data|file):', re.IGNORECASE
+)
+
+
+def sanitize_url(url):
+    """
+    Sanitize a URL to prevent XSS.
+    Returns None if URL is dangerous, otherwise returns the URL.
+    """
+    if not url:
+        return url
+
+    url = url.strip()
+
+    # Allow fragment-only links (#id)
+    if url.startswith('#'):
+        return url
+
+    # Block dangerous protocols
+    if DANGEROUS_URL_PATTERNS.match(url):
+        return None
+
+    return url
+
 
 def sanitize_html(html_string):
     """Sanitize HTML to prevent XSS from malicious EPUB content."""
-    return bleach.clean(
+    # First pass: bleach sanitization
+    cleaned = bleach.clean(
         html_string,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRS,
         strip=True
     )
+
+    # Second pass: sanitize URLs in href and src attributes
+    soup = BeautifulSoup(cleaned, 'html.parser')
+
+    # Sanitize href attributes
+    for elem in soup.find_all(href=True):
+        safe_url = sanitize_url(elem['href'])
+        if safe_url is None:
+            del elem['href']
+        else:
+            elem['href'] = safe_url
+
+    # Sanitize src attributes (especially important for img)
+    for elem in soup.find_all(src=True):
+        safe_url = sanitize_url(elem['src'])
+        if safe_url is None:
+            # For images, remove the element entirely if src is dangerous
+            if elem.name == 'img':
+                elem.decompose()
+            else:
+                del elem['src']
+        else:
+            elem['src'] = safe_url
+
+    return str(soup)
 
 
 # =============================================================================
@@ -374,6 +431,249 @@ class SpanUnwrapper(EpubTransform):
 
         log(f"  Unwrapped {unwrapped} styling-only spans")
         return {'unwrapped': unwrapped}
+
+
+class ImageProcessor(EpubTransform):
+    """
+    Processes images from EPUB:
+    1. Copies images from epub_original to public storage location
+    2. Updates image src paths to use public URLs
+    3. Converts nested div wrappers to proper <figure> elements
+    4. Detects and preserves figure captions as <figcaption>
+
+    Image storage: /storage/app/public/books/{bookId}/images/
+    Public URL: /storage/books/{bookId}/images/{filename}
+    """
+
+    name = "ImageProcessor"
+    description = "Process and relocate EPUB images"
+
+    def __init__(self):
+        self.book_id = None
+        self.input_dir = None
+        self.images_copied = 0
+
+    def detect(self, soup) -> bool:
+        return bool(soup.find('img'))
+
+    def set_context(self, book_id, input_dir):
+        """Set context for image processing (called before transform)."""
+        self.book_id = book_id
+        self.input_dir = input_dir
+
+    def transform(self, soup, log) -> dict:
+        if not self.book_id or not self.input_dir:
+            log("  Warning: ImageProcessor context not set, skipping")
+            return {'images_processed': 0}
+
+        body = soup.body if soup.body else soup
+        images_processed = 0
+        figures_created = 0
+
+        # Find the base path for the project (go up from app/Python to project root)
+        import pathlib
+        project_root = pathlib.Path(__file__).parent.parent.parent
+
+        # Create storage directory for this book's images
+        storage_dir = project_root / 'storage' / 'app' / 'public' / 'books' / self.book_id / 'images'
+        storage_dir.mkdir(parents=True, exist_ok=True)
+
+        # Define allowed base directories for path traversal protection
+        allowed_base = pathlib.Path(self.input_dir).resolve()
+
+        for img in body.find_all('img', src=True):
+            src = img['src']
+
+            # Skip external images and data URIs
+            if src.startswith(('http://', 'https://', 'data:')):
+                continue
+
+            # Security: Reject paths with obvious traversal attempts
+            if '..' in src or src.startswith('/'):
+                log(f"    Warning: Skipping suspicious image path: {src}")
+                continue
+
+            # Find the source image file
+            # src might be like "epub_original/images/00001.jpg" or "images/00001.jpg"
+            src_path = None
+            possible_paths = [
+                pathlib.Path(self.input_dir) / src,
+                pathlib.Path(self.input_dir) / 'epub_original' / src,
+                pathlib.Path(self.input_dir).parent / src,
+            ]
+
+            for p in possible_paths:
+                if p.exists():
+                    # Security: Verify resolved path is within allowed directory
+                    resolved = p.resolve()
+                    if not str(resolved).startswith(str(allowed_base.parent)):
+                        log(f"    Warning: Path traversal attempt blocked: {src}")
+                        continue
+                    src_path = resolved
+                    break
+
+            if not src_path:
+                log(f"    Warning: Image not found: {src}")
+                continue
+
+            # Copy image to storage
+            filename = src_path.name
+            dest_path = storage_dir / filename
+
+            if not dest_path.exists():
+                import shutil
+                shutil.copy2(src_path, dest_path)
+                self.images_copied += 1
+
+            # Update src to public URL
+            img['src'] = f'/storage/books/{self.book_id}/images/{filename}'
+            images_processed += 1
+
+            # Convert div wrappers to figure
+            # Pattern: <div><div><img></div></div> or <div><img><p>caption</p></div>
+            parent = img.parent
+            if parent and parent.name == 'div':
+                grandparent = parent.parent
+
+                # Check if parent div contains only the image (and maybe whitespace)
+                siblings = [c for c in parent.children if hasattr(c, 'name') and c.name]
+                if len(siblings) == 1 and siblings[0] == img:
+                    # Parent div only has img, check grandparent
+                    if grandparent and grandparent.name == 'div':
+                        gp_children = [c for c in grandparent.children if hasattr(c, 'name') and c.name]
+
+                        # Look for caption (usually a <p> with bold text like "Figure 1.1")
+                        caption_elem = None
+                        for child in gp_children:
+                            if child.name == 'p' and child != parent:
+                                text = child.get_text(strip=True)
+                                if text and len(text) < 500:  # Reasonable caption length
+                                    caption_elem = child
+                                    break
+
+                        # Convert grandparent div to figure
+                        grandparent.name = 'figure'
+                        grandparent.attrs = {}
+
+                        # Unwrap the intermediate div
+                        parent.unwrap()
+
+                        # Convert caption p to figcaption
+                        if caption_elem:
+                            caption_elem.name = 'figcaption'
+
+                        figures_created += 1
+
+                elif len(siblings) >= 1:
+                    # Parent div has img + possibly caption
+                    caption_elem = None
+                    for child in siblings:
+                        if child.name == 'p' and child != img:
+                            text = child.get_text(strip=True)
+                            if text and len(text) < 500:
+                                caption_elem = child
+                                break
+
+                    # Convert parent div to figure
+                    parent.name = 'figure'
+                    parent.attrs = {}
+
+                    if caption_elem:
+                        caption_elem.name = 'figcaption'
+
+                    figures_created += 1
+
+        log(f"  Processed {images_processed} images, created {figures_created} figures")
+        log(f"  Copied {self.images_copied} images to storage")
+        return {'images_processed': images_processed, 'figures_created': figures_created}
+
+
+class SectionUnwrapper(EpubTransform):
+    """
+    Unwraps section and div container elements that wrap multiple paragraphs.
+
+    EPUBs often use <section> or <div> to group content by chapter, but these
+    container elements prevent proper node chunking (each paragraph should be
+    a separate node). This transform unwraps these containers while preserving
+    their children.
+
+    Preserves:
+    - <figure> elements (needed for images)
+    - <nav> elements (table of contents)
+    - <aside> elements (semantic sidebars)
+    - Elements with epub:type="footnotes" or similar
+    - Blockquotes (actual quotes, not Calibre abuse)
+
+    Unwraps:
+    - <section> elements (chapter/section wrappers)
+    - <div> elements with layout classes (galley-rw, etc.)
+    - <nav> elements that are just navigation wrappers
+    """
+
+    name = "SectionUnwrapper"
+    description = "Unwrap section/div containers for proper node chunking"
+
+    # Elements to preserve (don't unwrap)
+    PRESERVE_ELEMENTS = ['figure', 'aside', 'table', 'ul', 'ol', 'blockquote']
+
+    # Classes that indicate the element should be preserved
+    PRESERVE_CLASSES = ['footnotes', 'endnotes', 'bibliography', 'references']
+
+    def detect(self, soup) -> bool:
+        return bool(soup.find(['section', 'div']))
+
+    def transform(self, soup, log) -> dict:
+        unwrapped = 0
+        body = soup.body if soup.body else soup
+
+        # Unwrap sections first
+        for section in list(body.find_all('section')):
+            if self._should_unwrap(section):
+                section.unwrap()
+                unwrapped += 1
+
+        # Unwrap divs (except figures and other semantic elements)
+        for div in list(body.find_all('div')):
+            if self._should_unwrap(div):
+                div.unwrap()
+                unwrapped += 1
+
+        # Also unwrap nav elements that aren't TOC
+        for nav in list(body.find_all('nav')):
+            epub_type = nav.get('epub:type', '')
+            if 'toc' not in epub_type and 'landmarks' not in epub_type:
+                nav.unwrap()
+                unwrapped += 1
+
+        log(f"  Unwrapped {unwrapped} container elements")
+        return {'unwrapped': unwrapped}
+
+    def _should_unwrap(self, elem):
+        """Determine if an element should be unwrapped."""
+        # Don't unwrap preserved element types
+        if elem.name in self.PRESERVE_ELEMENTS:
+            return False
+
+        # Don't unwrap elements with semantic epub:type
+        epub_type = elem.get('epub:type', '')
+        if any(t in epub_type for t in ['footnote', 'endnote', 'bibliography']):
+            return False
+
+        # Don't unwrap elements with preserved classes
+        classes = elem.get('class', [])
+        if isinstance(classes, str):
+            classes = classes.split()
+        class_str = ' '.join(classes).lower()
+        if any(pc in class_str for pc in self.PRESERVE_CLASSES):
+            return False
+
+        # Unwrap if it contains block-level children (paragraphs, headings, etc.)
+        block_children = elem.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section'], recursive=False)
+        if len(block_children) > 0:
+            return True
+
+        # If it only contains inline content, don't unwrap
+        return False
 
 
 class CalibreClassStripper(EpubTransform):
@@ -1112,11 +1412,79 @@ class FootnoteConverter(EpubTransform):
         if not content:
             content = elem.decode_contents()
 
+        # Strip leading footnote numbers from content
+        content = self._strip_leading_footnote_number(content)
+
         # Wrap in <p> if not already wrapped in a block element
         if content and not content.startswith('<p') and not content.startswith('<div'):
             content = f'<p>{content}</p>'
 
         return content
+
+    def _strip_leading_footnote_number(self, content):
+        """
+        Remove leading footnote numbers from content.
+
+        Handles patterns like:
+        - "5. Text..." -> "Text..."
+        - "[5] Text..." -> "Text..."
+        - "<a ...>5</a>. Text..." -> "Text..."
+        - "<sup>5</sup>. Text..." -> "Text..."
+        """
+        import re
+        from bs4 import BeautifulSoup, NavigableString
+
+        if not content:
+            return content
+
+        # Parse the content to handle HTML properly
+        soup = BeautifulSoup(content, 'html.parser')
+
+        def strip_number_element(container):
+            """Strip leading number element (<a> or <sup> with just a number) from container."""
+            first_elem = None
+            for child in container.children:
+                if hasattr(child, 'name') and child.name:
+                    first_elem = child
+                    break
+                elif isinstance(child, NavigableString) and str(child).strip():
+                    # First non-whitespace is text, not a tag
+                    break
+
+            if first_elem and first_elem.name in ['a', 'sup']:
+                elem_text = first_elem.get_text().strip()
+                if re.match(r'^\d+\.?$', elem_text):
+                    # Get the next sibling to strip trailing ". "
+                    next_sib = first_elem.next_sibling
+                    first_elem.decompose()
+                    # Strip trailing ". " from next text node
+                    if next_sib and isinstance(next_sib, NavigableString):
+                        text = str(next_sib)
+                        next_sib.replace_with(re.sub(r'^[\.\s]+', '', text))
+                    return True
+            return False
+
+        # Try stripping at top level
+        strip_number_element(soup)
+
+        # Also check inside <p> tags
+        for p_tag in soup.find_all('p'):
+            strip_number_element(p_tag)
+
+        content = str(soup)
+
+        # Strip plain text number patterns
+        patterns = [
+            r'^\s*\[\d+\]\s*\.?\s*',       # [5] or [5].
+            r'^\s*\d+\.\s+',                # 5. (with space after)
+            r'^\s*\d+\s*\)\s*',             # 5)
+            r'^\s*\(\d+\)\s*',              # (5)
+        ]
+
+        for pattern in patterns:
+            content = re.sub(pattern, '', content, count=1)
+
+        return content.strip()
 
     def _convert_noteref_element(self, elem, new_id, fn_count, soup):
         """Convert an in-text note reference to Hyperlit format."""
@@ -1202,6 +1570,8 @@ TRANSFORM_PIPELINE = [
     SpanUnwrapper(),                    # Unwrap remaining styling-only spans
     CalibreClassStripper(),             # Strip calibreN classes from all elements
     DivToSemanticConverter(),           # Convert semantic class divs to proper elements
+    ImageProcessor(),                   # Copy images to storage, fix paths, convert to <figure>
+    SectionUnwrapper(),                 # Unwrap section/div containers for node chunking
 
     # Phase 2: Footnote detection (multiple strategies, results accumulate)
     Epub3SemanticFootnoteDetector(),
@@ -1311,6 +1681,10 @@ class EpubNormalizer:
         all_noterefs = []
 
         for transform in TRANSFORM_PIPELINE:
+            # Set context for transforms that need it
+            if isinstance(transform, ImageProcessor):
+                transform.set_context(self.book_id, self.output_dir)
+
             if transform.detect(self.combined_soup):
                 self._log(f"\n[{transform.name}]")
                 result = transform.transform(self.combined_soup, self._log)
@@ -1356,11 +1730,20 @@ class EpubNormalizer:
             self._log("  No footnotes to write")
             return
 
+        # Security: Sanitize footnote content before writing to JSON
+        sanitized_footnotes = []
+        for fn in footnotes_json:
+            sanitized_fn = {
+                'footnoteId': fn.get('footnoteId', ''),
+                'content': sanitize_html(fn.get('content', ''))
+            }
+            sanitized_footnotes.append(sanitized_fn)
+
         footnotes_file = os.path.join(self.output_dir, 'footnotes.json')
         with open(footnotes_file, 'w', encoding='utf-8') as f:
-            json.dump(footnotes_json, f, indent=2, ensure_ascii=False)
+            json.dump(sanitized_footnotes, f, indent=2, ensure_ascii=False)
 
-        self._log(f"  Wrote {len(footnotes_json)} footnotes to {footnotes_file}")
+        self._log(f"  Wrote {len(sanitized_footnotes)} footnotes to {footnotes_file}")
 
     def _log_summary(self):
         """Log a summary of what was found/fixed."""

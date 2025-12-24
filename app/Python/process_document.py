@@ -7,6 +7,70 @@ import argparse
 import random
 import string
 from bs4 import BeautifulSoup, NavigableString
+import bleach
+
+# --- SECURITY: HTML Sanitization ---
+
+ALLOWED_TAGS = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
+    'a', 'em', 'strong', 'i', 'b', 'u', 'sub', 'sup', 'span', 'aside',
+    'ul', 'ol', 'li', 'br', 'hr', 'img', 'table', 'thead', 'tbody',
+    'tr', 'th', 'td', 'figure', 'figcaption', 'cite', 'q', 'abbr', 'mark',
+    'section', 'nav', 'article', 'header', 'footer', 'div'
+]
+
+ALLOWED_ATTRS = {
+    'a': ['href', 'title', 'id', 'class', 'fn-count-id'],
+    'img': ['src', 'alt', 'title', 'width', 'height'],
+    'td': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan'],
+    'sup': ['id', 'class', 'fn-count-id'],
+    '*': ['id', 'class', 'fn-count-id', 'data-node-id']
+}
+
+# Dangerous URL patterns
+DANGEROUS_URL_PATTERN = re.compile(r'^(javascript|vbscript|data|file):', re.IGNORECASE)
+
+
+def sanitize_url(url):
+    """Sanitize a URL to prevent XSS."""
+    if not url:
+        return url
+    url = url.strip()
+    if url.startswith('#'):
+        return url
+    if DANGEROUS_URL_PATTERN.match(url):
+        return None
+    return url
+
+
+def sanitize_html(html_string):
+    """Sanitize HTML to prevent XSS."""
+    cleaned = bleach.clean(
+        html_string,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        strip=True
+    )
+    # Sanitize URLs
+    soup = BeautifulSoup(cleaned, 'html.parser')
+    for elem in soup.find_all(href=True):
+        safe_url = sanitize_url(elem['href'])
+        if safe_url is None:
+            del elem['href']
+        else:
+            elem['href'] = safe_url
+    for elem in soup.find_all(src=True):
+        safe_url = sanitize_url(elem['src'])
+        if safe_url is None:
+            if elem.name == 'img':
+                elem.decompose()
+            else:
+                del elem['src']
+        else:
+            elem['src'] = safe_url
+    return str(soup)
+
 
 # --- UTILITY FUNCTIONS ---
 
@@ -1024,19 +1088,35 @@ def main(html_file_path, output_dir, book_id):
         }
         node_chunks_data.append(node_object)
 
-    print("\n--- Writing JSON output files ---")
+    print("\n--- Sanitizing and writing JSON output files ---")
     os.makedirs(output_dir, exist_ok=True)
-    
-    with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f: 
-        json.dump(references_data, f, ensure_ascii=False, indent=4)
+
+    # Security: Sanitize all HTML content before writing to JSON
+    sanitized_references = [
+        {"referenceId": r.get("referenceId", ""), "content": sanitize_html(r.get("content", ""))}
+        for r in references_data
+    ]
+    sanitized_footnotes = [
+        {"footnoteId": f.get("footnoteId", ""), "content": sanitize_html(f.get("content", ""))}
+        for f in footnotes_data
+    ]
+    sanitized_nodes = []
+    for node in node_chunks_data:
+        sanitized_node = node.copy()
+        sanitized_node["content"] = sanitize_html(node.get("content", ""))
+        # plainText doesn't need sanitization as it's text-only
+        sanitized_nodes.append(sanitized_node)
+
+    with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_references, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'references.json')}")
-    
-    with open(os.path.join(output_dir, 'footnotes.json'), 'w', encoding='utf-8') as f: 
-        json.dump(footnotes_data, f, ensure_ascii=False, indent=4)
+
+    with open(os.path.join(output_dir, 'footnotes.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_footnotes, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'footnotes.json')}")
-    
-    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f: 
-        json.dump(node_chunks_data, f, ensure_ascii=False, indent=4)
+
+    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_nodes, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'nodes.json')}")
 
 if __name__ == "__main__":
