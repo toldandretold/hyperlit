@@ -478,9 +478,36 @@ def process_whole_document_footnotes(soup, book_id):
     return footnote_map, footnotes_data
 
 def is_likely_reference(p_tag):
+    """
+    Detect if a paragraph looks like a bibliography reference entry.
+    Handles multiple formats:
+    - Standard: "Author, A. (2023). Title..."
+    - Numbered: "[1] Author, A. (2023). Title..."
+    - Bracketed year: "[2023] Author. Title..."
+    """
     if not p_tag: return False
     text = p_tag.get_text(" ", strip=True)
-    return re.match(r'^\s*[A-Z]', text) and re.search(r'\d{4}', text)
+
+    # Must contain a 4-digit year
+    if not re.search(r'\d{4}', text):
+        return False
+
+    # Check various reference formats:
+    # 1. Numbered format: [1] Author... (year)
+    if re.match(r'^\s*\[\d+\]', text):
+        return True
+
+    # 2. Bracketed year format: [2023] Author...
+    if re.match(r'^\s*\[\d{4}\]', text):
+        return True
+
+    # 3. Standard author-first format: starts with capital letter (including Unicode like Ö, É, etc.)
+    # Use Unicode property \p{Lu} for uppercase letters, or check first non-space char
+    first_char = text.lstrip()[:1] if text.strip() else ''
+    if first_char and first_char.isupper():
+        return True
+
+    return False
 
 # --- MAIN PROCESSING LOGIC ---
 
@@ -505,20 +532,51 @@ def main(html_file_path, output_dir, book_id):
     # ========================================================================
     print("--- PASS 1: Extracting All Definitions ---")
     
-    # --- 1A: Process Bibliography / References (No changes here) ---
+    # --- 1A: Process Bibliography / References ---
     bibliography_map = {}
     references_data = []
     all_paragraphs = soup.find_all('p')
     reference_p_tags = []
-    
+
+    print(f"📚 Scanning {len(all_paragraphs)} paragraphs for reference section...")
+
+    # Common reference section headers
+    REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+
     for p in reversed(all_paragraphs):
+        text_preview = p.get_text(" ", strip=True)[:80]
         if is_likely_reference(p):
             reference_p_tags.insert(0, p)
+            print(f"  ✓ Detected reference: {text_preview}...")
         elif reference_p_tags:
-            if p.get_text(strip=True).lower() in ["references", "bibliography", "works cited"]:
+            header_text = p.get_text(strip=True).lower()
+            if header_text in REFERENCE_HEADERS:
                 reference_p_tags.insert(0, p)
+                print(f"  📖 Found references header: '{header_text}'")
             break
-    
+
+    # Also check for heading elements (h1-h6) that might mark the reference section
+    if not reference_p_tags:
+        print("  ⚠️ No references found via paragraph scan, checking headings...")
+        all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        for heading in reversed(all_headings):
+            header_text = heading.get_text(strip=True).lower()
+            if header_text in REFERENCE_HEADERS:
+                print(f"  📖 Found references heading: '{header_text}'")
+                # Find paragraphs after this heading
+                next_sibling = heading.find_next_sibling()
+                while next_sibling:
+                    if next_sibling.name == 'p' and is_likely_reference(next_sibling):
+                        reference_p_tags.append(next_sibling)
+                    elif next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                        # Stop at next heading
+                        break
+                    next_sibling = next_sibling.find_next_sibling()
+                if reference_p_tags:
+                    break
+
+    print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
+
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
         keys = generate_ref_keys(text)
@@ -530,7 +588,11 @@ def main(html_file_path, output_dir, book_id):
             p.insert(0, anchor_tag)
             references_data.append({"referenceId": entry_id, "content": str(p)})
             for key in keys: bibliography_map[key] = entry_id
-    
+            print(f"  🔑 Generated keys for reference: {keys}")
+        else:
+            print(f"  ⚠️ No keys generated for: {text[:60]}...")
+
+    print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
     # --- 1B: Process Footnotes (ROUTER-BASED) ---
@@ -652,7 +714,11 @@ def main(html_file_path, output_dir, book_id):
     # ========================================================================
     print("\n--- PASS 2: Linking All In-Text Markers ---")
 
-    # --- 2A: Link References (No changes here) ---
+    # --- 2A: Link References ---
+    citations_found = 0
+    citations_linked = 0
+    citations_unlinked = []
+
     for text_node in soup.find_all(string=True):
         if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
             text = str(text_node)
@@ -669,6 +735,7 @@ def main(html_file_path, output_dir, book_id):
                     for i, sub_cite_raw in enumerate(sub_citations):
                         sub_cite = sub_cite_raw.strip()
                         if not sub_cite: continue
+                        citations_found += 1
                         keys = generate_ref_keys(sub_cite, context_text=preceding_text)
                         linked = False
                         for key in keys:
@@ -680,24 +747,40 @@ def main(html_file_path, output_dir, book_id):
                                     trailing_part = sub_cite[year_match.end(0):]
                                     if author_part:
                                         new_content.append(NavigableString(author_part))
-                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}", attrs={'class': 'in-text-citation'})
+                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                    a_tag['class'] = 'in-text-citation'
                                     a_tag.string = year_part
                                     new_content.append(a_tag)
                                     if trailing_part:
                                         new_content.append(NavigableString(trailing_part))
                                 else:
-                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}", attrs={'class': 'in-text-citation'})
+                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                    a_tag['class'] = 'in-text-citation'
                                     a_tag.string = sub_cite
                                     new_content.append(a_tag)
-                                
+
                                 linked = True
+                                citations_linked += 1
                                 break
-                        if not linked: new_content.append(NavigableString(sub_cite))
+                        if not linked:
+                            new_content.append(NavigableString(sub_cite))
+                            if len(citations_unlinked) < 10:  # Limit to first 10 for logging
+                                citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
                         if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
                     new_content.append(NavigableString(")"))
                     last_index = match.end()
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
+
+    # Citation linking summary
+    print(f"\n📖 Citation linking summary:")
+    print(f"  - Total in-text citations found: {citations_found}")
+    print(f"  - Successfully linked: {citations_linked}")
+    print(f"  - Unlinked: {citations_found - citations_linked}")
+    if citations_unlinked:
+        print(f"  - First unlinked citations (up to 10):")
+        for item in citations_unlinked:
+            print(f"    • '{item['citation']}' → keys tried: {item['generated_keys']}")
 
     # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
     def find_footnote_data(identifier, current_element=None):
@@ -842,10 +925,19 @@ def main(html_file_path, output_dir, book_id):
         if node.has_attr('class'):
             del node['class']
         
-        # Also remove class attributes from all nested elements
+        # Also remove class attributes from all nested elements EXCEPT functional classes
+        preserved_classes = {'in-text-citation', 'footnote-ref', 'bib-entry'}
         for nested_element in node.find_all():
             if nested_element.has_attr('class'):
-                del nested_element['class']
+                # Keep only functional classes, remove styling classes
+                element_classes = nested_element.get('class', [])
+                if isinstance(element_classes, str):
+                    element_classes = element_classes.split()
+                functional_classes = [c for c in element_classes if c in preserved_classes]
+                if functional_classes:
+                    nested_element['class'] = functional_classes
+                else:
+                    del nested_element['class']
         
         # FORCE all elements to get numerical IDs (overwrite any existing non-numerical IDs)
 
