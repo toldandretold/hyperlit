@@ -10,9 +10,22 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class EpubProcessor implements ProcessorInterface
 {
+    private const VENV_PYTHON = '/var/www/hyperlit/venv/bin/python3';
+
     public function __construct(
         private FileHelpers $helpers
     ) {}
+
+    /**
+     * Get the Python executable path - uses venv on prod, system python locally
+     */
+    private function getPythonPath(): string
+    {
+        if (file_exists(self::VENV_PYTHON)) {
+            return self::VENV_PYTHON;
+        }
+        return 'python3';
+    }
 
     public function supportedExtensions(): array
     {
@@ -87,7 +100,7 @@ class EpubProcessor implements ProcessorInterface
                 ]);
 
                 $process = new Process([
-                    'python3',
+                    $this->getPythonPath(),
                     $documentProcessorScript,
                     $htmlPath,
                     $outputPath,
@@ -162,7 +175,7 @@ class EpubProcessor implements ProcessorInterface
 
             // Run epub_processor.py with timeout and proper error handling
             $process = new Process([
-                'python3',
+                $this->getPythonPath(),
                 $processorScriptPath,
                 $epubPath
             ]);
