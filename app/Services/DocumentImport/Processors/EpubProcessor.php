@@ -86,7 +86,7 @@ class EpubProcessor implements ProcessorInterface
             ]);
 
             // Step 1: Run epub_processor.py to convert EPUB to a single HTML file
-            $this->runEpubProcessor($outputPath);
+            $this->runEpubProcessor($outputPath, $bookId);
 
             // Step 2: Process the generated HTML to create node chunks, footnotes, etc.
             $htmlPath = "{$outputPath}/main-text.html";
@@ -144,7 +144,7 @@ class EpubProcessor implements ProcessorInterface
     /**
      * Run the epub_processor.py script to convert EPUB to HTML
      */
-    private function runEpubProcessor(string $path): void
+    private function runEpubProcessor(string $path, string $bookId): void
     {
         // Validate the path is within expected bounds
         $realPath = realpath($path);
@@ -177,7 +177,9 @@ class EpubProcessor implements ProcessorInterface
             $process = new Process([
                 $this->getPythonPath(),
                 $processorScriptPath,
-                $epubPath
+                $epubPath,
+                $path,      // output directory
+                $bookId     // book ID for image storage
             ]);
             $process->setTimeout(300);
             $process->run();
