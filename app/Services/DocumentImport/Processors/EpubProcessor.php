@@ -149,14 +149,14 @@ class EpubProcessor implements ProcessorInterface
         }
 
         try {
-            $processorScriptPath = base_path('app/Python/epub_processor.py');
+            $processorScriptPath = base_path('app/Python/epub_normalizer.py');
 
             // Verify script file exists
             if (!file_exists($processorScriptPath)) {
-                throw new \RuntimeException('Python script epub_processor.py not found');
+                throw new \RuntimeException('Python script epub_normalizer.py not found');
             }
 
-            Log::info('Python epub_processor.py execution started', [
+            Log::info('Python epub_normalizer.py execution started', [
                 'epub_path' => basename($epubPath)
             ]);
 
@@ -173,21 +173,21 @@ class EpubProcessor implements ProcessorInterface
             $stdout = $process->getOutput();
             $stderr = $process->getErrorOutput();
             if (!empty($stdout) || !empty($stderr)) {
-                Log::debug('Output from epub_processor.py', [
+                Log::debug('Output from epub_normalizer.py', [
                     'stdout' => $stdout,
                     'stderr' => $stderr
                 ]);
             }
 
             if (!$process->isSuccessful()) {
-                Log::error('epub_processor.py script failed', [
+                Log::error('epub_normalizer.py script failed', [
                     'exit_code' => $process->getExitCode(),
                     'error_output' => $stderr
                 ]);
                 throw new ProcessFailedException($process);
             }
 
-            Log::info('Python epub_processor.py completed successfully');
+            Log::info('Python epub_normalizer.py completed successfully');
 
         } catch (ProcessFailedException $e) {
             Log::error('Python script execution failed', [

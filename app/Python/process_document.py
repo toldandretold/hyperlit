@@ -7,6 +7,70 @@ import argparse
 import random
 import string
 from bs4 import BeautifulSoup, NavigableString
+import bleach
+
+# --- SECURITY: HTML Sanitization ---
+
+ALLOWED_TAGS = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
+    'a', 'em', 'strong', 'i', 'b', 'u', 'sub', 'sup', 'span', 'aside',
+    'ul', 'ol', 'li', 'br', 'hr', 'img', 'table', 'thead', 'tbody',
+    'tr', 'th', 'td', 'figure', 'figcaption', 'cite', 'q', 'abbr', 'mark',
+    'section', 'nav', 'article', 'header', 'footer', 'div'
+]
+
+ALLOWED_ATTRS = {
+    'a': ['href', 'title', 'id', 'class', 'fn-count-id'],
+    'img': ['src', 'alt', 'title', 'width', 'height'],
+    'td': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan'],
+    'sup': ['id', 'class', 'fn-count-id'],
+    '*': ['id', 'class', 'fn-count-id', 'data-node-id']
+}
+
+# Dangerous URL patterns
+DANGEROUS_URL_PATTERN = re.compile(r'^(javascript|vbscript|data|file):', re.IGNORECASE)
+
+
+def sanitize_url(url):
+    """Sanitize a URL to prevent XSS."""
+    if not url:
+        return url
+    url = url.strip()
+    if url.startswith('#'):
+        return url
+    if DANGEROUS_URL_PATTERN.match(url):
+        return None
+    return url
+
+
+def sanitize_html(html_string):
+    """Sanitize HTML to prevent XSS."""
+    cleaned = bleach.clean(
+        html_string,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        strip=True
+    )
+    # Sanitize URLs
+    soup = BeautifulSoup(cleaned, 'html.parser')
+    for elem in soup.find_all(href=True):
+        safe_url = sanitize_url(elem['href'])
+        if safe_url is None:
+            del elem['href']
+        else:
+            elem['href'] = safe_url
+    for elem in soup.find_all(src=True):
+        safe_url = sanitize_url(elem['src'])
+        if safe_url is None:
+            if elem.name == 'img':
+                elem.decompose()
+            else:
+                del elem['src']
+        else:
+            elem['src'] = safe_url
+    return str(soup)
+
 
 # --- UTILITY FUNCTIONS ---
 
@@ -624,8 +688,29 @@ def main(html_file_path, output_dir, book_id):
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
     # --- 1B: Process Footnotes (ROUTER-BASED) ---
-    strategy, strategy_info = analyze_document_structure(soup)
-    
+    # Check if footnotes.json already exists (e.g., from epub_normalizer.py)
+    # If so, use that instead of detecting footnotes ourselves
+    existing_footnotes_path = os.path.join(output_dir, 'footnotes.json')
+    if os.path.exists(existing_footnotes_path):
+        try:
+            with open(existing_footnotes_path, 'r', encoding='utf-8') as f:
+                existing_footnotes = json.load(f)
+            if existing_footnotes and len(existing_footnotes) > 0:
+                print(f"--- Using existing footnotes.json ({len(existing_footnotes)} footnotes) ---")
+                all_footnotes_data = existing_footnotes
+                footnote_sections = []
+                sectioned_footnote_map = {}
+                all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+                # Skip to node chunking
+                strategy = 'pre_processed'
+            else:
+                strategy, strategy_info = analyze_document_structure(soup)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not read existing footnotes.json: {e}")
+            strategy, strategy_info = analyze_document_structure(soup)
+    else:
+        strategy, strategy_info = analyze_document_structure(soup)
+
     if strategy == 'whole_document':
         # Use simple whole-document footnote processing
         global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
@@ -633,15 +718,15 @@ def main(html_file_path, output_dir, book_id):
         all_footnotes_data = footnotes_data
         footnote_sections = []
         all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
-    else:
+    elif strategy != 'pre_processed':
         # Use section-aware footnote processing
         footnote_sections, all_elements = detect_footnote_sections(soup)
         sectioned_footnote_map = {}
         all_footnotes_data = []
     
-    # Process traditional footnotes container first
+    # Process traditional footnotes container first (skip if pre-processed)
     fn_container = soup.find('section', class_='footnotes')
-    if fn_container:
+    if fn_container and strategy != 'pre_processed':
         list_items = fn_container.find_all('li')
         
         for li in list_items:
@@ -1003,19 +1088,35 @@ def main(html_file_path, output_dir, book_id):
         }
         node_chunks_data.append(node_object)
 
-    print("\n--- Writing JSON output files ---")
+    print("\n--- Sanitizing and writing JSON output files ---")
     os.makedirs(output_dir, exist_ok=True)
-    
-    with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f: 
-        json.dump(references_data, f, ensure_ascii=False, indent=4)
+
+    # Security: Sanitize all HTML content before writing to JSON
+    sanitized_references = [
+        {"referenceId": r.get("referenceId", ""), "content": sanitize_html(r.get("content", ""))}
+        for r in references_data
+    ]
+    sanitized_footnotes = [
+        {"footnoteId": f.get("footnoteId", ""), "content": sanitize_html(f.get("content", ""))}
+        for f in footnotes_data
+    ]
+    sanitized_nodes = []
+    for node in node_chunks_data:
+        sanitized_node = node.copy()
+        sanitized_node["content"] = sanitize_html(node.get("content", ""))
+        # plainText doesn't need sanitization as it's text-only
+        sanitized_nodes.append(sanitized_node)
+
+    with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_references, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'references.json')}")
-    
-    with open(os.path.join(output_dir, 'footnotes.json'), 'w', encoding='utf-8') as f: 
-        json.dump(footnotes_data, f, ensure_ascii=False, indent=4)
+
+    with open(os.path.join(output_dir, 'footnotes.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_footnotes, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'footnotes.json')}")
-    
-    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f: 
-        json.dump(node_chunks_data, f, ensure_ascii=False, indent=4)
+
+    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f:
+        json.dump(sanitized_nodes, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'nodes.json')}")
 
 if __name__ == "__main__":
