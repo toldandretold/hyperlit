@@ -160,6 +160,16 @@ class MarkdownProcessor implements ProcessorInterface
                 ]);
                 throw new ProcessFailedException($pythonProcess);
             }
+
+            // Log Python output for debugging reference/citation processing
+            $pythonOutput = $pythonProcess->getOutput();
+            if (!empty($pythonOutput)) {
+                Log::info("Python script output", [
+                    'book' => $bookId,
+                    'output' => $pythonOutput
+                ]);
+            }
+
             Log::info("Python script executed successfully", [
                 'book' => $bookId,
                 'python_duration_ms' => $pythonScriptDuration

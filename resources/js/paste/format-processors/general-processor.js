@@ -134,6 +134,7 @@ export class GeneralProcessor extends BaseFormatProcessor {
    * Looks for:
    * - Paragraphs containing years (YYYY)
    * - Paragraphs after "References" or "Bibliography" heading
+   * - Handles <br>-separated references within a single <p> (from markdown conversion)
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
@@ -146,7 +147,7 @@ export class GeneralProcessor extends BaseFormatProcessor {
     const allElements = Array.from(dom.children);
     let referenceSectionStartIndex = -1;
 
-    const refHeadings = /^(references|bibliography|notes|footnotes|sources)$/i;
+    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
     for (let i = 0; i < allElements.length; i++) {
       const el = allElements[i];
       if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
@@ -156,10 +157,79 @@ export class GeneralProcessor extends BaseFormatProcessor {
       }
     }
 
+    // Helper: Check if text looks like the start of a reference
+    const looksLikeReferenceStart = (text) => {
+      if (!text || text.length < 10) return false;
+      const trimmed = text.trim();
+      // Starts with capital letter (including Unicode like Ö, É) or numbered format [1]
+      const startsWithAuthor = /^[A-ZÖÄÜÉÈÊËÀÂÎÏÔÛÇ]/.test(trimmed);
+      const startsWithNumber = /^\[\d+\]/.test(trimmed);
+      const hasYear = /\d{4}/.test(trimmed);
+      return (startsWithAuthor || startsWithNumber) && hasYear;
+    };
+
+    // Helper: Extract individual references from a paragraph (handles <br> separated refs)
+    const extractRefsFromParagraph = (p, isInRefSection) => {
+      const extracted = [];
+      const html = p.innerHTML;
+
+      // Check if paragraph contains <br> tags
+      if (/<br\s*\/?>/i.test(html)) {
+        // Split on <br> tags
+        const parts = html.split(/<br\s*\/?>/i).map(s => s.trim()).filter(s => s);
+
+        // Check if multiple parts look like separate references
+        const refLikeParts = parts.filter(part => {
+          const temp = document.createElement('div');
+          temp.innerHTML = part;
+          return looksLikeReferenceStart(temp.textContent);
+        });
+
+        // Only split if most parts look like references (avoid splitting body paragraphs)
+        if (isInRefSection || refLikeParts.length >= parts.length * 0.7) {
+          parts.forEach(part => {
+            const temp = document.createElement('div');
+            temp.innerHTML = part;
+            const text = temp.textContent.trim();
+
+            if (looksLikeReferenceStart(text)) {
+              extracted.push({
+                content: `<p>${part}</p>`,
+                originalText: text,
+                type: 'html-br-split',
+                needsKeyGeneration: true
+              });
+            }
+          });
+
+          if (extracted.length > 0) {
+            console.log(`  - Split paragraph into ${extracted.length} references (was <br>-separated)`);
+            return extracted;
+          }
+        }
+      }
+
+      // No splitting - treat as single reference if it looks like one
+      const text = p.textContent.trim();
+      if (looksLikeReferenceStart(text)) {
+        extracted.push({
+          content: p.outerHTML,
+          originalText: text,
+          type: 'html-paragraph',
+          needsKeyGeneration: true
+        });
+      }
+
+      return extracted;
+    };
+
     let elementsToScan = [];
+    let isInRefSection = false;
+
     if (referenceSectionStartIndex !== -1) {
       // Scan only elements after the reference heading
       elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter(el => el.tagName === 'P');
+      isInRefSection = true;
     } else {
       // No heading found - scan all paragraphs in reverse (bottom-up)
       elementsToScan = Array.from(dom.querySelectorAll('p')).reverse();
@@ -173,32 +243,21 @@ export class GeneralProcessor extends BaseFormatProcessor {
       const text = p.textContent.trim();
       if (!text) return;
 
-      // Stricter check: A reference list item should not contain an in-text citation
-      const citeMatch = text.match(inTextCitePattern);
-      if (citeMatch) {
-        const content = citeMatch[1];
-        // Allow if it's just the year, e.g., Author. (2017). Title.
-        // Reject if it's more complex, e.g., (see Smith, 2019) or (2017: 143)
-        if (content.includes(',') || content.includes(':') || /[a-zA-Z]{2,}/.test(content)) {
-          return; // This is a body paragraph, not a reference item
+      // Skip if this looks like body text with in-text citations (not a reference list item)
+      if (!isInRefSection) {
+        const citeMatch = text.match(inTextCitePattern);
+        if (citeMatch) {
+          const content = citeMatch[1];
+          // Reject if it contains author-date citation pattern like (Smith, 2019)
+          if (content.includes(',') || /[a-zA-Z]{2,}.*\d{4}/.test(content)) {
+            return;
+          }
         }
       }
 
-      // Original check for reference-like structure (year appears early)
-      const yearMatch = text.match(/(\d{4}[a-z]?)/);
-      if (!yearMatch || yearMatch.index > 150) {
-        return;
-      }
-
-      // This looks like a reference - extract it
-      // Reference key generation is handled by footnoteReferenceExtractor.js
-      // We just mark it as a potential reference here
-      references.push({
-        content: p.outerHTML,
-        originalText: text,
-        type: 'html-paragraph',
-        needsKeyGeneration: true  // Flag for later processing
-      });
+      // Extract references (handles both single refs and <br>-separated refs)
+      const refs = extractRefsFromParagraph(p, isInRefSection);
+      references.push(...refs);
     });
 
     console.log(`  - Extracted ${references.length} potential references`);
