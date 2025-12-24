@@ -409,6 +409,20 @@ def detect_footnote_sections(soup):
     # Also return the elements list for position-based matching
     return sections, all_elements
 
+def normalize_unicode_name(name):
+    """Normalize unicode characters in names for key matching.
+    Converts ß→ss, ü→u, é→e, etc. Also handles hyphenated names."""
+    import unicodedata
+    # First handle German ß explicitly (it normalizes to 'ss')
+    name = name.replace('ß', 'ss').replace('ẞ', 'SS')
+    # Normalize to NFD (decomposed form), then remove combining marks
+    normalized = unicodedata.normalize('NFD', name)
+    # Keep only ASCII letters, removing diacritics
+    ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    # Remove hyphens for key generation (von Ingersleben-Seip → von IngerslebenSeip)
+    ascii_name = ascii_name.replace('-', '')
+    return ascii_name
+
 def generate_ref_keys(text, context_text=""):
     processed_text = re.sub(r'\[\d{4}\]\s*', '', text)
     year_match = re.search(r'(\d{4}[a-z]?)', processed_text)
@@ -416,17 +430,22 @@ def generate_ref_keys(text, context_text=""):
     year = year_match.group(1)
     authors_part = text.split(year)[0]
     keys = set()
-    has_author = re.search(r'[a-zA-Z]', authors_part)
+    # Check for any letter (including Unicode) in authors_part
+    has_author = re.search(r'[a-zA-ZÀ-ÿßẞ]', authors_part)
     author_source = authors_part if has_author else context_text
-    
+
     if author_source:
         if not has_author:
-            candidates = re.findall(r"\b[A-Z][a-zA-Z']+\b", author_source)
+            # Match capitalized words including Unicode letters and hyphens
+            candidates = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
             if candidates: author_source = candidates[-1]
 
-        surnames = re.findall(r"\b[A-Z][a-zA-Z']+\b", author_source)
+        # Match capitalized words including Unicode letters and hyphens
+        # This pattern matches: Capital letter (including accented) followed by letters/hyphens/apostrophes
+        surnames = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
         excluded = {'And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'}
-        surnames = [s.lower().replace("'s", "") for s in surnames if s not in excluded]
+        # Normalize Unicode and remove apostrophe-s for key generation
+        surnames = [normalize_unicode_name(s).lower().replace("'s", "") for s in surnames if s not in excluded]
         if surnames:
             keys.add(surnames[0] + year)
             surnames.sort()
@@ -484,6 +503,7 @@ def is_likely_reference(p_tag):
     - Standard: "Author, A. (2023). Title..."
     - Numbered: "[1] Author, A. (2023). Title..."
     - Bracketed year: "[2023] Author. Title..."
+    - Noble particles: "von Name, A. (2023). Title..."
     """
     if not p_tag: return False
     text = p_tag.get_text(" ", strip=True)
@@ -501,7 +521,12 @@ def is_likely_reference(p_tag):
     if re.match(r'^\s*\[\d{4}\]', text):
         return True
 
-    # 3. Standard author-first format: starts with capital letter (including Unicode like Ö, É, etc.)
+    # 3. Noble particle format: starts with common particles like "von", "van", "de", "du", "da", "del", "della"
+    # followed by a capitalized surname
+    if re.match(r'^\s*(von|van|de|du|da|del|della|le|la|los|las|den|der|het|ten|ter)\s+[A-ZÀ-ÖØ-Þ]', text, re.IGNORECASE):
+        return True
+
+    # 4. Standard author-first format: starts with capital letter (including Unicode like Ö, É, etc.)
     # Use Unicode property \p{Lu} for uppercase letters, or check first non-space char
     first_char = text.lstrip()[:1] if text.strip() else ''
     if first_char and first_char.isupper():
@@ -543,37 +568,40 @@ def main(html_file_path, output_dir, book_id):
     # Common reference section headers
     REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
 
-    for p in reversed(all_paragraphs):
-        text_preview = p.get_text(" ", strip=True)[:80]
-        if is_likely_reference(p):
-            reference_p_tags.insert(0, p)
-            print(f"  ✓ Detected reference: {text_preview}...")
-        elif reference_p_tags:
-            header_text = p.get_text(strip=True).lower()
-            if header_text in REFERENCE_HEADERS:
-                reference_p_tags.insert(0, p)
-                print(f"  📖 Found references header: '{header_text}'")
-            break
-
-    # Also check for heading elements (h1-h6) that might mark the reference section
-    if not reference_p_tags:
-        print("  ⚠️ No references found via paragraph scan, checking headings...")
-        all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-        for heading in reversed(all_headings):
-            header_text = heading.get_text(strip=True).lower()
-            if header_text in REFERENCE_HEADERS:
-                print(f"  📖 Found references heading: '{header_text}'")
-                # Find paragraphs after this heading
-                next_sibling = heading.find_next_sibling()
-                while next_sibling:
-                    if next_sibling.name == 'p' and is_likely_reference(next_sibling):
-                        reference_p_tags.append(next_sibling)
-                    elif next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                        # Stop at next heading
-                        break
-                    next_sibling = next_sibling.find_next_sibling()
-                if reference_p_tags:
+    # PRIMARY: Find reference section by heading (more reliable for academic papers)
+    all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+    for heading in all_headings:  # Forward scan to find first matching heading
+        header_text = heading.get_text(strip=True).lower()
+        if header_text in REFERENCE_HEADERS:
+            print(f"  📖 Found references heading: '{header_text}'")
+            # Collect ALL paragraphs until the next heading
+            next_sibling = heading.find_next_sibling()
+            while next_sibling:
+                if next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                    # Stop at next major section
                     break
+                if next_sibling.name == 'p' and is_likely_reference(next_sibling):
+                    reference_p_tags.append(next_sibling)
+                    text_preview = next_sibling.get_text(" ", strip=True)[:80]
+                    print(f"  ✓ Detected reference: {text_preview}...")
+                next_sibling = next_sibling.find_next_sibling()
+            if reference_p_tags:
+                break  # Found references, done
+
+    # FALLBACK: If no heading found, use reverse paragraph scan
+    if not reference_p_tags:
+        print("  ⚠️ No references heading found, scanning paragraphs...")
+        for p in reversed(all_paragraphs):
+            text_preview = p.get_text(" ", strip=True)[:80]
+            if is_likely_reference(p):
+                reference_p_tags.insert(0, p)
+                print(f"  ✓ Detected reference: {text_preview}...")
+            elif reference_p_tags:
+                header_text = p.get_text(strip=True).lower()
+                if header_text in REFERENCE_HEADERS:
+                    reference_p_tags.insert(0, p)
+                    print(f"  📖 Found references header: '{header_text}'")
+                break
 
     print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
 
