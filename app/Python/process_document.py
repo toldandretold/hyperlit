@@ -624,8 +624,29 @@ def main(html_file_path, output_dir, book_id):
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
     # --- 1B: Process Footnotes (ROUTER-BASED) ---
-    strategy, strategy_info = analyze_document_structure(soup)
-    
+    # Check if footnotes.json already exists (e.g., from epub_normalizer.py)
+    # If so, use that instead of detecting footnotes ourselves
+    existing_footnotes_path = os.path.join(output_dir, 'footnotes.json')
+    if os.path.exists(existing_footnotes_path):
+        try:
+            with open(existing_footnotes_path, 'r', encoding='utf-8') as f:
+                existing_footnotes = json.load(f)
+            if existing_footnotes and len(existing_footnotes) > 0:
+                print(f"--- Using existing footnotes.json ({len(existing_footnotes)} footnotes) ---")
+                all_footnotes_data = existing_footnotes
+                footnote_sections = []
+                sectioned_footnote_map = {}
+                all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+                # Skip to node chunking
+                strategy = 'pre_processed'
+            else:
+                strategy, strategy_info = analyze_document_structure(soup)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not read existing footnotes.json: {e}")
+            strategy, strategy_info = analyze_document_structure(soup)
+    else:
+        strategy, strategy_info = analyze_document_structure(soup)
+
     if strategy == 'whole_document':
         # Use simple whole-document footnote processing
         global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
@@ -633,15 +654,15 @@ def main(html_file_path, output_dir, book_id):
         all_footnotes_data = footnotes_data
         footnote_sections = []
         all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
-    else:
+    elif strategy != 'pre_processed':
         # Use section-aware footnote processing
         footnote_sections, all_elements = detect_footnote_sections(soup)
         sectioned_footnote_map = {}
         all_footnotes_data = []
     
-    # Process traditional footnotes container first
+    # Process traditional footnotes container first (skip if pre-processed)
     fn_container = soup.find('section', class_='footnotes')
-    if fn_container:
+    if fn_container and strategy != 'pre_processed':
         list_items = fn_container.find_all('li')
         
         for li in list_items:
