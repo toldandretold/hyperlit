@@ -121,10 +121,12 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
         // 1. Must have a matching footnote definition
         // 2. Must be a reasonable footnote number (1-99)
         // 3. Check context: avoid "in 2023." or similar year patterns
+        // 4. Avoid section numbers like "3.2 Title" where digit precedes the period
         const contextBefore = text.substring(Math.max(0, match.index - 10), match.index);
         const looksLikeYear = /\b(in|since|by|from|until|after|before)\s*$/.test(contextBefore);
+        const looksLikeSectionNumber = /\d$/.test(contextBefore); // Period preceded by digit = section number
 
-        if (footnoteMappings.has(identifier) && numericId <= 99 && !looksLikeYear) {
+        if (footnoteMappings.has(identifier) && numericId <= 99 && !looksLikeYear && !looksLikeSectionNumber) {
           const mapping = footnoteMappings.get(identifier);
           // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
           const supHTML = `${punctuation}<sup fn-count-id="${identifier}" id="${mapping.uniqueId}"><a class="footnote-ref" href="#${mapping.uniqueId}">${identifier}</a></sup>`;
