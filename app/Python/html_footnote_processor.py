@@ -72,20 +72,17 @@ def process_html_footnotes(html_file, output_dir, book_id):
                     break
         
         if matching_footnote:
-            # Generate unique footnote ID
-            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}{footnote_counter:03d}"
+            # Generate unique footnote ID (shorter format without book prefix)
+            unique_fn_id = f"Fn{int(time.time() * 1000)}{footnote_counter:03d}"
 
             # Transform <sup> tag into clickable footnote reference
-            # Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+            # New format: <sup fn-count-id="1" id="footnoteId" class="footnote-ref">1</sup>
             sup['fn-count-id'] = str(footnote_counter)
-            sup['id'] = f"{unique_fn_id}ref"
+            sup['id'] = unique_fn_id
+            sup['class'] = sup.get('class', []) + ['footnote-ref']
 
-            # Clear existing content and add clickable link
-            sup.clear()
-            a_tag = soup.new_tag('a', href=f"#{unique_fn_id}")
-            a_tag['class'] = 'footnote-ref'
-            a_tag.string = str(sup_number)
-            sup.append(a_tag)
+            # Set text content directly (no anchor)
+            sup.string = str(sup_number)
             
             # Transform footnote definition
             footnote_elem = matching_footnote['element']
@@ -162,8 +159,15 @@ def create_node_chunks(soup, book_id):
                 # Force it one more time
                 element.attrs['id'] = str(i)
         
-        # Extract footnote IDs from href (canonical format uses href="#footnoteId")
+        # Extract footnote IDs from sup.id (new format) or anchor href (old format)
         footnotes_in_node = []
+        # New format: sup with class="footnote-ref" and id
+        for sup_tag in element.find_all('sup', class_='footnote-ref'):
+            sup_id = sup_tag.get('id', '')
+            if sup_id and 'Fn' in sup_id:
+                if sup_id not in footnotes_in_node:
+                    footnotes_in_node.append(sup_id)
+        # Old format fallback: anchor with href
         for a_tag in element.find_all('a', class_='footnote-ref'):
             href = a_tag.get('href', '')
             if href.startswith('#') and 'Fn' in href:

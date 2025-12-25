@@ -15,6 +15,7 @@ import {
   removeSectionsByHeading,
   removeStaticContentElements
 } from '../utils/transform-helpers.js';
+import { createFootnoteSupElement } from '../utils/footnote-linker.js';
 
 export class CambridgeProcessor extends BaseFormatProcessor {
   constructor() {
@@ -48,10 +49,10 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       const sup = link.querySelector('sup');
       if (sup) {
         const identifier = sup.textContent.trim();
-        // Create a clean <sup> with fn-count-id attribute
-        const cleanSup = document.createElement('sup');
-        cleanSup.setAttribute('fn-count-id', identifier);
-        cleanSup.textContent = identifier;
+        // Create a clean <sup> using centralized utility
+        // Note: ID will be assigned later by footnote-linker when footnotes are extracted
+        const cleanSup = createFootnoteSupElement('', identifier);
+        cleanSup.removeAttribute('id'); // Remove empty id, will be set by linker
 
         // Replace the entire link with just the <sup>
         link.replaceWith(cleanSup);
@@ -298,7 +299,7 @@ export class CambridgeProcessor extends BaseFormatProcessor {
   /**
    * Override linkFootnotes to convert simplified <sup> tags to proper linked footnotes
    * Cambridge creates <sup fn-count-id="N">N</sup> during extraction
-   * Need to convert to <sup id="refId" fn-count-id="N"><a href="#footnoteId" class="footnote-ref">N</a></sup>
+   * Need to convert to <sup id="refId" fn-count-id="N" class="footnote-ref">N</sup>
    *
    * @param {HTMLElement} dom - DOM element
    * @param {Array} footnotes - Array of footnote objects
@@ -315,18 +316,11 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       const footnote = footnotes.find(fn => fn.originalIdentifier === identifier);
 
       if (footnote) {
-        // Add ID for backlinking
-        sup.id = footnote.refId;
+        // Create new sup element using centralized utility
+        const newSup = createFootnoteSupElement(footnote.refId, identifier);
 
-        // Create link inside sup
-        const link = document.createElement('a');
-        link.href = `#${footnote.footnoteId}`;
-        link.className = 'footnote-ref';
-        link.textContent = identifier;
-
-        // Replace sup content with link
-        sup.textContent = '';
-        sup.appendChild(link);
+        // Replace existing sup with new clean sup
+        sup.replaceWith(newSup);
 
         linkedCount++;
       } else {

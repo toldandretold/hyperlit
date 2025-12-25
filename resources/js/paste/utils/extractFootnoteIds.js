@@ -2,14 +2,15 @@
  * Extract Footnote IDs Utility
  *
  * Extracts footnote IDs from HTML content for storing in nodes.footnotes.
- * Uses canonical format: href="#footnoteId" on the <a> element.
+ * New format: id on the <sup> element directly.
+ * Old format (backwards compat): href="#footnoteId" on nested <a> element.
  */
 
 /**
  * Extract footnote IDs from HTML content
  *
- * Looks for href attribute on footnote links inside <sup> elements.
- * Canonical format: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+ * New format: <sup fn-count-id="1" id="footnoteId" class="footnote-ref">1</sup>
+ * Old format: <sup fn-count-id="1" id="..."><a class="footnote-ref" href="#footnoteId">1</a></sup>
  *
  * @param {string} htmlContent - HTML string to extract from
  * @returns {string[]} - Array of unique footnote IDs
@@ -35,13 +36,21 @@ export function extractFootnoteIdsFromElement(element) {
   const footnoteIds = [];
   const seen = new Set();
 
-  // Find all footnote links (canonical format uses href)
-  element.querySelectorAll('sup[fn-count-id] a, a.footnote-ref').forEach(link => {
+  // New format: sup with class="footnote-ref" and id attribute
+  element.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+    const footnoteId = sup.id;
+    if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+      footnoteIds.push(footnoteId);
+      seen.add(footnoteId);
+    }
+  });
+
+  // Old format fallback: anchor href inside sup
+  element.querySelectorAll('sup[fn-count-id] a.footnote-ref, a.footnote-ref').forEach(link => {
     const href = link.getAttribute('href');
     if (!href) return;
 
     const footnoteId = href.replace(/^#/, '');
-    // Only add if it looks like a footnote ID (contains _Fn or Fn)
     if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
       footnoteIds.push(footnoteId);
       seen.add(footnoteId);
