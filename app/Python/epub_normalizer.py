@@ -43,6 +43,7 @@ Phase 2 - Footnote Detection:
 - Epub3SemanticFootnoteDetector: Uses epub:type attributes (W3C standard)
 - AriaRoleFootnoteDetector: Uses role="doc-footnote" etc.
 - ClassPatternFootnoteDetector: Matches common CSS class patterns
+- NotesClassFootnoteDetector: Publisher format with <p class="notes"><a id="...">
 - PandocFootnoteDetector: Handles <section class="footnotes"> structure
 - HeuristicFootnoteDetector: Fallback based on ID patterns and superscripts
 
@@ -960,6 +961,49 @@ class ClassPatternFootnoteDetector(EpubTransform):
         return {'footnotes': footnotes, 'noterefs': noterefs}
 
 
+class NotesClassFootnoteDetector(EpubTransform):
+    """
+    Detects footnotes in publisher format where:
+    - <p class="notes"> contains the footnote definition
+    - First <a id="..."> inside has the footnote ID
+    - The anchor typically has a backlink to the reference
+
+    Common in academic publishers (Melbourne University Press, etc.)
+    where footnotes are in a separate notes section.
+    """
+
+    name = "NotesClassFootnoteDetector"
+    description = "Detect footnotes in <p class='notes'> with child anchor ID"
+
+    def detect(self, soup) -> bool:
+        return bool(soup.find('p', class_='notes'))
+
+    def transform(self, soup, log) -> dict:
+        footnotes = []
+        seen_ids = set()
+
+        for p in soup.find_all('p', class_='notes'):
+            # Look for first anchor with an ID inside this paragraph
+            first_a = p.find('a', id=True)
+            if first_a:
+                fn_id = first_a.get('id', '')
+                # Verify it has a backlink (typical footnote pattern)
+                has_backlink = bool(first_a.get('href', '').strip())
+
+                if fn_id and fn_id not in seen_ids and has_backlink:
+                    seen_ids.add(fn_id)
+                    footnotes.append({
+                        'id': fn_id,
+                        'element': p,
+                        'type': 'endnote',
+                        'strategy': 'notes_class'
+                    })
+                    log(f"    Found endnote (notes class): id={fn_id}")
+
+        log(f"    Total: {len(footnotes)} definitions")
+        return {'footnotes': footnotes, 'noterefs': []}
+
+
 class PandocFootnoteDetector(EpubTransform):
     """
     Detects Pandoc-style footnotes.
@@ -1032,6 +1076,8 @@ class HeuristicFootnoteDetector(EpubTransform):
         r'^fn:\d+$', r'^footnote-\d+$',
         r'^en\d+en$', r'^fn\d+fn$',  # Publisher patterns like en0001en
         r'^filepos\d+$',  # Calibre file position anchors
+        r'^[a-z]+\d*fn\d+$',  # Chapter-prefixed: chapter01fn1, introductionfn5
+        r'^[a-z]+\d*-fn-?\d+$',  # With dashes: chapter01-fn1, chapter-fn-1
     ]
 
     def detect(self, soup) -> bool:
@@ -1544,6 +1590,7 @@ TRANSFORM_PIPELINE = [
     Epub3SemanticFootnoteDetector(),
     AriaRoleFootnoteDetector(),
     ClassPatternFootnoteDetector(),
+    NotesClassFootnoteDetector(),       # Publisher format: <p class="notes"><a id="...">
     PandocFootnoteDetector(),
     HeuristicFootnoteDetector(),
 
