@@ -52,6 +52,7 @@ Phase 3 - Other Detection:
 
 Phase 4 - Final Normalization:
 - HeadingNormalizer: Fixes heading hierarchy gaps (h1 -> h4 becomes h1 -> h2)
+- DeadInternalLinkUnwrapper: Removes dead internal links, keeps external URLs
 
 DEBUG OUTPUT:
 Each transform logs when it fires and what it does. Check epub_normalizer_debug.txt
@@ -805,6 +806,71 @@ class DivToSemanticConverter(EpubTransform):
             log(f"  Converted: {changes['headings']} headings, {changes['blockquotes']} blockquotes, {changes['paragraphs']} paragraphs")
 
         return changes
+
+
+class DeadInternalLinkUnwrapper(EpubTransform):
+    """
+    Removes dead internal navigation links while preserving external links.
+
+    After EPUB files are combined, internal chapter/page links often point
+    to non-existent anchors. This unwraps those links (keeping text content)
+    while preserving external URLs and valid internal references.
+    """
+
+    name = "DeadInternalLinkUnwrapper"
+    description = "Remove dead internal links, keep external URLs"
+
+    def detect(self, soup) -> bool:
+        # Run if there are any internal links (fragments or relative file links)
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '')
+            if href.startswith('#'):
+                return True
+            if href.endswith(('.html', '.xhtml', '.htm')):
+                return True
+            if '.html#' in href or '.xhtml#' in href:
+                return True
+        return False
+
+    def transform(self, soup, log) -> dict:
+        # Build set of all IDs in document
+        all_ids = {elem.get('id') for elem in soup.find_all(id=True)}
+
+        removed = 0
+        kept_external = 0
+        kept_valid = 0
+
+        for a_tag in list(soup.find_all('a', href=True)):
+            href = a_tag.get('href', '')
+
+            # Keep external links
+            if href.startswith(('http://', 'https://', 'mailto:')):
+                kept_external += 1
+                continue
+
+            # Check fragment links
+            if href.startswith('#'):
+                target_id = href[1:]
+
+                # Keep if target exists (includes footnote anchors)
+                if target_id in all_ids:
+                    kept_valid += 1
+                    continue
+
+                # Unwrap dead link (keep text content)
+                a_tag.unwrap()
+                removed += 1
+                continue
+
+            # Remove relative file links (e.g., chapter03.html, notes.html)
+            # These are dead after EPUB files are combined
+            if href.endswith(('.html', '.xhtml', '.htm')) or '.html#' in href or '.xhtml#' in href:
+                a_tag.unwrap()
+                removed += 1
+                continue
+
+        log(f"  Removed {removed} dead links, kept {kept_external} external, {kept_valid} valid internal")
+        return {'removed': removed, 'kept_external': kept_external, 'kept_valid': kept_valid}
 
 
 # =============================================================================
@@ -1599,6 +1665,7 @@ TRANSFORM_PIPELINE = [
 
     # Phase 4: Final normalization
     HeadingNormalizer(),
+    DeadInternalLinkUnwrapper(),        # Remove dead internal links (runs AFTER footnote conversion)
 ]
 
 
