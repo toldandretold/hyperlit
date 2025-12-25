@@ -9,14 +9,14 @@ import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 
 /**
  * Generate a unique footnote ID
- * Format: {bookId}_Fn{timestamp}_{random}
- * @param {string} bookId
+ * Format: Fn{timestamp}_{random} (shorter, without book prefix)
+ * @param {string} bookId - Not used, kept for API compatibility
  * @returns {string}
  */
 export function generateFootnoteId(bookId) {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 6);
-  return `${bookId}_Fn${timestamp}_${random}`;
+  return `Fn${timestamp}_${random}`;
 }
 
 /**
@@ -35,18 +35,19 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
   const footnoteId = generateFootnoteId(bookId);
 
   // 2. Create the sup element with placeholder display number "?"
-  // Canonical format: <sup fn-count-id="1" id="footnoteId"><a class="footnote-ref" href="#footnoteId">1</a></sup>
-  // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
+  // New format: <sup fn-count-id="1" id="footnoteId" class="footnote-ref">1</sup>
   const supElement = document.createElement('sup');
   supElement.setAttribute('fn-count-id', '?');
   supElement.id = footnoteId;
+  supElement.className = 'footnote-ref';
+  supElement.textContent = '?';
 
-  const anchorElement = document.createElement('a');
-  anchorElement.className = 'footnote-ref';
-  anchorElement.href = `#${footnoteId}`;
-  anchorElement.textContent = '?';
-
-  supElement.appendChild(anchorElement);
+  // Save scroll position before DOM manipulation
+  // Check multiple possible scrollable containers
+  const scrollContainer = document.querySelector('.reader-content-wrapper')
+    || document.querySelector('.main-content')
+    || document.querySelector('main');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
 
   // 3. Insert at cursor position
   range.insertNode(supElement);
@@ -55,10 +56,15 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
   range.setStartAfter(supElement);
   range.collapse(true);
 
-  // Restore selection so the cursor is visible
+  // Restore selection without scrolling
   const selection = window.getSelection();
   selection.removeAllRanges();
   selection.addRange(range);
+
+  // Restore scroll position (browser may have scrolled during insertion)
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedScrollTop;
+  }
 
   // 5. Find the parent node element to save
   // Nodes have IDs like "1_2" where first part is startLine
@@ -80,7 +86,7 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
       const displayNumber = getDisplayNumber(footnoteId);
       if (displayNumber) {
         supElement.setAttribute('fn-count-id', displayNumber.toString());
-        anchorElement.textContent = displayNumber.toString();
+        supElement.textContent = displayNumber.toString();
         console.log(`Footnote ${footnoteId} assigned display number: ${displayNumber}`);
       }
     });

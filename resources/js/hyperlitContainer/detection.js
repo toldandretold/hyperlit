@@ -52,14 +52,18 @@ export async function detectContentTypes(element, providedHighlightIds = null, d
 
 /**
  * Detect footnote content
+ * Supports both formats:
+ * - New: <sup fn-count-id="1" id="Fn..." class="footnote-ref">1</sup>
+ * - Old: <sup fn-count-id="1" id="..."><a class="footnote-ref" href="#...">1</a></sup>
+ *
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Footnote data or null
  */
 export function detectFootnote(element) {
-  // Check if element is a sup with fn-count-id
+  // Check if element is a sup with fn-count-id (handles both new and old format)
   if (element.tagName === 'SUP' && element.hasAttribute('fn-count-id')) {
-    // sup.id now directly contains the footnoteId (no "ref" suffix)
-    // Fallback to href for backward compatibility with old format
+    // New format: sup.id directly contains footnoteId
+    // Old format fallback: get from anchor href
     const footnoteId = element.id || element.querySelector('a.footnote-ref, a[href^="#"]')?.href?.split('#')[1] || null;
 
     return {
@@ -70,12 +74,10 @@ export function detectFootnote(element) {
     };
   }
 
-  // Check if it's a footnote link inside a sup
+  // Old format: footnote link inside a sup (backwards compatibility)
   if (element.tagName === 'A' && element.classList.contains('footnote-ref')) {
     const supElement = element.closest('sup[fn-count-id]');
     if (supElement) {
-      // sup.id now directly contains the footnoteId (no "ref" suffix)
-      // Fallback to href for backward compatibility with old format
       const footnoteId = supElement.id || element.href?.split('#')[1] || null;
 
       return {

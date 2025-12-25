@@ -204,21 +204,20 @@ export function updateFootnoteNumbersInDOM() {
   const affectedStartLines = new Set();
 
   // Find all footnote reference sups in the DOM - support both old and new formats
-  // Old format: <sup fn-count-id="2" id="...ref"><a href="#bookIdFn...">2</a></sup>
-  // New format: <sup fn-count-id="2" id="bookId_Fn..."><a class="footnote-ref" href="#bookId_Fn...">2</a></sup>
+  // New format: <sup fn-count-id="2" id="Fn..." class="footnote-ref">2</sup>
+  // Old format: <sup fn-count-id="2" id="..."><a class="footnote-ref" href="#bookIdFn...">2</a></sup>
   const footnoteSups = document.querySelectorAll('sup[fn-count-id]');
 
   for (const sup of footnoteSups) {
-    // New format: sup.id directly contains footnoteId
-    // Old format: sup.id has "ref" suffix, or extract from anchor href
+    // Get footnoteId from sup.id (works for both new and old formats)
     let footnoteId = sup.id;
 
-    // Strip "ref" suffix if present (old format)
+    // Strip "ref" suffix if present (very old format)
     if (footnoteId && footnoteId.endsWith('ref')) {
       footnoteId = footnoteId.slice(0, -3);
     }
 
-    // Fallback to href if no valid id
+    // Fallback to href if no valid id (old format with anchor)
     if (!footnoteId) {
       const link = sup.querySelector('a');
       const href = link?.getAttribute('href');
@@ -237,10 +236,15 @@ export function updateFootnoteNumbersInDOM() {
 
       if (currentValue !== newValue) {
         sup.setAttribute('fn-count-id', newValue);
-        // Update the visible text in the anchor link
+
+        // Update the visible text - check for anchor (old format) or direct text (new format)
         const link = sup.querySelector('a');
         if (link) {
+          // Old format: update anchor text
           link.textContent = newValue;
+        } else {
+          // New format: update sup text directly
+          sup.textContent = newValue;
         }
 
         // Track the affected node by finding parent block element with numeric startLine id

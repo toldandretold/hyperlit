@@ -16,6 +16,7 @@ import {
   removeStaticContentElements,
   reformatCitationLink
 } from '../utils/transform-helpers.js';
+import { createFootnoteSupElement } from '../utils/footnote-linker.js';
 
 export class OupProcessor extends BaseFormatProcessor {
   constructor() {
@@ -138,30 +139,16 @@ export class OupProcessor extends BaseFormatProcessor {
       const footnote = footnotes.find(fn => fn.originalIdentifier === identifier);
 
       if (footnote) {
-        // Check if already wrapped in <sup>
-        let sup = link.parentElement;
-        if (sup.tagName !== 'SUP') {
-          // Not wrapped - create <sup> wrapper
-          sup = document.createElement('sup');
-          link.parentNode.insertBefore(sup, link);
-          sup.appendChild(link);
+        // Create new sup element using centralized utility (removes old anchor pattern)
+        const newSup = createFootnoteSupElement(footnote.refId, identifier);
+
+        // Replace the link (and parent sup if exists) with new clean sup
+        const parentSup = link.parentElement;
+        if (parentSup && parentSup.tagName === 'SUP') {
+          parentSup.replaceWith(newSup);
+        } else {
+          link.replaceWith(newSup);
         }
-
-        // Set sup ID for backlinking
-        sup.id = footnote.refId;
-
-        // Set fn-count-id attribute for click handler
-        sup.setAttribute('fn-count-id', identifier);
-
-        // Convert link attributes
-        link.setAttribute('href', `#${footnote.footnoteId}`);
-        link.setAttribute('class', 'footnote-ref');
-        link.textContent = identifier; // Already normalized at extraction
-
-        // Remove OUP-specific attributes
-        link.removeAttribute('reveal-id');
-        link.removeAttribute('data-open');
-        link.removeAttribute('data-google-interstitial');
 
         linkedCount++;
       } else {

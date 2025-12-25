@@ -49,6 +49,10 @@ class KeyboardManager {
     ) {
       return;
     }
+    // Skip focus-preserver - it's a hidden input used to preserve user gesture chain
+    if (e.target.id === 'focus-preserver') {
+      return;
+    }
     this.state.focusedElement = e.target;
 
     // QUICK REOPEN FIX: If keyboard was recently closed, force layout on focusin
@@ -352,6 +356,13 @@ scrollCaretIntoView(element) {
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
+    // Save scroll position when hyperlit container is open to prevent scroll during layout changes
+    const scrollContainer = document.querySelector('.reader-content-wrapper')
+      || document.querySelector('.main-content')
+      || document.querySelector('main');
+    const hyperlitOpen = document.body.classList.contains('hyperlit-container-open');
+    const savedScrollTop = (hyperlitOpen && scrollContainer) ? scrollContainer.scrollTop : null;
+
     if (keyboardOpen) {
       console.log("🔧 KeyboardManager: KEYBOARD OPENING - will modify layout");
       const vv = window.visualViewport;
@@ -401,6 +412,11 @@ scrollCaretIntoView(element) {
 
       console.log("🔧 KeyboardManager: Inline styles reset on all elements including #bottom-right-buttons");
       this.state.keyboardTop = null;
+    }
+
+    // Restore scroll position if we saved it (hyperlit container was open)
+    if (savedScrollTop !== null && scrollContainer) {
+      scrollContainer.scrollTop = savedScrollTop;
     }
   }
 

@@ -320,12 +320,14 @@ sup.open-icon {
 }
 
 /* Touch-friendly footnotes and citations */
-sup[fn-count-id], 
-.footnote-ref, 
+sup[fn-count-id],
+.footnote-ref,
 .in-text-citation {
     /* Increase touch target size */
     position: relative;
     cursor: pointer;
+    /* Prevent touch delay and scroll-to-visible quirks on mobile */
+    touch-action: manipulation;
 }
 
 sup[fn-count-id]::before,

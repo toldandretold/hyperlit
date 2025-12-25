@@ -19,6 +19,7 @@ import {
   cloneAndClean,
   reformatCitationLink
 } from '../utils/transform-helpers.js';
+import { createFootnoteSupElement } from '../utils/footnote-linker.js';
 
 export class SpringerProcessor extends BaseFormatProcessor {
   constructor() {
@@ -135,30 +136,16 @@ export class SpringerProcessor extends BaseFormatProcessor {
       const footnote = footnotes.find(fn => fn.originalIdentifier === identifier);
 
       if (footnote) {
-        // Check if already wrapped in <sup>
-        let sup = link.parentElement;
-        if (sup.tagName !== 'SUP') {
-          // Not wrapped - create <sup> wrapper
-          sup = document.createElement('sup');
-          link.parentNode.insertBefore(sup, link);
-          sup.appendChild(link);
+        // Create new sup element using centralized utility (removes old anchor pattern)
+        const newSup = createFootnoteSupElement(footnote.refId, identifier);
+
+        // Replace the link (and parent sup if exists) with new clean sup
+        const parentSup = link.parentElement;
+        if (parentSup && parentSup.tagName === 'SUP') {
+          parentSup.replaceWith(newSup);
+        } else {
+          link.replaceWith(newSup);
         }
-
-        // Set sup ID for backlinking
-        sup.id = footnote.refId;
-
-        // Set fn-count-id attribute for click handler
-        sup.setAttribute('fn-count-id', identifier);
-
-        // Convert link attributes
-        link.setAttribute('href', `#${footnote.footnoteId}`);
-        link.setAttribute('class', 'footnote-ref');
-
-        // Clean up link content - remove any nested spans (like u-visually-hidden)
-        const nestedSpans = link.querySelectorAll('span');
-        nestedSpans.forEach(span => span.remove());
-
-        link.textContent = identifier;
 
         linkedCount++;
       } else {

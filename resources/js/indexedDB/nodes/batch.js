@@ -153,15 +153,27 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     }
   });
 
-  // Process footnote references (sup with footnote links)
+  // Process footnote references
   const footnotes = [];
-  const footnoteLinks = node.querySelectorAll('sup[fn-count-id] a, a.footnote-ref');
-  footnoteLinks.forEach(link => {
+  const seen = new Set();
+
+  // New format: sup with class="footnote-ref" and id attribute
+  node.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+    const footnoteId = sup.id;
+    if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+      footnotes.push(footnoteId);
+      seen.add(footnoteId);
+    }
+  });
+
+  // Old format fallback: anchor href inside sup
+  node.querySelectorAll('sup[fn-count-id] a.footnote-ref, a.footnote-ref').forEach(link => {
     const href = link.getAttribute('href');
     if (href) {
       const footnoteId = href.replace(/^#/, '');
-      if (footnoteId && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+      if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
         footnotes.push(footnoteId);
+        seen.add(footnoteId);
       }
     }
   });
@@ -768,6 +780,8 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         toSave = { ...existing };
         if (processedData) {
           toSave.content = processedData.content;
+          // ✅ Update footnotes from extracted data (important for renumbering on delete)
+          toSave.footnotes = processedData.footnotes || [];
           // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
           // Keep existing arrays or initialize empty if missing
           if (!toSave.hyperlights) toSave.hyperlights = [];
@@ -792,6 +806,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
           chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId),
           node_id: nodeIdFromDOM || null,
           content: processedData ? processedData.content : record.html || "",
+          footnotes: processedData ? processedData.footnotes : [],
           hyperlights: processedData ? processedData.hyperlights : [],
           hypercites: processedData ? processedData.hypercites : [],
         };
@@ -872,12 +887,22 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         }
 
         // 📝 Trigger footnote renumbering after batch update if footnotes were affected
-        // Check if any nodes had footnotes changes by comparing before/after
-        const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node =>
-          node.footnotes && node.footnotes.length > 0
-        );
+        // Compare before/after to detect both additions AND deletions
+        const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node => {
+          const originalNode = originalNodeChunkStates.get(node.startLine);
+          const oldFootnotes = originalNode?.footnotes || [];
+          const newFootnotes = node.footnotes || [];
+          // Trigger if footnote count changed (added or deleted)
+          const changed = oldFootnotes.length !== newFootnotes.length ||
+                 JSON.stringify(oldFootnotes.sort()) !== JSON.stringify(newFootnotes.sort());
+          if (changed) {
+            console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldFootnotes.length} → ${newFootnotes.length}`);
+          }
+          return changed;
+        });
 
         if (nodesWithFootnoteChanges.length > 0 || affectedNodeUUIDs.length > 0) {
+          console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
           try {
             const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
             const { getNodeChunksFromIndexedDB } = await import('../index.js');

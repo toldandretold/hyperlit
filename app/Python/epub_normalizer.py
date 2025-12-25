@@ -1258,13 +1258,11 @@ class FootnoteConverter(EpubTransform):
     footnotes/noterefs to the format expected by Hyperlit:
 
     In-text reference:
-        <sup fn-count-id="1" id="{bookId}_Fn{timestamp}_{random}">
-            <a class="footnote-ref" href="#{footnoteId}">1</a>
-        </sup>
+        <sup fn-count-id="1" id="Fn{timestamp}_{random}" class="footnote-ref">1</sup>
 
     Footnote definition (stored in footnotes.json):
         {
-            "footnoteId": "{bookId}_Fn{timestamp}_{random}",
+            "footnoteId": "Fn{timestamp}_{random}",
             "content": "<a fn-count-id=\"1\" id=\"...\"></a><p>Content...</p>"
         }
 
@@ -1316,10 +1314,10 @@ class FootnoteConverter(EpubTransform):
             if not old_id:
                 continue
 
-            # Generate new Hyperlit-style ID
+            # Generate new Hyperlit-style ID (short format without bookId prefix)
             timestamp = int(time.time() * 1000)
             random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            new_id = f"{book_id}_Fn{timestamp}_{random_suffix}"
+            new_id = f"Fn{timestamp}_{random_suffix}"
 
             # Extract content from the footnote element
             elem = fn.get('element')
@@ -1489,61 +1487,30 @@ class FootnoteConverter(EpubTransform):
     def _convert_noteref_element(self, elem, new_id, fn_count, soup):
         """Convert an in-text note reference to Hyperlit format."""
         # The element might be a <sup>, <a>, or something else
-        # We need to create: <sup fn-count-id="N" id="ID"><a class="footnote-ref" href="#ID">N</a></sup>
+        # New format: <sup fn-count-id="N" id="ID" class="footnote-ref">N</sup>
+        # (No anchor tag inside - click handling done via JavaScript)
 
         if elem.name == 'sup':
             # Already a sup, just update attributes
             elem['fn-count-id'] = str(fn_count)
             elem['id'] = new_id
+            elem['class'] = 'footnote-ref'
 
-            # Find or create the inner <a>
-            a_tag = elem.find('a')
-            if a_tag:
-                a_tag['class'] = 'footnote-ref'
-                a_tag['href'] = f'#{new_id}'
-                a_tag.string = str(fn_count)
-            else:
-                # Create new <a> tag
-                new_a = soup.new_tag('a')
-                new_a['class'] = 'footnote-ref'
-                new_a['href'] = f'#{new_id}'
-                new_a.string = str(fn_count)
-                elem.clear()
-                elem.append(new_a)
+            # Remove any existing anchor, just keep text content
+            elem.clear()
+            elem.string = str(fn_count)
 
         elif elem.name == 'a':
             # It's an <a> (possibly containing a <sup>), convert to proper format
-            # First, check if it has a <sup> child (Calibre pattern: <a><sup>)
-            inner_sup = elem.find('sup')
+            # Create new sup with proper attributes (no anchor needed)
+            new_sup = soup.new_tag('sup')
+            new_sup['fn-count-id'] = str(fn_count)
+            new_sup['id'] = new_id
+            new_sup['class'] = 'footnote-ref'
+            new_sup.string = str(fn_count)
 
-            if inner_sup:
-                # Move the <sup> out and wrap it properly
-                # Create new sup with proper attributes
-                new_sup = soup.new_tag('sup')
-                new_sup['fn-count-id'] = str(fn_count)
-                new_sup['id'] = new_id
-
-                # Create new inner <a>
-                new_a = soup.new_tag('a')
-                new_a['class'] = 'footnote-ref'
-                new_a['href'] = f'#{new_id}'
-                new_a.string = str(fn_count)
-                new_sup.append(new_a)
-
-                # Replace the original <a> with the new structure
-                elem.replace_with(new_sup)
-            else:
-                # Just an <a>, wrap it in <sup>
-                new_sup = soup.new_tag('sup')
-                new_sup['fn-count-id'] = str(fn_count)
-                new_sup['id'] = new_id
-
-                elem['class'] = 'footnote-ref'
-                elem['href'] = f'#{new_id}'
-                elem.string = str(fn_count)
-
-                elem.replace_with(new_sup)
-                new_sup.append(elem)
+            # Replace the original <a> with the new sup
+            elem.replace_with(new_sup)
 
     def _update_footnote_definition(self, elem, new_id, fn_count):
         """Update the footnote definition element with new ID."""

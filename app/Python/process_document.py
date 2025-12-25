@@ -540,9 +540,9 @@ def process_whole_document_footnotes(soup, book_id):
             
             print(f"Processing whole-doc footnote {identifier}: {content[:50]}...")
             
-            # Generate unique footnote ID (same ID used for both sup and anchor)
+            # Generate unique footnote ID (shorter format without book prefix)
             random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
+            unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
             
             # Add anchor with unique ID
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -739,9 +739,9 @@ def main(html_file_path, output_dir, book_id):
             
             identifier = id_match.group(1)
 
-            # Generate unique footnote ID for traditional footnotes (same ID for sup and anchor)
+            # Generate unique footnote ID for traditional footnotes (shorter format without book prefix)
             random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
+            unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
 
             # Add anchor with unique ID and count attribute
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -791,9 +791,9 @@ def main(html_file_path, output_dir, book_id):
             content = number_match.group(4).strip()
             print(f"Processing footnote {identifier} in section {section_id}: {content[:30]}...")
             
-            # Generate unique footnote ID with section prefix (same ID for sup and anchor)
+            # Generate unique footnote ID with section prefix (shorter format without book prefix)
             random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"{book_id}_{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
+            unique_fn_id = f"s{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
             
             # Add anchor with unique ID and section info
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -952,29 +952,30 @@ def main(html_file_path, output_dir, book_id):
 
         footnote_data = find_footnote_data(identifier, a_tag)
         if footnote_data and text_content == identifier:
+            # New format: sup with class, no anchor inside
             new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
             new_sup['fn-count-id'] = identifier
+            new_sup['class'] = 'footnote-ref'
             if 'section_id' in footnote_data:
                 new_sup['fn-section-id'] = footnote_data['section_id']
-            new_a = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
-            new_a.string = text_content
-            new_sup.append(new_a)
+            new_sup.string = text_content
             a_tag.replace_with(new_sup)
 
     # Handle existing <sup> tags
     for sup_tag in soup.find_all('sup'):
-        if sup_tag.find('a', class_='footnote-ref'): continue
+        # Skip if already has new format (class on sup) or old format (anchor inside)
+        if 'footnote-ref' in sup_tag.get('class', []) or sup_tag.find('a', class_='footnote-ref'):
+            continue
         identifier = sup_tag.get_text(strip=True)
         footnote_data = find_footnote_data(identifier, sup_tag)
         if footnote_data:
+            # New format: add attributes to sup, no anchor
             sup_tag['id'] = footnote_data['unique_fn_id']
             sup_tag['fn-count-id'] = identifier
+            sup_tag['class'] = sup_tag.get('class', []) + ['footnote-ref']
             if 'section_id' in footnote_data:
                 sup_tag['fn-section-id'] = footnote_data['section_id']
-            a_tag = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
-            a_tag.string = identifier
-            sup_tag.string = '' 
-            sup_tag.append(a_tag)
+            # Keep text content as-is (already identifier)
 
     # Handle [^identifier] patterns in text (but NOT footnote definitions)
     for text_node in soup.find_all(string=True):
@@ -999,13 +1000,13 @@ def main(html_file_path, output_dir, book_id):
                     footnote_data = find_footnote_data(identifier, text_node.parent)
                     if footnote_data:
                         new_content.append(NavigableString(text[last_index:match.start()]))
+                        # New format: sup with class, no anchor inside
                         new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
                         new_sup['fn-count-id'] = identifier
+                        new_sup['class'] = 'footnote-ref'
                         if 'section_id' in footnote_data:
                             new_sup['fn-section-id'] = footnote_data['section_id']
-                        new_a = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
-                        new_a.string = identifier
-                        new_sup.append(new_a)
+                        new_sup.string = identifier
                         new_content.append(new_sup)
                         last_index = match.end()
                     else:
