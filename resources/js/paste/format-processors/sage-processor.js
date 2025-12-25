@@ -19,6 +19,7 @@ import {
   addUniqueReference,
   reformatCitationLink
 } from '../utils/transform-helpers.js';
+import { createFootnoteSupElement } from '../utils/footnote-linker.js';
 
 export class SageProcessor extends BaseFormatProcessor {
   constructor() {
@@ -520,21 +521,11 @@ export class SageProcessor extends BaseFormatProcessor {
         const footnote = footnotes.find(fn => fn.originalIdentifier === identifier);
 
         if (footnote) {
-          // Set ID for backlinking
-          sup.id = footnote.refId;
-          sup.setAttribute('fn-count-id', identifier);
+          // Create new sup element using centralized utility (removes old anchor pattern)
+          const newSup = createFootnoteSupElement(footnote.refId, identifier);
 
-          // Create or update link inside sup
-          let link = sup.querySelector('a');
-          if (!link) {
-            link = document.createElement('a');
-            link.textContent = identifier;
-            sup.textContent = '';
-            sup.appendChild(link);
-          }
-
-          link.href = `#${footnote.footnoteId}`;
-          link.className = 'footnote-ref';
+          // Replace the existing sup with new clean sup
+          sup.replaceWith(newSup);
 
           linkedCount++;
         }

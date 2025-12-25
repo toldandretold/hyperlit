@@ -106,6 +106,16 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     return;
   }
 
+  // 🔒 SAVE scroll position FIRST, before any DOM changes
+  const scrollContainer = document.querySelector('.reader-content-wrapper')
+    || document.querySelector('.main-content')
+    || document.querySelector('main');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+  // Lock body scroll BEFORE opening container to prevent scroll during animation
+  document.body.classList.add('hyperlit-container-open');
+  console.log('🔒 Body scroll locked BEFORE container opens');
+
   // Set initial max-height
   // KeyboardManager will dynamically adjust this when keyboard opens/closes
   const viewportHeight = window.innerHeight;
@@ -125,17 +135,18 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     existingScroller.innerHTML = '';
   }
 
-  // Open the container using the manager FIRST
-  console.log("📂 Opening container with manager first...");
+  // Open the container using the manager
+  console.log("📂 Opening container with manager...");
 
   // Set the back navigation flag on the manager
   hyperlitManager.isBackNavigation = isBackNavigation;
 
   hyperlitManager.openContainer();
 
-  // Lock body scroll to prevent page scrolling while container is open
-  document.body.classList.add('hyperlit-container-open');
-  console.log('🔒 Body scroll locked (KeyboardManager will handle keyboard adjustments)');
+  // Restore scroll position in case it shifted during container opening
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedScrollTop;
+  }
 
   // Set content immediately (no setTimeout to preserve user gesture chain for Safari input)
   const scroller = container.querySelector('.scroller');
@@ -158,6 +169,11 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     // Clear and set content directly
     container.innerHTML = '';
     container.innerHTML = content;
+  }
+
+  // Final scroll restoration - ensure main content didn't scroll during any of the above
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedScrollTop;
   }
 }
 

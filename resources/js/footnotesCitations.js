@@ -63,18 +63,20 @@ export function initializeFootnoteCitationListeners() {
   console.warn(`🔧 FOOTNOTE LISTENER INIT #${initializationCount} - Stack trace:`);
   console.trace();
 
-  // Remove existing listener if it exists (prevent duplicates)
+  // Remove existing listeners if they exist (prevent duplicates)
   if (footnoteClickHandler) {
     document.removeEventListener('click', footnoteClickHandler, true);
-    console.warn(`🗑️ Removed existing listener (was init #${initializationCount - 1})`);
+    console.warn(`🗑️ Removed existing click listener (was init #${initializationCount - 1})`);
     verbose.init('Removed existing footnote/citation click listener', '/footnotesCitations.js');
   }
 
-  // Create the handler
+  // Create the click handler
   footnoteClickHandler = (event) => {
     const target = event.target;
 
     // Check if the clicked element or its parent is a footnote or citation
+    // New format: <sup fn-count-id="1" id="..." class="footnote-ref">1</sup>
+    // Old format: <sup fn-count-id="1" id="..."><a class="footnote-ref" href="#...">1</a></sup>
     if (target.tagName === 'SUP' && target.hasAttribute('fn-count-id')) {
       event.preventDefault();
       event.stopPropagation();

@@ -107,14 +107,16 @@ export function preprocessHTMLContent(htmlContent) {
         sup.setAttribute('fn-count-id', text);
       }
 
-      // Ensure there's a proper structure for footnote linking
-      if (!sup.querySelector('a')) {
-        const link = document.createElement('a');
-        link.href = `#fn${text}`;
-        link.className = 'footnote-ref';
-        link.textContent = text;
-        sup.textContent = '';
-        sup.appendChild(link);
+      // New format: add class to sup, no anchor needed
+      // The actual footnote ID will be set by footnote-linker.js
+      if (!sup.classList.contains('footnote-ref')) {
+        sup.classList.add('footnote-ref');
+      }
+
+      // Remove any existing anchor, keep text content
+      const existingLink = sup.querySelector('a');
+      if (existingLink) {
+        sup.textContent = text;
       }
     }
   });

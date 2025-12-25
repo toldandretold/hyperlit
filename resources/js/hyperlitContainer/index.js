@@ -259,7 +259,7 @@ function focusTopmostEditableElement(preventScroll = false) {
   // First try to find an editable footnote (always at the top when present)
   const editableFootnote = container.querySelector('.footnote-text[contenteditable="true"]');
   if (editableFootnote) {
-    editableFootnote.focus({ preventScroll });
+    editableFootnote.focus({ preventScroll: true });
     // Place cursor at end of content
     placeCursorAtEnd(editableFootnote);
     console.log('✏️ Focused topmost editable footnote');
@@ -269,7 +269,7 @@ function focusTopmostEditableElement(preventScroll = false) {
   // Otherwise find the first editable annotation (highlight annotation)
   const editableAnnotation = container.querySelector('.annotation[contenteditable="true"]');
   if (editableAnnotation) {
-    editableAnnotation.focus({ preventScroll });
+    editableAnnotation.focus({ preventScroll: true });
     // Place cursor at end of content
     placeCursorAtEnd(editableAnnotation);
     console.log('✏️ Focused topmost editable annotation');
@@ -354,10 +354,11 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // Create and focus a hidden input synchronously to preserve user gesture
     focusPreserver = document.createElement('input');
     focusPreserver.type = 'text';
-    focusPreserver.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+    // Position at 0,0 (not -9999px) to avoid scroll quirks, but invisible
+    focusPreserver.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
     focusPreserver.id = 'focus-preserver';
     document.body.appendChild(focusPreserver);
-    focusPreserver.focus();
+    focusPreserver.focus({ preventScroll: true });
     console.log('🔑 Focus preserver activated for potential footnote');
   }
 

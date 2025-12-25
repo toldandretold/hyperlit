@@ -13,6 +13,7 @@ import {
   addUniqueReference,
   cleanTFFootnoteContent
 } from '../utils/transform-helpers.js';
+import { createFootnoteSupElement } from '../utils/footnote-linker.js';
 
 export class TaylorFrancisProcessor extends BaseFormatProcessor {
   constructor() {
@@ -366,17 +367,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
           identifier = footnote.originalIdentifier;
         }
 
-        // Create new structure: <sup id="..." fn-count-id="1"><a href="..." class="footnote-ref">1</a></sup>
-        const newSup = document.createElement('sup');
-        newSup.id = footnote.refId;
-        newSup.setAttribute('fn-count-id', identifier);
-
-        const newLink = document.createElement('a');
-        newLink.href = `#${footnote.footnoteId}`;
-        newLink.className = 'footnote-ref';
-        newLink.textContent = identifier;
-
-        newSup.appendChild(newLink);
+        // Create new structure using centralized utility
+        const newSup = createFootnoteSupElement(footnote.refId, identifier);
 
         // Replace the original link with the new sup structure
         link.parentNode.replaceChild(newSup, link);

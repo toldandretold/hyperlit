@@ -644,32 +644,28 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Normalize footnote HTML to canonical format.
-     * Canonical: <sup fn-count-id="1" id="footnoteIdref"><a class="footnote-ref" href="#footnoteId">1</a></sup>
+     * Canonical: <sup fn-count-id="1" id="footnoteId" class="footnote-ref">1</sup>
      *
      * Handles old formats:
-     * - data-footnote-id attribute (remove, use href instead)
-     * - Missing class="footnote-ref" on <a>
-     * - Wrong id format on <sup>
+     * - Old format with anchor: <sup ...><a href="#id">N</a></sup>
+     * - Already normalized format (no changes needed)
      */
     private function normalizeFootnoteHtml(string $html): string
     {
-        // Pattern to match any footnote sup element
-        // Captures: full sup tag, attributes, anchor tag with href, footnote ID, display number
-        $pattern = '/<sup([^>]*)>(\s*<a[^>]*href="#([^"]+)"[^>]*>)(\d+|\?)(<\/a>\s*<\/sup>)/i';
+        // Pattern to match OLD format: sup with anchor inside
+        // Captures: sup attributes, footnote ID from href, display number
+        $pattern = '/<sup([^>]*)>\s*<a[^>]*href="#([^"]+)"[^>]*>(\d+|\?)<\/a>\s*<\/sup>/i';
 
         $normalized = preg_replace_callback($pattern, function($matches) {
             $supAttrs = $matches[1];
-            $aTagStart = $matches[2];
-            $footnoteId = $matches[3];
-            $displayNumber = $matches[4];
-            $closing = $matches[5];
+            $footnoteId = $matches[2];
+            $displayNumber = $matches[3];
 
             // Only process if this looks like a footnote (contains Fn)
             if (strpos($footnoteId, 'Fn') === false) {
                 return $matches[0];
             }
 
-            // Build canonical sup attributes
             // Extract fn-count-id if present, otherwise use display number
             if (preg_match('/fn-count-id="([^"]*)"/', $supAttrs, $fnMatch)) {
                 $fnCountId = $fnMatch[1];
@@ -677,14 +673,8 @@ class DatabaseToIndexedDBController extends Controller
                 $fnCountId = $displayNumber;
             }
 
-            // Canonical format: fn-count-id and id only (no data-footnote-id)
-            // Note: sup.id matches footnoteId directly (no "ref" suffix needed)
-            $canonicalSupAttrs = ' fn-count-id="' . $fnCountId . '" id="' . $footnoteId . '"';
-
-            // Build canonical anchor tag
-            $canonicalATag = '<a class="footnote-ref" href="#' . $footnoteId . '">';
-
-            return '<sup' . $canonicalSupAttrs . '>' . $canonicalATag . $displayNumber . '</a></sup>';
+            // New canonical format: no anchor, class on sup, text content directly
+            return '<sup fn-count-id="' . $fnCountId . '" id="' . $footnoteId . '" class="footnote-ref">' . $displayNumber . '</sup>';
         }, $html);
 
         return $normalized ?? $html;
@@ -756,12 +746,35 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Update fn-count-id attributes and link text in HTML content
+     * Update fn-count-id attributes and text content in HTML content
+     * Handles both new format (no anchor) and old format (with anchor) for backwards compatibility
      */
     private function updateFootnoteNumbersInHtml(string $html, array $footnoteMap): string
     {
-        // Update <sup fn-count-id="X"> and the link text inside
-        // Pattern matches: <sup fn-count-id="..."><a ... href="#footnoteId">...</a></sup>
+        // New format: <sup fn-count-id="X" id="footnoteId" class="footnote-ref">N</sup>
+        $updatedHtml = preg_replace_callback(
+            '/<sup([^>]*)\bid="([^"]*(?:_Fn|Fn)[^"]*)"([^>]*)class="footnote-ref"([^>]*)>(\d+|\?)<\/sup>/i',
+            function($matches) use ($footnoteMap) {
+                $beforeId = $matches[1];
+                $footnoteId = $matches[2];
+                $betweenIdClass = $matches[3];
+                $afterClass = $matches[4];
+                $displayNumber = $matches[5];
+
+                if (isset($footnoteMap[$footnoteId])) {
+                    $newNumber = $footnoteMap[$footnoteId];
+                    $attrs = $beforeId . 'id="' . $footnoteId . '"' . $betweenIdClass . 'class="footnote-ref"' . $afterClass;
+                    // Update fn-count-id attribute
+                    $attrs = preg_replace('/fn-count-id="[^"]*"/', 'fn-count-id="' . $newNumber . '"', $attrs);
+                    return '<sup' . $attrs . '>' . $newNumber . '</sup>';
+                }
+
+                return $matches[0]; // No change
+            },
+            $html
+        );
+
+        // Old format fallback: <sup fn-count-id="..."><a ... href="#footnoteId">...</a></sup>
         $updatedHtml = preg_replace_callback(
             '/<sup([^>]*fn-count-id="[^"]*"[^>]*)>(\s*<a[^>]*href="#([^"]+)"[^>]*>)[^<]*(<\/a>\s*<\/sup>)/i',
             function($matches) use ($footnoteMap) {
@@ -779,7 +792,7 @@ class DatabaseToIndexedDBController extends Controller
 
                 return $matches[0]; // No change
             },
-            $html
+            $updatedHtml ?? $html
         );
 
         return $updatedHtml ?? $html;
@@ -787,7 +800,7 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Extract footnote IDs from HTML content
-     * Matches href="#bookId_Fn..." or href="#bookIdFn..." patterns
+     * Supports both new format (sup id) and old format (anchor href) for backwards compatibility
      */
     private function extractFootnoteIdsFromHtml(?string $html): array
     {
@@ -797,7 +810,25 @@ class DatabaseToIndexedDBController extends Controller
 
         $footnoteIds = [];
 
-        // Match href="#...Fn..." pattern (captures IDs containing Fn or _Fn)
+        // New format: <sup ... id="...Fn..." class="footnote-ref">
+        // Match sup tags with class="footnote-ref" and extract id
+        if (preg_match_all('/<sup[^>]*\bid="([^"]*(?:_Fn|Fn)[^"]*)"[^>]*class="footnote-ref"/', $html, $matches)) {
+            foreach ($matches[1] as $id) {
+                if (!in_array($id, $footnoteIds)) {
+                    $footnoteIds[] = $id;
+                }
+            }
+        }
+        // Also check reverse attribute order
+        if (preg_match_all('/<sup[^>]*class="footnote-ref"[^>]*\bid="([^"]*(?:_Fn|Fn)[^"]*)"/', $html, $matches)) {
+            foreach ($matches[1] as $id) {
+                if (!in_array($id, $footnoteIds)) {
+                    $footnoteIds[] = $id;
+                }
+            }
+        }
+
+        // Old format fallback: href="#...Fn..." pattern (for backwards compatibility)
         if (preg_match_all('/href="#([^"]*(?:_Fn|Fn)[^"]*)"/', $html, $matches)) {
             foreach ($matches[1] as $id) {
                 if (!in_array($id, $footnoteIds)) {
