@@ -225,6 +225,7 @@ export async function createNewBook() {
       creator: username,
       creator_token: anonToken,
       visibility: "private",
+      is_owner: true, // You're always the owner of a book you just created
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 

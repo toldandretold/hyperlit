@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
