@@ -24,6 +24,8 @@ require __DIR__.'/auth.php';
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/home', [HomeController::class, 'index']);
 
+// Offline fallback page - now served as static /public/offline.html by Service Worker
+
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
