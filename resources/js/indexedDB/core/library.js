@@ -299,3 +299,66 @@ export async function updateLocalAnnotationsTimestamp(bookId, timestamp) {
     return false;
   }
 }
+
+/**
+ * Get all books that are available offline (have both library record AND nodes)
+ * Used for homepage offline mode display
+ *
+ * @returns {Promise<Array>} Array of library records for offline-available books
+ */
+export async function getAllOfflineAvailableBooks() {
+  try {
+    const db = await openDatabase();
+
+    // Get all library records
+    const libraryRecords = await new Promise((resolve, reject) => {
+      const tx = db.transaction("library", "readonly");
+      const store = tx.objectStore("library");
+      const request = store.getAll();
+      request.onsuccess = () => {
+        console.log(`📚 Library records found:`, request.result?.length || 0);
+        resolve(request.result || []);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    // Filter out special homepage books (these are virtual/generated)
+    const specialBooks = ['most-recent', 'most-connected', 'most-lit'];
+    const userBooks = libraryRecords.filter(r => r && r.book && !specialBooks.includes(r.book));
+    console.log(`📚 User books (excluding special):`, userBooks.map(b => b.book));
+
+    // Get all unique book IDs from nodes store
+    const booksWithNodes = await new Promise((resolve, reject) => {
+      const tx = db.transaction("nodes", "readonly");
+      const store = tx.objectStore("nodes");
+      const index = store.index("book");
+      const bookIds = new Set();
+
+      const cursorRequest = index.openKeyCursor();
+      cursorRequest.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          bookIds.add(cursor.key);
+          cursor.continue();
+        } else {
+          console.log(`📄 Books with nodes in IndexedDB:`, [...bookIds]);
+          resolve(bookIds);
+        }
+      };
+      cursorRequest.onerror = () => reject(cursorRequest.error);
+    });
+
+    // Filter to books that have both library record AND nodes
+    const offlineBooks = userBooks.filter(lib => booksWithNodes.has(lib.book));
+
+    // Sort by timestamp (most recent first)
+    offlineBooks.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    console.log(`📱 Offline-available books:`, offlineBooks.map(b => b.book));
+    return offlineBooks;
+
+  } catch (error) {
+    console.error('❌ Error getting offline books:', error);
+    return [];
+  }
+}

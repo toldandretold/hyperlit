@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Hyperlit</title>
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=2">
+    <style>
+        :root {
+            --hyperlit-bg: #1a1a1a;
+            --hyperlit-white: #CBCCCC;
+            --hyperlit-orange: #EF8D34;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--hyperlit-bg);
+            color: var(--hyperlit-white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 2rem;
+            opacity: 0.6;
+        }
+
+        .offline-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--hyperlit-orange);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--hyperlit-orange);
+        }
+
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+            max-width: 400px;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        .retry-button {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background: transparent;
+            color: var(--hyperlit-orange);
+            border: 1px solid var(--hyperlit-orange);
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .retry-button:hover {
+            background: var(--hyperlit-orange);
+            color: var(--hyperlit-bg);
+        }
+
+        .home-link {
+            margin-top: 1rem;
+            color: var(--hyperlit-white);
+            opacity: 0.6;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .home-link:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
+            <path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L489.3 358.2l90.5-90.5c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L405.3 358.2 38.8 5.1zM150 268.8l72.4 56.6c3.3-.2 6.7-.4 10-.4c53 0 96 43 96 96c0 .7 0 1.3 0 2l63.8 49.9c9.1-16.1 14.3-34.7 14.3-54.5c0-61.9-50.1-112-112-112c-3.6 0-7.1 .2-10.6 .5l-57.3-44.8c17.3-23.4 44.6-38.6 75.5-39.7c59.3-2.1 109 45.9 109 105.2c0 3.4-.2 6.8-.5 10.1l62.6 49c4.5-19 6.9-38.9 6.9-59.5c0-134.6-109.4-244-244-244c-67.3 0-128.3 27.3-172.3 71.4l57.5 45c30.3-24.4 68.7-39.4 110.8-39.4c40.1 0 77.1 13.4 106.8 35.9L241.2 206c-22.1-16.2-49.2-25.9-78.7-25.9c-4.4 0-8.7 .2-13 .6l.5-.4zM38.8 5.1l61.5 48.1C67.5 78.4 44 121.4 44 172c0 51.6 24.1 97.5 61.8 127.2l49.3 38.6C98.9 333.8 44 252.8 44 172c0-57.9 21.5-110.7 56.8-151.1L38.8 5.1z"/>
+        </svg>
+    </div>
+
+    <h1>You're offline</h1>
+
+    <p>
+        This page isn't available offline. Connect to the internet and try again,
+        or go back to a page you've visited before.
+    </p>
+
+    <button class="retry-button" onclick="window.location.reload()">
+        Try again
+    </button>
+
+    <a href="/" class="home-link">Go to homepage</a>
+
+    <script>
+        // Auto-retry when coming back online
+        window.addEventListener('online', () => {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>

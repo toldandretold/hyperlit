@@ -8,7 +8,7 @@ import { debounce, toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
 
 // Dependencies that will be injected
-let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed;
+let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave;
 
 // Initialization function to inject dependencies
 export function initMasterSyncDependencies(deps) {
@@ -16,6 +16,7 @@ export function initMasterSyncDependencies(deps) {
   getInitialBookSyncPromise = deps.getInitialBookSyncPromise;
   glowCloudGreen = deps.glowCloudGreen;
   glowCloudRed = deps.glowCloudRed;
+  glowCloudLocalSave = deps.glowCloudLocalSave;
 }
 
 /**
@@ -191,9 +192,16 @@ export const debouncedMasterSync = debounce(async () => {
   });
   console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
 
+  // --- Handle Offline Mode ---
+  if (!navigator.onLine) {
+    console.log(`📡 Offline: batch ${logEntry.id} saved locally, will sync when online`);
+    // Keep status as "pending" - will be retried by retryFailedBatches when online
+    if (glowCloudLocalSave) glowCloudLocalSave();
+    return; // Exit early - data is safe in historyLog
+  }
+
   // --- Attempt to Sync to Backend ---
   try {
-    if (!navigator.onLine) throw new Error("Offline");
     const syncPayload = {
       book: bookId,
       updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null },

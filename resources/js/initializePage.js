@@ -72,20 +72,31 @@ async function retryFailedBatches() {
     const store = tx.objectStore("historyLog");
     const index = store.index("status");
 
-    const failedLogs = await new Promise((resolve, reject) => {
-      const request = index.getAll("failed");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    // Get both "failed" and "pending" batches (pending = saved while offline)
+    const [failedLogs, pendingLogs] = await Promise.all([
+      new Promise((resolve, reject) => {
+        const request = index.getAll("failed");
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      }),
+      new Promise((resolve, reject) => {
+        const request = index.getAll("pending");
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      })
+    ]);
 
-    if (failedLogs.length === 0) {
+    const logsToRetry = [...failedLogs, ...pendingLogs];
+
+    if (logsToRetry.length === 0) {
       isRetrying = false;
       return;
     }
 
-    verbose.content(`Retrying ${failedLogs.length} failed sync batches`, 'initializePage.js');
+    verbose.content(`Retrying ${logsToRetry.length} pending sync batches (${failedLogs.length} failed, ${pendingLogs.length} pending)`, 'initializePage.js');
 
-    for (const log of failedLogs) {
+    let successCount = 0;
+    for (const log of logsToRetry) {
       try {
         // --- START: Build a clean payload for syncing ---
         const historyPayload = log.payload;
@@ -118,9 +129,21 @@ async function retryFailedBatches() {
 
         log.status = "synced";
         await updateHistoryLog(log);
+        successCount++;
       } catch (error) {
         verbose.content(`Retry for batch ${log.id} failed`, 'initializePage.js', error);
         break;
+      }
+    }
+
+    // 📡 Show green glow if we successfully synced any batches
+    if (successCount > 0) {
+      console.log(`✅ Successfully synced ${successCount} pending batches after coming online`);
+      try {
+        const { glowCloudSyncSuccess } = await import('./components/editIndicator.js');
+        glowCloudSyncSuccess();
+      } catch (e) {
+        // Edit indicator might not be loaded if user hasn't edited
       }
     }
   } catch (error) {
@@ -506,6 +529,12 @@ function navigateToElement(elementId) {
 }
 
 async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
+  // Skip server timestamp check when offline - use cached data
+  if (!navigator.onLine) {
+    console.log(`📡 Offline: skipping server check for ${bookId}`);
+    return;
+  }
+
   // ===================== THE FIX =====================
   // First, check if this is the brand-new book we just created.
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");

@@ -51,6 +51,7 @@ export {
   getLibraryObjectFromIndexedDB,
   updateBookTimestamp,
   initLibraryDependencies,
+  getAllOfflineAvailableBooks,
 } from './core/library.js';
 
 // ============================================================================
@@ -209,6 +210,7 @@ export async function initializeDatabaseModules(dependencies) {
     getInitialBookSyncPromise,
     glowCloudGreen,
     glowCloudRed,
+    glowCloudLocalSave,
   } = dependencies;
 
   // All functions already statically imported at top of file - no need for dynamic imports here
@@ -223,7 +225,7 @@ export async function initializeDatabaseModules(dependencies) {
   initFootnotesDependencies({ updateBookTimestamp, withPending });
   initReferencesDependencies({ withPending });
   initSyncQueueDependencies({ clearRedoHistory, debouncedMasterSync });
-  initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed });
+  initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book });
 
   verbose.init('Database modules initialized', '/indexedDB/index.js');
