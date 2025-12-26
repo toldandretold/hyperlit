@@ -350,7 +350,9 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     element.closest('sup[fn-count-id]')
   );
 
-  if (mightBeFootnote && !isBackNavigation) {
+  // Only create focus-preserver on desktop - on mobile we skip footnote focus anyway (line 837-840)
+  // Creating it on mobile just triggers iOS keyboard preparation with no benefit
+  if (mightBeFootnote && !isBackNavigation && !isMobile) {
     // Create and focus a hidden input synchronously to preserve user gesture
     focusPreserver = document.createElement('input');
     focusPreserver.type = 'text';
