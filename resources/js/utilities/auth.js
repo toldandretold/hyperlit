@@ -144,10 +144,21 @@ export async function getCurrentUser() {
     return currentUserInfo;
   }
 
-  // First, ensure the initialization process has completed.
-  // If offline and not initialized, just return null (can't auth offline)
+  // 📡 OFFLINE: If offline and auth not initialized, try localStorage cache
   if (!navigator.onLine) {
-    console.log('📡 Offline: auth not initialized, returning null for getCurrentUser');
+    try {
+      const cachedUser = localStorage.getItem('hyperlit_user_cache');
+      if (cachedUser) {
+        const user = JSON.parse(cachedUser);
+        currentUserInfo = user;
+        authInitialized = true;
+        console.log(`📡 Offline: loaded cached user from localStorage: ${user.name || user.email}`);
+        return user;
+      }
+    } catch (e) {
+      console.warn('Failed to load cached user:', e);
+    }
+    console.log('📡 Offline: no cached user found, returning null');
     return null;
   }
 
@@ -381,6 +392,12 @@ export function resetAuth() {
   initializeAuthPromise = null;
   // Clear edit permission cache when auth resets
   editPermissionCache.clear();
+  // 📡 OFFLINE: Clear cached user info on logout
+  try {
+    localStorage.removeItem('hyperlit_user_cache');
+  } catch (e) {
+    // Ignore localStorage errors
+  }
 }
 
 /**
@@ -470,6 +487,16 @@ export function setCurrentUser(user) {
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
+
+  // 📡 OFFLINE: Persist user info to localStorage for offline access
+  if (user) {
+    try {
+      localStorage.setItem('hyperlit_user_cache', JSON.stringify(user));
+      console.log('📡 User info cached for offline use');
+    } catch (e) {
+      console.warn('Failed to cache user info:', e);
+    }
+  }
 
   // Dispatch event for same-tab UI updates
   console.log('📡 Dispatching auth-state-changed (login) for same-tab UI update');
