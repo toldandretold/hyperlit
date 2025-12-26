@@ -161,6 +161,13 @@ processViewportChange() {
 
   console.log(`📐 Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`);
 
+  // Early exit if viewport shrinks but no editable element is focused
+  // This prevents false keyboard detection from focus-preserver or other non-editable elements
+  if (keyboardOpen && !this.state.focusedElement) {
+    console.log('⏸️ Viewport shrunk but no editable element focused - skipping keyboard layout');
+    return;
+  }
+
   // REFOCUS FIX: Detect when offsetTop changes significantly while keyboard is already open
   // This happens on search-toolbar refocus when iOS fires viewport events twice
   const offsetTopChanged = Math.abs(vv.offsetTop - this.lastOffsetTop) > 50;
