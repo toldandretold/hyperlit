@@ -58,10 +58,26 @@ async function initializeAuth() {
       currentUserInfo = data.user;
       anonymousToken = null;
       verbose.init(`User authenticated: ${currentUserInfo?.name || "user"}`, "/utilities/auth.js");
+
+      // 📡 OFFLINE: Cache user info to localStorage for offline access
+      try {
+        localStorage.setItem('hyperlit_user_cache', JSON.stringify(data.user));
+        verbose.init('User info cached for offline use', '/utilities/auth.js');
+      } catch (e) {
+        console.warn('Failed to cache user info:', e);
+      }
     } else if (data.anonymous_token) {
       currentUserInfo = null;
       anonymousToken = data.anonymous_token;
       verbose.init("Anonymous session established", "/utilities/auth.js");
+
+      // 📡 OFFLINE: Cache anonymous token to localStorage for offline access
+      try {
+        localStorage.setItem('hyperlit_anon_token_cache', data.anonymous_token);
+        verbose.init('Anonymous token cached for offline use', '/utilities/auth.js');
+      } catch (e) {
+        console.warn('Failed to cache anonymous token:', e);
+      }
     } else {
       // This case should ideally not be reached if the backend is correct.
       console.error("Server did not provide user or anonymous token.");
@@ -151,12 +167,23 @@ export async function getCurrentUser() {
       if (cachedUser) {
         const user = JSON.parse(cachedUser);
         currentUserInfo = user;
+        anonymousToken = null;
         authInitialized = true;
         console.log(`📡 Offline: loaded cached user from localStorage: ${user.name || user.email}`);
         return user;
       }
+
+      // No cached user - try loading anonymous token for permission checks
+      const cachedAnonToken = localStorage.getItem('hyperlit_anon_token_cache');
+      if (cachedAnonToken) {
+        anonymousToken = cachedAnonToken;
+        authInitialized = true;
+        console.log('📡 Offline: loaded cached anonymous token from localStorage');
+        // Return null (no logged-in user) but anonymousToken is now set for permission checks
+        return null;
+      }
     } catch (e) {
-      console.warn('Failed to load cached user:', e);
+      console.warn('Failed to load cached auth:', e);
     }
     console.log('📡 Offline: no cached user found, returning null');
     return null;
@@ -392,9 +419,10 @@ export function resetAuth() {
   initializeAuthPromise = null;
   // Clear edit permission cache when auth resets
   editPermissionCache.clear();
-  // 📡 OFFLINE: Clear cached user info on logout
+  // 📡 OFFLINE: Clear cached auth info on logout
   try {
     localStorage.removeItem('hyperlit_user_cache');
+    localStorage.removeItem('hyperlit_anon_token_cache');
   } catch (e) {
     // Ignore localStorage errors
   }
