@@ -65,15 +65,21 @@ class DbFootnoteController extends Controller
             $upsertedCount = 0;
 
             foreach ($footnotes as $item) {
-                PgFootnote::updateOrCreate(
-                    [
+                $existing = PgFootnote::where('book', $book)
+                    ->where('footnoteId', $item['footnoteId'])
+                    ->first();
+
+                if ($existing) {
+                    PgFootnote::where('book', $book)
+                        ->where('footnoteId', $item['footnoteId'])
+                        ->update(['content' => $item['content'] ?? '']);
+                } else {
+                    PgFootnote::create([
                         'book' => $book,
                         'footnoteId' => $item['footnoteId'],
-                    ],
-                    [
                         'content' => $item['content'] ?? '',
-                    ]
-                );
+                    ]);
+                }
                 $upsertedCount++;
             }
 

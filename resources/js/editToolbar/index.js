@@ -342,8 +342,11 @@ class EditToolbar {
    * Insert a footnote at the current cursor position
    */
   async insertFootnote() {
-    if (!this.currentBookId) {
-      console.warn("EditToolbar: Cannot insert footnote: currentBookId is not set.");
+    // Get book ID from DOM at insertion time (more reliable than cached value)
+    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+
+    if (!bookId) {
+      console.warn("EditToolbar: Cannot insert footnote: no book ID found.");
       return;
     }
 
@@ -362,7 +365,7 @@ class EditToolbar {
       // Insert the footnote
       const { footnoteId, supElement } = await insertFootnoteAtCursor(
         range,
-        this.currentBookId,
+        bookId,
         (id, html) => this.saveToIndexedDB(id, html)
       );
 

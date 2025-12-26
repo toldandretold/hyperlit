@@ -5,7 +5,14 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
-import { book } from '../app.js';
+
+/**
+ * Get the current book ID from the DOM (more reliable than global variable)
+ */
+function getCurrentBookId() {
+  const mainContent = document.querySelector('.main-content');
+  return mainContent?.id || 'most-recent';
+}
 
 // Track active listeners for cleanup when container closes
 const activeFootnoteListeners = [];
@@ -21,7 +28,8 @@ export const saveFootnoteToIndexedDB = (footnoteId, content) =>
     const tx = db.transaction("footnotes", "readwrite");
     const store = tx.objectStore("footnotes");
 
-    const key = [book, footnoteId];
+    const bookId = getCurrentBookId();
+    const key = [bookId, footnoteId];
     const record = await new Promise((resolve, reject) => {
       const req = store.get(key);
       req.onsuccess = () => resolve(req.result);
