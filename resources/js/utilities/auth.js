@@ -139,7 +139,18 @@ function getCsrfTokenFromCookie() {
 
 // BACKWARD COMPATIBLE: Keep the same function signature
 export async function getCurrentUser() {
+  // 📡 OFFLINE: Return cached user info if we're offline and auth was initialized
+  if (!navigator.onLine && (authInitialized || currentUserInfo !== null)) {
+    return currentUserInfo;
+  }
+
   // First, ensure the initialization process has completed.
+  // If offline and not initialized, just return null (can't auth offline)
+  if (!navigator.onLine) {
+    console.log('📡 Offline: auth not initialized, returning null for getCurrentUser');
+    return null;
+  }
+
   await ensureAuthInitialized();
   // Then, return the now-guaranteed-to-be-correct value.
   return currentUserInfo;
@@ -301,16 +312,32 @@ export async function canUserEditBook(bookId) {
       return true; // Grant permission for imported book
     }
 
-    // Ensure auth is initialized
+    // 📡 OFFLINE MODE: Use cached auth state, skip network calls
+    const isOffline = !navigator.onLine;
+
+    // Ensure auth is initialized (skip network call if offline and already initialized)
     if (!authInitialized) {
-      await initializeAuth();
+      if (isOffline) {
+        // Can't initialize auth offline - check if we have local permission data
+        console.log(`📡 Offline: auth not initialized, checking IndexedDB for ${bookId}`);
+      } else {
+        await initializeAuth();
+      }
     }
 
     // 1) fetch the library record from IndexedDB
     let record = await getLibraryObjectFromIndexedDB(bookId);
 
-    // 2) If not in IndexedDB, try fetching from server
+    // 2) If not in IndexedDB, try fetching from server (skip if offline)
     if (!record) {
+      if (isOffline) {
+        // 📡 OFFLINE: No local record, can't verify - deny edit
+        // (User must have visited page online first to cache permissions)
+        console.log(`📡 Offline: no local library record for ${bookId}, denying edit`);
+        editPermissionCache.set(bookId, false);
+        return false;
+      }
+
       record = await fetchLibraryFromServer(bookId);
 
       if (!record) {
@@ -320,7 +347,8 @@ export async function canUserEditBook(bookId) {
     }
 
     // 3) check login state and use prioritized auth logic
-    const user = await getCurrentUser();
+    // 📡 OFFLINE: Use cached user state (currentUserInfo/anonymousToken)
+    const user = isOffline ? currentUserInfo : await getCurrentUser();
     let result;
     if (user) {
       const userId = user.name || user.username || user.email;

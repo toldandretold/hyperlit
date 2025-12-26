@@ -60,7 +60,10 @@ export class UserContainerManager extends ContainerManager {
       this.updateButtonColor();
       log.init("User container initialized (logged in)", "/components/userContainer.js");
     } else {
-      log.init("User container initialized (anonymous)", "/components/userContainer.js");
+      // 📡 OFFLINE: Check if we have cached user info in memory
+      // getCurrentUser returns null when offline and not initialized, but we might
+      // have user info from a previous session
+      log.init("User container initialized (anonymous or offline)", "/components/userContainer.js");
     }
   }
 
@@ -398,11 +401,40 @@ export class UserContainerManager extends ContainerManager {
     if (this.isOpen) {
       this.closeContainer();
     } else {
+      // 📡 OFFLINE MODE: Show offline-specific UI
+      if (!navigator.onLine) {
+        this.showOfflineStatus();
+        return;
+      }
+
       if (this.user) {
         this.showUserProfile();
       } else {
         this.showLoginForm();
       }
+    }
+  }
+
+  showOfflineStatus() {
+    // Show offline mode indicator
+    const offlineHTML = `
+      <div class="user-form" style="text-align: center;">
+        <p style="color: var(--hyperlit-orange, #EF8D34); font-style: italic; margin-bottom: 15px;">
+          📡 Offline Mode
+        </p>
+        <p style="font-size: 0.9em; color: var(--color-text-secondary, #999); margin-bottom: 15px;">
+          ${this.user ? `Logged in as <strong>${this.user.name || this.user.email}</strong>` : 'Session cached locally'}
+        </p>
+        <p style="font-size: 0.85em; color: var(--color-text-secondary, #888);">
+          Your edits are saved locally and will sync when you're back online.
+        </p>
+      </div>
+    `;
+
+    this.container.innerHTML = offlineHTML;
+
+    if (!this.isOpen) {
+      this.openContainer("profile");
     }
   }
 

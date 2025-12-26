@@ -118,9 +118,45 @@ export function glowCloudRed() {
   }, 3000)
 }
 
+/** Glow the cloudRef button orange to indicate saved locally, pending sync when online */
+export function glowCloudLocalSave() {
+  if (!isProcessing) return
+  isComplete = true
+
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) {
+    cloudSvgPath.style.fill = 'var(--status-saving)'
+  }
+  console.log('CloudRef → orange (saved locally, pending sync)')
+
+  // Keep orange longer than green to emphasize pending state
+  setTimeout(() => {
+    resetIndicator()
+    console.log('CloudRef → grey (ready, will sync when online)')
+  }, 2000)
+}
+
 /** Cancel forced visibility (called when user toggles perimeter buttons during save) */
 export function cancelForcedVisibility() {
   console.log('🔵 Canceling edit indicator forced visibility')
   topRightVisibilityBeforeEdit = null
   // Keep processing state and color - just cancel the restore behavior
+}
+
+/**
+ * Show green glow for background sync success (e.g., after coming back online)
+ * Unlike glowCloudGreen, this doesn't require isProcessing to be true
+ */
+export function glowCloudSyncSuccess() {
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) {
+    cloudSvgPath.style.fill = 'var(--status-success)'
+  }
+  console.log('CloudRef → green (background sync successful)')
+
+  // Fade back to grey after 2 seconds
+  setTimeout(() => {
+    if (cloudSvgPath) cloudSvgPath.removeAttribute('style')
+    console.log('CloudRef → grey (ready)')
+  }, 2000)
 }

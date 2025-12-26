@@ -115,5 +115,20 @@
     @endif
 
     <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d8043ef8f9484fffa2a00be19173a9ea"}'></script><!-- End Cloudflare Web Analytics -->
+
+    <!-- Service Worker Registration for Offline Support -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((registration) => {
+                        console.log('[SW] Registered with scope:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.error('[SW] Registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>

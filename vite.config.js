@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
+// import { VitePWA } from 'vite-plugin-pwa'; // Disabled - using custom SW
 import laravel from 'laravel-vite-plugin';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
+// import { viteStaticCopy } from 'vite-plugin-static-copy'; // Disabled - SW now at /public/sw.js
 import os from 'os';
 
 function getNetworkIp() {
@@ -90,28 +90,29 @@ export default defineConfig({
     },
   },
   plugins: [
-    VitePWA({
-      registerType: 'autoUpdate',
-      manifest: {
-        name: 'My App',
-        short_name: 'App',
-        start_url: '/',
-        display: 'standalone',
-        background_color: '#ffffff',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-        ],
-      },
-    }),
+    // VitePWA disabled - using custom Service Worker at /public/sw.js
+    // VitePWA({
+    //   registerType: 'autoUpdate',
+    //   manifest: {
+    //     name: 'My App',
+    //     short_name: 'App',
+    //     start_url: '/',
+    //     display: 'standalone',
+    //     background_color: '#ffffff',
+    //     icons: [
+    //       {
+    //         src: 'pwa-192x192.png',
+    //         sizes: '192x192',
+    //         type: 'image/png',
+    //       },
+    //       {
+    //         src: 'pwa-512x512.png',
+    //         sizes: '512x512',
+    //         type: 'image/png',
+    //       },
+    //     ],
+    //   },
+    // }),
     laravel({
       input: [
         // CSS & SASS (no changes)
@@ -175,13 +176,14 @@ export default defineConfig({
       ],
       refresh: true,
     }),
-    viteStaticCopy({
-      targets: [
-        {
-          src: 'resources/js/serviceWorker.js',
-          dest: '', // Copies directly to the output dir (public)
-        },
-      ],
-    }),
+    // Disabled - using custom SW at /public/sw.js instead
+    // viteStaticCopy({
+    //   targets: [
+    //     {
+    //       src: 'resources/js/serviceWorker.js',
+    //       dest: '', // Copies directly to the output dir (public)
+    //     },
+    //   ],
+    // }),
   ],
 });
