@@ -65,15 +65,28 @@ class DbFootnoteController extends Controller
             $upsertedCount = 0;
 
             foreach ($footnotes as $item) {
-                \DB::table('footnotes')->updateOrInsert(
-                    ['book' => $book, 'footnoteId' => $item['footnoteId']],
-                    [
+                $exists = \DB::table('footnotes')
+                    ->where('book', $book)
+                    ->where('footnoteId', $item['footnoteId'])
+                    ->exists();
+
+                if ($exists) {
+                    \DB::table('footnotes')
+                        ->where('book', $book)
+                        ->where('footnoteId', $item['footnoteId'])
+                        ->update([
+                            'content' => $item['content'] ?? '',
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    \DB::table('footnotes')->insert([
                         'book' => $book,
                         'footnoteId' => $item['footnoteId'],
                         'content' => $item['content'] ?? '',
+                        'created_at' => now(),
                         'updated_at' => now(),
-                    ]
-                );
+                    ]);
+                }
                 $upsertedCount++;
             }
 

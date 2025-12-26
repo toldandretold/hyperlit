@@ -3,7 +3,7 @@
  * Handles insertion of new footnotes at cursor position
  */
 
-import { openDatabase, getNodeChunksFromIndexedDB, syncFootnotesToPostgreSQL } from '../indexedDB/index.js';
+import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index.js';
 import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService.js';
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 
@@ -128,10 +128,8 @@ async function createFootnoteRecord(footnoteId, bookId) {
     tx.onerror = () => reject(tx.error);
   });
 
-  // Sync to PostgreSQL (non-blocking - don't await)
-  syncFootnotesToPostgreSQL(bookId, [footnoteRecord]).catch(error => {
-    console.error('Failed to sync footnote to PostgreSQL:', error);
-  });
+  // Queue for sync via unified sync mechanism (handles offline mode)
+  queueForSync("footnotes", footnoteId, "update", footnoteRecord);
 }
 
 /**

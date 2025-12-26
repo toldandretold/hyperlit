@@ -106,6 +106,7 @@ async function retryFailedBatches() {
             nodes: historyPayload.updates.nodes || [],
             hypercites: historyPayload.updates.hypercites || [],
             hyperlights: historyPayload.updates.hyperlights || [],
+            footnotes: historyPayload.updates.footnotes || [],
             library: historyPayload.updates.library || null,
           },
           deletions: {
