@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -145,9 +145,10 @@ self.addEventListener('fetch', (event) => {
                              !url.pathname.startsWith('/u/');
 
           if (isBookPage) {
-            // Try to find ANY cached reader page to use as template
+            // Try to find ANY cached reader page to use as app shell
             // All book pages use the same reader.blade.php template
-            console.log('[SW] Book page requested offline, looking for cached reader template...');
+            // We patch the <main id="..."> to have the correct book ID from the URL
+            console.log('[SW] Book page requested offline, looking for cached reader shell...');
 
             const cache = await caches.open(DYNAMIC_CACHE);
             const keys = await cache.keys();
@@ -162,8 +163,24 @@ self.addEventListener('fetch', (event) => {
                   !cachedUrl.pathname.startsWith('/api/')) {
                 const templateResponse = await cache.match(cachedRequest);
                 if (templateResponse) {
-                  console.log('[SW] Serving cached reader template for:', url.pathname, '(from:', cachedUrl.pathname, ')');
-                  return templateResponse;
+                  // Get the requested book ID from the URL
+                  const requestedBookId = url.pathname.split('/').filter(Boolean)[0];
+                  console.log('[SW] Patching cached reader for:', requestedBookId, '(shell from:', cachedUrl.pathname, ')');
+
+                  // Patch the HTML to use the correct book ID
+                  const html = await templateResponse.text();
+                  const patchedHtml = html.replace(
+                    /<main\s+id="[^"]*"\s+class="main-content"/,
+                    `<main id="${requestedBookId}" class="main-content"`
+                  );
+
+                  return new Response(patchedHtml, {
+                    status: 200,
+                    headers: {
+                      'Content-Type': 'text/html; charset=utf-8',
+                      'X-SW-Offline': 'patched-shell'
+                    }
+                  });
                 }
               }
             }
