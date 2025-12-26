@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v9';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -128,17 +128,50 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
+        .catch(async () => {
           // Network failed - try cache
-          return caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-              console.log('[SW] Serving cached page:', url.pathname);
-              return cachedResponse;
+          const cachedResponse = await caches.match(request);
+          if (cachedResponse) {
+            console.log('[SW] Serving cached page:', url.pathname);
+            return cachedResponse;
+          }
+
+          // No exact cache match - check if this is a book page request
+          // Book pages match pattern: /bookId or /bookId/HL_xxx
+          const bookPagePattern = /^\/[A-Za-z0-9_-]+(\/(HL_[A-Za-z0-9_-]+|[A-Za-z0-9_-]*_Fn[A-Za-z0-9_-]+))?$/;
+          const isBookPage = bookPagePattern.test(url.pathname) &&
+                             url.pathname !== '/' &&
+                             url.pathname !== '/home' &&
+                             !url.pathname.startsWith('/u/');
+
+          if (isBookPage) {
+            // Try to find ANY cached reader page to use as template
+            // All book pages use the same reader.blade.php template
+            console.log('[SW] Book page requested offline, looking for cached reader template...');
+
+            const cache = await caches.open(DYNAMIC_CACHE);
+            const keys = await cache.keys();
+
+            for (const cachedRequest of keys) {
+              const cachedUrl = new URL(cachedRequest.url);
+              // Find a cached book page (not home, not user page, not API)
+              if (bookPagePattern.test(cachedUrl.pathname) &&
+                  cachedUrl.pathname !== '/' &&
+                  cachedUrl.pathname !== '/home' &&
+                  !cachedUrl.pathname.startsWith('/u/') &&
+                  !cachedUrl.pathname.startsWith('/api/')) {
+                const templateResponse = await cache.match(cachedRequest);
+                if (templateResponse) {
+                  console.log('[SW] Serving cached reader template for:', url.pathname, '(from:', cachedUrl.pathname, ')');
+                  return templateResponse;
+                }
+              }
             }
-            // No cached version - serve offline page
-            console.log('[SW] Serving offline page for:', url.pathname);
-            return caches.match('/offline.html');
-          });
+          }
+
+          // No cached version - serve offline page
+          console.log('[SW] Serving offline page for:', url.pathname);
+          return caches.match('/offline.html');
         })
     );
     return;

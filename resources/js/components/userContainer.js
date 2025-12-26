@@ -416,6 +416,20 @@ export class UserContainerManager extends ContainerManager {
   }
 
   showOfflineStatus() {
+    // Check for cached user in localStorage if this.user is not set
+    let displayUser = this.user;
+    if (!displayUser) {
+      try {
+        const cachedUser = localStorage.getItem('hyperlit_user_cache');
+        if (cachedUser) {
+          displayUser = JSON.parse(cachedUser);
+          this.user = displayUser; // Update instance
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+
     // Show offline mode indicator
     const offlineHTML = `
       <div class="user-form" style="text-align: center;">
@@ -423,7 +437,7 @@ export class UserContainerManager extends ContainerManager {
           📡 Offline Mode
         </p>
         <p style="font-size: 0.9em; color: var(--color-text-secondary, #999); margin-bottom: 15px;">
-          ${this.user ? `Logged in as <strong>${this.user.name || this.user.email}</strong>` : 'Session cached locally'}
+          ${displayUser ? `Logged in as <strong>${displayUser.name || displayUser.email}</strong>` : 'Session cached locally'}
         </p>
         <p style="font-size: 0.85em; color: var(--color-text-secondary, #888);">
           Your edits are saved locally and will sync when you're back online.
