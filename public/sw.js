@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -12,6 +12,35 @@ const PRECACHE_ASSETS = [
   '/offline.html',
   '/favicon.png',
 ];
+
+/**
+ * Check if cached HTML has its required build assets available
+ * Returns true if assets are cached, false if any are missing
+ */
+async function validateCachedHtml(html) {
+  // Extract /build/assets/*.js and *.css references from HTML
+  const buildAssetPattern = /\/build\/assets\/[^"'\s]+\.(js|css)/g;
+  const matches = html.match(buildAssetPattern) || [];
+
+  if (matches.length === 0) {
+    // No build assets found - might be a simple page, allow it
+    return true;
+  }
+
+  // Check if at least the first few critical assets are cached
+  // (checking all could be slow)
+  const criticalAssets = matches.slice(0, 5);
+
+  for (const assetPath of criticalAssets) {
+    const cached = await caches.match(assetPath);
+    if (!cached) {
+      console.log('[SW] Missing cached asset:', assetPath);
+      return false;
+    }
+  }
+
+  return true;
+}
 
 // Install event - precache core assets
 self.addEventListener('install', (event) => {
@@ -26,16 +55,28 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and clear dynamic cache to force fresh HTML
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating Service Worker');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('hyperlit-') && name !== STATIC_CACHE && name !== DYNAMIC_CACHE)
+          .filter((name) => {
+            // Delete old versioned caches
+            if (name.startsWith('hyperlit-') && name !== STATIC_CACHE && name !== DYNAMIC_CACHE) {
+              return true;
+            }
+            // Also delete current dynamic cache to force fresh HTML fetch
+            // This prevents stale HTML that references old JS hashes
+            if (name === DYNAMIC_CACHE) {
+              console.log('[SW] Clearing dynamic cache to ensure fresh HTML');
+              return true;
+            }
+            return false;
+          })
           .map((name) => {
-            console.log('[SW] Deleting old cache:', name);
+            console.log('[SW] Deleting cache:', name);
             return caches.delete(name);
           })
       );
@@ -132,8 +173,14 @@ self.addEventListener('fetch', (event) => {
           // Network failed - try cache
           const cachedResponse = await caches.match(request);
           if (cachedResponse) {
-            console.log('[SW] Serving cached page:', url.pathname);
-            return cachedResponse;
+            // Validate that required build assets are cached before serving
+            const html = await cachedResponse.clone().text();
+            const isValid = await validateCachedHtml(html);
+            if (isValid) {
+              console.log('[SW] Serving cached page:', url.pathname);
+              return cachedResponse;
+            }
+            console.log('[SW] Cached page has missing assets, skipping:', url.pathname);
           }
 
           // No exact cache match - check if this is a book page request
@@ -165,10 +212,18 @@ self.addEventListener('fetch', (event) => {
                 if (templateResponse) {
                   // Get the requested book ID from the URL
                   const requestedBookId = url.pathname.split('/').filter(Boolean)[0];
-                  console.log('[SW] Patching cached reader for:', requestedBookId, '(shell from:', cachedUrl.pathname, ')');
 
                   // Patch the HTML to use the correct book ID
                   const html = await templateResponse.text();
+
+                  // Validate that required build assets are cached
+                  const isValid = await validateCachedHtml(html);
+                  if (!isValid) {
+                    console.log('[SW] Cached reader shell has missing assets, skipping');
+                    continue; // Try next cached page
+                  }
+
+                  console.log('[SW] Patching cached reader for:', requestedBookId, '(shell from:', cachedUrl.pathname, ')');
                   const patchedHtml = html.replace(
                     /<main\s+id="[^"]*"\s+class="main-content"/,
                     `<main id="${requestedBookId}" class="main-content"`
@@ -188,7 +243,11 @@ self.addEventListener('fetch', (event) => {
 
           // No cached version - serve offline page
           console.log('[SW] Serving offline page for:', url.pathname);
-          return caches.match('/offline.html');
+          const offlinePage = await caches.match('/offline.html');
+          return offlinePage || new Response(
+            '<!DOCTYPE html><html><head><title>Offline</title></head><body style="font-family:system-ui;text-align:center;padding:50px;"><h1>You\'re Offline</h1><p>No cached content available. Please reconnect to the internet.</p></body></html>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
         })
     );
     return;
@@ -206,7 +265,10 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => caches.match(request))
+      .catch(async () => {
+        const cached = await caches.match(request);
+        return cached || new Response('', { status: 503, statusText: 'Service Unavailable' });
+      })
   );
 });
 
