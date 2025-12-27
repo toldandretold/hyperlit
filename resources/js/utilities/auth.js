@@ -385,8 +385,8 @@ export async function canUserEditBook(bookId) {
     }
 
     // 3) check login state and use prioritized auth logic
-    // 📡 OFFLINE: Use cached user state (currentUserInfo/anonymousToken)
-    const user = isOffline ? currentUserInfo : await getCurrentUser();
+    // 📡 OFFLINE: getCurrentUser() handles offline case by loading from localStorage
+    const user = await getCurrentUser();
     let result;
     if (user) {
       const userId = user.name || user.username || user.email;
