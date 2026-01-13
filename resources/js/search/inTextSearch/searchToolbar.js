@@ -1,6 +1,7 @@
 // searchToolbar.js - Manages the search toolbar for in-text search
 
 import { log, verbose } from "../../utilities/logger.js";
+import { debounce } from "../../utilities/debounce.js";
 import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling.js";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
 import { getLocalStorageKey } from "../../indexedDB/index.js";
@@ -40,6 +41,9 @@ class SearchToolbarManager {
     // Touch handlers with preventDefault to avoid ghost clicks
     this.boundPrevTouchHandler = (e) => { e.preventDefault(); this.handlePrev(); };
     this.boundNextTouchHandler = (e) => { e.preventDefault(); this.handleNext(); };
+
+    // Debounced search handler (300ms delay to prevent rapid-fire searches)
+    this.debouncedSearch = debounce((query) => this.performSearch(query), 300);
 
     // Bind elements
     this.bindElements();
@@ -175,6 +179,9 @@ class SearchToolbarManager {
 
     log.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar.js');
 
+    // Cancel any pending debounced search
+    this.debouncedSearch.cancel();
+
     this.toolbar.classList.remove('visible');
     this.isOpen = false;
 
@@ -210,17 +217,19 @@ class SearchToolbarManager {
   }
 
   /**
-   * Handle input changes
+   * Handle input changes (debounced)
    */
   handleInput(e) {
     const query = e.target.value;
     verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar.js');
 
-    // Clear previous highlights from DOM when query changes
+    // Clear previous highlights immediately for visual feedback
     clearSearchHighlights();
     this.matchesByChunk = new Map();
 
     if (!query || query.length === 0) {
+      // Cancel any pending debounced search
+      this.debouncedSearch.cancel();
       this.matches = [];
       this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
@@ -234,34 +243,43 @@ class SearchToolbarManager {
       return;
     }
 
-    // Perform search
-    if (this.searchIndexCache) {
-      this.matches = searchIndex(this.searchIndexCache, query);
+    // Debounce the actual search operation
+    this.debouncedSearch(query);
+  }
 
-      if (this.matches.length > 0) {
-        // Group matches by chunk_id for efficient batch insertion
-        this.matches.forEach((match, index) => {
-          const chunkId = match.chunk_id;
-          if (!this.matchesByChunk.has(chunkId)) {
-            this.matchesByChunk.set(chunkId, []);
-          }
-          this.matchesByChunk.get(chunkId).push({ ...match, matchIndex: index });
-        });
+  /**
+   * Perform the actual search (called after debounce)
+   */
+  performSearch(query) {
+    if (!this.searchIndexCache) return;
 
-        // Apply marks to chunks already in DOM
-        this.applyMarksToLoadedChunks();
+    verbose.init(`SearchToolbar: Performing search for "${query}"`, '/search/inTextSearch/searchToolbar.js');
 
-        // Find the first match at or after current scroll position
-        this.currentMatchIndex = this.findNearestMatchIndex();
-        this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
-        this.updateNavigationButtons(true);
-        // Navigate to the nearest match
-        this.navigateToCurrentMatch();
-      } else {
-        this.currentMatchIndex = -1;
-        this.updateMatchCounter(0, 0);
-        this.updateNavigationButtons(false);
-      }
+    this.matches = searchIndex(this.searchIndexCache, query);
+
+    if (this.matches.length > 0) {
+      // Group matches by chunk_id for efficient batch insertion
+      this.matches.forEach((match, index) => {
+        const chunkId = match.chunk_id;
+        if (!this.matchesByChunk.has(chunkId)) {
+          this.matchesByChunk.set(chunkId, []);
+        }
+        this.matchesByChunk.get(chunkId).push({ ...match, matchIndex: index });
+      });
+
+      // Apply marks to chunks already in DOM
+      this.applyMarksToLoadedChunks();
+
+      // Find the first match at or after current scroll position
+      this.currentMatchIndex = this.findNearestMatchIndex();
+      this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
+      this.updateNavigationButtons(true);
+      // Navigate to the nearest match
+      this.navigateToCurrentMatch();
+    } else {
+      this.currentMatchIndex = -1;
+      this.updateMatchCounter(0, 0);
+      this.updateNavigationButtons(false);
     }
   }
 
@@ -583,6 +601,9 @@ class SearchToolbarManager {
    * Clean up event listeners
    */
   destroy() {
+    // Cancel any pending debounced search
+    this.debouncedSearch.cancel();
+
     // Remove click outside listener if it exists
     document.removeEventListener('click', this.boundClickOutsideHandler, true);
 
