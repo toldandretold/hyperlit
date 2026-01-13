@@ -154,38 +154,17 @@ class SanitizationService
     }
 
     /**
-     * Sanitize markdown file using HTMLPurifier
-     * 🔒 SECURITY: Replaces vulnerable strip_tags() with proper whitelist-based sanitization
+     * Sanitize markdown file
+     * Note: HTMLPurifier is NOT used here because it corrupts markdown syntax
+     * (e.g., > becomes &gt;, breaking blockquotes)
+     * HTML sanitization happens in process_document.py via bleach.clean()
      */
     public function sanitizeMarkdownFile(string $filePath): void
     {
-        $originalContent = File::get($filePath);
-        $beforeLength = strlen($originalContent);
-        $beforeFootnotes = preg_match_all('/^10[2-5]\s/', $originalContent, $matches);
-
-        // Use HTMLPurifier for proper sanitization
-        $content = $this->getMarkdownPurifier()->purify($originalContent);
-
-        $afterLength = strlen($content);
-        $afterFootnotes = preg_match_all('/^10[2-5]\s/', $content, $matches);
-
-        Log::info('Markdown sanitization results (HTMLPurifier)', [
-            'file_path' => basename($filePath),
-            'before_length' => $beforeLength,
-            'after_length' => $afterLength,
-            'removed_chars' => $beforeLength - $afterLength,
-            'footnotes_before' => $beforeFootnotes,
-            'footnotes_after' => $afterFootnotes,
-            'content_changed' => $originalContent !== $content
+        // Don't run HTMLPurifier on markdown - it corrupts markdown syntax
+        // HTML sanitization happens in process_document.py via bleach.clean()
+        Log::info('Markdown sanitization skipped (handled by bleach in Python)', [
+            'file_path' => basename($filePath)
         ]);
-
-        if ($originalContent !== $content) {
-            Log::warning('Markdown sanitization changed content', [
-                'file' => basename($filePath),
-                'chars_removed' => $beforeLength - $afterLength
-            ]);
-        }
-
-        File::put($filePath, $content);
     }
 }
