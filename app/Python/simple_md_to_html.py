@@ -60,6 +60,9 @@ def process_inline_formatting(text):
     text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
     text = re.sub(r'_([^_]+)_', r'<em>\1</em>', text)
 
+    # Process images ![alt](url) - must be before links
+    text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1" />', text)
+
     # Process links [text](url)
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', text)
 
@@ -195,6 +198,15 @@ def convert_markdown_to_html(markdown_content):
             quote_text = stripped[2:]
             formatted_quote = process_inline_formatting(quote_text)
             html_lines.append(f'<blockquote><p>{formatted_quote}</p></blockquote>')
+            i += 1
+            continue
+
+        # Images (standalone line)
+        image_match = re.match(r'^!\[([^\]]*)\]\(([^)]+)\)$', stripped)
+        if image_match:
+            alt_text = html.escape(image_match.group(1))
+            img_url = image_match.group(2)
+            html_lines.append(f'<img src="{img_url}" alt="{alt_text}" />')
             i += 1
             continue
 

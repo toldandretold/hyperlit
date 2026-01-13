@@ -206,10 +206,8 @@ class FileHelpers
                     'actual_filename' => $actualFilename
                 ]);
 
-                // Use HTML img tag directly instead of markdown to avoid underscore issues
-                $htmlImg = "<img src=\"{$newPath}\" alt=\"{$altText}\" />";
-
-                return $htmlImg;
+                // Keep as markdown - Python converter will safely create <img> tag
+                return "![{$altText}]({$newPath})";
             } else {
                 Log::warning('Image reference not found in uploaded files', [
                     'book' => $bookId,
