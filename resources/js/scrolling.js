@@ -512,11 +512,30 @@ async function fallbackScrollPosition(lazyLoader) {
 
 
 export async function restoreScrollPosition() {
+  // 🔍 DIAGNOSTIC: Entry point logging
+  console.log('🔍 SCROLL DEBUG: ========== restoreScrollPosition() ENTRY ==========');
+  console.log('🔍 SCROLL DEBUG: URL =', window.location.href);
+  console.log('🔍 SCROLL DEBUG: URL hash =', window.location.hash);
+
   // Skip if content doesn't overflow (nothing to scroll)
   const wrapper = document.querySelector('.home-content-wrapper') ||
                   document.querySelector('.user-content-wrapper') ||
                   document.querySelector('.reader-content-wrapper');
+
+  // 🔍 DIAGNOSTIC: Log current scroll state BEFORE any logic
+  if (wrapper) {
+    console.log('🔍 SCROLL DEBUG: Current scrollTop =', wrapper.scrollTop);
+    console.log('🔍 SCROLL DEBUG: scrollHeight =', wrapper.scrollHeight, 'clientHeight =', wrapper.clientHeight);
+    const existingChunks = wrapper.querySelectorAll('[data-chunk-id]');
+    console.log('🔍 SCROLL DEBUG: Existing chunks in DOM =', existingChunks.length);
+    if (existingChunks.length > 0) {
+      const chunkIds = Array.from(existingChunks).map(c => c.getAttribute('data-chunk-id'));
+      console.log('🔍 SCROLL DEBUG: Chunk IDs =', chunkIds.join(', '));
+    }
+  }
+
   if (wrapper && wrapper.scrollHeight <= wrapper.clientHeight) {
+    console.log('🔍 SCROLL DEBUG: EARLY EXIT - content doesnt overflow');
     return;
   }
 
@@ -615,11 +634,14 @@ export async function restoreScrollPosition() {
     console.log(`🔍 RESTORE SCROLL: No explicit target, checking saved positions...`);
     try {
       const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+      console.log('🔍 SCROLL DEBUG: Storage key =', scrollKey);
 
       // Try session storage first
       const sessionData = sessionStorage.getItem(scrollKey);
+      console.log('🔍 SCROLL DEBUG: Raw sessionStorage data =', sessionData);
       if (sessionData && sessionData !== "0") {
         const parsed = JSON.parse(sessionData);
+        console.log('🔍 SCROLL DEBUG: Parsed session data =', parsed);
         if (parsed?.elementId) {
           targetId = parsed.elementId;
           console.log(`📍 RESTORE SCROLL: Using saved session position: ${targetId}`);
@@ -629,8 +651,10 @@ export async function restoreScrollPosition() {
       // Fallback to localStorage
       if (!targetId) {
         const localData = localStorage.getItem(scrollKey);
+        console.log('🔍 SCROLL DEBUG: Raw localStorage data =', localData);
         if (localData && localData !== "0") {
           const parsed = JSON.parse(localData);
+          console.log('🔍 SCROLL DEBUG: Parsed local data =', parsed);
           if (parsed?.elementId) {
             targetId = parsed.elementId;
             console.log(`📍 RESTORE SCROLL: Using saved local position: ${targetId}`);
@@ -646,12 +670,45 @@ export async function restoreScrollPosition() {
     console.log(`🎯 RESTORE SCROLL: Explicit target found, IGNORING any saved scroll positions`);
   }
 
+  console.log('🔍 SCROLL DEBUG: Final targetId after storage check =', targetId || '(empty)');
+
   if (!targetId) {
+    // 🔍 DIAGNOSTIC: This is the problematic path
+    console.log('🔍 SCROLL DEBUG: ⚠️ NO targetId - entering chunk 0 loading path');
+    console.log('🔍 SCROLL DEBUG: WHY? Check if storage data was null/empty above');
+
     // Load first chunk when no saved position
     try {
       let cachedNodeChunks = await getNodeChunksFromIndexedDB(currentLazyLoader.bookId);
-      
+      console.log('🔍 SCROLL DEBUG: Got cachedNodeChunks from IndexedDB, count =', cachedNodeChunks?.length || 0);
+
       if (cachedNodeChunks?.length > 0) {
+        // 🛡️ FIX: Check if content already exists in DOM (e.g., from bfcache)
+        // If so, preserve it and let browser's scroll restoration work
+        const existingChunks = currentLazyLoader.container.querySelectorAll('[data-chunk-id]');
+        console.log('🔍 SCROLL DEBUG: Existing chunks in DOM =', existingChunks.length);
+
+        if (existingChunks.length > 0) {
+          console.log('🔍 SCROLL DEBUG: ✅ Content exists in DOM - preserving instead of clearing');
+          console.log('🔍 SCROLL DEBUG: Current scrollTop =', currentLazyLoader.scrollableParent?.scrollTop);
+
+          // Sync lazy loader state with existing DOM
+          existingChunks.forEach(chunk => {
+            const chunkId = parseFloat(chunk.getAttribute('data-chunk-id'));
+            currentLazyLoader.currentlyLoadedChunks.add(chunkId);
+          });
+          currentLazyLoader.nodes = cachedNodeChunks;
+
+          // Save current scroll position for future restores
+          if (currentLazyLoader.saveScrollPosition) {
+            setTimeout(() => currentLazyLoader.saveScrollPosition(), 100);
+          }
+
+          return; // Exit - browser's restored position will be preserved
+        }
+
+        // No existing content - safe to clear and load chunk 0
+        console.log('🔍 SCROLL DEBUG: No existing content, loading chunk 0');
         currentLazyLoader.nodes = cachedNodeChunks;
         currentLazyLoader.container.innerHTML = "";
         currentLazyLoader.nodes

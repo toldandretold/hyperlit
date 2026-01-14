@@ -344,7 +344,10 @@ export function createLazyLoader(config) {
   const forceSavePosition = () => {
     // More efficient query for valid, trackable elements.
     const elements = instance.container.querySelectorAll("p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]");
-    if (elements.length === 0) return;
+    if (elements.length === 0) {
+      console.log('🔍 SCROLL SAVE: No trackable elements found, skipping save');
+      return;
+    }
 
     const scrollSourceRect = instance.scrollableParent === window
       ? { top: 0 } // Viewport top is always 0
@@ -361,6 +364,8 @@ export function createLazyLoader(config) {
 
     if (topVisible) {
       const detectedId = topVisible.id;
+      console.log('🔍 SCROLL SAVE: Top visible element ID =', detectedId);
+
       // The query is specific, but we double-check for a numerical ID.
       if (/^\d+(\.\d+)?$/.test(detectedId)) {
         const scrollData = { elementId: detectedId };
@@ -368,11 +373,17 @@ export function createLazyLoader(config) {
         const stringifiedData = JSON.stringify(scrollData);
 
         // Only write to storage if the position has actually changed.
-        if (sessionStorage.getItem(storageKey) !== stringifiedData) {
+        const existingData = sessionStorage.getItem(storageKey);
+        if (existingData !== stringifiedData) {
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
+          console.log('🔍 SCROLL SAVE: ✅ Saved to storage:', stringifiedData, 'key:', storageKey);
         }
+      } else {
+        console.log('🔍 SCROLL SAVE: ⚠️ ID failed numeric test:', detectedId);
       }
+    } else {
+      console.log('🔍 SCROLL SAVE: No element found at or below container top');
     }
   };
 

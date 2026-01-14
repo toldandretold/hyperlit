@@ -196,6 +196,9 @@ export {
 // INITIALIZATION
 // ============================================================================
 
+// Module-level storage for dependencies (needed for updateDatabaseBookId)
+let _storedDeps = null;
+
 /**
  * Initialize all database modules with their dependencies
  * This function should be called once during application startup
@@ -203,6 +206,9 @@ export {
  * @param {Object} dependencies - Object containing all required dependencies
  */
 export async function initializeDatabaseModules(dependencies) {
+  // Store dependencies for later use by updateDatabaseBookId
+  _storedDeps = dependencies;
+
   const {
     book,
     withPending,
@@ -229,4 +235,30 @@ export async function initializeDatabaseModules(dependencies) {
   initUnloadSyncDependencies({ book });
 
   verbose.init('Database modules initialized', '/indexedDB/index.js');
+}
+
+/**
+ * Update the book ID in all database modules
+ * Call this during SPA navigation when the current book changes
+ *
+ * @param {string} newBookId - The new book ID to use
+ */
+export function updateDatabaseBookId(newBookId) {
+  if (!_storedDeps) {
+    console.warn('⚠️ updateDatabaseBookId called before initializeDatabaseModules');
+    return;
+  }
+
+  const { withPending, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave } = _storedDeps;
+
+  // Re-initialize modules that depend on book
+  initLibraryDependencies({ book: newBookId, queueForSync });
+  initNodeWriteDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
+  initNodeBatchDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
+  initNodeDeleteDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
+  initNodeNormalizeDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
+  initMasterSyncDependencies({ book: newBookId, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
+  initUnloadSyncDependencies({ book: newBookId });
+
+  console.log('📚 Database modules updated to book:', newBookId);
 }

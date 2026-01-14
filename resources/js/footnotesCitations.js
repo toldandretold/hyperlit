@@ -55,18 +55,12 @@ export async function handleFootnoteOrCitationClick(element) {
 
 // Store the handler reference so we can remove it
 let footnoteClickHandler = null;
-let initializationCount = 0; // Debug counter
 
 // Initialize click listeners
 export function initializeFootnoteCitationListeners() {
-  initializationCount++;
-  console.warn(`🔧 FOOTNOTE LISTENER INIT #${initializationCount} - Stack trace:`);
-  console.trace();
-
   // Remove existing listeners if they exist (prevent duplicates)
   if (footnoteClickHandler) {
     document.removeEventListener('click', footnoteClickHandler, true);
-    console.warn(`🗑️ Removed existing click listener (was init #${initializationCount - 1})`);
     verbose.init('Removed existing footnote/citation click listener', '/footnotesCitations.js');
   }
 

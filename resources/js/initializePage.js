@@ -595,6 +595,19 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
     const serverAnnotationsTs = serverRecord.annotations_updated_at || 0;
     const localAnnotationsTs = localRecord.annotations_updated_at || 0;
 
+    // 🔍 DIAGNOSTIC: Log exact timestamp values being compared
+    console.log('🔍 TIMESTAMP CHECK:', {
+      bookId,
+      serverTimestamp,
+      localTimestamp,
+      diff: serverTimestamp - localTimestamp,
+      serverNewer: serverTimestamp > localTimestamp,
+      serverAnnotationsTs,
+      localAnnotationsTs,
+      annotationsDiff: serverAnnotationsTs - localAnnotationsTs,
+      serverAnnotationsNewer: serverAnnotationsTs > localAnnotationsTs
+    });
+
     // Check if book content changed (nodes)
     if (serverTimestamp > localTimestamp) {
       console.log(

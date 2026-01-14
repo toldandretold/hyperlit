@@ -8,6 +8,7 @@ import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } fr
 import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../homepageDisplayUnit.js';
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
 import { setCurrentBook } from '../../app.js';
+import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { resetCurrentLazyLoader, loadHyperText, currentLazyLoader } from '../../initializePage.js';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
 // import { togglePerimeterButtons } from '../../readerDOMContentLoaded.js';
@@ -123,6 +124,7 @@ export async function swapHomeContent(bookId, showLoader = true) {
     // Set the current book context (important for other systems)
     // Already imported statically
     setCurrentBook(bookId);
+    updateDatabaseBookId(bookId);
 
     // Reset the current lazy loader so a fresh one gets created
     // Already imported statically
