@@ -17,7 +17,7 @@ import { setCurrentBook } from '../../app.js';
 import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePage.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { openDatabase } from '../../indexedDB/index.js';
+import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index.js';
 
 export class ImportBookTransition {
   /**
@@ -219,6 +219,7 @@ export class ImportBookTransition {
     try {
       // Set the current book
       setCurrentBook(bookId);
+      updateDatabaseBookId(bookId);
 
       // Hide overlay immediately for imported books
       const overlay = document.getElementById('initial-navigation-overlay');

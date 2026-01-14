@@ -153,6 +153,12 @@ export async function updateBookTimestamp(bookId = book || "latest") {
         };
 
         putRequest.onsuccess = () => {
+          // 🔍 DIAGNOSTIC: Log when timestamp is updated locally
+          console.log('🔍 TIMESTAMP UPDATE:', {
+            bookId,
+            newTimestamp: recordToSave.timestamp,
+            action: 'local_update_queued_for_sync'
+          });
           // ✅ STEP 2: Queue for sync, providing BOTH the new and original data.
           queueForSync("library", bookId, "update", recordToSave, originalRecord);
           resolve(true);

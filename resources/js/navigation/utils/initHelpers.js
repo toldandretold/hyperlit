@@ -4,6 +4,7 @@
  */
 import { log } from '../../utilities/logger.js';
 import { setCurrentBook } from '../../app.js';
+import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
@@ -23,6 +24,7 @@ export async function initializeReader(bookId, progressCallback) {
     // Set current book
     // Already imported statically
     setCurrentBook(bookId);
+    updateDatabaseBookId(bookId);
 
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
@@ -64,6 +66,7 @@ export async function initializeHome(bookId, progressCallback) {
     // Set current book
     // Already imported statically
     setCurrentBook(bookId);
+    updateDatabaseBookId(bookId);
 
     // Ensure data-page is set to "home"
     document.body.setAttribute('data-page', 'home');
@@ -105,6 +108,7 @@ export async function initializeUser(bookId, progressCallback) {
     // Set current book
     // Already imported statically
     setCurrentBook(bookId);
+    updateDatabaseBookId(bookId);
 
     // Ensure data-page is set to "user"
     document.body.setAttribute('data-page', 'user');

@@ -12,6 +12,7 @@ import { cleanupReaderView } from '../../viewManager.js';
 import { resetEditModeState, enforceEditableState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { setCurrentBook } from '../../app.js';
+import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
@@ -280,6 +281,7 @@ export class BookToBookTransition {
     try {
       // Set the current book
       setCurrentBook(bookId);
+      updateDatabaseBookId(bookId);
 
       // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
       // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
