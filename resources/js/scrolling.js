@@ -247,6 +247,14 @@ export function cancelPendingNavigationCleanup() {
   }
 }
 
+/**
+ * Mark scroll state as navigating to prevent scroll events from being detected as user scrolls.
+ * Used by refresh() to prevent content reloading from triggering "user scroll" detection.
+ */
+export function setNavigatingState(isNavigating) {
+  userScrollState.isNavigating = isNavigating;
+}
+
 // Set up user scroll detection for a container
 export function setupUserScrollDetection(scrollableContainer) {
   if (!scrollableContainer) {
