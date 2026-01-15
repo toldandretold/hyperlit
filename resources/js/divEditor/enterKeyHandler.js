@@ -243,12 +243,26 @@ export class EnterKeyHandler {
       // 🎯 SUP TAG ESCAPE: Prevent Enter inside any <sup> element
       // Sup tags contain generated content (footnote numbers, hypercite arrows) - never user-editable
       let checkElement = range.startContainer;
+      const startOffset = range.startOffset;
+      let supElement = null;
+      let cursorIsInsideSup = false;
+
+      // Check if inside a sup
       if (checkElement.nodeType === Node.TEXT_NODE) {
-        checkElement = checkElement.parentElement;
+        supElement = checkElement.parentElement?.closest('sup');
+        if (supElement) {
+          cursorIsInsideSup = true;
+        }
+        // Note: don't detect empty text node before sup - let enter work normally there
+      } else {
+        supElement = checkElement?.closest('sup');
+        if (supElement) {
+          cursorIsInsideSup = true;
+        }
+        // Note: don't detect "before sup" case - let enter work normally there
       }
 
-      const supElement = checkElement?.closest('sup');
-      if (supElement) {
+      if (supElement && cursorIsInsideSup) {
         event.preventDefault();
 
         const offset = range.startOffset;
@@ -690,14 +704,27 @@ export class EnterKeyHandler {
       }
       console.log("blockElement:", blockElement);
 
-      // 🔧 FIX: For headings, extract only text content (strip heading tags)
+      // 🔧 FIX: For headings, strip heading tags but preserve inline elements (sup, a, em, strong, etc.)
       // Prevents invalid HTML like <p><h1>text</h1></p>
       if (isHeading && content) {
         const tempDiv = document.createElement("div");
         tempDiv.appendChild(content);
-        const textOnly = tempDiv.textContent || tempDiv.innerText || "";
-        console.log(`Stripped heading tags from extracted content: "${textOnly}"`);
-        content = textOnly ? document.createTextNode(textOnly) : null;
+        // Remove any nested heading tags but keep other content
+        const nestedHeadings = tempDiv.querySelectorAll("h1, h2, h3, h4, h5, h6");
+        nestedHeadings.forEach((h) => {
+          // Replace heading with its children
+          while (h.firstChild) {
+            h.parentNode.insertBefore(h.firstChild, h);
+          }
+          h.remove();
+        });
+        console.log(`Stripped heading tags from extracted content, preserved inline elements`);
+        // Create document fragment with the cleaned content
+        const fragment = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+          fragment.appendChild(tempDiv.firstChild);
+        }
+        content = fragment.childNodes.length > 0 ? fragment : null;
       }
 
       // Create and insert new paragraph

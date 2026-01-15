@@ -403,12 +403,52 @@ export function startObserving(editableDiv) {
 
     console.log('🎯 element:', element, 'supElement:', supElement);
 
-    // Also check if cursor is RIGHT BEFORE a sup (at position 0 of parent, first child is sup)
-    if (!supElement && node.nodeType === Node.ELEMENT_NODE && offset === 0) {
-      const firstChild = node.firstChild;
-      if (firstChild && firstChild.nodeName === 'SUP') {
-        supElement = firstChild;
-        console.log('🎯 Cursor is right before sup element');
+    // Also check if cursor is RIGHT BEFORE a sup
+    if (!supElement && offset === 0) {
+      // Check if we're in an empty text node before a sup
+      if (node.nodeType === Node.TEXT_NODE && node.textContent === '') {
+        const nextSib = node.nextSibling;
+        if (nextSib && nextSib.nodeName === 'SUP') {
+          supElement = nextSib;
+          console.log('🎯 Cursor in empty text node before sup');
+        }
+      }
+      // Check if cursor is at position 0 of parent element and first real child is sup
+      if (!supElement && node.nodeType === Node.ELEMENT_NODE) {
+        let firstChild = node.firstChild;
+        // Skip empty text nodes and BR
+        while (firstChild && ((firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent === '') || firstChild.nodeName === 'BR')) {
+          firstChild = firstChild.nextSibling;
+        }
+        if (firstChild && firstChild.nodeName === 'SUP') {
+          supElement = firstChild;
+          console.log('🎯 Cursor is right before sup element');
+        }
+      }
+    }
+
+    // Also check if we're about to merge into a paragraph that starts with a sup
+    // (cursor at end of current element, next element starts with sup)
+    if (!supElement && e.inputType === 'deleteContentForward') {
+      const currentBlock = element?.closest('p, h1, h2, h3, h4, h5, h6, div');
+      const nextBlock = currentBlock?.nextElementSibling;
+      if (nextBlock) {
+        const nextFirstChild = nextBlock.firstChild;
+        // Skip BR elements to find actual content
+        const actualFirstChild = nextFirstChild?.nodeName === 'BR' ? nextFirstChild.nextSibling : nextFirstChild;
+        if (actualFirstChild?.nodeName === 'SUP') {
+          console.log('🎯 Forward delete would merge into paragraph starting with sup - manual merge');
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Manual merge: move all children from next block to current block
+          while (nextBlock.firstChild) {
+            currentBlock.appendChild(nextBlock.firstChild);
+          }
+          // Remove the empty next block
+          nextBlock.remove();
+          return;
+        }
       }
     }
 
@@ -452,18 +492,30 @@ export function startObserving(editableDiv) {
         console.log('🎯 Cursor moved before sup');
       } else {
         // Cursor is already before sup (at start of paragraph)
-        // Move to end of previous paragraph to allow merge without losing sup
-        const currentP = supElement.closest('p');
+        // Do manual merge: move all content (including sup) to previous element
+        const currentP = supElement.closest('p, h1, h2, h3, h4, h5, h6, div');
         const prevP = currentP?.previousElementSibling;
-        if (prevP && prevP.tagName === 'P') {
+        if (prevP) {
+          console.log('🎯 Manual merge: moving sup and content to previous element');
+
+          // Move all children from current paragraph to previous
+          while (currentP.firstChild) {
+            prevP.appendChild(currentP.firstChild);
+          }
+
+          // Remove the now-empty paragraph
+          currentP.remove();
+
+          // Position cursor before the sup (which is now in prevP)
           const newRange = document.createRange();
-          newRange.selectNodeContents(prevP);
-          newRange.collapse(false); // collapse to end
+          newRange.setStartBefore(supElement);
+          newRange.collapse(true);
           selection.removeAllRanges();
           selection.addRange(newRange);
-          console.log('🎯 Cursor moved to end of previous paragraph');
+
+          console.log('🎯 Merge complete, cursor before sup');
         } else {
-          console.log('🎯 No previous paragraph - delete blocked');
+          console.log('🎯 No previous element - delete blocked');
         }
       }
       return;
