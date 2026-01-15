@@ -341,42 +341,51 @@ export class BlockFormatter {
       const paragraphBlocks = affectedBlocks.filter(block => block.tagName === 'P');
 
       if (paragraphBlocks.length > 0) {
-        const beforeId = findPreviousElementId(paragraphBlocks[0]);
-        const afterId = findNextElementId(paragraphBlocks[paragraphBlocks.length - 1]);
+        // Convert each paragraph to its own block (1:1 conversion)
+        // This preserves node_ids so highlights stay connected
+        const createdBlocks = [];
 
-        let newBlockElement;
-        if (type === "blockquote") {
-          newBlockElement = document.createElement("blockquote");
-          const combinedHTML = paragraphBlocks.map((block) => block.innerHTML).join(" ");
-          newBlockElement.innerHTML = combinedHTML.trim() + "<br>";
-        } else {
-          // Code block
-          const combinedHTML = paragraphBlocks
-            .map((block) => block.innerHTML)
-            .join("\n<!-- PARAGRAPH_BREAK -->\n");
-          newBlockElement = document.createElement("pre");
-          const codeElement = document.createElement("code");
-          codeElement.textContent = combinedHTML;
-          newBlockElement.appendChild(codeElement);
+        for (const block of paragraphBlocks) {
+          const beforeId = findPreviousElementId(block);
+          const afterId = findNextElementId(block);
+
+          let newBlockElement;
+          if (type === "blockquote") {
+            newBlockElement = document.createElement("blockquote");
+            let content = block.innerHTML;
+            if (content && !content.endsWith("<br>")) content += "<br>";
+            newBlockElement.innerHTML = content;
+          } else {
+            // Code block - use innerHTML to preserve marks/highlights
+            newBlockElement = document.createElement("pre");
+            const codeElement = document.createElement("code");
+            codeElement.innerHTML = block.innerHTML;
+            newBlockElement.appendChild(codeElement);
+          }
+
+          // Preserve the paragraph's node_id
+          const oldNodeId = block.getAttribute('data-node-id');
+          if (oldNodeId) {
+            newBlockElement.setAttribute('data-node-id', oldNodeId);
+          }
+
+          setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
+
+          // Replace in place
+          block.parentNode.replaceChild(newBlockElement, block);
+          createdBlocks.push(newBlockElement);
+
+          // Save (no delete needed since node_id is preserved)
+          if (this.currentBookId && this.saveToIndexedDBCallback) {
+            await this.saveToIndexedDBCallback(newBlockElement.id, newBlockElement.outerHTML);
+          }
         }
 
-        setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
-
-        const parent = paragraphBlocks[0].parentNode;
-        parent.insertBefore(newBlockElement, paragraphBlocks[0]);
-
-        const deletedOriginalIds = paragraphBlocks.map((block) => block.id);
-        paragraphBlocks.forEach((block) => block.remove());
-
-        this.selectionManager.currentSelection.selectAllChildren(newBlockElement);
-        modifiedElementId = newBlockElement.id;
-        newElement = newBlockElement;
-
-        if (this.currentBookId && newBlockElement.id) {
-          await this.saveToIndexedDBCallback(newBlockElement.id, newBlockElement.outerHTML);
-          if (deletedOriginalIds.length > 0) {
-            await batchDeleteIndexedDBRecords(deletedOriginalIds);
-          }
+        // Select the first new block
+        if (createdBlocks.length > 0) {
+          this.selectionManager.currentSelection.selectAllChildren(createdBlocks[0]);
+          modifiedElementId = createdBlocks[0].id;
+          newElement = createdBlocks[0];
         }
       } else {
         // Fallback for selections not in paragraphs
@@ -438,52 +447,45 @@ export class BlockFormatter {
     let firstNewP = null;
     const createdP_ids_with_html = [];
 
+    // Track if this is a 1:1 conversion (blockquote) so we can skip the delete
+    let isSingleNodeConversion = false;
+
     if (type === "blockquote") {
-      // For blockquotes, preserve HTML formatting
+      // For blockquotes, preserve HTML formatting (1:1 conversion)
+      isSingleNodeConversion = true;
       const p = document.createElement("p");
       let content = blockToUnwrap.innerHTML;
       if (content.endsWith("<br>")) {
         content = content.slice(0, -4);
       }
       p.innerHTML = content || "\u00A0";
+      // Preserve the blockquote's node_id so hyperlights/hypercites stay connected
+      const oldNodeId = blockToUnwrap.getAttribute('data-node-id');
+      if (oldNodeId) {
+        p.setAttribute('data-node-id', oldNodeId);
+      }
       setElementIds(p, lastId, afterOriginalId, this.currentBookId);
       firstNewP = p;
       fragment.appendChild(p);
       createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
     } else {
-      // For code blocks, parse HTML markup back
-      const htmlContent = blockToUnwrap.textContent;
+      // For code blocks - 1:1 conversion, preserve node_id and HTML content
+      isSingleNodeConversion = true;
+      const codeElement = blockToUnwrap.querySelector('code');
+      const htmlContent = codeElement ? codeElement.innerHTML : blockToUnwrap.textContent;
 
-      if (htmlContent.includes("<!-- PARAGRAPH_BREAK -->")) {
-        const paragraphContents = htmlContent.split("\n<!-- PARAGRAPH_BREAK -->\n");
+      const p = document.createElement("p");
+      p.innerHTML = htmlContent || "\u00A0";
 
-        paragraphContents.forEach((paragraphHTML, index) => {
-          if (paragraphHTML.trim()) {
-            const p = document.createElement("p");
-            p.textContent = paragraphHTML.trim();
-            setElementIds(p, lastId, afterOriginalId, this.currentBookId);
-            lastId = p.id;
-            if (index === 0) firstNewP = p;
-            fragment.appendChild(p);
-            createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
-          }
-        });
-      } else {
-        // Single paragraph case
-        const lines = htmlContent.split("\n");
-
-        lines.forEach((line, index) => {
-          if (line.trim() || lines.length === 1) {
-            const p = document.createElement("p");
-            p.textContent = line || "\u00A0";
-            setElementIds(p, lastId, afterOriginalId, this.currentBookId);
-            lastId = p.id;
-            if (index === 0) firstNewP = p;
-            fragment.appendChild(p);
-            createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
-          }
-        });
+      // Preserve the code block's node_id so hyperlights/hypercites stay connected
+      const oldNodeId = blockToUnwrap.getAttribute('data-node-id');
+      if (oldNodeId) {
+        p.setAttribute('data-node-id', oldNodeId);
       }
+      setElementIds(p, lastId, afterOriginalId, this.currentBookId);
+      firstNewP = p;
+      fragment.appendChild(p);
+      createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
     }
 
     let modifiedElementId = null;
@@ -496,7 +498,9 @@ export class BlockFormatter {
       setCursorAtTextOffset(newElement, 0);
 
       await batchUpdateIndexedDBRecords(createdP_ids_with_html);
-      if (blockToUnwrap.id && this.deleteFromIndexedDBCallback) {
+      // Only delete the old block for 1:N conversions (code blocks)
+      // For 1:1 conversions (blockquote), we preserve node_id so no delete needed
+      if (!isSingleNodeConversion && blockToUnwrap.id && this.deleteFromIndexedDBCallback) {
         await this.deleteFromIndexedDBCallback(blockToUnwrap.id);
       }
     } else {
@@ -541,10 +545,16 @@ export class BlockFormatter {
     } else {
       newBlockElement = document.createElement("pre");
       const code = document.createElement("code");
-      code.textContent = blockParentToToggle.innerHTML;
+      // Use innerHTML to preserve marks/highlights instead of escaping them
+      code.innerHTML = blockParentToToggle.innerHTML;
       newBlockElement.appendChild(code);
     }
 
+    // Preserve the old node_id so hyperlights/hypercites stay connected
+    const oldNodeId = blockParentToToggle.getAttribute('data-node-id');
+    if (oldNodeId) {
+      newBlockElement.setAttribute('data-node-id', oldNodeId);
+    }
     setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
     blockParentToToggle.parentNode.replaceChild(newBlockElement, blockParentToToggle);
 
@@ -552,13 +562,9 @@ export class BlockFormatter {
     const modifiedElementId = newElement.id;
     setCursorAtTextOffset(newElement, currentOffset);
 
-    if (newBlockElement.id && blockParentToToggle.id) {
-      if (this.saveToIndexedDBCallback) {
-        await this.saveToIndexedDBCallback(newBlockElement.id, newBlockElement.outerHTML);
-      }
-      if (this.deleteFromIndexedDBCallback) {
-        await this.deleteFromIndexedDBCallback(blockParentToToggle.id);
-      }
+    // Since we preserve node_id, just save the updated content (no delete needed)
+    if (this.saveToIndexedDBCallback && newBlockElement.id) {
+      await this.saveToIndexedDBCallback(newBlockElement.id, newBlockElement.outerHTML);
     }
 
     return { modifiedElementId, newElement };

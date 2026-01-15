@@ -193,10 +193,6 @@ class DbHyperciteController extends Controller
 
             PgHypercite::insert($records);
 
-            // Update annotations_updated_at for affected books
-            $bookIds = array_column($records, 'book');
-            $this->updateAnnotationsTimestamp($bookIds);
-
             Log::info('DbHyperciteController::bulkCreate - Success', [
                 'records_inserted' => count($records)
             ]);
@@ -323,9 +319,6 @@ class DbHyperciteController extends Controller
                         $processedBookIds[] = $bookId;
                     }
                 }
-
-                // Update annotations_updated_at for affected books
-                $this->updateAnnotationsTimestamp($processedBookIds);
 
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount

@@ -259,19 +259,20 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
       // Get highlights that apply to this node from the node data
       const nodeHighlights = nodeData.hyperlights || [];
 
-      console.log(`Node ${nodeId} has ${nodeHighlights.length} remaining highlights after deletion`);
-
       if (nodeHighlights.length === 0) {
-        // No highlights left - just remove all marks
+        // No highlights left - just remove all marks (silently)
         const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
-        existingMarks.forEach(mark => {
-          const parent = mark.parentNode;
-          parent.replaceChild(document.createTextNode(mark.textContent), mark);
-          parent.normalize();
-        });
-        console.log(`No highlights remaining for node ${nodeId} - removed all marks`);
+        if (existingMarks.length > 0) {
+          existingMarks.forEach(mark => {
+            const parent = mark.parentNode;
+            parent.replaceChild(document.createTextNode(mark.textContent), mark);
+            parent.normalize();
+          });
+        }
         continue;
       }
+
+      console.log(`Node ${nodeId} has ${nodeHighlights.length} highlights to apply`);
 
       // Get the plain text content by removing existing marks
       let plainText = nodeElement.textContent || '';

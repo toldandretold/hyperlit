@@ -629,14 +629,45 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       console.log(
         `📝 Annotations changed for ${bookId}. Syncing annotations only...`
       );
+
+      // 1. Download latest annotations from backend to IndexedDB
       await syncAnnotationsOnly(bookId);
       await updateLocalAnnotationsTimestamp(bookId, serverAnnotationsTs);
 
-      // Refresh to show updated highlights
-      console.log(
-        `🔄 Triggering lazyLoader.refresh() to display updated annotations.`
-      );
-      await lazyLoader.refresh();
+      // 2. Get all visible node IDs from DOM
+      const visibleNodeIds = Array.from(
+        document.querySelectorAll('[id]:not([data-chunk-id]):not(.sentinel)')
+      )
+        .filter(el => /^\d+$/.test(el.id)) // Only numeric IDs (node IDs)
+        .map(el => el.id);
+
+      console.log(`🔄 Found ${visibleNodeIds.length} visible nodes to update`);
+
+      if (visibleNodeIds.length > 0) {
+        // 3. Rebuild node arrays from the new standalone tables
+        const { rebuildNodeArrays, getNodesByUUIDs } = await import('./indexedDB/hydration/rebuild.js');
+        const { getNodeChunksFromIndexedDB } = await import('./indexedDB/index.js');
+
+        // Get node chunks to find node_ids for visible startLines
+        const allNodes = await getNodeChunksFromIndexedDB(bookId);
+        const visibleNodeUUIDs = allNodes
+          .filter(n => visibleNodeIds.includes(String(n.startLine)))
+          .map(n => n.node_id)
+          .filter(Boolean);
+
+        console.log(`🔄 Rebuilding arrays for ${visibleNodeUUIDs.length} nodes...`);
+
+        if (visibleNodeUUIDs.length > 0) {
+          const nodesToRebuild = await getNodesByUUIDs(visibleNodeUUIDs);
+          await rebuildNodeArrays(nodesToRebuild);
+          console.log(`✅ Rebuilt node arrays with new annotations`);
+        }
+
+        // 4. Reprocess highlights on visible nodes WITHOUT destroying DOM
+        console.log(`🔄 Reprocessing highlights on visible nodes...`);
+        const { reprocessHighlightsForNodes } = await import('./hyperlights/deletion.js');
+        await reprocessHighlightsForNodes(bookId, visibleNodeIds);
+      }
     } else {
       verbose.content(`Local content is up-to-date for: ${bookId}`, 'initializePage.js');
     }

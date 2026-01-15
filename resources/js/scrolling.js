@@ -247,6 +247,14 @@ export function cancelPendingNavigationCleanup() {
   }
 }
 
+/**
+ * Mark scroll state as navigating to prevent scroll events from being detected as user scrolls.
+ * Used by refresh() to prevent content reloading from triggering "user scroll" detection.
+ */
+export function setNavigatingState(isNavigating) {
+  userScrollState.isNavigating = isNavigating;
+}
+
 // Set up user scroll detection for a container
 export function setupUserScrollDetection(scrollableContainer) {
   if (!scrollableContainer) {
@@ -791,6 +799,7 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
   // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
   // This prevents restoreScrollPosition() from interfering
   lazyLoader.isNavigatingToInternalId = true;
+  lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
   console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
 
   // 🎯 Show loading indicator with progress tracking (only if requested)
@@ -951,6 +960,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
           lazyLoader.attachMarkListeners(lazyLoader.container);
         }
         lazyLoader.isNavigatingToInternalId = false;
+        lazyLoader.pendingNavigationTarget = null;
         return;
       }
       targetChunkIndex = lazyLoader.nodes.findIndex(
@@ -969,6 +979,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         lazyLoader.attachMarkListeners(lazyLoader.container);
       }
       lazyLoader.isNavigatingToInternalId = false;
+      lazyLoader.pendingNavigationTarget = null;
       return;
     }
 
@@ -1175,6 +1186,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     pendingNavigationCleanupTimer = setTimeout(() => {
       console.log(`🏁 Navigation complete for ${targetId}`);
       lazyLoader.isNavigatingToInternalId = false;
+      lazyLoader.pendingNavigationTarget = null;
       pendingNavigationCleanupTimer = null; // Clear the reference
 
       // 🔓 Unlock scroll position
@@ -1206,6 +1218,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);
     hideNavigationLoading();
     lazyLoader.isNavigatingToInternalId = false;
+    lazyLoader.pendingNavigationTarget = null;
     if (lazyLoader.unlockScroll) {
       lazyLoader.unlockScroll();
     }
