@@ -249,26 +249,32 @@ export class EnterKeyHandler {
 
       const supElement = checkElement?.closest('sup');
       if (supElement) {
-        console.log('🎯 Cursor is inside <sup>, moving outside before Enter');
         event.preventDefault();
 
-        // Find the best parent to insert after (could be inside an <a> tag)
+        const offset = range.startOffset;
         const parent = supElement.parentNode;
         if (!parent) {
           this.enterCount = 0;
           return;
         }
 
-        // Create zero-width space after the sup if needed
-        let nextNode = supElement.nextSibling;
-        if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
-          nextNode = document.createTextNode('\u200B');
-          parent.insertBefore(nextNode, supElement.nextSibling);
+        const newRange = document.createRange();
+
+        // If at position 0, move cursor BEFORE sup; otherwise move AFTER
+        if (offset === 0) {
+          console.log('🎯 Cursor at start of <sup>, moving before');
+          newRange.setStartBefore(supElement);
+        } else {
+          console.log('🎯 Cursor inside <sup>, moving after');
+          // Create zero-width space after the sup if needed
+          let nextNode = supElement.nextSibling;
+          if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
+            nextNode = document.createTextNode('\u200B');
+            parent.insertBefore(nextNode, supElement.nextSibling);
+          }
+          newRange.setStart(nextNode, 0);
         }
 
-        // Position cursor after the sup
-        const newRange = document.createRange();
-        newRange.setStart(nextNode, 0);
         newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);

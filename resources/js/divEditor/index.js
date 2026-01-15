@@ -133,6 +133,7 @@ let videoDeleteHandler = null;
 
 // 🎯 SUP TAG ESCAPE: Prevent typing inside sup elements (footnotes, hypercites)
 let supEscapeHandler = null;
+let supDeleteHandler = null;
 
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
 let saveQueue = null;
@@ -343,6 +344,107 @@ export function startObserving(editableDiv) {
 
   // Use capture phase to intercept before other handlers
   editableDiv.addEventListener('beforeinput', supEscapeHandler, { capture: true });
+
+  // 🎯 SUP DELETE ESCAPE: Handle Delete/Backspace at sup boundaries
+  // DELETE at position 0 → escape cursor before sup, then delete
+  // Backspace at end → confirm footnote deletion
+  if (supDeleteHandler) {
+    editableDiv.removeEventListener('beforeinput', supDeleteHandler);
+  }
+
+  supDeleteHandler = (e) => {
+    console.log('🎯 supDeleteHandler RAW:', e.inputType, 'isEditing:', window.isEditing);
+
+    if (!window.isEditing) return;
+
+    // Only handle delete operations
+    if (e.inputType !== 'deleteContentForward' && e.inputType !== 'deleteContentBackward') return;
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    console.log('🎯 supDeleteHandler triggered:', e.inputType, 'collapsed:', selection.isCollapsed);
+
+    if (!selection.isCollapsed) return; // Let selection deletions work normally
+
+    let node = selection.anchorNode;
+    if (!node) return;
+
+    console.log('🎯 anchorNode:', node, 'nodeType:', node.nodeType, 'offset:', selection.anchorOffset);
+
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    let supElement = element?.closest('sup');
+    const offset = selection.anchorOffset;
+    const textLength = node.textContent?.length || 0;
+
+    console.log('🎯 element:', element, 'supElement:', supElement);
+
+    // Also check if cursor is RIGHT BEFORE a sup (at position 0 of parent, first child is sup)
+    if (!supElement && node.nodeType === Node.ELEMENT_NODE && offset === 0) {
+      const firstChild = node.firstChild;
+      if (firstChild && firstChild.nodeName === 'SUP') {
+        supElement = firstChild;
+        console.log('🎯 Cursor is right before sup element');
+      }
+    }
+
+    if (!supElement) return;
+
+    console.log('🎯 offset:', offset, 'textLength:', textLength, 'inputType:', e.inputType);
+
+    // Check if we're at the boundary where delete would affect the sup
+    const isAtSupBoundary = offset === 0 ||
+      (node.nodeType === Node.ELEMENT_NODE && offset === 0 && node.firstChild === supElement);
+
+    // DELETE or BACKSPACE at position 0 inside/before sup → protect the sup
+    if (isAtSupBoundary) {
+      console.log('🎯 At sup boundary - protecting footnote');
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If cursor is INSIDE sup, move it before sup
+      if (element?.closest('sup') === supElement) {
+        const newRange = document.createRange();
+        newRange.setStartBefore(supElement);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        console.log('🎯 Cursor moved before sup');
+      } else {
+        // Cursor is already before sup (at start of paragraph)
+        // Move to end of previous paragraph to allow merge without losing sup
+        const currentP = supElement.closest('p');
+        const prevP = currentP?.previousElementSibling;
+        if (prevP && prevP.tagName === 'P') {
+          const newRange = document.createRange();
+          newRange.selectNodeContents(prevP);
+          newRange.collapse(false); // collapse to end
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          console.log('🎯 Cursor moved to end of previous paragraph');
+        } else {
+          console.log('🎯 No previous paragraph - delete blocked');
+        }
+      }
+      return;
+    }
+
+    // BACKSPACE at end of sup → confirm footnote deletion
+    if (e.inputType === 'deleteContentBackward' && offset === textLength) {
+      console.log('🎯 BACKSPACE at end - confirm dialog!');
+      if (supElement.hasAttribute('fn-count-id')) {
+        const fnNum = supElement.getAttribute('fn-count-id');
+        if (!confirm(`Delete footnote ${fnNum}?`)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+      // Allow deletion to proceed if confirmed or not a footnote
+    }
+  };
+
+  editableDiv.addEventListener('beforeinput', supDeleteHandler, { capture: true });
 
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
