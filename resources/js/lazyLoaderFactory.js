@@ -15,7 +15,7 @@ import {
   isChunkLoadingInProgress,
   scheduleAutoClear
 } from "./utilities/chunkLoadingState.js";
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
@@ -190,6 +190,7 @@ export function createLazyLoader(config) {
     scrollLocked: false, // NEW: Scroll position lock flag
     scrollLockReason: null, // NEW: Reason for lock (for debugging)
     scrollSaveCooldown: false, // NEW: Cooldown period after navigation
+    refreshInProgress: false, // NEW: Prevents unlock during refresh
     lastViewportWidth: null, // Track viewport width for smart resize handling
   };
 
@@ -341,11 +342,14 @@ export function createLazyLoader(config) {
   // --- SCROLL POSITION SAVING LOGIC ---
 
   // Core saving logic. Can be called directly when a save is required.
-  const forceSavePosition = () => {
+  const forceSavePosition = (bypassLock = false) => {
+    // 🔒 Ultimate guard - check locks unless explicitly bypassed
+    if (!bypassLock && (instance.scrollLocked || instance.refreshInProgress)) {
+      return;
+    }
     // More efficient query for valid, trackable elements.
     const elements = instance.container.querySelectorAll("p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]");
     if (elements.length === 0) {
-      console.log('🔍 SCROLL SAVE: No trackable elements found, skipping save');
       return;
     }
 
@@ -364,7 +368,6 @@ export function createLazyLoader(config) {
 
     if (topVisible) {
       const detectedId = topVisible.id;
-      console.log('🔍 SCROLL SAVE: Top visible element ID =', detectedId);
 
       // The query is specific, but we double-check for a numerical ID.
       if (/^\d+(\.\d+)?$/.test(detectedId)) {
@@ -377,13 +380,8 @@ export function createLazyLoader(config) {
         if (existingData !== stringifiedData) {
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
-          console.log('🔍 SCROLL SAVE: ✅ Saved to storage:', stringifiedData, 'key:', storageKey);
         }
-      } else {
-        console.log('🔍 SCROLL SAVE: ⚠️ ID failed numeric test:', detectedId);
       }
-    } else {
-      console.log('🔍 SCROLL SAVE: No element found at or below container top');
     }
   };
 
@@ -612,6 +610,7 @@ export function createLazyLoader(config) {
 
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      console.log(`🔒 Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`);
       return;
     }
 
@@ -625,12 +624,19 @@ export function createLazyLoader(config) {
       if (!entry.isIntersecting) return;
 
       if (entry.target.id === topSentinel.id) {
+        console.log('🔍 TOP sentinel intersecting - attempting to load previous chunk');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
+          console.log(`🔍 First chunk in DOM: ${firstChunkId}, checking if can load previous...`);
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
+            console.log(`🔍 Loading previous chunk: ${firstChunkId - 1}`);
             loadPreviousChunkFixed(firstChunkId, instance);
+          } else {
+            console.log(`🔍 Cannot load previous: firstChunkId=${firstChunkId}, alreadyLoaded=${instance.currentlyLoadedChunks.has(firstChunkId - 1)}`);
           }
+        } else {
+          console.warn('⚠️ Top sentinel intersecting but no chunks found in DOM');
         }
       }
       if (entry.target.id === bottomSentinel.id) {
@@ -678,6 +684,10 @@ export function createLazyLoader(config) {
   };
 
   instance.unlockScroll = () => {
+    // 🔒 Don't unlock during refresh - refresh will handle its own unlock
+    if (instance.refreshInProgress) {
+      return;
+    }
     const wasLocked = instance.scrollLocked;
     instance.scrollLocked = false;
     instance.scrollLockReason = null;
@@ -694,70 +704,145 @@ export function createLazyLoader(config) {
     // In lazyLoaderFactory.js, inside the createLazyLoader function...
 
   instance.refresh = async (targetElementId = null) => {
-    // 1. Re-read the fresh nodes from IndexedDB (from your original)
-    instance.nodes = await instance.getNodeChunks();
+    // 🔒 Lock scroll during refresh to prevent premature scroll saves
+    instance.refreshInProgress = true;
+    instance.scrollLocked = true;
+    instance.scrollLockReason = 'refresh';
 
-    // 2. Remove all rendered chunk-DIVs (from your original)
-    instance.container
-      .querySelectorAll("[data-chunk-id]")
-      .forEach(el => el.remove());
+    // 🔒 Mark as navigating to prevent scroll events from being detected as user scrolls
+    setNavigatingState(true);
 
-    // 3. Reset our "which chunks are in the DOM" set (from your original)
-    instance.currentlyLoadedChunks.clear();
-
-    // 4. Ensure sentinels are in place (from your original)
-    if (!instance.container.contains(instance.topSentinel)) {
-      instance.container.prepend(instance.topSentinel);
-    }
-    if (!instance.container.contains(instance.bottomSentinel)) {
-      instance.container.appendChild(instance.bottomSentinel);
-    }
-
-    // 5. ✅ KEPT: Re-observe the sentinels for robustness (from your original)
-    instance.observer.observe(instance.topSentinel);
-    instance.observer.observe(instance.bottomSentinel);
-
-    // 6. ✅ NEW: Determine which chunk to load first
-    const allChunkIds = [...new Set(instance.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
-    let chunkToLoadId = allChunkIds.length > 0 ? allChunkIds[0] : null;
-
-    if (targetElementId) {
-      const targetChunk = instance.nodes.find(c => c.startLine == targetElementId);
-      if (targetChunk) {
-        chunkToLoadId = targetChunk.chunk_id;
+    // 🛡️ Safety timeout - guarantee locks are cleared even if something goes wrong
+    const safetyTimeout = setTimeout(() => {
+      if (instance.refreshInProgress) {
+        console.warn('⚠️ refresh() safety timeout triggered - clearing stuck locks');
+        instance.refreshInProgress = false;
+        instance.scrollLocked = false;
+        instance.scrollLockReason = null;
+        setNavigatingState(false);
       }
-    }
+    }, 5000); // 5 second max
 
-    // 7. Load the determined chunk
-    if (chunkToLoadId !== null) {
-      await loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
-    }
-
-    // 8. ✅ NEW: Scroll to and focus the target element after rendering
-    setTimeout(() => {
-      let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
-
-      // Fallback if the target element isn't found
-      if (!elementToFocus) {
-        elementToFocus = instance.container.querySelector('p, h1, h2, h3, blockquote, pre');
+    try {
+      // Preserve current scroll position if no target specified
+      if (!targetElementId) {
+        // Priority 1: Use pending navigation target if navigation is in progress
+        if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
+          targetElementId = instance.pendingNavigationTarget;
+        } else {
+          // Priority 2: Fall back to saved scroll position
+          const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+          const storedData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+          if (storedData) {
+            try {
+              const scrollData = JSON.parse(storedData);
+              targetElementId = scrollData.elementId;
+            } catch (e) { /* ignore parse errors */ }
+          }
+        }
       }
 
-      if (elementToFocus) {
-        // Scroll the element into view first
-        scrollElementIntoMainContent(elementToFocus, instance.container, 50);
+      // 1. Re-read the fresh nodes from IndexedDB (from your original)
+      instance.nodes = await instance.getNodeChunks();
 
-        // Then set focus for contenteditable
-        elementToFocus.focus();
+      // 2. Remove all rendered chunk-DIVs (from your original)
+      instance.container
+        .querySelectorAll("[data-chunk-id]")
+        .forEach(el => el.remove());
 
-        // Place the cursor at the end of the element
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(elementToFocus);
-        range.collapse(false); // false means collapse to the end
-        selection.removeAllRanges();
-        selection.addRange(range);
+      // 3. Reset our "which chunks are in the DOM" set (from your original)
+      instance.currentlyLoadedChunks.clear();
+
+      // 4. Ensure sentinels are in place (from your original)
+      if (!instance.container.contains(instance.topSentinel)) {
+        instance.container.prepend(instance.topSentinel);
       }
-    }, 150); // Slightly longer delay to ensure scrolling completes
+      if (!instance.container.contains(instance.bottomSentinel)) {
+        instance.container.appendChild(instance.bottomSentinel);
+      }
+
+      // 5. ✅ KEPT: Re-observe the sentinels for robustness (from your original)
+      instance.observer.observe(instance.topSentinel);
+      instance.observer.observe(instance.bottomSentinel);
+
+      // 6. ✅ Determine which chunks to load (target + adjacent)
+      const allChunkIds = [...new Set(instance.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+      let targetChunkId = allChunkIds.length > 0 ? allChunkIds[0] : null;
+
+      if (targetElementId) {
+        const targetChunk = instance.nodes.find(c => c.startLine == targetElementId);
+        if (targetChunk) {
+          targetChunkId = targetChunk.chunk_id;
+        }
+      }
+
+      // 7. Load the target chunk (lazy loader will handle adjacent chunks via sentinels)
+      if (targetChunkId !== null) {
+        console.log(`🔄 refresh() loading target chunk: ${targetChunkId}`);
+        await loadChunkInternal(targetChunkId, "down", instance, attachMarkers);
+
+        // Fix sentinel positions - chunk gets appended AFTER bottomSentinel, need to reorder
+        instance.repositionSentinels();
+
+        // DEBUG: Log DOM structure after chunk load
+        const children = Array.from(instance.container.children).map(el => {
+          if (el.classList.contains('sentinel')) return `SENTINEL:${el.id}`;
+          if (el.hasAttribute('data-chunk-id')) return `CHUNK:${el.getAttribute('data-chunk-id')}`;
+          return `OTHER:${el.tagName}`;
+        });
+        console.log(`🔍 DEBUG: DOM order after chunk load:`, children);
+        console.log(`🔍 DEBUG: topSentinel in DOM:`, instance.container.contains(instance.topSentinel));
+        console.log(`🔍 DEBUG: bottomSentinel in DOM:`, instance.container.contains(instance.bottomSentinel));
+        console.log(`🔍 DEBUG: currentlyLoadedChunks:`, [...instance.currentlyLoadedChunks]);
+      }
+
+      // 8. ✅ NEW: Scroll to and focus the target element after rendering
+      setTimeout(() => {
+        let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
+
+        // Fallback if the target element isn't found
+        if (!elementToFocus) {
+          elementToFocus = instance.container.querySelector('p, h1, h2, h3, blockquote, pre');
+        }
+
+        if (elementToFocus) {
+          // Scroll the element into view first
+          scrollElementIntoMainContent(elementToFocus, instance.container, 50);
+
+          // Then set focus for contenteditable
+          elementToFocus.focus();
+
+          // Place the cursor at the end of the element
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(elementToFocus);
+          range.collapse(false); // false means collapse to the end
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        // 🔓 Unlock scroll after refresh scroll completes, then force save correct position
+        setTimeout(() => {
+          clearTimeout(safetyTimeout); // Cancel safety timeout - normal completion
+          instance.refreshInProgress = false;
+          instance.scrollLocked = false;
+          instance.scrollLockReason = null;
+          setNavigatingState(false);
+          forceSavePosition(true); // bypassLock=true since we just unlocked
+          console.log('🔄 refresh() complete, scroll unlocked');
+        }, 100);
+      }, 150); // Slightly longer delay to ensure scrolling completes
+
+    } catch (error) {
+      // 🛡️ Ensure locks are cleared on error
+      clearTimeout(safetyTimeout);
+      instance.refreshInProgress = false;
+      instance.scrollLocked = false;
+      instance.scrollLockReason = null;
+      setNavigatingState(false);
+      console.error('❌ refresh() failed:', error);
+      throw error; // Re-throw so caller knows it failed
+    }
   };
 
   

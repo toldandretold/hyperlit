@@ -50,6 +50,8 @@ export {
   prepareLibraryForIndexedDB,
   getLibraryObjectFromIndexedDB,
   updateBookTimestamp,
+  updateAnnotationsTimestamp,
+  updateLocalAnnotationsTimestamp,
   initLibraryDependencies,
   getAllOfflineAvailableBooks,
 } from './core/library.js';

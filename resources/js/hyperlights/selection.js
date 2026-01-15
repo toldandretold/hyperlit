@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateBookTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
+import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -11,6 +11,7 @@ import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFr
 import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
+import { withPending } from '../utilities/operationState.js';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;
@@ -351,45 +352,39 @@ export async function createHighlightHandler(event, bookId) {
   }
 
   try {
-    // ✅ NEW SYSTEM: Save to normalized hyperlights table
-    const savedHighlightEntry = await addToHighlightsTable(
-      bookId,
-      {
-        highlightId,
-        text: selectedText,
-        charData: charDataByNode,
-        startLine: startContainer.id,
-      }
-    );
+    // Wrap database operations with withPending to trigger cloudRef glow
+    await withPending(async () => {
+      // ✅ NEW SYSTEM: Save to normalized hyperlights table
+      const savedHighlightEntry = await addToHighlightsTable(
+        bookId,
+        {
+          highlightId,
+          text: selectedText,
+          charData: charDataByNode,
+          startLine: startContainer.id,
+        }
+      );
 
-    console.log('✅ NEW SYSTEM: Hyperlight saved to normalized table');
+      console.log('✅ NEW SYSTEM: Hyperlight saved to normalized table');
 
-    // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-    const affectedNodeUUIDs = Object.keys(charDataByNode);
-    const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
-    await rebuildNodeArrays(affectedNodes);
+      // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
+      const affectedNodeUUIDs = Object.keys(charDataByNode);
+      const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+      await rebuildNodeArrays(affectedNodes);
 
-    console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+      console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
 
-    await updateBookTimestamp(bookId);
+      await updateAnnotationsTimestamp(bookId);
 
-    // Queue hyperlight for PostgreSQL sync
-    queueForSync("hyperlights", highlightId, "update", savedHighlightEntry);
+      // Queue hyperlight for PostgreSQL sync
+      queueForSync("hyperlights", highlightId, "update", savedHighlightEntry);
 
-    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
-    /*
-    updatedNodeChunks.forEach((chunk) => {
-      if (chunk && chunk.startLine) {
-        queueForSync("nodes", chunk.startLine, "update", chunk);
-      }
+      console.log(
+        `✅ NEW SYSTEM: Queued 1 hyperlight for sync, rebuilt ${affectedNodes.length} node arrays.`
+      );
     });
-    */
 
-    console.log(
-      `✅ NEW SYSTEM: Queued 1 hyperlight for sync, rebuilt ${affectedNodes.length} node arrays.`
-    );
-
-    // 🎨 Reprocess highlights to render overlapping segments correctly
+    // 🎨 Reprocess highlights to render overlapping segments correctly (outside withPending - DOM only)
     const { reprocessHighlightsForNodes } = await import('./deletion.js');
     await reprocessHighlightsForNodes(bookId, Array.from(affectedIds));
     console.log(`✅ Reprocessed highlights for ${affectedIds.size} nodes to render overlaps`);
