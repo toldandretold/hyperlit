@@ -105,8 +105,7 @@ export async function getLibraryObjectFromIndexedDB(book) {
 }
 
 /**
- * Update the timestamp for a book in the library store
- * This triggers a sync of the library record to PostgreSQL
+ * Update the timestamp for a book (for content/node changes)
  *
  * @param {string} bookId - Book identifier
  * @returns {Promise<boolean>} Success status
@@ -119,47 +118,23 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     const getRequest = store.get(bookId);
 
     return new Promise((resolve, reject) => {
-      getRequest.onerror = (e) => {
-        console.error("❌ Failed to get library record for timestamp update:", e.target.error);
-        reject(e.target.error);
-      };
+      getRequest.onerror = (e) => reject(e.target.error);
 
       getRequest.onsuccess = () => {
-        // ✅ STEP 1: Capture the original state BEFORE any modifications.
-        // `structuredClone` creates a true, deep copy.
         const originalRecord = getRequest.result ? structuredClone(getRequest.result) : null;
+        const now = Date.now();
         let recordToSave;
 
         if (getRequest.result) {
-          // Now it's safe to modify the record we fetched.
           recordToSave = getRequest.result;
-          recordToSave.timestamp = Date.now();
+          recordToSave.timestamp = now;
         } else {
-          // If it's a new record, the original state is correctly `null`.
-          recordToSave = {
-            book: bookId,
-            timestamp: Date.now(),
-            title: bookId,
-            description: "",
-            tags: [],
-          };
+          recordToSave = { book: bookId, timestamp: now, title: bookId, description: "", tags: [] };
         }
 
         const putRequest = store.put(recordToSave);
-
-        putRequest.onerror = (e) => {
-          console.error("❌ Failed to put updated library record:", e.target.error);
-          reject(e.target.error);
-        };
-
+        putRequest.onerror = (e) => reject(e.target.error);
         putRequest.onsuccess = () => {
-          // 🔍 DIAGNOSTIC: Log when timestamp is updated locally
-          console.log('🔍 TIMESTAMP UPDATE:', {
-            bookId,
-            newTimestamp: recordToSave.timestamp,
-            action: 'local_update_queued_for_sync'
-          });
-          // ✅ STEP 2: Queue for sync, providing BOTH the new and original data.
           queueForSync("library", bookId, "update", recordToSave, originalRecord);
           resolve(true);
         };
@@ -167,6 +142,49 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     });
   } catch (error) {
     console.error("❌ Failed to update book timestamp:", error);
+    return false;
+  }
+}
+
+/**
+ * Update annotations_updated_at for a book (for highlight/hypercite changes)
+ *
+ * @param {string} bookId - Book identifier
+ * @returns {Promise<boolean>} Success status
+ */
+export async function updateAnnotationsTimestamp(bookId) {
+  console.log(`📝 updateAnnotationsTimestamp called for: ${bookId}`);
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const getRequest = store.get(bookId);
+
+    return new Promise((resolve, reject) => {
+      getRequest.onerror = (e) => reject(e.target.error);
+
+      getRequest.onsuccess = () => {
+        const record = getRequest.result;
+        if (!record) {
+          console.warn(`⚠️ No library record found for ${bookId}`);
+          resolve(false);
+          return;
+        }
+
+        const originalRecord = structuredClone(record);
+        record.annotations_updated_at = Date.now();
+
+        const putRequest = store.put(record);
+        putRequest.onerror = (e) => reject(e.target.error);
+        putRequest.onsuccess = () => {
+          console.log(`📝 Queuing library sync with annotations_updated_at: ${record.annotations_updated_at}`);
+          queueForSync("library", bookId, "update", record, originalRecord);
+          resolve(true);
+        };
+      };
+    });
+  } catch (error) {
+    console.error("❌ Failed to update annotations timestamp:", error);
     return false;
   }
 }

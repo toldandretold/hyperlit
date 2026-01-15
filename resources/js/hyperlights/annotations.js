@@ -3,7 +3,7 @@
  */
 
 import { withPending } from "../utilities/operationState.js";
-import { openDatabase, queueForSync } from "../indexedDB/index.js";
+import { openDatabase, queueForSync, updateAnnotationsTimestamp } from "../indexedDB/index.js";
 
 /**
  * Extracts the current HTML content from within the annotation element.
@@ -102,6 +102,7 @@ export function attachAnnotationListener(highlightId) {
             );
             // MODIFIED: Pass the full 'rec' object to the queue.
             queueForSync("hyperlights", highlightId, "update", rec);
+            updateAnnotationsTimestamp(rec.book);
             res();
           };
           tx.onerror = () => rej(tx.error);
@@ -145,6 +146,7 @@ export const saveHighlightAnnotation = (highlightId, annotationHTML) =>
       tx.oncomplete = () => {
         console.log(`Successfully saved annotation for highlight ${highlightId}`);
         queueForSync("hyperlights", highlightId, "update", highlightData);
+        updateAnnotationsTimestamp(highlightData.book);
         res();
       };
       tx.onerror = () => rej(tx.error);

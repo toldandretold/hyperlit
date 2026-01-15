@@ -179,10 +179,6 @@ class DbHyperlightController extends Controller
                 
                 PgHyperlight::insert($records);
 
-                // Update annotations_updated_at for affected books
-                $bookIds = array_column($records, 'book');
-                $this->updateAnnotationsTimestamp($bookIds);
-
                 Log::info('DbHyperlightController::bulkCreate - Success', [
                     'records_inserted' => count($records)
                 ]);
@@ -307,9 +303,6 @@ class DbHyperlightController extends Controller
                     }
                 }
 
-                // Update annotations_updated_at for affected books
-                $this->updateAnnotationsTimestamp($processedBookIds);
-
                 Log::info('DbHyperlightController::upsert - Success', [
                     'records_processed' => $processedCount
                 ]);
@@ -389,9 +382,6 @@ class DbHyperlightController extends Controller
                         $deletedBookIds[] = $bookId;
                     }
                 }
-
-                // Update annotations_updated_at for affected books
-                $this->updateAnnotationsTimestamp($deletedBookIds);
 
                 Log::info('DbHyperlightController::delete - Success', [
                     'records_deleted' => $deletedCount
@@ -483,9 +473,6 @@ class DbHyperlightController extends Controller
 
                     Log::info("Hidden highlight {$item['hyperlight_id']} in book {$item['book']}");
                 }
-
-                // Update annotations_updated_at for affected books
-                $this->updateAnnotationsTimestamp($hiddenBookIds);
 
                 Log::info('DbHyperlightController::hide - Success', [
                     'records_hidden' => $hiddenCount

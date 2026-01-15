@@ -217,16 +217,31 @@ public function upsert(Request $request)
                     'note' => $data['note'] ?? $libraryRecord->note,
                     'visibility' => $data['visibility'] ?? $libraryRecord->visibility,
                     'listed' => $data['listed'] ?? $libraryRecord->listed,
+                    'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {
-                // SECURITY FIX: Non-owners cannot update library.timestamp
-                // Annotations (highlights/hypercites) now update annotations_updated_at instead,
-                // which is handled by DbHyperlightController and DbHyperciteController.
-                Log::info('Non-owner library update blocked', [
-                    'book' => $bookId,
-                    'attempted_by' => $currentUserInfo['creator'] ?? $currentUserInfo['creator_token'] ?? 'unknown'
-                ]);
+                // Non-owners can only update annotations_updated_at (for their highlights/hypercites)
+                // Must use SECURITY DEFINER function to bypass RLS policy
+                if (isset($data['annotations_updated_at'])) {
+                    $newAnnotationsTs = max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0);
+
+                    // Use the SECURITY DEFINER function which bypasses RLS for public books
+                    $result = DB::selectOne('SELECT update_annotations_timestamp(?, ?) as success', [$bookId, $newAnnotationsTs]);
+
+                    Log::info('Non-owner updated annotations_updated_at via SECURITY DEFINER', [
+                        'book' => $bookId,
+                        'new_timestamp' => $newAnnotationsTs,
+                        'function_result' => $result->success ?? false,
+                        'by' => $currentUserInfo['creator'] ?? $currentUserInfo['creator_token'] ?? 'unknown'
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Annotations timestamp updated',
+                        'library' => $libraryRecord->refresh()
+                    ]);
+                }
 
                 return response()->json([
                     'success' => true,
