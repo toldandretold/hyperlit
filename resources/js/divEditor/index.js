@@ -301,45 +301,69 @@ export function startObserving(editableDiv) {
   }
 
   supEscapeHandler = (e) => {
+    console.log('🎯 supEscapeHandler RAW:', e.inputType, 'data:', JSON.stringify(e.data), 'isEditing:', window.isEditing);
+
     if (!window.isEditing) return;
 
     // Only handle text insertion events
     if (!e.inputType || !e.inputType.startsWith('insert')) return;
 
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
+    if (!selection || !selection.rangeCount) {
+      console.log('🎯 supEscapeHandler: no selection');
+      return;
+    }
 
     // Use anchorNode which is more reliable for cursor position
     let node = selection.anchorNode;
-    if (!node) return;
+    if (!node) {
+      console.log('🎯 supEscapeHandler: no node');
+      return;
+    }
 
     // Get the element (if text node, get parent)
     let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-    if (!element) return;
+    if (!element) {
+      console.log('🎯 supEscapeHandler: no element');
+      return;
+    }
 
     // Check if we're inside a <sup> tag
     const supElement = element.closest('sup');
+    console.log('🎯 supEscapeHandler: node:', node, 'element:', element, 'supElement:', supElement);
     if (!supElement) return;
 
     // We're inside a sup - move cursor outside before the input happens
     e.preventDefault();
     e.stopPropagation();
 
-    const textToInsert = e.data || '';
-
-    // Insert text directly after the sup element using insertAdjacentText
-    // This guarantees the text goes AFTER the sup, not inside it
-    supElement.insertAdjacentText('afterend', textToInsert);
-
-    // Now position cursor after the inserted text
-    const nextNode = supElement.nextSibling;
-    if (nextNode && nextNode.nodeType === Node.TEXT_NODE) {
-      const newRange = document.createRange();
-      newRange.setStart(nextNode, nextNode.length);
-      newRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
+    const offset = selection.anchorOffset;
+    let textToInsert = e.data || '';
+    // Convert regular space to non-breaking space to prevent browser from collapsing it
+    if (textToInsert === ' ') {
+      textToInsert = '\u00A0'; // non-breaking space
     }
+    console.log('🎯 supEscapeHandler: inserting text:', JSON.stringify(textToInsert), 'offset:', offset);
+
+    // Create text node
+    const textNode = document.createTextNode(textToInsert);
+
+    // If cursor at position 0, insert BEFORE sup; otherwise insert AFTER
+    if (offset === 0) {
+      supElement.parentNode.insertBefore(textNode, supElement);
+      console.log('🎯 supEscapeHandler: inserted BEFORE sup');
+    } else {
+      supElement.parentNode.insertBefore(textNode, supElement.nextSibling);
+      console.log('🎯 supEscapeHandler: inserted AFTER sup');
+    }
+
+    // Position cursor at the end of the inserted text node
+    const newRange = document.createRange();
+    newRange.setStart(textNode, textNode.length);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    console.log('🎯 supEscapeHandler: cursor positioned in text node');
   };
 
   // Use capture phase to intercept before other handlers
@@ -392,13 +416,29 @@ export function startObserving(editableDiv) {
 
     console.log('🎯 offset:', offset, 'textLength:', textLength, 'inputType:', e.inputType);
 
-    // Check if we're at the boundary where delete would affect the sup
-    const isAtSupBoundary = offset === 0 ||
-      (node.nodeType === Node.ELEMENT_NODE && offset === 0 && node.firstChild === supElement);
+    // Forward delete (fn+Delete) at position 0 OR Backspace at end = trying to delete sup content
+    // Show confirmation dialog
+    const isDeletingSupContent =
+      (e.inputType === 'deleteContentForward' && offset === 0) ||
+      (e.inputType === 'deleteContentBackward' && offset === textLength);
 
-    // DELETE or BACKSPACE at position 0 inside/before sup → protect the sup
-    if (isAtSupBoundary) {
-      console.log('🎯 At sup boundary - protecting footnote');
+    if (isDeletingSupContent) {
+      console.log('🎯 Attempting to delete sup content - showing confirmation');
+      if (supElement.hasAttribute('fn-count-id')) {
+        const fnNum = supElement.getAttribute('fn-count-id');
+        if (!confirm(`Delete footnote ${fnNum}?`)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+      // Allow deletion to proceed if confirmed or not a footnote
+      return;
+    }
+
+    // Backspace at position 0 inside/before sup → escape cursor (not trying to delete sup)
+    if (e.inputType === 'deleteContentBackward' && offset === 0) {
+      console.log('🎯 Backspace at position 0 - escaping cursor');
       e.preventDefault();
       e.stopPropagation();
 
@@ -429,19 +469,8 @@ export function startObserving(editableDiv) {
       return;
     }
 
-    // BACKSPACE at end of sup → confirm footnote deletion
-    if (e.inputType === 'deleteContentBackward' && offset === textLength) {
-      console.log('🎯 BACKSPACE at end - confirm dialog!');
-      if (supElement.hasAttribute('fn-count-id')) {
-        const fnNum = supElement.getAttribute('fn-count-id');
-        if (!confirm(`Delete footnote ${fnNum}?`)) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-      }
-      // Allow deletion to proceed if confirmed or not a footnote
-    }
+    // Forward delete at end of sup → normal behavior (delete what's after sup)
+    // No special handling needed
   };
 
   editableDiv.addEventListener('beforeinput', supDeleteHandler, { capture: true });
