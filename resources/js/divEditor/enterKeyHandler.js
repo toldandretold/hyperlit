@@ -266,6 +266,9 @@ export class EnterKeyHandler {
         event.preventDefault();
 
         const offset = range.startOffset;
+        const supTextLength = supElement.textContent?.length || 0;
+        const atStart = offset === 0;
+
         const parent = supElement.parentNode;
         if (!parent) {
           this.enterCount = 0;
@@ -274,12 +277,10 @@ export class EnterKeyHandler {
 
         const newRange = document.createRange();
 
-        // If at position 0, move cursor BEFORE sup; otherwise move AFTER
-        if (offset === 0) {
-          console.log('🎯 Cursor at start of <sup>, moving before');
+        // If at start (before content), move cursor BEFORE sup; otherwise move AFTER
+        if (atStart) {
           newRange.setStartBefore(supElement);
         } else {
-          console.log('🎯 Cursor inside <sup>, moving after');
           // Create zero-width space after the sup if needed
           let nextNode = supElement.nextSibling;
           if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
@@ -293,7 +294,6 @@ export class EnterKeyHandler {
         selection.removeAllRanges();
         selection.addRange(newRange);
 
-        console.log('✅ Cursor moved outside sup tag');
         this.enterCount = 0;
         return;
       }
@@ -718,7 +718,6 @@ export class EnterKeyHandler {
           }
           h.remove();
         });
-        console.log(`Stripped heading tags from extracted content, preserved inline elements`);
         // Create document fragment with the cleaned content
         const fragment = document.createDocumentFragment();
         while (tempDiv.firstChild) {
