@@ -4,7 +4,8 @@
  */
 
 import { openDatabase } from '../core/connection.js';
-import { debounce, toPublicChunk } from '../core/utilities.js';
+import { debounce } from '../../utilities/debounce.js';
+import { toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
 
 // Dependencies that will be injected
