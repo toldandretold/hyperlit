@@ -31,6 +31,16 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
     console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
     return;
   }
+
+  // Preserve the FIRST originalData when the same key is queued multiple times.
+  // This ensures we keep the TRUE original state for undo, not an intermediate state
+  // (e.g., when footnote renumbering updates the same node again before sync fires).
+  const existing = pendingSyncs.get(key);
+  if (existing && existing.originalData) {
+    // Keep the first originalData (the true original state)
+    originalData = existing.originalData;
+  }
+
   pendingSyncs.set(key, { store, id, type, data, originalData });
 
   // Import book from global scope (temporary until fully refactored)

@@ -172,7 +172,17 @@ export async function undoLastBatch() {
   });
 
   console.log("✅ Undo DB operation complete. Returning target for refresh...");
-  return targetId; // This is the ONLY thing that should be at the end
+  // Return both targetId and the restored data for PostgreSQL sync
+  return {
+    targetId,
+    restoredNodes: deletions.nodes || [],
+    restoredHyperlights: deletions.hyperlights || [],
+    restoredHypercites: deletions.hypercites || [],
+    restoredLibrary: deletions.library || null,
+    deletedNodes: updates.nodes || [],
+    deletedHyperlights: updates.hyperlights || [],
+    deletedHypercites: updates.hypercites || [],
+  };
 }
 
 export async function redoLastBatch() {
@@ -234,7 +244,18 @@ export async function redoLastBatch() {
   });
 
   console.log("✅ Redo DB operation complete. Returning target for refresh...");
-  return targetId; // This is the ONLY thing that should be at the end
+  // Return both targetId and the restored/deleted data for PostgreSQL sync
+  // Note: For redo, "updates" are what we're restoring, "deletions" are what we're removing
+  return {
+    targetId,
+    restoredNodes: updates.nodes || [],
+    restoredHyperlights: updates.hyperlights || [],
+    restoredHypercites: updates.hypercites || [],
+    restoredLibrary: updates.library || null,
+    deletedNodes: deletions.nodes || [],
+    deletedHyperlights: deletions.hyperlights || [],
+    deletedHypercites: deletions.hypercites || [],
+  };
 }
 
 export async function clearRedoHistory(bookId) {

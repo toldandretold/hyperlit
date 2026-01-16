@@ -534,6 +534,7 @@ export function updateIndexedDBRecord(record) {
 
     // Arrays to collect what we actually save for sync
     let savedNodeChunk = null;
+    let originalNodeChunk = null; // Capture original state for undo support
     const savedHyperlights = [];
     const savedHypercites = [];
 
@@ -552,6 +553,9 @@ export function updateIndexedDBRecord(record) {
 
       if (existing) {
         verbose.content(`Existing nodeChunk found for merge: node ${nodeId}, chunk ${existing.chunk_id}`, 'indexedDB/nodes/batch.js');
+
+        // ✅ Capture original state BEFORE any modifications for undo support
+        originalNodeChunk = { ...existing };
 
         // Start with a copy of the existing record to preserve its structure
         toSave = { ...existing };
@@ -624,13 +628,14 @@ export function updateIndexedDBRecord(record) {
         console.log("✅ IndexedDB record update complete");
         await updateBookTimestamp(bookId);
 
-        // MODIFIED: Pass the full data object to the queue.
+        // MODIFIED: Pass the full data object to the queue, including originalData for undo.
         if (savedNodeChunk) {
           queueForSync(
             "nodes",
             savedNodeChunk.startLine,
             "update",
-            savedNodeChunk
+            savedNodeChunk,
+            originalNodeChunk // Pass original state for undo support
           );
         }
         savedHyperlights.forEach((hl) => {
