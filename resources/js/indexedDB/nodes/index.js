@@ -24,7 +24,7 @@ export {
 
 // Batch operations
 export {
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
   initNodeBatchDependencies,

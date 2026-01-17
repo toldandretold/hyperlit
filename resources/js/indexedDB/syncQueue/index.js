@@ -14,6 +14,7 @@ export {
 // Master sync operations
 export {
   updateHistoryLog,
+  createGenesisHistoryEntry,
   executeSyncPayload,
   debouncedMasterSync,
   syncIndexedDBtoPostgreSQL,

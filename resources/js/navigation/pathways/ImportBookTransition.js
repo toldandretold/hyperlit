@@ -17,7 +17,7 @@ import { setCurrentBook } from '../../app.js';
 import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePage.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index.js';
+import { openDatabase, updateDatabaseBookId, createGenesisHistoryEntry, getNodeChunksFromIndexedDB } from '../../indexedDB/index.js';
 
 export class ImportBookTransition {
   /**
@@ -370,6 +370,10 @@ export class ImportBookTransition {
         console.log('🔥 DEBUG: loadFromJSONFiles imported, calling it now...');
         await loadFromJSONFiles(result.bookId);
         console.log('✅ Pre-loaded imported book content');
+
+        // Create genesis history entry - marks the baseline that undo can't go past
+        const nodes = await getNodeChunksFromIndexedDB(result.bookId);
+        await createGenesisHistoryEntry(result.bookId, nodes);
       } catch (e) {
         console.error('❌ DEBUG: Preloading JSON failed with error:', e);
         console.warn('Preloading JSON failed; continuing with reader fallback:', e);

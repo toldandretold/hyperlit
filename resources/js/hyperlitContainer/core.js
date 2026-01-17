@@ -181,6 +181,13 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
  * Close the hyperlit container
  */
 export function closeHyperlitContainer() {
+  // Check if container exists in DOM before trying to do anything
+  // On homepage, there's no hyperlit-container element
+  const container = document.getElementById("hyperlit-container");
+  if (!container) {
+    return; // Nothing to close - container doesn't exist on this page
+  }
+
   if (!hyperlitManager) {
     try {
       initializeHyperlitManager();
@@ -198,8 +205,7 @@ export function closeHyperlitContainer() {
       import('./noteListener.js').then(({ detachNoteListeners }) => detachNoteListeners());
       import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
 
-      // Remove scroll containment handlers
-      const container = document.getElementById("hyperlit-container");
+      // Remove scroll containment handlers (container already validated at function start)
       if (container) {
         const scroller = container.querySelector('.scroller');
         if (scroller) {

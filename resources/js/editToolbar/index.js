@@ -3,7 +3,7 @@
 
 import { log } from "../utilities/logger.js";
 import {
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   deleteIndexedDBRecord,
 } from "../indexedDB/index.js";
 import { SelectionManager } from "./selectionManager.js";
@@ -366,7 +366,7 @@ class EditToolbar {
       const { footnoteId, supElement } = await insertFootnoteAtCursor(
         range,
         bookId,
-        (id, html) => this.saveToIndexedDB(id, html)
+        (id, html, options) => this.saveToIndexedDB(id, html, options)
       );
 
       console.log(`Footnote inserted: ${footnoteId}`);
@@ -381,10 +381,10 @@ class EditToolbar {
 
   /**
    * Helper method to update IndexedDB record (for a single item)
-   * This now calls updateIndexedDBRecord (in indexedDB.js) which queues for sync.
+   * This now calls updateSingleIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
-  async saveToIndexedDB(id, html) {
+  async saveToIndexedDB(id, html, options = {}) {
     // `id` here is the string ID from the DOM
     console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
     if (!this.currentBookId) {
@@ -394,14 +394,14 @@ class EditToolbar {
       return;
     }
 
-    // `updateIndexedDBRecord` will handle parsing ID, processing HTML, and calling `queueForSync`.
+    // `updateSingleIndexedDBRecord` will handle parsing ID, processing HTML, and calling `queueForSync`.
     // The history payload for this action will be built by `debouncedMasterSync`.
-    await updateIndexedDBRecord({
+    await updateSingleIndexedDBRecord({
       id: id,
       html: html,
-      action: "update", // This action type is used internally by updateIndexedDBRecord
+      action: "update", // This action type is used internally by updateSingleIndexedDBRecord
       book: this.currentBookId,
-    });
+    }, options);
 
     console.log(
       `EditToolbar: Queued update for ID: ${id}. History handled by debounced sync.`

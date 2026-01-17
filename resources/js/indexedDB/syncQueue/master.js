@@ -4,7 +4,8 @@
  */
 
 import { openDatabase } from '../core/connection.js';
-import { debounce, toPublicChunk } from '../core/utilities.js';
+import { debounce } from '../../utilities/debounce.js';
+import { toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
 
 // Dependencies that will be injected
@@ -34,6 +35,45 @@ export async function updateHistoryLog(logEntry) {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+/**
+ * Create a genesis history entry for a new book.
+ * This marks the initial state that undo cannot go past.
+ *
+ * @param {string} bookId - Book identifier
+ * @param {Array} initialNodes - Array of initial node chunks
+ * @returns {Promise<void>}
+ */
+export async function createGenesisHistoryEntry(bookId, initialNodes = []) {
+  const db = await openDatabase();
+  const tx = db.transaction("historyLog", "readwrite");
+  const store = tx.objectStore("historyLog");
+
+  const genesisEntry = {
+    timestamp: Date.now(),
+    bookId: bookId,
+    status: "genesis",
+    isGenesis: true,
+    payload: {
+      book: bookId,
+      updates: { nodes: initialNodes, hypercites: [], hyperlights: [], footnotes: [], library: null },
+      deletions: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null }
+    }
+  };
+
+  await new Promise((resolve, reject) => {
+    const request = store.add(genesisEntry);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+  await new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+
+  console.log(`🌱 Created genesis history entry for book: ${bookId}`);
 }
 
 /**
@@ -169,35 +209,51 @@ export const debouncedMasterSync = debounce(async () => {
     }
   }
 
-  // --- Save to Local History Log ---
-  const logEntry = {
-    timestamp: Date.now(),
-    bookId: historyLogPayload.book,
-    status: "pending",
-    payload: historyLogPayload,
-  };
+  // --- Save to Local History Log (ONLY for node changes) ---
+  // History log is ONLY for nodes - footnotes, hyperlights, hypercites are separate
+  // Footnote content is stored in nodes anyway
+  const hasNodeChanges =
+    historyLogPayload.updates.nodes.length > 0 ||
+    historyLogPayload.deletions.nodes.length > 0;
 
-  const db = await openDatabase();
-  const tx = db.transaction("historyLog", "readwrite");
-  const store = tx.objectStore("historyLog");
-  const newId = await new Promise((resolve, reject) => {
-    const request = store.add(logEntry);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = (e) => reject(e.target.error);
-  });
-  logEntry.id = newId;
-  await new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
+  let logEntry = null;
+
+  if (hasNodeChanges) {
+    logEntry = {
+      timestamp: Date.now(),
+      bookId: historyLogPayload.book,
+      status: "pending",
+      payload: historyLogPayload,
+    };
+
+    const db = await openDatabase();
+    const tx = db.transaction("historyLog", "readwrite");
+    const store = tx.objectStore("historyLog");
+    const newId = await new Promise((resolve, reject) => {
+      const request = store.add(logEntry);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+    logEntry.id = newId;
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
+  } else {
+    console.log(`📝 Skipping history log - no node changes (library/hyperlights/hypercites only)`);
+  }
 
   // --- Handle Offline Mode ---
   if (!navigator.onLine) {
-    console.log(`📡 Offline: batch ${logEntry.id} saved locally, will sync when online`);
+    if (logEntry) {
+      console.log(`📡 Offline: batch ${logEntry.id} saved locally, will sync when online`);
+    } else {
+      console.log(`📡 Offline: non-node changes not saved (no history entry needed)`);
+    }
     // Keep status as "pending" - will be retried by retryFailedBatches when online
     if (glowCloudLocalSave) glowCloudLocalSave();
-    return; // Exit early - data is safe in historyLog
+    return; // Exit early - data is safe in historyLog (if it was node changes)
   }
 
   // --- Attempt to Sync to Backend ---
@@ -230,14 +286,22 @@ export const debouncedMasterSync = debounce(async () => {
       }
     }
     await executeSyncPayload(syncPayload);
-    logEntry.status = "synced";
-    await updateHistoryLog(logEntry);
-    console.log(`✅ Batch ${logEntry.id} synced successfully.`);
+    if (logEntry) {
+      logEntry.status = "synced";
+      await updateHistoryLog(logEntry);
+      console.log(`✅ Batch ${logEntry.id} synced successfully.`);
+    } else {
+      console.log(`✅ Non-node sync completed (no history entry).`);
+    }
     if (glowCloudGreen) glowCloudGreen(); // Glow cloud green on successful server sync
   } catch (error) {
-    logEntry.status = "failed";
-    await updateHistoryLog(logEntry);
-    console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
+    if (logEntry) {
+      logEntry.status = "failed";
+      await updateHistoryLog(logEntry);
+      console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
+    } else {
+      console.error(`❌ Non-node sync failed:`, error.message);
+    }
     if (glowCloudRed) glowCloudRed(); // Glow cloud red on sync failure
   } finally {
     // ✅ Dynamically import toolbar (only exists when editing)

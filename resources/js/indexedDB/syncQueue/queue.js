@@ -3,6 +3,8 @@
  * Manages the queue of pending sync operations
  */
 
+import { isUndoRedoInProgress } from '../../utilities/operationState.js';
+
 // Global pending syncs map
 export const pendingSyncs = new Map();
 
@@ -24,18 +26,38 @@ export function initSyncQueueDependencies(deps) {
  * @param {string} type - Operation type (update, delete, hide)
  * @param {Object} data - New data state
  * @param {Object} originalData - Original data state (for undo)
+ * @param {boolean} skipRedoClear - If true, don't clear redo history (for automatic operations like undo/redo refresh)
  */
-export function queueForSync(store, id, type = "update", data = null, originalData = null) {
+export function queueForSync(store, id, type = "update", data = null, originalData = null, skipRedoClear = false) {
+  // ✅ FIX: Skip queuing entirely during undo/redo to prevent spurious history batches
+  // The IndexedDB transaction has already committed - we just don't want to create a new history entry
+  if (isUndoRedoInProgress()) {
+    console.log(`⏭️ Skipping sync queue during undo/redo for ${store}:${id}`);
+    return;
+  }
+
   const key = `${store}-${id}`;
   if (type === "update" && !data) {
     console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
     return;
   }
+
+  // Preserve the FIRST originalData when the same key is queued multiple times.
+  // This ensures we keep the TRUE original state for undo, not an intermediate state
+  // (e.g., when footnote renumbering updates the same node again before sync fires).
+  const existing = pendingSyncs.get(key);
+  if (existing && existing.originalData) {
+    // Keep the first originalData (the true original state)
+    originalData = existing.originalData;
+  }
+
   pendingSyncs.set(key, { store, id, type, data, originalData });
 
-  // Import book from global scope (temporary until fully refactored)
-  const book = window.book || "latest";
-  clearRedoHistory(book);
+  // Only clear redo history for genuine user edits, not automatic operations
+  if (!skipRedoClear) {
+    const book = window.book || "latest";
+    clearRedoHistory(book);
+  }
   debouncedMasterSync();
 }
 

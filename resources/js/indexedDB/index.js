@@ -37,7 +37,6 @@ export {
 
 // Utility Functions
 export {
-  debounce,
   parseNodeId,
   createNodeChunksKey,
   getLocalStorageKey,
@@ -81,7 +80,7 @@ export {
 
 // Node Batch Operations
 export {
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
   initNodeBatchDependencies,
@@ -171,6 +170,7 @@ export {
 // Master Sync
 export {
   updateHistoryLog,
+  createGenesisHistoryEntry,
   executeSyncPayload,
   debouncedMasterSync,
   syncIndexedDBtoPostgreSQLBlocking,  // Renamed to avoid collision with postgreSQL.js version

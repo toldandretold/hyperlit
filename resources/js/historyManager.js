@@ -50,7 +50,12 @@ export async function canUndo() {
       const cursor = event.target.result;
       if (cursor) {
         if (cursor.value.bookId === currentBookId) {
-          // Found an entry for the current book. Undo IS possible.
+          // Check if this is a genesis entry - if so, undo is NOT possible
+          if (cursor.value.isGenesis || cursor.value.status === 'genesis') {
+            resolve(false); // At genesis state, can't undo further
+            return;
+          }
+          // Found a non-genesis entry for the current book. Undo IS possible.
           resolve(true); // Resolve immediately!
           return; // Stop processing the cursor
         }
@@ -132,6 +137,14 @@ export async function undoLastBatch() {
   }
 
   const logToUndo = cursor.value;
+
+  // Don't undo past genesis - this is the baseline state
+  if (logToUndo.isGenesis || logToUndo.status === 'genesis') {
+    console.log('🌱 Reached genesis state - nothing more to undo');
+    tx.abort();
+    return { success: false, reason: 'genesis', atGenesis: true };
+  }
+
   console.log(`⏪ Undoing batch ID: ${logToUndo.id}`);
   const targetId = getTargetIdFromPayload(logToUndo.payload);
   const { updates, deletions } = logToUndo.payload;
@@ -172,7 +185,17 @@ export async function undoLastBatch() {
   });
 
   console.log("✅ Undo DB operation complete. Returning target for refresh...");
-  return targetId; // This is the ONLY thing that should be at the end
+  // Return both targetId and the restored data for PostgreSQL sync
+  return {
+    targetId,
+    restoredNodes: deletions.nodes || [],
+    restoredHyperlights: deletions.hyperlights || [],
+    restoredHypercites: deletions.hypercites || [],
+    restoredLibrary: deletions.library || null,
+    deletedNodes: updates.nodes || [],
+    deletedHyperlights: updates.hyperlights || [],
+    deletedHypercites: updates.hypercites || [],
+  };
 }
 
 export async function redoLastBatch() {
@@ -187,7 +210,7 @@ export async function redoLastBatch() {
   const lightsStore = tx.objectStore("hyperlights");
   const citesStore = tx.objectStore("hypercites");
 
-  const cursorReq = redoStore.openCursor(null, "prev");
+  const cursorReq = redoStore.openCursor(null, "next");
   const cursor = await new Promise((resolve, reject) => {
     cursorReq.onsuccess = () => resolve(cursorReq.result);
     cursorReq.onerror = () => reject(cursorReq.error);
@@ -234,7 +257,18 @@ export async function redoLastBatch() {
   });
 
   console.log("✅ Redo DB operation complete. Returning target for refresh...");
-  return targetId; // This is the ONLY thing that should be at the end
+  // Return both targetId and the restored/deleted data for PostgreSQL sync
+  // Note: For redo, "updates" are what we're restoring, "deletions" are what we're removing
+  return {
+    targetId,
+    restoredNodes: updates.nodes || [],
+    restoredHyperlights: updates.hyperlights || [],
+    restoredHypercites: updates.hypercites || [],
+    restoredLibrary: updates.library || null,
+    deletedNodes: deletions.nodes || [],
+    deletedHyperlights: deletions.hyperlights || [],
+    deletedHypercites: deletions.hypercites || [],
+  };
 }
 
 export async function clearRedoHistory(bookId) {

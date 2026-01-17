@@ -5,7 +5,8 @@ import {
   openDatabase,
   updateBookTimestamp,
   addNewBookToIndexedDB,
-  syncNodeChunksToPostgreSQL
+  syncNodeChunksToPostgreSQL,
+  createGenesisHistoryEntry
 } from "./indexedDB/index.js";
 import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
@@ -236,7 +237,7 @@ export async function createNewBook() {
       book: bookId,
       startLine: 100,
       chunk_id: 0,
-      content: `<h1 id="100" data-node-id="${initialNodeId}"><br></h1>`,
+      content: `<h1 id="100" data-node-id="${initialNodeId}" no-delete-id="please"><br></h1>`,
       node_id: initialNodeId,
       hyperlights: [],
       hypercites: [],
@@ -256,6 +257,9 @@ export async function createNewBook() {
       tx.oncomplete = () => resolve();
       tx.onerror = (e) => reject(e.target.error);
     });
+
+    // Create genesis history entry - marks the baseline that undo can't go past
+    await createGenesisHistoryEntry(bookId, [initialNodeChunk]);
 
     // ✅ THE CHANGE: Create the full data object here.
     const pendingSyncData = {

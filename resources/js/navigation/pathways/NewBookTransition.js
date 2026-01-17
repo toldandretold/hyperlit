@@ -44,8 +44,7 @@ export class NewBookTransition {
       
       progress(10, 'Preparing new book...');
 
-      // Start parallel operations early
-      const orangeIndicatorPromise = this.ensureOrangeIndicator();
+      // Start parallel operations early (orange indicator moved to after body replacement)
       const cleanupPromise = this.cleanupPreviousState();
       const syncPromise = this.ensurePendingSyncsComplete();
 
@@ -65,8 +64,8 @@ export class NewBookTransition {
       // Replace the entire body content (home → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
 
-      // Ensure orange indicator is set before proceeding
-      await orangeIndicatorPromise;
+      // Set orange indicator now that DOM elements exist (moved from before body replacement)
+      await this.ensureOrangeIndicator();
       
       progress(75, 'Initializing reader...');
 
