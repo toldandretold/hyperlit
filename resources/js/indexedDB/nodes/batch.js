@@ -493,189 +493,26 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
 }
 
 /**
- * Update a single IndexedDB record from DOM changes
- * This is a CORE operation - used in read mode for highlights and hypercites
+ * Update a single IndexedDB record from DOM changes.
+ * Wrapper around batchUpdateIndexedDBRecords for single-record convenience.
  *
  * @param {Object} record - Record object with id and html
  * @returns {Promise<void>}
  */
-export function updateIndexedDBRecord(record) {
-  return withPending(async () => {
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
-    const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
-
-    // Find the nearest ancestor with a numeric ID
-    let nodeId = record.id;
-    let node = document.getElementById(nodeId);
-    while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
-      node = node.parentElement;
-      if (node?.id) nodeId = node.id;
-    }
-
-    if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-      console.log(
-        `Skipping IndexedDB update – no valid parent node ID for ${record.id}`
-      );
-      return;
-    }
-
-    const numericNodeId = parseNodeId(nodeId);
-
-    const db = await openDatabase();
-    const tx = db.transaction(
-      ["nodes", "hyperlights", "hypercites"],
-      "readwrite"
-    );
-    const chunksStore = tx.objectStore("nodes");
-    const lightsStore = tx.objectStore("hyperlights");
-    const citesStore = tx.objectStore("hypercites");
-    const compositeKey = [bookId, numericNodeId];
-
-    // Arrays to collect what we actually save for sync
-    let savedNodeChunk = null;
-    let originalNodeChunk = null; // Capture original state for undo support
-    const savedHyperlights = [];
-    const savedHypercites = [];
-
-    // 🔥 USE YOUR EXISTING FUNCTION TO PROPERLY PROCESS THE NODE
-    const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
-
-    // ✅ EXTRACT node_id from data-node-id attribute
-    const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
-
-    // Fetch the existing chunk record
-    const getReq = chunksStore.get(compositeKey);
-
-    getReq.onsuccess = () => {
-      const existing = getReq.result;
-      let toSave;
-
-      if (existing) {
-        verbose.content(`Existing nodeChunk found for merge: node ${nodeId}, chunk ${existing.chunk_id}`, 'indexedDB/nodes/batch.js');
-
-        // ✅ Capture original state BEFORE any modifications for undo support
-        originalNodeChunk = { ...existing };
-
-        // Start with a copy of the existing record to preserve its structure
-        toSave = { ...existing };
-
-        // 🔥 USE PROCESSED CONTENT (WITHOUT MARK/U TAGS)
-        if (processedData) {
-          toSave.content = processedData.content;
-          toSave.footnotes = processedData.footnotes;
-          // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
-          // Keep existing arrays or initialize empty if missing
-          if (!toSave.hyperlights) toSave.hyperlights = [];
-          if (!toSave.hypercites) toSave.hypercites = [];
-        } else {
-          // Fallback to record.html if no DOM node available
-          toSave.content = record.html;
-        }
-
-        // ✅ FIX: Determine chunk_id from DOM if not provided
-        if (record.chunk_id !== undefined) {
-          toSave.chunk_id = record.chunk_id;
-          verbose.content(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`, 'indexedDB/nodes/batch.js');
-        } else {
-          toSave.chunk_id = determineChunkIdFromDOM(nodeId);
-        }
-
-        // ✅ UPDATE node_id from DOM if available
-        if (nodeIdFromDOM) {
-          toSave.node_id = nodeIdFromDOM;
-          verbose.content(`Updated node_id to ${nodeIdFromDOM} for node ${nodeId}`, 'indexedDB/nodes/batch.js');
-        }
-
-      } else {
-        // Case: No existing record, create a new one
-        verbose.content(`No existing nodeChunk record, creating new one for node ${nodeId}`, 'indexedDB/nodes/batch.js');
-        toSave = {
-          book: bookId,
-          startLine: numericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId),
-          node_id: nodeIdFromDOM || null,
-          content: processedData ? processedData.content : record.html,
-          hyperlights: processedData ? processedData.hyperlights : [],
-          hypercites: processedData ? processedData.hypercites : [],
-          footnotes: processedData ? processedData.footnotes : []
-        };
-        verbose.content(`New nodeChunk record to create: node ${nodeId}, chunk ${toSave.chunk_id}`, 'indexedDB/nodes/batch.js');
-      }
-
-      verbose.content(`Final nodeChunk record to put: node ${nodeId}, chunk ${toSave.chunk_id}, has content: ${!!toSave.content}`, 'indexedDB/nodes/batch.js');
-
-      // Store for sync
-      savedNodeChunk = toSave;
-
-      // write the node chunk
-      chunksStore.put(toSave);
-
-      // 🔥 UPDATE INDIVIDUAL HYPERLIGHT/HYPERCITE RECORDS USING PROCESSED DATA
-      if (processedData) {
-        updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, savedHyperlights, node);
-        updateHyperciteRecords(processedData.hypercites, citesStore, bookId, savedHypercites, node);
-      }
-    };
-
-    getReq.onerror = (e) => {
-      console.error("Error fetching nodeChunk for update:", e.target.error);
-    };
-
-    // return a promise that resolves/rejects with the transaction
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = async () => {
-        console.log("✅ IndexedDB record update complete");
-        await updateBookTimestamp(bookId);
-
-        // MODIFIED: Pass the full data object to the queue, including originalData for undo.
-        if (savedNodeChunk) {
-          queueForSync(
-            "nodes",
-            savedNodeChunk.startLine,
-            "update",
-            savedNodeChunk,
-            originalNodeChunk // Pass original state for undo support
-          );
-        }
-        savedHyperlights.forEach((hl) => {
-          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
-        });
-        savedHypercites.forEach((hc) => {
-          queueForSync("hypercites", hc.hyperciteId, "update", hc);
-        });
-
-        // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables
-        if (savedNodeChunk && savedNodeChunk.node_id) {
-          try {
-            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../hydration/rebuild.js');
-            const nodes = await getNodesByUUIDs([savedNodeChunk.node_id]);
-            if (nodes.length > 0) {
-              await rebuildNodeArrays(nodes);
-              console.log(`✅ NEW SYSTEM: Rebuilt arrays for node ${savedNodeChunk.node_id} after update`);
-            }
-          } catch (error) {
-            console.error('❌ NEW SYSTEM: Error rebuilding arrays after update:', error);
-            // Don't fail the whole operation if rebuild fails
-          }
-        }
-
-        resolve();
-      };
-      tx.onerror = (e) => reject(e.target.error);
-      tx.onabort = (e) => reject(new Error("Transaction aborted"));
-    });
-  });
+export function updateSingleIndexedDBRecord(record, options = {}) {
+  return batchUpdateIndexedDBRecords([record], options);
 }
 
 /**
- * Batch update multiple IndexedDB records
- * More efficient than calling updateIndexedDBRecord multiple times
+ * Batch update multiple IndexedDB records.
+ * Core implementation used by updateSingleIndexedDBRecord wrapper.
  *
  * @param {Array} recordsToProcess - Array of record objects
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.skipFootnoteRenumber - Skip auto-renumbering (caller handles it)
  * @returns {Promise<void>}
  */
-export async function batchUpdateIndexedDBRecords(recordsToProcess) {
+export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}) {
   return withPending(async () => {
     // ✅ FIX: Get book ID from DOM instead of stale global variable
     // During new book creation, global variable may not be updated yet
@@ -892,33 +729,38 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         }
 
         // 📝 Trigger footnote renumbering after batch update if footnotes were affected
-        // Compare before/after to detect both additions AND deletions
-        const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node => {
-          const originalNode = originalNodeChunkStates.get(node.startLine);
-          const oldFootnotes = originalNode?.footnotes || [];
-          const newFootnotes = node.footnotes || [];
-          // Trigger if footnote count changed (added or deleted)
-          const changed = oldFootnotes.length !== newFootnotes.length ||
-                 JSON.stringify(oldFootnotes.sort()) !== JSON.stringify(newFootnotes.sort());
-          if (changed) {
-            console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldFootnotes.length} → ${newFootnotes.length}`);
-          }
-          return changed;
-        });
-
-        if (nodesWithFootnoteChanges.length > 0 || affectedNodeUUIDs.length > 0) {
-          console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
-          try {
-            const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
-            const { getNodeChunksFromIndexedDB } = await import('../index.js');
-            const allNodes = await getNodeChunksFromIndexedDB(bookId);
-            if (allNodes && allNodes.length > 0) {
-              await rebuildAndRenumber(bookId, allNodes);
+        // Skip if caller handles renumbering (e.g., footnoteInserter.js)
+        if (!options.skipFootnoteRenumber) {
+          // Compare before/after to detect both additions AND deletions
+          const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node => {
+            const originalNode = originalNodeChunkStates.get(node.startLine);
+            const oldFootnotes = originalNode?.footnotes || [];
+            const newFootnotes = node.footnotes || [];
+            // Trigger if footnote count changed (added or deleted)
+            const changed = oldFootnotes.length !== newFootnotes.length ||
+                   JSON.stringify(oldFootnotes.sort()) !== JSON.stringify(newFootnotes.sort());
+            if (changed) {
+              console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldFootnotes.length} → ${newFootnotes.length}`);
             }
-          } catch (error) {
-            console.error('❌ Error triggering footnote renumbering:', error);
-            // Don't fail the whole operation if renumbering fails
+            return changed;
+          });
+
+          if (nodesWithFootnoteChanges.length > 0 || affectedNodeUUIDs.length > 0) {
+            console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
+            try {
+              const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
+              const { getNodeChunksFromIndexedDB } = await import('../index.js');
+              const allNodes = await getNodeChunksFromIndexedDB(bookId);
+              if (allNodes && allNodes.length > 0) {
+                await rebuildAndRenumber(bookId, allNodes);
+              }
+            } catch (error) {
+              console.error('❌ Error triggering footnote renumbering:', error);
+              // Don't fail the whole operation if renumbering fails
+            }
           }
+        } else {
+          console.log(`📝 Skipping auto-renumber (caller handles it)`);
         }
 
         resolve();

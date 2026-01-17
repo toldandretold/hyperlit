@@ -83,7 +83,7 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
   try {
     // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
     const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities.js');
-    const { updateIndexedDBRecord } = await import('./indexedDB/index.js');
+    const { updateSingleIndexedDBRecord } = await import('./indexedDB/index.js');
 
     // Step 1: Check DOM for marker (O(1) - very fast)
     if (getNoDeleteNode()) {
@@ -114,7 +114,7 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
     console.log(`✅ Set no-delete-id marker on node ${firstNode.id} in DOM`);
 
     // Step 3b: Persist to IndexedDB and sync to backend
-    await updateIndexedDBRecord({ id: firstNode.id });
+    await updateSingleIndexedDBRecord({ id: firstNode.id });
     console.log(`✅ Persisted no-delete-id marker to IndexedDB & queued for backend sync`);
   } catch (error) {
     console.error('❌ FATAL: ensureNoDeleteMarkerForBook failed:', error);

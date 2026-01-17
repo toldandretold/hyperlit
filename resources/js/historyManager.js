@@ -50,7 +50,12 @@ export async function canUndo() {
       const cursor = event.target.result;
       if (cursor) {
         if (cursor.value.bookId === currentBookId) {
-          // Found an entry for the current book. Undo IS possible.
+          // Check if this is a genesis entry - if so, undo is NOT possible
+          if (cursor.value.isGenesis || cursor.value.status === 'genesis') {
+            resolve(false); // At genesis state, can't undo further
+            return;
+          }
+          // Found a non-genesis entry for the current book. Undo IS possible.
           resolve(true); // Resolve immediately!
           return; // Stop processing the cursor
         }
@@ -132,6 +137,14 @@ export async function undoLastBatch() {
   }
 
   const logToUndo = cursor.value;
+
+  // Don't undo past genesis - this is the baseline state
+  if (logToUndo.isGenesis || logToUndo.status === 'genesis') {
+    console.log('🌱 Reached genesis state - nothing more to undo');
+    tx.abort();
+    return { success: false, reason: 'genesis', atGenesis: true };
+  }
+
   console.log(`⏪ Undoing batch ID: ${logToUndo.id}`);
   const targetId = getTargetIdFromPayload(logToUndo.payload);
   const { updates, deletions } = logToUndo.payload;
@@ -197,7 +210,7 @@ export async function redoLastBatch() {
   const lightsStore = tx.objectStore("hyperlights");
   const citesStore = tx.objectStore("hypercites");
 
-  const cursorReq = redoStore.openCursor(null, "prev");
+  const cursorReq = redoStore.openCursor(null, "next");
   const cursor = await new Promise((resolve, reject) => {
     cursorReq.onsuccess = () => resolve(cursorReq.result);
     cursorReq.onerror = () => reject(cursorReq.error);

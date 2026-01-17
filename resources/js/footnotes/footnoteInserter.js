@@ -23,7 +23,7 @@ export function generateFootnoteId(bookId) {
  * Insert a footnote at the current cursor position
  * @param {Range} range - The current selection range
  * @param {string} bookId - Current book ID
- * @param {Function} saveCallback - Callback to save node to IndexedDB
+ * @param {Function} saveCallback - Callback to save node to IndexedDB (id, html, options)
  * @returns {Promise<{footnoteId: string, supElement: HTMLElement}>}
  */
 export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
@@ -67,12 +67,17 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
   }
 
   // 5. Find the parent node element to save
-  // Nodes have IDs like "1_2" where first part is startLine
-  const parentNode = supElement.closest('[id]');
+  // Nodes have numeric IDs like "400" or "100.5" - must find specifically a numeric ID
+  // Start from parent to exclude the sup element itself (which has id=footnoteId)
+  let parentNode = supElement.parentElement;
+  while (parentNode && !/^\d+(\.\d+)?$/.test(parentNode.id || '')) {
+    parentNode = parentNode.parentElement;
+  }
 
   if (parentNode && parentNode.id && saveCallback) {
     console.log(`Saving parent node: ${parentNode.id}`);
-    await saveCallback(parentNode.id, parentNode.outerHTML);
+    // Skip auto-renumber in batch.js - we handle renumbering ourselves below
+    await saveCallback(parentNode.id, parentNode.outerHTML, { skipFootnoteRenumber: true });
   }
 
   // 6. Create footnote record in IndexedDB (don't await PostgreSQL sync)

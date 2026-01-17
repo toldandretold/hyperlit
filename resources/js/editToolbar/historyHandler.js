@@ -190,7 +190,13 @@ export class HistoryHandler {
 
       const undoResult = await undoLastBatch();
 
-      if (undoResult) {
+      // Handle genesis state - nothing more to undo
+      if (undoResult && undoResult.reason === 'genesis') {
+        console.log("🌱 At genesis state - nothing more to undo");
+        return;
+      }
+
+      if (undoResult && undoResult.targetId !== undefined) {
         const { targetId, restoredNodes, deletedNodes } = undoResult;
         console.log("🔍 Undo result - restored:", restoredNodes?.length, "deleted:", deletedNodes?.length);
         console.log("🔍 Restored node IDs:", restoredNodes?.map(n => n.node_id || n.startLine));

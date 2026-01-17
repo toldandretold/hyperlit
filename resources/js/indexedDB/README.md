@@ -56,7 +56,7 @@ Import directly from the IndexedDB module:
 import {
   openDatabase,
   getNodeChunksFromIndexedDB,
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   queueForSync,
   debouncedMasterSync,
 } from './indexedDB/index.js';
@@ -112,8 +112,8 @@ import {
 - `addNewBookToIndexedDB()` - Convenience function for adding a new book
 
 **batch.js** - Batch operations (CORE - used in read mode)
-- `updateIndexedDBRecord()` - Update single record with highlights/hypercites processing
-- `batchUpdateIndexedDBRecords()` - Batch update multiple records
+- `updateSingleIndexedDBRecord()` - Wrapper for single-record convenience (calls batchUpdateIndexedDBRecords)
+- `batchUpdateIndexedDBRecords()` - Batch update multiple records (core implementation)
 - `batchDeleteIndexedDBRecords()` - Batch delete multiple records
 
 **delete.js** - Delete operations
@@ -263,7 +263,7 @@ initNodeBatchDependencies({
 ```javascript
 import {
   getNodeChunksFromIndexedDB,
-  updateIndexedDBRecord
+  updateSingleIndexedDBRecord
 } from './indexedDB.js';
 ```
 
@@ -271,7 +271,7 @@ import {
 ```javascript
 import {
   getNodeChunksFromIndexedDB,
-  updateIndexedDBRecord
+  updateSingleIndexedDBRecord
 } from './indexedDB/index.js';
 ```
 

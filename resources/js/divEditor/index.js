@@ -1,7 +1,7 @@
 import { book } from "../app.js";
 import { getCurrentUserId } from "../utilities/auth.js";
 import {
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
   batchDeleteIndexedDBRecords,
   openDatabase,

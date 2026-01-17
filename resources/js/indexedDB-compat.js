@@ -43,7 +43,7 @@ export {
   addNewBookToIndexedDB,
 
   // Nodes - Batch
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
 
