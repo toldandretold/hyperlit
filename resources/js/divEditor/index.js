@@ -1,7 +1,7 @@
 import { book } from "../app.js";
 import { getCurrentUserId } from "../utilities/auth.js";
 import {
-  updateIndexedDBRecord,
+  updateSingleIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
   batchDeleteIndexedDBRecords,
   openDatabase,
@@ -133,6 +133,7 @@ let videoDeleteHandler = null;
 
 // 🎯 SUP TAG ESCAPE: Prevent typing inside sup elements (footnotes, hypercites)
 let supEscapeHandler = null;
+let supDeleteHandler = null;
 
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
 let saveQueue = null;
@@ -324,25 +325,193 @@ export function startObserving(editableDiv) {
     e.preventDefault();
     e.stopPropagation();
 
-    const textToInsert = e.data || '';
+    const offset = selection.anchorOffset;
+    const supTextLength = supElement.textContent?.length || 0;
 
-    // Insert text directly after the sup element using insertAdjacentText
-    // This guarantees the text goes AFTER the sup, not inside it
-    supElement.insertAdjacentText('afterend', textToInsert);
+    // Determine if cursor is at start or end of sup content
+    // offset 0 = at start, offset >= supTextLength = at end
+    const atStart = offset === 0;
+    const atEnd = offset >= supTextLength;
 
-    // Now position cursor after the inserted text
-    const nextNode = supElement.nextSibling;
-    if (nextNode && nextNode.nodeType === Node.TEXT_NODE) {
-      const newRange = document.createRange();
-      newRange.setStart(nextNode, nextNode.length);
-      newRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
+    let textToInsert = e.data || '';
+    // Convert regular space to non-breaking space to prevent browser from collapsing it
+    if (textToInsert === ' ') {
+      textToInsert = '\u00A0'; // non-breaking space
     }
+
+    // Create text node
+    const textNode = document.createTextNode(textToInsert);
+
+    // If cursor at start (before content), insert BEFORE sup
+    // If cursor at end (after content), insert AFTER sup
+    if (atStart) {
+      supElement.parentNode.insertBefore(textNode, supElement);
+    } else {
+      supElement.parentNode.insertBefore(textNode, supElement.nextSibling);
+    }
+
+    // Position cursor at the end of the inserted text node
+    const newRange = document.createRange();
+    newRange.setStart(textNode, textNode.length);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
   };
 
   // Use capture phase to intercept before other handlers
   editableDiv.addEventListener('beforeinput', supEscapeHandler, { capture: true });
+
+  // 🎯 SUP DELETE ESCAPE: Handle Delete/Backspace at sup boundaries
+  // DELETE at position 0 → escape cursor before sup, then delete
+  // Backspace at end → confirm footnote deletion
+  if (supDeleteHandler) {
+    editableDiv.removeEventListener('beforeinput', supDeleteHandler);
+  }
+
+  supDeleteHandler = (e) => {
+    if (!window.isEditing) return;
+
+    // Only handle delete operations
+    if (e.inputType !== 'deleteContentForward' && e.inputType !== 'deleteContentBackward') return;
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    if (!selection.isCollapsed) return; // Let selection deletions work normally
+
+    let node = selection.anchorNode;
+    if (!node) return;
+
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    let supElement = element?.closest('sup');
+    const offset = selection.anchorOffset;
+    const textLength = node.textContent?.length || 0;
+
+    // Also check if cursor is RIGHT BEFORE a sup
+    if (!supElement && offset === 0) {
+      // Check if we're in an empty text node before a sup
+      if (node.nodeType === Node.TEXT_NODE && node.textContent === '') {
+        const nextSib = node.nextSibling;
+        if (nextSib && nextSib.nodeName === 'SUP') {
+          supElement = nextSib;
+        }
+      }
+      // Check if cursor is at position 0 of parent element and first real child is sup
+      if (!supElement && node.nodeType === Node.ELEMENT_NODE) {
+        let firstChild = node.firstChild;
+        // Skip empty text nodes and BR
+        while (firstChild && ((firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent === '') || firstChild.nodeName === 'BR')) {
+          firstChild = firstChild.nextSibling;
+        }
+        if (firstChild && firstChild.nodeName === 'SUP') {
+          supElement = firstChild;
+        }
+      }
+    }
+
+    // Also check if we're about to merge into a paragraph that starts with a sup
+    // (cursor at end of current element, next element starts with sup)
+    if (!supElement && e.inputType === 'deleteContentForward') {
+      const currentBlock = element?.closest('p, h1, h2, h3, h4, h5, h6, div');
+      const nextBlock = currentBlock?.nextElementSibling;
+      if (nextBlock) {
+        const nextFirstChild = nextBlock.firstChild;
+        // Skip BR elements to find actual content
+        const actualFirstChild = nextFirstChild?.nodeName === 'BR' ? nextFirstChild.nextSibling : nextFirstChild;
+        if (actualFirstChild?.nodeName === 'SUP') {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Manual merge: move all children from next block to current block
+          while (nextBlock.firstChild) {
+            currentBlock.appendChild(nextBlock.firstChild);
+          }
+          // Remove the empty next block
+          nextBlock.remove();
+          return;
+        }
+      }
+    }
+
+    if (!supElement) return;
+
+    // Use sup's text length for determining position within sup
+    const supTextLength = supElement.textContent?.length || 0;
+
+    // Forward delete (fn+Delete) at position 0 OR Backspace at end = trying to delete sup content
+    // Show confirmation dialog
+    const isDeletingSupContent =
+      (e.inputType === 'deleteContentForward' && offset === 0) ||
+      (e.inputType === 'deleteContentBackward' && offset >= supTextLength);
+
+    if (isDeletingSupContent) {
+      if (supElement.hasAttribute('fn-count-id')) {
+        const fnNum = supElement.getAttribute('fn-count-id');
+
+        // Save selection before confirm dialog (dialog can lose focus)
+        const savedRange = selection.getRangeAt(0).cloneRange();
+
+        if (!confirm(`Delete footnote ${fnNum}?`)) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Restore focus to editable and cursor position
+          const editableDiv = supElement.closest('[contenteditable="true"]');
+          if (editableDiv) {
+            editableDiv.focus();
+          }
+          selection.removeAllRanges();
+          selection.addRange(savedRange);
+          return;
+        }
+      }
+      // Allow deletion to proceed if confirmed or not a footnote
+      return;
+    }
+
+    // Backspace at position 0 inside/before sup → escape cursor (not trying to delete sup)
+    if (e.inputType === 'deleteContentBackward' && offset === 0) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If cursor is INSIDE sup, move it before sup
+      if (element?.closest('sup') === supElement) {
+        const newRange = document.createRange();
+        newRange.setStartBefore(supElement);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } else {
+        // Cursor is already before sup (at start of paragraph)
+        // Do manual merge: move all content (including sup) to previous element
+        const currentP = supElement.closest('p, h1, h2, h3, h4, h5, h6, div');
+        const prevP = currentP?.previousElementSibling;
+        if (prevP) {
+          // Move all children from current paragraph to previous
+          while (currentP.firstChild) {
+            prevP.appendChild(currentP.firstChild);
+          }
+
+          // Remove the now-empty paragraph
+          currentP.remove();
+
+          // Position cursor before the sup (which is now in prevP)
+          const newRange = document.createRange();
+          newRange.setStartBefore(supElement);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+        // If no previous element, delete is blocked (do nothing)
+      }
+      return;
+    }
+
+    // Forward delete at end of sup → normal behavior (delete what's after sup)
+    // No special handling needed
+  };
+
+  editableDiv.addEventListener('beforeinput', supDeleteHandler, { capture: true });
 
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing

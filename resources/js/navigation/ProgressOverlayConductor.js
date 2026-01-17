@@ -27,9 +27,9 @@ export class ProgressOverlayConductor {
     // For new books/imports, blade template correctly hides it and we should respect that
     if (!isNewBookCreation && !isImportedBook) {
       ProgressOverlayEnactor.show(percent, message, blockInteractions);
-      console.log(`📊 Initial page load progress: ${percent}% - ${message}`);
+      verbose.debug(`Initial page load progress: ${percent}% - ${message}`, 'navigation/ProgressOverlayConductor.js');
     } else {
-      console.log(`📊 Skipping overlay for new book creation/import`);
+      verbose.debug('Skipping overlay for new book creation/import', 'navigation/ProgressOverlayConductor.js');
     }
   }
 
@@ -43,7 +43,7 @@ export class ProgressOverlayConductor {
    */
   static showSPATransition(percent = 5, message = 'Loading...', blockInteractions = false) {
     ProgressOverlayEnactor.show(percent, message, blockInteractions);
-    console.log(`📊 SPA transition progress: ${percent}% - ${message}`);
+    verbose.debug(`SPA transition progress: ${percent}% - ${message}`, 'navigation/ProgressOverlayConductor.js');
   }
 
   /**
@@ -64,7 +64,7 @@ export class ProgressOverlayConductor {
     // the initial-navigation-overlay above. Calling both creates duplicate overlays
     // that don't get properly cleaned up and cause black screen issues.
 
-    console.log(`📊 Book-to-book transition progress: ${percent}% - ${displayMessage}`);
+    verbose.debug(`Book-to-book transition progress: ${percent}% - ${displayMessage}`, 'navigation/ProgressOverlayConductor.js');
   }
 
   /**

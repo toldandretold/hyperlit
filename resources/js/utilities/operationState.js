@@ -10,6 +10,7 @@ export let pasteInProgress = false;
 export let hypercitePasteInProgress = false;
 export let keyboardLayoutInProgress = false;
 let keyboardWasRecentlyClosed = false;
+let undoRedoInProgress = false;
 
 
 let initialBookSyncPromise = null;
@@ -37,6 +38,14 @@ export function getInitialBookSyncPromise() {
 export function setKeyboardLayoutInProgress(value) {
   keyboardLayoutInProgress = value;
   console.log(`🔧 KeyboardManager: Layout in progress = ${value}`);
+}
+
+export function isUndoRedoInProgress() {
+  return undoRedoInProgress;
+}
+
+export function setUndoRedoInProgress(value) {
+  undoRedoInProgress = value;
 }
 
 export function getKeyboardWasRecentlyClosed() {

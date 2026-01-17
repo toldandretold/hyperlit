@@ -1,6 +1,7 @@
 // This is your working code, with the "bad guess" removed and the scroll call made reliable.
 
 import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from './utilities/operationState.js';
+import { verbose } from './utilities/logger.js';
 
 class KeyboardManager {
   constructor() {
@@ -159,12 +160,12 @@ processViewportChange() {
     : window.innerHeight;
   const keyboardOpen = vv.height < referenceHeight * 0.9;
 
-  console.log(`📐 Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`);
+  verbose.debug(`Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`, 'keyboardManager.js');
 
   // Early exit if viewport shrinks but no editable element is focused
   // This prevents false keyboard detection from focus-preserver or other non-editable elements
   if (keyboardOpen && !this.state.focusedElement) {
-    console.log('⏸️ Viewport shrunk but no editable element focused - skipping keyboard layout');
+    verbose.debug('Viewport shrunk but no editable element focused - skipping keyboard layout', 'keyboardManager.js');
     return;
   }
 
@@ -207,7 +208,7 @@ processViewportChange() {
 
   // QUICK REOPEN FIX: If keyboard was recently closed and we detect it's open now, force repositioning
   if (keyboardOpen && getKeyboardWasRecentlyClosed()) {
-    console.log('⚡ Quick reopen detected - forcing layout adjustment');
+    verbose.debug('Quick reopen detected - forcing layout adjustment', 'keyboardManager.js');
     this.isKeyboardOpen = true;
     this.lastOffsetTop = vv.offsetTop;
     this.adjustLayout(true);
@@ -233,7 +234,7 @@ processViewportChange() {
   if (keyboardOpen !== this.isKeyboardOpen) {
     // Keyboard opening detected
     if (keyboardOpen && !this.isKeyboardOpen) {
-      console.log('⌨️ Keyboard opening...');
+      verbose.debug('Keyboard opening...', 'keyboardManager.js');
 
       // REFOCUS FIX: Skip positioning ONLY for search-input when offsetTop is still 0
       // Search input refocus has iOS scroll lag, contenteditable doesn't
@@ -249,7 +250,7 @@ processViewportChange() {
 
     // Keyboard closing detected
     if (!keyboardOpen && this.isKeyboardOpen) {
-      console.log('⌨️ Keyboard closed');
+      verbose.debug('Keyboard closed', 'keyboardManager.js');
       setKeyboardWasRecentlyClosed(true);
 
       // Auto-clear flag after 1 second as safeguard
@@ -354,7 +355,7 @@ scrollCaretIntoView(element) {
 
   // All the functions below are from YOUR working version. They are unchanged.
   adjustLayout(keyboardOpen, overrideOffsetTop = null) {
-    console.log(`🔧 KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}`);
+    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}`, 'keyboardManager.js');
 
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
@@ -371,11 +372,11 @@ scrollCaretIntoView(element) {
     const savedScrollTop = (hyperlitOpen && scrollContainer) ? scrollContainer.scrollTop : null;
 
     if (keyboardOpen) {
-      console.log("🔧 KeyboardManager: KEYBOARD OPENING - will modify layout");
+      verbose.debug("KeyboardManager: KEYBOARD OPENING - will modify layout", 'keyboardManager.js');
       const vv = window.visualViewport;
       const effectiveOffsetTop = overrideOffsetTop !== null ? overrideOffsetTop : vv.offsetTop;
 
-      console.log(`🔍 DEBUG adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}`);
+      verbose.debug(`adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}`, 'keyboardManager.js');
 
       if (appContainer) {
         appContainer.style.setProperty("position", "fixed", "important");

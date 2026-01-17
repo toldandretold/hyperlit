@@ -1,4 +1,4 @@
-import { updateIndexedDBRecord } from './indexedDB/index.js';
+import { updateSingleIndexedDBRecord } from './indexedDB/index.js';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
 import { verbose } from './utilities/logger.js';
@@ -374,7 +374,7 @@ export async function handleChunkOverflow(currentChunk, mutations) {
       
       // Create a new record in IndexedDB with the new chunk_id
       savePromises.push(
-        updateIndexedDBRecord({
+        updateSingleIndexedDBRecord({
           id: id,
           html: currentHtml,
           chunk_id: parseFloat(newChunkId),

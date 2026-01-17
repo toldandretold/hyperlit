@@ -4,25 +4,6 @@
  */
 
 /**
- * Simple debounce utility
- * @param {Function} func - Function to debounce
- * @param {number} wait - Debounce delay in milliseconds
- * @returns {Function} Debounced function with flush method
- */
-export function debounce(func, wait = 3000) {
-  let timeout;
-  const debounced = (...args) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-  debounced.flush = () => {
-    clearTimeout(timeout);
-    func();
-  };
-  return debounced;
-}
-
-/**
  * Parse node ID to appropriate numeric format
  * Converts string IDs like "1.5" to numbers, preserving decimals
  *

@@ -709,6 +709,42 @@ public function targetedUpsert(Request $request)
             return 0;
         }
 
+        // Pre-clear conflicting startLines (different node_ids claiming same startLine)
+        // This handles undo scenarios where restored nodes need their original startLines back
+        $startLines = [];
+        $nodeIds = [];
+        foreach ($items as $item) {
+            if (isset($item['startLine']) && $item['startLine'] !== null) {
+                $startLines[] = $item['startLine'];
+            }
+            if (isset($item['node_id']) && $item['node_id'] !== null) {
+                $nodeIds[] = $item['node_id'];
+            }
+        }
+
+        if (!empty($startLines) && !empty($nodeIds)) {
+            $startLinePlaceholders = implode(',', array_fill(0, count($startLines), '?'));
+            $nodeIdPlaceholders = implode(',', array_fill(0, count($nodeIds), '?'));
+
+            $deleteSql = "
+                DELETE FROM nodes
+                WHERE book = ?
+                AND \"startLine\" IN ($startLinePlaceholders)
+                AND (node_id IS NULL OR node_id NOT IN ($nodeIdPlaceholders))
+            ";
+
+            $deleteBindings = array_merge([$bookId], $startLines, $nodeIds);
+            $deleted = \DB::delete($deleteSql, $deleteBindings);
+
+            if ($deleted > 0) {
+                Log::info("Pre-cleared $deleted conflicting startLine(s)", [
+                    'book' => $bookId,
+                    'startLines' => $startLines,
+                    'preserved_node_ids' => count($nodeIds)
+                ]);
+            }
+        }
+
         $now = now()->format('Y-m-d H:i:s');
         $values = [];
         $bindings = [];

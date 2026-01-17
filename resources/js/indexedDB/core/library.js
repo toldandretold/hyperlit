@@ -135,7 +135,8 @@ export async function updateBookTimestamp(bookId = book || "latest") {
         const putRequest = store.put(recordToSave);
         putRequest.onerror = (e) => reject(e.target.error);
         putRequest.onsuccess = () => {
-          queueForSync("library", bookId, "update", recordToSave, originalRecord);
+          // Library timestamp updates are always side-effects, never clear redo history
+          queueForSync("library", bookId, "update", recordToSave, originalRecord, true);
           resolve(true);
         };
       };
@@ -178,7 +179,8 @@ export async function updateAnnotationsTimestamp(bookId) {
         putRequest.onerror = (e) => reject(e.target.error);
         putRequest.onsuccess = () => {
           console.log(`📝 Queuing library sync with annotations_updated_at: ${record.annotations_updated_at}`);
-          queueForSync("library", bookId, "update", record, originalRecord);
+          // Library timestamp updates are always side-effects, never clear redo history
+          queueForSync("library", bookId, "update", record, originalRecord, true);
           resolve(true);
         };
       };
@@ -259,8 +261,8 @@ export async function syncFirstNodeToTitle(bookId, nodeContent) {
         putRequest.onsuccess = async () => {
           console.log(`✅ Auto-synced library: title="${textContent}", author="${libraryRecord.author}"`);
 
-          // Queue for PostgreSQL sync
-          queueForSync("library", bookId, "update", libraryRecord);
+          // Queue for PostgreSQL sync - library updates never affect redo history
+          queueForSync("library", bookId, "update", libraryRecord, null, true);
 
           resolve(true);
         };

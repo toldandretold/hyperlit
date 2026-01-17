@@ -15,7 +15,7 @@ import { movedNodesByOverflow } from './index.js';
 import { glowCloudOrange, isProcessing } from '../components/editIndicator.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
-import { deleteIndexedDBRecordWithRetry, updateIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
+import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
 import { setChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
@@ -407,7 +407,7 @@ export class ChunkMutationHandler {
                     }
 
                     // Always persist the marker to IndexedDB
-                    await updateIndexedDBRecord({ id: firstNodeId });
+                    await updateSingleIndexedDBRecord({ id: firstNodeId });
                   }
 
                   // Now proceed with normal deletion
@@ -445,7 +445,7 @@ export class ChunkMutationHandler {
                         }
 
                         // Always persist the marker to IndexedDB
-                        await updateIndexedDBRecord({ id: firstNodeId });
+                        await updateSingleIndexedDBRecord({ id: firstNodeId });
                       }
 
                       foundNodeInOtherChunk = true;
