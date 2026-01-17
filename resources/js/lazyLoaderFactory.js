@@ -113,9 +113,11 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
     setNoDeleteMarker(firstNode);
     console.log(`✅ Set no-delete-id marker on node ${firstNode.id} in DOM`);
 
-    // Step 3b: Persist to IndexedDB and sync to backend
-    await updateSingleIndexedDBRecord({ id: firstNode.id });
-    console.log(`✅ Persisted no-delete-id marker to IndexedDB & queued for backend sync`);
+    // Step 3b: Persist to IndexedDB but skip history creation
+    // skipRedoClear: true because this is an automatic operation, not a user edit
+    // skipHistory: true to prevent spurious history entries during undo/redo refresh cycles
+    await updateSingleIndexedDBRecord({ id: firstNode.id }, { skipRedoClear: true, skipHistory: true });
+    console.log(`✅ Persisted no-delete-id marker to IndexedDB (no history entry)`);
   } catch (error) {
     console.error('❌ FATAL: ensureNoDeleteMarkerForBook failed:', error);
     throw error; // Re-throw so we can see it in console
@@ -610,13 +612,13 @@ export function createLazyLoader(config) {
 
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
-      console.log(`🔒 Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`);
+      verbose.debug(`Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`, 'lazyLoaderFactory.js');
       return;
     }
 
     // ✅ Don't load chunks if deletions are in progress
     if (isChunkLoadingInProgress()) {
-      console.log('🔒 Skipping lazy load - chunk deletion in progress');
+      verbose.debug('Skipping lazy load - chunk deletion in progress', 'lazyLoaderFactory.js');
       return;
     }
 
@@ -624,30 +626,30 @@ export function createLazyLoader(config) {
       if (!entry.isIntersecting) return;
 
       if (entry.target.id === topSentinel.id) {
-        console.log('🔍 TOP sentinel intersecting - attempting to load previous chunk');
+        verbose.debug('TOP sentinel intersecting - attempting to load previous chunk', 'lazyLoaderFactory.js');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
-          console.log(`🔍 First chunk in DOM: ${firstChunkId}, checking if can load previous...`);
+          verbose.debug(`First chunk in DOM: ${firstChunkId}, checking if can load previous...`, 'lazyLoaderFactory.js');
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
-            console.log(`🔍 Loading previous chunk: ${firstChunkId - 1}`);
+            verbose.debug(`Loading previous chunk: ${firstChunkId - 1}`, 'lazyLoaderFactory.js');
             loadPreviousChunkFixed(firstChunkId, instance);
           } else {
-            console.log(`🔍 Cannot load previous: firstChunkId=${firstChunkId}, alreadyLoaded=${instance.currentlyLoadedChunks.has(firstChunkId - 1)}`);
+            verbose.debug(`Cannot load previous: firstChunkId=${firstChunkId}, alreadyLoaded=${instance.currentlyLoadedChunks.has(firstChunkId - 1)}`, 'lazyLoaderFactory.js');
           }
         } else {
-          console.warn('⚠️ Top sentinel intersecting but no chunks found in DOM');
+          verbose.debug('Top sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
       if (entry.target.id === bottomSentinel.id) {
-        console.log('🔍 Bottom sentinel intersecting - attempting to load next chunk');
+        verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
-          console.log(`🔍 Last chunk in DOM: ${lastChunkId}, loading next chunk...`);
+          verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
           loadNextChunkFixed(lastChunkId, instance);
         } else {
-          console.warn('⚠️ Bottom sentinel intersecting but no chunks found in DOM');
+          verbose.debug('Bottom sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
     });
@@ -778,22 +780,22 @@ export function createLazyLoader(config) {
 
       // 7. Load the target chunk (lazy loader will handle adjacent chunks via sentinels)
       if (targetChunkId !== null) {
-        console.log(`🔄 refresh() loading target chunk: ${targetChunkId}`);
+        verbose.debug(`refresh() loading target chunk: ${targetChunkId}`, 'lazyLoaderFactory.js');
         await loadChunkInternal(targetChunkId, "down", instance, attachMarkers);
 
         // Fix sentinel positions - chunk gets appended AFTER bottomSentinel, need to reorder
         instance.repositionSentinels();
 
-        // DEBUG: Log DOM structure after chunk load
+        // DEBUG: Log DOM structure after chunk load (verbose mode only)
         const children = Array.from(instance.container.children).map(el => {
           if (el.classList.contains('sentinel')) return `SENTINEL:${el.id}`;
           if (el.hasAttribute('data-chunk-id')) return `CHUNK:${el.getAttribute('data-chunk-id')}`;
           return `OTHER:${el.tagName}`;
         });
-        console.log(`🔍 DEBUG: DOM order after chunk load:`, children);
-        console.log(`🔍 DEBUG: topSentinel in DOM:`, instance.container.contains(instance.topSentinel));
-        console.log(`🔍 DEBUG: bottomSentinel in DOM:`, instance.container.contains(instance.bottomSentinel));
-        console.log(`🔍 DEBUG: currentlyLoadedChunks:`, [...instance.currentlyLoadedChunks]);
+        verbose.debug(`DOM order after chunk load: ${children.join(', ')}`, 'lazyLoaderFactory.js');
+        verbose.debug(`topSentinel in DOM: ${instance.container.contains(instance.topSentinel)}`, 'lazyLoaderFactory.js');
+        verbose.debug(`bottomSentinel in DOM: ${instance.container.contains(instance.bottomSentinel)}`, 'lazyLoaderFactory.js');
+        verbose.debug(`currentlyLoadedChunks: [${[...instance.currentlyLoadedChunks].join(', ')}]`, 'lazyLoaderFactory.js');
       }
 
       // 8. ✅ NEW: Scroll to and focus the target element after rendering
@@ -827,9 +829,13 @@ export function createLazyLoader(config) {
           instance.refreshInProgress = false;
           instance.scrollLocked = false;
           instance.scrollLockReason = null;
+          // Explicitly clear chunk loading state to prevent timeout warnings
+          if (targetChunkId !== null) {
+            clearChunkLoadingInProgress(targetChunkId);
+          }
           setNavigatingState(false);
           forceSavePosition(true); // bypassLock=true since we just unlocked
-          console.log('🔄 refresh() complete, scroll unlocked');
+          verbose.debug('refresh() complete, scroll unlocked', 'lazyLoaderFactory.js');
         }, 100);
       }, 150); // Slightly longer delay to ensure scrolling completes
 
@@ -1217,13 +1223,13 @@ function getTextNodes(element) {
 export async function loadNextChunkFixed(currentLastChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
-    console.log('🔄 Cache dirty, refreshing from IndexedDB before searching for next chunk...');
+    verbose.debug('Cache dirty, refreshing from IndexedDB before searching for next chunk...', 'lazyLoaderFactory.js');
     instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
     clearCacheDirtyFlag();
   }
 
   const currentId = parseFloat(currentLastChunkId);
-  console.log(`🔍 loadNextChunkFixed called with currentLastChunkId: ${currentId}`);
+  verbose.debug(`loadNextChunkFixed called with currentLastChunkId: ${currentId}`, 'lazyLoaderFactory.js');
 
   let nextChunkId = null;
   let nextNodes = [];
@@ -1236,7 +1242,7 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
     }
   }
 
-  console.log(`🔍 Found next chunk ID: ${nextChunkId} (searched ${instance.nodes.length} nodes)`);
+  verbose.debug(`Found next chunk ID: ${nextChunkId} (searched ${instance.nodes.length} nodes)`, 'lazyLoaderFactory.js');
 
   if (nextChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
@@ -1284,7 +1290,7 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
 export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
-    console.log('🔄 Cache dirty, refreshing from IndexedDB before searching for previous chunk...');
+    verbose.debug('Cache dirty, refreshing from IndexedDB before searching for previous chunk...', 'lazyLoaderFactory.js');
     instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
     clearCacheDirtyFlag();
   }
@@ -1356,7 +1362,7 @@ export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
 async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   // ✅ Check if cache is dirty and refresh if needed
   if (isCacheDirty()) {
-    console.log('🔄 Cache dirty, refreshing from IndexedDB before loading chunk...');
+    verbose.debug('Cache dirty, refreshing from IndexedDB before loading chunk...', 'lazyLoaderFactory.js');
     instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
     clearCacheDirtyFlag();
   }

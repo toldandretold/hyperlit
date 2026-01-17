@@ -237,7 +237,7 @@ export async function createNewBook() {
       book: bookId,
       startLine: 100,
       chunk_id: 0,
-      content: `<h1 id="100" data-node-id="${initialNodeId}"><br></h1>`,
+      content: `<h1 id="100" data-node-id="${initialNodeId}" no-delete-id="please"><br></h1>`,
       node_id: initialNodeId,
       hyperlights: [],
       hypercites: [],

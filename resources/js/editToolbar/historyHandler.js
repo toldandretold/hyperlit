@@ -15,6 +15,7 @@ import { pendingSyncs, debouncedMasterSync, executeSyncPayload } from "../indexe
 import { currentLazyLoader } from "../initializePage.js";
 import { log, verbose } from "../utilities/logger.js";
 import { glowCloudOrange, glowCloudGreen, glowCloudRed } from "../components/editIndicator.js";
+import { setUndoRedoInProgress } from "../utilities/operationState.js";
 
 /**
  * Sync undo/redo changes directly to PostgreSQL WITHOUT creating history entries.
@@ -179,6 +180,7 @@ export class HistoryHandler {
       return;
     }
     this.isProcessingHistory = true;
+    setUndoRedoInProgress(true); // Suppress mutation observer during undo
     this.updateHistoryButtonStates();
 
     try {
@@ -217,6 +219,7 @@ export class HistoryHandler {
       console.log("Yielding to main thread before releasing lock...");
       await yieldToMainThread();
 
+      setUndoRedoInProgress(false); // Re-enable mutation observer
       this.isProcessingHistory = false;
       this.updateHistoryButtonStates();
       console.log("✅ Undo/Redo lock released.");
@@ -232,6 +235,7 @@ export class HistoryHandler {
       return;
     }
     this.isProcessingHistory = true;
+    setUndoRedoInProgress(true); // Suppress mutation observer during redo
     this.updateHistoryButtonStates();
 
     try {
@@ -255,6 +259,7 @@ export class HistoryHandler {
       console.log("Yielding to main thread before releasing lock...");
       await yieldToMainThread();
 
+      setUndoRedoInProgress(false); // Re-enable mutation observer
       this.isProcessingHistory = false;
       this.updateHistoryButtonStates();
       console.log("✅ Undo/Redo lock released.");

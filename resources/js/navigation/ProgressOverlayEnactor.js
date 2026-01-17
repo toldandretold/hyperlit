@@ -68,10 +68,10 @@ export class ProgressOverlayEnactor {
 
     if (isCurrentlyVisible) {
       this.state = 'visible';
-      console.log('✅ ProgressOverlayEnactor: Bound to overlay (currently VISIBLE)');
+      verbose.debug('ProgressOverlayEnactor: Bound to overlay (currently VISIBLE)', 'navigation/ProgressOverlayEnactor.js');
     } else {
       this.state = 'hidden';
-      console.log('✅ ProgressOverlayEnactor: Bound to overlay (currently HIDDEN)');
+      verbose.debug('ProgressOverlayEnactor: Bound to overlay (currently HIDDEN)', 'navigation/ProgressOverlayEnactor.js');
     }
   }
 
@@ -80,7 +80,7 @@ export class ProgressOverlayEnactor {
    * Call this after SPA navigation that swaps body content
    */
   static rebind() {
-    console.log('🔄 ProgressOverlayEnactor: Rebinding to DOM after body replacement');
+    verbose.debug('ProgressOverlayEnactor: Rebinding to DOM after body replacement', 'navigation/ProgressOverlayEnactor.js');
     this._bindElements();
   }
 
@@ -102,18 +102,18 @@ export class ProgressOverlayEnactor {
 
     // Don't interrupt a hide operation
     if (this.state === 'hiding') {
-      console.log('📊 ProgressOverlayEnactor.show: Hide in progress, skipping show');
+      verbose.debug('ProgressOverlayEnactor.show: Hide in progress, skipping show', 'navigation/ProgressOverlayEnactor.js');
       return;
     }
 
     // Already visible? Just update progress
     if (this.state === 'visible') {
-      console.log('📊 ProgressOverlayEnactor.show: Already visible, updating progress');
+      verbose.debug('ProgressOverlayEnactor.show: Already visible, updating progress', 'navigation/ProgressOverlayEnactor.js');
       this.update(percent, message);
       return;
     }
 
-    console.log(`📊 ProgressOverlayEnactor.show: Showing overlay (${percent}% - ${message}, block: ${blockInteractions})`);
+    verbose.debug(`ProgressOverlayEnactor.show: Showing overlay (${percent}% - ${message}, block: ${blockInteractions})`, 'navigation/ProgressOverlayEnactor.js');
 
     this.state = 'visible';
     this.overlay.style.display = 'block';
@@ -128,7 +128,7 @@ export class ProgressOverlayEnactor {
         this.wasContentEditable = mainContent.getAttribute('contenteditable') === 'true';
         if (this.wasContentEditable) {
           mainContent.setAttribute('contenteditable', 'false');
-          console.log('📊 ProgressOverlayEnactor: Disabled contenteditable on .main-content');
+          verbose.debug('ProgressOverlayEnactor: Disabled contenteditable on .main-content', 'navigation/ProgressOverlayEnactor.js');
         }
       }
     }
@@ -248,13 +248,13 @@ export class ProgressOverlayEnactor {
         const mainContent = document.querySelector('.main-content');
         if (mainContent) {
           mainContent.setAttribute('contenteditable', 'true');
-          console.log('📊 ProgressOverlayEnactor: Re-enabled contenteditable on .main-content');
+          verbose.debug('ProgressOverlayEnactor: Re-enabled contenteditable on .main-content', 'navigation/ProgressOverlayEnactor.js');
         }
         this.wasContentEditable = false;
       }
 
       this.state = 'hidden';
-      console.log('✅ ProgressOverlayEnactor: Overlay hidden');
+      verbose.debug('ProgressOverlayEnactor: Overlay hidden', 'navigation/ProgressOverlayEnactor.js');
     }
   }
 
@@ -267,7 +267,7 @@ export class ProgressOverlayEnactor {
   static forceHide() {
     this.init();
 
-    console.log('💥 ProgressOverlayEnactor.forceHide: Emergency hide triggered');
+    verbose.debug('ProgressOverlayEnactor.forceHide: Emergency hide triggered', 'navigation/ProgressOverlayEnactor.js');
 
     if (this.overlay) {
       this.overlay.style.display = 'none';
@@ -280,7 +280,7 @@ export class ProgressOverlayEnactor {
       const mainContent = document.querySelector('.main-content');
       if (mainContent) {
         mainContent.setAttribute('contenteditable', 'true');
-        console.log('📊 ProgressOverlayEnactor: Re-enabled contenteditable on .main-content');
+        verbose.debug('ProgressOverlayEnactor: Re-enabled contenteditable on .main-content', 'navigation/ProgressOverlayEnactor.js');
       }
       this.wasContentEditable = false;
     }
@@ -288,7 +288,7 @@ export class ProgressOverlayEnactor {
     this.state = 'hidden';
     this.hidePromise = null;
 
-    console.log('✅ ProgressOverlayEnactor: Force hidden complete');
+    verbose.debug('ProgressOverlayEnactor: Force hidden complete', 'navigation/ProgressOverlayEnactor.js');
   }
 
   /**
@@ -313,10 +313,10 @@ export class ProgressOverlayEnactor {
   }
 
   /**
-   * Debug method - logs current state
+   * Debug method - logs current state (always visible for explicit debug calls)
    */
   static debug() {
-    console.log('📊 ProgressOverlayEnactor Debug:', this.getState());
+    console.log('📊 ProgressOverlayEnactor Debug:', this.getState()); // Keep as console.log for explicit debug call
   }
 }
 

@@ -324,10 +324,13 @@ export async function universalPageInitializer(progressCallback = null) {
       verbose.init('Reference container manager rebound after content load', 'viewManager.js');
     }
 
-    const { hyperlitManager } = await import('./hyperlitContainer/index.js');
+    const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
         verbose.init('Hyperlit container manager rebound after content load', 'viewManager.js');
+    } else {
+        initializeHyperlitManager();
+        verbose.init('Hyperlit container manager re-initialized after SPA transition', 'viewManager.js');
     }
 
   }, 500);

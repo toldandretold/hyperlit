@@ -510,6 +510,7 @@ export function updateSingleIndexedDBRecord(record, options = {}) {
  * @param {Array} recordsToProcess - Array of record objects
  * @param {Object} options - Optional settings
  * @param {boolean} options.skipFootnoteRenumber - Skip auto-renumbering (caller handles it)
+ * @param {boolean} options.skipRedoClear - Skip clearing redo history (for automatic operations like undo/redo)
  * @returns {Promise<void>}
  */
 export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}) {
@@ -685,22 +686,29 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         console.log("✅ Batch IndexedDB update complete");
         await updateBookTimestamp(book || "latest");
 
-        allSavedNodeChunks.forEach((chunk) => {
-          const originalChunk = originalNodeChunkStates.get(chunk.startLine);
-          queueForSync(
-            "nodes",
-            chunk.startLine,
-            "update",
-            chunk,
-            originalChunk,
-          );
-        });
-        allSavedHyperlights.forEach((hl) => {
-          queueForSync("hyperlights", hl.hyperlight_id, "update", hl, null);
-        });
-        allSavedHypercites.forEach((hc) => {
-          queueForSync("hypercites", hc.hyperciteId, "update", hc, null);
-        });
+        // Skip queueForSync if skipHistory is true (for automatic operations like marker restoration)
+        // This prevents spurious history entries during undo/redo refresh cycles
+        if (!options.skipHistory) {
+          allSavedNodeChunks.forEach((chunk) => {
+            const originalChunk = originalNodeChunkStates.get(chunk.startLine);
+            queueForSync(
+              "nodes",
+              chunk.startLine,
+              "update",
+              chunk,
+              originalChunk,
+              options.skipRedoClear || false,
+            );
+          });
+          allSavedHyperlights.forEach((hl) => {
+            queueForSync("hyperlights", hl.hyperlight_id, "update", hl, null, options.skipRedoClear || false);
+          });
+          allSavedHypercites.forEach((hc) => {
+            queueForSync("hypercites", hc.hyperciteId, "update", hc, null, options.skipRedoClear || false);
+          });
+        } else {
+          console.log(`⏭️ Skipping queueForSync - skipHistory option is true`);
+        }
 
         // Auto-sync first node to library title (only if node 100 was updated)
         const firstNodeChunk = allSavedNodeChunks.find(chunk => chunk.startLine === 100);
