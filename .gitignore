@@ -23,3 +23,15 @@ yarn-error.log
 ignore/
 dump.rdb
 .DS_Store
+*.DS_Store
+
+# Large binary files
+*.pdf
+*.epub
+
+# Font extras (full package not needed)
+public/fonts/inter/info/
+
+# Log files
+storage/logs/*.log
+!storage/logs/.gitignore
