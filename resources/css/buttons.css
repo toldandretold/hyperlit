@@ -129,18 +129,32 @@ black #221F20;
 }
 
 /* Stroked icons (bold, italic, heading, blockquote, code) */
-#edit-toolbar button svg path,
+/* Exclude undo/redo which use fill instead of stroke */
+#edit-toolbar button:not(#undoButton):not(#redoButton) svg path,
 #edit-toolbar button svg line,
 #edit-toolbar button svg polyline {
   stroke: var(--icon-stroke-primary);
   fill: none;
 }
 
-/* Filled icons (undo, redo) */
+/* Footnote button text - filled like Bold/Italic */
+#footnoteButton svg text {
+  fill: var(--icon-fill-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Footnote hover state */
+#footnoteButton:hover svg text,
+#footnoteButton.active svg text {
+  fill: var(--icon-hover-fill);
+}
+
+/* Filled icons (undo, redo) - add stroke to fill in the outline shape */
 #undoButton svg path,
 #redoButton svg path {
   fill: var(--icon-fill-primary);
-  stroke: none;
+  stroke: var(--icon-fill-primary);
+  stroke-width: 2;
 }
 
 /* Hover states for toolbar buttons */
@@ -149,10 +163,11 @@ black #221F20;
   fill: transparent;
 }
 
-#edit-toolbar button:hover svg path,
+/* Exclude undo/redo from stroke-only rule (they use fill+stroke) */
+#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
 #edit-toolbar button:hover svg line,
 #edit-toolbar button:hover svg polyline,
-#edit-toolbar button.active svg path,
+#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
 #edit-toolbar button.active svg line,
 #edit-toolbar button.active svg polyline {
   stroke: var(--icon-hover-stroke);
@@ -164,7 +179,8 @@ black #221F20;
 #undoButton.active svg path,
 #redoButton.active svg path {
   fill: var(--icon-hover-fill) !important;
-  stroke: none;
+  stroke: var(--icon-hover-fill) !important;
+  stroke-width: 2;
 }
 
 /* ===== END OF STANDARDIZED ICON STYLING ===== */
@@ -174,7 +190,8 @@ black #221F20;
 #italicButton,
 #headingButton,
 #blockquoteButton,
-#codeButton {
+#codeButton,
+#footnoteButton {
   width: 28px;
   height: 28px;
 }
@@ -684,11 +701,15 @@ black #221F20;
 #undoButton.disabled svg path,
 #redoButton.disabled svg path {
   fill: #888888 !important; /* Fade the arrow color to gray */
+  stroke: #888888 !important;
+  stroke-width: 2;
 }
 
 #undoButton.processing svg path,
 #redoButton.processing svg path {
   fill: #aaaaaa !important; /* Slightly lighter gray for processing */
+  stroke: #aaaaaa !important;
+  stroke-width: 2;
 }
 
 /* Ensure the SVG's background rect is NOT affected by these specific arrow fill changes,
@@ -750,10 +771,11 @@ black #221F20;
 
 /* 3. Style OUTLINED icons (Bold, Italic, Heading, etc.). */
 /* This rule targets the visual parts of these specific icons. */
-#edit-toolbar button:hover svg path,
+/* Exclude undo/redo buttons which use fill instead of stroke */
+#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
 #edit-toolbar button:hover svg line,
 #edit-toolbar button:hover svg polyline,
-#edit-toolbar button.active svg path,
+#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
 #edit-toolbar button.active svg line,
 #edit-toolbar button.active svg polyline {
   stroke: var(--icon-hover-stroke); /* Make the outline inverted. */
@@ -768,7 +790,8 @@ black #221F20;
 #redoButton.active svg path {
   /* CRITICAL FIX: Use !important to override the inline fill attribute in the SVG */
   fill: var(--icon-hover-fill) !important;
-  stroke: none; /* Ensure no stroke is accidentally applied. */
+  stroke: var(--icon-hover-fill) !important;
+  stroke-width: 2;
 }
 
 /* Heading Submenu */
@@ -1436,7 +1459,8 @@ mark.search-highlight.current {
   #italicButton,
   #headingButton,
   #blockquoteButton,
-  #codeButton {
+  #codeButton,
+  #footnoteButton {
     width: 26px;
     height: 26px;
   }
@@ -1604,6 +1628,8 @@ mark.search-highlight.current {
     #undoButton:hover svg path,
     #redoButton:hover svg path {
       fill: var(--icon-fill-primary); /* Keep undo/redo arrow default */
+      stroke: var(--icon-fill-primary);
+      stroke-width: 2;
     }
 
     /* BUT: Allow .active state to properly invert colors on touch devices
@@ -1622,6 +1648,8 @@ mark.search-highlight.current {
     #undoButton.active svg path,
     #redoButton.active svg path {
       fill: var(--icon-hover-fill) !important; /* Invert: use hover fill */
+      stroke: var(--icon-hover-fill) !important;
+      stroke-width: 2;
     }
 
     /* Fix sticky hover for standalone #editButton - disable on touch devices, but preserve .inverted */
