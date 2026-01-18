@@ -2,19 +2,26 @@
 
 # Hyperlit
 
-Read and self-publish hypertext literature.
+Read and self-publish hypertext literature. 
 
 [https://hyperlit.io](https://hyperlit.io)
 
+## Why?
+
+I am a historian. I made this to publish research with two-way hyperlink citations.[^1]
+
+I import sources to read. I cite by copying passages and pasting into my own article.
+
+You might want to use it for something else.
+
 ## Features
-- **hypercites**: automatic, two-way hyperlink citations
+- **hypercites**: automatic, two-way hyperlink citations (Copy text with hypercite button. Paste it. Hypercited!)
 - **hyperlights**: any-user can highlight any word
 - **word .doc** import and export conversion (with dynamic footnotes and citations)
 - **markdown .md** import and export conversion (with dynamic footnotes and citations)
 - **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
 
-## Use now!
-https://hyperlit.io
+## How to use?
 
 **login/register** via top left button on homepage.
 
@@ -31,20 +38,12 @@ https://hyperlit.io
 **read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just leave it as the default private/unpublished setting). If it **is** open access, publish it so others can read along with you, and compare notes!
 
 ## License 
-Open access research? Open source code?
-
-![](https://imageresizer.static9.net.au/DS5njXm8-6tdUIY0-3EjtcDRQeI=/320x0/https%3A%2F%2Fprod.static9.net.au%2Ffs%2Fcd0a8684-9099-41c5-8b7a-5a03f9e01566)
 
 This is 🄯 copyleft [free software](LICENSE.md).
 
-In this sense, this is not "open source", it is free sofware. In a similar sense, the site aims not to distribute "open access" research, but "free knowledge" similarly based on 'copy left' principles.
+Users have full sovereignty of their data. This is under threat by AI harvesting. For, a free consciousness might not want their consciousness used to create unfree AI "consciousness". 
 
-However, even this might not be sufficient to protect users' individual and collective "data sovereignty", or to protect the digital knowledge commons. Why? For right now, proprietary and monopolistic LLMs can use creative commons text to train models that do not themselves generate creative commons text. I believe we need a new system, where users can legally post their work, in such a way taht it can be freely read by any free cosnciousness. This, I believe would be a truly copyleft knowledge license, as it would be free knowledge that helps create more free knowledge. 
-
-For LLMS, that means text can't be included as training data for proprietary models. It does not mean text can't be given to models to read and respond to (unless they are using that to later train on).
-
-In a contradictory step towards this goal, hyperlit texts come with a [default license](https://hyperlit.io/license2025content) that declares this. However, the LLM that wrote this license for me (feel free to re-write it if you know any better), tells me it is unliely to be legally binding. That's concerning. 
-
+Thus, in a **contradictory** step towards this goal of full personal data sovereignty, hyperlit texts come with a [default license](https://hyperlit.io/license2025content) that declares that texts can't be used to train AI models that are not free software. Ironically, the LLM that wrote this license for me (feel free to re-write it if you know any better), tells me it is unliely to be legally binding. That's concerning. 
 
 ## WARNING!
 
@@ -52,7 +51,7 @@ I created this website using LLMs. I have gradually gotten better at programming
 
 That said, I am a formally trained historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review", and I would be grateful for any assistance. 
 
-It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to he internet. This is intended for publishing "copyleft" writing that you want others to read freely. Nothing is encrypted. However, it is set up so that your hypertext nodes can not leave the database without authorisation. Still, there is **no warranty** on any data leak or loss. You can download local backups of any work via the cloudRef button (top right in reader/writer view). This is unfortunatley useful at the moment and should be done if something seems odd. 
+It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for publishing "copyleft" writing that you want others to read freely. Nothing is encrypted. However, it is set up so that your hypertext nodes can not leave the database without authorisation. Still, there is **no warranty** on any data leak or loss. You can download local backups of any work via the cloudRef button (top right in reader/writer view). This is unfortunatley useful at the moment and should be done if something seems odd. 
 
 
 ## Built With
@@ -179,7 +178,7 @@ Each node is a row, with its own nodeID. This is used to match each node to any 
 
 When a user navigates to hyperlit.io/book, the nodes for that book are pulled from the nodes table, along with its "library card" details from the library table, and any other related content from the hyperlights, hypercites, bibliography, or footnotes tables (relying on nodeID). 
 
-In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. 
+In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. (this is currently slow. will make it faster in future, by potentially injecting first chunk into blade view so it loads instantly and so user does not need to download a whole book before page loads).
 
 On the frontend:
 
@@ -251,16 +250,10 @@ Actually, the internet *did* drastically improve the reading and writing experie
 
 - Linux used email to create a [more secure operating system](https://www.gnu.org/software/fsfe/projects/ms-vs-eu/halloween1.html) than the then monopoly, Microsoft. 
 - Tim Berners-Lee first envisoned HTTP and HTML as the basis of [a better knowledge system](https://hyperlit.io/book_1762834024918) for CERN.
-- The open-source software of Wikipedia has sustained a communist node of knowledge production.[^1]
+- The open-source software of Wikipedia has sustained a communist node of knowledge production.[^2]
 - Long before the internet, in the 1960s, people created hypertext editors that allowed for a far more precise form of hypertext citations. People could link back to specific parts of a text. This allowed for proto-docuverses, where a text could link directly to the cited portions of sources.
 
-So the question wasn't 'why hasn't the internet augmented social reading and writing', it was: 'why has academic publishing been so severely *underdeveloped*?' The answer, as Samir Amin explained in *Accumulation on a World Scale: A Critique of the Theory of Underdevelopment* is Imperialism. That is, the historical era of global capitalism dominated by monopoly capital. Capitalism is supposed to provide a mode of production based on free competition, and rapid innovation. However, as Marx noted, it also possessed tendencies towards centralisation and concentration, and so tendencies towards monopolisation. He successfully predicted that, eventually monopoly capital -- or production controlled by a small group of banks, who also control states -- would be the globally dominant mode of production. The result would be, global underdevelopment. Amin studied this primarily in The Third World, or the global periphery. But underevelopment also takes place in the core of the world system. It took place within the so called knowlege economy, when publishing monopolies enclosed the digital commons like they had already enclosed the knowledge commons. Digital knowledge was enclosed within the PDF, a file format that forced text into the digital and legal constraints of the formal economy. 
-
-Under this enclosure of the digital knowledge commons, text is restricted to the straight jacket of the PDF. These PDFs cost around 40 dollars, but the academics who write the research do not get paid. If the articles are made "open access", the publishing monopoly charges thousands of dollars. This is usually paid for by the academic, or via their university. In  this sense, academic knowledge is like a zombie, would-be commons. Kowledge workers freely contribute knowledge, but people are not free to use it according to their needs. They are not free to do so legally, unless they pay 40 dollars per article. For the global majority, this makes legal access impossible. 
-
-Fortunately, there has been much resistance to monopoly capitalist enclosure of the digital knowledge commons. The editorial boards of two leading biology journals (Sanderson [2023](https://www.nature.com/articles/d41586-023-01391-5); ScholarlyWorld [2025](https://scholarlyworld.com/top-editors-resign-from-springer-journal-to-launch-nonprofit-immunology-journal/)) have resigned, in order to set up not-for-profit open access alternatives. Sci-hub, a website created by a Russian Marxist biologist, allows users near instant access to PDFs, simply by pasting a DOI perma-link. Sci-hub is evidence, in fact, of the underdevelopment of the digital commons. For, on pure efficiency grounds, the illegal Marxist website is overwhelmingly superior. This is why, even on university campuses where students and researchers have legal access to journals, sci-hub is used frequently. Clearly, there must be a better way. 
-
-Hyperlit offers an experiment in a solution to this deep, structural crisis, to the deliberate, monopoly capitalist underdevelopment by enclosure of the digital knowledge commons. It allows users to freely share their own research as hypertext equipped with the tools for its seamless interrconnection. Simply by copying and pasting text, two-way hyperlink citations (hypercites) are created. This means citations can, finally, link directly to the cited parts of sources. Just like with the real books of real libraries, anyone can leave a comment. Literally anyone and everyone can comment on any word in any hypertext.
+So the question wasn't 'why hasn't the internet augmented social reading and writing', it was: 'why has academic publishing been so severely *underdeveloped*?' 
 
 ## Contact
 
@@ -275,5 +268,5 @@ Leave a hyperlight in [my hypertext library](https://hyperlit.io/u/toldandretold
 ## Notes
 [^1]: two-way hyperlinks was a core idea of Ted Nelson's ideas for a Docuverse. Linking directly to the cited text was a feature of the original hypertext editors. See: Belinda Barnet, ["Crafting the User-Centered Document Interface: The Hypertext Editing System (HES) and the File Retrieval and Editing System (FRESS)"](https://dhq.digitalhumanities.org/vol/4/1/000081/000081.html)
 
-[^1]: Knowledge is freely given according to ones abilities, and freely enjoyed according to ones needs.
+[^2]: Knowledge is freely given according to ones abilities, and freely enjoyed according to ones needs.
 
