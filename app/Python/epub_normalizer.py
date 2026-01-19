@@ -1216,6 +1216,166 @@ class EndnoteCharactersFootnoteDetector(EpubTransform):
         return False
 
 
+class EnoteFootnoteDetector(EpubTransform):
+    """
+    Detects footnotes using <sup class="enote"> pattern.
+
+    Common in Calibre-converted epubs from Marxists.org:
+    - References: <sup class="enote"><a href="#n8">[8]</a></sup>
+    - Definitions: <p><a id="n8"><span>8</span></a> Content here...</p>
+
+    The "enote" class indicates endnote references.
+    """
+
+    name = "EnoteFootnoteDetector"
+    description = "Detect enote class footnotes (Marxists.org format)"
+
+    def detect(self, soup) -> bool:
+        """Check if document has enote-class superscripts."""
+        return bool(soup.find('sup', class_=lambda c: c and 'enote' in c))
+
+    def transform(self, soup, log) -> dict:
+        footnotes = []
+        noterefs = []
+        seen_fn_ids = set()
+        seen_ref_targets = set()
+
+        # Pattern 1: <sup class="enote..."><a href="#nX">
+        for sup in soup.find_all('sup', class_=lambda c: c and 'enote' in c):
+            a_tag = sup.find('a', href=True)
+            if not a_tag:
+                # Check if sup is inside an anchor (Pattern 2)
+                parent_a = sup.find_parent('a', href=True)
+                if parent_a:
+                    a_tag = parent_a
+                else:
+                    continue
+
+            href = a_tag.get('href', '')
+            if not href.startswith('#'):
+                continue
+
+            target_id = href[1:]  # Remove #
+            if target_id in seen_ref_targets:
+                continue
+
+            seen_ref_targets.add(target_id)
+
+            # Extract original marker text (e.g., "[8]" or "8")
+            marker_text = sup.get_text(strip=True)
+            # Strip brackets if present: "[8]" -> "8"
+            if marker_text.startswith('[') and marker_text.endswith(']'):
+                marker_text = marker_text[1:-1]
+            marker_text = marker_text.strip()
+
+            # Use the anchor as element if sup is inside it, otherwise use sup
+            element = a_tag if sup.find_parent('a') == a_tag else sup
+
+            noterefs.append({
+                'element': element,
+                'target_id': target_id,
+                'strategy': 'enote_class',
+                'original_marker': marker_text
+            })
+
+        # Find matching definitions: <a id="nX"> or <a name="nX"> at paragraph start
+        # Pattern: <p><a id="n8"><span>8</span></a> Definition content...</p>
+        # Also handle inverted pattern: <a href="#nX"> (definition links back to reference)
+        for target_id in seen_ref_targets:
+            fn_anchor = None
+            parent = None
+
+            # Strategy 1: Look for anchor with this id (normal pattern)
+            fn_anchor = soup.find('a', id=target_id)
+            if not fn_anchor:
+                fn_anchor = soup.find('a', attrs={'name': target_id})
+
+            if fn_anchor:
+                # Find parent paragraph
+                parent = fn_anchor.parent
+                while parent and parent.name not in ['p', 'div', 'li', 'blockquote']:
+                    parent = parent.parent
+
+                # Verify anchor is at/near start of paragraph
+                if parent and not self._is_at_paragraph_start(fn_anchor, parent):
+                    parent = None  # Reset if not at start
+
+                # Strategy 1b: Anchor is sibling before paragraph (common pattern)
+                # <a id="X"></a><p>Content...</p>
+                if not parent and fn_anchor.parent:
+                    next_sib = fn_anchor.find_next_sibling()
+                    if next_sib and next_sib.name in ['p', 'div', 'blockquote']:
+                        parent = next_sib
+
+            # Strategy 2: Inverted pattern - definition has href pointing back to reference
+            # Look for <a href="#target_id"> at paragraph start in Notes section
+            if not parent:
+                # Find anchors with href pointing to this target
+                back_link = '#' + target_id
+                for a_tag in soup.find_all('a', href=back_link):
+                    # Skip if this is the original reference (inside a sup)
+                    if a_tag.find_parent('sup'):
+                        continue
+
+                    # Find parent paragraph
+                    candidate_parent = a_tag.parent
+                    while candidate_parent and candidate_parent.name not in ['p', 'div', 'li', 'blockquote']:
+                        candidate_parent = candidate_parent.parent
+
+                    if candidate_parent and self._is_at_paragraph_start(a_tag, candidate_parent):
+                        fn_anchor = a_tag
+                        parent = candidate_parent
+                        break
+
+            if not parent:
+                continue
+
+            if target_id not in seen_fn_ids:
+                seen_fn_ids.add(target_id)
+                footnotes.append({
+                    'id': target_id,
+                    'element': parent,
+                    'type': 'endnote',
+                    'strategy': 'enote_class'
+                })
+
+        log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
+        return {'footnotes': footnotes, 'noterefs': noterefs}
+
+    def _is_at_paragraph_start(self, anchor, parent):
+        """Check if anchor is at or near the start of its parent element."""
+        if not parent:
+            return False
+
+        anchor_id = anchor.get('id') or anchor.get('name')
+
+        # Walk through children, allow only whitespace/hr before the anchor
+        for child in parent.children:
+            if child == anchor:
+                return True
+
+            # Allow navigating through wrapper elements
+            if hasattr(child, 'name') and child.name:
+                if child.name in ['hr', 'br']:
+                    continue
+                # Check if anchor is inside this child (use attrs dict for find)
+                if hasattr(child, 'find'):
+                    found = child.find('a', attrs={'id': anchor_id})
+                    if found:
+                        return True
+                    found = child.find('a', attrs={'name': anchor_id})
+                    if found:
+                        return True
+                # Another substantial element before anchor
+                if hasattr(child, 'get_text') and child.get_text(strip=True):
+                    return False
+            elif isinstance(child, str) and child.strip():
+                # Non-whitespace text before anchor
+                return False
+
+        return False
+
+
 class HeuristicFootnoteDetector(EpubTransform):
     """
     Fallback heuristic footnote detection.
@@ -1718,6 +1878,10 @@ class FootnoteConverter(EpubTransform):
         # New format: <sup fn-count-id="N" id="ID" class="footnote-ref">N</sup>
         # (No anchor tag inside - click handling done via JavaScript)
 
+        # Check if element is still in the document tree (might have been replaced already)
+        if elem.parent is None:
+            return  # Skip elements that were already removed/replaced
+
         if elem.name == 'sup':
             # Already a sup, just update attributes
             elem['fn-count-id'] = str(fn_count)
@@ -1775,6 +1939,7 @@ TRANSFORM_PIPELINE = [
     NotesClassFootnoteDetector(),       # Publisher format: <p class="notes"><a id="...">
     PandocFootnoteDetector(),
     EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
+    EnoteFootnoteDetector(),               # Marxists.org enote class format
     HeuristicFootnoteDetector(),
 
     # Phase 3: Other content detection
@@ -2000,6 +2165,9 @@ class EpubNormalizer:
         )
         body = self.combined_soup.body
 
+        # Build global ID map: original_id -> prefixed_id
+        global_id_map = {}
+
         for idref in spine:
             if idref not in manifest:
                 continue
@@ -2018,11 +2186,38 @@ class EpubNormalizer:
                 item_body = item_soup.body if item_soup.body else item_soup
 
                 if item_body:
-                    # Fix internal links
+                    # Generate prefix from file name to avoid duplicate IDs across chapters
+                    file_prefix = os.path.splitext(os.path.basename(file_href))[0] + "_"
+
+                    # Collect all IDs in this chapter (before prefixing)
+                    local_ids = set()
+                    for elem in item_body.find_all(id=True):
+                        local_ids.add(elem['id'])
+                    for elem in item_body.find_all(attrs={'name': True}):
+                        if elem.name == 'a':
+                            local_ids.add(elem['name'])
+
+                    # Prefix all IDs to make them unique, add to global map
+                    for elem in item_body.find_all(id=True):
+                        orig_id = elem['id']
+                        prefixed_id = file_prefix + orig_id
+                        global_id_map[orig_id] = prefixed_id
+                        elem['id'] = prefixed_id
+                    for elem in item_body.find_all(attrs={'name': True}):
+                        if elem.name == 'a':
+                            orig_name = elem['name']
+                            prefixed_name = file_prefix + orig_name
+                            global_id_map[orig_name] = prefixed_name
+                            elem['name'] = prefixed_name
+
+                    # Fix internal links - same-file references get prefixed now
                     for a_tag in item_body.find_all('a', href=True):
                         href = a_tag['href']
                         if '#' in href:
-                            a_tag['href'] = '#' + href.split('#', 1)[-1]
+                            target = href.split('#', 1)[-1]
+                            if target in local_ids:
+                                # Same-file reference - prefix immediately
+                                a_tag['href'] = '#' + file_prefix + target
 
                     # Fix image paths
                     for img in item_body.find_all('img', src=True):
@@ -2039,6 +2234,22 @@ class EpubNormalizer:
             except Exception as e:
                 self._log(f"Error loading {file_path}: {e}")
 
+        # Second pass: Fix cross-file hrefs using the global ID map
+        # Same-file references were already prefixed in the first pass
+        for a_tag in body.find_all('a', href=True):
+            href = a_tag['href']
+            if '#' in href:
+                # Check if this is already a prefixed reference (starts with #prefix_)
+                # If so, skip it - it was already handled as a same-file reference
+                fragment = href.split('#', 1)[-1]
+
+                # If the fragment contains the original unprefixed ID, look it up
+                if fragment in global_id_map:
+                    a_tag['href'] = '#' + global_id_map[fragment]
+                elif not href.startswith('#'):
+                    # Has filename prefix (like "ch02.htm#n1") - strip and use fragment
+                    a_tag['href'] = '#' + fragment
+
     def _load_from_epub_file(self):
         """Load EPUB content from a .epub file using EbookLib."""
         book = epub.read_epub(self.input_path)
@@ -2050,6 +2261,9 @@ class EpubNormalizer:
         )
         body = self.combined_soup.body
 
+        # Build global ID map: original_id -> prefixed_id
+        global_id_map = {}
+
         spine_items = [item for item in book.get_items() if item.get_type() == ITEM_DOCUMENT]
         self._log(f"Spine items: {len(spine_items)}")
 
@@ -2060,15 +2274,43 @@ class EpubNormalizer:
                 item_body = item_soup.body if item_soup.body else item_soup
 
                 if item_body:
+                    # Generate prefix from item name to avoid duplicate IDs across chapters
+                    item_name = item.get_name()
+                    file_prefix = os.path.splitext(os.path.basename(item_name))[0] + "_"
+
+                    # Collect all IDs in this chapter (before prefixing)
+                    local_ids = set()
+                    for elem in item_body.find_all(id=True):
+                        local_ids.add(elem['id'])
+                    for elem in item_body.find_all(attrs={'name': True}):
+                        if elem.name == 'a':
+                            local_ids.add(elem['name'])
+
+                    # Prefix all IDs to make them unique, add to global map
+                    for elem in item_body.find_all(id=True):
+                        orig_id = elem['id']
+                        prefixed_id = file_prefix + orig_id
+                        global_id_map[orig_id] = prefixed_id
+                        elem['id'] = prefixed_id
+                    for elem in item_body.find_all(attrs={'name': True}):
+                        if elem.name == 'a':
+                            orig_name = elem['name']
+                            prefixed_name = file_prefix + orig_name
+                            global_id_map[orig_name] = prefixed_name
+                            elem['name'] = prefixed_name
+
+                    # Fix internal links - same-file references get prefixed now
                     for a_tag in item_body.find_all('a', href=True):
                         href = a_tag['href']
                         if '#' in href:
-                            a_tag['href'] = '#' + href.split('#', 1)[-1]
+                            target = href.split('#', 1)[-1]
+                            if target in local_ids:
+                                a_tag['href'] = '#' + file_prefix + target
 
                     for img in item_body.find_all('img', src=True):
                         src = img['src']
                         if not src.startswith(('http', 'data:')):
-                            item_dir = os.path.dirname(item.get_name())
+                            item_dir = os.path.dirname(item_name)
                             img['src'] = os.path.normpath(os.path.join(item_dir, src))
 
                     for child in list(item_body.children):
@@ -2077,6 +2319,16 @@ class EpubNormalizer:
 
             except Exception as e:
                 self._log(f"Error loading {item.get_name()}: {e}")
+
+        # Second pass: Fix cross-file hrefs using the global ID map
+        for a_tag in body.find_all('a', href=True):
+            href = a_tag['href']
+            if '#' in href:
+                fragment = href.split('#', 1)[-1]
+                if fragment in global_id_map:
+                    a_tag['href'] = '#' + global_id_map[fragment]
+                elif not href.startswith('#'):
+                    a_tag['href'] = '#' + fragment
 
 
 # =============================================================================
