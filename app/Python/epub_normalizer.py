@@ -45,6 +45,7 @@ Phase 2 - Footnote Detection:
 - ClassPatternFootnoteDetector: Matches common CSS class patterns
 - NotesClassFootnoteDetector: Publisher format with <p class="notes"><a id="...">
 - PandocFootnoteDetector: Handles <section class="footnotes"> structure
+- EndnoteCharactersFootnoteDetector: Word/Calibre <span class="EndnoteCharacters">
 - HeuristicFootnoteDetector: Fallback based on ID patterns and superscripts
 
 Phase 3 - Other Detection:
@@ -1122,6 +1123,99 @@ class PandocFootnoteDetector(EpubTransform):
         return {'footnotes': footnotes, 'noterefs': noterefs}
 
 
+class EndnoteCharactersFootnoteDetector(EpubTransform):
+    """
+    Detects Microsoft Word/Calibre endnotes using EndnoteCharacters class.
+
+    Pattern for in-text references:
+    <a class="pcalibre ..." href="#target_id" id="ref_id">
+      <span class="EndnoteCharacters">N</span>
+    </a>
+
+    Pattern for endnote definitions (at start of paragraph):
+    <p class="MsoNormal">
+      <a class="pcalibre ..." href="#ref_id" id="target_id">
+        <span class="EndnoteCharacters">N</span>
+      </a> Content...
+    </p>
+
+    Key distinction:
+    - References: anchor is inline within text, href points to definition
+    - Definitions: anchor is at START of paragraph, has backlink href to reference
+    """
+
+    name = "EndnoteCharactersFootnoteDetector"
+    description = "Detect Word/Calibre endnotes via EndnoteCharacters class"
+
+    def detect(self, soup) -> bool:
+        return bool(soup.find('span', class_='EndnoteCharacters'))
+
+    def transform(self, soup, log) -> dict:
+        footnotes = []
+        noterefs = []
+        seen_fn_ids = set()
+        seen_ref_targets = set()
+
+        # Find all anchors containing EndnoteCharacters spans
+        for a_tag in soup.find_all('a', href=True):
+            span = a_tag.find('span', class_='EndnoteCharacters')
+            if not span:
+                continue
+
+            a_id = a_tag.get('id', '')
+            href = a_tag.get('href', '')
+
+            # Determine if this is a reference or a definition
+            # Definitions: at start of paragraph AND have both id and backlink href
+            parent = a_tag.parent
+            is_at_para_start = self._is_at_paragraph_start(a_tag, parent)
+
+            if is_at_para_start and a_id and href.startswith('#'):
+                # This is an endnote DEFINITION
+                if a_id not in seen_fn_ids:
+                    seen_fn_ids.add(a_id)
+                    # The parent paragraph contains the footnote content
+                    footnotes.append({
+                        'id': a_id,
+                        'element': parent,  # The <p> containing the definition
+                        'type': 'endnote',
+                        'strategy': 'endnote_characters'
+                    })
+                    log(f"    Found endnote def (EndnoteCharacters): id={a_id}")
+            elif href.startswith('#'):
+                # This is an in-text REFERENCE
+                target_id = href[1:]
+                if target_id not in seen_ref_targets:
+                    seen_ref_targets.add(target_id)
+                    # Capture original marker text (e.g., "1", "43a", "*")
+                    marker_text = span.get_text(strip=True) if span else ''
+                    noterefs.append({
+                        'element': a_tag,
+                        'target_id': target_id,
+                        'strategy': 'endnote_characters',
+                        'original_marker': marker_text
+                    })
+
+        log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
+        return {'footnotes': footnotes, 'noterefs': noterefs}
+
+    def _is_at_paragraph_start(self, a_tag, parent):
+        """Check if the anchor is at the start of its parent paragraph."""
+        if not parent or parent.name not in ['p', 'div']:
+            return False
+
+        # Get all content before this anchor
+        for sibling in parent.children:
+            if sibling == a_tag:
+                return True  # Nothing substantial before it
+            if hasattr(sibling, 'name') and sibling.name:
+                return False  # Another element before it
+            if isinstance(sibling, str) and sibling.strip():
+                return False  # Non-whitespace text before it
+
+        return False
+
+
 class HeuristicFootnoteDetector(EpubTransform):
     """
     Fallback heuristic footnote detection.
@@ -1449,9 +1543,12 @@ class FootnoteConverter(EpubTransform):
 
         # Now convert in-text references (noterefs)
         converted_refs = 0
+        numeric_count = 1  # Counter for numeric footnotes only
+
         for noteref in all_noterefs:
             target_id = noteref.get('target_id', '')
             elem = noteref.get('element')
+            original_marker = noteref.get('original_marker', '')
 
             if not target_id or not elem:
                 continue
@@ -1460,10 +1557,22 @@ class FootnoteConverter(EpubTransform):
             if target_id in id_mapping:
                 mapping = id_mapping[target_id]
                 new_id = mapping['new_id']
-                fn_count = mapping['count']
+
+                # Determine display marker: preserve non-numeric, use count for numeric
+                if original_marker and not original_marker.isdigit():
+                    # Non-numeric marker (*, 43a, etc.) - preserve it
+                    display_marker = original_marker
+                    mapping['original_marker'] = original_marker
+                else:
+                    # Numeric marker - use sequential count
+                    display_marker = numeric_count
+                    mapping['original_marker'] = None
+                    numeric_count += 1
+
+                mapping['display_marker'] = display_marker
 
                 # Convert the element to Hyperlit format
-                self._convert_noteref_element(elem, new_id, fn_count, soup)
+                self._convert_noteref_element(elem, new_id, display_marker, soup)
                 converted_refs += 1
 
         log(f"  Converted {converted_refs} in-text references")
@@ -1471,22 +1580,29 @@ class FootnoteConverter(EpubTransform):
         # Build footnotes.json data
         for old_id, mapping in id_mapping.items():
             new_id = mapping['new_id']
-            fn_count = mapping['count']
+            display_marker = mapping.get('display_marker', mapping['count'])
+            original_marker = mapping.get('original_marker')
             content = mapping['content']
 
             # Format content with anchor tag
-            anchor_html = f'<a fn-count-id="{fn_count}" id="{new_id}"></a>'
+            anchor_html = f'<a fn-count-id="{display_marker}" id="{new_id}"></a>'
             full_content = anchor_html + content
 
-            self.footnotes_json.append({
+            footnote_entry = {
                 'footnoteId': new_id,
                 'content': full_content
-            })
+            }
+
+            # Include original marker for non-numeric footnotes
+            if original_marker:
+                footnote_entry['originalMarker'] = original_marker
+
+            self.footnotes_json.append(footnote_entry)
 
             # Update the original footnote definition element if it exists
             elem = mapping.get('element')
             if elem:
-                self._update_footnote_definition(elem, new_id, fn_count)
+                self._update_footnote_definition(elem, new_id, display_marker)
 
         log(f"  Generated {len(self.footnotes_json)} footnote entries for JSON")
 
@@ -1658,6 +1774,7 @@ TRANSFORM_PIPELINE = [
     ClassPatternFootnoteDetector(),
     NotesClassFootnoteDetector(),       # Publisher format: <p class="notes"><a id="...">
     PandocFootnoteDetector(),
+    EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
     HeuristicFootnoteDetector(),
 
     # Phase 3: Other content detection

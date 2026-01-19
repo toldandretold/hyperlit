@@ -228,10 +228,20 @@ export function updateFootnoteNumbersInDOM() {
 
     if (!footnoteId) continue;
 
-    // Get the new display number
+    // Check if this footnote has a non-numeric marker (*, 43a, etc.)
+    // If so, preserve the original marker - don't renumber it
+    const currentValue = sup.getAttribute('fn-count-id');
+    const isNonNumericMarker = currentValue && !/^\d+$/.test(currentValue);
+
+    if (isNonNumericMarker) {
+      // Skip renumbering for non-numeric markers (*, 43a, 26a, etc.)
+      // These are preserved from the original document
+      continue;
+    }
+
+    // Get the new display number for numeric footnotes
     const displayNumber = getDisplayNumber(footnoteId);
     if (displayNumber) {
-      const currentValue = sup.getAttribute('fn-count-id');
       const newValue = displayNumber.toString();
 
       if (currentValue !== newValue) {
@@ -261,6 +271,10 @@ export function updateFootnoteNumbersInDOM() {
   for (const anchor of footnoteDefinitions) {
     const footnoteId = anchor.id;
     if (!footnoteId || !isFootnoteId(footnoteId)) continue;
+
+    // Skip non-numeric markers
+    const currentValue = anchor.getAttribute('fn-count-id');
+    if (currentValue && !/^\d+$/.test(currentValue)) continue;
 
     const displayNumber = getDisplayNumber(footnoteId);
     if (displayNumber) {
