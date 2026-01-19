@@ -154,26 +154,32 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   });
 
   // Process footnote references
+  // Store as objects {id, marker} to support non-numeric markers (*, 23a, etc.)
   const footnotes = [];
   const seen = new Set();
 
   // New format: sup with class="footnote-ref" and id attribute
   node.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
     const footnoteId = sup.id;
+    const marker = sup.getAttribute('fn-count-id') || '';
     if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-      footnotes.push(footnoteId);
+      footnotes.push({ id: footnoteId, marker: marker });
       seen.add(footnoteId);
     }
   });
 
   // Old format fallback: anchor href inside sup
-  node.querySelectorAll('sup[fn-count-id] a.footnote-ref, a.footnote-ref').forEach(link => {
-    const href = link.getAttribute('href');
-    if (href) {
-      const footnoteId = href.replace(/^#/, '');
-      if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-        footnotes.push(footnoteId);
-        seen.add(footnoteId);
+  node.querySelectorAll('sup[fn-count-id]').forEach(sup => {
+    const link = sup.querySelector('a.footnote-ref');
+    if (link) {
+      const href = link.getAttribute('href');
+      if (href) {
+        const footnoteId = href.replace(/^#/, '');
+        const marker = sup.getAttribute('fn-count-id') || '';
+        if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
+          footnotes.push({ id: footnoteId, marker: marker });
+          seen.add(footnoteId);
+        }
       }
     }
   });
