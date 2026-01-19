@@ -1070,15 +1070,25 @@ def main(html_file_path, output_dir, book_id):
                 node.insert(0, original_anchor)
         
         references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
-        # Extract footnote IDs from href (new format) instead of display numbers (old format)
-        # This enables dynamic renumbering when footnotes are added/deleted
+        # Extract footnote IDs and markers from sup elements
+        # Store as objects {id, marker} to support non-numeric markers (*, 23a, etc.)
+        # This enables dynamic renumbering for numeric footnotes while preserving symbolic markers
         footnotes_in_node = []
         for sup in node.find_all('sup'):
-            fn_link = sup.find('a', class_='footnote-ref')
-            if fn_link and fn_link.get('href'):
-                footnote_id = fn_link['href'].lstrip('#')
+            # Get marker from fn-count-id attribute
+            marker = sup.get('fn-count-id', '')
+            # New format: sup has id directly and class="footnote-ref"
+            if sup.get('class') and 'footnote-ref' in sup.get('class', []):
+                footnote_id = sup.get('id', '')
                 if footnote_id:
-                    footnotes_in_node.append(footnote_id)
+                    footnotes_in_node.append({'id': footnote_id, 'marker': marker})
+            else:
+                # Old format: anchor inside sup with class="footnote-ref"
+                fn_link = sup.find('a', class_='footnote-ref')
+                if fn_link and fn_link.get('href'):
+                    footnote_id = fn_link['href'].lstrip('#')
+                    if footnote_id:
+                        footnotes_in_node.append({'id': footnote_id, 'marker': marker})
         node_object = {
             "id": node_key, "book": book_id, "chunk_id": chunk_id, 
             "startLine": start_line_counter, "content": str(node), 

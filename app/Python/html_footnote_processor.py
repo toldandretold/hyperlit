@@ -159,21 +159,29 @@ def create_node_chunks(soup, book_id):
                 # Force it one more time
                 element.attrs['id'] = str(i)
         
-        # Extract footnote IDs from sup.id (new format) or anchor href (old format)
+        # Extract footnote IDs and markers from sup elements
+        # Store as objects {id, marker} to support non-numeric markers (*, 23a, etc.)
         footnotes_in_node = []
+        seen_ids = set()
         # New format: sup with class="footnote-ref" and id
         for sup_tag in element.find_all('sup', class_='footnote-ref'):
             sup_id = sup_tag.get('id', '')
+            marker = sup_tag.get('fn-count-id', '')
             if sup_id and 'Fn' in sup_id:
-                if sup_id not in footnotes_in_node:
-                    footnotes_in_node.append(sup_id)
-        # Old format fallback: anchor with href
-        for a_tag in element.find_all('a', class_='footnote-ref'):
-            href = a_tag.get('href', '')
-            if href.startswith('#') and 'Fn' in href:
-                footnote_id = href[1:]  # Remove leading #
-                if footnote_id not in footnotes_in_node:
-                    footnotes_in_node.append(footnote_id)
+                if sup_id not in seen_ids:
+                    footnotes_in_node.append({'id': sup_id, 'marker': marker})
+                    seen_ids.add(sup_id)
+        # Old format fallback: anchor with href inside sup
+        for sup_tag in element.find_all('sup'):
+            a_tag = sup_tag.find('a', class_='footnote-ref')
+            if a_tag:
+                href = a_tag.get('href', '')
+                if href.startswith('#') and 'Fn' in href:
+                    footnote_id = href[1:]  # Remove leading #
+                    marker = sup_tag.get('fn-count-id', '')
+                    if footnote_id not in seen_ids:
+                        footnotes_in_node.append({'id': footnote_id, 'marker': marker})
+                        seen_ids.add(footnote_id)
         
         # Basic node structure
         node_object = {

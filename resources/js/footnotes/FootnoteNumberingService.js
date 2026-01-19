@@ -44,37 +44,53 @@ export function buildFootnoteMap(bookId, nodes) {
     return aLine - bLine;
   });
 
-  // Collect all footnote IDs in document order
-  const orderedFootnoteIds = [];
+  // Collect all footnotes in document order
+  // Supports both old format (string ID) and new format ({id, marker} object)
+  const orderedFootnotes = [];
   const seenIds = new Set();
 
   // Use nodes.footnotes arrays (kept in sync during saves in batch.js)
-  // This is much faster than parsing HTML content for every node
   for (const node of sortedNodes) {
     if (node.footnotes && Array.isArray(node.footnotes)) {
-      for (const footnoteId of node.footnotes) {
+      for (const footnote of node.footnotes) {
+        // Handle both formats: string (old) or object {id, marker} (new)
+        const footnoteId = typeof footnote === 'string' ? footnote : footnote?.id;
+        const marker = typeof footnote === 'string' ? null : footnote?.marker;
+
         if (footnoteId && !seenIds.has(footnoteId)) {
-          orderedFootnoteIds.push(footnoteId);
+          orderedFootnotes.push({ id: footnoteId, marker: marker });
           seenIds.add(footnoteId);
         }
       }
     }
   }
 
-  // COMMENTED OUT - old HTML parsing approach, kept for potential migration use
-  // console.time('⏱️ extractFootnoteIdsFromContent');
-  // extractFootnoteIdsFromContent(sortedNodes, orderedFootnoteIds, seenIds);
-  // console.timeEnd('⏱️ extractFootnoteIdsFromContent');
-
   // Build the maps
+  // Only numeric markers get sequential numbers; non-numeric markers keep their original value
   footnoteMap.clear();
   reverseMap.clear();
 
-  orderedFootnoteIds.forEach((footnoteId, index) => {
-    const displayNumber = index + 1;
-    footnoteMap.set(footnoteId, displayNumber);
-    reverseMap.set(displayNumber, footnoteId);
-  });
+  let numericCounter = 1;
+  for (const footnote of orderedFootnotes) {
+    const { id, marker } = footnote;
+
+    // Check if marker should be preserved (intentional non-numeric like *, †, 23a, 43b)
+    // NOT preserved: empty, missing, "?", or pure numeric markers
+    const shouldPreserveMarker = marker &&
+      marker !== '?' &&
+      !/^\d+$/.test(marker);
+
+    if (shouldPreserveMarker) {
+      // Intentional non-numeric markers keep their original value
+      footnoteMap.set(id, marker);
+      // Don't add to reverseMap since marker isn't a sequential number
+    } else {
+      // Numeric markers and placeholders get sequential numbers
+      footnoteMap.set(id, numericCounter);
+      reverseMap.set(numericCounter, id);
+      numericCounter++;
+    }
+  }
 
   if (footnoteMap.size > 0) {
     verbose.content(`Built footnote map with ${footnoteMap.size} entries for book ${bookId}`, 'FootnoteNumberingService.js');
@@ -228,10 +244,23 @@ export function updateFootnoteNumbersInDOM() {
 
     if (!footnoteId) continue;
 
-    // Get the new display number
+    // Check if this footnote has an intentional non-numeric marker (*, †, 43a, etc.)
+    // If so, preserve the original marker - don't renumber it
+    // Note: "?" is a placeholder for new footnotes and SHOULD be renumbered
+    const currentValue = sup.getAttribute('fn-count-id');
+    const shouldPreserveMarker = currentValue &&
+      currentValue !== '?' &&
+      !/^\d+$/.test(currentValue);
+
+    if (shouldPreserveMarker) {
+      // Skip renumbering for intentional non-numeric markers (*, 43a, 26a, etc.)
+      // These are preserved from the original document
+      continue;
+    }
+
+    // Get the new display number for numeric footnotes
     const displayNumber = getDisplayNumber(footnoteId);
     if (displayNumber) {
-      const currentValue = sup.getAttribute('fn-count-id');
       const newValue = displayNumber.toString();
 
       if (currentValue !== newValue) {
@@ -261,6 +290,11 @@ export function updateFootnoteNumbersInDOM() {
   for (const anchor of footnoteDefinitions) {
     const footnoteId = anchor.id;
     if (!footnoteId || !isFootnoteId(footnoteId)) continue;
+
+    // Skip intentional non-numeric markers (but not "?" placeholder)
+    const currentValue = anchor.getAttribute('fn-count-id');
+    const shouldPreserve = currentValue && currentValue !== '?' && !/^\d+$/.test(currentValue);
+    if (shouldPreserve) continue;
 
     const displayNumber = getDisplayNumber(footnoteId);
     if (displayNumber) {
@@ -306,9 +340,11 @@ export function hasOldFormatFootnotes(nodes) {
   for (const node of nodes) {
     if (node.footnotes && node.footnotes.length > 0) {
       const firstFootnote = node.footnotes[0];
+      // Handle both string format and object format {id, marker}
+      const footnoteId = typeof firstFootnote === 'string' ? firstFootnote : firstFootnote?.id;
       // Old format: simple numbers like "1", "2"
-      // New format: IDs like "bookId_Fn1758412345001"
-      if (firstFootnote && !isFootnoteId(firstFootnote)) {
+      // New format: IDs like "bookId_Fn1758412345001" or objects with id property
+      if (footnoteId && !isFootnoteId(footnoteId)) {
         return true;
       }
     }
