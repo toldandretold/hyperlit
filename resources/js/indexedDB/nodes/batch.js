@@ -91,6 +91,13 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   // Process <mark> tags for hyperlights
   const markTags = node.getElementsByTagName("mark");
   Array.from(markTags).forEach((mark) => {
+    // ✅ WHITELIST: Only save marks that have a class starting with "HL_"
+    // This prevents ephemeral marks (search highlights, etc.) from being saved
+    const hasHLClass = Array.from(mark.classList).some(cls => cls.startsWith('HL_'));
+    if (!hasHLClass) {
+      return; // Only save proper user highlights
+    }
+
     // ⚠️ SKIP newly created highlights - they already have correct positions from selection.js
     // Rangy may have created incorrect mark boundaries for overlapping highlights
     if (mark.hasAttribute('data-new-hl')) {
