@@ -19,17 +19,16 @@ export function stripHtml(html) {
 /**
  * Normalize text for search comparison
  * - Lowercase for case-insensitive search
- * - Collapse multiple whitespace to single space
- * - Trim leading/trailing whitespace
+ * Note: Does NOT collapse whitespace or trim - preserves exact character positions for DOM mapping
  * @param {string} text - Text to normalize
  * @returns {string} Normalized text
  */
 export function normalizeText(text) {
   if (!text) return '';
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
+  return text.toLowerCase();
+  // IMPORTANT: Do NOT use .replace(/\s+/g, ' ') or .trim()
+  // These change character positions relative to the actual DOM text,
+  // causing highlights to appear at wrong positions
 }
 
 /**
