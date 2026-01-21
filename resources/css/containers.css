@@ -344,8 +344,13 @@ body[data-page="user"] #userLibraryContainer {
   padding-bottom: .2em;
   margin-left: 1em;
   margin-right: 0;
+}
 
-
+/* Make tables in hyperlit-container horizontally scrollable */
+#hyperlit-container table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 #toc-container .scroller {
@@ -380,7 +385,7 @@ body[data-page="user"] #userLibraryContainer {
   box-sizing: border-box;
   overscroll-behavior: contain; /* Prevent scroll chaining to page */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  touch-action: pan-y; /* Allow vertical touch scrolling only */
+  touch-action: manipulation; /* Allow pan, pinch, and text selection */
 }
 
 #toc-container .mask-top,
@@ -1067,6 +1072,14 @@ body[data-page="user"] #userLibraryContainer {
   border: none;
   min-height: 1.5em;
   line-height: 1.5;
+  max-width: 100%;
+  overflow-x: hidden; /* Prevent horizontal scroll - tables have their own */
+  /* Allow text selection on mobile */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 /* Editable background on parent .footnote-content when footnote is editable */
