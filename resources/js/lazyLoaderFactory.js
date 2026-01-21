@@ -884,12 +884,15 @@ export function createChunkElement(nodes, instance) {
 
     let html = renderBlockToHtml(node);
 
-    if (node.hyperlights && node.hyperlights.length > 0) {
-      html = applyHighlights(html, node.hyperlights, instance.bookId);
-    }
-
+    // IMPORTANT: Apply hypercites FIRST, then highlights
+    // This ensures marks wrap AROUND hypercite <u> elements (protected parents)
+    // instead of hypercites being split across mark boundaries
     if (node.hypercites && node.hypercites.length > 0) {
       html = applyHypercites(html, node.hypercites);
+    }
+
+    if (node.hyperlights && node.hyperlights.length > 0) {
+      html = applyHighlights(html, node.hyperlights, instance.bookId);
     }
 
     const temp = document.createElement("div");
@@ -1174,11 +1177,55 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
 
 function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapElement) {
   try {
-    // Always use safe text-node wrapping to prevent DOM corruption
-    // extractContents() can corrupt block element structure (especially lists)
-    wrapTextNodesInRange(startNode, startOffset, endNode, endOffset, wrapElement);
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+
+    // Check if range is within a single block element
+    // extractContents() is safe within a block but can corrupt structure across blocks
+    const commonAncestor = range.commonAncestorContainer;
+    const blockTags = ['P', 'DIV', 'BLOCKQUOTE', 'LI', 'UL', 'OL', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+
+    // Find the containing block element
+    let containingBlock = commonAncestor;
+    while (containingBlock && containingBlock.nodeType !== Node.ELEMENT_NODE) {
+      containingBlock = containingBlock.parentNode;
+    }
+    while (containingBlock && !blockTags.includes(containingBlock.tagName)) {
+      containingBlock = containingBlock.parentNode;
+    }
+
+    // Check if start and end are in the same block element
+    let startBlock = startNode;
+    while (startBlock && !blockTags.includes(startBlock.tagName)) {
+      startBlock = startBlock.parentNode;
+    }
+    let endBlock = endNode;
+    while (endBlock && !blockTags.includes(endBlock.tagName)) {
+      endBlock = endBlock.parentNode;
+    }
+
+    const isSameBlock = startBlock === endBlock && startBlock !== null;
+
+    if (isSameBlock) {
+      // Safe to use extractContents - handles inline elements correctly
+      // This keeps <u>, <sup>, <b>, <i>, etc. intact inside the wrapper
+      const contents = range.extractContents();
+      const wrapper = wrapElement.cloneNode(false);
+      wrapper.appendChild(contents);
+      range.insertNode(wrapper);
+    } else {
+      // Cross-block range - use text-node approach to avoid corrupting block structure
+      wrapTextNodesInRange(startNode, startOffset, endNode, endOffset, wrapElement);
+    }
   } catch (error) {
-    console.error("❌ Text node wrapping failed:", error);
+    console.error("❌ Range wrapping failed:", error);
+    // Fallback to text-node approach
+    try {
+      wrapTextNodesInRange(startNode, startOffset, endNode, endOffset, wrapElement);
+    } catch (fallbackError) {
+      console.error("❌ Fallback text node wrapping also failed:", fallbackError);
+    }
   }
 }
 
@@ -1245,8 +1292,70 @@ function findCommonAncestor(node1, node2) {
   return null;
 }
 
+/**
+ * Find a protected parent element that shouldn't have mark/u wrappers
+ * inserted inside it (e.g., footnote sups, hypercites). Returns the element or null.
+ */
+function getProtectedParent(textNode) {
+  let parent = textNode.parentNode;
+  while (parent && parent.nodeType === Node.ELEMENT_NODE) {
+    // Footnote sups - wrapping inside them breaks click handling
+    if (parent.tagName === 'SUP' && parent.hasAttribute('fn-count-id')) {
+      return parent;
+    }
+    // Footnote links
+    if (parent.tagName === 'A' && parent.classList.contains('footnote-ref')) {
+      return parent;
+    }
+    // Hypercite underlines - wrapping inside them breaks click handling and splits the hypercite
+    if (parent.tagName === 'U' && (
+      parent.id?.startsWith('hypercite_') ||
+      parent.classList.contains('couple') ||
+      parent.classList.contains('poly') ||
+      parent.classList.contains('single')
+    )) {
+      return parent;
+    }
+    // Stop at block-level elements
+    if (['P', 'DIV', 'BLOCKQUOTE', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(parent.tagName)) {
+      return null;
+    }
+    parent = parent.parentNode;
+  }
+  return null;
+}
+
+/**
+ * Wrap an entire protected element (like a footnote sup) with the wrapper element.
+ * This maintains proper DOM structure so click handlers work correctly.
+ */
+function wrapProtectedElement(element, templateElement) {
+  // Skip if this element was already wrapped (avoid double-wrapping)
+  if (element.parentNode?.nodeName === templateElement.nodeName) {
+    return;
+  }
+  // Also check if already wrapped by checking for mark/u parent with same ID pattern
+  const existingWrapper = element.parentNode;
+  if (existingWrapper &&
+      (existingWrapper.nodeName === 'MARK' || existingWrapper.nodeName === 'U') &&
+      existingWrapper.id) {
+    return;
+  }
+
+  const wrapper = templateElement.cloneNode(false);
+  element.parentNode.insertBefore(wrapper, element);
+  wrapper.appendChild(element);
+}
+
 function wrapPartialTextNode(textNode, start, end, templateElement) {
   if (start >= end || !textNode.parentNode) return;
+
+  // If text is inside a protected element (footnote sup), wrap the whole element instead
+  const protectedParent = getProtectedParent(textNode);
+  if (protectedParent) {
+    wrapProtectedElement(protectedParent, templateElement);
+    return;
+  }
 
   const text = textNode.textContent;
   const middle = text.substring(start, end);
@@ -1277,6 +1386,13 @@ function wrapPartialTextNode(textNode, start, end, templateElement) {
 function wrapEntireTextNode(textNode, templateElement) {
   // Skip whitespace-only text nodes
   if (!textNode.parentNode || !textNode.textContent.trim()) return;
+
+  // If text is inside a protected element (footnote sup), wrap the whole element instead
+  const protectedParent = getProtectedParent(textNode);
+  if (protectedParent) {
+    wrapProtectedElement(protectedParent, templateElement);
+    return;
+  }
 
   const wrapper = templateElement.cloneNode(false);
   textNode.parentNode.insertBefore(wrapper, textNode);

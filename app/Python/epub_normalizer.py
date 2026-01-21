@@ -1005,6 +1005,11 @@ class ClassPatternFootnoteDetector(EpubTransform):
             class_str = ' '.join(elem.get('class', []))
             if any(re.search(p, class_str, re.I) for p in self.FOOTNOTE_PATTERNS):
                 elem_id = elem.get('id', '')
+                # If element has no ID, check first child anchor (Penguin format)
+                if not elem_id:
+                    first_a = elem.find('a', id=True)
+                    if first_a:
+                        elem_id = first_a.get('id', '')
                 if elem_id:
                     footnotes.append({
                         'id': elem_id,
@@ -1398,6 +1403,8 @@ class HeuristicFootnoteDetector(EpubTransform):
         r'^filepos\d+$',  # Calibre file position anchors
         r'^[a-z]+\d*fn\d+$',  # Chapter-prefixed: chapter01fn1, introductionfn5
         r'^[a-z]+\d*-fn-?\d+$',  # With dashes: chapter01-fn1, chapter-fn-1
+        r'^pg\d+fn\d+$',  # Penguin format: pg400fn39 (page+fn+number)
+        r'^pg\d+_fn\d+$',  # Penguin reference format: pg202_fn1
     ]
 
     def detect(self, soup) -> bool:
@@ -1492,6 +1499,19 @@ class HeuristicFootnoteDetector(EpubTransform):
                             'strategy': 'heuristic_numbered_anchor'
                         })
                         log(f"    Found endnote def: id={a_id}, num={fn_num}")
+
+        # Pattern 4: Cross-file footnote links (href="pg0XXXfn.html#pgXXXfnYY")
+        # Common in Penguin Classics and similar publisher formats
+        for a_tag in soup.find_all('a', href=re.compile(r'fn\.html#')):
+            href = a_tag.get('href', '')
+            target_id = self._extract_target_id(href)
+            if target_id and target_id not in seen_ref_ids:
+                seen_ref_ids.add(target_id)
+                noterefs.append({
+                    'element': a_tag,
+                    'target_id': target_id,
+                    'strategy': 'heuristic_cross_file_fn'
+                })
 
         log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
         return {'footnotes': footnotes, 'noterefs': noterefs}
@@ -1668,7 +1688,48 @@ class FootnoteConverter(EpubTransform):
             log("  No footnotes to convert")
             return {'footnotes_json': []}
 
-        log(f"  Converting {len(all_footnotes)} footnotes, {len(all_noterefs)} references")
+        log(f"  Converting {len(all_footnotes)} footnotes, {len(all_noterefs)} references (detected)")
+
+        # Build set of all footnote definition IDs (for reverse-mapping references)
+        all_footnote_ids = {fn.get('id', '') for fn in all_footnotes if fn.get('id')}
+
+        # Reverse-mapping: Find all <a> links pointing to footnote IDs that weren't
+        # detected by the normal reference detectors. This catches publisher-specific
+        # patterns like <a class="nounder" href="#footnote_id">
+        seen_ref_targets = {ref.get('target_id', '') for ref in all_noterefs}
+        additional_refs = []
+
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '')
+            if not href.startswith('#'):
+                continue
+            target_id = href[1:]
+
+            # Skip if already detected or not a footnote target
+            if target_id in seen_ref_targets or target_id not in all_footnote_ids:
+                continue
+
+            # Skip if this is inside a footnote definition (backlink)
+            # Check if any ancestor has class matching footnote patterns
+            is_backlink = False
+            for parent in a_tag.parents:
+                parent_class = ' '.join(parent.get('class', []))
+                if re.search(r'\b(footnote|endnote|note)\b', parent_class, re.I):
+                    is_backlink = True
+                    break
+            if is_backlink:
+                continue
+
+            seen_ref_targets.add(target_id)
+            additional_refs.append({
+                'element': a_tag,
+                'target_id': target_id,
+                'original_marker': a_tag.get_text(strip=True),
+                'strategy': 'reverse_mapping'
+            })
+
+        all_noterefs = all_noterefs + additional_refs
+        log(f"  Found {len(additional_refs)} additional refs via reverse-mapping, total: {len(all_noterefs)}")
 
         # Build mapping from old IDs to new Hyperlit IDs
         # Also extract footnote content

@@ -11,6 +11,7 @@ import { OupProcessor } from '../format-processors/oup-processor.js';
 import { SageProcessor } from '../format-processors/sage-processor.js';
 import { ScienceDirectProcessor } from '../format-processors/science-direct-processor.js';
 import { SpringerProcessor } from '../format-processors/springer-processor.js';
+import { SubstackProcessor } from '../format-processors/substack-processor.js';
 
 /**
  * Format registry structure:
@@ -63,6 +64,19 @@ export const FORMAT_REGISTRY = {
     processor: SpringerProcessor,
     priority: 4,
     description: 'Springer Nature content with ref-CR and Fn ID patterns'
+  },
+
+  // Substack - Priority 4
+  'substack': {
+    selectors: [
+      'a[data-component-name="FootnoteAnchorToDOM"]',
+      '.footnote-content',
+      'a[href*="substack.com"][href*="#footnote-"]',
+      '[id^="footnote-anchor-"]'
+    ],
+    processor: SubstackProcessor,
+    priority: 4,
+    description: 'Substack newsletter content with FootnoteAnchorToDOM components'
   },
 
   // Cambridge - Priority 3
