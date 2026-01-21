@@ -44,9 +44,9 @@ img {
 ul {
     margin-block-start: .2em;
     margin-block-end: 2em;
-    padding-left: 0; /* Remove padding since we're using inside positioning */
-    margin-left: 0; /* Remove default browser margin */
-    list-style-position: inside; /* Keep bullets inside the content area */
+    padding-left: 1.5em; /* Space for bullet */
+    margin-left: 0;
+    list-style-position: outside; /* Hanging indent - text wraps align with text, not bullet */
 }
 
 
@@ -282,6 +282,10 @@ blockquote {
   sup.open-icon {
     font-size: 12px; /* Reduced from 14px */
   }
+
+  ol, ul {
+    font-size: 1em; /* Match paragraph font size on mobile */
+  }
 }
 
 
@@ -360,11 +364,18 @@ sup[fn-count-id]:active,
 li {
     color: var(--color-text);
     margin-bottom: 0.3em;
-    margin-left: 1em;
+    margin-left: 0;
     padding-left: 0;
     line-height: var(--line-height-base);
     word-wrap: break-word;
     overflow-wrap: break-word;
+    /* Match p tag font styling */
+    font-size: 1em;
+    font-weight: 350;
+    letter-spacing: var(--letter-spacing-medium);
+    word-spacing: -0.02em;
+    hyphens: auto;
+    text-align: left;
 }
 
 /* Fix paragraphs inside list items */
@@ -373,6 +384,7 @@ li p {
     margin-bottom: 0; /* Remove bottom margin */
     padding-left: 0; /* Remove any padding */
 }
+
 
 a {
     color: var(--color-link);
@@ -411,7 +423,12 @@ sup.note::before {
 
 ol {
     hyphens: auto;
-    font-size: 25px;
+    font-size: 1em;
+    margin-block-start: .2em;
+    margin-block-end: 2em;
+    padding-left: 1.5em; /* Space for numbers */
+    margin-left: 0;
+    list-style-position: outside; /* Hanging indent - text wraps align with text, not number */
 }
 
 code {
