@@ -89,6 +89,19 @@ export function detectFootnote(element) {
     }
   }
 
+  // Fallback - check if element is inside or contains a footnote sup
+  // This handles the case where mark wraps around sup and mark handler fires
+  const supElement = element.closest('sup[fn-count-id]') || element.querySelector('sup[fn-count-id]');
+  if (supElement) {
+    const footnoteId = supElement.id || supElement.querySelector('a.footnote-ref, a[href^="#"]')?.href?.split('#')[1] || null;
+    return {
+      type: 'footnote',
+      element: supElement,
+      fnCountId: supElement.getAttribute('fn-count-id'),
+      footnoteId: footnoteId
+    };
+  }
+
   return null;
 }
 
