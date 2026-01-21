@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
+import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs, updateBookTimestamp } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -26,6 +26,110 @@ const classApplier = rangy.createClassApplier("highlight", {
 highlighter.addClassApplier(classApplier);
 
 /**
+ * Fix invalid marks that wrap block-level elements
+ * Rangy can incorrectly wrap <li>, <p>, etc. in <mark> tags
+ * This function detects and fixes those cases
+ */
+function fixInvalidMarks() {
+  const blockElements = ['LI', 'OL', 'UL', 'P', 'DIV', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE', 'TABLE'];
+  const marks = document.querySelectorAll('mark.highlight');
+
+  marks.forEach(mark => {
+    // Check if mark contains block elements as direct children
+    const blockChildren = Array.from(mark.childNodes).filter(child =>
+      child.nodeType === Node.ELEMENT_NODE && blockElements.includes(child.tagName)
+    );
+
+    if (blockChildren.length > 0) {
+      console.log('🔧 Fixing invalid mark wrapping block elements:', blockChildren.map(c => c.tagName));
+
+      // Get the mark's parent to insert fixed content
+      const parent = mark.parentNode;
+
+      // Process each child of the invalid mark
+      Array.from(mark.childNodes).forEach(child => {
+        if (child.nodeType === Node.ELEMENT_NODE && blockElements.includes(child.tagName)) {
+          // This is a block element - move it out of the mark
+          // and wrap its text content in new marks
+
+          // Create marks inside this block element's text content
+          wrapTextInElement(child, 'mark', ['highlight']);
+
+          // Move the block element out of the mark, before the mark
+          parent.insertBefore(child, mark);
+        } else if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+          // Text node - wrap it in a mark and move before the invalid mark
+          const newMark = document.createElement('mark');
+          newMark.className = 'highlight';
+          newMark.textContent = child.textContent;
+          parent.insertBefore(newMark, mark);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          // Non-block element (like <strong>, <em>) - wrap in mark and move
+          const newMark = document.createElement('mark');
+          newMark.className = 'highlight';
+          newMark.appendChild(child.cloneNode(true));
+          parent.insertBefore(newMark, mark);
+        }
+      });
+
+      // Remove the now-empty invalid mark
+      mark.remove();
+    }
+  });
+
+  // Also clean up any empty elements that Rangy may have created
+  cleanupEmptyElements();
+}
+
+/**
+ * Wrap all text content within an element in mark tags
+ */
+function wrapTextInElement(element, tagName, classes) {
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  const textNodes = [];
+  let node;
+  while (node = walker.nextNode()) {
+    if (node.textContent.trim()) {
+      textNodes.push(node);
+    }
+  }
+
+  textNodes.forEach(textNode => {
+    const wrapper = document.createElement(tagName);
+    classes.forEach(cls => wrapper.classList.add(cls));
+    textNode.parentNode.insertBefore(wrapper, textNode);
+    wrapper.appendChild(textNode);
+  });
+}
+
+/**
+ * Clean up empty elements created by Rangy's extractContents
+ */
+function cleanupEmptyElements() {
+  const blockElements = ['LI', 'P', 'DIV', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+
+  blockElements.forEach(tag => {
+    document.querySelectorAll(tag).forEach(el => {
+      // Check if element is effectively empty (only whitespace or empty children)
+      const hasContent = el.textContent.trim().length > 0 ||
+                         el.querySelector('img, video, iframe, br');
+
+      if (!hasContent && !el.id) {
+        // Only remove if it has no ID (don't remove our tracked elements)
+        console.log(`🧹 Removing empty ${tag} element`);
+        el.remove();
+      }
+    });
+  });
+}
+
+/**
  * Handle text selection and show/hide highlight buttons
  */
 export function handleSelection() {
@@ -45,6 +149,7 @@ export function handleSelection() {
   let selectedText = window.getSelection().toString();
   const highlights = document.querySelectorAll('mark');
   let isSelectingHighlight = false;
+  let isSelectingUserHighlight = false;
 
   // Check if the selection contains or overlaps with any existing highlight
   const selection = window.getSelection();
@@ -63,12 +168,19 @@ export function handleSelection() {
 
         if (intersects) {
           isSelectingHighlight = true;
+          // Check if this is a user's own highlight (has user-highlight class)
+          if (highlight.classList.contains('user-highlight')) {
+            isSelectingUserHighlight = true;
+          }
         }
       } catch (e) {
         // Fallback to text-based comparison if range comparison fails
         if (selectedText.includes(highlight.textContent.trim()) ||
             highlight.textContent.trim().includes(selectedText)) {
           isSelectingHighlight = true;
+          if (highlight.classList.contains('user-highlight')) {
+            isSelectingUserHighlight = true;
+          }
         }
       }
     });
@@ -107,12 +219,12 @@ export function handleSelection() {
 
     buttons.style.left = `${rect.left + window.scrollX}px`;
 
-    // Show delete button if selecting any highlight
-    if (isSelectingHighlight) {
-      console.log("Detected highlight selection - showing delete button");
+    // Show delete button only if selecting user's own highlight
+    if (isSelectingUserHighlight) {
+      console.log("Detected user's highlight selection - showing delete button");
       document.getElementById("delete-hyperlight").style.display = "block";
     } else {
-      console.log("No highlight selected - hiding delete button");
+      console.log("No user highlight selected - hiding delete button");
       document.getElementById("delete-hyperlight").style.display = "none";
     }
   } else {
@@ -257,6 +369,9 @@ export async function createHighlightHandler(event, bookId) {
   }
 
   highlighter.highlightSelection("highlight");
+
+  // Fix any invalid marks that wrap block elements (like <li>, <p>)
+  fixInvalidMarks();
 
   const newMarks = document.querySelectorAll('mark.highlight');
   console.log("🎨 After rangy - created marks:", newMarks.length, Array.from(newMarks).map(m => ({
@@ -445,8 +560,8 @@ export async function deleteHighlightHandler(event, bookId) {
   // Check if the selection intersects with existing highlights
   const selectionRange = selection.getRangeAt(0);
 
+  // First pass: identify which highlight IDs to remove based on selection intersection
   marks.forEach((mark) => {
-    // Check if the selection intersects with this mark
     let shouldRemove = false;
 
     try {
@@ -469,20 +584,27 @@ export async function deleteHighlightHandler(event, bookId) {
         (cls) => cls !== "highlight" && cls.startsWith("HL_")
       );
 
-      if (highlightId) {
+      if (highlightId && !highlightIdsToRemove.includes(highlightId)) {
         highlightIdsToRemove.push(highlightId);
         console.log("Removing highlight for:", highlightId);
-
-        const container = mark.closest(
-          "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
-        );
-        if (container && container.id) {
-          affectedNodeChunks.add(container.id);
-        }
       }
-
-      unwrapMark(mark);
     }
+  });
+
+  // Second pass: remove ALL marks with the highlight class (not by ID, by class)
+  highlightIdsToRemove.forEach(highlightId => {
+    const allMarksWithClass = document.querySelectorAll(`mark.${highlightId}`);
+    console.log(`Removing ${allMarksWithClass.length} marks with class ${highlightId}`);
+
+    allMarksWithClass.forEach(mark => {
+      const container = mark.closest(
+        "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+      );
+      if (container && container.id) {
+        affectedNodeChunks.add(container.id);
+      }
+      unwrapMark(mark);
+    });
   });
 
   const updatedNodeChunks = [];
