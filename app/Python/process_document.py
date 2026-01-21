@@ -72,6 +72,20 @@ def sanitize_html(html_string):
     return str(soup)
 
 
+def get_element_html_content(element):
+    """
+    Extract HTML content from an element, preserving structure for tables etc.
+    For block elements like tables, returns the full HTML.
+    For text elements, returns inner HTML preserving inline formatting.
+    """
+    if element.name in ['table', 'pre', 'blockquote', 'ul', 'ol', 'figure', 'img']:
+        # Preserve full HTML structure for block elements and images
+        return str(element)
+    else:
+        # For p, div, li, etc. - get inner HTML (children)
+        return ''.join(str(c) for c in element.children)
+
+
 # --- UTILITY FUNCTIONS ---
 
 def analyze_document_structure(soup):
@@ -225,7 +239,8 @@ def analyze_document_structure(soup):
 
 def detect_footnote_sections(soup):
     """Detect footnote sections by scanning forward and identifying text ranges"""
-    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+    # Include tables and other block elements that might be part of multi-paragraph footnotes
+    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
     print("--- DEBUG: Section Detection ---")
     print(f"Total elements found: {len(all_elements)}")
     
@@ -521,42 +536,78 @@ def generate_ref_keys(text, context_text=""):
     return list(keys)
 
 def process_whole_document_footnotes(soup, book_id):
-    """Process footnotes when all definitions are at document end"""
-    all_elements = soup.find_all(['p', 'div', 'li'])
+    """Process footnotes when all definitions are at document end.
+    Supports multi-paragraph footnotes by collecting all elements until the next footnote marker,
+    heading, or horizontal rule.
+    """
+    # Include tables, headings, hr and other block elements
+    all_elements = soup.find_all(['p', 'div', 'li', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr'])
     footnote_map = {}
     footnotes_data = []
-    
+
     print("--- Processing whole-document footnotes ---")
-    
-    # Find all footnote definitions
-    for element in all_elements:
+
+    # First pass: find indices of all footnote start elements
+    footnote_starts = []
+    for i, element in enumerate(all_elements):
         text = element.get_text().strip()
-        # Extract footnote number from various patterns including [^1]:
-        number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', text, re.DOTALL)
-        if number_match:
-            # Extract the digit from either group 2 or group 3
-            identifier = number_match.group(2) or number_match.group(3)
-            content = number_match.group(4).strip()
-            
-            print(f"Processing whole-doc footnote {identifier}: {content[:50]}...")
-            
-            # Generate unique footnote ID (shorter format without book prefix)
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
-            
-            # Add anchor with unique ID
-            anchor_tag = soup.new_tag('a', id=unique_fn_id)
-            anchor_tag['fn-count-id'] = identifier
-            element.insert(0, anchor_tag)
-            
-            footnote_map[identifier] = {
-                'unique_fn_id': unique_fn_id,
-                'content': content,
-                'element': element
-            }
-            
-            footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
-    
+        # Check if this element starts a footnote definition
+        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+            footnote_starts.append(i)
+
+    # Second pass: process each footnote with its continuation elements
+    for j, start_idx in enumerate(footnote_starts):
+        # End index is either next footnote start or end of relevant elements
+        end_idx = footnote_starts[j + 1] if j + 1 < len(footnote_starts) else len(all_elements)
+
+        # Get the first element (contains the marker)
+        first_element = all_elements[start_idx]
+        first_text = first_element.get_text().strip()
+
+        # Extract footnote number from first element
+        number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', first_text, re.DOTALL)
+        if not number_match:
+            continue
+
+        # Extract the digit from either group 2 or group 3
+        identifier = number_match.group(2) or number_match.group(3)
+        first_content = number_match.group(4).strip()
+
+        # Collect content from all elements for this footnote
+        content_parts = [first_content] if first_content else []
+
+        # Add continuation elements (elements between this footnote and the next)
+        # Stop at headings or horizontal rules
+        for elem in all_elements[start_idx + 1:end_idx]:
+            # Stop if we hit a heading or hr (section boundary)
+            if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
+                break
+            elem_content = get_element_html_content(elem)
+            if elem_content and elem_content.strip():
+                content_parts.append(elem_content.strip())
+
+        # Combine all content with HTML line breaks for multi-paragraph support
+        full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
+
+        print(f"Processing whole-doc footnote {identifier}: {full_content[:50]}... ({len(content_parts)} parts)")
+
+        # Generate unique footnote ID (shorter format without book prefix)
+        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+        unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
+
+        # Add anchor with unique ID to the first element
+        anchor_tag = soup.new_tag('a', id=unique_fn_id)
+        anchor_tag['fn-count-id'] = identifier
+        first_element.insert(0, anchor_tag)
+
+        footnote_map[identifier] = {
+            'unique_fn_id': unique_fn_id,
+            'content': full_content,
+            'element': first_element
+        }
+
+        footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
+
     print(f"Found {len(footnote_map)} footnote definitions in whole-document mode")
     return footnote_map, footnotes_data
 
@@ -700,7 +751,7 @@ def main(html_file_path, output_dir, book_id):
                 all_footnotes_data = existing_footnotes
                 footnote_sections = []
                 sectioned_footnote_map = {}
-                all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+                all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
                 # Skip to node chunking
                 strategy = 'pre_processed'
             else:
@@ -717,7 +768,7 @@ def main(html_file_path, output_dir, book_id):
         sectioned_footnote_map = {'whole_document': global_footnote_map}
         all_footnotes_data = footnotes_data
         footnote_sections = []
-        all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+        all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
     elif strategy != 'pre_processed':
         # Use section-aware footnote processing
         footnote_sections, all_elements = detect_footnote_sections(soup)
@@ -773,42 +824,79 @@ def main(html_file_path, output_dir, book_id):
         print(f"Unwrapping {len(list_items)} traditional footnote items to be processed as individual nodes.")
         fn_container.replace_with(*list_items)
     
-    # Process sectioned footnotes
+    # Process sectioned footnotes with multi-paragraph support
     for section in footnote_sections:
         section_id = section['id']
         sectioned_footnote_map[section_id] = {}
-        
-        for footnote_element in section['footnotes']:
-            text = footnote_element.get_text()
-            # Extract footnote number from various patterns including [^1]:
-            # Must have brackets OR caret to avoid matching numbered lists
-            number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', text, re.DOTALL)
+
+        # Get the range of elements in this section's footnotes area
+        fn_start_idx = section.get('footnotes_start_idx', 0)
+        fn_end_idx = section.get('footnotes_end_idx', len(all_elements))
+
+        # Get elements in the footnotes range
+        section_elements = all_elements[fn_start_idx:fn_end_idx]
+
+        # Find indices of footnote starts within this range
+        footnote_starts = []
+        for i, element in enumerate(section_elements):
+            text = element.get_text().strip()
+            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                footnote_starts.append(i)
+
+        # Process each footnote with its continuation elements
+        for j, start_idx in enumerate(footnote_starts):
+            # End index is either next footnote start or end of section
+            end_idx = footnote_starts[j + 1] if j + 1 < len(footnote_starts) else len(section_elements)
+
+            # Get the first element (contains the marker)
+            first_element = section_elements[start_idx]
+            first_text = first_element.get_text().strip()
+
+            # Extract footnote number from first element
+            number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', first_text, re.DOTALL)
             if not number_match:
                 continue
-                
+
             # Extract the digit from either group 2 or group 3
             identifier = number_match.group(2) or number_match.group(3)
-            content = number_match.group(4).strip()
-            print(f"Processing footnote {identifier} in section {section_id}: {content[:30]}...")
-            
+            first_content = number_match.group(4).strip()
+
+            # Collect content from all elements for this footnote
+            content_parts = [first_content] if first_content else []
+
+            # Add continuation elements (elements between this footnote and the next)
+            # Stop at headings or horizontal rules (section boundaries)
+            for elem in section_elements[start_idx + 1:end_idx]:
+                # Stop if we hit a heading or hr (section boundary)
+                if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
+                    break
+                elem_content = get_element_html_content(elem)
+                if elem_content and elem_content.strip():
+                    content_parts.append(elem_content.strip())
+
+            # Combine all content with HTML line breaks for multi-paragraph support
+            full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
+
+            print(f"Processing footnote {identifier} in section {section_id}: {full_content[:30]}... ({len(content_parts)} parts)")
+
             # Generate unique footnote ID with section prefix (shorter format without book prefix)
             random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
             unique_fn_id = f"s{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
-            
-            # Add anchor with unique ID and section info
+
+            # Add anchor with unique ID and section info to the first element
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
             anchor_tag['fn-count-id'] = identifier
             anchor_tag['fn-section-id'] = section_id
-            footnote_element.insert(0, anchor_tag)
-            
+            first_element.insert(0, anchor_tag)
+
             sectioned_footnote_map[section_id][identifier] = {
                 'unique_fn_id': unique_fn_id,
-                'content': content,
+                'content': full_content,
                 'section_id': section_id,
-                'element': footnote_element
+                'element': first_element
             }
-            
-            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
+
+            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
     
     # Create flattened map for backward compatibility
     footnote_map = {}
