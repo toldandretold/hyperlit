@@ -109,7 +109,7 @@ export function findContainerWithNumericalId(startElement) {
   // Walk up the DOM tree looking for a container with numerical ID
   while (current && current !== document.body && current !== document.documentElement) {
     // Check if current element is one of our target types
-    if (current.matches && current.matches("p, blockquote, table, h1, h2, h3, h4, h5, h6, li")) {
+    if (current.matches && current.matches("p, blockquote, table, h1, h2, h3, h4, h5, h6, li, ol, ul")) {
       // Check if it has a numerical ID
       if (isNumericalId(current.id)) {
         return current;

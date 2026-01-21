@@ -274,7 +274,7 @@ export async function createHighlightHandler(event, bookId) {
 
   affectedMarks.forEach((mark) => {
     const container = mark.closest(
-      "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id]"
+      "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
     );
     if (container && container.id) {
       affectedIds.add(container.id);
@@ -474,7 +474,7 @@ export async function deleteHighlightHandler(event, bookId) {
         console.log("Removing highlight for:", highlightId);
 
         const container = mark.closest(
-          "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id]"
+          "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
         );
         if (container && container.id) {
           affectedNodeChunks.add(container.id);

@@ -81,7 +81,7 @@ export async function deleteHighlightById(highlightId) {
       }
 
       // Track which nodes were affected for re-applying highlights
-      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id]');
+      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
       if (container && container.id) {
         affectedNodeIds.add(container.id);
       }
@@ -187,7 +187,7 @@ export async function hideHighlightById(highlightId) {
       }
 
       // Track which nodes were affected for re-applying highlights
-      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id]');
+      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
       if (container && container.id) {
         affectedNodeIds.add(container.id);
       }
