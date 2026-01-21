@@ -1174,36 +1174,113 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
 
 function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapElement) {
   try {
-    const range = document.createRange();
-    range.setStart(startNode, startOffset);
-    range.setEnd(endNode, endOffset);
-
-    // 🛡️ GUARD: Check if the range ends at offset 0 inside a <sup> or <a> element
-    // This would cause extractContents() to split the element and duplicate content
-    // Instead, extend the range to include the entire sup/a element
-    if (endOffset === 0 && endNode.parentElement) {
-      const parent = endNode.parentElement;
-      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
-        // Extend range to AFTER the entire sup/a element
-        range.setEndAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
-      }
-    }
-
-    // Similarly, if range starts at end of text inside sup/a, adjust to start after it
-    if (startOffset === startNode.textContent.length && startNode.parentElement) {
-      const parent = startNode.parentElement;
-      if (parent.tagName === 'SUP' || parent.tagName === 'A') {
-        range.setStartAfter(parent.tagName === 'A' ? parent.closest('sup') || parent : parent);
-      }
-    }
-
-    // ✅ Do the tolerant extract/insert directly
-    const contents = range.extractContents();
-    wrapElement.appendChild(contents);
-    range.insertNode(wrapElement);
+    // Always use safe text-node wrapping to prevent DOM corruption
+    // extractContents() can corrupt block element structure (especially lists)
+    wrapTextNodesInRange(startNode, startOffset, endNode, endOffset, wrapElement);
   } catch (error) {
-    console.error("❌ Fallback wrapping failed completely:", error);
+    console.error("❌ Text node wrapping failed:", error);
   }
+}
+
+/**
+ * Wrap text nodes individually when range spans different block elements
+ * This prevents extractContents() from corrupting DOM structure
+ */
+function wrapTextNodesInRange(startNode, startOffset, endNode, endOffset, templateElement) {
+  // Special case: start and end are the same text node
+  if (startNode === endNode) {
+    wrapPartialTextNode(startNode, startOffset, endOffset, templateElement);
+    return;
+  }
+
+  // Get all text nodes between start and end
+  const commonAncestor = findCommonAncestor(startNode, endNode);
+  if (!commonAncestor) return;
+
+  // If commonAncestor is a text node, use its parent
+  const searchRoot = commonAncestor.nodeType === Node.TEXT_NODE
+    ? commonAncestor.parentNode
+    : commonAncestor;
+
+  if (!searchRoot) return;
+
+  const textNodes = getTextNodes(searchRoot);
+  let inRange = false;
+
+  for (const textNode of textNodes) {
+    if (textNode === startNode) {
+      inRange = true;
+      // Wrap from startOffset to end of this node
+      if (startOffset < textNode.textContent.length) {
+        wrapPartialTextNode(textNode, startOffset, textNode.textContent.length, templateElement);
+      }
+    } else if (textNode === endNode) {
+      // Wrap from start to endOffset of this node
+      if (endOffset > 0) {
+        wrapPartialTextNode(textNode, 0, endOffset, templateElement);
+      }
+      break;
+    } else if (inRange) {
+      // Wrap entire text node
+      wrapEntireTextNode(textNode, templateElement);
+    }
+  }
+}
+
+function findCommonAncestor(node1, node2) {
+  const ancestors1 = [];
+  let current = node1;
+  while (current) {
+    ancestors1.push(current);
+    current = current.parentNode;
+  }
+
+  current = node2;
+  while (current) {
+    if (ancestors1.includes(current)) {
+      return current;
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function wrapPartialTextNode(textNode, start, end, templateElement) {
+  if (start >= end || !textNode.parentNode) return;
+
+  const text = textNode.textContent;
+  const middle = text.substring(start, end);
+
+  // Skip if the middle portion is only whitespace
+  if (!middle.trim()) return;
+
+  const before = text.substring(0, start);
+  const after = text.substring(end);
+
+  const parent = textNode.parentNode;
+
+  // Create the wrapper element (clone template to preserve classes/attributes)
+  const wrapper = templateElement.cloneNode(false);
+  wrapper.textContent = middle;
+
+  // Replace the text node with before + wrapper + after
+  if (before) {
+    parent.insertBefore(document.createTextNode(before), textNode);
+  }
+  parent.insertBefore(wrapper, textNode);
+  if (after) {
+    parent.insertBefore(document.createTextNode(after), textNode);
+  }
+  parent.removeChild(textNode);
+}
+
+function wrapEntireTextNode(textNode, templateElement) {
+  // Skip whitespace-only text nodes
+  if (!textNode.parentNode || !textNode.textContent.trim()) return;
+
+  const wrapper = templateElement.cloneNode(false);
+  textNode.parentNode.insertBefore(wrapper, textNode);
+  wrapper.appendChild(textNode);
 }
 
 function getTextNodes(element) {
