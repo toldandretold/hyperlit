@@ -508,7 +508,6 @@ async function fallbackScrollPosition(lazyLoader) {
     const targetElement = lazyLoader.container.querySelector(`#${CSS.escape(savedTargetId)}`);
     if (targetElement) {
       scrollElementIntoMainContent(targetElement, 50);
-      targetElement.classList.add("active");
       return;
     }
   }
