@@ -791,59 +791,67 @@ export function restoreNavigationOverlayIfNeeded() {
 export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
-    return;
+    return Promise.reject(new Error("Lazy loader instance not provided"));
   }
   console.log("Initiating navigation to internal ID:", targetId);
 
-  // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
-  // This prevents restoreScrollPosition() from interfering
-  lazyLoader.isNavigatingToInternalId = true;
-  lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
-  console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
+  // 🚀 Return a Promise that resolves when navigation is truly complete
+  // This fixes iOS Safari race condition where scroll restoration interferes
+  return new Promise((resolve, reject) => {
+    // Store resolve/reject on lazyLoader so _navigateToInternalId can call them
+    lazyLoader._navigationResolve = resolve;
+    lazyLoader._navigationReject = reject;
 
-  // 🎯 Show loading indicator with progress tracking (only if requested)
-  const progressIndicator = showOverlay ? showNavigationLoading(targetId) : { updateProgress: () => {}, setMessage: () => {} };
-  
-  // 🔒 NEW: Lock scroll position during navigation
-  if (lazyLoader.lockScroll) {
-    lazyLoader.lockScroll(`navigation to ${targetId}`);
-    
-    // 🔄 NEW: Detect user scroll and unlock immediately  
-    let userScrollDetected = false;
-    const detectUserScroll = (event) => {
-      if (!userScrollDetected && lazyLoader.scrollLocked) {
-        console.log(`🔄 User scroll detected during navigation, unlocking immediately`);
-        userScrollDetected = true;
-        lazyLoader.unlockScroll();
-        
-        // Remove the listener once we've detected user scroll
+    // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
+    // This prevents restoreScrollPosition() from interfering
+    lazyLoader.isNavigatingToInternalId = true;
+    lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
+    console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
+
+    // 🎯 Show loading indicator with progress tracking (only if requested)
+    const progressIndicator = showOverlay ? showNavigationLoading(targetId) : { updateProgress: () => {}, setMessage: () => {} };
+
+    // 🔒 NEW: Lock scroll position during navigation
+    if (lazyLoader.lockScroll) {
+      lazyLoader.lockScroll(`navigation to ${targetId}`);
+
+      // 🔄 NEW: Detect user scroll and unlock immediately
+      let userScrollDetected = false;
+      const detectUserScroll = (event) => {
+        if (!userScrollDetected && lazyLoader.scrollLocked) {
+          console.log(`🔄 User scroll detected during navigation, unlocking immediately`);
+          userScrollDetected = true;
+          lazyLoader.unlockScroll();
+
+          // Remove the listener once we've detected user scroll
+          lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
+          lazyLoader.scrollableParent.removeEventListener('touchstart', detectUserScroll);
+          lazyLoader.scrollableParent.removeEventListener('keydown', detectUserScroll);
+        }
+      };
+
+      // Listen for user scroll inputs (mouse wheel, touch, keyboard)
+      lazyLoader.scrollableParent.addEventListener('wheel', detectUserScroll, { passive: true });
+      lazyLoader.scrollableParent.addEventListener('touchstart', detectUserScroll, { passive: true });
+      lazyLoader.scrollableParent.addEventListener('keydown', detectUserScroll, { passive: true });
+
+      // Clean up listeners after navigation timeout
+      setTimeout(() => {
         lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
         lazyLoader.scrollableParent.removeEventListener('touchstart', detectUserScroll);
         lazyLoader.scrollableParent.removeEventListener('keydown', detectUserScroll);
-      }
-    };
-    
-    // Listen for user scroll inputs (mouse wheel, touch, keyboard)
-    lazyLoader.scrollableParent.addEventListener('wheel', detectUserScroll, { passive: true });
-    lazyLoader.scrollableParent.addEventListener('touchstart', detectUserScroll, { passive: true });
-    lazyLoader.scrollableParent.addEventListener('keydown', detectUserScroll, { passive: true });
-    
-    // Clean up listeners after navigation timeout
-    setTimeout(() => {
-      lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
-      lazyLoader.scrollableParent.removeEventListener('touchstart', detectUserScroll);
-      lazyLoader.scrollableParent.removeEventListener('keydown', detectUserScroll);
-    }, 2000);
-  }
-  
-  // 🚀 FIX: Clear session storage when explicitly navigating to prevent cached position interference
-  if (targetId && targetId.trim() !== '') {
-    const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
-    console.log(`🧹 Clearing session scroll cache for explicit navigation to: ${targetId}`);
-    sessionStorage.removeItem(scrollKey);
-  }
-  
-  _navigateToInternalId(targetId, lazyLoader, progressIndicator);
+      }, 2000);
+    }
+
+    // 🚀 FIX: Clear session storage when explicitly navigating to prevent cached position interference
+    if (targetId && targetId.trim() !== '') {
+      const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+      console.log(`🧹 Clearing session scroll cache for explicit navigation to: ${targetId}`);
+      sessionStorage.removeItem(scrollKey);
+    }
+
+    _navigateToInternalId(targetId, lazyLoader, progressIndicator);
+  });
 }
 
 // Define helper function OUTSIDE the main function
@@ -960,6 +968,12 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         }
         lazyLoader.isNavigatingToInternalId = false;
         lazyLoader.pendingNavigationTarget = null;
+        // Resolve with fallback flag so callers know we didn't reach target
+        if (lazyLoader._navigationResolve) {
+          lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
+          lazyLoader._navigationResolve = null;
+          lazyLoader._navigationReject = null;
+        }
         return;
       }
       targetChunkIndex = lazyLoader.nodes.findIndex(
@@ -979,6 +993,12 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }
       lazyLoader.isNavigatingToInternalId = false;
       lazyLoader.pendingNavigationTarget = null;
+      // Resolve with fallback flag so callers know we didn't reach target
+      if (lazyLoader._navigationResolve) {
+        lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
+        lazyLoader._navigationResolve = null;
+        lazyLoader._navigationReject = null;
+      }
       return;
     }
 
@@ -1063,6 +1083,17 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         console.warn(`❌ Could not locate target element: ${targetId}`);
         hideNavigationLoading();
         fallbackScrollPosition(lazyLoader);
+        lazyLoader.isNavigatingToInternalId = false;
+        lazyLoader.pendingNavigationTarget = null;
+        if (lazyLoader.unlockScroll) {
+          lazyLoader.unlockScroll();
+        }
+        // Resolve with fallback flag so callers know we didn't reach target
+        if (lazyLoader._navigationResolve) {
+          lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
+          lazyLoader._navigationResolve = null;
+          lazyLoader._navigationReject = null;
+        }
         return;
       }
     }
@@ -1212,6 +1243,13 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         }
       }
 
+      // 🚀 iOS Safari fix: Resolve navigation Promise so callers know we're truly done
+      if (lazyLoader._navigationResolve) {
+        lazyLoader._navigationResolve({ success: true, targetId, element: targetElement });
+        lazyLoader._navigationResolve = null;
+        lazyLoader._navigationReject = null;
+      }
+
     }, cleanupDelay);
   } else {
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);
@@ -1220,6 +1258,13 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     lazyLoader.pendingNavigationTarget = null;
     if (lazyLoader.unlockScroll) {
       lazyLoader.unlockScroll();
+    }
+
+    // 🚀 iOS Safari fix: Reject navigation Promise so callers know navigation failed
+    if (lazyLoader._navigationReject) {
+      lazyLoader._navigationReject(new Error(`Navigation failed - element not found: ${targetId}`));
+      lazyLoader._navigationResolve = null;
+      lazyLoader._navigationReject = null;
     }
   }
 }
