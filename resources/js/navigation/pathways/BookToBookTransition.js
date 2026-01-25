@@ -402,15 +402,19 @@ export class BookToBookTransition {
       // 3. Waiting for the element to be ready
       // 4. Scrolling to it
       if (currentLazyLoader) {
-        // Don't show overlay since we're in a book-to-book transition with its own progress
-        navigateToInternalId(targetId, currentLazyLoader, false);
+        // 🚀 iOS Safari fix: Properly await navigation completion
+        // This prevents iOS scroll restoration from interfering before navigation is done
+        const result = await navigateToInternalId(targetId, currentLazyLoader, false);
+        console.log(`✅ BookToBookTransition: Navigation complete for ${targetId}`, result);
 
         // Update progress to show navigation is complete
         if (progress) {
-          progress(95, 'Navigating to target...');
+          progress(98, 'Navigation complete');
         }
+        return result;
       } else {
         console.warn('currentLazyLoader not available for internal navigation');
+        throw new Error('LazyLoader not available');
       }
     } catch (error) {
       console.error('Failed to navigate to internal ID:', error);

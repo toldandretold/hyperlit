@@ -8,10 +8,15 @@
  */
 function isElementFullyRendered(element) {
   if (!element) return false;
-  
+
   // Check basic DOM presence
   if (!document.contains(element)) return false;
-  
+
+  // 🚀 iOS Safari fix: Force layout reflow before measuring dimensions
+  // This ensures computed styles are up to date, especially important on mobile
+  // where paint cycles may be slower than dimension checks
+  void element.offsetHeight;
+
   // Check if element has been laid out (has dimensions)
   const rect = element.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;

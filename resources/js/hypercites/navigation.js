@@ -250,7 +250,8 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
     if (internalId) {
       // Sequential navigation: highlight first, then internal ID
       console.log(`📍 Step 1: Navigating to highlight ${highlightId}`);
-      navigateToInternalId(highlightId, lazyLoader, showOverlay);
+      // 🚀 iOS Safari fix: Properly await navigation completion
+      await navigateToInternalId(highlightId, lazyLoader, showOverlay);
 
       // Wait for the highlight to be ready before proceeding
       await waitForElementReady(highlightId, {
@@ -262,46 +263,45 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
       console.log(`✅ Highlight ${highlightId} ready, now navigating to internal ID ${internalId}`);
 
       // Small delay to let highlight open animation start
-      setTimeout(() => {
-        // Check if hypercite exists inside the opened hyperlit container
-        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
-        if (hyperciteInContainer) {
-          console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
-          // Scroll within the hyperlit container
-          const container = document.getElementById('hyperlit-container');
-          const scroller = container.querySelector('.scroller');
-          if (scroller) {
-            hyperciteInContainer.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
-            // Highlight the hypercite
-            highlightTargetHypercite(internalId, 500);
-          }
-        } else {
-          console.log(`🎯 Hypercite ${internalId} not found in container, using standard navigation`);
-          // Fall back to standard navigation
-          navigateToInternalId(internalId, lazyLoader, showOverlay);
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Check if hypercite exists inside the opened hyperlit container
+      const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+      if (hyperciteInContainer) {
+        console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
+        // Scroll within the hyperlit container
+        const container = document.getElementById('hyperlit-container');
+        const scroller = container.querySelector('.scroller');
+        if (scroller) {
+          hyperciteInContainer.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+          // Highlight the hypercite
+          highlightTargetHypercite(internalId, 500);
         }
-      }, 300);
+      } else {
+        console.log(`🎯 Hypercite ${internalId} not found in container, using standard navigation`);
+        // Fall back to standard navigation - await it
+        await navigateToInternalId(internalId, lazyLoader, showOverlay);
+      }
 
     } else {
-      // Just navigate to the highlight
+      // Just navigate to the highlight - await it
       console.log(`📍 Navigating directly to highlight ${highlightId}`);
-      navigateToInternalId(highlightId, lazyLoader, showOverlay);
+      await navigateToInternalId(highlightId, lazyLoader, showOverlay);
     }
 
   } catch (error) {
     console.error(`❌ Error in hypercite navigation:`, error);
-    // Fallback to original method if our improved method fails
+    // Fallback to original method if our improved method fails - await calls
     if (internalId) {
-      navigateToInternalId(highlightId, lazyLoader);
-      setTimeout(() => {
-        navigateToInternalId(internalId, lazyLoader);
-      }, 1000);
+      await navigateToInternalId(highlightId, lazyLoader);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await navigateToInternalId(internalId, lazyLoader);
     } else {
-      navigateToInternalId(highlightId, lazyLoader);
+      await navigateToInternalId(highlightId, lazyLoader);
     }
   }
 }
@@ -327,7 +327,7 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
       console.error(`❌ Footnote element not found: ${footnoteId}`);
       // Fall back to navigating by internal ID if the element exists elsewhere
       if (internalId) {
-        navigateToInternalId(internalId, lazyLoader, false);
+        await navigateToInternalId(internalId, lazyLoader, false);
       }
       return;
     }
@@ -367,7 +367,7 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
     console.error(`❌ Error in footnote navigation:`, error);
     // Fallback: try to navigate by internal ID
     if (internalId) {
-      navigateToInternalId(internalId, lazyLoader, false);
+      await navigateToInternalId(internalId, lazyLoader, false);
     }
   }
 }
@@ -422,7 +422,7 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
       const internalId = url.hash ? url.hash.slice(1) : null;
 
       if (internalId) {
-        navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
+        await navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
         return;
       }
     }
