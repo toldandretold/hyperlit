@@ -595,6 +595,12 @@ export async function restoreScrollPosition() {
     return;
   }
 
+  const isHyperciteHash = window.location.hash?.startsWith('#hypercite_');
+  if (isHyperciteHash) {
+    console.log(`⏭️ RESTORE SCROLL: Hypercite hash detected (${window.location.hash}), skipping scroll restoration`);
+    return;
+  }
+
   // If we're navigating to an internal ID (like a highlight or footnote), prioritize that
   const targetInternalId = OpenHyperlightID || OpenFootnoteID;
   if (currentLazyLoader.isNavigatingToInternalId && targetInternalId) {

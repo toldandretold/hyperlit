@@ -367,14 +367,14 @@ export class BaseFormatProcessor {
 
   /**
    * Generate unique footnote ID
-   * Format: {bookId}_Fn{timestamp}_{random}
-   * @param {string} bookId - Book identifier
+   * Format: Fn{timestamp}_{random} (no bookId prefix - matches backend Python processors)
+   * @param {string} bookId - Not used, kept for API compatibility
    * @param {string|number} identifier - Footnote identifier (e.g., '1') - now unused, kept for compatibility
    * @returns {string} - Unique footnote ID
    */
   generateFootnoteId(bookId, identifier) {
     const random = Math.random().toString(36).substring(2, 6);
-    return `${bookId}_Fn${Date.now()}_${random}`;
+    return `Fn${Date.now()}_${random}`;
   }
 
   /**
