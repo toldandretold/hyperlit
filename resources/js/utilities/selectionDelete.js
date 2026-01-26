@@ -144,6 +144,14 @@ export class SelectionDeletionHandler {
     // 1. Delete the fully contained nodes
     if (nodeIdsToDelete.length > 0) {
       totalDeleted += nodeIdsToDelete.length;
+      // ⚠️ DIAGNOSTIC: Log when selection delete affects many nodes
+      if (nodeIdsToDelete.length > 10) {
+        console.warn(`⚠️ SELECTION DELETE: ${nodeIdsToDelete.length} nodes`, {
+          stack: new Error().stack,
+          nodeIds: nodeIdsToDelete.slice(0, 10),
+          timestamp: Date.now()
+        });
+      }
       if (this.queueNodeForDeletion) {
         // ✅ Use saveQueue for debounced batching
         nodeIdsToDelete.forEach(id => {

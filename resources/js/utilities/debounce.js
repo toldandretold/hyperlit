@@ -31,8 +31,11 @@ export function debounce(func, delay) {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
-      func.apply(lastThis, lastArgs);
+      // Return the result so async functions can be awaited
+      return func.apply(lastThis, lastArgs);
     }
+    // Return resolved promise if nothing to flush
+    return Promise.resolve();
   };
 
   return debouncedFunction;

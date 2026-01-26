@@ -413,6 +413,14 @@ async function loadDefaultContent(lazyLoader) {
   }
   
   // Clear container and load first chunk
+  // ⚠️ DIAGNOSTIC: Log when container is cleared
+  const childCount = lazyLoader.container.children.length;
+  if (childCount > 0) {
+    console.warn(`⚠️ CONTAINER CLEAR (loadDefaultContent): ${childCount} children removed`, {
+      stack: new Error().stack,
+      timestamp: Date.now()
+    });
+  }
   lazyLoader.container.innerHTML = "";
   
   // Find chunks with chunk_id === 0
@@ -723,6 +731,14 @@ export async function restoreScrollPosition() {
         // No existing content - safe to clear and load chunk 0
         console.log('🔍 SCROLL DEBUG: No existing content, loading chunk 0');
         currentLazyLoader.nodes = cachedNodeChunks;
+        // ⚠️ DIAGNOSTIC: Log when container is cleared
+        const childCount2 = currentLazyLoader.container.children.length;
+        if (childCount2 > 0) {
+          console.warn(`⚠️ CONTAINER CLEAR (scroll restore): ${childCount2} children removed`, {
+            stack: new Error().stack,
+            timestamp: Date.now()
+          });
+        }
         currentLazyLoader.container.innerHTML = "";
         currentLazyLoader.nodes
           .filter(node => node.chunk_id === 0)
@@ -1012,7 +1028,16 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     if (progressIndicator) {
       progressIndicator.updateProgress(50, "Clearing container and preparing to load chunks...");
     }
-    
+
+    // ⚠️ DIAGNOSTIC: Log when container is cleared during navigation
+    const childCount3 = lazyLoader.container.children.length;
+    if (childCount3 > 0) {
+      console.warn(`⚠️ CONTAINER CLEAR (navigation): ${childCount3} children removed`, {
+        stack: new Error().stack,
+        targetId,
+        timestamp: Date.now()
+      });
+    }
     lazyLoader.container.innerHTML = "";
     lazyLoader.currentlyLoadedChunks.clear();
     

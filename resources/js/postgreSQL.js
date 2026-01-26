@@ -88,6 +88,41 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
             };
         }
 
+        // ⚠️ CRITICAL SAFETY CHECK for nodes: Abort if IndexedDB appears incomplete
+        // This prevents mass deletion when IndexedDB was cleared mid-session
+        if (objectStoreName === 'nodes' && Array.isArray(bookData)) {
+            const chunkIds = [...new Set(bookData.map(n => n.chunk_id))].sort((a, b) => a - b);
+            const hasChunk0 = chunkIds.includes(0);
+            const minStartLine = Math.min(...bookData.map(n => n.startLine));
+            const maxStartLine = Math.max(...bookData.map(n => n.startLine));
+
+            console.warn(`⚠️ FULL BOOK SYNC (syncBookDataToServer) DIAGNOSTIC:`, {
+                nodeCount: bookData.length,
+                chunkIds,
+                hasChunk0,
+                minStartLine,
+                maxStartLine,
+                bookName,
+                timestamp: Date.now()
+            });
+
+            // Abort if missing chunk 0 (first chunk should always exist)
+            if (bookData.length > 0 && !hasChunk0 && chunkIds.length > 0) {
+                console.error(`🚨 ABORTING FULL BOOK SYNC: IndexedDB missing chunk 0!`, {
+                    stack: new Error().stack,
+                    chunkIds,
+                    nodeCount: bookData.length,
+                    lowestStartLine: minStartLine
+                });
+                throw new Error(`Full book sync aborted: IndexedDB appears incomplete (missing chunk 0). This may indicate IndexedDB was cleared mid-session.`);
+            }
+
+            // Warn if suspiciously few nodes
+            if (bookData.length < 10 && bookData.length > 0) {
+                console.warn(`⚠️ SUSPICIOUS: Only ${bookData.length} nodes in IndexedDB for full sync - potential data loss risk`);
+            }
+        }
+
         // Normalize the book ID format for sending to server
         const normalizedBookName = bookNameWithoutSlash;
 

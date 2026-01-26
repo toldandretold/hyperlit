@@ -103,6 +103,40 @@ async function syncPasteToPostgreSQL(bookId) {
     const allNodes = await getNodeChunksFromIndexedDB(bookId);
     console.log(`📊 Retrieved ${allNodes.length} total nodes from IndexedDB for full book sync`);
 
+    // ⚠️ CRITICAL DIAGNOSTIC: Check for incomplete IndexedDB data before destructive sync
+    const chunkIds = [...new Set(allNodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+    const hasChunk0 = chunkIds.includes(0);
+    const minStartLine = Math.min(...allNodes.map(n => n.startLine));
+    const maxStartLine = Math.max(...allNodes.map(n => n.startLine));
+
+    console.warn(`⚠️ FULL BOOK SYNC DIAGNOSTIC:`, {
+      nodeCount: allNodes.length,
+      chunkIds,
+      hasChunk0,
+      minStartLine,
+      maxStartLine,
+      bookId,
+      timestamp: Date.now()
+    });
+
+    // ⚠️ SAFETY CHECK: Abort if IndexedDB looks incomplete
+    // This prevents the scenario where IndexedDB was cleared mid-session
+    if (allNodes.length > 0 && !hasChunk0 && chunkIds.length > 0) {
+      console.error(`🚨 ABORTING FULL BOOK SYNC: IndexedDB missing chunk 0!`, {
+        stack: new Error().stack,
+        chunkIds,
+        nodeCount: allNodes.length,
+        lowestStartLine: minStartLine
+      });
+      glowCloudRed();
+      throw new Error(`Full book sync aborted: IndexedDB appears incomplete (missing chunk 0). This may indicate IndexedDB was cleared mid-session.`);
+    }
+
+    // Also warn if very few nodes (potential data loss)
+    if (allNodes.length < 10 && allNodes.length > 0) {
+      console.warn(`⚠️ SUSPICIOUS: Only ${allNodes.length} nodes in IndexedDB for full sync - potential data loss risk`);
+    }
+
     // Full book sync: deletes all existing nodes for book, then inserts all fresh
     const response = await fetch('/api/db/node-chunks/upsert', {
       method: 'POST',

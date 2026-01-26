@@ -93,6 +93,15 @@ export class SaveQueue {
     this.pendingSaves.deletions.add(nodeId);
     this.pendingSaves.lastActivity = Date.now();
 
+    // ⚠️ DIAGNOSTIC: Log stack trace when deletion queue grows large
+    if (this.pendingSaves.deletions.size === 11) {
+      console.warn(`⚠️ DELETION QUEUE HIT 11 NODES - capturing stack`, {
+        stack: new Error().stack,
+        currentQueue: Array.from(this.pendingSaves.deletions),
+        timestamp: Date.now()
+      });
+    }
+
     verbose.content(`Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
     this.debouncedBatchDelete();
   }
@@ -154,6 +163,15 @@ export class SaveQueue {
     if (this.pendingSaves.deletions.size === 0) return;
 
     const nodeIdsToDelete = Array.from(this.pendingSaves.deletions);
+
+    // ⚠️ DIAGNOSTIC: Log when many nodes are being batch deleted
+    if (nodeIdsToDelete.length > 10) {
+      console.warn(`⚠️ SAVE_QUEUE BATCH DELETE: ${nodeIdsToDelete.length} nodes`, {
+        stack: new Error().stack,
+        nodeIds: nodeIdsToDelete.slice(0, 10),
+        timestamp: Date.now()
+      });
+    }
 
     // ✅ NEW: Get UUID map for deleted nodes
     const deletionMap = this.pendingSaves.deletionMap || new Map();
