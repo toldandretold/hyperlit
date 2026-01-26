@@ -748,9 +748,15 @@ export function createLazyLoader(config) {
       instance.nodes = await instance.getNodeChunks();
 
       // 2. Remove all rendered chunk-DIVs (from your original)
-      instance.container
-        .querySelectorAll("[data-chunk-id]")
-        .forEach(el => el.remove());
+      // ⚠️ DIAGNOSTIC: Log when chunks are removed during refresh
+      const chunksToRemove = instance.container.querySelectorAll("[data-chunk-id]");
+      if (chunksToRemove.length > 0) {
+        console.warn(`⚠️ LAZY LOADER REFRESH: Removing ${chunksToRemove.length} chunks`, {
+          stack: new Error().stack,
+          timestamp: Date.now()
+        });
+      }
+      chunksToRemove.forEach(el => el.remove());
 
       // 3. Reset our "which chunks are in the DOM" set (from your original)
       instance.currentlyLoadedChunks.clear();

@@ -17,7 +17,7 @@ export {
   createGenesisHistoryEntry,
   executeSyncPayload,
   debouncedMasterSync,
-  syncIndexedDBtoPostgreSQL,
+  syncIndexedDBtoPostgreSQLBlocking,
   initMasterSyncDependencies,
 } from './master.js';
 

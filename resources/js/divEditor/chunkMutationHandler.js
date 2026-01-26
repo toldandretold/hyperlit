@@ -182,6 +182,15 @@ export class ChunkMutationHandler {
             });
 
             console.log(`🗑️ Chunk deletion detected: ${chunkIds.length} chunks [${chunkIds.join(', ')}], ${totalNodes} nodes queued`);
+            // ⚠️ DIAGNOSTIC: Log stack trace for chunk deletions
+            if (totalNodes > 10) {
+              console.warn(`⚠️ CHUNK DELETION with ${totalNodes} nodes`, {
+                stack: new Error().stack,
+                chunkIds,
+                userDeletionInProgress: true, // if we got here, it's true
+                timestamp: Date.now()
+              });
+            }
           }
 
           filteredMutations.push(mutation);

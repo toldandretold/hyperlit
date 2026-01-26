@@ -722,6 +722,10 @@ public function targetedUpsert(Request $request)
             }
         }
 
+        // Pre-clear orphaned rows (different node_ids claiming same startLine)
+        // This handles edge cases like undo scenarios where restored nodes need their original startLines
+        // Note: The (book, startLine) unique constraint is DEFERRABLE INITIALLY DEFERRED,
+        // so bulk updates can temporarily have duplicates - uniqueness is checked at commit.
         if (!empty($startLines) && !empty($nodeIds)) {
             $startLinePlaceholders = implode(',', array_fill(0, count($startLines), '?'));
             $nodeIdPlaceholders = implode(',', array_fill(0, count($nodeIds), '?'));

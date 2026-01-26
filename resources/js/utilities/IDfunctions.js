@@ -1,6 +1,6 @@
 import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
 import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../indexedDB/index.js";
-import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
+import { executeSyncPayload } from "../indexedDB/syncQueue/master.js";
 import { book } from "../app.js";
 import { glowCloudGreen, glowCloudRed } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
@@ -67,7 +67,20 @@ async function renumberAllNodes() {
     console.log('💾 Flushing all pending saves before renumbering...');
     const { flushAllPendingSaves } = await import('../divEditor/index.js');
     await flushAllPendingSaves();
-    console.log('✅ All pending saves flushed');
+    console.log('✅ All pending saves flushed to IndexedDB');
+
+    // 0.5. CRITICAL: Also flush pending PostgreSQL syncs
+    // This ensures all nodes exist in PostgreSQL before we try to update them
+    // Otherwise, nodes that don't exist in PostgreSQL will cause startLine conflicts
+    console.log('📤 Flushing pending PostgreSQL syncs...');
+    const { debouncedMasterSync, pendingSyncs } = await import('../indexedDB/syncQueue/index.js');
+    if (pendingSyncs.size > 0) {
+      console.log(`📤 ${pendingSyncs.size} pending syncs to flush`);
+      await debouncedMasterSync.flush();
+      console.log('✅ PostgreSQL sync flushed');
+    } else {
+      console.log('✅ No pending PostgreSQL syncs');
+    }
 
     // 1. Get all nodes from IndexedDB, sorted by current startLine
     const allNodes = await getAllNodeChunksForBook(book);
@@ -147,9 +160,38 @@ async function renumberAllNodes() {
     await renumberNodeChunksInIndexedDB(updates, book);
     console.log('✅ RENUMBERING: IndexedDB updated');
 
-    // 6. Sync to PostgreSQL
-    await syncIndexedDBtoPostgreSQL(book);
-    console.log('✅ RENUMBERING: PostgreSQL synced');
+    // 6. Sync to PostgreSQL using SAFE executeSyncPayload (UPDATE by node_id, no DELETE ALL)
+    // This uses /api/db/unified-sync → bulkTargetedUpsert which does:
+    // ON CONFLICT (book, node_id) DO UPDATE SET startLine = ...
+    // NO history entry created - renumbering is a system operation
+    const syncPayload = {
+      book: book,
+      updates: {
+        nodes: updates.map(u => ({
+          book: u.book,
+          startLine: u.newStartLine,
+          chunk_id: u.chunk_id,
+          node_id: u.node_id,
+          content: u.content,
+          hyperlights: u.hyperlights || [],
+          hypercites: u.hypercites || [],
+          footnotes: u.footnotes || []
+        })),
+        hypercites: [],
+        hyperlights: [],
+        footnotes: [],
+        library: null
+      },
+      deletions: {
+        nodes: [],
+        hyperlights: [],
+        hypercites: []
+      }
+    };
+
+    console.log(`📤 RENUMBERING: Syncing ${updates.length} nodes to PostgreSQL (safe UPDATE by node_id)`);
+    await executeSyncPayload(syncPayload);
+    console.log('✅ RENUMBERING: PostgreSQL synced (no deletions, only updates by node_id)');
 
     // Show green tick to indicate successful sync
     glowCloudGreen();

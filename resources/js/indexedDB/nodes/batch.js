@@ -1036,6 +1036,14 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
           await updateBookTimestamp(bookId);
 
           // Queue deleted records for PostgreSQL sync
+          // ⚠️ DIAGNOSTIC: Log when many nodes are being queued for deletion
+          if (deletedData.nodes.length > 10) {
+            console.warn(`⚠️ MASS DELETION QUEUED: ${deletedData.nodes.length} nodes`, {
+              stack: new Error().stack,
+              nodeIds: deletedData.nodes.slice(0, 5).map(n => n.startLine),
+              timestamp: Date.now()
+            });
+          }
           deletedData.nodes.forEach((record) => {
             queueForSync("nodes", record.startLine, "delete", record);
           });

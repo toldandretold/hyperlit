@@ -80,6 +80,16 @@ async function syncUndoRedoToPostgreSQL(undoResult) {
     }
   }
 
+  // ⚠️ DIAGNOSTIC: Log when undo/redo deletes many nodes
+  if (deletedNodeCount > 10) {
+    console.warn(`⚠️ UNDO/REDO DELETE: ${deletedNodeCount} nodes`, {
+      stack: new Error().stack,
+      restoredCount: restoredNodes.length,
+      totalDeletedNodes: deletedNodes.length,
+      timestamp: Date.now()
+    });
+  }
+
   // Add restored hyperlights
   for (const hl of restoredHyperlights) {
     syncPayload.updates.hyperlights.push(hl);

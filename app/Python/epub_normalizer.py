@@ -36,6 +36,7 @@ Phase 1 - Structural Fixes:
 - SpanUnwrapper: Unwraps remaining <span class="calibreN"> styling wrappers
 - CalibreClassStripper: Strips all calibreN classes from elements (clean output)
 - DivToSemanticConverter: Converts divs with semantic class names to proper elements
+- CSSClassHeadingDetector: Converts <p class="h/title/fmtitle"> to proper headings
 - ImageProcessor: Copies images to public storage, fixes paths, converts divs to <figure>
 - SectionUnwrapper: Unwraps section/div containers so each p/h is a separate node
 
@@ -44,8 +45,10 @@ Phase 2 - Footnote Detection:
 - AriaRoleFootnoteDetector: Uses role="doc-footnote" etc.
 - ClassPatternFootnoteDetector: Matches common CSS class patterns
 - NotesClassFootnoteDetector: Publisher format with <p class="notes"><a id="...">
+- TableFootnoteDetector: Table-based footnotes (two-column layout)
 - PandocFootnoteDetector: Handles <section class="footnotes"> structure
 - EndnoteCharactersFootnoteDetector: Word/Calibre <span class="EndnoteCharacters">
+- EnoteFootnoteDetector: Marxists.org enote class format
 - HeuristicFootnoteDetector: Fallback based on ID patterns and superscripts
 
 Phase 3 - Other Detection:
@@ -809,6 +812,114 @@ class DivToSemanticConverter(EpubTransform):
         return changes
 
 
+class CSSClassHeadingDetector(EpubTransform):
+    """
+    Converts paragraphs with heading-like CSS classes to proper headings.
+
+    Common in publisher EPUBs (Pluto Press, Penguin, etc.) where semantic
+    headings are replaced with styled paragraphs.
+
+    Auto-detection logic for class="h":
+    - If contains <b> (bold): h2 (main section heading)
+    - If contains only <i>: h3 (subsection)
+    - Otherwise: h2 (default)
+    """
+
+    name = "CSSClassHeadingDetector"
+    description = "Convert CSS-classed paragraphs to semantic headings"
+
+    # Explicit class mappings (these always map to specific heading levels)
+    # Note: Publisher class names like "h1" don't mean HTML h1 - they're relative
+    # to the section structure. class="h" is section, class="h1" is subsection, etc.
+    EXPLICIT_CLASSES = {
+        'h1': 'h3',        # Publisher subsection (under class="h" which is h2)
+        'h2': 'h4',        # Publisher sub-subsection
+        'h3': 'h5',        # Publisher deeper level
+        'h3b': 'h3',       # Subsection variant (Notes chapter headings)
+        'fmtitle': 'h1',   # Front matter titles (Figures, Acknowledgements)
+        'bmtitle': 'h1',   # Back matter titles (Notes, Index)
+        'half': 'h1',      # Half-title page
+        'title': 'h1',     # Main book title
+        'title1': 'h1',    # Subtitle
+        'con': 'h1',       # Contents heading
+        'chapnum': 'h1',   # Chapter numbers (CHAPTER 1, CHAPTER 2, etc.)
+        'chaptitle': 'h1', # Chapter titles (alternative naming)
+    }
+
+    # Classes that need style-based auto-detection
+    AUTO_DETECT_CLASSES = {'h'}
+
+    def detect(self, soup) -> bool:
+        body = soup.body if soup.body else soup
+        # Check for any paragraph with heading-like classes
+        all_classes = set(self.EXPLICIT_CLASSES.keys()) | self.AUTO_DETECT_CLASSES
+        for p in body.find_all('p'):
+            p_classes = set(p.get('class', []))
+            if p_classes & all_classes:
+                return True
+        return False
+
+    def transform(self, soup, log) -> dict:
+        changes = 0
+        body = soup.body if soup.body else soup
+        all_classes = set(self.EXPLICIT_CLASSES.keys()) | self.AUTO_DETECT_CLASSES
+
+        for p in body.find_all('p'):
+            p_classes = p.get('class', [])
+            if not p_classes:
+                continue
+
+            # Find matching class
+            matched_class = None
+            for cls in p_classes:
+                if cls in all_classes:
+                    matched_class = cls
+                    break
+
+            if not matched_class:
+                continue
+
+            # Determine heading level
+            if matched_class in self.EXPLICIT_CLASSES:
+                heading_level = self.EXPLICIT_CLASSES[matched_class]
+            else:
+                # Auto-detect based on styling
+                heading_level = self._detect_heading_level(p)
+
+            # Convert to heading
+            preserved_id = p.get('id')
+            p.name = heading_level
+            p.attrs = {}
+            if preserved_id:
+                p['id'] = preserved_id
+
+            changes += 1
+            log(f"    {matched_class} -> {heading_level}: {p.get_text(strip=True)[:50]}...")
+
+        if changes > 0:
+            log(f"  Converted {changes} paragraphs to headings")
+
+        return {'headings_converted': changes}
+
+    def _detect_heading_level(self, elem):
+        """
+        Auto-detect heading level based on child element styling.
+
+        - If contains <b> (bold): h2 (main section heading)
+        - If contains only <i>: h3 (subsection/italic emphasis)
+        - Otherwise: h2 (default)
+        """
+        has_bold = bool(elem.find('b') or elem.find('strong'))
+        has_italic = bool(elem.find('i') or elem.find('em'))
+
+        if has_bold:
+            return 'h2'  # Bold content = main section heading
+        elif has_italic and not has_bold:
+            return 'h3'  # Italic only = subsection
+        else:
+            return 'h2'  # Default
+
+
 class DeadInternalLinkUnwrapper(EpubTransform):
     """
     Removes dead internal navigation links while preserving external links.
@@ -1074,6 +1185,84 @@ class NotesClassFootnoteDetector(EpubTransform):
 
         log(f"    Total: {len(footnotes)} definitions")
         return {'footnotes': footnotes, 'noterefs': []}
+
+
+class TableFootnoteDetector(EpubTransform):
+    """
+    Detects footnotes in table-based layouts.
+
+    Common in publisher EPUBs (Pluto Press, Penguin, etc.) where footnotes
+    are presented as a two-column table:
+    - First <td>: anchor with footnote ID and backlink
+    - Second <td>: footnote content
+
+    Example:
+    <table class="note">
+      <tr>
+        <td><a href="#part0008_rintfn1" id="part0018_split_000_intfn1">1</a></td>
+        <td><p class="noindent">James Joyce, <i>Ulysses</i>...</p></td>
+      </tr>
+    </table>
+    """
+
+    name = "TableFootnoteDetector"
+    description = "Detect footnotes in table-based layouts"
+
+    def detect(self, soup) -> bool:
+        # Look for tables that might contain footnotes
+        for table in soup.find_all('table'):
+            class_str = ' '.join(table.get('class', [])).lower()
+            # Common footnote table classes
+            if any(x in class_str for x in ['note', 'footnote', 'endnote', 'fn']):
+                return True
+            # Also check if table contains anchors with backlinks (heuristic)
+            first_td = table.find('td')
+            if first_td:
+                anchor = first_td.find('a', href=True, id=True)
+                if anchor:
+                    return True
+        return False
+
+    def transform(self, soup, log) -> dict:
+        footnotes = []
+        noterefs = []
+        seen_ids = set()
+
+        for table in soup.find_all('table'):
+            for tr in table.find_all('tr'):
+                tds = tr.find_all('td')
+                if len(tds) < 2:
+                    continue
+
+                # First td should contain anchor with ID
+                first_td = tds[0]
+                anchor = first_td.find('a', id=True)
+                if not anchor:
+                    continue
+
+                fn_id = anchor.get('id', '')
+                href = anchor.get('href', '')
+
+                # Verify it has a backlink (typical footnote pattern)
+                has_backlink = bool(href and href.startswith('#'))
+
+                if fn_id and fn_id not in seen_ids and has_backlink:
+                    seen_ids.add(fn_id)
+
+                    # Second td contains the content
+                    content_td = tds[1]
+
+                    footnotes.append({
+                        'id': fn_id,
+                        'element': content_td,  # Use content td as element
+                        'anchor_element': anchor,  # Keep reference to anchor
+                        'type': 'endnote',
+                        'strategy': 'table_footnote'
+                    })
+                    log(f"    Found footnote (table): id={fn_id}")
+
+        log(f"    Total: {len(footnotes)} definitions")
+        return {'footnotes': footnotes, 'noterefs': noterefs}
 
 
 class PandocFootnoteDetector(EpubTransform):
@@ -1405,6 +1594,7 @@ class HeuristicFootnoteDetector(EpubTransform):
         r'^[a-z]+\d*-fn-?\d+$',  # With dashes: chapter01-fn1, chapter-fn-1
         r'^pg\d+fn\d+$',  # Penguin format: pg400fn39 (page+fn+number)
         r'^pg\d+_fn\d+$',  # Penguin reference format: pg202_fn1
+        r'.*intfn\d+$',  # Publisher internal: part0018_split_000_intfn1
     ]
 
     def detect(self, soup) -> bool:
@@ -1447,7 +1637,7 @@ class HeuristicFootnoteDetector(EpubTransform):
                     })
 
         # Pattern 2: ID-based detection for footnote definitions
-        for elem in soup.find_all(['p', 'div', 'li', 'aside', 'section', 'blockquote']):
+        for elem in soup.find_all(['p', 'div', 'li', 'aside', 'section', 'blockquote', 'td']):
             elem_id = elem.get('id', '')
             if elem_id and elem_id not in seen_fn_ids:
                 if any(re.match(p, elem_id, re.I) for p in self.ID_PATTERNS):
@@ -1990,6 +2180,7 @@ TRANSFORM_PIPELINE = [
     SpanUnwrapper(),                    # Unwrap remaining styling-only spans
     CalibreClassStripper(),             # Strip calibreN classes from all elements
     DivToSemanticConverter(),           # Convert semantic class divs to proper elements
+    CSSClassHeadingDetector(),          # Convert CSS-classed <p> to headings (publisher formats)
     ImageProcessor(),                   # Copy images to storage, fix paths, convert to <figure>
     SectionUnwrapper(),                 # Unwrap section/div containers for node chunking
 
@@ -1998,6 +2189,7 @@ TRANSFORM_PIPELINE = [
     AriaRoleFootnoteDetector(),
     ClassPatternFootnoteDetector(),
     NotesClassFootnoteDetector(),       # Publisher format: <p class="notes"><a id="...">
+    TableFootnoteDetector(),            # Table-based footnotes (Pluto Press, etc.)
     PandocFootnoteDetector(),
     EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
     EnoteFootnoteDetector(),               # Marxists.org enote class format
