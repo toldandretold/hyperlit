@@ -5,7 +5,6 @@
 
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId } from '../core/utilities.js';
-import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 // These will be extracted to their respective modules
@@ -146,12 +145,13 @@ export async function saveAllNodeChunksToIndexedDB(
         console.log("✅ Nodes successfully saved to nodes object store in IndexedDB for book:", bookId);
         try {
           await updateBookTimestamp(bookId);
-          // Use the original postgreSQL.js sync (non-blocking, fast)
-          // syncIndexedDBtoPostgreSQL already imported statically
-          await syncIndexedDBtoPostgreSQL(bookId);
+          // NOTE: Auto-sync to PostgreSQL removed - the debouncedMasterSync system
+          // handles all syncing via queueForSync() when actual edits occur.
+          // This prevents the dangerous DELETE ALL + INSERT pattern from running
+          // when loading data FROM PostgreSQL into IndexedDB.
         } catch (err) {
           console.warn(
-            "⚠️ post-save hook failed (timestamp/sync):",
+            "⚠️ post-save hook failed (timestamp update):",
             err
           );
         } finally {
