@@ -28,12 +28,17 @@ export async function triggerRenumberingWithModal(delayMs = 100) {
 
   isRenumberingInProgress = true;
 
+  // Set global flag IMMEDIATELY to prevent mutation processor from queuing new saves
+  window.renumberingInProgress = true;
+  console.log('🔒 RENUMBERING: Mutation observer disabled (early)');
+
   // Create promise that resolves when renumbering completes
   renumberingPromise = (async () => {
     try {
-      // Wait for specified delay to allow mutation observer to process new elements
+      // Wait for specified delay to allow any in-flight RAF callbacks to complete
+      // (they'll see the flag and skip processing)
       if (delayMs > 0) {
-        console.log(`⏰ Waiting ${delayMs}ms for mutation observer to process new elements...`);
+        console.log(`⏰ Waiting ${delayMs}ms for any pending RAF callbacks to settle...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
 
@@ -45,8 +50,10 @@ export async function triggerRenumberingWithModal(delayMs = 100) {
     } catch (error) {
       console.error('❌ Renumbering failed:', error);
       await ProgressOverlayConductor.hide();
+      window.renumberingInProgress = false;
       isRenumberingInProgress = false;
       renumberingPromise = null;
+      console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');
       alert('Renumbering failed. Please try again.');
       throw error;
     }
@@ -82,26 +89,69 @@ async function renumberAllNodes() {
       console.log('✅ No pending PostgreSQL syncs');
     }
 
-    // 1. Get all nodes from IndexedDB, sorted by current startLine
-    const allNodes = await getAllNodeChunksForBook(book);
-    if (!allNodes || allNodes.length === 0) {
+    // 1. Get all nodes from IndexedDB
+    const indexedDBNodes = await getAllNodeChunksForBook(book);
+    const indexedDBNodeIds = new Set((indexedDBNodes || []).map(n => n.node_id));
+
+    // 2. Find orphaned DOM elements (in DOM but not in IndexedDB)
+    const allDomElements = document.querySelectorAll('[data-node-id]');
+    const orphanedNodes = [];
+
+    allDomElements.forEach(el => {
+      const nodeId = el.getAttribute('data-node-id');
+      if (!indexedDBNodeIds.has(nodeId)) {
+        console.log(`📦 Including orphaned DOM node in renumbering: ${el.id} (${nodeId})`);
+        orphanedNodes.push({
+          node_id: nodeId,
+          startLine: parseFloat(el.id) || 0,
+          content: el.outerHTML,
+          hyperlights: [],
+          hypercites: [],
+          footnotes: [],
+          _domElement: el
+        });
+      }
+    });
+
+    if (orphanedNodes.length > 0) {
+      console.log(`📦 Found ${orphanedNodes.length} orphaned DOM nodes to include in renumbering`);
+    }
+
+    // 3. Merge IndexedDB nodes with orphaned nodes, adding DOM references for sorting
+    const allNodesWithDom = (indexedDBNodes || []).map(node => ({
+      ...node,
+      _domElement: document.querySelector(`[data-node-id="${node.node_id}"]`)
+    }));
+
+    const combinedNodes = [...allNodesWithDom, ...orphanedNodes];
+
+    if (combinedNodes.length === 0) {
       console.warn('⚠️ RENUMBERING: No nodes found for book:', book);
       return false;
     }
 
-    // Sort by current startLine to preserve order
-    allNodes.sort((a, b) => a.startLine - b.startLine);
+    // 4. Sort by DOM order (preserves visual ordering)
+    combinedNodes.sort((a, b) => {
+      if (!a._domElement && !b._domElement) {
+        // Neither in DOM, fall back to startLine
+        return a.startLine - b.startLine;
+      }
+      if (!a._domElement) return 1;  // a not in DOM, put it after
+      if (!b._domElement) return -1; // b not in DOM, put it after
 
-    console.log(`🔄 RENUMBERING: Processing ${allNodes.length} nodes`);
+      const position = a._domElement.compareDocumentPosition(b._domElement);
+      return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
 
-    // 2. Build mapping: node_id → new startLine (with 100-gaps)
+    console.log(`🔄 RENUMBERING: Processing ${combinedNodes.length} nodes (${indexedDBNodes?.length || 0} from IndexedDB, ${orphanedNodes.length} orphaned)`);
+
+    // 5. Build mapping: node_id → new startLine (with 100-gaps)
     const updates = [];
-    allNodes.forEach((node, index) => {
+    combinedNodes.forEach((node, index) => {
       const newStartLine = (index + 1) * 100; // 100, 200, 300, etc.
       const oldStartLine = node.startLine;
 
       // Update HTML content to reflect new ID (like paste.js does)
-      // This updates the stored HTML regardless of whether node is in DOM
       const updatedContent = node.content.replace(
         /id="[\d.]+"/g,
         `id="${newStartLine}"`
@@ -122,24 +172,11 @@ async function renumberAllNodes() {
 
     console.log(`🔄 RENUMBERING: Generated ${updates.length} updates`);
 
-    // 3. Set flag to ignore mutation observer during DOM/DB updates
-    window.renumberingInProgress = true;
-    console.log('🔒 RENUMBERING: Mutation observer disabled');
+    // Note: window.renumberingInProgress already set at start of triggerRenumberingWithModal()
 
-    // 4. Update DOM elements if they're currently visible (using node_id as stable reference)
+    // 7. Update DOM elements if they're currently visible (using node_id as stable reference)
     let domUpdateCount = 0;
     let missingElements = 0;
-
-    // Also check for DOM elements that aren't in the updates array
-    const allDomElements = document.querySelectorAll('[data-node-id]');
-    const updatesNodeIds = new Set(updates.map(u => u.node_id));
-
-    allDomElements.forEach(el => {
-      const nodeId = el.getAttribute('data-node-id');
-      if (!updatesNodeIds.has(nodeId)) {
-        console.warn(`⚠️ DOM element with node_id ${nodeId} (id="${el.id}") NOT in updates array - was not saved to IndexedDB yet`);
-      }
-    });
 
     updates.forEach(update => {
       const element = document.querySelector(`[data-node-id="${update.node_id}"]`);
