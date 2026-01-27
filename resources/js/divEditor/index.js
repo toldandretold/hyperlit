@@ -59,6 +59,8 @@ import { generateIdBetween,
          isNumericalId,
          ensureNodeHasValidId,
          NUMERICAL_ID_PATTERN,
+         findPreviousElementId,
+         findNextElementId,
           } from "../utilities/IDfunctions.js";
 import {
   broadcastToOpenTabs
@@ -625,6 +627,95 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
       let targetElement = range.startContainer;
       if (targetElement.nodeType !== Node.ELEMENT_NODE) {
         targetElement = targetElement.parentElement;
+      }
+
+      // 🆕 LI HANDLING: Backspace at start of LI converts it to paragraph
+      if (event.key === 'Backspace' && range.collapsed) {
+        const liElement = targetElement?.closest('li');
+        if (liElement) {
+          // Check if cursor is at the very start of the LI
+          let isAtStart = false;
+          if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            isAtStart = range.startOffset === 0 &&
+              (range.startContainer === liElement.firstChild ||
+               range.startContainer.parentNode === liElement.firstChild ||
+               !liElement.textContent.substring(0, range.startContainer.textContent.length).trim());
+          } else if (range.startContainer === liElement) {
+            isAtStart = range.startOffset === 0;
+          }
+
+          if (isAtStart) {
+            event.preventDefault();
+
+            const parentList = liElement.closest('ul, ol');
+            if (!parentList) return;
+
+            // Ensure parent list has ID
+            ensureNodeHasValidId(parentList);
+            if (!parentList.id) {
+              console.error("Could not assign ID to parent list");
+              return;
+            }
+
+            // Get position of this LI
+            const allItems = Array.from(parentList.children);
+            const itemIndex = allItems.indexOf(liElement);
+            const itemsBefore = allItems.slice(0, itemIndex);
+            const itemsAfter = allItems.slice(itemIndex + 1);
+
+            // Create paragraph with LI content
+            const newParagraph = document.createElement('p');
+            newParagraph.innerHTML = liElement.innerHTML || '<br>';
+
+            // Remove the LI
+            liElement.remove();
+
+            if (parentList.children.length === 0) {
+              // List is now empty - replace it with the paragraph
+              setElementIds(newParagraph, findPreviousElementId(parentList), findNextElementId(parentList), book);
+              parentList.replaceWith(newParagraph);
+              queueNodeForSave(newParagraph.id, 'add');
+            } else if (itemsBefore.length === 0) {
+              // Was first item - put paragraph before list
+              setElementIds(newParagraph, findPreviousElementId(parentList), parentList.id, book);
+              parentList.before(newParagraph);
+              queueNodeForSave(newParagraph.id, 'add');
+              queueNodeForSave(parentList.id, 'update');
+            } else if (itemsAfter.length === 0) {
+              // Was last item - put paragraph after list
+              setElementIds(newParagraph, parentList.id, findNextElementId(parentList), book);
+              parentList.after(newParagraph);
+              queueNodeForSave(parentList.id, 'update');
+              queueNodeForSave(newParagraph.id, 'add');
+            } else {
+              // Was in the middle - split the list
+              const newList = document.createElement(parentList.tagName);
+              itemsAfter.forEach(item => newList.appendChild(item));
+
+              setElementIds(newParagraph, parentList.id, null, book);
+              parentList.after(newParagraph);
+
+              setElementIds(newList, newParagraph.id, findNextElementId(newParagraph), book);
+              newParagraph.after(newList);
+
+              queueNodeForSave(parentList.id, 'update');
+              queueNodeForSave(newParagraph.id, 'add');
+              queueNodeForSave(newList.id, 'add');
+            }
+
+            // Move cursor to start of new paragraph
+            const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
+              ? newParagraph.firstChild
+              : newParagraph;
+            const newRange = document.createRange();
+            newRange.setStart(target, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            return;
+          }
+        }
       }
 
       // Find the closest element with an ID
