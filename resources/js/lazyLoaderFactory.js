@@ -1223,8 +1223,9 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     }
 
     const isSameBlock = startBlock === endBlock && startBlock !== null;
+    const hasProtectedElements = rangeContainsProtectedElements(startNode, endNode);
 
-    if (isSameBlock) {
+    if (isSameBlock && !hasProtectedElements) {
       // Safe to use extractContents - handles inline elements correctly
       // This keeps <u>, <sup>, <b>, <i>, etc. intact inside the wrapper
       const contents = range.extractContents();
@@ -1340,6 +1341,37 @@ function getProtectedParent(textNode) {
     parent = parent.parentNode;
   }
   return null;
+}
+
+/**
+ * Check if a range contains any protected elements (footnotes, hypercites).
+ * Used to determine whether to use extractContents() or text-node wrapping.
+ */
+function rangeContainsProtectedElements(startNode, endNode) {
+  // Check if start or end nodes are inside protected elements
+  if (getProtectedParent(startNode) || getProtectedParent(endNode)) {
+    return true;
+  }
+
+  // Check if any protected elements exist between start and end
+  const commonAncestor = findCommonAncestor(startNode, endNode);
+  if (!commonAncestor) return false;
+
+  const searchRoot = commonAncestor.nodeType === Node.TEXT_NODE
+    ? commonAncestor.parentNode
+    : commonAncestor;
+
+  if (!searchRoot) return false;
+
+  // Check for footnote sups
+  const footnoteSups = searchRoot.querySelectorAll('sup[fn-count-id]');
+  if (footnoteSups.length > 0) return true;
+
+  // Check for hypercite underlines
+  const hypercites = searchRoot.querySelectorAll('u[id^="hypercite_"], u.couple, u.poly, u.single');
+  if (hypercites.length > 0) return true;
+
+  return false;
 }
 
 /**
