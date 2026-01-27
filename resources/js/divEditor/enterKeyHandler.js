@@ -10,7 +10,7 @@
 
 import { chunkOverflowInProgress } from "../utilities/operationState.js";
 import { book } from '../app.js';
-import { generateIdBetween, setElementIds, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
+import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../utilities/IDfunctions.js";
 import { queueNodeForSave } from './index.js';
 import { verbose } from '../utilities/logger.js';
 
@@ -654,6 +654,141 @@ export class EnterKeyHandler {
           moveCaretTo(textNode, 0);
         }
 
+        return;
+      }
+
+      // SECTION 2.5: Handle list items (LI)
+      if (blockElement.tagName === "LI") {
+        event.preventDefault();
+
+        // Find the parent list (UL or OL)
+        const parentList = blockElement.closest("ul, ol");
+        if (!parentList) {
+          console.error("LI element has no parent list");
+          return;
+        }
+
+        // Ensure parent list has a valid ID
+        ensureNodeHasValidId(parentList);
+        if (!parentList.id) {
+          console.error("Could not assign ID to parent list. Aborting.");
+          return;
+        }
+
+        // Check if this is an empty LI (exit list behavior)
+        const isEmpty = blockElement.textContent.trim() === "" ||
+                        blockElement.innerHTML === "<br>";
+
+        if (isEmpty) {
+          // Get position of this LI in the list
+          const allItems = Array.from(parentList.children);
+          const itemIndex = allItems.indexOf(blockElement);
+          const itemsBefore = allItems.slice(0, itemIndex);
+          const itemsAfter = allItems.slice(itemIndex + 1);
+
+          // Remove the empty LI
+          blockElement.remove();
+
+          // Create the new paragraph
+          const newParagraph = document.createElement('p');
+          newParagraph.innerHTML = '<br>';
+
+          if (parentList.children.length === 0) {
+            // List is now empty - replace it entirely
+            setElementIds(newParagraph, findPreviousElementId(parentList), findNextElementId(parentList), book);
+            parentList.replaceWith(newParagraph);
+            moveCaretTo(newParagraph, 0);
+            queueNodeForSave(newParagraph.id, 'add');
+          } else if (itemsBefore.length === 0) {
+            // Was first item - put paragraph before list
+            setElementIds(newParagraph, findPreviousElementId(parentList), parentList.id, book);
+            parentList.before(newParagraph);
+            moveCaretTo(newParagraph, 0);
+            queueNodeForSave(newParagraph.id, 'add');
+            queueNodeForSave(parentList.id, 'update');
+          } else if (itemsAfter.length === 0) {
+            // Was last item - put paragraph after list
+            setElementIds(newParagraph, parentList.id, findNextElementId(parentList), book);
+            parentList.after(newParagraph);
+            moveCaretTo(newParagraph, 0);
+            queueNodeForSave(parentList.id, 'update');
+            queueNodeForSave(newParagraph.id, 'add');
+          } else {
+            // Was in the middle - split the list!
+            // 1. Create a new list for items after
+            const newList = document.createElement(parentList.tagName);
+
+            // 2. Move items after to the new list
+            itemsAfter.forEach(item => newList.appendChild(item));
+
+            // 3. Insert paragraph after original list
+            setElementIds(newParagraph, parentList.id, null, book);
+            parentList.after(newParagraph);
+
+            // 4. Insert new list after paragraph
+            setElementIds(newList, newParagraph.id, findNextElementId(newParagraph), book);
+            newParagraph.after(newList);
+
+            moveCaretTo(newParagraph, 0);
+            queueNodeForSave(parentList.id, 'update');
+            queueNodeForSave(newParagraph.id, 'add');
+            queueNodeForSave(newList.id, 'add');
+          }
+        } else {
+          // Non-empty LI: Create new LI after current one
+          const newLI = document.createElement('li');
+
+          // Check if cursor is at the end of the text content
+          let liIsAtEnd = false;
+          if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            const textLength = range.startContainer.textContent.length;
+            liIsAtEnd = range.startOffset === textLength;
+            // Also check if we're at the last text node
+            if (liIsAtEnd) {
+              let node = range.startContainer;
+              while (node.nextSibling) {
+                if (node.nextSibling.nodeType === Node.TEXT_NODE && node.nextSibling.textContent.trim() !== '') {
+                  liIsAtEnd = false;
+                  break;
+                }
+                if (node.nextSibling.nodeType === Node.ELEMENT_NODE && node.nextSibling.textContent.trim() !== '') {
+                  liIsAtEnd = false;
+                  break;
+                }
+                node = node.nextSibling;
+              }
+            }
+          } else if (range.startContainer === blockElement) {
+            liIsAtEnd = range.startOffset === blockElement.childNodes.length;
+          }
+
+          if (liIsAtEnd) {
+            // Cursor at end: new empty LI
+            newLI.innerHTML = '<br>';
+            blockElement.after(newLI);
+          } else {
+            // Cursor in middle: split content
+            const rangeToEnd = document.createRange();
+            rangeToEnd.setStart(range.startContainer, range.startOffset);
+            rangeToEnd.setEndAfter(blockElement.lastChild || blockElement);
+            const extractedContent = rangeToEnd.extractContents();
+
+            newLI.appendChild(extractedContent);
+            if (newLI.innerHTML.trim() === '' || newLI.textContent.trim() === '') {
+              newLI.innerHTML = '<br>';
+            }
+            if (blockElement.innerHTML.trim() === '' || blockElement.textContent.trim() === '') {
+              blockElement.innerHTML = '<br>';
+            }
+
+            blockElement.after(newLI);
+          }
+
+          moveCaretTo(newLI, 0);
+          queueNodeForSave(parentList.id, 'update');
+        }
+
+        this.enterCount = 0;
         return;
       }
 
