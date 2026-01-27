@@ -30,28 +30,39 @@ import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
  * @param {HTMLElement} element - The DOM element containing footnote references
  */
 function applyDynamicFootnoteNumbers(element) {
-  // Find all footnote reference links
-  const footnoteLinks = element.querySelectorAll('sup a.footnote-ref, a.footnote-ref');
+  // Find all footnote sups - both formats:
+  // 1. Old format: <sup class="footnote-ref" fn-count-id="N" id="footnoteId">N</sup>
+  // 2. New format: <sup fn-count-id="N" id="..."><a class="footnote-ref" href="#footnoteId">N</a></sup>
+  const footnoteSups = element.querySelectorAll('sup[fn-count-id]');
 
-  for (const link of footnoteLinks) {
-    const href = link.getAttribute('href');
-    if (!href) continue;
+  for (const sup of footnoteSups) {
+    // Get footnoteId from anchor href (new format) or sup id (old format)
+    const anchor = sup.querySelector('a.footnote-ref, a[href^="#"]');
+    let footnoteId;
 
-    // Extract footnote ID from href (e.g., "#bookId_Fn1758412345001" → "bookId_Fn1758412345001")
-    const footnoteId = href.replace(/^#/, '');
+    if (anchor && anchor.getAttribute('href')) {
+      // New format: get from anchor href
+      footnoteId = anchor.getAttribute('href').replace(/^#/, '');
+    } else {
+      // Old format: get from sup id directly
+      footnoteId = sup.id;
+    }
+
     if (!footnoteId) continue;
 
     // Get the dynamic display number from the service
     const displayNumber = getDisplayNumber(footnoteId);
 
     if (displayNumber) {
-      // Update the parent sup's fn-count-id attribute
-      const sup = link.closest('sup');
-      if (sup) {
-        sup.setAttribute('fn-count-id', displayNumber.toString());
+      // Update the sup's fn-count-id attribute
+      sup.setAttribute('fn-count-id', displayNumber.toString());
+
+      // Update the visible text
+      if (anchor) {
+        anchor.textContent = displayNumber.toString();
+      } else {
+        sup.textContent = displayNumber.toString();
       }
-      // Update the visible link text
-      link.textContent = displayNumber.toString();
     }
   }
 }

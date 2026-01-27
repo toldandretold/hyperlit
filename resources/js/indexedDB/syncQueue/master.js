@@ -153,6 +153,13 @@ export const debouncedMasterSync = debounce(async () => {
   const mainContent = document.querySelector('.main-content');
   const bookId = firstItem?.data?.book || mainContent?.id || book || "latest";
 
+  // Skip sync for read-only homepage synthetic books
+  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
+  if (syntheticBooks.includes(bookId)) {
+    console.log(`[SYNC] Skipping sync for synthetic homepage book: ${bookId}`);
+    return;
+  }
+
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items for book: ${bookId}...`);
 
   const initialSyncPromise = getInitialBookSyncPromise();

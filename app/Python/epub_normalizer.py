@@ -548,27 +548,42 @@ class ImageProcessor(EpubTransform):
                     if grandparent and grandparent.name == 'div':
                         gp_children = [c for c in grandparent.children if hasattr(c, 'name') and c.name]
 
-                        # Look for caption (usually a <p> with bold text like "Figure 1.1")
-                        caption_elem = None
-                        for child in gp_children:
-                            if child.name == 'p' and child != parent:
-                                text = child.get_text(strip=True)
-                                if text and len(text) < 500:  # Reasonable caption length
-                                    caption_elem = child
-                                    break
+                        # Validate grandparent is a minimal wrapper before converting
+                        # Don't convert if grandparent contains headings or multiple content elements
+                        has_headings = any(c.name in ['h1','h2','h3','h4','h5','h6'] for c in gp_children)
+                        p_count = sum(1 for c in gp_children if c.name == 'p')
 
-                        # Convert grandparent div to figure
-                        grandparent.name = 'figure'
-                        grandparent.attrs = {}
+                        # Grandparent should be minimal: just parent div + maybe 1 caption
+                        # If it has headings, multiple paragraphs, or too many children, it's a content section
+                        is_minimal_wrapper = not has_headings and p_count <= 1 and len(gp_children) <= 2
 
-                        # Unwrap the intermediate div
-                        parent.unwrap()
+                        if is_minimal_wrapper:
+                            # Look for caption (usually a <p> with bold text like "Figure 1.1")
+                            caption_elem = None
+                            for child in gp_children:
+                                if child.name == 'p' and child != parent:
+                                    text = child.get_text(strip=True)
+                                    if text and len(text) < 500:  # Reasonable caption length
+                                        caption_elem = child
+                                        break
 
-                        # Convert caption p to figcaption
-                        if caption_elem:
-                            caption_elem.name = 'figcaption'
+                            # Convert grandparent div to figure
+                            grandparent.name = 'figure'
+                            grandparent.attrs = {}
 
-                        figures_created += 1
+                            # Unwrap the intermediate div
+                            parent.unwrap()
+
+                            # Convert caption p to figcaption
+                            if caption_elem:
+                                caption_elem.name = 'figcaption'
+
+                            figures_created += 1
+                        else:
+                            # Grandparent is a content section, just convert parent div to figure
+                            parent.name = 'figure'
+                            parent.attrs = {}
+                            figures_created += 1
 
                 elif len(siblings) >= 1:
                     # Parent div has img + possibly caption
@@ -623,7 +638,7 @@ class SectionUnwrapper(EpubTransform):
     PRESERVE_ELEMENTS = ['figure', 'aside', 'table', 'ul', 'ol', 'blockquote']
 
     # Classes that indicate the element should be preserved
-    PRESERVE_CLASSES = ['footnotes', 'endnotes', 'bibliography', 'references']
+    PRESERVE_CLASSES = ['footnote', 'footnotes', 'endnote', 'endnotes', 'bibliography', 'references', 'note', 'notes']
 
     def detect(self, soup) -> bool:
         return bool(soup.find(['section', 'div']))
@@ -759,14 +774,23 @@ class DivToSemanticConverter(EpubTransform):
         body = soup.body if soup.body else soup
 
         # Pass 1: Divs to headings
+        # Patterns: 'heading', 'title', or publisher patterns like 'fmhT' (front matter heading)
         for div in body.find_all('div'):
             class_str = ' '.join(div.get('class', [])).lower()
-            if 'heading' in class_str or 'title' in class_str:
-                level = 1
+            if 'heading' in class_str or 'title' in class_str or re.search(r'fmh|bmh|chap', class_str):
+                level = 2  # Default to h2 for publisher heading classes
                 match = re.search(r'[h_s]?(?P<level>\d+)', class_str)
                 if match:
                     level = int(match.group('level'))
                     level = max(1, min(6, level))
+                elif 'heading' in class_str or 'title' in class_str:
+                    level = 1  # Original default for explicit heading/title
+
+                # Special case: VOLUME/PART headings should be h1 (major divisions)
+                text = div.get_text(strip=True).upper()
+                if re.match(r'^(VOLUME|PART|BOOK)\s', text):
+                    level = 1
+
                 div.name = f'h{level}'
                 preserved_id = div.get('id')
                 div.attrs = {}
@@ -1031,6 +1055,7 @@ class Epub3SemanticFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': elem,
                         'target_id': href[1:],
+                        'original_marker': elem.get_text(strip=True),
                         'strategy': 'epub3_semantic'
                     })
 
@@ -1074,6 +1099,7 @@ class AriaRoleFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': elem,
                         'target_id': href[1:],
+                        'original_marker': elem.get_text(strip=True),
                         'strategy': 'aria_role'
                     })
 
@@ -1091,9 +1117,9 @@ class ClassPatternFootnoteDetector(EpubTransform):
     description = "Detect footnotes via CSS class patterns"
 
     FOOTNOTE_PATTERNS = [
-        r'\bfootnote\b', r'\bfoot-note\b', r'\bfn\d*\b',
-        r'\bendnote\b', r'\bend-note\b', r'\ben\d*\b',
-        r'\bnote\b', r'\bannotation\b'
+        r'\bfootnotes?\d*\b', r'\bfoot-notes?\d*\b', r'\bfn\d*\b',
+        r'\bendnotes?\d*\b', r'\bend-notes?\d*\b', r'\ben\d*\b',
+        r'\bnotes?\d*\b', r'\bannotations?\b'
     ]
 
     NOTEREF_PATTERNS = [
@@ -1111,17 +1137,16 @@ class ClassPatternFootnoteDetector(EpubTransform):
     def transform(self, soup, log) -> dict:
         footnotes = []
         noterefs = []
+        seen_ids = set()
 
         for elem in soup.find_all(['aside', 'div', 'section', 'p', 'li']):
             class_str = ' '.join(elem.get('class', []))
             if any(re.search(p, class_str, re.I) for p in self.FOOTNOTE_PATTERNS):
                 elem_id = elem.get('id', '')
-                # If element has no ID, check first child anchor (Penguin format)
-                if not elem_id:
-                    first_a = elem.find('a', id=True)
-                    if first_a:
-                        elem_id = first_a.get('id', '')
-                if elem_id:
+
+                # Register element's own ID if present
+                if elem_id and elem_id not in seen_ids:
+                    seen_ids.add(elem_id)
                     footnotes.append({
                         'id': elem_id,
                         'element': elem,
@@ -1129,6 +1154,20 @@ class ClassPatternFootnoteDetector(EpubTransform):
                         'strategy': 'class_pattern'
                     })
                     log(f"    Found footnote (class): id={elem_id}")
+
+                # ALSO check child anchors - references often point to these
+                # (e.g., <p class="endnote" id="cap123"><a id="inen08"/>...)
+                for child_a in elem.find_all('a', id=True):
+                    child_id = child_a.get('id', '')
+                    if child_id and child_id not in seen_ids:
+                        seen_ids.add(child_id)
+                        footnotes.append({
+                            'id': child_id,
+                            'element': elem,  # Use parent as the footnote element
+                            'type': 'footnote',
+                            'strategy': 'class_pattern_child_anchor'
+                        })
+                        log(f"    Found footnote (class, child anchor): id={child_id}")
 
         for elem in soup.find_all('a'):
             class_str = ' '.join(elem.get('class', []))
@@ -1138,6 +1177,7 @@ class ClassPatternFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': elem,
                         'target_id': href[1:],
+                        'original_marker': elem.get_text(strip=True),
                         'strategy': 'class_pattern'
                     })
 
@@ -1311,6 +1351,7 @@ class PandocFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': a_tag,
                         'target_id': target_id,
+                        'original_marker': a_tag.get_text(strip=True),
                         'strategy': 'pandoc'
                     })
 
@@ -1595,6 +1636,10 @@ class HeuristicFootnoteDetector(EpubTransform):
         r'^pg\d+fn\d+$',  # Penguin format: pg400fn39 (page+fn+number)
         r'^pg\d+_fn\d+$',  # Penguin reference format: pg202_fn1
         r'.*intfn\d+$',  # Publisher internal: part0018_split_000_intfn1
+        r'.*_FTN-\d+$',  # Publisher FTN format: FTN-1, FTN-2 (Haymarket Books) - prefixed after merge
+        r'^FTN-\d+$',  # Publisher FTN format without prefix
+        r'.*_fn\d+_\d+$',  # Publisher format with suffixes: part0031_fn87_01
+        r'.*fn\d+_\d+$',  # Similar without leading underscore
     ]
 
     def detect(self, soup) -> bool:
@@ -1618,6 +1663,7 @@ class HeuristicFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': sup,
                         'target_id': target_id,
+                        'original_marker': sup.get_text(strip=True),  # Preserve *, †, etc.
                         'strategy': 'heuristic_sup_a'
                     })
 
@@ -1633,11 +1679,13 @@ class HeuristicFootnoteDetector(EpubTransform):
                     noterefs.append({
                         'element': a_tag,
                         'target_id': target_id,
+                        'original_marker': a_tag.get_text(strip=True),  # Preserve *, †, etc.
                         'strategy': 'heuristic_a_sup'
                     })
 
         # Pattern 2: ID-based detection for footnote definitions
-        for elem in soup.find_all(['p', 'div', 'li', 'aside', 'section', 'blockquote', 'td']):
+        # Include 'a' for publisher formats where footnote ID is on anchor (e.g., Haymarket Books)
+        for elem in soup.find_all(['p', 'div', 'li', 'aside', 'section', 'blockquote', 'td', 'a']):
             elem_id = elem.get('id', '')
             if elem_id and elem_id not in seen_fn_ids:
                 if any(re.match(p, elem_id, re.I) for p in self.ID_PATTERNS):
@@ -1700,7 +1748,36 @@ class HeuristicFootnoteDetector(EpubTransform):
                 noterefs.append({
                     'element': a_tag,
                     'target_id': target_id,
+                    'original_marker': a_tag.get_text(strip=True),  # Preserve *, †, etc.
                     'strategy': 'heuristic_cross_file_fn'
+                })
+
+        # Pattern 5: Bare <a href="#..."> with short symbol/number content (no <sup>)
+        # Matches asterisks (*), daggers (†‡), numbers, letters used as footnote refs
+        # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>
+        footnote_symbols = re.compile(r'^[\d*†‡§¶#a-zA-Z]{1,3}\.?$')
+        for a_tag in soup.find_all('a', href=True):
+            # Skip if already in <sup> (handled by Pattern 1a)
+            if a_tag.find_parent('sup'):
+                continue
+            # Skip if contains <sup> (handled by Pattern 1b)
+            if a_tag.find('sup'):
+                continue
+
+            href = a_tag.get('href', '')
+            target_id = self._extract_target_id(href)
+            if not target_id or target_id in seen_ref_ids:
+                continue
+
+            # Check if link text looks like a footnote reference
+            link_text = a_tag.get_text(strip=True)
+            if footnote_symbols.match(link_text):
+                seen_ref_ids.add(target_id)
+                noterefs.append({
+                    'element': a_tag,
+                    'target_id': target_id,
+                    'original_marker': link_text,  # Preserve *, †, etc.
+                    'strategy': 'heuristic_bare_symbol_link'
                 })
 
         log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
@@ -2010,10 +2087,11 @@ class FootnoteConverter(EpubTransform):
 
             self.footnotes_json.append(footnote_entry)
 
-            # Update the original footnote definition element if it exists
+            # Remove the footnote definition element from main HTML
+            # (content has been extracted to footnotes.json)
             elem = mapping.get('element')
-            if elem:
-                self._update_footnote_definition(elem, new_id, display_marker)
+            if elem and elem.parent:
+                elem.decompose()
 
         log(f"  Generated {len(self.footnotes_json)} footnote entries for JSON")
 
@@ -2023,6 +2101,29 @@ class FootnoteConverter(EpubTransform):
         """Extract the content of a footnote definition."""
         # Clone the element to avoid modifying the original during extraction
         from copy import copy
+
+        # Special case: If elem is an <a> tag that's empty or just contains a marker
+        # (number, *, †, etc.), the actual content is in the following sibling(s)
+        if elem.name == 'a':
+            elem_text = elem.get_text(strip=True)
+            # Check if anchor is empty, numeric ("1", "1."), or a symbol marker (*, †, ‡, etc.)
+            is_empty = not elem_text
+            is_numeric = bool(re.match(r'^\d+\.?$', elem_text))
+            is_symbol_marker = bool(re.match(r'^[\*†‡§¶#a-zA-Z]{1,3}\.?$', elem_text))
+
+            if is_empty or is_numeric or is_symbol_marker:
+                # Look for content in following siblings
+                sibling_content = []
+                for sibling in elem.next_siblings:
+                    if hasattr(sibling, 'name') and sibling.name:
+                        # Stop if we hit another anchor with an id (start of next footnote)
+                        if sibling.name == 'a' and sibling.get('id'):
+                            break
+                        sibling_content.append(str(sibling))
+                    elif str(sibling).strip():
+                        sibling_content.append(str(sibling).strip())
+                if sibling_content:
+                    return ''.join(sibling_content)
 
         # Get inner HTML, excluding any back-links
         content_parts = []
@@ -2060,13 +2161,15 @@ class FootnoteConverter(EpubTransform):
 
     def _strip_leading_footnote_number(self, content):
         """
-        Remove leading footnote numbers from content.
+        Remove leading footnote numbers and symbol markers from content.
 
         Handles patterns like:
         - "5. Text..." -> "Text..."
         - "[5] Text..." -> "Text..."
         - "<a ...>5</a>. Text..." -> "Text..."
         - "<sup>5</sup>. Text..." -> "Text..."
+        - "* Text..." -> "Text..."
+        - "† Text..." -> "Text..."
         """
         import re
         from bs4 import BeautifulSoup, NavigableString
@@ -2077,8 +2180,8 @@ class FootnoteConverter(EpubTransform):
         # Parse the content to handle HTML properly
         soup = BeautifulSoup(content, 'html.parser')
 
-        def strip_number_element(container):
-            """Strip leading number element (<a> or <sup> with just a number) from container."""
+        def strip_marker_element(container):
+            """Strip leading marker element (<a> or <sup> with number or symbol) from container."""
             first_elem = None
             for child in container.children:
                 if hasattr(child, 'name') and child.name:
@@ -2090,7 +2193,8 @@ class FootnoteConverter(EpubTransform):
 
             if first_elem and first_elem.name in ['a', 'sup']:
                 elem_text = first_elem.get_text().strip()
-                if re.match(r'^\d+\.?$', elem_text):
+                # Match numbers (1, 1.) or symbol markers (*, †, ‡, a, b, etc.)
+                if re.match(r'^(\d+\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?)$', elem_text):
                     # Get the next sibling to strip trailing ". "
                     next_sib = first_elem.next_sibling
                     first_elem.decompose()
@@ -2102,20 +2206,21 @@ class FootnoteConverter(EpubTransform):
             return False
 
         # Try stripping at top level
-        strip_number_element(soup)
+        strip_marker_element(soup)
 
         # Also check inside <p> tags
         for p_tag in soup.find_all('p'):
-            strip_number_element(p_tag)
+            strip_marker_element(p_tag)
 
         content = str(soup)
 
-        # Strip plain text number patterns
+        # Strip plain text number and symbol patterns
         patterns = [
             r'^\s*\[\d+\]\s*\.?\s*',       # [5] or [5].
             r'^\s*\d+\.\s+',                # 5. (with space after)
             r'^\s*\d+\s*\)\s*',             # 5)
             r'^\s*\(\d+\)\s*',              # (5)
+            r'^\s*[\*†‡§¶#]+\s*',           # *, †, ‡, etc.
         ]
 
         for pattern in patterns:
@@ -2125,41 +2230,37 @@ class FootnoteConverter(EpubTransform):
 
     def _convert_noteref_element(self, elem, new_id, fn_count, soup):
         """Convert an in-text note reference to Hyperlit format."""
-        # The element might be a <sup>, <a>, or something else
-        # New format: <sup fn-count-id="N" id="ID" class="footnote-ref">N</sup>
-        # (No anchor tag inside - click handling done via JavaScript)
+        # Format: <sup fn-count-id="N" id="footnoteId"><a class="footnote-ref" href="#footnoteId">N</a></sup>
+        # The anchor inside is required by lazyLoaderFactory.js applyDynamicFootnoteNumbers
+        # The sup id must match the footnoteId in footnotes.json for detection to work
 
         # Check if element is still in the document tree (might have been replaced already)
         if elem.parent is None:
             return  # Skip elements that were already removed/replaced
 
+        # Create the anchor that goes inside the sup
+        new_anchor = soup.new_tag('a')
+        new_anchor['class'] = 'footnote-ref'
+        new_anchor['href'] = f'#{new_id}'
+        new_anchor.string = str(fn_count)
+
         if elem.name == 'sup':
-            # Already a sup, just update attributes
+            # Already a sup - clear and rebuild with anchor inside
+            elem.clear()
             elem['fn-count-id'] = str(fn_count)
             elem['id'] = new_id
-            elem['class'] = 'footnote-ref'
-
-            # Remove any existing anchor, just keep text content
-            elem.clear()
-            elem.string = str(fn_count)
+            # Remove class from sup (it goes on anchor instead)
+            if 'class' in elem.attrs:
+                del elem['class']
+            elem.append(new_anchor)
 
         elif elem.name == 'a':
-            # It's an <a> (possibly containing a <sup>), convert to proper format
-            # Create new sup with proper attributes (no anchor needed)
+            # It's an <a>, create new sup wrapping the anchor
             new_sup = soup.new_tag('sup')
             new_sup['fn-count-id'] = str(fn_count)
             new_sup['id'] = new_id
-            new_sup['class'] = 'footnote-ref'
-            new_sup.string = str(fn_count)
-
-            # Replace the original <a> with the new sup
+            new_sup.append(new_anchor)
             elem.replace_with(new_sup)
-
-    def _update_footnote_definition(self, elem, new_id, fn_count):
-        """Update the footnote definition element with new ID."""
-        # Add/update the ID on the element
-        elem['id'] = new_id
-        elem['fn-count-id'] = str(fn_count)
 
     def transform(self, soup, log) -> dict:
         # This method exists for interface compatibility but
