@@ -388,8 +388,28 @@ export function disableEditMode() {
 
     stopObserving();
 
-    // Save any pending changes before disabling edit mode
-    flushAllPendingSaves();
+    // Check if renumbering is needed (any ID is not a clean 100-multiple)
+    const needsRenumbering = Array.from(
+      document.querySelectorAll('[data-node-id]')
+    ).some(el => {
+      if (!el.id) return false;
+      // Fast check for decimals first
+      if (el.id.includes('.')) return true;
+      // Then check for non-100-multiples
+      const id = parseInt(el.id, 10);
+      return !isNaN(id) && id % 100 !== 0;
+    });
+
+    if (needsRenumbering) {
+      console.log('🔄 IDs need cleanup - triggering renumbering on edit exit');
+      // Renumbering will flush pending saves internally
+      import('../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+        triggerRenumberingWithModal(0);
+      });
+    } else {
+      // No decimals - just flush pending saves
+      flushAllPendingSaves();
+    }
   }).catch(err => {
     console.warn('Edit modules not loaded:', err);
   });
