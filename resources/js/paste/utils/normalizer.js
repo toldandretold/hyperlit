@@ -63,3 +63,19 @@ export function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+/**
+ * Strip <mark> tags from HTML while preserving their text content.
+ * Mark tags should NEVER become top-level nodes - they are inline highlights only.
+ * When pasting highlighted text, we want to keep the text but remove the highlight styling.
+ *
+ * @param {string} html - HTML content that may contain mark tags
+ * @returns {string} - HTML with mark tags replaced by their text content
+ */
+export function stripMarkTags(html) {
+  if (!html) return html;
+
+  // Use regex to replace <mark> tags with their content
+  // This handles both <mark>text</mark> and <mark id="...">text</mark> forms
+  return html.replace(/<mark[^>]*>([\s\S]*?)<\/mark>/gi, '$1');
+}

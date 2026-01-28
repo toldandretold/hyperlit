@@ -49,6 +49,28 @@ class UnifiedSyncController extends Controller
                 'has_library' => isset($data['library']),
             ]);
 
+            // Check for stale data ONLY when syncing nodes (not highlights/hypercites)
+            // This prevents a stale device from overwriting newer data
+            if (!empty($data['nodes'])) {
+                $currentLibrary = PgLibrary::where('book', $bookId)->first();
+                $frontendTimestamp = $data['library']['timestamp'] ?? null;
+
+                if ($currentLibrary && $frontendTimestamp && $currentLibrary->timestamp > $frontendTimestamp) {
+                    Log::warning('Stale data sync rejected', [
+                        'book' => $bookId,
+                        'frontend_timestamp' => $frontendTimestamp,
+                        'server_timestamp' => $currentLibrary->timestamp
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'STALE_DATA',
+                        'message' => 'Your book is out of date. Please refresh to get the latest version.',
+                        'server_timestamp' => $currentLibrary->timestamp
+                    ], 409);
+                }
+            }
+
             // Wrap everything in a transaction for atomicity
             $result = DB::transaction(function () use ($request, $data, $bookId) {
                 $results = [

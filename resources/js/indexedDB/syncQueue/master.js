@@ -127,6 +127,20 @@ export async function executeSyncPayload(payload) {
   });
 
   if (!res.ok) {
+    // Handle stale data (409 Conflict) specially
+    if (res.status === 409) {
+      const errorData = await res.json();
+      if (errorData.error === 'STALE_DATA') {
+        console.error("📵 Stale data detected - your book is out of date");
+        alert('Your book is out of date. Please refresh to get the latest version.\n\nYour recent changes could not be saved because another device has made edits since you last loaded this page.');
+        // Throw a specific error so callers can identify stale data issues
+        const staleError = new Error(errorData.message || 'Book is out of date');
+        staleError.code = 'STALE_DATA';
+        staleError.serverTimestamp = errorData.server_timestamp;
+        throw staleError;
+      }
+    }
+
     const txt = await res.text();
     console.error("❌ Unified sync error:", txt);
     throw new Error(`Unified sync failed: ${txt}`);

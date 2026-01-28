@@ -50,6 +50,7 @@ import { processMarkdownInChunks } from './utils/markdown-processor.js';
 import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
+import { stripMarkTags } from './utils/normalizer.js';
 
 // Configure marked options
 marked.setOptions({
@@ -220,6 +221,14 @@ async function handlePaste(event) {
       .replace(/"/g, '"')  // Replace smart double quotes
       .replace(/"/g, '"')  // Replace other smart double quotes
       .replace(/`/g, "'"); // Replace backticks with regular single quotes
+
+    // 🚨 Strip <mark> tags to prevent them from becoming rogue top-level nodes
+    // Mark tags are inline highlights - they should NEVER become their own paragraph/node
+    const hadMarkTags = rawHtml.includes('<mark');
+    rawHtml = stripMarkTags(rawHtml);
+    if (hadMarkTags) {
+      console.log(`🧹 [${pasteOpId}] Stripped <mark> tags from pasted content`);
+    }
 
     // Declare variables that will be used throughout the paste flow
     let htmlContent = "";

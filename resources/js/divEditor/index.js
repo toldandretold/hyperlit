@@ -37,7 +37,9 @@ import {
   cleanupAfterImport,
   cleanupAfterPaste,
   getNoDeleteNode,
-  setNoDeleteMarker
+  setNoDeleteMarker,
+  findNextNoDeleteNode,
+  transferNoDeleteMarker
 } from './domUtilities.js';
 
 // Re-export for backward compatibility
@@ -734,14 +736,19 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
           textContent.trim().length <= 1;
 
         if (isSelectingAll || isAtStartAndEmpty) {
-          // Prevent the deletion of the protected node
-          event.preventDefault();
-
-          // ✅ REMOVED: ensureMinimumDocumentStructure() call
-          // The no-delete-id marker system prevents last node deletion,
-          // so explicit structure restoration is unnecessary here
-
-          return;
+          // Try to transfer the marker to another node
+          const nextNode = findNextNoDeleteNode();
+          if (nextNode && nextNode !== elementWithId) {
+            // Transfer marker and allow deletion to proceed
+            console.log(`🔄 [NO-DELETE] Transferring marker from ${elementWithId.id} to ${nextNode.id}`);
+            transferNoDeleteMarker(elementWithId, nextNode);
+            // Don't preventDefault - let deletion proceed
+          } else {
+            // This is the LAST node - refuse deletion
+            console.log(`🛑 [NO-DELETE] Refusing deletion - this is the last node`);
+            event.preventDefault();
+            return;
+          }
         }
       }
     }
