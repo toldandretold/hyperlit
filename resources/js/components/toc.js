@@ -121,7 +121,7 @@ async function scanForHeadings() {
 
   const headings = [];
   // Match id="..." but NOT data-node-id="..." (require space or < before id)
-  const headingRegex = /^<(h[1-6])[^>]*\sid="([^"]+)"[^>]*>(.*?)<\/h[1-6]>/i;
+  const headingRegex = /^<(h[1-6])[^>]*\sid="([^"]+)"[^>]*>([\s\S]*?)<\/h[1-6]>/i;
 
   for (const chunk of nodes) {
     if (!chunk.content) continue;
