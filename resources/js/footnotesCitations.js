@@ -128,7 +128,6 @@ export function destroyFootnoteCitationListeners() {
   if (footnoteClickHandler) {
     document.removeEventListener('click', footnoteClickHandler, true);
     footnoteClickHandler = null;
-    initializationCount = 0;
     verbose.init('Footnote/citation listeners destroyed', '/footnotesCitations.js');
   }
 }
