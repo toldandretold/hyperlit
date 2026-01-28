@@ -1420,16 +1420,16 @@ class EndnoteCharactersFootnoteDetector(EpubTransform):
             elif href.startswith('#'):
                 # This is an in-text REFERENCE
                 target_id = href[1:]
-                if target_id not in seen_ref_targets:
-                    seen_ref_targets.add(target_id)
-                    # Capture original marker text (e.g., "1", "43a", "*")
-                    marker_text = span.get_text(strip=True) if span else ''
-                    noterefs.append({
-                        'element': a_tag,
-                        'target_id': target_id,
-                        'strategy': 'endnote_characters',
-                        'original_marker': marker_text
-                    })
+                # Track target for definition lookup, but allow multiple refs to same target
+                seen_ref_targets.add(target_id)
+                # Capture original marker text (e.g., "1", "43a", "*")
+                marker_text = span.get_text(strip=True) if span else ''
+                noterefs.append({
+                    'element': a_tag,
+                    'target_id': target_id,
+                    'strategy': 'endnote_characters',
+                    'original_marker': marker_text
+                })
 
         log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
         return {'footnotes': footnotes, 'noterefs': noterefs}
@@ -1491,9 +1491,7 @@ class EnoteFootnoteDetector(EpubTransform):
                 continue
 
             target_id = href[1:]  # Remove #
-            if target_id in seen_ref_targets:
-                continue
-
+            # Track target for definition lookup, but allow multiple refs to same target
             seen_ref_targets.add(target_id)
 
             # Extract original marker text (e.g., "[8]" or "8")
@@ -2032,6 +2030,7 @@ class FootnoteConverter(EpubTransform):
         # Now convert in-text references (noterefs)
         converted_refs = 0
         numeric_count = 1  # Counter for numeric footnotes only
+        used_ref_ids = set()  # Track which footnote IDs have been assigned to refs
 
         for noteref in all_noterefs:
             target_id = noteref.get('target_id', '')
@@ -2045,6 +2044,19 @@ class FootnoteConverter(EpubTransform):
             if target_id in id_mapping:
                 mapping = id_mapping[target_id]
                 new_id = mapping['new_id']
+
+                # If this footnote ID was already used by another reference,
+                # generate a new unique ID and create a duplicate footnote entry
+                if new_id in used_ref_ids:
+                    timestamp = int(time.time() * 1000)
+                    random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+                    new_id = f"Fn{timestamp}_{random_suffix}"
+                    # Store duplicate entry to be added to footnotes_json later
+                    if '_duplicate_entries' not in mapping:
+                        mapping['_duplicate_entries'] = []
+                    mapping['_duplicate_entries'].append(new_id)
+
+                used_ref_ids.add(new_id)
 
                 # Determine display marker: preserve non-numeric, use count for numeric
                 if original_marker and not original_marker.isdigit():
@@ -2086,6 +2098,17 @@ class FootnoteConverter(EpubTransform):
                 footnote_entry['originalMarker'] = original_marker
 
             self.footnotes_json.append(footnote_entry)
+
+            # Add duplicate entries for additional references to the same footnote
+            for dup_id in mapping.get('_duplicate_entries', []):
+                dup_anchor_html = f'<a fn-count-id="{display_marker}" id="{dup_id}"></a>'
+                dup_entry = {
+                    'footnoteId': dup_id,
+                    'content': dup_anchor_html + content
+                }
+                if original_marker:
+                    dup_entry['originalMarker'] = original_marker
+                self.footnotes_json.append(dup_entry)
 
             # Remove the footnote definition element from main HTML
             # (content has been extracted to footnotes.json)
