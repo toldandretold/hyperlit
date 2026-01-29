@@ -54,7 +54,7 @@ It is for this reason that it is stronlgy advised that the website is **not used
 That said, I am a historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review".
 
 ## Built With
-List the major frameworks, libraries, and technologies you used.
+
 - Vanilla JavaScript (I know... I should update to Typescript)
 - Laravel
 - IndexedDB
