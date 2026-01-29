@@ -1752,8 +1752,9 @@ class HeuristicFootnoteDetector(EpubTransform):
 
         # Pattern 5: Bare <a href="#..."> with short symbol/number content (no <sup>)
         # Matches asterisks (*), daggers (†‡), numbers, letters used as footnote refs
-        # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>
-        footnote_symbols = re.compile(r'^[\d*†‡§¶#a-zA-Z]{1,3}\.?$')
+        # Also matches bracketed numbers like [1], [2] (common in Marxists.org, Calibre EPUBs)
+        # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>, <a href="#intro1">[1]</a>
+        footnote_symbols = re.compile(r'^(?:\[\d+\]|[\d*†‡§¶#a-zA-Z]{1,3}\.?)$')
         for a_tag in soup.find_all('a', href=True):
             # Skip if already in <sup> (handled by Pattern 1a)
             if a_tag.find_parent('sup'):
@@ -1777,6 +1778,53 @@ class HeuristicFootnoteDetector(EpubTransform):
                     'original_marker': link_text,  # Preserve *, †, etc.
                     'strategy': 'heuristic_bare_symbol_link'
                 })
+
+        # Pattern 6: Footnote definitions under a "Footnotes"/"Notes" heading
+        # Common in Calibre EPUBs and Marxists.org format:
+        #   <h4>Footnotes</h4>
+        #   <p><a href="#backlink" id="intro1">[1]</a> Definition content...</p>
+        #   <p><span><a href="#backlink" id="b1">[1]</a></span> Definition content...</p>
+        # These definitions have non-standard IDs (intro1, b1, d1) that don't match
+        # typical footnote ID patterns, but are clearly footnotes by context.
+        footnote_heading_texts = {'footnotes', 'footnote', 'notes', 'endnotes'}
+        for heading in soup.find_all(['h3', 'h4', 'h5', 'h6']):
+            heading_text = heading.get_text(strip=True).lower()
+            if heading_text not in footnote_heading_texts:
+                continue
+
+            # Collect following siblings until next heading
+            for sibling in heading.find_next_siblings():
+                if sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                    break
+
+                if sibling.name not in ['p', 'div']:
+                    continue
+
+                # Look for an anchor with an id attribute at/near the start
+                # Handles both <a id="..."> and <span><a id="..."></span>
+                first_a = sibling.find('a', id=True)
+                if not first_a:
+                    continue
+
+                a_id = first_a.get('id')
+                if not a_id or a_id in seen_fn_ids:
+                    continue
+
+                # Verify this anchor has a backlink href (points back to the
+                # in-text reference) and contains a short marker like [1]
+                has_backlink = first_a.get('href', '').startswith('#')
+                marker_text = first_a.get_text(strip=True)
+                looks_like_marker = bool(re.match(r'^\[?\d+\]?$', marker_text))
+
+                if has_backlink and looks_like_marker:
+                    seen_fn_ids.add(a_id)
+                    footnotes.append({
+                        'id': a_id,
+                        'element': sibling,
+                        'type': 'footnote',
+                        'strategy': 'heuristic_footnotes_heading'
+                    })
+                    log(f"    Found footnote def (under heading): id={a_id}")
 
         log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
         return {'footnotes': footnotes, 'noterefs': noterefs}
