@@ -8,9 +8,11 @@ Read and self-publish hypertext literature.
 
 ## Why?
 
-I am a historian. I made this to publish research with two-way hyperlink citations.[^1]
+I am a historian. I made this site to publish research with two-way hyperlink citations.[^1]
 
-I import sources to read. I cite by copying passages and pasting into my own article.
+I import sources to read. I cite by copying passages and pasting them into my own article.
+
+This means readers of my work can be taken directly to the cited passages in the source material.
 
 You might want to use it for something else.
 
@@ -27,40 +29,38 @@ You might want to use it for something else.
 
 **create new book or import from file**: top-right [+] button on homepage.
 
-**hyperlight** any book by selecting text, and pressing the colored square.
+**hyperlight** any text by selecting text, and pressing the colored square.
 
-**hypercite** any book by selecting text, pressing the hypercite button. Then:
-   - **if you paste it within hyperlit** (either in a hyperlight annotation or in the content of one of your books), the cited text and pasted citation will be automatically connected via two-way hyperlink citation.
-   - **if you paste it outseid of hyperlit** (like in a DM or personal notes app) it will still paste a one-way link back to the originally cited text. This is useful for sharing a passage to comrades.
+**hypercite** any text by selecting text, pressing the hypercite button. Then: paste it.
 
-**publish a book** by clicking the cloudRef button (top right in reader/writer mode) and clicking the red lock button. This will prompt you to confirm. The red lock will turn to green earth. Now, anyone else can read, hyperlight or hypercite your work!
+**publish a book** by clicking the cloudRef button (top right in reader/writer mode) and clicking the red lock button. 
 
-**read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just leave it as the default private/unpublished setting). If it **is** open access, publish it so others can read along with you, and compare notes!
+**read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just don't publish it). If it **is** open access, publish it so others can read along with you, and compare notes!
 
 ## License 
 
-This is 🄯 copyleft [free software](LICENSE.md).
+This is copyleft [free software](LICENSE.md).
 
-Users have full sovereignty of their data. This is under threat by AI harvesting. For, a free consciousness might not want their consciousness used to create unfree AI "consciousness". 
+Users have full sovereignty of their data. 
 
-Thus, in a **contradictory** step towards this goal of full personal data sovereignty, hyperlit texts come with a [default license](https://hyperlit.io/license2025content) that declares that texts can't be used to train AI models that are not free software. Ironically, the LLM that wrote this license for me (feel free to re-write it if you know any better), tells me it is unliely to be legally binding. That's concerning. 
+By default, published work comes with a copyleft inspired license that aims to protect text from being used to train non-free LLMs. See: [default license](https://hyperlit.io/license2025content). Ironically, the LLM slave that wrote this license tells me that it is unlikely to be legally binding.
 
 ## WARNING!
 
-I created this website using LLMs. I have gradually gotten better at programming, but I am dependent on LLMs. I'm sure both lovers and haters of vibez will find fucked shit in this code. 
+I created this website using LLMs. I have gradually gotten better at programming, but I am still largely dependent on LLMs. I'm sure both lovers and haters of vibez will find fucked shit in this code. 
 
-That said, I am a formally trained historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review", and I would be grateful for any assistance. 
+It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for publishing "copyleft" writing that you want others to read freely.
 
-It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for publishing "copyleft" writing that you want others to read freely. Nothing is encrypted. However, it is set up so that your hypertext nodes can not leave the database without authorisation. Still, there is **no warranty** on any data leak or loss. You can download local backups of any work via the cloudRef button (top right in reader/writer view). This is unfortunatley useful at the moment and should be done if something seems odd. 
-
+That said, I am a historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review".
 
 ## Built With
 List the major frameworks, libraries, and technologies you used.
-- Vanilla JavaScript
+- Vanilla JavaScript (I know... I should update to Typescript)
 - Laravel
 - IndexedDB
 - PostgreSQL
 - Rangy highlighter
+- Python
 
 ## Getting Started **locally**
 
@@ -178,22 +178,22 @@ Each node is a row, with its own nodeID. This is used to match each node to any 
 
 When a user navigates to hyperlit.io/book, the nodes for that book are pulled from the nodes table, along with its "library card" details from the library table, and any other related content from the hyperlights, hypercites, bibliography, or footnotes tables (relying on nodeID). 
 
-In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. (this is currently slow. will make it faster in future, by potentially injecting first chunk into blade view so it loads instantly and so user does not need to download a whole book before page loads).
+In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users' current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. (this is currently slow. I will make it faster in future, by potentially injecting first chunk of nodes into blade view so it loads instantly, and so users don't need to download a whole book before the page loads).
 
 On the frontend:
 
-1. **intializePage.js** uses **syncBookDataFromDatabase(bookId)** from **postgreSQL.js** to pull the json from backend, and store it into the browser's indexedDB.
+1. **intializePage.js** uses **syncBookDataFromDatabase(bookId)** from **postgreSQL.js** to pull the json from backend, and store it in the browser's indexedDB.
 
-2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the mark (highlight) tags and underline (hypercite) tags to be loaded more seamlessly. 
+2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the <mark> (highlight) tags and <underline> (hypercite) tags to be loaded more seamlessly into the DOM.
 
-3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the main tag within the DOM using lazyLoaderFactory.js
+3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the <main> tag within the DOM using lazyLoaderFactory.js
 
 ```<main class="main-content" id="**book**">```
 
 
-It is "lazy loaded", in the sense that only 100 nodes are inserted into the DOM at a time. As user scrolls past ```<div class="sentinenel">```, new chunks of nodes are inserted either above or below. 
+4. It is "lazy loaded", in the sense that one "chunk" of 100 nodes is inserted into the DOM at a time. As user scrolls past ```<div class="sentinenel">```, new chunks of nodes are inserted either above or below. 
 
-*Soon, I will implement it so it only pulls data from server in chunks too, at least initially, to decrease load time.* 
+This ensures that the site is responsive and usable, even when reading a massive academic book filled with footnotes and hypercites 
 
 ### Hyperlight and Hypercite **Data Flow**
 
@@ -202,7 +202,7 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 #### From postgreSQL to indexedDB
 1. **Gatekeeping**: Because they are stored as seperate rows of data, the *databaseToIndexedDBController* can effectively sort them according to users' "gatekeeping" preferences, before sending them to the front end.
 
-2. **pre-hyrdation**: After sorting, the charData (character data), is inserted into the json for each node. This means that the front end receives each hypertext node along with all relevant character start and character end data for any hypercite or hyperlight that it needs to render into the DOM with mark and u tags.
+2. **pre-hyrdation**: After sorting, the charData (character data), is inserted into the json for each node. This means that the front end receives each hypertext node along with all relevant character-start and character-end data for any hypercite or hyperlight that it needs to render into the DOM with <mark> and <u> tags.
 
 #### From indexedDB to DOM
 1. When creating a hypercite or hyperlight, the front-end updates the indexedDB object stores of 'hypercites' or 'hyperlights'. 
@@ -211,7 +211,9 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 
 3. It then uses this to update hyperlights and hypercites for the effected nodes currently in the DOM.
 
- > **TO DO**: *This system allows for backend updates of only hyperlights or hypercites, which update only the relevant nodes in indexedDB, before updating DOM. However, currenlty, hyperlit.io only does a full update of all content. Live udpates, and only-necessary updates are on the to-do time horizon.*
+ > **TO DO**: *The system currently updates according to a timestamp check of both text-node content, and hyperlights/hypercites. For example, if a user highlights text, it only updates the hyperlight meta-data. It doesn't unecessarily re-pull all the text nodes.
+>
+> However, I will eventually update it so it only needs to update the specifcally changed nodes/highlights/hypercites. This will reduce the amound of data server has to send and receive.*
 
 ### From indxedDB to PostgresQL
 **Important**: no nodes.hyperlights nor nodes.hypercites are sent to backend, as there is no nodes.hyperlights or nodes.hypercites columns in postgreSQL. This is because users only update their own rows in the hypercites and hyperlights tables. The "hydration" of charData into nodes.hyperlights and nodes.hypercites is done purely for each user's own indexedDB nodes object store. This is because:
@@ -220,40 +222,33 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 2. we don't want users editing the nodes data table of another user's book. (hyperlights and hypercites are treated as the sovereign data of their users, and not tied to the sovereign data of other users, except via the relation of node_id)
 3. this also enables us to have a ghost hyperlight and hypercite system, which is not yet done.
 
- > **To Do**: *Create a ghost hyperlight and hypercite system. What this means is, when the creator of a book/hypertext deletes a node that another user has a hyperlight or hypercite on, it shoudl be marked as a hyper-ghost. On page load, these can be inserted below the node node above the former location. These could be filtered out by user preferecne, but it would ensure that if the creator of the hyperlight returned, they could see their annotation, and understand that it was orphaned. Because hyperlights contain "highlighted text" they, and other users, will have some knoweldge of what was originally highlighted*
+ > **To Do**: *Create a ghost hyperlight and hypercite system. When the creator of a book/hypertext deletes a node that another user has a hyperlight or hypercite on, it should be marked as a hyper-ghost. On page load, these could be inserted below the node above the former location. These could be filtered out by user preferecne, but it would ensure that if the creator of the hyperlight returned, they could see their annotation, and understand that it was orphaned. Because hyperlights contain "highlighted text" they, and other users, will have some knoweldge of what was originally highlighted*
 
 
 ## Roadmap
 
-<!--
-List the features you plan to implement in the future. This shows the direction of the project.
-- [ ] Feature A
-- [ ] Feature B
-- [ ] Sub-feature C
--->
+1. Hyperlight-ghost system.
+2. Version control.
+3. Pre-inject first chunk for faster load time.
+4. More security vulnerability testing
+5. Footnote / hyperlight annotations are treated as text-nodes so  that they too can be highlighted and hypercited.
+6. Update crucial user settings, like change password. Two-factor auth or passkey. 
 
 ## Contributing
 
-<!--
-Explain how others can contribute to your project. You can mention:
-- The process for submitting pull requests.
-- How to report bugs.
-- Your coding standards.
-You can also reiterate your openness to feedback here.
--->
-
+Please use it. Let me know what you use it for. Ask for help. Let me know what sucks.
 
 ## Origin and Motivation
-I thought of the underdevelopment of academic software, and software in general, while a history student at the University of Adelaide. Deep within the library, I would chuckle at the grafiti left inside books. What did a student reading the same book decades earlier have to say? I was struck by a realisation: library books are the original "social media". When a knowledge community shares a single copy of a text, they can leave messages in the margins. What's insane about this is that -- in theory -- the internet should have massively augmented this already-existing social reading experience. Hypertext was primed to serve the role of a form of reading that was highly customisable, and highly social. So what went wrong?
+I thought of the underdevelopment of academic software, and software in general, while a history student at the University of Adelaide. Deep within the library, I would chuckle at the grafiti left inside books. What did a student reading the same book decades earlier have to say? I was struck by a realisation: library books are the original "social media". When a knowledge community shares a single copy of a text, they can leave messages in the margins. What's insane about this is that -- in theory -- the internet should have massively augmented this already-existing social reading experience. Hypertext was primed to provide a form of reading that was highly customisable, and highly social. So what went wrong?
 
 Actually, the internet *did* drastically improve the reading and writing experience for many different knowledge communities. Consider that:
 
 - Linux used email to create a [more secure operating system](https://www.gnu.org/software/fsfe/projects/ms-vs-eu/halloween1.html) than the then monopoly, Microsoft. 
 - Tim Berners-Lee first envisoned HTTP and HTML as the basis of [a better knowledge system](https://hyperlit.io/book_1762834024918) for CERN.
 - The open-source software of Wikipedia has sustained a communist node of knowledge production.[^2]
-- Long before the internet, in the 1960s, people created hypertext editors that allowed for a far more precise form of hypertext citations. People could link back to specific parts of a text. This allowed for proto-docuverses, where a text could link directly to the cited portions of sources.
+- Long before the internet, in the 1960s, people created hypertext editors that [allowed for a far more precise form of hypertext citations](https://dhq.digitalhumanities.org/vol/4/1/000081/000081.html). People could link back to specific parts of a text. This allowed for proto-docuverses, where a text could link directly to the cited portions of sources.
 
-So the question wasn't 'why hasn't the internet augmented social reading and writing', it was: 'why has academic publishing been so severely *underdeveloped*?' 
+So the question in need of asnwering isn't 'why hasn't the internet augmented social reading and writing', it is: 'why has academic publishing been so severely *underdeveloped*?' The answer, surprise surprise, is monopoly capitalism. Unfortunately for the monopoly publishers of academic knowledge, their own dominance is dwarfed by big tech. This inter-capitalist crisis of knowledge production is scary. Knowledge workers should support copyleft software that supports personal data sovereignty. 
 
 ## Contact
 
