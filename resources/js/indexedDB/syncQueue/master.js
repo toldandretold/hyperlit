@@ -38,6 +38,33 @@ export async function updateHistoryLog(logEntry) {
 }
 
 /**
+ * Get all failed history log entries for a specific book.
+ * Used to merge failed batch data into the next sync attempt.
+ *
+ * @param {string} bookId - Book identifier
+ * @returns {Promise<Array>} Array of failed log entries (empty on error)
+ */
+async function getFailedBatchesForBook(bookId) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("historyLog", "readonly");
+    const store = tx.objectStore("historyLog");
+    const index = store.index("status");
+
+    const failedLogs = await new Promise((resolve, reject) => {
+      const request = index.getAll("failed");
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+
+    return failedLogs.filter(log => log.bookId === bookId);
+  } catch (error) {
+    console.error("Error fetching failed batches:", error);
+    return [];
+  }
+}
+
+/**
  * Create a genesis history entry for a new book.
  * This marks the initial state that undo cannot go past.
  *
@@ -306,6 +333,76 @@ export const debouncedMasterSync = debounce(async () => {
         }
       }
     }
+
+    // --- Merge data from previously failed batches ---
+    let failedBatches = [];
+    try {
+      failedBatches = await getFailedBatchesForBook(bookId);
+      if (failedBatches.length > 0) {
+        console.log(`🔄 Found ${failedBatches.length} failed batch(es) to merge into current sync`);
+
+        // Build set of node_ids already in the current sync (current edits take priority)
+        const currentNodeIds = new Set();
+        for (const node of syncPayload.updates.nodes) {
+          if (node.node_id) currentNodeIds.add(node.node_id);
+        }
+        for (const node of syncPayload.deletions.nodes) {
+          if (node.node_id) currentNodeIds.add(node.node_id);
+        }
+
+        // Collect node_ids from failed batches that need recovery
+        const nodeIdsToRecover = new Set();
+        const deletionsToRecover = [];
+
+        for (const batch of failedBatches) {
+          const payload = batch.payload;
+          if (!payload) continue;
+
+          // Collect updated node_ids not already in current sync
+          for (const node of (payload.updates?.nodes || [])) {
+            if (node.node_id && !currentNodeIds.has(node.node_id)) {
+              nodeIdsToRecover.add(node.node_id);
+            }
+          }
+
+          // Collect true deletions (in deletions but NOT in updates for this batch)
+          const batchUpdatedIds = new Set(
+            (payload.updates?.nodes || []).map(n => n.node_id).filter(Boolean)
+          );
+          for (const node of (payload.deletions?.nodes || [])) {
+            if (node.node_id && !batchUpdatedIds.has(node.node_id) && !currentNodeIds.has(node.node_id)) {
+              deletionsToRecover.push(node);
+            }
+          }
+        }
+
+        // Re-read nodes fresh from IndexedDB (current state, not stale payload)
+        if (nodeIdsToRecover.size > 0) {
+          const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
+          const freshNodes = await getNodesByUUIDs([...nodeIdsToRecover]);
+          for (const node of freshNodes) {
+            syncPayload.updates.nodes.push(node);
+          }
+          console.log(`🔄 Merged ${freshNodes.length} node(s) from failed batches (re-read from IndexedDB)`);
+        }
+
+        // Add deletions (verify node still doesn't exist in IndexedDB)
+        if (deletionsToRecover.length > 0) {
+          const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
+          const existCheck = await getNodesByUUIDs(deletionsToRecover.map(n => n.node_id));
+          const stillExistIds = new Set(existCheck.map(n => n.node_id));
+          for (const node of deletionsToRecover) {
+            if (!stillExistIds.has(node.node_id)) {
+              syncPayload.deletions.nodes.push({ ...node, _action: "delete" });
+            }
+          }
+        }
+      }
+    } catch (mergeError) {
+      console.error("Failed to merge failed batches (proceeding with current sync):", mergeError);
+      failedBatches = []; // Reset so we don't incorrectly mark them synced
+    }
+
     await executeSyncPayload(syncPayload);
     if (logEntry) {
       logEntry.status = "synced";
@@ -314,6 +411,18 @@ export const debouncedMasterSync = debounce(async () => {
     } else {
       console.log(`✅ Non-node sync completed (no history entry).`);
     }
+
+    // Mark merged failed batches as synced
+    for (const failedBatch of failedBatches) {
+      try {
+        failedBatch.status = "synced";
+        await updateHistoryLog(failedBatch);
+        console.log(`✅ Previously failed batch ${failedBatch.id} now marked as synced`);
+      } catch (markError) {
+        console.error(`Failed to mark batch ${failedBatch.id} as synced:`, markError);
+      }
+    }
+
     if (glowCloudGreen) glowCloudGreen(); // Glow cloud green on successful server sync
   } catch (error) {
     if (logEntry) {
