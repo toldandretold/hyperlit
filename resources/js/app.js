@@ -37,7 +37,7 @@ let _footnoteId = null;
 if (pathSegments.length === 2) {
   if (pathSegments[1].startsWith("HL_")) {
     _hyperlightId = pathSegments[1];
-  } else if (pathSegments[1].includes("_Fn")) {
+  } else if (pathSegments[1].includes("_Fn") || pathSegments[1].startsWith("Fn")) {
     _footnoteId = pathSegments[1];
   }
 }

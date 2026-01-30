@@ -262,7 +262,7 @@ export class LinkNavigationHandler {
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
       // Check if this is a footnote URL pattern (format: /book/bookId_Fn...)
-      const isFootnoteURL = pathSegments.length > 1 && pathSegments[1].includes('_Fn');
+      const isFootnoteURL = pathSegments.length > 1 && (pathSegments[1].includes('_Fn') || pathSegments[1].startsWith('Fn'));
 
       if (isHyperlightURL) {
         const hyperlightId = pathSegments[1];

@@ -593,7 +593,7 @@ export async function restoreScrollPosition() {
   // If so, skip scroll restoration - BookToBookTransition will handle navigation
   const pathSegments = window.location.pathname.split('/').filter(Boolean);
   const isHyperlightPath = pathSegments.length >= 2 && pathSegments[1]?.startsWith('HL_');
-  const isFootnotePath = pathSegments.length >= 2 && pathSegments[1]?.includes('_Fn');
+  const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
   if (isHyperlightPath) {
     console.log(`⏭️ RESTORE SCROLL: Hyperlight path detected (${pathSegments[1]}), skipping scroll restoration`);
     return;
@@ -1196,7 +1196,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     }
 
     // For footnotes, open them after scrolling starts (same as highlights)
-    if (targetId.includes('_Fn')) {
+    if (targetId.includes('_Fn') || targetId.startsWith('Fn')) {
       setTimeout(async () => {
         console.log(`Opening footnote after navigation: ${targetId}`);
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');

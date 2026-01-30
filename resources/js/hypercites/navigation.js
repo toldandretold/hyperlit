@@ -404,7 +404,7 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
     }
 
     // Check for footnote links (format: /book/bookId_Fn1234#hypercite_abc)
-    const fnMatch = hlSegment && hlSegment.includes("_Fn");
+    const fnMatch = hlSegment && (hlSegment.includes("_Fn") || hlSegment.startsWith("Fn"));
     if (bookSegment === currentBook && fnMatch) {
       console.log("✅ Same-book footnote link detected in hypercite");
 
