@@ -322,9 +322,23 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
     sessionStorage.removeItem(scrollKey);
 
     // Find the footnote sup element by ID in the document
-    const footnoteElement = document.getElementById(footnoteId);
+    let footnoteElement = document.getElementById(footnoteId);
+
+    // If not found, the chunk containing the footnote may not be loaded yet (lazy loading)
+    // Use navigateToInternalId to find the correct chunk, load it, and scroll to it
+    if (!footnoteElement && lazyLoader) {
+      console.log(`📦 Footnote element not in DOM yet, loading chunk via navigateToInternalId: ${footnoteId}`);
+      await navigateToInternalId(footnoteId, lazyLoader, false);
+
+      // Wait for DOM to settle after chunk loading
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Retry finding the element now that the chunk should be loaded
+      footnoteElement = document.getElementById(footnoteId);
+    }
+
     if (!footnoteElement) {
-      console.error(`❌ Footnote element not found: ${footnoteId}`);
+      console.error(`❌ Footnote element not found even after chunk loading: ${footnoteId}`);
       // Fall back to navigating by internal ID if the element exists elsewhere
       if (internalId) {
         await navigateToInternalId(internalId, lazyLoader, false);

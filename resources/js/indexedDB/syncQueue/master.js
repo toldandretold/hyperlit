@@ -188,16 +188,30 @@ export const debouncedMasterSync = debounce(async () => {
     return;
   }
 
-  // ✅ Extract book ID from the actual data being synced, not the global variable
-  // This fixes import book sync sending wrong book ID when global 'book' variable is stale
+  // Determine book ID from queued data, skipping synthetic homepage books
+  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
+
+  // Filter out synthetic book items that can't be synced
+  for (const [key, item] of pendingSyncs) {
+    if (syntheticBooks.includes(item?.data?.book)) {
+      pendingSyncs.delete(key);
+    }
+  }
+
+  if (pendingSyncs.size === 0) {
+    console.log(`[SYNC] All pending items were for synthetic books, nothing to sync`);
+    return;
+  }
+
+  // Extract book ID from the actual data being synced, not the global variable
   const firstItem = pendingSyncs.values().next().value;
   const mainContent = document.querySelector('.main-content');
   const bookId = firstItem?.data?.book || mainContent?.id || book || "latest";
 
-  // Skip sync for read-only homepage synthetic books
-  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
+  // Final safety check (in case mainContent or global book is synthetic)
   if (syntheticBooks.includes(bookId)) {
     console.log(`[SYNC] Skipping sync for synthetic homepage book: ${bookId}`);
+    pendingSyncs.clear();
     return;
   }
 

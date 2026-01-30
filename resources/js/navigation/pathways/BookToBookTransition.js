@@ -18,6 +18,7 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index.js';
+import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
 import { navigateToInternalId } from '../../scrolling.js';
 
 export class BookToBookTransition {
@@ -45,18 +46,19 @@ export class BookToBookTransition {
     
     this.abortController = new AbortController();
     this.isTransitioning = true;
-    const { 
+    const {
       fromBook,
-      toBook, 
+      toBook,
       hash = '',
       hyperlightId = null,
       hyperciteId = null,
+      footnoteId = null,
       progressCallback
     } = options;
 
-    // URL will be updated at the end after all initialization is complete    
-    console.log('📖 BookToBookTransition: Starting book-to-book transition', { 
-      fromBook, toBook, hash, hyperlightId, hyperciteId 
+    // URL will be updated at the end after all initialization is complete
+    console.log('📖 BookToBookTransition: Starting book-to-book transition', {
+      fromBook, toBook, hash, hyperlightId, hyperciteId, footnoteId
     });
     
     // Create the transition promise for concurrent handling
@@ -90,7 +92,7 @@ export class BookToBookTransition {
 
         // Initialize the new reader view
         // Pass hash navigation flag to prevent scroll position interference
-        const hasHashNavigation = !!(hash || hyperlightId || hyperciteId);
+        const hasHashNavigation = !!(hash || hyperlightId || hyperciteId || footnoteId);
         await this.initializeReader(toBook, progress, hasHashNavigation);
 
         progress(75, 'Ensuring content readiness...');
@@ -111,8 +113,8 @@ export class BookToBookTransition {
         // Update URL early to keep browser history in sync
         this.updateUrlWithStatePreservation(toBook, hash);
         
-        // Handle any hash-based navigation (hyperlights, hypercites, etc.)
-        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
+        // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
+        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress);
 
         progress(100, 'Complete!');
 
@@ -310,19 +312,19 @@ export class BookToBookTransition {
   }
 
   /**
-   * Handle hash-based navigation (hyperlights, hypercites, internal links)
+   * Handle hash-based navigation (hyperlights, hypercites, footnotes, internal links)
    * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash, hyperlightId, hyperciteId, bookId, progress) {
-    if (!hash && !hyperlightId && !hyperciteId) {
+  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress) {
+    if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
       console.log('📖 BookToBookTransition: No hash navigation needed');
       return false;
     }
-    
-    console.log('🎯 BookToBookTransition: Handling hash navigation', { 
-      hash, hyperlightId, hyperciteId 
+
+    console.log('🎯 BookToBookTransition: Handling hash navigation', {
+      hash, hyperlightId, hyperciteId, footnoteId
     });
-    
+
     try {
       // Wait for content to be fully loaded
       if (pendingFirstChunkLoadedPromise) {
@@ -330,7 +332,7 @@ export class BookToBookTransition {
         await pendingFirstChunkLoadedPromise;
         console.log('✅ BookToBookTransition: Content loaded, proceeding with navigation');
       }
-      
+
       // Handle different types of navigation
       if (hyperlightId && hyperciteId) {
         // Hyperlight + hypercite navigation - progress will be hidden when elements are ready
@@ -340,15 +342,21 @@ export class BookToBookTransition {
         // Just hyperlight navigation - progress will be hidden when element is ready
         await this.navigateToInternalId(hyperlightId, progress);
         return true; // Progress was hidden by the navigation
+      } else if (footnoteId) {
+        // Footnote navigation - scroll to footnote marker and open in container
+        const internalId = hash ? (hash.startsWith('#') ? hash.substring(1) : hash) : null;
+        console.log(`🎯 BookToBookTransition: Navigating to footnote ${footnoteId}, internal: ${internalId}`);
+        await navigateToFootnoteTarget(footnoteId, internalId, currentLazyLoader);
+        return true;
       } else if (hash) {
         // General hash navigation - progress will be hidden when element is ready
         const targetId = hash.startsWith('#') ? hash.substring(1) : hash;
         await this.navigateToInternalId(targetId, progress);
         return true; // Progress was hidden by the navigation
       }
-      
+
       return false; // No navigation performed
-      
+
     } catch (error) {
       console.error('❌ BookToBookTransition: Hash navigation failed:', error);
       // Don't throw - navigation failure shouldn't break the entire transition

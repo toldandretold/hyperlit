@@ -153,6 +153,18 @@ import { isSearchToolbarOpen } from './search/inTextSearch/searchToolbar.js';
 
 // ========= Scrolling Helper Functions =========
 
+// Track hashes we've already navigated to during THIS page session.
+// Module-level (not history.state) so it resets on page reload,
+// allowing fresh page loads to always navigate to the URL hash.
+const navigatedHashes = new Set();
+
+/**
+ * Clear navigated hashes (called on popstate so back/forward re-navigates)
+ */
+export function clearNavigatedHashes() {
+  navigatedHashes.clear();
+}
+
 // Global scroll state management to prevent restoration interference
 let userScrollState = {
   isScrolling: false,
@@ -549,8 +561,8 @@ export async function restoreScrollPosition() {
     }
   }
 
-  if (wrapper && wrapper.scrollHeight <= wrapper.clientHeight) {
-    console.log('🔍 SCROLL DEBUG: EARLY EXIT - content doesnt overflow');
+  if (wrapper && wrapper.scrollHeight <= wrapper.clientHeight && !window.location.hash) {
+    console.log('🔍 SCROLL DEBUG: EARLY EXIT - content doesnt overflow and no hash target');
     return;
   }
 
@@ -614,10 +626,10 @@ export async function restoreScrollPosition() {
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
 
-  // 🚀 FIX: Check if we've already navigated to this hash (using history state)
-  // If we have, treat it like we have no explicit target (allow scroll position to override)
-  const historyState = window.history.state;
-  const alreadyNavigatedToHash = historyState && historyState.navigatedToHash === targetId;
+  // Check if we've already navigated to this hash during THIS page session.
+  // Uses module-level Set (not history.state) so it resets on page reload,
+  // ensuring fresh page loads always navigate to the URL hash target.
+  const alreadyNavigatedToHash = navigatedHashes.has(targetId);
   const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
 
   console.log(`🔍 RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`);
@@ -1252,20 +1264,11 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       // 🎯 Hide loading indicator
       hideNavigationLoading();
 
-      // 🚀 FIX: Mark this hash as "navigated to" in history state
-      // This prevents refresh from going back to hash (allows scroll position to override)
+      // Mark this hash as "navigated to" for this page session.
+      // Uses module-level Set so it resets on page reload (fresh loads re-navigate).
       if (window.location.hash.substring(1) === targetId) {
-        try {
-          const currentState = window.history.state || {};
-          window.history.replaceState(
-            { ...currentState, navigatedToHash: targetId },
-            '',
-            window.location.href
-          );
-          console.log(`✅ Marked hash ${targetId} as navigated in history state`);
-        } catch (error) {
-          console.warn('Could not update history state:', error);
-        }
+        navigatedHashes.add(targetId);
+        console.log(`✅ Marked hash ${targetId} as navigated (session-level)`);
       }
 
       // 🚀 iOS Safari fix: Resolve navigation Promise so callers know we're truly done

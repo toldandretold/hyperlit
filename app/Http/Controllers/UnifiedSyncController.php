@@ -189,22 +189,33 @@ class UnifiedSyncController extends Controller
                 }
 
                 // 5. Sync footnotes (if present)
+                // Group by each footnote's own book field to support cross-book citations
                 if (!empty($data['footnotes'])) {
-                    $footnoteController = new DbFootnoteController();
-                    $footnoteRequest = new Request(['book' => $bookId, 'data' => $data['footnotes']]);
-                    $footnoteRequest->setUserResolver(function () use ($request) {
-                        return $request->user();
-                    });
-                    foreach ($request->cookies as $key => $value) {
-                        $footnoteRequest->cookies->set($key, $value);
+                    $footnotesByBook = [];
+                    foreach ($data['footnotes'] as $footnote) {
+                        $fnBook = $footnote['book'] ?? $bookId;
+                        $footnotesByBook[$fnBook][] = $footnote;
                     }
 
-                    $response = $footnoteController->upsert($footnoteRequest);
-                    $results['footnotes'] = json_decode($response->getContent(), true);
+                    foreach ($footnotesByBook as $fnBookId => $fnGroup) {
+                        $footnoteController = new DbFootnoteController();
+                        $footnoteRequest = new Request(['book' => $fnBookId, 'data' => $fnGroup]);
+                        $footnoteRequest->setUserResolver(function () use ($request) {
+                            return $request->user();
+                        });
+                        foreach ($request->cookies as $key => $value) {
+                            $footnoteRequest->cookies->set($key, $value);
+                        }
 
-                    if (!($results['footnotes']['success'] ?? false)) {
-                        throw new \Exception('Footnotes sync failed: ' . ($results['footnotes']['message'] ?? 'Unknown error'));
+                        $response = $footnoteController->upsert($footnoteRequest);
+                        $fnResult = json_decode($response->getContent(), true);
+
+                        if (!($fnResult['success'] ?? false)) {
+                            throw new \Exception('Footnotes sync failed: ' . ($fnResult['message'] ?? 'Unknown error'));
+                        }
                     }
+
+                    $results['footnotes'] = ['success' => true, 'message' => 'Footnotes synced successfully'];
                 }
 
                 // 6. Sync library record (if present)
