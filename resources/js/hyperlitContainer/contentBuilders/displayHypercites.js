@@ -134,7 +134,7 @@ export async function buildHyperciteContent(contentType, db = null) {
         const citationParts = citationID.split("#");
         const urlPart = citationParts[0];
         const isHyperlightURL = urlPart.includes("/HL_");
-        const isFootnoteURL = urlPart.includes("_Fn");
+        const isFootnoteURL = urlPart.includes("_Fn") || /\/Fn\d/.test(urlPart);
 
         let bookID;
         if (isHyperlightURL) {
@@ -149,12 +149,19 @@ export async function buildHyperciteContent(contentType, db = null) {
             bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
           }
         } else if (isFootnoteURL) {
-          // Extract bookID from footnoteId format: "/bookId_Fn..." or "/book/bookId_Fn..."
+          // Old format: "/bookId_Fn..." or "/book/bookId_Fn..."
           const fnMatch = urlPart.match(/\/([^\/]+)_Fn/);
           if (fnMatch) {
             bookID = fnMatch[1];
           } else {
-            bookID = urlPart.replace("/", "").split("_Fn")[0];
+            // New format: "/bookId/FnTimestamp_random" (Fn as separate path segment)
+            const pathParts = urlPart.split("/").filter(p => p);
+            const fnIndex = pathParts.findIndex(p => /^Fn\d/.test(p));
+            if (fnIndex > 0) {
+              bookID = pathParts[fnIndex - 1];
+            } else {
+              bookID = urlPart.replace("/", "").split("_Fn")[0];
+            }
           }
         } else {
           bookID = urlPart.replace("/", "");

@@ -6,7 +6,7 @@ import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
 import { log, verbose } from '../utilities/logger.js';
-import { hideNavigationLoading, navigateToInternalId } from '../scrolling.js';
+import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling.js';
 import { book } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
@@ -262,7 +262,7 @@ export class LinkNavigationHandler {
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
       // Check if this is a footnote URL pattern (format: /book/bookId_Fn...)
-      const isFootnoteURL = pathSegments.length > 1 && pathSegments[1].includes('_Fn');
+      const isFootnoteURL = pathSegments.length > 1 && (pathSegments[1].includes('_Fn') || pathSegments[1].startsWith('Fn'));
 
       if (isHyperlightURL) {
         const hyperlightId = pathSegments[1];
@@ -382,6 +382,24 @@ export class LinkNavigationHandler {
         return;
       }
 
+      // Check if this is a footnote URL (e.g., /book/Fn123_abc#hypercite_xyz or /book/bookId_Fn123#...)
+      const isFootnoteURL = pathSegments.length > 1 && (pathSegments[1].includes('_Fn') || pathSegments[1].startsWith('Fn'));
+
+      if (isFootnoteURL) {
+        const footnoteId = pathSegments[1];
+
+        verbose.nav(`Cross-book footnote navigation: ${targetBookId}/${footnoteId}${targetHash}`, '/navigation/LinkNavigationHandler.js');
+
+        await NavigationManager.navigateByStructure({
+          fromBook: currentBookId,
+          toBook: targetBookId,
+          targetUrl: linkUrl.href,
+          hash: targetHash,
+          footnoteId,
+        });
+        return;
+      }
+
       // Use NEW structure-aware navigation system
       await NavigationManager.navigateByStructure({
         fromBook: currentBookId,
@@ -450,16 +468,9 @@ export class LinkNavigationHandler {
       sessionStorage.removeItem(scrollKey);
       // Don't clear localStorage - only session storage to prevent this navigation's interference
 
-      // 🚀 CRITICAL: Clear the "navigatedToHash" flag so back/forward buttons work
-      // When user presses back/forward, we ALWAYS want to navigate to the hash
-      if (window.history.state && window.history.state.navigatedToHash) {
-        verbose.nav('POPSTATE: Clearing navigatedToHash flag for fresh navigation', '/navigation/LinkNavigationHandler.js');
-        window.history.replaceState(
-          { ...window.history.state, navigatedToHash: null },
-          '',
-          window.location.href
-        );
-      }
+      // Clear the navigated hashes so back/forward buttons re-navigate to the hash
+      clearNavigatedHashes();
+      verbose.nav('POPSTATE: Cleared navigatedHashes for fresh navigation', '/navigation/LinkNavigationHandler.js');
     }
 
     // Check if we need to navigate between different content using SPA transitions

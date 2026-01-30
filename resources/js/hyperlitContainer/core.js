@@ -223,7 +223,7 @@ export function closeHyperlitContainer() {
       // Clean up URL hash and history state when closing container
       const currentUrl = window.location;
       const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
-      const isFootnotePath = pathSegments.length >= 2 && pathSegments[1]?.includes('_Fn');
+      const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
 
       if (isFootnotePath) {
         // Remove footnote ID from path: /book/footnoteID -> /book
