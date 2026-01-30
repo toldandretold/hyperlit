@@ -184,7 +184,7 @@ On the frontend:
 
 1. **intializePage.js** uses **syncBookDataFromDatabase(bookId)** from **postgreSQL.js** to pull the json from backend, and store it in the browser's indexedDB.
 
-2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the <mark> (highlight) tags and <underline> (hypercite) tags to be loaded more seamlessly into the DOM.
+2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the mark (highlight) tags and underline (hypercite) tags to be loaded more seamlessly into the DOM.
 
 3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the <main> tag within the DOM using lazyLoaderFactory.js
 
@@ -202,7 +202,7 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 #### From postgreSQL to indexedDB
 1. **Gatekeeping**: Because they are stored as seperate rows of data, the *databaseToIndexedDBController* can effectively sort them according to users' "gatekeeping" preferences, before sending them to the front end.
 
-2. **pre-hyrdation**: After sorting, the charData (character data), is inserted into the json for each node. This means that the front end receives each hypertext node along with all relevant character-start and character-end data for any hypercite or hyperlight that it needs to render into the DOM with <mark> and <u> tags.
+2. **pre-hyrdation**: After sorting, the charData (character data), is inserted into the json for each node. This means that the front end receives each hypertext node along with all relevant character-start and character-end data for any hypercite or hyperlight that it needs to render into the DOM with mark and u tags.
 
 #### From indexedDB to DOM
 1. When creating a hypercite or hyperlight, the front-end updates the indexedDB object stores of 'hypercites' or 'hyperlights'. 
