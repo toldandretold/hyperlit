@@ -79,3 +79,20 @@ export function stripMarkTags(html) {
   // This handles both <mark>text</mark> and <mark id="...">text</mark> forms
   return html.replace(/<mark[^>]*>([\s\S]*?)<\/mark>/gi, '$1');
 }
+
+/**
+ * Convert definition list tags (<dl>, <dt>, <dd>) to paragraphs.
+ * Definition lists are used by some publishers for author names, metadata, etc.
+ * They're not supported in the editor, so convert <dt>/<dd> to <p> and strip <dl> wrappers.
+ *
+ * @param {string} html - HTML content that may contain definition list tags
+ * @returns {string} - HTML with definition list tags converted to paragraphs
+ */
+export function convertDefinitionListTags(html) {
+  if (!html) return html;
+
+  return html
+    .replace(/<dt[^>]*>([\s\S]*?)<\/dt>/gi, '<p>$1</p>')
+    .replace(/<dd[^>]*>([\s\S]*?)<\/dd>/gi, '<p>$1</p>')
+    .replace(/<\/?dl[^>]*>/gi, '');
+}

@@ -50,7 +50,7 @@ import { processMarkdownInChunks } from './utils/markdown-processor.js';
 import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
-import { stripMarkTags } from './utils/normalizer.js';
+import { stripMarkTags, convertDefinitionListTags } from './utils/normalizer.js';
 
 // Configure marked options
 marked.setOptions({
@@ -228,6 +228,13 @@ async function handlePaste(event) {
     rawHtml = stripMarkTags(rawHtml);
     if (hadMarkTags) {
       console.log(`🧹 [${pasteOpId}] Stripped <mark> tags from pasted content`);
+    }
+
+    // Convert <dl>, <dt>, <dd> definition list tags to <p> paragraphs
+    const hadDLTags = rawHtml.includes('<dt') || rawHtml.includes('<dd') || rawHtml.includes('<dl');
+    rawHtml = convertDefinitionListTags(rawHtml);
+    if (hadDLTags) {
+      console.log(`🧹 [${pasteOpId}] Converted definition list tags to paragraphs`);
     }
 
     // Declare variables that will be used throughout the paste flow
