@@ -43,12 +43,20 @@ export async function formatBibtexToCitation(bibtex) {
   const year = fields.year || "Unknown Year";
   const pages = fields.pages || null;
   const url = fields.url || null;
+  const volume = fields.volume || null;
+  const issue = fields.number || null; // BibTeX uses "number" for issue
+  const booktitle = fields.booktitle || null;
+  const chapter = fields.chapter || null;
+  const editor = fields.editor || null;
 
-  // Article vs. book
-  const isArticle = Boolean(journal);
+  // Parse the declared entry type from the BibTeX string (e.g. @article, @incollection)
+  const typeMatch = bibtex.match(/@(\w+)\s*\{/);
+  const entryType = typeMatch ? typeMatch[1].toLowerCase() : 'misc';
+  const isArticle = entryType === 'article';
+  const isChapter = entryType === 'incollection';
 
-  // Title formatting (quotes for articles, italics for books)
-  let formattedTitle = isArticle ? `"${title}"` : `<i>${title}</i>`;
+  // Title formatting: quotes for articles/chapters, italics for books
+  let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
   console.log("🔗 URL found in BibTeX:", url);
   if (url) {
     formattedTitle = `<a href="${url}" target="_blank">${formattedTitle}</a>`;
@@ -57,27 +65,46 @@ export async function formatBibtexToCitation(bibtex) {
     console.log("❌ No URL found, title will not be linked");
   }
 
-  // Publisher italics for articles
-  let formattedPublisher = publisher;
-  if (isArticle && publisher) {
-    formattedPublisher = `<i>${publisher}</i>`;
-  }
-
   // Build the final citation
   let citation = `${author}, ${formattedTitle}`;
-  if (isArticle) {
-    citation += `, ${journal}`;
-  } else if (formattedPublisher) {
-    citation += ` (${formattedPublisher}`;
-    if (year) citation += `, ${year}`;
-    citation += `)`;
-  } else if (year) {
-    citation += ` (${year})`;
+
+  if (isChapter) {
+    // Chapter in a book: Author, "Chapter Title" in *Book Title*, vol. X (ed. Editor, Publisher, Year), pages.
+    citation += ` in <i>${booktitle}</i>`;
+    if (volume) {
+      citation += `, vol. ${volume}`;
+      if (issue) citation += `(${issue})`;
+    }
+    const parenthetical = [];
+    if (editor) parenthetical.push(`ed. ${editor}`);
+    if (publisher) parenthetical.push(publisher);
+    if (year) parenthetical.push(year);
+    if (parenthetical.length > 0) {
+      citation += ` (${parenthetical.join(', ')})`;
+    }
+    if (pages) citation += `, ${pages}`;
+  } else if (isArticle) {
+    // Article: Author, "Title" Journal, vol(issue) (year), pages.
+    if (journal) citation += `, ${journal}`;
+    if (volume) {
+      citation += `, ${volume}`;
+      if (issue) citation += `(${issue})`;
+    }
+    if (year) citation += ` (${year})`;
+    if (pages) citation += `, ${pages}`;
+  } else {
+    // Book or other: Author, *Title* (Publisher, Year), pages.
+    let formattedPublisher = publisher;
+    if (formattedPublisher) {
+      citation += ` (${formattedPublisher}`;
+      if (year) citation += `, ${year}`;
+      citation += `)`;
+    } else if (year) {
+      citation += ` (${year})`;
+    }
+    if (pages) citation += `, ${pages}`;
   }
 
-  if (pages) {
-    citation += `, ${pages}`;
-  }
   citation += ".";
 
   return citation;
@@ -100,19 +127,27 @@ export function generateBibtexFromForm(data) {
     return value.replace(/[{}]/g, '\\$&'); // escape braces
   }
 
-  // Build the BibTeX entry lines
+  // Define which fields are relevant for each BibTeX type
+  const typeFields = {
+    article:       ['author', 'title', 'journal', 'year', 'volume', 'issue', 'pages', 'url', 'note'],
+    book:          ['author', 'title', 'publisher', 'year', 'pages', 'url', 'note'],
+    incollection:  ['author', 'title', 'booktitle', 'editor', 'publisher', 'year', 'chapter', 'volume', 'issue', 'pages', 'url', 'note'],
+    phdthesis:     ['author', 'title', 'school', 'year', 'url', 'note'],
+    misc:          ['author', 'title', 'year', 'url', 'note'],
+  };
+  const allowedFields = typeFields[type] || typeFields.misc;
+
+  // Map from form field names to BibTeX field names
+  const bibtexFieldName = (field) => field === 'issue' ? 'number' : field;
+
+  // Build the BibTeX entry lines — only include fields relevant to the type
   let bibtexLines = [`@${type}{${citationID},`];
 
-  // Add fields if they exist
-  if (data.author) bibtexLines.push(`  author = {${escapeBibtex(data.author)}},`);
-  if (data.title) bibtexLines.push(`  title = {${escapeBibtex(data.title)}},`);
-  if (data.journal) bibtexLines.push(`  journal = {${escapeBibtex(data.journal)}},`);
-  if (data.publisher) bibtexLines.push(`  publisher = {${escapeBibtex(data.publisher)}},`);
-  if (data.year) bibtexLines.push(`  year = {${escapeBibtex(data.year)}},`);
-  if (data.pages) bibtexLines.push(`  pages = {${escapeBibtex(data.pages)}},`);
-  if (data.school) bibtexLines.push(`  school = {${escapeBibtex(data.school)}},`);
-  if (data.note) bibtexLines.push(`  note = {${escapeBibtex(data.note)}},`);
-  if (data.url) bibtexLines.push(`  url = {${escapeBibtex(data.url)}},`);
+  for (const field of allowedFields) {
+    if (data[field]) {
+      bibtexLines.push(`  ${bibtexFieldName(field)} = {${escapeBibtex(data[field])}},`);
+    }
+  }
 
   // Remove trailing comma from last field
   if (bibtexLines.length > 1) {

@@ -74,12 +74,17 @@ async function buildSourceHtml(currentBookId) {
     const pagesField = record.pages ? `  pages = {${record.pages}},\n` : '';
     const schoolField = record.school ? `  school = {${record.school}},\n` : '';
     const noteField = record.note ? `  note = {${record.note}},\n` : '';
-    
+    const volumeField = record.volume ? `  volume = {${record.volume}},\n` : '';
+    const issueField = record.issue ? `  number = {${record.issue}},\n` : '';
+    const booktitleField = record.booktitle ? `  booktitle = {${record.booktitle}},\n` : '';
+    const chapterField = record.chapter ? `  chapter = {${record.chapter}},\n` : '';
+    const editorField = record.editor ? `  editor = {${record.editor}},\n` : '';
+
     bibtex = `@${record.type || 'book'}{${record.book},
   author = {${record.author || record.creator || 'Unknown Author'}},
   title = {${record.title || 'Untitled'}},
   year = {${year}},
-${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}}`;
+${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}${volumeField}${issueField}${booktitleField}${chapterField}${editorField}}`;
 
   }
   
@@ -244,6 +249,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
               <label><input type="radio" name="type" value="book" checked> Book</label>
               <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
               <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+              <label><input type="radio" name="type" value="incollection"> Chapter</label>
             </div>
           </div>
 
@@ -280,6 +286,21 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
             <label for="edit-note" class="optional-field" style="display: none;">Note</label>
             <input type="text" id="edit-note" name="note" class="optional-field" style="display: none;" placeholder="Additional notes">
+
+            <label for="edit-volume" class="optional-field" style="display: none;">Volume</label>
+            <input type="text" id="edit-volume" name="volume" class="optional-field" style="display: none;" placeholder="e.g., 12">
+
+            <label for="edit-issue" class="optional-field" style="display: none;">Issue</label>
+            <input type="text" id="edit-issue" name="issue" class="optional-field" style="display: none;" placeholder="e.g., 3">
+
+            <label for="edit-booktitle" class="optional-field" style="display: none;">Book Title</label>
+            <input type="text" id="edit-booktitle" name="booktitle" class="optional-field" style="display: none;" placeholder="Title of the book this chapter appears in">
+
+            <label for="edit-chapter" class="optional-field" style="display: none;">Chapter</label>
+            <input type="text" id="edit-chapter" name="chapter" class="optional-field" style="display: none;" placeholder="Chapter number or title">
+
+            <label for="edit-editor" class="optional-field" style="display: none;">Editor</label>
+            <input type="text" id="edit-editor" name="editor" class="optional-field" style="display: none;" placeholder="Editor name(s)">
           </div>
 
           <!-- License Section -->
@@ -503,11 +524,22 @@ export class SourceContainerManager extends ContainerManager {
     const licenseField = this.container.querySelector("#edit-license");
     const customLicenseField = this.container.querySelector("#edit-custom-license-text");
 
+    const volumeField = this.container.querySelector("#edit-volume");
+    const issueField2 = this.container.querySelector("#edit-issue");
+    const booktitleField = this.container.querySelector("#edit-booktitle");
+    const chapterField = this.container.querySelector("#edit-chapter");
+    const editorField = this.container.querySelector("#edit-editor");
+
     if (titleField) titleField.value = record.title || "";
     if (authorField) authorField.value = record.author || record.creator || "";
     if (yearField) yearField.value = record.year || "";
     if (urlField) urlField.value = record.url || "";
     if (bibtexField) bibtexField.value = record.bibtex || "";
+    if (volumeField) volumeField.value = record.volume || "";
+    if (issueField2) issueField2.value = record.issue || "";
+    if (booktitleField) booktitleField.value = record.booktitle || "";
+    if (chapterField) chapterField.value = record.chapter || "";
+    if (editorField) editorField.value = record.editor || "";
 
     // License fields
     if (licenseField) {
@@ -546,11 +578,25 @@ export class SourceContainerManager extends ContainerManager {
       const journalLabel = this.container.querySelector('label[for="edit-journal"]');
       const pages = this.container.querySelector('#edit-pages');
       const pagesLabel = this.container.querySelector('label[for="edit-pages"]');
-      
+      const volume = this.container.querySelector('#edit-volume');
+      const volumeLabel = this.container.querySelector('label[for="edit-volume"]');
+      const issue = this.container.querySelector('#edit-issue');
+      const issueLabel = this.container.querySelector('label[for="edit-issue"]');
+
       if (journal && journalLabel) {
         journal.style.display = 'block';
         journalLabel.style.display = 'block';
         journal.value = record.journal || '';
+      }
+      if (volume && volumeLabel) {
+        volume.style.display = 'block';
+        volumeLabel.style.display = 'block';
+        volume.value = record.volume || '';
+      }
+      if (issue && issueLabel) {
+        issue.style.display = 'block';
+        issueLabel.style.display = 'block';
+        issue.value = record.issue || '';
       }
       if (pages && pagesLabel) {
         pages.style.display = 'block';
@@ -560,16 +606,53 @@ export class SourceContainerManager extends ContainerManager {
     } else if (type === 'book') {
       const publisher = this.container.querySelector('#edit-publisher');
       const publisherLabel = this.container.querySelector('label[for="edit-publisher"]');
-      
+
       if (publisher && publisherLabel) {
         publisher.style.display = 'block';
         publisherLabel.style.display = 'block';
         publisher.value = record.publisher || '';
       }
+    } else if (type === 'incollection') {
+      const booktitle = this.container.querySelector('#edit-booktitle');
+      const booktitleLabel = this.container.querySelector('label[for="edit-booktitle"]');
+      const editor = this.container.querySelector('#edit-editor');
+      const editorLabel = this.container.querySelector('label[for="edit-editor"]');
+      const publisher = this.container.querySelector('#edit-publisher');
+      const publisherLabel = this.container.querySelector('label[for="edit-publisher"]');
+      const pages = this.container.querySelector('#edit-pages');
+      const pagesLabel = this.container.querySelector('label[for="edit-pages"]');
+      const chapter = this.container.querySelector('#edit-chapter');
+      const chapterLabel = this.container.querySelector('label[for="edit-chapter"]');
+
+      if (booktitle && booktitleLabel) {
+        booktitle.style.display = 'block';
+        booktitleLabel.style.display = 'block';
+        booktitle.value = record.booktitle || '';
+      }
+      if (editor && editorLabel) {
+        editor.style.display = 'block';
+        editorLabel.style.display = 'block';
+        editor.value = record.editor || '';
+      }
+      if (publisher && publisherLabel) {
+        publisher.style.display = 'block';
+        publisherLabel.style.display = 'block';
+        publisher.value = record.publisher || '';
+      }
+      if (chapter && chapterLabel) {
+        chapter.style.display = 'block';
+        chapterLabel.style.display = 'block';
+        chapter.value = record.chapter || '';
+      }
+      if (pages && pagesLabel) {
+        pages.style.display = 'block';
+        pagesLabel.style.display = 'block';
+        pages.value = record.pages || '';
+      }
     } else if (type === 'phdthesis') {
       const school = this.container.querySelector('#edit-school');
       const schoolLabel = this.container.querySelector('label[for="edit-school"]');
-      
+
       if (school && schoolLabel) {
         school.style.display = 'block';
         schoolLabel.style.display = 'block';
@@ -578,7 +661,7 @@ export class SourceContainerManager extends ContainerManager {
     } else if (type === 'misc') {
       const note = this.container.querySelector('#edit-note');
       const noteLabel = this.container.querySelector('label[for="edit-note"]');
-      
+
       if (note && noteLabel) {
         note.style.display = 'block';
         noteLabel.style.display = 'block';
@@ -604,7 +687,12 @@ export class SourceContainerManager extends ContainerManager {
       publisher: /publisher\s*=\s*[{"]([^}"]+)[}"]/i,
       school: /school\s*=\s*[{"]([^}"]+)[}"]/i,
       note: /note\s*=\s*[{"]([^}"]+)[}"]/i,
-      url: /url\s*=\s*[{"]([^}"]+)[}"]/i
+      url: /url\s*=\s*[{"]([^}"]+)[}"]/i,
+      volume: /volume\s*=\s*[{"]([^}"]+)[}"]/i,
+      issue: /number\s*=\s*[{"]([^}"]+)[}"]/i,
+      booktitle: /booktitle\s*=\s*[{"]([^}"]+)[}"]/i,
+      chapter: /chapter\s*=\s*[{"]([^}"]+)[}"]/i,
+      editor: /editor\s*=\s*[{"]([^}"]+)[}"]/i
     };
 
     let changed = false;
@@ -947,7 +1035,7 @@ export class SourceContainerManager extends ContainerManager {
     
 
     // Collect all fields including BibTeX and license
-    const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note", "license", "custom_license_text"];
+    const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note", "volume", "issue", "booktitle", "chapter", "editor", "license", "custom_license_text"];
     allFields.forEach(fieldName => {
       const field = this.container.querySelector(`#edit-${fieldName.replace('_', '-')}`);
       if (field) {
