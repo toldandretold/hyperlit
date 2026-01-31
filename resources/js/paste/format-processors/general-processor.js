@@ -54,6 +54,34 @@ export class GeneralProcessor extends BaseFormatProcessor {
 
     console.log(`  - Found ${potentialParagraphDefs.size} potential paragraph definitions`);
 
+    // 2b. Fallback: Find definitions in <li> elements (common web pattern)
+    // Many sites put footnotes in <ul><li> where each <li> starts with <a>number</a>
+    if (refIdentifiers.size > 0) {
+      const liDefsFound = [];
+      dom.querySelectorAll('li').forEach(li => {
+        // Strategy A: <li> starts with <a> containing a number (e.g. <a href="...">7</a>)
+        const firstAnchor = li.querySelector('a');
+        if (firstAnchor) {
+          const anchorText = firstAnchor.textContent.trim();
+          if (/^\d+$/.test(anchorText) && refIdentifiers.has(anchorText) && !potentialParagraphDefs.has(anchorText)) {
+            potentialParagraphDefs.set(anchorText, li);
+            liDefsFound.push(anchorText);
+            return;
+          }
+        }
+        // Strategy B: <li> text starts with number pattern (same as <p> check)
+        const liText = li.textContent.trim();
+        const match = liText.match(/^(\d+)[\.)\s:]/);
+        if (match && liText.length > match[0].length && refIdentifiers.has(match[1]) && !potentialParagraphDefs.has(match[1])) {
+          potentialParagraphDefs.set(match[1], li);
+          liDefsFound.push(match[1]);
+        }
+      });
+      if (liDefsFound.length > 0) {
+        console.log(`  - Found ${liDefsFound.length} additional definitions in <li> elements`);
+      }
+    }
+
     // 3. Sanity check: Do all references have definitions?
     let allRefsHaveDefs = refIdentifiers.size > 0;
     for (const refId of refIdentifiers) {
@@ -72,8 +100,11 @@ export class GeneralProcessor extends BaseFormatProcessor {
         const pElement = potentialParagraphDefs.get(identifier);
         if (!pElement) continue;
 
-        // Extract content, removing the "N. " prefix
-        const content = pElement.innerHTML.trim().replace(/^\s*\d+[\.)]\s*/, '');
+        // Extract content, removing the number prefix
+        // Handles both plain "7." and <a href="...">7</a> patterns
+        const content = pElement.innerHTML.trim()
+          .replace(/^\s*<a[^>]*>\s*\d+\s*<\/a>\s*/, '')
+          .replace(/^\s*\d+[\.)]\s*/, '');
 
         const uniqueId = this.generateFootnoteId(bookId, identifier);
         const uniqueRefId = this.generateFootnoteRefId(bookId, identifier);
@@ -88,8 +119,13 @@ export class GeneralProcessor extends BaseFormatProcessor {
 
         footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
 
-        // Remove the paragraph so it doesn't appear in main content
+        // Remove the element so it doesn't appear in main content
+        const parentList = pElement.parentElement;
         pElement.remove();
+        // If this was a <li>, clean up empty parent list
+        if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL') && parentList.children.length === 0) {
+          parentList.remove();
+        }
       }
     } else {
       console.log(`  - ℹ️ Heuristic extraction skipped (not all refs have defs or no refs found)`);
