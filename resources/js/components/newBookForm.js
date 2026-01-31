@@ -37,11 +37,26 @@ function showFieldsForType(type) {
     if (type === 'article') {
         document.getElementById('journal').style.display = 'block';
         document.querySelector('label[for="journal"]').style.display = 'block';
+        document.getElementById('volume').style.display = 'block';
+        document.querySelector('label[for="volume"]').style.display = 'block';
+        document.getElementById('issue').style.display = 'block';
+        document.querySelector('label[for="issue"]').style.display = 'block';
         document.getElementById('pages').style.display = 'block';
         document.querySelector('label[for="pages"]').style.display = 'block';
     } else if (type === 'book') {
         document.getElementById('publisher').style.display = 'block';
         document.querySelector('label[for="publisher"]').style.display = 'block';
+    } else if (type === 'incollection') {
+        document.getElementById('booktitle').style.display = 'block';
+        document.querySelector('label[for="booktitle"]').style.display = 'block';
+        document.getElementById('editor').style.display = 'block';
+        document.querySelector('label[for="editor"]').style.display = 'block';
+        document.getElementById('publisher').style.display = 'block';
+        document.querySelector('label[for="publisher"]').style.display = 'block';
+        document.getElementById('chapter').style.display = 'block';
+        document.querySelector('label[for="chapter"]').style.display = 'block';
+        document.getElementById('pages').style.display = 'block';
+        document.querySelector('label[for="pages"]').style.display = 'block';
     } else if (type === 'phdthesis') {
         document.getElementById('school').style.display = 'block';
         document.querySelector('label[for="school"]').style.display = 'block';
@@ -68,7 +83,12 @@ function populateFieldsFromBibtex() {
         publisher: /publisher\s*=\s*[\{"']([^}\"']+)[\}"']/i,
         school: /school\s*=\s*[\{"']([^}\"']+)[\}"']/i,
         note: /note\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-        url: /url\s*=\s*[\{"']([^}\"']+)[\}"']/i
+        url: /url\s*=\s*[\{"']([^}\"']+)[\}"']/i,
+        volume: /volume\s*=\s*[\{"']([^}\"']+)[\}"']/i,
+        issue: /number\s*=\s*[\{"']([^}\"']+)[\}"']/i,
+        booktitle: /booktitle\s*=\s*[\{"']([^}\"']+)[\}"']/i,
+        chapter: /chapter\s*=\s*[\{"']([^}\"']+)[\}"']/i,
+        editor: /editor\s*=\s*[\{"']([^}\"']+)[\}"']/i
     };
 
     let changed = false;
@@ -197,6 +217,11 @@ function saveFormData() {
         url: document.getElementById('url').value,
         school: document.getElementById('school').value,
         note: document.getElementById('note').value,
+        volume: document.getElementById('volume')?.value || '',
+        issue: document.getElementById('issue')?.value || '',
+        booktitle: document.getElementById('booktitle')?.value || '',
+        chapter: document.getElementById('chapter')?.value || '',
+        editor: document.getElementById('editor')?.value || '',
         type: selectedType ? selectedType.value : ''
     };
     localStorage.setItem('formData', JSON.stringify(formData));

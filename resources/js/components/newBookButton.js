@@ -281,6 +281,7 @@ export class NewBookContainerManager extends ContainerManager {
             <label><input type="radio" name="type" value="book" checked> Book</label>
             <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
             <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+            <label><input type="radio" name="type" value="incollection"> Chapter</label>
           </div>
         </div>
 
@@ -329,6 +330,21 @@ export class NewBookContainerManager extends ContainerManager {
 
           <label for="note" class="optional-field" style="display:none;">Note</label>
           <input type="text" id="note" name="note" class="optional-field" style="display:none;" placeholder="Additional notes">
+
+          <label for="volume" class="optional-field" style="display:none;">Volume</label>
+          <input type="text" id="volume" name="volume" class="optional-field" style="display:none;" placeholder="e.g., 12">
+
+          <label for="issue" class="optional-field" style="display:none;">Issue</label>
+          <input type="text" id="issue" name="issue" class="optional-field" style="display:none;" placeholder="e.g., 3">
+
+          <label for="booktitle" class="optional-field" style="display:none;">Book Title</label>
+          <input type="text" id="booktitle" name="booktitle" class="optional-field" style="display:none;" placeholder="Title of the book this chapter appears in">
+
+          <label for="chapter" class="optional-field" style="display:none;">Chapter</label>
+          <input type="text" id="chapter" name="chapter" class="optional-field" style="display:none;" placeholder="Chapter number or title">
+
+          <label for="editor" class="optional-field" style="display:none;">Editor</label>
+          <input type="text" id="editor" name="editor" class="optional-field" style="display:none;" placeholder="Editor name(s)">
         </div>
 
         <div class="form-actions">
@@ -463,24 +479,35 @@ export class NewBookContainerManager extends ContainerManager {
     // Show fields based on type
     switch (type) {
       case "article":
-        document.querySelector('label[for="journal"]').style.display =
-          "block";
+        document.querySelector('label[for="journal"]').style.display = "block";
         document.getElementById("journal").style.display = "block";
-        document.querySelector('label[for="pages"]').style.display =
-          "block";
+        document.querySelector('label[for="volume"]').style.display = "block";
+        document.getElementById("volume").style.display = "block";
+        document.querySelector('label[for="issue"]').style.display = "block";
+        document.getElementById("issue").style.display = "block";
+        document.querySelector('label[for="pages"]').style.display = "block";
         document.getElementById("pages").style.display = "block";
         break;
       case "book":
-        document.querySelector('label[for="publisher"]').style.display =
-          "block";
+        document.querySelector('label[for="publisher"]').style.display = "block";
         document.getElementById("publisher").style.display = "block";
-        document.querySelector('label[for="pages"]').style.display =
-          "block";
+        document.querySelector('label[for="pages"]').style.display = "block";
+        document.getElementById("pages").style.display = "block";
+        break;
+      case "incollection":
+        document.querySelector('label[for="booktitle"]').style.display = "block";
+        document.getElementById("booktitle").style.display = "block";
+        document.querySelector('label[for="editor"]').style.display = "block";
+        document.getElementById("editor").style.display = "block";
+        document.querySelector('label[for="publisher"]').style.display = "block";
+        document.getElementById("publisher").style.display = "block";
+        document.querySelector('label[for="chapter"]').style.display = "block";
+        document.getElementById("chapter").style.display = "block";
+        document.querySelector('label[for="pages"]').style.display = "block";
         document.getElementById("pages").style.display = "block";
         break;
       case "phdthesis":
-        document.querySelector('label[for="school"]').style.display =
-          "block";
+        document.querySelector('label[for="school"]').style.display = "block";
         document.getElementById("school").style.display = "block";
         break;
       case "misc":
@@ -867,7 +894,7 @@ loadFormData() {
     // Wait a bit for the form to be fully rendered
     setTimeout(() => {
       // Restore specific form fields by ID
-      const fieldIds = ['bibtex', 'book', 'author', 'title', 'year', 'url', 'pages', 'journal', 'publisher', 'school', 'note', '_token'];
+      const fieldIds = ['bibtex', 'book', 'author', 'title', 'year', 'url', 'pages', 'journal', 'publisher', 'school', 'note', 'volume', 'issue', 'booktitle', 'chapter', 'editor', '_token'];
 
       fieldIds.forEach(fieldId => {
         const element = document.getElementById(fieldId);
