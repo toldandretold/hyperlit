@@ -31,6 +31,7 @@ const FORBID_TAGS = [
   'animateMotion', 'animateTransform', // More SVG animation elements
   'template', 'slot',
   'noscript', 'canvas',
+  'dl', 'dt', 'dd',  // Definition list tags - not supported in editor
 ];
 
 // Explicitly forbidden attributes (XSS vectors)
