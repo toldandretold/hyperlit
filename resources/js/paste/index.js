@@ -46,7 +46,7 @@ import { getFormatConfig } from './format-detection/format-registry.js';
 import { detectAndConvertUrls } from './utils/url-detector.js';
 import { detectMarkdown } from './utils/markdown-detector.js';
 import { getInsertionPoint } from './utils/insertion-point-calculator.js';
-import { processMarkdownInChunks } from './utils/markdown-processor.js';
+import { processMarkdownInChunks, preprocessMarkdownFootnotes, footnoteDefinitionsToHtml } from './utils/markdown-processor.js';
 import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
@@ -376,13 +376,18 @@ async function handlePaste(event) {
         console.log(`🎯 [${pasteOpId}] Markdown detected, converting to HTML`);
         event.preventDefault(); // This is now safe to call
 
-        if (plainText.length > 1000) {
+        // Pre-process [^N] footnotes before marked conversion
+        // (marked v15 treats [^N]: as link references, breaking footnote extraction)
+        const { text: preprocessedText, footnoteDefinitions } = preprocessMarkdownFootnotes(plainText);
+        const footnoteSuffix = footnoteDefinitionsToHtml(footnoteDefinitions);
+
+        if (preprocessedText.length > 1000) {
           ProgressOverlayConductor.showSPATransition(5, 'Converting Markdown...', true);
           try {
-            const dirty = await processMarkdownInChunks(plainText, (percent, current, total) => {
+            const dirty = await processMarkdownInChunks(preprocessedText, (percent, current, total) => {
               ProgressOverlayConductor.updateProgress(percent, `Processing chunk ${current}/${total}`);
             });
-            htmlContent = sanitizeHtml(dirty);
+            htmlContent = sanitizeHtml(dirty + footnoteSuffix);
             // Don't hide overlay yet - wait until after paste and scroll complete
           } catch (error) {
             console.error("Error during chunked conversion:", error);
@@ -390,8 +395,8 @@ async function handlePaste(event) {
             return;
           }
         } else {
-          const dirty = marked(plainText);
-          htmlContent = sanitizeHtml(dirty);
+          const dirty = marked(preprocessedText);
+          htmlContent = sanitizeHtml(dirty + footnoteSuffix);
         }
       }
     }
