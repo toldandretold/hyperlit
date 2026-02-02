@@ -338,23 +338,45 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
   linkFootnotes(dom, footnotes) {
     // DO NOT call super.linkFootnotes() - it causes double-processing and malformed structures
     // T&F has unique structures that require special handling:
-    // - Format 1: <a data-rid="EN0001"><sup>1</sup></a> (endnotes)
-    // - Format 2: <a data-rid="FN0002"><sup>2</sup></a> (footnotes)
-    // - Format 3: <a data-rid="fn0003"><sup>3</sup></a> (lowercase footnotes)
+    // - Format 1: <a data-rid="EN0001"><sup>1</sup></a> (data-rid endnotes)
+    // - Format 2: <a data-rid="FN0002"><sup>2</sup></a> (data-rid footnotes)
+    // - Format 3: <a href="...#EN6" data-behaviour-ref="#EN6"><sup>6</sup></a> (URL-based)
 
-    // Convert T&F footnote links from data-rid to href (both "EN" and "FN" formats, case-insensitive)
-    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"], a[data-rid^="FN"], a[data-rid^="en"], a[data-rid^="fn"]');
+    // Select both data-rid and URL-based footnote links
+    const footnoteLinks = dom.querySelectorAll(
+      'a[data-rid^="EN"], a[data-rid^="FN"], a[data-rid^="en"], a[data-rid^="fn"], ' +
+      'a[data-behaviour-ref^="#EN"], a[data-behaviour-ref^="#FN"], a[data-behaviour-ref^="#en"], a[data-behaviour-ref^="#fn"]'
+    );
     let convertedCount = 0;
 
     footnoteLinks.forEach(link => {
-      const footnoteRid = link.getAttribute('data-rid'); // e.g., "EN0001", "FN0002", or "fn0003"
+      // Get the footnote reference ID from either data-rid or data-behaviour-ref
+      let footnoteRid = link.getAttribute('data-rid');
+      if (!footnoteRid) {
+        const behaviourRef = link.getAttribute('data-behaviour-ref');
+        if (behaviourRef) {
+          footnoteRid = behaviourRef.replace(/^#/, ''); // "#EN6" → "EN6"
+        }
+      }
+
+      if (!footnoteRid) return;
 
       // Find the footnote with this RID (could be stored as enId or fnId, case-insensitive match)
       const upperRid = footnoteRid.toUpperCase();
-      const footnote = footnotes.find(fn =>
+      let footnote = footnotes.find(fn =>
         (fn.enId && fn.enId.toUpperCase() === upperRid) ||
         (fn.fnId && fn.fnId.toUpperCase() === upperRid)
       );
+
+      // Fallback: match by identifier number extracted from the RID
+      // e.g., "EN6" → "6", "FN0002" → "2"
+      if (!footnote) {
+        const numberMatch = footnoteRid.match(/\d+$/);
+        if (numberMatch) {
+          const num = String(parseInt(numberMatch[0], 10)); // Remove leading zeros
+          footnote = footnotes.find(fn => fn.originalIdentifier === num);
+        }
+      }
 
       if (footnote) {
         // Extract the number from the <sup> tag inside the link BEFORE any processing

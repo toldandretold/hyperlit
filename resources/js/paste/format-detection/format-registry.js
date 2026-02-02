@@ -91,7 +91,7 @@ export const FORMAT_REGISTRY = {
     description: 'Cambridge University Press content with xref.fn links'
   },
 
-  // Taylor & Francis - Priority 2
+  // Taylor & Francis - Priority 4
   'taylor-francis': {
     selectors: [
       '.ref-lnk.lazy-ref.bibr',
@@ -99,14 +99,13 @@ export const FORMAT_REGISTRY = {
       '.hlFld-Abstract',
       'li[id^="CIT"]',
       'a[href*="tandfonline.com"]',  // Catch T&F by domain
-      '[data-pb-dropzone]'  // T&F uses pb-dropzone divs
     ],
     processor: TaylorFrancisProcessor,
-    priority: 2,
+    priority: 4,
     description: 'Taylor & Francis content with CIT IDs'
   },
 
-  // Sage - Priority 3 (above T&F since both use data-pb-dropzone)
+  // Sage - Priority 3
   'sage': {
     selectors: [
       'a[href*="sagepub.com"]',        // SAGE domain links (most reliable)
