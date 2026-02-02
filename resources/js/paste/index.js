@@ -243,9 +243,13 @@ async function handlePaste(event) {
 
     // 🔍 DETECT RAW HTML SOURCE CODE (not rendered content)
     // If someone pastes HTML source code, wrap it in a code block instead of rendering
-    const looksLikeRawHTMLCode = (
+    // NOTE: Only check &lt;/&gt; entities if plainText itself has HTML tag patterns.
+    // This prevents false positives from &lt;/&gt; in DOIs, math, etc.
+    // (e.g. doi:10.1002/(SICI)1097-0266(199708)18:7<509::AID-SMJ882>3.0.CO;2-Z)
+    const plainTextHasHTMLTags = /<[a-z]+[^>]*>/i.test(plainText);
+    const looksLikeRawHTMLCode = plainTextHasHTMLTags && (
       (rawHtml.includes('&lt;') || rawHtml.includes('&gt;')) || // Escaped tags in HTML
-      (plainText.match(/<[a-z]+[^>]*>/i) && rawHtml && !rawHtml.match(/<[a-z]+[^>]*>/i)) // Tags in plain but not in HTML
+      (rawHtml && !rawHtml.match(/<[a-z]+[^>]*>/i)) // No real tags in HTML
     );
 
     if (looksLikeRawHTMLCode) {
