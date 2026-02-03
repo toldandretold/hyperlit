@@ -118,7 +118,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
     if (updateResult && updateResult.success) {
       console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
       // Broadcast the update to trigger DOM updates on the current page
-      broadcastToOpenTabs(book, updateResult.startLine);
+      broadcastToOpenTabs(booka, updateResult.startLine);
     }
   } catch (error) {
     console.error("Error during hypercite paste update:", error);

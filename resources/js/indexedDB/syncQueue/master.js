@@ -159,6 +159,8 @@ export async function executeSyncPayload(payload) {
       const errorData = await res.json();
       if (errorData.error === 'STALE_DATA') {
         console.error("📵 Stale data detected - your book is out of date");
+        // Clear pending syncs so a manual refresh won't re-trigger the same stale sync
+        pendingSyncs.clear();
         alert('Your book is out of date. Please refresh to get the latest version.\n\nYour recent changes could not be saved because another device has made edits since you last loaded this page.');
         // Throw a specific error so callers can identify stale data issues
         const staleError = new Error(errorData.message || 'Book is out of date');
@@ -179,57 +181,11 @@ export async function executeSyncPayload(payload) {
 }
 
 /**
- * Main debounced sync function
- * Processes all pending syncs and sends them to PostgreSQL
- * Waits 3 seconds after last change before syncing
+ * Process sync for a single book's items
+ * Handles history logging, failed batch merging, and server sync
  */
-export const debouncedMasterSync = debounce(async () => {
-  if (pendingSyncs.size === 0) {
-    return;
-  }
-
-  // Determine book ID from queued data, skipping synthetic homepage books
-  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
-
-  // Filter out synthetic book items that can't be synced
-  for (const [key, item] of pendingSyncs) {
-    if (syntheticBooks.includes(item?.data?.book)) {
-      pendingSyncs.delete(key);
-    }
-  }
-
-  if (pendingSyncs.size === 0) {
-    console.log(`[SYNC] All pending items were for synthetic books, nothing to sync`);
-    return;
-  }
-
-  // Extract book ID from the actual data being synced, not the global variable
-  const firstItem = pendingSyncs.values().next().value;
-  const mainContent = document.querySelector('.main-content');
-  const bookId = firstItem?.data?.book || mainContent?.id || book || "latest";
-
-  // Final safety check (in case mainContent or global book is synthetic)
-  if (syntheticBooks.includes(bookId)) {
-    console.log(`[SYNC] Skipping sync for synthetic homepage book: ${bookId}`);
-    pendingSyncs.clear();
-    return;
-  }
-
-  console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items for book: ${bookId}...`);
-
-  const initialSyncPromise = getInitialBookSyncPromise();
-  if (initialSyncPromise) {
-    console.log(
-      "DEBOUNCED SYNC: Waiting for initial book sync to complete before proceeding...",
-    );
-    await initialSyncPromise;
-    console.log(
-      "DEBOUNCED SYNC: Initial book sync complete. Proceeding with edit sync.",
-    );
-  }
-
-  const itemsToSync = new Map(pendingSyncs);
-  pendingSyncs.clear();
+async function syncItemsForBook(bookId, bookItems) {
+  console.log(`DEBOUNCED SYNC: Processing ${bookItems.size} items for book: ${bookId}...`);
 
   const historyLogPayload = {
     book: bookId,
@@ -238,7 +194,7 @@ export const debouncedMasterSync = debounce(async () => {
   };
 
   // Populate the history payload directly from the queued items
-  for (const item of itemsToSync.values()) {
+  for (const item of bookItems.values()) {
     if (item.type === "update") {
       // Add the new state to 'updates'
       if (item.store === "nodes") {
@@ -325,7 +281,7 @@ export const debouncedMasterSync = debounce(async () => {
       updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null },
       deletions: { nodes: [], hyperlights: [], hypercites: [] },
     };
-    for (const item of itemsToSync.values()) {
+    for (const item of bookItems.values()) {
       if (item.type === "update" && item.data) {
         switch (item.store) {
           case "nodes": syncPayload.updates.nodes.push(item.data); break;
@@ -447,17 +403,73 @@ export const debouncedMasterSync = debounce(async () => {
       console.error(`❌ Non-node sync failed:`, error.message);
     }
     if (glowCloudRed) glowCloudRed(); // Glow cloud red on sync failure
-  } finally {
-    // ✅ Dynamically import toolbar (only exists when editing)
-    try {
-      const { getEditToolbar } = await import('../../editToolbar/index.js');
-      const toolbar = getEditToolbar();
-      if (toolbar) {
-        await toolbar.updateHistoryButtonStates();
-      }
-    } catch (e) {
-      // Toolbar not loaded (not in edit mode)
+  }
+}
+
+/**
+ * Main debounced sync function
+ * Processes all pending syncs and sends them to PostgreSQL
+ * Waits 3 seconds after last change before syncing
+ */
+export const debouncedMasterSync = debounce(async () => {
+  if (pendingSyncs.size === 0) {
+    return;
+  }
+
+  // Determine book ID from queued data, skipping synthetic homepage books
+  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
+
+  // Filter out synthetic book items that can't be synced
+  for (const [key, item] of pendingSyncs) {
+    if (syntheticBooks.includes(item?.data?.book)) {
+      pendingSyncs.delete(key);
     }
+  }
+
+  if (pendingSyncs.size === 0) {
+    console.log(`[SYNC] All pending items were for synthetic books, nothing to sync`);
+    return;
+  }
+
+  const initialSyncPromise = getInitialBookSyncPromise();
+  if (initialSyncPromise) {
+    console.log(
+      "DEBOUNCED SYNC: Waiting for initial book sync to complete before proceeding...",
+    );
+    await initialSyncPromise;
+    console.log(
+      "DEBOUNCED SYNC: Initial book sync complete. Proceeding with edit sync.",
+    );
+  }
+
+  const itemsToSync = new Map(pendingSyncs);
+  pendingSyncs.clear();
+
+  // Determine the book ID from queued data
+  const mainContent = document.querySelector('.main-content');
+  let syncBookId = null;
+  for (const item of itemsToSync.values()) {
+    const itemBook = item.data?.book;
+    if (itemBook && !syntheticBooks.includes(itemBook)) {
+      syncBookId = itemBook;
+      break;
+    }
+  }
+  if (!syncBookId) {
+    syncBookId = mainContent?.id || book || "latest";
+  }
+
+  await syncItemsForBook(syncBookId, itemsToSync);
+
+  // ✅ Dynamically import toolbar (only exists when editing)
+  try {
+    const { getEditToolbar } = await import('../../editToolbar/index.js');
+    const toolbar = getEditToolbar();
+    if (toolbar) {
+      await toolbar.updateHistoryButtonStates();
+    }
+  } catch (e) {
+    // Toolbar not loaded (not in edit mode)
   }
 }, 3000);
 

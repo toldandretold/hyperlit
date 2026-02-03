@@ -697,11 +697,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
         console.log("✅ Batch IndexedDB update complete");
-        await updateBookTimestamp(book || "latest");
 
-        // Skip queueForSync if skipHistory is true (for automatic operations like marker restoration)
-        // This prevents spurious history entries during undo/redo refresh cycles
+        // Skip both timestamp update and queueForSync if skipHistory is true
+        // (for automatic operations like marker restoration during page load)
+        // This prevents spurious syncs that could trigger 409 stale data errors
         if (!options.skipHistory) {
+          await updateBookTimestamp(book || "latest");
           allSavedNodeChunks.forEach((chunk) => {
             const originalChunk = originalNodeChunkStates.get(chunk.startLine);
             queueForSync(
