@@ -202,8 +202,14 @@ class DbNodeChunkController extends Controller
             }
             
             if (isset($data['data']) && is_array($data['data'])) {
-                // Clear existing data only for this specific book
+                // SYNC AUDIT: This is the NUCLEAR upsert - deletes ALL nodes then re-inserts
                 $deletedCount = PgNodeChunk::where('book', $book)->count();
+                Log::channel('sync_audit')->warning('NUCLEAR_UPSERT', [
+                    'book' => $book,
+                    'existing_nodes_being_deleted' => $deletedCount,
+                    'incoming_nodes' => count($data['data']),
+                    'caller' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3),
+                ]);
                 PgNodeChunk::where('book', $book)->delete();
                 
                 $records = [];
@@ -608,6 +614,17 @@ public function targetedUpsert(Request $request)
                     }
                 }
 
+                // SYNC AUDIT: Snapshot before mutations
+                $beforeCount = PgNodeChunk::where('book', $bookId)->count();
+                Log::channel('sync_audit')->info('SYNC_START', [
+                    'book' => $bookId,
+                    'existing_nodes' => $beforeCount,
+                    'incoming_deletes' => count($toDelete),
+                    'incoming_upserts' => count($toUpsert),
+                    'delete_startLines' => array_column($toDelete, 'startLine'),
+                    'upsert_startLines' => array_column($toUpsert, 'startLine'),
+                ]);
+
                 // Phase 1: Batch delete (single query)
                 if (!empty($toDelete)) {
                     $deleted = $this->batchDelete($bookId, $toDelete);
@@ -618,6 +635,27 @@ public function targetedUpsert(Request $request)
                 if (!empty($toUpsert)) {
                     $upserted = $this->batchUpsert($bookId, $toUpsert);
                     $totalUpserted += $upserted;
+                }
+
+                // SYNC AUDIT: Snapshot after mutations
+                $afterCount = PgNodeChunk::where('book', $bookId)->count();
+                $delta = $afterCount - $beforeCount;
+                Log::channel('sync_audit')->info('SYNC_DONE', [
+                    'book' => $bookId,
+                    'before' => $beforeCount,
+                    'after' => $afterCount,
+                    'delta' => $delta,
+                    'deleted' => $totalDeleted,
+                    'upserted' => $totalUpserted,
+                ]);
+
+                if ($delta < -1) {
+                    Log::channel('sync_audit')->warning('SYNC_SUSPICIOUS: Net node loss > 1', [
+                        'book' => $bookId,
+                        'before' => $beforeCount,
+                        'after' => $afterCount,
+                        'delta' => $delta,
+                    ]);
                 }
             }
 
@@ -658,15 +696,24 @@ public function targetedUpsert(Request $request)
 
         $startLines = array_column($items, 'startLine');
 
+        // SYNC AUDIT: Log what we're about to delete BEFORE deleting
+        $victims = \DB::table('nodes')
+            ->where('book', $bookId)
+            ->whereIn('startLine', $startLines)
+            ->select('startLine', 'node_id', \DB::raw('LEFT(content, 80) as content_preview'))
+            ->get();
+
+        Log::channel('sync_audit')->info('DELETE_NODES', [
+            'book' => $bookId,
+            'requested_startLines' => $startLines,
+            'found_count' => $victims->count(),
+            'victims' => $victims->toArray(),
+        ]);
+
         $deleted = \DB::table('nodes')
             ->where('book', $bookId)
             ->whereIn('startLine', $startLines)
             ->delete();
-
-        Log::debug("Batch deleted {$deleted} nodes", [
-            'book' => $bookId,
-            'requested' => count($startLines)
-        ]);
 
         return $deleted;
     }
@@ -727,6 +774,26 @@ public function targetedUpsert(Request $request)
         // Note: The (book, startLine) unique constraint is DEFERRABLE INITIALLY DEFERRED,
         // so bulk updates can temporarily have duplicates - uniqueness is checked at commit.
         if (!empty($startLines) && !empty($nodeIds)) {
+            // SYNC AUDIT: Query what will be pre-cleared BEFORE deleting
+            $preClearVictims = \DB::table('nodes')
+                ->where('book', $bookId)
+                ->whereIn('startLine', $startLines)
+                ->where(function($q) use ($nodeIds) {
+                    $q->whereNull('node_id')
+                      ->orWhereNotIn('node_id', $nodeIds);
+                })
+                ->select('startLine', 'node_id', \DB::raw('LEFT(content, 80) as content_preview'))
+                ->get();
+
+            if ($preClearVictims->isNotEmpty()) {
+                Log::channel('sync_audit')->warning('PRE_CLEAR_DELETE', [
+                    'book' => $bookId,
+                    'reason' => 'Conflicting startLines owned by different node_ids',
+                    'victims' => $preClearVictims->toArray(),
+                    'incoming_node_ids' => $nodeIds,
+                ]);
+            }
+
             $startLinePlaceholders = implode(',', array_fill(0, count($startLines), '?'));
             $nodeIdPlaceholders = implode(',', array_fill(0, count($nodeIds), '?'));
 
@@ -741,10 +808,9 @@ public function targetedUpsert(Request $request)
             $deleted = \DB::delete($deleteSql, $deleteBindings);
 
             if ($deleted > 0) {
-                Log::info("Pre-cleared $deleted conflicting startLine(s)", [
+                Log::channel('sync_audit')->info('PRE_CLEAR_RESULT', [
                     'book' => $bookId,
-                    'startLines' => $startLines,
-                    'preserved_node_ids' => count($nodeIds)
+                    'deleted_count' => $deleted,
                 ]);
             }
         }

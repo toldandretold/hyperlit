@@ -49,6 +49,33 @@ class UnifiedSyncController extends Controller
                 'has_library' => isset($data['library']),
             ]);
 
+            // SYNC AUDIT: Log incoming payload details for forensics
+            $nodeDeleteActions = [];
+            $nodeUpsertActions = [];
+            if (!empty($data['nodes'])) {
+                foreach ($data['nodes'] as $node) {
+                    $action = $node['_action'] ?? 'upsert';
+                    if ($action === 'delete') {
+                        $nodeDeleteActions[] = [
+                            'startLine' => $node['startLine'] ?? null,
+                            'node_id' => $node['node_id'] ?? null,
+                        ];
+                    } else {
+                        $nodeUpsertActions[] = $node['startLine'] ?? null;
+                    }
+                }
+            }
+            Log::channel('sync_audit')->info('INCOMING_PAYLOAD', [
+                'book' => $bookId,
+                'node_upserts' => count($nodeUpsertActions),
+                'node_upsert_startLines' => $nodeUpsertActions,
+                'node_deletes' => count($nodeDeleteActions),
+                'node_delete_details' => $nodeDeleteActions,
+                'hypercites' => isset($data['hypercites']) ? count($data['hypercites']) : 0,
+                'library_timestamp' => $data['library']['timestamp'] ?? null,
+                'user_agent' => $request->header('User-Agent'),
+            ]);
+
             // Check for stale data ONLY when syncing nodes (not highlights/hypercites)
             // This prevents a stale device from overwriting newer data
             if (!empty($data['nodes'])) {

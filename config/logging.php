@@ -129,6 +129,20 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'sync_audit' => [
+            'driver' => 'stack',
+            'channels' => ['sync_audit_file', 'single'],
+            'ignore_exceptions' => false,
+        ],
+
+        'sync_audit_file' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sync_audit.log'),
+            'level' => 'info',
+            'days' => 90,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
