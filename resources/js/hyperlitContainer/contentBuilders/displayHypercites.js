@@ -359,7 +359,31 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
       if (footnote && footnote.content && typeof footnote.content === 'string') {
         if (footnote.content.includes(idPattern)) {
-          console.log(`✅ Found hypercite ${hyperciteId} in footnote ${contentItemId}`);
+          // Secondary check: is this footnote still active in the book?
+          // Footnote DB records persist after deletion, so verify the footnoteId
+          // is still referenced in at least one node's footnotes array
+          const nodesTx = db.transaction('nodes', 'readonly');
+          const nodesStore = nodesTx.objectStore('nodes');
+          const bookIndex = nodesStore.index('book');
+          const nodes = await new Promise((resolve, reject) => {
+            const req = bookIndex.getAll(bookId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+
+          const footnoteStillActive = nodes.some(node =>
+            node.footnotes?.some(fn => {
+              const id = typeof fn === 'string' ? fn : fn?.id;
+              return id === contentItemId;
+            })
+          );
+
+          if (!footnoteStillActive) {
+            console.log(`⚠️ Hypercite found in footnote content but footnote ${contentItemId} is no longer active in any node`);
+            return { exists: false, chunkKey: null };
+          }
+
+          console.log(`✅ Found hypercite ${hyperciteId} in active footnote ${contentItemId}`);
           return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
         }
         console.log(`❌ Hypercite ${hyperciteId} not found in footnote ${contentItemId}`);
@@ -384,7 +408,21 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           if (fnData && fnData[contentItemId]) {
             const fnContent = fnData[contentItemId];
             if (typeof fnContent === 'string' && fnContent.includes(idPattern)) {
-              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote ${contentItemId}`);
+              // Secondary check: verify footnote is still active in nodes
+              const pgNodes = data.nodes || [];
+              const fnStillActive = pgNodes.some(node =>
+                node.footnotes?.some(fn => {
+                  const id = typeof fn === 'string' ? fn : fn?.id;
+                  return id === contentItemId;
+                })
+              );
+
+              if (!fnStillActive) {
+                console.log(`⚠️ Hypercite found in PostgreSQL footnote but footnote ${contentItemId} is no longer active`);
+                return { exists: false, chunkKey: null };
+              }
+
+              console.log(`✅ Found hypercite ${hyperciteId} in active PostgreSQL footnote ${contentItemId}`);
               return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
             }
           }
