@@ -78,23 +78,40 @@ class UnifiedSyncController extends Controller
 
             // Check for stale data ONLY when syncing nodes (not highlights/hypercites)
             // This prevents a stale device from overwriting newer data
+            // NOTE: Uses nodes' actual book fields, not top-level request book (for cross-book hypercite support)
             if (!empty($data['nodes'])) {
-                $currentLibrary = PgLibrary::where('book', $bookId)->first();
-                $frontendTimestamp = $data['library']['timestamp'] ?? null;
+                // Get unique books from node items (the books that will actually be modified)
+                $nodeBooks = array_values(array_unique(array_filter(array_column($data['nodes'], 'book'))));
 
-                if ($currentLibrary && $frontendTimestamp && $currentLibrary->timestamp > $frontendTimestamp) {
-                    Log::warning('Stale data sync rejected', [
-                        'book' => $bookId,
-                        'frontend_timestamp' => $frontendTimestamp,
-                        'server_timestamp' => $currentLibrary->timestamp
-                    ]);
+                foreach ($nodeBooks as $nodeBook) {
+                    // Only check stale if library timestamp is for this book
+                    $libraryBook = $data['library']['book'] ?? $bookId;
+                    if ($libraryBook !== $nodeBook) {
+                        Log::channel('sync_audit')->info('STALE_CHECK_SKIPPED', [
+                            'book' => $nodeBook,
+                            'reason' => 'library timestamp is for different book',
+                            'library_book' => $libraryBook
+                        ]);
+                        continue;
+                    }
 
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'STALE_DATA',
-                        'message' => 'Your book is out of date. Please refresh to get the latest version.',
-                        'server_timestamp' => $currentLibrary->timestamp
-                    ], 409);
+                    $frontendTimestamp = $data['library']['timestamp'] ?? null;
+                    $currentLibrary = PgLibrary::where('book', $nodeBook)->first();
+
+                    if ($currentLibrary && $frontendTimestamp && $currentLibrary->timestamp > $frontendTimestamp) {
+                        Log::channel('sync_audit')->warning('STALE_DATA_REJECTED', [
+                            'book' => $nodeBook,
+                            'frontend_timestamp' => $frontendTimestamp,
+                            'server_timestamp' => $currentLibrary->timestamp
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'error' => 'STALE_DATA',
+                            'message' => 'Your book is out of date. Please refresh to get the latest version.',
+                            'server_timestamp' => $currentLibrary->timestamp
+                        ], 409);
+                    }
                 }
             }
 
