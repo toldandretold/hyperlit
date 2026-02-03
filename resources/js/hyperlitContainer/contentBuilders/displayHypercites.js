@@ -257,8 +257,10 @@ export async function buildHyperciteContent(contentType, db = null) {
           // Add placeholder for management buttons that will be injected asynchronously
           let managementButtonsHtml = '';
           if (hasHyperciteInUrl) {
+            // Use hyperciteId (the actual owner of this citedIN link) not originalHyperciteId (the clicked hypercite)
+            // This matters for overlapping hypercites where citations from different sources are displayed together
             managementButtonsHtml = `
-      <span class="hypercite-management-buttons" data-book-id="${bookID}" data-citation-url="${citationID}" data-hypercite-id="${hyperciteIdFromUrl}" data-source-hypercite-id="${originalHyperciteId}" data-content-type="${contentType}" data-content-item-id="${contentItemId}">
+      <span class="hypercite-management-buttons" data-book-id="${bookID}" data-citation-url="${citationID}" data-hypercite-id="${hyperciteIdFromUrl}" data-source-hypercite-id="${hyperciteId}" data-content-type="${contentType}" data-content-item-id="${contentItemId}">
         <!-- Buttons will be injected after permission check -->
       </span>
     `;
