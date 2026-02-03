@@ -27,7 +27,7 @@ import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./postgreSQL.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
-// Add to your imports at the top
+import { checkForDuplicateTabs, registerBookOpen } from "./utilities/BroadcastListener.js";
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
@@ -260,6 +260,14 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
 
   try {
+    // 0. Check if this book is already open in another tab
+    const isDuplicate = await checkForDuplicateTabs(currentBook);
+    if (isDuplicate) {
+      showDuplicateTabWarning(currentBook);
+    }
+    // Register this tab as having the book open (for future checks)
+    registerBookOpen(currentBook);
+
     // 1. Check for node chunks in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");
     const cached = await getNodeChunksFromIndexedDB(currentBook);
@@ -901,6 +909,69 @@ export async function handleDeletedBookAccess(bookId) {
   document.getElementById("goHomeButtonDeleted").addEventListener("click", () => {
     window.location.href = "/";
   });
+}
+
+/**
+ * Show warning when book is already open in another tab
+ * Warns about potential sync conflicts but allows user to continue
+ */
+function showDuplicateTabWarning(bookId) {
+  console.warn(`⚠️ Book "${bookId}" is already open in another tab`);
+
+  // Create a dismissible banner at the top of the page
+  const banner = document.createElement("div");
+  banner.id = "duplicate-tab-warning";
+  banner.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #d97706, #b45309);
+    color: white;
+    padding: 12px 20px;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  `;
+
+  banner.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <span><strong>Warning:</strong> This book is open in another tab. Editing in multiple tabs may cause sync conflicts.</span>
+    </div>
+    <button id="dismiss-duplicate-warning" style="
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    ">Dismiss</button>
+  `;
+
+  document.body.appendChild(banner);
+
+  // Handle dismiss
+  document.getElementById("dismiss-duplicate-warning").addEventListener("click", () => {
+    banner.remove();
+  });
+
+  // Auto-dismiss after 10 seconds
+  setTimeout(() => {
+    if (document.getElementById("duplicate-tab-warning")) {
+      banner.style.transition = "opacity 0.5s";
+      banner.style.opacity = "0";
+      setTimeout(() => banner.remove(), 500);
+    }
+  }, 10000);
 }
 
 

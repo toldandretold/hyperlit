@@ -9,6 +9,71 @@ import { setProgrammaticUpdateInProgress } from "./operationState.js";
 // This prevents the re-render loop where our own broadcast triggers mutation observers
 const locallyBroadcastedUpdates = new Set();
 
+// Unique ID for this tab instance
+const TAB_ID = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+// Channel for tab coordination (separate from node-updates)
+let tabCoordinationChannel = null;
+
+/**
+ * Check if the same book is already open in another tab
+ * Returns a promise that resolves to true if duplicate found
+ */
+export function checkForDuplicateTabs(bookId) {
+  return new Promise((resolve) => {
+    if (!tabCoordinationChannel) {
+      tabCoordinationChannel = new BroadcastChannel("hyperlit-tab-coordination");
+    }
+
+    let duplicateFound = false;
+
+    const handler = (event) => {
+      if (event.data.type === 'BOOK_OPEN_RESPONSE' &&
+          event.data.book === bookId &&
+          event.data.tabId !== TAB_ID) {
+        duplicateFound = true;
+      }
+    };
+
+    tabCoordinationChannel.addEventListener('message', handler);
+    tabCoordinationChannel.postMessage({
+      type: 'BOOK_OPEN_CHECK',
+      book: bookId,
+      tabId: TAB_ID
+    });
+
+    // Wait briefly for responses from other tabs
+    setTimeout(() => {
+      tabCoordinationChannel.removeEventListener('message', handler);
+      resolve(duplicateFound);
+    }, 150);
+  });
+}
+
+/**
+ * Register this tab as having a book open
+ * Other tabs can query this
+ */
+export function registerBookOpen(bookId) {
+  if (!tabCoordinationChannel) {
+    tabCoordinationChannel = new BroadcastChannel("hyperlit-tab-coordination");
+  }
+
+  // Listen for queries from other tabs
+  tabCoordinationChannel.addEventListener('message', (event) => {
+    if (event.data.type === 'BOOK_OPEN_CHECK' &&
+        event.data.book === bookId &&
+        event.data.tabId !== TAB_ID) {
+      // Another tab is asking if we have this book open - respond yes
+      tabCoordinationChannel.postMessage({
+        type: 'BOOK_OPEN_RESPONSE',
+        book: bookId,
+        tabId: TAB_ID
+      });
+    }
+  });
+}
+
 export function initializeBroadcastListener() {
   const channel = new BroadcastChannel("node-updates");
 
