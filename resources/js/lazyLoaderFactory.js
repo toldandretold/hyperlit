@@ -2,6 +2,7 @@ import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { sanitizeHtml } from './utilities/sanitizeConfig.js';
 import { attachMarkListeners } from "./hyperlights/index.js";
+import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
@@ -739,8 +740,17 @@ export function createLazyLoader(config) {
     try {
       // Preserve current scroll position if no target specified
       if (!targetElementId) {
+        // 🚦 Priority 0: Use NavigationCompletionBarrier target (most authoritative)
+        // This ensures refresh triggered by timestamp check uses the correct navigation target
+        if (NavigationCompletionBarrier.isNavigating()) {
+          const barrierTarget = NavigationCompletionBarrier.getNavigationTarget();
+          if (barrierTarget) {
+            console.log(`🚦 refresh(): Using NavigationCompletionBarrier target: ${barrierTarget}`);
+            targetElementId = barrierTarget;
+          }
+        }
         // Priority 1: Use pending navigation target if navigation is in progress
-        if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
+        else if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
           targetElementId = instance.pendingNavigationTarget;
         } else {
           // Priority 2: Fall back to saved scroll position
@@ -751,6 +761,16 @@ export function createLazyLoader(config) {
               const scrollData = JSON.parse(storedData);
               targetElementId = scrollData.elementId;
             } catch (e) { /* ignore parse errors */ }
+          }
+        }
+
+        // Priority 3: Use URL hash as fallback (e.g., #hypercite_pa7ymke)
+        // This handles cases where navigation just completed but scroll cache was cleared
+        if (!targetElementId && window.location.hash) {
+          const hashTarget = window.location.hash.substring(1);
+          if (hashTarget) {
+            console.log(`🔗 refresh(): Using URL hash as scroll target: ${hashTarget}`);
+            targetElementId = hashTarget;
           }
         }
       }
@@ -789,7 +809,48 @@ export function createLazyLoader(config) {
       let targetChunkId = allChunkIds.length > 0 ? allChunkIds[0] : null;
 
       if (targetElementId) {
-        const targetChunk = instance.nodes.find(c => c.startLine == targetElementId);
+        // Try direct match first (for numeric node IDs)
+        let targetChunk = instance.nodes.find(c => c.startLine == targetElementId);
+
+        // If not found and target is non-numeric, search in content/hypercites/hyperlights
+        if (!targetChunk && !/^\d+$/.test(targetElementId)) {
+          const normalizedTarget = targetElementId.toLowerCase();
+          const regex = new RegExp(`id=['"]${targetElementId}['"]`, 'i');
+
+          for (const node of instance.nodes) {
+            // Check if the content has an element with the target id
+            if (node.content && regex.test(node.content)) {
+              targetChunk = node;
+              console.log(`🔗 refresh(): Found target ${targetElementId} in node content at startLine ${node.startLine}`);
+              break;
+            }
+
+            // Check in hypercites array
+            if (Array.isArray(node.hypercites)) {
+              const found = node.hypercites.some(
+                cite => cite.hyperciteId && cite.hyperciteId.toLowerCase() === normalizedTarget
+              );
+              if (found) {
+                targetChunk = node;
+                console.log(`🔗 refresh(): Found hypercite ${targetElementId} in node at startLine ${node.startLine}`);
+                break;
+              }
+            }
+
+            // Check in hyperlights array
+            if (Array.isArray(node.hyperlights)) {
+              const found = node.hyperlights.some(
+                light => light.highlightID && light.highlightID.toLowerCase() === normalizedTarget
+              );
+              if (found) {
+                targetChunk = node;
+                console.log(`🔗 refresh(): Found hyperlight ${targetElementId} in node at startLine ${node.startLine}`);
+                break;
+              }
+            }
+          }
+        }
+
         if (targetChunk) {
           targetChunkId = targetChunk.chunk_id;
         }
@@ -818,6 +879,19 @@ export function createLazyLoader(config) {
       // 8. ✅ NEW: Scroll to and focus the target element after rendering
       setTimeout(() => {
         let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
+
+        // For hypercites, also check if it's part of an overlapping segment
+        if (!elementToFocus && targetElementId && targetElementId.startsWith('hypercite_')) {
+          const overlappingElements = instance.container.querySelectorAll('u[data-overlapping]');
+          for (const element of overlappingElements) {
+            const overlappingIds = element.getAttribute('data-overlapping');
+            if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetElementId)) {
+              console.log(`🔗 refresh(): Found hypercite ${targetElementId} in overlapping element`);
+              elementToFocus = element;
+              break;
+            }
+          }
+        }
 
         // Fallback if the target element isn't found
         if (!elementToFocus) {

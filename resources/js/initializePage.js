@@ -1,6 +1,7 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from './app.js';
 import { log, verbose } from './utilities/logger.js';
 import { navigateToInternalId } from './scrolling.js';
+import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 
 import {
   createLazyLoader,
@@ -538,6 +539,17 @@ function navigateToElement(elementId) {
 }
 
 async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
+  // 🎯 CRITICAL: Capture any active navigation target at the START of this check.
+  // The check runs async and may complete after navigation flags are cleared.
+  // By capturing now, we ensure refresh() can find the target even if the barrier cleans up.
+  const capturedNavigationTarget = lazyLoader?.pendingNavigationTarget ||
+                                   NavigationCompletionBarrier.getNavigationTarget() ||
+                                   (window.location.hash ? window.location.hash.substring(1) : null);
+
+  if (capturedNavigationTarget) {
+    console.log(`🎯 Timestamp check: captured navigation target at start: ${capturedNavigationTarget}`);
+  }
+
   // Skip server timestamp check when offline - use cached data
   if (!navigator.onLine) {
     console.log(`📡 Offline: skipping server check for ${bookId}`);
@@ -592,7 +604,7 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       console.log(`⚠️ Could not fetch server data for ${bookId}. Skipping timestamp check.`);
       return;
     }
-    
+
     if (!localRecord) {
       console.log(`⚠️ No local data found for ${bookId}. Skipping timestamp check.`);
       return;
@@ -628,7 +640,16 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       console.log(
         `🔄 Triggering lazyLoader.refresh() to display updated content.`
       );
-      await lazyLoader.refresh();
+      // 🎯 Pass captured navigation target directly to refresh() - this is the most reliable
+      // way to preserve the target, since it was captured at the start of this async check
+      if (capturedNavigationTarget) {
+        console.log(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`);
+      }
+      // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
+      NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
+      await lazyLoader.refresh(capturedNavigationTarget);
+      // 🚦 Signal CONTENT_REFRESH complete
+      NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
       return; // Full sync includes annotations, no need to check further
     }
 
