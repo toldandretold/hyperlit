@@ -2,6 +2,7 @@ import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { sanitizeHtml } from './utilities/sanitizeConfig.js';
 import { attachMarkListeners } from "./hyperlights/index.js";
+import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
@@ -739,8 +740,17 @@ export function createLazyLoader(config) {
     try {
       // Preserve current scroll position if no target specified
       if (!targetElementId) {
+        // 🚦 Priority 0: Use NavigationCompletionBarrier target (most authoritative)
+        // This ensures refresh triggered by timestamp check uses the correct navigation target
+        if (NavigationCompletionBarrier.isNavigating()) {
+          const barrierTarget = NavigationCompletionBarrier.getNavigationTarget();
+          if (barrierTarget) {
+            console.log(`🚦 refresh(): Using NavigationCompletionBarrier target: ${barrierTarget}`);
+            targetElementId = barrierTarget;
+          }
+        }
         // Priority 1: Use pending navigation target if navigation is in progress
-        if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
+        else if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
           targetElementId = instance.pendingNavigationTarget;
         } else {
           // Priority 2: Fall back to saved scroll position

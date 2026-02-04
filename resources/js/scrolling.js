@@ -1,6 +1,7 @@
 // In scrolling.js
 
 import { verbose } from './utilities/logger.js';
+import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -836,6 +837,12 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
     console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
 
+    // 🚦 Start the NavigationCompletionBarrier to coordinate async processes
+    // This ensures flags persist until scroll completes. If a timestamp check triggers
+    // a refresh, the captured navigation target is passed directly to refresh().
+    NavigationCompletionBarrier.startNavigation(targetId, lazyLoader);
+    NavigationCompletionBarrier.registerProcess(NavigationProcess.SCROLL_COMPLETE);
+
     // 🎯 Show loading indicator with progress tracking (only if requested)
     const progressIndicator = showOverlay ? showNavigationLoading(targetId) : { updateProgress: () => {}, setMessage: () => {} };
 
@@ -850,6 +857,9 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
           console.log(`🔄 User scroll detected during navigation, unlocking immediately`);
           userScrollDetected = true;
           lazyLoader.unlockScroll();
+
+          // 🚦 Abort the navigation barrier - user is taking control
+          NavigationCompletionBarrier.abort();
 
           // Remove the listener once we've detected user scroll
           lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
@@ -1250,15 +1260,21 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       clearTimeout(pendingNavigationCleanupTimer);
     }
 
+    // If scroll correction is needed, register it with the barrier
+    if (!isAlreadyPerfectlyPositioned) {
+      NavigationCompletionBarrier.registerProcess(NavigationProcess.SCROLL_CORRECTION);
+    }
+
     pendingNavigationCleanupTimer = setTimeout(() => {
-      console.log(`🏁 Navigation complete for ${targetId}`);
-      lazyLoader.isNavigatingToInternalId = false;
-      lazyLoader.pendingNavigationTarget = null;
+      console.log(`🏁 Navigation scroll complete for ${targetId}`);
       pendingNavigationCleanupTimer = null; // Clear the reference
 
-      // 🔓 Unlock scroll position
-      if (lazyLoader.unlockScroll) {
-        lazyLoader.unlockScroll();
+      // 🚦 Signal scroll completion to the barrier (DON'T clear flags directly - barrier handles that)
+      NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, true);
+
+      // If scroll correction was registered, signal it too
+      if (!isAlreadyPerfectlyPositioned) {
+        NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_CORRECTION, true);
       }
 
       // 🎯 Hide loading indicator
@@ -1282,11 +1298,9 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
   } else {
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);
     hideNavigationLoading();
-    lazyLoader.isNavigatingToInternalId = false;
-    lazyLoader.pendingNavigationTarget = null;
-    if (lazyLoader.unlockScroll) {
-      lazyLoader.unlockScroll();
-    }
+
+    // 🚦 Signal failure to the barrier (it will handle flag cleanup)
+    NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, false);
 
     // 🚀 iOS Safari fix: Reject navigation Promise so callers know navigation failed
     if (lazyLoader._navigationReject) {
