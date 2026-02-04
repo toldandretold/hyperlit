@@ -261,13 +261,20 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
 
   try {
-    // 0. Check if this book is already open in another tab
-    const isDuplicate = await checkForDuplicateTabs(currentBook);
-    if (isDuplicate) {
-      showDuplicateTabWarning(currentBook);
+    // 0. Check if this book is already open in another tab (only on actual book pages)
+    // Skip for homepage content IDs and non-reader page types
+    const pageType = document.body.getAttribute('data-page');
+    const homepageContentIds = ['most-recent', 'most-connected', 'most-lit'];
+    const isActualBook = pageType === 'reader' && !homepageContentIds.includes(currentBook);
+
+    if (isActualBook) {
+      const isDuplicate = await checkForDuplicateTabs(currentBook);
+      if (isDuplicate) {
+        showDuplicateTabWarning(currentBook);
+      }
+      // Register this tab as having the book open (for future checks)
+      registerBookOpen(currentBook);
     }
-    // Register this tab as having the book open (for future checks)
-    registerBookOpen(currentBook);
 
     // 1. Check for node chunks in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");

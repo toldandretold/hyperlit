@@ -527,7 +527,11 @@ export function updateSingleIndexedDBRecord(record, options = {}) {
  * @returns {Promise<void>}
  */
 export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}) {
-  return withPending(async () => {
+  // ✅ FIX: When skipHistory is true (internal operations like no-delete-id markers),
+  // don't use withPending which triggers the orange indicator, since no server sync will happen
+  const wrapper = options.skipHistory ? (fn) => fn() : withPending;
+
+  return wrapper(async () => {
     // ✅ FIX: Get book ID from DOM instead of stale global variable
     // During new book creation, global variable may not be updated yet
     const mainContent = document.querySelector('.main-content');
