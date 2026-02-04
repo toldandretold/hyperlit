@@ -304,35 +304,36 @@ async function syncItemsForBook(bookId, bookItems) {
       }
     }
 
-    // --- Merge data from previously failed batches ---
+    // --- Re-read ALL nodes from IndexedDB to ensure fresh data ---
+    // This prevents stale data issues where queue references become outdated
     let failedBatches = [];
     try {
       failedBatches = await getFailedBatchesForBook(bookId);
+
+      // Collect ALL node_ids that need to be synced (from current sync AND failed batches)
+      const allNodeIdsToSync = new Set();
+      const deletionNodeIds = new Set();
+      const deletionsToRecover = [];
+
+      // Add node_ids from current sync
+      for (const node of syncPayload.updates.nodes) {
+        if (node.node_id) allNodeIdsToSync.add(node.node_id);
+      }
+      for (const node of syncPayload.deletions.nodes) {
+        if (node.node_id) deletionNodeIds.add(node.node_id);
+      }
+
+      // Add node_ids from failed batches
       if (failedBatches.length > 0) {
         console.log(`🔄 Found ${failedBatches.length} failed batch(es) to merge into current sync`);
-
-        // Build set of node_ids already in the current sync (current edits take priority)
-        const currentNodeIds = new Set();
-        for (const node of syncPayload.updates.nodes) {
-          if (node.node_id) currentNodeIds.add(node.node_id);
-        }
-        for (const node of syncPayload.deletions.nodes) {
-          if (node.node_id) currentNodeIds.add(node.node_id);
-        }
-
-        // Collect node_ids from failed batches that need recovery
-        const nodeIdsToRecover = new Set();
-        const deletionsToRecover = [];
 
         for (const batch of failedBatches) {
           const payload = batch.payload;
           if (!payload) continue;
 
-          // Collect updated node_ids not already in current sync
+          // Add all updated node_ids from failed batches
           for (const node of (payload.updates?.nodes || [])) {
-            if (node.node_id && !currentNodeIds.has(node.node_id)) {
-              nodeIdsToRecover.add(node.node_id);
-            }
+            if (node.node_id) allNodeIdsToSync.add(node.node_id);
           }
 
           // Collect true deletions (in deletions but NOT in updates for this batch)
@@ -340,36 +341,37 @@ async function syncItemsForBook(bookId, bookItems) {
             (payload.updates?.nodes || []).map(n => n.node_id).filter(Boolean)
           );
           for (const node of (payload.deletions?.nodes || [])) {
-            if (node.node_id && !batchUpdatedIds.has(node.node_id) && !currentNodeIds.has(node.node_id)) {
+            if (node.node_id && !batchUpdatedIds.has(node.node_id) && !deletionNodeIds.has(node.node_id)) {
               deletionsToRecover.push(node);
-            }
-          }
-        }
-
-        // Re-read nodes fresh from IndexedDB (current state, not stale payload)
-        if (nodeIdsToRecover.size > 0) {
-          const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-          const freshNodes = await getNodesByUUIDs([...nodeIdsToRecover]);
-          for (const node of freshNodes) {
-            syncPayload.updates.nodes.push(node);
-          }
-          console.log(`🔄 Merged ${freshNodes.length} node(s) from failed batches (re-read from IndexedDB)`);
-        }
-
-        // Add deletions (verify node still doesn't exist in IndexedDB)
-        if (deletionsToRecover.length > 0) {
-          const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-          const existCheck = await getNodesByUUIDs(deletionsToRecover.map(n => n.node_id));
-          const stillExistIds = new Set(existCheck.map(n => n.node_id));
-          for (const node of deletionsToRecover) {
-            if (!stillExistIds.has(node.node_id)) {
-              syncPayload.deletions.nodes.push({ ...node, _action: "delete" });
+              deletionNodeIds.add(node.node_id);
             }
           }
         }
       }
+
+      // Re-read ALL nodes fresh from IndexedDB (prevents stale queue references)
+      if (allNodeIdsToSync.size > 0) {
+        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
+        const freshNodes = await getNodesByUUIDs([...allNodeIdsToSync]);
+
+        // Replace sync payload nodes with fresh data
+        syncPayload.updates.nodes = freshNodes;
+        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync`);
+      }
+
+      // Add deletions (verify node still doesn't exist in IndexedDB)
+      if (deletionsToRecover.length > 0) {
+        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
+        const existCheck = await getNodesByUUIDs(deletionsToRecover.map(n => n.node_id));
+        const stillExistIds = new Set(existCheck.map(n => n.node_id));
+        for (const node of deletionsToRecover) {
+          if (!stillExistIds.has(node.node_id)) {
+            syncPayload.deletions.nodes.push({ ...node, _action: "delete" });
+          }
+        }
+      }
     } catch (mergeError) {
-      console.error("Failed to merge failed batches (proceeding with current sync):", mergeError);
+      console.error("Failed to merge/refresh nodes for sync (proceeding with current sync):", mergeError);
       failedBatches = []; // Reset so we don't incorrectly mark them synced
     }
 
