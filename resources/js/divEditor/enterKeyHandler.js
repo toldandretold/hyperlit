@@ -466,6 +466,11 @@ export class EnterKeyHandler {
             blockElement.innerHTML = "<br>";
           }
 
+          // ✅ FIX: Queue the modified original paragraph for save
+          // extractContents() modifies blockElement but MutationObserver filters out
+          // text-node-only mutations, so we must explicitly save
+          queueNodeForSave(blockElement.id, 'update');
+
           if (extractedText === "") {
             content = null;
           }
