@@ -169,6 +169,29 @@ php artisan route:list       # View all registered routes
 php artisan tinker           # Interactive PHP REPL with your app loaded
 ```
 
+### Book Version Control
+
+The nodes table has automatic version history. Every edit is archived, allowing you to restore books to previous states.
+
+**View snapshots (points in time when book changed):**
+```sh
+php artisan book:snapshots {book-id}
+```
+
+**Preview what book looked like at a previous version:**
+```sh
+php artisan book:preview {book-id} --at=1    # 1 snapshot back
+php artisan book:preview {book-id} --at=3    # 3 snapshots back
+```
+
+**Restore book to a previous version:**
+```sh
+php artisan book:restore {book-id} --at=2 --dry-run   # Preview changes
+php artisan book:restore {book-id} --at=2             # Actually restore
+```
+
+The `--at` parameter accepts a number (snapshots back) or a timestamp like `--at="2026-02-06 10:00:00"`.
+
 ## Architectural Overview
 
 ### Hypertext Loading 
