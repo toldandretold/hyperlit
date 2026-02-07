@@ -15,6 +15,7 @@ use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UnifiedSyncController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\NodeHistoryController;
 
 
 
@@ -152,6 +153,43 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
+
+    /* ----------------  Node History / Version Control  ---------------- */
+    // Get all versions of a specific node
+    Route::get(
+        '/nodes/{book}/{nodeId}/history',
+        [NodeHistoryController::class, 'getNodeHistory']
+    );
+
+    // Get node as it was at a specific timestamp
+    Route::get(
+        '/nodes/{book}/{nodeId}/at/{timestamp}',
+        [NodeHistoryController::class, 'getNodeAtTimestamp']
+    )->where('timestamp', '.*'); // Allow slashes in timestamp
+
+    // Get entire book state at a specific timestamp
+    Route::get(
+        '/books/{book}/at/{timestamp}',
+        [NodeHistoryController::class, 'getBookAtTimestamp']
+    )->where('timestamp', '.*');
+
+    // Get recent changes for undo UI
+    Route::get(
+        '/books/{book}/changes',
+        [NodeHistoryController::class, 'getRecentChanges']
+    );
+
+    // Restore a single node to a historical version
+    Route::post(
+        '/nodes/{book}/{nodeId}/restore',
+        [NodeHistoryController::class, 'restoreNodeVersion']
+    );
+
+    // Restore entire book to a point in time
+    Route::post(
+        '/books/{book}/restore',
+        [NodeHistoryController::class, 'restoreBookToTimestamp']
+    );
 });
 
 // API routes for transferring data from database to IndexedDB
