@@ -215,16 +215,16 @@ class SearchController extends Controller
         $anonymousToken = $request->cookie('anon_token');
 
         // Build visibility conditions
-        $visibilityConditions = ["(library.listed = true AND library.visibility != 'private')"];
+        $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
         $visibilityParams = [];
 
         if ($user) {
-            $visibilityConditions[] = "library.creator = ?";
+            $visibilityConditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
             $visibilityParams[] = $user->name;
         }
 
         if ($anonymousToken) {
-            $visibilityConditions[] = "library.creator_token = ?";
+            $visibilityConditions[] = "(library.creator_token = ? AND library.visibility != 'deleted')";
             $visibilityParams[] = $anonymousToken;
         }
 
@@ -289,17 +289,23 @@ class SearchController extends Controller
             // Public and listed books
             $q->where(function ($publicQuery) use ($prefix) {
                 $publicQuery->where("{$prefix}listed", true)
-                    ->where("{$prefix}visibility", '!=', 'private');
+                    ->whereNotIn("{$prefix}visibility", ['private', 'deleted']);
             });
 
-            // OR user's own books (if logged in)
+            // OR user's own books (if logged in) - excluding deleted
             if ($user) {
-                $q->orWhere("{$prefix}creator", $user->name);
+                $q->orWhere(function ($userQuery) use ($prefix, $user) {
+                    $userQuery->where("{$prefix}creator", $user->name)
+                        ->where("{$prefix}visibility", '!=', 'deleted');
+                });
             }
 
-            // OR anonymous user's own books (if has token)
+            // OR anonymous user's own books (if has token) - excluding deleted
             if ($anonymousToken) {
-                $q->orWhere("{$prefix}creator_token", $anonymousToken);
+                $q->orWhere(function ($anonQuery) use ($prefix, $anonymousToken) {
+                    $anonQuery->where("{$prefix}creator_token", $anonymousToken)
+                        ->where("{$prefix}visibility", '!=', 'deleted');
+                });
             }
         });
     }
