@@ -357,9 +357,10 @@ async function processHypercitePaste(clipboardHtml, contentId) {
   }
 
   // Clean up quotes from the extracted text
-  quotedText = quotedText.replace(/^['"]|['"]$/g, '');
+  // Strip word joiner characters (from previous pastes) then quotes
+  quotedText = quotedText.replace(/\u2060/g, '').replace(/^['"]|['"]$/g, '');
 
-  const referenceHtml = `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a></span>`;
+  const referenceHtml = `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a>`;
 
   // Insert the hypercite HTML
   document.execCommand('insertHTML', false, referenceHtml);
