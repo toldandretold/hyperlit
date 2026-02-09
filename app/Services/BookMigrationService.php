@@ -283,11 +283,14 @@ class BookMigrationService
             $needsUpdate = false;
             $updateData = ['updated_at' => now()];
 
+            // Check if stored footnotes are in legacy string format
+            $hasLegacyFormat = $this->hasLegacyFootnoteFormat($storedFootnotes);
+
             // Normalize stored footnotes to object format for comparison
             $normalizedStored = $this->normalizeFootnoteArray($storedFootnotes);
 
-            // Check if footnotes array needs updating (compare by IDs only, markers may differ)
-            if (!$this->footnotesMatch($normalizedStored, $contentFootnotes)) {
+            // Update if: legacy format OR IDs don't match content
+            if ($hasLegacyFormat || !$this->footnotesMatch($normalizedStored, $contentFootnotes)) {
                 $updateData['footnotes'] = json_encode($contentFootnotes);
                 $needsUpdate = true;
             }
@@ -567,6 +570,20 @@ class BookMigrationService
             // Unknown format - skip
             return null;
         }, $footnotes);
+    }
+
+    /**
+     * Check if footnotes array contains legacy string format.
+     * Returns true if any item is a string (not object format).
+     */
+    private function hasLegacyFootnoteFormat(array $footnotes): bool
+    {
+        foreach ($footnotes as $item) {
+            if (is_string($item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
