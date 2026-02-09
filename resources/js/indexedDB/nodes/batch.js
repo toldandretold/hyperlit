@@ -224,6 +224,25 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     });
   });
 
+  // 🔗 NORMALIZE WORD JOINER before hypercite anchors (prevents line breaks)
+  // Ensures all hypercite anchors have a word joiner character (\u2060) immediately before them
+  // This prevents the arrow from being orphaned on its own line when text wraps
+  const hyperciteAnchors = contentClone.querySelectorAll('a[href*="#hypercite_"]');
+  hyperciteAnchors.forEach(anchor => {
+    const prevSibling = anchor.previousSibling;
+    // Check if previous sibling is a text node ending with word joiner
+    if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
+      if (!prevSibling.textContent.endsWith('\u2060')) {
+        // Add word joiner at the end of the text node
+        prevSibling.textContent = prevSibling.textContent + '\u2060';
+      }
+    } else {
+      // No text node before anchor - insert word joiner text node
+      const wordJoiner = document.createTextNode('\u2060');
+      anchor.parentNode.insertBefore(wordJoiner, anchor);
+    }
+  });
+
   const result = {
     content: contentClone.outerHTML,
     hyperlights,
