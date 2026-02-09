@@ -103,9 +103,9 @@ class BookMigrationService
             ];
         }
 
-        // Update nodes using parameterized queries
+        // Update nodes using parameterized queries (admin connection to bypass RLS)
         foreach ($toUpdate as $update) {
-            DB::statement(
+            DB::connection('pgsql_admin')->statement(
                 'UPDATE nodes SET node_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
                 [
                     $update['node_id'],
