@@ -22,7 +22,7 @@ class BookMigrationService
         ];
 
         // Quick check: if all chunks have node_id, skip migration entirely
-        $chunksWithoutNodeId = DB::table('nodes')
+        $chunksWithoutNodeId = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->whereNull('node_id')
             ->count();
@@ -34,7 +34,7 @@ class BookMigrationService
         $stats['chunks_checked'] = $chunksWithoutNodeId;
 
         // Check if any startLine has decimals (indicates messy paste operations)
-        $hasDecimals = DB::table('nodes')
+        $hasDecimals = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->whereRaw('"startLine" != FLOOR("startLine")')
             ->exists();
@@ -44,7 +44,7 @@ class BookMigrationService
             if (!$dryRun) {
                 $stats['chunks_updated'] = $this->fullRenumberMigration($bookId);
             } else {
-                $stats['chunks_updated'] = DB::table('nodes')->where('book', $bookId)->count();
+                $stats['chunks_updated'] = DB::connection('pgsql_admin')->table('nodes')->where('book', $bookId)->count();
             }
         } else {
             $stats['strategy'] = 'sparse_fill';
@@ -69,7 +69,7 @@ class BookMigrationService
         ]);
 
         // Get ONLY chunks missing node_id
-        $chunks = DB::table('nodes')
+        $chunks = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->whereNull('node_id')
             ->get();
@@ -140,7 +140,7 @@ class BookMigrationService
         ]);
 
         // Get ALL chunks for this book, ordered by startLine
-        $chunks = DB::table('nodes')
+        $chunks = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->orderBy('startLine')
             ->get();
@@ -196,7 +196,7 @@ class BookMigrationService
             DB::transaction(function () use ($bookId, $updates) {
                 // Pass 1: Move all rows to temporary negative startLines to avoid conflicts
                 foreach ($updates as $update) {
-                    DB::table('nodes')
+                    DB::connection('pgsql_admin')->table('nodes')
                         ->where('book', $bookId)
                         ->where('startLine', $update['old_startLine'])
                         ->update(['startLine' => $update['temp_startLine']]);
@@ -204,7 +204,7 @@ class BookMigrationService
 
                 // Pass 2: Update to final values
                 foreach ($updates as $update) {
-                    DB::table('nodes')
+                    DB::connection('pgsql_admin')->table('nodes')
                         ->where('book', $bookId)
                         ->where('startLine', $update['temp_startLine'])
                         ->update([
@@ -230,7 +230,7 @@ class BookMigrationService
         }
 
         // Update library timestamp
-        DB::table('library')
+        DB::connection('pgsql_admin')->table('library')
             ->where('book', $bookId)
             ->update(['timestamp' => round(microtime(true) * 1000)]);
 
@@ -257,7 +257,7 @@ class BookMigrationService
         ];
 
         // Get all nodes that might have footnotes (quick filter)
-        $nodesWithFootnoteMarkers = DB::table('nodes')
+        $nodesWithFootnoteMarkers = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->where(function($q) {
                 $q->where('content', 'like', '%fn-count-id%')
@@ -323,7 +323,7 @@ class BookMigrationService
 
             // Update nodes
             foreach ($nodesToFix as $fix) {
-                DB::table('nodes')
+                DB::connection('pgsql_admin')->table('nodes')
                     ->where('book', $bookId)
                     ->where('startLine', $fix['startLine'])
                     ->update($fix['updateData']);
@@ -381,7 +381,7 @@ class BookMigrationService
     private function renumberFootnotes(string $bookId): void
     {
         // Get all nodes with footnotes, ordered by startLine
-        $nodesWithFootnotes = DB::table('nodes')
+        $nodesWithFootnotes = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->where(function($q) {
                 $q->where('content', 'like', '%fn-count-id%')
@@ -417,7 +417,7 @@ class BookMigrationService
             $updatedContent = $this->updateFootnoteNumbersInHtml($node->content, $footnoteMap);
 
             if ($updatedContent !== $node->content) {
-                DB::table('nodes')
+                DB::connection('pgsql_admin')->table('nodes')
                     ->where('book', $bookId)
                     ->where('startLine', $node->startLine)
                     ->update([
