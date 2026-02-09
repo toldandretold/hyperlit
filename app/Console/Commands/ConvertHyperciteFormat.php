@@ -36,7 +36,11 @@ class ConvertHyperciteFormat extends Command
             // Step 1: Remove any <span class="nowrap"> wrappers
             $content = preg_replace('/<span class="nowrap">(.+?)<\/span>/u', '$1', $content);
 
-            // Step 2: Add word joiner before hypercite anchors (if not already present)
+            // Step 2: Remove zero-width spaces from inside hypercite anchors (legacy cleanup)
+            // These can cause unwanted line breaks
+            $content = preg_replace('/(<a\s[^>]*href="[^"]*#hypercite_[^"]*"[^>]*>)\x{200B}/u', '$1', $content);
+
+            // Step 3: Add word joiner before hypercite anchors (if not already present)
             // Match: <a ...href="...#hypercite_..."...> NOT preceded by word joiner
             $content = preg_replace('/(?<!\x{2060})(<a\s[^>]*href="[^"]*#hypercite_[^"]*"[^>]*>)/u', "\u{2060}$1", $content);
 
