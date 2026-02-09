@@ -173,6 +173,7 @@ class BookMigrationService
 
             $toInsert[] = [
                 'book' => $chunk->book,
+                'user_id' => $chunk->user_id ?? null,
                 'startLine' => $newStartLine,
                 'chunk_id' => $newChunkId,
                 'node_id' => $nodeId,
@@ -188,17 +189,26 @@ class BookMigrationService
 
         // Use DELETE + INSERT (much faster than UPDATE for bulk renumbering)
         if (!empty($toInsert)) {
-            DB::transaction(function () use ($bookId, $toInsert) {
-                // Delete all old rows
-                DB::table('nodes')
-                    ->where('book', $bookId)
-                    ->delete();
+            try {
+                DB::transaction(function () use ($bookId, $toInsert) {
+                    // Delete all old rows
+                    DB::table('nodes')
+                        ->where('book', $bookId)
+                        ->delete();
 
-                // Bulk insert new rows (500 at a time to avoid memory issues)
-                foreach (array_chunk($toInsert, 500) as $chunk) {
-                    DB::table('nodes')->insert($chunk);
-                }
-            });
+                    // Bulk insert new rows (500 at a time to avoid memory issues)
+                    foreach (array_chunk($toInsert, 500) as $chunk) {
+                        DB::table('nodes')->insert($chunk);
+                    }
+                });
+            } catch (\Exception $e) {
+                Log::channel('sync_audit')->error('Full renumbering failed', [
+                    'book_id' => $bookId,
+                    'error' => $e->getMessage(),
+                    'node_count' => count($toInsert),
+                ]);
+                throw new \Exception("Full renumbering failed for {$bookId}: " . $e->getMessage());
+            }
 
             // Update library timestamp
             DB::table('library')

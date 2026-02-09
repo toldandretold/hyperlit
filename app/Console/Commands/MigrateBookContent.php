@@ -128,8 +128,14 @@ class MigrateBookContent extends Command
 
             } catch (\Exception $e) {
                 $totals['errors']++;
-                $this->newLine();
-                $this->error("Error processing {$bookId}: {$e->getMessage()}");
+                $bar->clear();
+                // Truncate error message to avoid SQL dump spam
+                $errorMsg = $e->getMessage();
+                if (strlen($errorMsg) > 200) {
+                    $errorMsg = substr($errorMsg, 0, 200) . '...';
+                }
+                $this->error("Error processing {$bookId}: {$errorMsg}");
+                $bar->display();
             }
 
             $bar->advance();
