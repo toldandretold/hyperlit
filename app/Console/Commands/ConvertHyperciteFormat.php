@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\PgNodeChunk;
+use Illuminate\Support\Facades\DB;
 
 class ConvertHyperciteFormat extends Command
 {
@@ -18,8 +18,9 @@ class ConvertHyperciteFormat extends Command
             $this->info('DRY RUN - no changes will be made');
         }
 
-        // Find all nodes containing hypercite anchors
-        $nodes = PgNodeChunk::where('content', 'like', '%#hypercite_%')
+        // Find all nodes containing hypercite anchors using admin connection (bypasses RLS)
+        $nodes = DB::connection('pgsql_admin')->table('nodes')
+            ->where('content', 'like', '%#hypercite_%')
             ->where('content', 'like', '%open-icon%')
             ->get();
 
@@ -46,16 +47,25 @@ class ConvertHyperciteFormat extends Command
                     $this->line("  After:  " . substr($content, 0, 300));
                     $this->line("");
                 } else {
-                    $node->content = $content;
-
-                    // Also update raw_json if it contains content
-                    if ($node->raw_json && isset($node->raw_json['content'])) {
-                        $rawJson = $node->raw_json;
+                    // Update raw_json if it contains content
+                    $rawJson = json_decode($node->raw_json, true);
+                    $updatedRawJson = $node->raw_json;
+                    if ($rawJson && is_array($rawJson) && isset($rawJson['content'])) {
                         $rawJson['content'] = $content;
-                        $node->raw_json = $rawJson;
+                        $updatedRawJson = json_encode($rawJson);
                     }
 
-                    $node->save();
+                    // Use raw UPDATE with admin connection to bypass RLS
+                    DB::connection('pgsql_admin')->statement(
+                        'UPDATE nodes SET content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                        [
+                            $content,
+                            $updatedRawJson,
+                            now(),
+                            $node->book,
+                            $node->startLine,
+                        ]
+                    );
                 }
                 $updated++;
             } else {
