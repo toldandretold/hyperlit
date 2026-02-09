@@ -129,6 +129,9 @@ class BookMigrationService
     /**
      * Full renumbering: Clean slate with 100-unit gaps
      * Used when book has decimal startLines from paste operations
+     *
+     * Uses UPDATE instead of DELETE+INSERT to work with RLS policies.
+     * Two-pass approach: first move to negative startLines, then to final positive values.
      */
     private function fullRenumberMigration(string $bookId): int
     {
@@ -142,8 +145,12 @@ class BookMigrationService
             ->orderBy('startLine')
             ->get();
 
-        $toInsert = [];
+        if ($chunks->isEmpty()) {
+            return 0;
+        }
+
         $nodesPerChunk = 100;
+        $updates = [];
 
         foreach ($chunks as $index => $chunk) {
             // Calculate new values with 100-unit gaps
@@ -171,9 +178,10 @@ class BookMigrationService
                 $updatedRawJson = $chunk->raw_json;
             }
 
-            $toInsert[] = [
-                'book' => $chunk->book,
-                'startLine' => $newStartLine,
+            $updates[] = [
+                'old_startLine' => $chunk->startLine,
+                'temp_startLine' => -($index + 1),  // Temporary negative value
+                'new_startLine' => $newStartLine,
                 'chunk_id' => $newChunkId,
                 'node_id' => $nodeId,
                 'content' => $updatedContent,
@@ -181,46 +189,57 @@ class BookMigrationService
                 'type' => $chunk->type ?? null,
                 'footnotes' => $chunk->footnotes ?? '[]',
                 'raw_json' => $updatedRawJson,
-                'created_at' => $chunk->created_at ?? now(),
-                'updated_at' => now(),
             ];
         }
 
-        // Use DELETE + INSERT (much faster than UPDATE for bulk renumbering)
-        if (!empty($toInsert)) {
-            try {
-                DB::transaction(function () use ($bookId, $toInsert) {
-                    // Delete all old rows
+        try {
+            DB::transaction(function () use ($bookId, $updates) {
+                // Pass 1: Move all rows to temporary negative startLines to avoid conflicts
+                foreach ($updates as $update) {
                     DB::table('nodes')
                         ->where('book', $bookId)
-                        ->delete();
+                        ->where('startLine', $update['old_startLine'])
+                        ->update(['startLine' => $update['temp_startLine']]);
+                }
 
-                    // Bulk insert new rows (500 at a time to avoid memory issues)
-                    foreach (array_chunk($toInsert, 500) as $chunk) {
-                        DB::table('nodes')->insert($chunk);
-                    }
-                });
-            } catch (\Exception $e) {
-                Log::channel('sync_audit')->error('Full renumbering failed', [
-                    'book_id' => $bookId,
-                    'error' => $e->getMessage(),
-                    'node_count' => count($toInsert),
-                ]);
-                throw new \Exception("Full renumbering failed for {$bookId}: " . $e->getMessage());
-            }
-
-            // Update library timestamp
-            DB::table('library')
-                ->where('book', $bookId)
-                ->update(['timestamp' => round(microtime(true) * 1000)]);
-
-            Log::channel('sync_audit')->info('Full renumbering completed', [
+                // Pass 2: Update to final values
+                foreach ($updates as $update) {
+                    DB::table('nodes')
+                        ->where('book', $bookId)
+                        ->where('startLine', $update['temp_startLine'])
+                        ->update([
+                            'startLine' => $update['new_startLine'],
+                            'chunk_id' => $update['chunk_id'],
+                            'node_id' => $update['node_id'],
+                            'content' => $update['content'],
+                            'plainText' => $update['plainText'],
+                            'type' => $update['type'],
+                            'footnotes' => $update['footnotes'],
+                            'raw_json' => $update['raw_json'],
+                            'updated_at' => now(),
+                        ]);
+                }
+            });
+        } catch (\Exception $e) {
+            Log::channel('sync_audit')->error('Full renumbering failed', [
                 'book_id' => $bookId,
-                'nodes_renumbered' => count($toInsert),
+                'error' => $e->getMessage(),
+                'node_count' => count($updates),
             ]);
+            throw new \Exception("Full renumbering failed for {$bookId}: " . $e->getMessage());
         }
 
-        return count($toInsert);
+        // Update library timestamp
+        DB::table('library')
+            ->where('book', $bookId)
+            ->update(['timestamp' => round(microtime(true) * 1000)]);
+
+        Log::channel('sync_audit')->info('Full renumbering completed', [
+            'book_id' => $bookId,
+            'nodes_renumbered' => count($updates),
+        ]);
+
+        return count($updates);
     }
 
     /**
