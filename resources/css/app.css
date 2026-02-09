@@ -310,6 +310,9 @@ sup {
 
 
 
+/* Prevent orphaning of citation arrows on their own line */
+.nowrap { white-space: nowrap; }
+
 /* Increase touch target size for sup elements */
 sup.open-icon {
     padding: 8px; /* Add padding to increase clickable area */

@@ -8,6 +8,7 @@ import { parseNodeId } from '../core/utilities.js';
 import { verbose } from '../../utilities/logger.js';
 import { syncFirstNodeToTitle } from '../core/library.js';
 import { debounce } from '../../divEditor/saveQueue.js';
+import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let withPending, book, updateBookTimestamp, queueForSync;
@@ -160,36 +161,9 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     }
   });
 
-  // Process footnote references
-  // Store as objects {id, marker} to support non-numeric markers (*, 23a, etc.)
-  const footnotes = [];
-  const seen = new Set();
-
-  // New format: sup with class="footnote-ref" and id attribute
-  node.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
-    const footnoteId = sup.id;
-    const marker = sup.getAttribute('fn-count-id') || '';
-    if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-      footnotes.push({ id: footnoteId, marker: marker });
-      seen.add(footnoteId);
-    }
-  });
-
-  // Old format fallback: anchor href inside sup
-  node.querySelectorAll('sup[fn-count-id]').forEach(sup => {
-    const link = sup.querySelector('a.footnote-ref');
-    if (link) {
-      const href = link.getAttribute('href');
-      if (href) {
-        const footnoteId = href.replace(/^#/, '');
-        const marker = sup.getAttribute('fn-count-id') || '';
-        if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-          footnotes.push({ id: footnoteId, marker: marker });
-          seen.add(footnoteId);
-        }
-      }
-    }
-  });
+  // Extract footnote references using shared utility
+  // Returns objects {id, marker} to support non-numeric markers (*, 23a, etc.)
+  const footnotes = extractFootnoteIdsFromElement(node);
 
   // Create a clone to remove the mark and u tags
   const contentClone = node.cloneNode(true);

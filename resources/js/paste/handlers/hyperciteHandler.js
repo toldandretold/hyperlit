@@ -23,6 +23,7 @@ import {
 } from '../../utilities/operationState.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
+import { extractQuotedText } from '../../utilities/textExtraction.js';
 
 /**
  * Extract quoted text before a hypercite link element
@@ -187,7 +188,7 @@ export async function handleHypercitePaste(event) {
 
     // Add to combined HTML (with space between multiple hypercites)
     if (combinedHtml) combinedHtml += ' ';
-    combinedHtml += `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
+    combinedHtml += `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a></span>`;
 
     // Store update task to process after insertion
     updateTasks.push({

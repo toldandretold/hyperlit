@@ -359,7 +359,7 @@ async function processHypercitePaste(clipboardHtml, contentId) {
   // Clean up quotes from the extracted text
   quotedText = quotedText.replace(/^['"]|['"]$/g, '');
 
-  const referenceHtml = `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a>`;
+  const referenceHtml = `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a></span>`;
 
   // Insert the hypercite HTML
   document.execCommand('insertHTML', false, referenceHtml);
