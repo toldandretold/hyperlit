@@ -1,19 +1,21 @@
 /**
  * Extract Footnote IDs Utility
  *
- * Extracts footnote IDs from HTML content for storing in nodes.footnotes.
+ * Extracts footnote data from HTML content for storing in nodes.footnotes.
+ * Returns objects with {id, marker} to support non-numeric markers (*, †, 23a, etc.)
+ *
  * New format: id on the <sup> element directly.
  * Old format (backwards compat): href="#footnoteId" on nested <a> element.
  */
 
 /**
- * Extract footnote IDs from HTML content
+ * Extract footnote data from HTML content
  *
  * New format: <sup fn-count-id="1" id="footnoteId" class="footnote-ref">1</sup>
  * Old format: <sup fn-count-id="1" id="..."><a class="footnote-ref" href="#footnoteId">1</a></sup>
  *
  * @param {string} htmlContent - HTML string to extract from
- * @returns {string[]} - Array of unique footnote IDs
+ * @returns {{id: string, marker: string}[]} - Array of unique footnote objects
  */
 export function extractFootnoteIdsFromHtml(htmlContent) {
   if (!htmlContent) return [];
@@ -25,22 +27,23 @@ export function extractFootnoteIdsFromHtml(htmlContent) {
 }
 
 /**
- * Extract footnote IDs from a DOM element
+ * Extract footnote data from a DOM element
  *
  * @param {HTMLElement} element - DOM element to extract from
- * @returns {string[]} - Array of unique footnote IDs
+ * @returns {{id: string, marker: string}[]} - Array of unique footnote objects
  */
 export function extractFootnoteIdsFromElement(element) {
   if (!element) return [];
 
-  const footnoteIds = [];
+  const footnotes = [];
   const seen = new Set();
 
   // New format: sup with class="footnote-ref" and id attribute
   element.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
     const footnoteId = sup.id;
+    const marker = sup.getAttribute('fn-count-id') || '';
     if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-      footnoteIds.push(footnoteId);
+      footnotes.push({ id: footnoteId, marker: marker });
       seen.add(footnoteId);
     }
   });
@@ -51,11 +54,13 @@ export function extractFootnoteIdsFromElement(element) {
     if (!href) return;
 
     const footnoteId = href.replace(/^#/, '');
+    const sup = link.closest('sup');
+    const marker = sup ? (sup.getAttribute('fn-count-id') || '') : '';
     if (footnoteId && !seen.has(footnoteId) && (footnoteId.includes('_Fn') || footnoteId.includes('Fn'))) {
-      footnoteIds.push(footnoteId);
+      footnotes.push({ id: footnoteId, marker: marker });
       seen.add(footnoteId);
     }
   });
 
-  return footnoteIds;
+  return footnotes;
 }

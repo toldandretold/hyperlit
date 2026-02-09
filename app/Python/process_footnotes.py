@@ -49,36 +49,62 @@ def main(html_file_path):
 
     # --- PASS 2: Find in-text markers and replace them with proper links ---
     print("\n--- PASS 2: Linking In-Text Footnote Markers ---")
-    
+
+    # Track footnote ID mappings: display number -> unique ID
+    footnote_id_map = {}
+    fn_counter = [0]  # Use list to allow modification in nested function
+
+    def generate_footnote_id():
+        """Generate unique footnote ID in canonical format: Fn{timestamp}_{counter}"""
+        fn_counter[0] += 1
+        return f"Fn{int(time.time() * 1000)}{fn_counter[0]:03d}"
+
+    def get_or_create_footnote_id(identifier):
+        """Get existing or create new unique ID for a display number"""
+        if identifier not in footnote_id_map:
+            footnote_id_map[identifier] = generate_footnote_id()
+        return footnote_id_map[identifier]
+
     # Part A: Handle Markdown-style [^...] markers in text nodes
     for text_node in soup.find_all(string=True):
         text = str(text_node)
         if '[^' not in text: continue
-        
+
         def replace_md_marker(match):
             identifier = match.group(1)
             if identifier in footnote_map:
-                a_tag = soup.new_tag("a", href=f"#fn:{identifier}", attrs={'class': 'footnote-ref', 'id': f'fnref:{identifier}'})
-                a_tag.string = f"[{identifier}]"
-                return str(a_tag)
+                unique_id = get_or_create_footnote_id(identifier)
+                # Canonical format: <sup fn-count-id="N" id="footnoteId" class="footnote-ref">N</sup>
+                return f'<sup fn-count-id="{identifier}" id="{unique_id}" class="footnote-ref">{identifier}</sup>'
             return match.group(0)
 
         new_html = re.sub(r'\[\^(\w+)\]', replace_md_marker, text)
         if new_html != text:
             text_node.replace_with(BeautifulSoup(new_html, 'html.parser'))
 
-    # Part B: Handle <sup>...</sup> markers by finding and replacing the tags directly
+    # Part B: Handle <sup>...</sup> markers by converting to canonical format
     for sup_tag in soup.find_all('sup'):
+        # Skip if already in canonical format
+        if sup_tag.get('class') and 'footnote-ref' in sup_tag.get('class', []):
+            continue
         identifier = sup_tag.get_text(strip=True)
         if identifier in footnote_map:
-            a_tag = soup.new_tag("a", href=f"#fn:{identifier}", attrs={'class': 'footnote-ref', 'id': f'fnref:{identifier}'})
-            a_tag.string = f"[{identifier}]"
-            sup_tag.replace_with(a_tag)
-            print(f"Replaced <sup>{identifier}</sup> with a link.")
+            unique_id = get_or_create_footnote_id(identifier)
+            # Convert to canonical format
+            sup_tag['fn-count-id'] = identifier
+            sup_tag['id'] = unique_id
+            sup_tag['class'] = 'footnote-ref'
+            sup_tag.string = identifier
+            print(f"Converted <sup>{identifier}</sup> to canonical format with id={unique_id}")
 
     # --- PASS 3: Generate JSON output ---
     print("\n--- PASS 3: Generating JSON Output ---")
-    footnotes_data = [{"footnoteId": key, "content": value} for key, value in footnote_map.items()]
+    # Use unique footnote IDs (Fn...) instead of display numbers
+    footnotes_data = [
+        {"footnoteId": footnote_id_map.get(key, key), "content": value}
+        for key, value in footnote_map.items()
+        if key in footnote_id_map  # Only include footnotes that were actually referenced
+    ]
     book_id = f"book_{int(time.time() * 1000)}"
     node_chunks_data = {}
     start_line_counter = 0
@@ -94,10 +120,11 @@ def main(html_file_path):
         node_key = f"{book_id}_{start_line_counter}"
 
         footnotes_in_node = []
-        found_footnotes = node.find_all('a', class_='footnote-ref')
-        for a_tag in found_footnotes:
-            fn_id = a_tag['href'].split(':')[-1]
-            if fn_id not in footnotes_in_node:
+        # Find canonical format: <sup class="footnote-ref" id="...">
+        found_footnotes = node.find_all('sup', class_='footnote-ref')
+        for sup_tag in found_footnotes:
+            fn_id = sup_tag.get('id', '')
+            if fn_id and 'Fn' in fn_id and fn_id not in footnotes_in_node:
                 footnotes_in_node.append(fn_id)
 
         node_object = {

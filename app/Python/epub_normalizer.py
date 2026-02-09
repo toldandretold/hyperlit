@@ -74,7 +74,7 @@ import string
 import json
 from abc import ABC, abstractmethod
 from ebooklib import epub, ITEM_DOCUMENT
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 import bleach
 
 
@@ -2301,36 +2301,35 @@ class FootnoteConverter(EpubTransform):
 
     def _convert_noteref_element(self, elem, new_id, fn_count, soup):
         """Convert an in-text note reference to Hyperlit format."""
-        # Format: <sup fn-count-id="N" id="footnoteId"><a class="footnote-ref" href="#footnoteId">N</a></sup>
-        # The anchor inside is required by lazyLoaderFactory.js applyDynamicFootnoteNumbers
-        # The sup id must match the footnoteId in footnotes.json for detection to work
+        # Canonical format: <sup fn-count-id="N" id="footnoteId" class="footnote-ref">N</sup>
+        # No anchor inside - just text content directly in the sup element
 
         # Check if element is still in the document tree (might have been replaced already)
         if elem.parent is None:
             return  # Skip elements that were already removed/replaced
 
-        # Create the anchor that goes inside the sup
-        new_anchor = soup.new_tag('a')
-        new_anchor['class'] = 'footnote-ref'
-        new_anchor['href'] = f'#{new_id}'
-        new_anchor.string = str(fn_count)
+        # Strip whitespace before footnote marker (looks cleaner)
+        prev = elem.previous_sibling
+        if prev and isinstance(prev, NavigableString):
+            stripped = prev.rstrip()
+            if stripped != prev:
+                prev.replace_with(NavigableString(stripped))
 
         if elem.name == 'sup':
-            # Already a sup - clear and rebuild with anchor inside
+            # Already a sup - clear and rebuild with canonical format
             elem.clear()
             elem['fn-count-id'] = str(fn_count)
             elem['id'] = new_id
-            # Remove class from sup (it goes on anchor instead)
-            if 'class' in elem.attrs:
-                del elem['class']
-            elem.append(new_anchor)
+            elem['class'] = 'footnote-ref'
+            elem.string = str(fn_count)
 
         elif elem.name == 'a':
-            # It's an <a>, create new sup wrapping the anchor
+            # It's an <a>, replace with canonical sup format
             new_sup = soup.new_tag('sup')
             new_sup['fn-count-id'] = str(fn_count)
             new_sup['id'] = new_id
-            new_sup.append(new_anchor)
+            new_sup['class'] = 'footnote-ref'
+            new_sup.string = str(fn_count)
             elem.replace_with(new_sup)
 
     def transform(self, soup, log) -> dict:
