@@ -12,6 +12,7 @@ import { SageProcessor } from '../format-processors/sage-processor.js';
 import { ScienceDirectProcessor } from '../format-processors/science-direct-processor.js';
 import { SpringerProcessor } from '../format-processors/springer-processor.js';
 import { SubstackProcessor } from '../format-processors/substack-processor.js';
+import { WileyProcessor } from '../format-processors/wiley-processor.js';
 
 /**
  * Format registry structure:
@@ -77,6 +78,19 @@ export const FORMAT_REGISTRY = {
     processor: SubstackProcessor,
     priority: 4,
     description: 'Substack newsletter content with FootnoteAnchorToDOM components'
+  },
+
+  // Wiley Online Library - Priority 4
+  'wiley': {
+    selectors: [
+      'a.bibLink',                       // Primary: citation links with bibLink class
+      '[data-bib-id]',                   // Reference list items with data-bib-id
+      'a.tab-link[href^="#"][data-tab="pane-pcw-references"]', // Citation links pointing to references pane
+      'a[href*="onlinelibrary.wiley"]'   // Fallback: Wiley domain links
+    ],
+    processor: WileyProcessor,
+    priority: 4,
+    description: 'Wiley Online Library journals with bibId-based citations'
   },
 
   // Cambridge - Priority 3
