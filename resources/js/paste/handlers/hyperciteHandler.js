@@ -63,8 +63,8 @@ function extractQuotedTextBeforeLink(container, linkElement) {
     }
   }
 
-  // Clean up quotes from start and end
-  quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, '');
+  // Clean up word joiner characters (from previous pastes) then quotes
+  quotedText = quotedText.replace(/\u2060/g, '').replace(/^[''""]/, '').replace(/[''""]$/, '');
 
   return quotedText;
 }
@@ -188,7 +188,7 @@ export async function handleHypercitePaste(event) {
 
     // Add to combined HTML (with space between multiple hypercites)
     if (combinedHtml) combinedHtml += ' ';
-    combinedHtml += `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a></span>`;
+    combinedHtml += `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a>`;
 
     // Store update task to process after insertion
     updateTasks.push({

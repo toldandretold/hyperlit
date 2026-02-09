@@ -16,15 +16,15 @@ export function extractQuotedText(pasteWrapper) {
   const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
 
   if (quoteMatch && quoteMatch[1]) {
-    quotedText = quoteMatch[1];
+    // Strip word joiner characters (from previous pastes)
+    quotedText = quoteMatch[1].replace(/\u2060/g, '');
   } else {
     // Fallback to just using text before the citation
     const textNodes = Array.from(pasteWrapper.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE);
     if (textNodes.length > 0) {
-      // Handle mixed quote types by removing any quote from start and end separately
-      quotedText = textNodes[0].textContent.replace(/^[''""]/, '').replace(/[''""]$/, '');
-
+      // Strip word joiner characters (from previous pastes) then quotes
+      quotedText = textNodes[0].textContent.replace(/\u2060/g, '').replace(/^[''""]/, '').replace(/[''""]$/, '');
     }
   }
 
