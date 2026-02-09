@@ -188,7 +188,7 @@ export async function handleHypercitePaste(event) {
 
     // Add to combined HTML (with space between multiple hypercites)
     if (combinedHtml) combinedHtml += ' ';
-    combinedHtml += `'${quotedText}<span style="white-space:nowrap">'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a></span>`;
+    combinedHtml += `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a></span>`;
 
     // Store update task to process after insertion
     updateTasks.push({

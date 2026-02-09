@@ -98,7 +98,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   }
   quotedText = quotedText.replace(/^['"]|['"]$/g, '');
 
-  const referenceHtml = `'${quotedText}<span style="white-space:nowrap">'<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a></span>`;
+  const referenceHtml = `'${quotedText}<span class="nowrap">'<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a></span>`;
 
   // Manually insert the clean HTML.
   document.execCommand("insertHTML", false, referenceHtml);
