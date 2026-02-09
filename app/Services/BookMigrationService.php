@@ -173,7 +173,6 @@ class BookMigrationService
 
             $toInsert[] = [
                 'book' => $chunk->book,
-                'user_id' => $chunk->user_id ?? null,
                 'startLine' => $newStartLine,
                 'chunk_id' => $newChunkId,
                 'node_id' => $nodeId,
