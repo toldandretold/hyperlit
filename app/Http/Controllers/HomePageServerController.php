@@ -342,17 +342,21 @@ class HomePageServerController extends Controller
         // Handle different entry types
         switch ($type) {
             case 'article':
+                // Match JavaScript bibtexProcessor.js formatting
                 if ($journal = $get('journal')) {
-                    $html .= "<em>{$journal}</em>";
+                    $html .= ", <em>{$journal}</em>";
                 }
                 if ($volume = $get('volume')) {
-                    $html .= " {$volume}";
+                    $html .= ", {$volume}";
+                    if ($number = $get('number')) {
+                        $html .= "({$number})";
+                    }
                 }
-                if ($number = $get('number')) {
-                    $html .= ".{$number}";
+                if ($year = $get('year')) {
+                    $html .= " ({$year})";
                 }
                 if ($pages = $get('pages')) {
-                    $html .= " ({$pages})";
+                    $html .= ", {$pages}";
                 }
                 break;
 
@@ -412,8 +416,8 @@ class HomePageServerController extends Controller
                 break;
         }
 
-        // Year
-        if ($year = $get('year')) {
+        // Year (skip for articles - handled in case above)
+        if ($type !== 'article' && ($year = $get('year'))) {
             $html .= ", {$year}";
         }
 
@@ -445,27 +449,12 @@ class HomePageServerController extends Controller
 
     private function anonymizeIfNeeded($author)
     {
-        // Define criteria for anonymization
-        $shouldAnonymize = false;
-        
-        // Check if it's too long (adjust threshold as needed)
-        if (strlen($author) > 50) {
-            $shouldAnonymize = true;
+        // Only anonymize if it looks like a UUID (matches JavaScript bibtexProcessor.js logic)
+        if (preg_match('/^[0-9a-fA-F-]{36}$/', $author)) {
+            return 'Anon.';
         }
-        
-        // Check if it looks like a UUID
-        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $author)) {
-            $shouldAnonymize = true;
-        }
-        
-        // Check if it contains suspicious patterns
-        if (preg_match('/^[0-9a-f]{32,}$/i', $author) || // Long hex strings
-            preg_match('/^[A-Za-z0-9+\/]{20,}={0,2}$/', $author) || // Base64-like
-            strlen($author) > 30 && !preg_match('/\s/', $author)) { // Long string without spaces
-            $shouldAnonymize = true;
-        }
-        
-        return $shouldAnonymize ? 'Anon.' : $author;
+
+        return $author;
     }
 
     private function calculateRankings($libraryRecords)
