@@ -95,6 +95,15 @@ export { extractQuotedText } from '../utilities/textExtraction.js';
 async function syncPasteToPostgreSQL(bookId) {
   console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
 
+  // Wait for initial book sync to complete first (prevents race condition with new book creation)
+  const { getInitialBookSyncPromise } = await import('../utilities/operationState.js');
+  const initialSyncPromise = getInitialBookSyncPromise();
+  if (initialSyncPromise) {
+    console.log("PASTE SYNC: Waiting for initial book sync to complete...");
+    await initialSyncPromise;
+    console.log("PASTE SYNC: Initial book sync complete. Proceeding with full book sync.");
+  }
+
   // Show orange indicator while syncing
   glowCloudOrange();
 
