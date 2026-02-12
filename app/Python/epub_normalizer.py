@@ -1128,7 +1128,7 @@ class ClassPatternFootnoteDetector(EpubTransform):
     ]
 
     def detect(self, soup) -> bool:
-        for elem in soup.find_all(['aside', 'div', 'section', 'p', 'li', 'a']):
+        for elem in soup.find_all(['aside', 'div', 'section', 'p', 'li', 'a', 'ol', 'ul']):
             class_str = ' '.join(elem.get('class', []))
             if any(re.search(p, class_str, re.I) for p in self.FOOTNOTE_PATTERNS + self.NOTEREF_PATTERNS):
                 return True
@@ -1138,6 +1138,28 @@ class ClassPatternFootnoteDetector(EpubTransform):
         footnotes = []
         noterefs = []
         seen_ids = set()
+
+        # First, handle list containers (<ol class="footnotes">, <ul class="footnotes">)
+        # These contain <li> children where the footnote ID is on a child <a> tag
+        for list_elem in soup.find_all(['ol', 'ul']):
+            class_str = ' '.join(list_elem.get('class', []))
+            if any(re.search(p, class_str, re.I) for p in self.FOOTNOTE_PATTERNS):
+                log(f"    Found footnotes list container: <{list_elem.name} class=\"{class_str}\">")
+                # Process each <li> child as a potential footnote
+                for li in list_elem.find_all('li', recursive=False):
+                    # The footnote ID is typically on a child <a> tag, not the <li> itself
+                    # Pattern: <li><p class="NTX"><a id="front1_fm7-1">1</a>. Content...</p></li>
+                    for child_a in li.find_all('a', id=True):
+                        child_id = child_a.get('id', '')
+                        if child_id and child_id not in seen_ids:
+                            seen_ids.add(child_id)
+                            footnotes.append({
+                                'id': child_id,
+                                'element': li,  # Use <li> as the footnote element
+                                'type': 'footnote',
+                                'strategy': 'class_pattern_list_item'
+                            })
+                            log(f"    Found footnote (list item): id={child_id}")
 
         for elem in soup.find_all(['aside', 'div', 'section', 'p', 'li']):
             class_str = ' '.join(elem.get('class', []))
