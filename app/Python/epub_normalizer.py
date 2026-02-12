@@ -641,7 +641,7 @@ class SectionUnwrapper(EpubTransform):
     PRESERVE_CLASSES = ['footnote', 'footnotes', 'endnote', 'endnotes', 'bibliography', 'references', 'note', 'notes']
 
     def detect(self, soup) -> bool:
-        return bool(soup.find(['section', 'div']))
+        return bool(soup.find(['section', 'div', 'header', 'footer']))
 
     def transform(self, soup, log) -> dict:
         unwrapped = 0
@@ -657,6 +657,21 @@ class SectionUnwrapper(EpubTransform):
         for div in list(body.find_all('div')):
             if self._should_unwrap(div):
                 div.unwrap()
+                unwrapped += 1
+
+        # Unwrap header and footer elements (structural wrappers in EPUBs)
+        # These typically wrap headings but don't add semantic value after extraction
+        for header in list(body.find_all('header')):
+            header.unwrap()
+            unwrapped += 1
+
+        for footer in list(body.find_all('footer')):
+            # Preserve footers that contain footnotes
+            classes = footer.get('class', [])
+            class_str = ' '.join(classes).lower() if classes else ''
+            epub_type = footer.get('epub:type', '').lower()
+            if not any(x in class_str or x in epub_type for x in ['footnote', 'endnote', 'note']):
+                footer.unwrap()
                 unwrapped += 1
 
         # Also unwrap nav elements that aren't TOC
