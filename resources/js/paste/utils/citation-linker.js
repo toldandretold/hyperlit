@@ -30,6 +30,38 @@ export function processInTextCitations(htmlContent, referenceMappings, allRefere
     console.log(`📚 T&F: Processing in-text citations with ${referenceMappings.size} reference mappings`);
   }
 
+  // Convert existing anchor-based citations
+  // Handles both:
+  // - Direct anchors: <a href="#ref7">
+  // - Full URLs with fragments: <a href="https://example.com/page#ref7">
+  let anchorLinksConverted = 0;
+  const allAnchors = tempDiv.querySelectorAll('a[href]');
+
+  allAnchors.forEach(link => {
+    // Skip if inside static bibliography section
+    if (link.closest('[data-static-content="bibliography"]')) return;
+    // Skip if already a Hyperlit citation
+    if (link.classList.contains('in-text-citation')) return;
+
+    const href = link.getAttribute('href');
+    if (!href) return;
+
+    // Extract fragment identifier from href (works for both #ref7 and https://...#ref7)
+    const fragmentMatch = href.match(/#([a-zA-Z][\w-]*)$/);
+    if (!fragmentMatch) return;
+
+    const anchorId = fragmentMatch[1];
+    if (referenceMappings.has(anchorId)) {
+      link.setAttribute('href', '#' + referenceMappings.get(anchorId));
+      link.classList.add('in-text-citation');
+      anchorLinksConverted++;
+    }
+  });
+
+  if (anchorLinksConverted > 0) {
+    console.log(`  - ✅ Converted ${anchorLinksConverted} anchor-based citations to Hyperlit format`);
+  }
+
   // Find citation patterns (Author Year) or (Year)
   const walker = document.createTreeWalker(
     tempDiv,
