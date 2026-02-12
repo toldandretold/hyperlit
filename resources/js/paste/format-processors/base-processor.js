@@ -181,6 +181,11 @@ export class BaseFormatProcessor {
           referenceMappings.set(key, ref.referenceId);
         });
       }
+
+      // Also map originalAnchorId if present (for anchor-based citations like <a href="#ref7">)
+      if (ref.originalAnchorId && ref.referenceId) {
+        referenceMappings.set(ref.originalAnchorId, ref.referenceId);
+      }
     });
 
     console.log(`  - Built reference mappings: ${referenceMappings.size} keys for ${references.length} references`);

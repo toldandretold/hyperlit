@@ -58,6 +58,26 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
       return;
     }
 
+    // First check for <sup><a href="#fnN">N</a></sup> or <sup><a href="https://...#ftn1">N</a></sup> pattern
+    const link = sup.querySelector('a[href]');
+    if (link) {
+      const href = link.getAttribute('href');
+      // Extract fragment from URL (handles both #ftn1 and https://...#ftn1)
+      const fragmentMatch = href.match(/#(?:_?ftn|fn|note|_edn)(\d+)$/i);
+      if (fragmentMatch) {
+        const identifier = fragmentMatch[1];
+        if (footnoteMappings.has(identifier)) {
+          const mapping = footnoteMappings.get(identifier);
+          sup.id = mapping.uniqueId;
+          sup.setAttribute('fn-count-id', identifier);
+          sup.className = 'footnote-ref';
+          sup.textContent = identifier; // Remove the anchor, keep just the number
+          return;
+        }
+      }
+    }
+
+    // Standard pattern: <sup>N</sup> with plain numeric content
     const identifier = sup.textContent.trim();
     if (footnoteMappings.has(identifier)) {
       const mapping = footnoteMappings.get(identifier);
@@ -73,6 +93,41 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
       }
     }
   });
+
+  // Handle bare <a href="#ftnN">[N]</a> links (not wrapped in <sup>)
+  // These need to be converted to <sup> elements
+  const allAnchors = tempDiv.querySelectorAll('a[href]');
+  let bareLinksConverted = 0;
+  allAnchors.forEach(link => {
+    // Skip if inside static content
+    if (link.closest('[data-static-content]')) return;
+    // Skip if already inside a sup
+    if (link.closest('sup')) return;
+
+    const href = link.getAttribute('href');
+    const fragmentMatch = href.match(/#(?:_?ftn|fn|note|_edn)(\d+)$/i);
+    if (!fragmentMatch) return;
+
+    const identifier = fragmentMatch[1];
+    if (footnoteMappings.has(identifier)) {
+      const mapping = footnoteMappings.get(identifier);
+
+      // Create a new <sup> element to replace the <a>
+      const sup = document.createElement('sup');
+      sup.id = mapping.uniqueId;
+      sup.setAttribute('fn-count-id', identifier);
+      sup.className = 'footnote-ref';
+      sup.textContent = identifier;
+
+      // Replace the link with the sup
+      link.parentNode.replaceChild(sup, link);
+      bareLinksConverted++;
+    }
+  });
+
+  if (bareLinksConverted > 0) {
+    console.log(`  - Converted ${bareLinksConverted} bare anchor footnote links to <sup> format`);
+  }
 
   // Handle markdown-style references [^1]
   const walker = document.createTreeWalker(

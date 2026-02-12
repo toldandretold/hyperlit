@@ -27,10 +27,11 @@ export class GeneralProcessor extends BaseFormatProcessor {
     const footnotes = [];
     const footnoteMappings = new Map();
 
-    // 1. Find all <sup> tags to identify referenced footnotes
-    const supElements = dom.querySelectorAll('sup');
+    // 1. Find all footnote references - both <sup> tags and <a href="#ftnN"> links
     const refIdentifiers = new Set();
 
+    // 1a. Check <sup> tags with numeric content
+    const supElements = dom.querySelectorAll('sup');
     supElements.forEach(sup => {
       const identifier = sup.textContent.trim() || sup.getAttribute('fn-count-id');
       if (identifier && /^\d+$/.test(identifier)) {
@@ -38,7 +39,17 @@ export class GeneralProcessor extends BaseFormatProcessor {
       }
     });
 
-    console.log(`  - Found ${refIdentifiers.size} footnote references in <sup> tags`);
+    // 1b. Check anchor links with #ftn patterns (e.g., <a href="#ftn1">[1]</a> or <a href="...#ftn1">)
+    const anchorLinks = dom.querySelectorAll('a[href]');
+    anchorLinks.forEach(link => {
+      const href = link.getAttribute('href');
+      const fragmentMatch = href.match(/#(?:_?ftn|fn|note|_edn)(\d+)$/i);
+      if (fragmentMatch) {
+        refIdentifiers.add(fragmentMatch[1]);
+      }
+    });
+
+    console.log(`  - Found ${refIdentifiers.size} footnote references (from <sup> and anchor links)`);
 
     // 2. Find potential footnote definitions (paragraphs starting with "N. ")
     const potentialParagraphDefs = new Map();
@@ -79,6 +90,26 @@ export class GeneralProcessor extends BaseFormatProcessor {
       });
       if (liDefsFound.length > 0) {
         console.log(`  - Found ${liDefsFound.length} additional definitions in <li> elements`);
+      }
+    }
+
+    // 2c. Fallback: Find definitions with anchor-based IDs (<a name="fn1">, <a name="ftn1">, <a name="_ftn1">, etc.)
+    // Common in academic PDFs and web exports
+    if (refIdentifiers.size > 0) {
+      const anchorDefsFound = [];
+      dom.querySelectorAll('a[name^="fn"], a[name^="ftn"], a[name^="_ftn"], a[name^="note"], a[name^="_edn"]').forEach(anchor => {
+        const name = anchor.getAttribute('name');
+        const numMatch = name.match(/(\d+)/);
+        if (numMatch && refIdentifiers.has(numMatch[1]) && !potentialParagraphDefs.has(numMatch[1])) {
+          const container = anchor.closest('p, li, div');
+          if (container) {
+            potentialParagraphDefs.set(numMatch[1], container);
+            anchorDefsFound.push(numMatch[1]);
+          }
+        }
+      });
+      if (anchorDefsFound.length > 0) {
+        console.log(`  - Found ${anchorDefsFound.length} additional definitions via anchor names`);
       }
     }
 
@@ -166,11 +197,10 @@ export class GeneralProcessor extends BaseFormatProcessor {
   }
 
   /**
-   * Extract references using heuristic pattern matching
-   * Looks for:
-   * - Paragraphs containing years (YYYY)
-   * - Paragraphs after "References" or "Bibliography" heading
-   * - Handles <br>-separated references within a single <p> (from markdown conversion)
+   * Extract references - prioritizes anchor-based detection over heuristics
+   * Strategy:
+   * 1. Find all paragraphs with <a name="ref..."> anchors - these ARE the references
+   * 2. Only fall back to heuristics if no anchor-based refs found
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
@@ -178,6 +208,34 @@ export class GeneralProcessor extends BaseFormatProcessor {
    */
   async extractReferences(dom, bookId) {
     const references = [];
+
+    // STRATEGY 1: Anchor-based detection (most reliable)
+    // Find all paragraphs containing <a name="ref..."> anchors
+    const anchorRefs = dom.querySelectorAll('a[name^="ref"]');
+    if (anchorRefs.length > 0) {
+      console.log(`  - 🎯 Found ${anchorRefs.length} anchor-based references (using anchor detection)`);
+
+      anchorRefs.forEach(anchor => {
+        const container = anchor.closest('p, li, div');
+        if (!container) return;
+
+        const ref = {
+          content: container.outerHTML,
+          originalText: container.textContent.trim(),
+          type: 'anchor-based',
+          needsKeyGeneration: true,
+          originalAnchorId: anchor.getAttribute('name')
+        };
+
+        references.push(ref);
+      });
+
+      console.log(`  - Extracted ${references.length} anchor-based references`);
+      return references;
+    }
+
+    // STRATEGY 2: Heuristic-based detection (fallback)
+    console.log(`  - No anchor-based references found, using heuristic detection`);
 
     // Find "References" or "Bibliography" section
     const allElements = Array.from(dom.children);
@@ -229,12 +287,14 @@ export class GeneralProcessor extends BaseFormatProcessor {
             const text = temp.textContent.trim();
 
             if (looksLikeReferenceStart(text)) {
-              extracted.push({
+              const ref = {
                 content: `<p>${part}</p>`,
                 originalText: text,
                 type: 'html-br-split',
                 needsKeyGeneration: true
-              });
+              };
+
+              extracted.push(ref);
             }
           });
 
@@ -248,12 +308,14 @@ export class GeneralProcessor extends BaseFormatProcessor {
       // No splitting - treat as single reference if it looks like one
       const text = p.textContent.trim();
       if (looksLikeReferenceStart(text)) {
-        extracted.push({
+        const ref = {
           content: p.outerHTML,
           originalText: text,
           type: 'html-paragraph',
           needsKeyGeneration: true
-        });
+        };
+
+        extracted.push(ref);
       }
 
       return extracted;
