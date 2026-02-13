@@ -327,7 +327,7 @@ sup.open-icon {
 }
 
 .citation-ref {
-    color: var(--color-primary);
+    color: #4EACAE; /* aqua - same as in-text-citation links */
     text-decoration: none;
     cursor: pointer;
 }

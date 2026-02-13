@@ -165,6 +165,17 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   // Returns objects {id, marker} to support non-numeric markers (*, 23a, etc.)
   const footnotes = extractFootnoteIdsFromElement(node);
 
+  // Extract citation references (author-date citations)
+  // These are <a> elements with class="citation-ref" and id starting with "Ref"
+  const citations = [];
+  const citationLinks = node.querySelectorAll('a.citation-ref[id^="Ref"]');
+  citationLinks.forEach((link) => {
+    citations.push({
+      referenceId: link.id,
+      text: link.textContent
+    });
+  });
+
   // Create a clone to remove the mark and u tags
   const contentClone = node.cloneNode(true);
 
@@ -248,6 +259,7 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     hyperlights,
     hypercites,
     footnotes,
+    citations,
   };
   return result;
 }
@@ -535,7 +547,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
 
     const db = await openDatabase();
     const tx = db.transaction(
-      ["nodes", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites", "bibliography"],
       "readwrite",
     );
     const chunksStore = tx.objectStore("nodes");
@@ -629,12 +641,20 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       }
 
       let toSave;
+      let removedCitations = []; // Track citations removed from this node
       if (existing) {
         toSave = { ...existing };
         if (processedData) {
           toSave.content = processedData.content;
           // ✅ Update footnotes from extracted data (important for renumbering on delete)
           toSave.footnotes = processedData.footnotes || [];
+          // ✅ Update citations from extracted data
+          const oldCitations = existing.citations || [];
+          const newCitations = processedData.citations || [];
+          toSave.citations = newCitations;
+          // Detect removed citations (were in old, not in new)
+          const newCitationIds = new Set(newCitations.map(c => c.referenceId));
+          removedCitations = oldCitations.filter(c => !newCitationIds.has(c.referenceId));
           // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
           // Keep existing arrays or initialize empty if missing
           if (!toSave.hyperlights) toSave.hyperlights = [];
@@ -660,9 +680,23 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
           node_id: nodeIdFromDOM || null,
           content: processedData ? processedData.content : record.html || "",
           footnotes: processedData ? processedData.footnotes : [],
+          citations: processedData ? processedData.citations : [],
           hyperlights: processedData ? processedData.hyperlights : [],
           hypercites: processedData ? processedData.hypercites : [],
         };
+      }
+
+      // 🗑️ Delete removed citations from bibliography
+      if (removedCitations.length > 0) {
+        console.log(`🗑️ Deleting ${removedCitations.length} removed citation(s) from bibliography`);
+        const bibStore = tx.objectStore('bibliography');
+        for (const citation of removedCitations) {
+          const key = [bookId, citation.referenceId];
+          bibStore.delete(key);
+          console.log(`🗑️ Deleted bibliography entry: ${citation.referenceId}`);
+          // Queue deletion for sync to PostgreSQL
+          queueForSync('bibliography', citation.referenceId, 'delete', { book: bookId, referenceId: citation.referenceId });
+        }
       }
 
       // 🔍 DEBUG: Log what's being saved

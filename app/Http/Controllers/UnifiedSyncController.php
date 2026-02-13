@@ -47,6 +47,7 @@ class UnifiedSyncController extends Controller
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
                 'footnotes_count' => isset($data['footnotes']) ? count($data['footnotes']) : 0,
                 'bibliography_count' => isset($data['bibliography']) ? count($data['bibliography']) : 0,
+                'bibliographyDeletions_count' => isset($data['bibliographyDeletions']) ? count($data['bibliographyDeletions']) : 0,
                 'has_library' => isset($data['library']),
             ]);
 
@@ -125,6 +126,7 @@ class UnifiedSyncController extends Controller
                     'hyperlightDeletions' => null,
                     'footnotes' => null,
                     'bibliography' => null,
+                    'bibliographyDeletions' => null,
                     'library' => null,
                 ];
 
@@ -292,6 +294,25 @@ class UnifiedSyncController extends Controller
                     }
 
                     $results['bibliography'] = ['success' => true, 'message' => 'Bibliography synced successfully'];
+                }
+
+                // 5.6. Handle bibliography deletions (if present)
+                if (!empty($data['bibliographyDeletions'])) {
+                    foreach ($data['bibliographyDeletions'] as $deletion) {
+                        $refBook = $deletion['book'] ?? $bookId;
+                        $referenceId = $deletion['referenceId'] ?? null;
+
+                        if ($referenceId) {
+                            \DB::table('bibliography')
+                                ->where('book', $refBook)
+                                ->where('referenceId', $referenceId)
+                                ->delete();
+
+                            Log::info("Deleted bibliography entry: {$referenceId} from book: {$refBook}");
+                        }
+                    }
+
+                    $results['bibliographyDeletions'] = ['success' => true, 'message' => 'Bibliography deletions processed'];
                 }
 
                 // 6. Sync library record (if present)

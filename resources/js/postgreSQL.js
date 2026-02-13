@@ -883,11 +883,17 @@ async function loadBibliographyToIndexedDB(db, bibliography) {
   const bibliographyData = bibliography.data;
   const promises = [];
 
-  for (const [referenceId, content] of Object.entries(bibliographyData)) {
+  for (const [referenceId, refData] of Object.entries(bibliographyData)) {
+    // Handle both formats:
+    // - New format: { content: '...', source_id: '...' }
+    // - Legacy format: just the content string (from old EPUB imports)
+    const isNewFormat = typeof refData === 'object' && refData !== null;
+
     const record = {
       book: bibliography.book,
       referenceId: referenceId,
-      content: content
+      content: isNewFormat ? refData.content : refData,
+      source_id: isNewFormat ? (refData.source_id || null) : null
     };
 
     promises.push(new Promise((resolve, reject) => {
