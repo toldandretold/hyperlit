@@ -1038,6 +1038,136 @@ black #221F20;
 
 /*
   =====================================================================
+  CITATION TOOLBAR
+  Lightweight toolbar for citation search, same pattern as search-toolbar
+  =====================================================================
+*/
+
+#citation-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px 10px 16px;
+  background-color: transparent;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#citation-toolbar.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+
+#citation-search-input {
+  flex: 1;
+  max-width: 400px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+#citation-search-input:focus {
+  border-color: var(--icon-stroke-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+}
+
+/* Results container - inside toolbar, above input */
+#citation-toolbar-results {
+  width: 100%;
+  max-width: 400px;
+  max-height: 12em;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+}
+
+
+/* Result items */
+#citation-toolbar-results .citation-result-item {
+  padding: 0.75em 1em;
+  background-color: transparent;
+  border: none;
+  border-bottom: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 10%, transparent);
+  color: var(--color-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-align: left;
+  width: 100%;
+  touch-action: pan-y;
+}
+
+#citation-toolbar-results .citation-result-item:hover {
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 15%, transparent);
+}
+
+#citation-toolbar-results .citation-result-item:active {
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+}
+
+/* Loading and empty states */
+#citation-toolbar-results .citation-search-empty,
+#citation-toolbar-results .citation-search-loading {
+  padding: 1em;
+  text-align: center;
+  color: var(--color-text);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  #citation-toolbar {
+    padding: 0 12px 8px 12px;
+  }
+
+  #citation-search-input {
+    max-width: none;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  #citation-toolbar-results {
+    min-height: 10em;
+    max-height: 50vh;
+    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    #citation-toolbar-results .citation-result-item:hover {
+      background-color: transparent;
+    }
+
+    #citation-toolbar-results .citation-result-item:active {
+      background-color: color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+    }
+  }
+}
+
+/* end citation toolbar */
+
+/*
+  =====================================================================
   SEARCH HIGHLIGHT STYLES
   =====================================================================
 */

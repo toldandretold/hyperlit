@@ -1,7 +1,7 @@
 /**
  * Citation Search Module
  * Handles searching the library for citations to insert
- * Uses the bottom-up-container with custom content injection
+ * Uses a lightweight toolbar (same pattern as search-toolbar)
  */
 
 import DOMPurify from 'dompurify';
@@ -18,42 +18,41 @@ let abortController = null;
 let pendingContext = null;
 let isOpen = false;
 
+// Touch tracking for scroll vs tap detection
+let touchStartX = null;
+let touchStartY = null;
+const TAP_THRESHOLD = 10; // pixels - if touch moves more than this, it's a scroll
+
 // Bound event handlers (for cleanup)
 let boundDocumentClickHandler = null;
 let boundDocumentKeyDownHandler = null;
-
-/**
- * Generate the citation search HTML content
- */
-function generateCitationSearchContent() {
-  return `
-    <div class="citation-search-wrapper">
-      <input type="text"
-             id="citation-search-input"
-             class="citation-search-input"
-             placeholder="Search library for citation..."
-             autocomplete="off"
-             spellcheck="false">
-      <div id="citation-search-results" class="citation-search-results">
-        <div class="citation-search-empty">Type to search library...</div>
-      </div>
-    </div>
-  `;
-}
+let boundDocumentTouchStartHandler = null;
+let boundDocumentTouchEndHandler = null;
+let boundInputHandler = null;
 
 /**
  * Initialize the citation search functionality
- * Uses event delegation - no need to bind to specific elements
+ * Sets up event delegation for clicks and keyboard
  */
 export function initializeCitationSearch() {
-  // Set up document-level event delegation
   boundDocumentClickHandler = handleDocumentClick;
   boundDocumentKeyDownHandler = handleDocumentKeyDown;
+  boundDocumentTouchStartHandler = handleDocumentTouchStart;
+  boundDocumentTouchEndHandler = handleDocumentTouchEnd;
 
-  document.addEventListener('click', boundDocumentClickHandler);
-  document.addEventListener('keydown', boundDocumentKeyDownHandler);
+  document.addEventListener('click', boundDocumentClickHandler, true);
+  document.addEventListener('keydown', boundDocumentKeyDownHandler, true);
+  document.addEventListener('touchstart', boundDocumentTouchStartHandler, { capture: true, passive: true });
+  document.addEventListener('touchend', boundDocumentTouchEndHandler, true);
 
-  console.log('✅ Citation search initialized (event delegation)');
+  // Set up input listener on the static input element
+  const searchInput = document.getElementById('citation-search-input');
+  if (searchInput) {
+    boundInputHandler = handleSearchInput;
+    searchInput.addEventListener('input', boundInputHandler);
+  }
+
+  console.log('✅ Citation search initialized');
 }
 
 /**
@@ -61,13 +60,33 @@ export function initializeCitationSearch() {
  */
 export function destroyCitationSearch() {
   if (boundDocumentClickHandler) {
-    document.removeEventListener('click', boundDocumentClickHandler);
+    document.removeEventListener('click', boundDocumentClickHandler, true);
     boundDocumentClickHandler = null;
   }
 
   if (boundDocumentKeyDownHandler) {
-    document.removeEventListener('keydown', boundDocumentKeyDownHandler);
+    document.removeEventListener('keydown', boundDocumentKeyDownHandler, true);
     boundDocumentKeyDownHandler = null;
+  }
+
+  if (boundDocumentTouchStartHandler) {
+    document.removeEventListener('touchstart', boundDocumentTouchStartHandler, { capture: true, passive: true });
+    boundDocumentTouchStartHandler = null;
+  }
+
+  if (boundDocumentTouchEndHandler) {
+    document.removeEventListener('touchend', boundDocumentTouchEndHandler, true);
+    boundDocumentTouchEndHandler = null;
+  }
+
+  // Reset touch tracking
+  touchStartX = null;
+  touchStartY = null;
+
+  const searchInput = document.getElementById('citation-search-input');
+  if (searchInput && boundInputHandler) {
+    searchInput.removeEventListener('input', boundInputHandler);
+    boundInputHandler = null;
   }
 
   if (debounceTimer) {
@@ -78,71 +97,71 @@ export function destroyCitationSearch() {
     abortController.abort();
   }
 
-  // Reset state
   pendingContext = null;
   isOpen = false;
 }
 
 /**
- * Open the citation search in the bottom-up-container
+ * Open the citation search toolbar
  * @param {Object} context - Context for the citation insertion
  * @param {string} context.bookId - The current book ID
  * @param {Range} context.range - The saved selection range
  * @param {Function} context.saveCallback - Callback to save node changes
  */
 export function openCitationSearchContainer(context) {
-  const container = document.getElementById('bottom-up-container');
-  const overlay = document.getElementById('settings-overlay');
+  const toolbar = document.getElementById('citation-toolbar');
+  const searchInput = document.getElementById('citation-search-input');
+  const resultsContainer = document.getElementById('citation-toolbar-results');
 
-  if (!container) {
-    console.error('bottom-up-container not found');
+  if (!toolbar) {
+    console.error('citation-toolbar not found');
     return;
   }
 
   // Store context for when citation is selected
   pendingContext = context;
 
-  // Inject citation search content
-  container.innerHTML = generateCitationSearchContent();
-
-  // Show container
-  container.classList.remove('hidden');
-  container.classList.add('open');
-
-  if (overlay) {
-    overlay.classList.add('active');
+  // Clear previous results and input
+  if (resultsContainer) {
+    resultsContainer.innerHTML = '';
+  }
+  if (searchInput) {
+    searchInput.value = '';
   }
 
+  // Show toolbar (same pattern as search-toolbar)
+  toolbar.classList.add('visible');
   isOpen = true;
 
-  // Set up input listener
-  const searchInput = document.getElementById('citation-search-input');
+  // Focus input after a short delay to ensure toolbar is visible
   if (searchInput) {
-    searchInput.addEventListener('input', handleSearchInput);
-    // Focus after a short delay to ensure container is visible
     setTimeout(() => {
       searchInput.focus();
     }, 100);
   }
 
-  console.log('📖 Citation search opened in bottom-up-container');
+  console.log('📖 Citation search toolbar opened');
 }
 
 /**
- * Close the citation search container
+ * Close the citation search toolbar
  */
 export function closeCitationSearchContainer() {
-  const container = document.getElementById('bottom-up-container');
-  const overlay = document.getElementById('settings-overlay');
+  const toolbar = document.getElementById('citation-toolbar');
+  const searchInput = document.getElementById('citation-search-input');
+  const resultsContainer = document.getElementById('citation-toolbar-results');
 
-  if (container) {
-    container.classList.remove('open');
-    container.classList.add('hidden');
-    // Restore original settings content on next open by settings button
+  if (toolbar) {
+    toolbar.classList.remove('visible');
   }
 
-  if (overlay) {
-    overlay.classList.remove('active');
+  // Clear input and results
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.blur();
+  }
+  if (resultsContainer) {
+    resultsContainer.innerHTML = '';
   }
 
   // Clear pending context
@@ -154,32 +173,103 @@ export function closeCitationSearchContainer() {
     abortController.abort();
   }
 
-  console.log('📖 Citation search closed');
+  // Clear debounce timer
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+
+  console.log('📖 Citation search toolbar closed');
 }
 
 /**
  * Handle document clicks with event delegation
  */
 function handleDocumentClick(event) {
+  console.log('🔍 Citation click - isOpen:', isOpen, 'target:', event.target.tagName, event.target.className);
+
   if (!isOpen) return;
 
-  const container = document.getElementById('bottom-up-container');
+  const toolbar = document.getElementById('citation-toolbar');
+  const isInside = toolbar && toolbar.contains(event.target);
 
-  // Handle citation result item clicks
-  const resultItem = event.target.closest('.citation-result-item');
-  if (resultItem && container?.contains(resultItem)) {
-    event.preventDefault();
-    event.stopPropagation();
-    handleCitationSelection(resultItem);
+  console.log('🔍 toolbar found:', !!toolbar, 'isInside:', isInside);
+
+  // If click is inside the toolbar, handle it
+  if (isInside) {
+    // Handle citation result item clicks
+    const resultItem = event.target.closest('.citation-result-item');
+    console.log('🔍 resultItem found:', !!resultItem);
+    if (resultItem) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleCitationSelection(resultItem);
+    }
+    // For other clicks inside toolbar (input, etc.), do nothing
     return;
   }
 
-  // Handle overlay click to close
-  const overlay = event.target.closest('#settings-overlay');
-  if (overlay) {
-    closeCitationSearchContainer();
+  // Click is outside the toolbar - close it
+  console.log('🔍 Click outside - closing');
+  closeCitationSearchContainer();
+}
+
+/**
+ * Handle document touchstart events (for scroll vs tap detection)
+ */
+function handleDocumentTouchStart(event) {
+  if (!isOpen) return;
+
+  const touch = event.touches?.[0];
+  if (touch) {
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }
+}
+
+/**
+ * Handle document touchend events (for mobile)
+ * Only acts on TAPS (< 10px movement), ignores SCROLLS
+ */
+function handleDocumentTouchEnd(event) {
+  if (!isOpen) return;
+
+  const touch = event.changedTouches?.[0];
+  if (!touch) return;
+
+  // Check if this was a scroll (moved > threshold) vs tap
+  if (touchStartX !== null && touchStartY !== null) {
+    const deltaX = Math.abs(touch.clientX - touchStartX);
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+
+    // Reset for next touch
+    touchStartX = null;
+    touchStartY = null;
+
+    // If moved significantly, it's a scroll - don't close or select
+    if (deltaX > TAP_THRESHOLD || deltaY > TAP_THRESHOLD) {
+      return;
+    }
+  }
+
+  // This is a tap - handle it
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!target) return;
+
+  const toolbar = document.getElementById('citation-toolbar');
+  const isInside = toolbar && toolbar.contains(target);
+
+  if (isInside) {
+    const resultItem = target.closest('.citation-result-item');
+    if (resultItem) {
+      event.preventDefault();
+      handleCitationSelection(resultItem);
+    }
     return;
   }
+
+  // Tap outside - close
+  closeCitationSearchContainer();
 }
 
 /**
@@ -189,6 +279,7 @@ function handleDocumentKeyDown(event) {
   if (!isOpen) return;
 
   if (event.key === 'Escape') {
+    event.preventDefault();
     closeCitationSearchContainer();
   }
 }
@@ -197,8 +288,10 @@ function handleDocumentKeyDown(event) {
  * Handle search input with debouncing
  */
 function handleSearchInput(event) {
+  if (!isOpen) return;
+
   const query = event.target.value.trim();
-  const resultsContainer = document.getElementById('citation-search-results');
+  const resultsContainer = document.getElementById('citation-toolbar-results');
 
   // Clear previous timer
   if (debounceTimer) {
@@ -213,7 +306,7 @@ function handleSearchInput(event) {
   // Clear results if query is too short
   if (query.length < MIN_QUERY_LENGTH) {
     if (resultsContainer) {
-      resultsContainer.innerHTML = '<div class="citation-search-empty">Type to search library...</div>';
+      resultsContainer.innerHTML = '';
     }
     return;
   }
@@ -262,7 +355,6 @@ async function performSearch(query) {
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      // Request was aborted, ignore
       return;
     }
     console.error('Citation search error:', error);
@@ -274,7 +366,7 @@ async function performSearch(query) {
  * Render search results as citation entries
  */
 async function renderResults(results) {
-  const resultsContainer = document.getElementById('citation-search-results');
+  const resultsContainer = document.getElementById('citation-toolbar-results');
   if (!resultsContainer) return;
 
   if (!results || results.length === 0) {
@@ -319,13 +411,19 @@ async function renderResults(results) {
  * Handle selection of a citation result
  */
 async function handleCitationSelection(button) {
+  console.log('🔍 handleCitationSelection called with button:', button);
+
   const citedBookId = button.getAttribute('data-book-id');
   const bibtex = button.getAttribute('data-bibtex');
+
+  console.log('🔍 citedBookId:', citedBookId, 'bibtex length:', bibtex?.length);
 
   if (!citedBookId) {
     console.error('No book ID found on citation result');
     return;
   }
+
+  console.log('🔍 pendingContext:', pendingContext);
 
   if (!pendingContext) {
     console.error('No pending citation context');
@@ -336,8 +434,15 @@ async function handleCitationSelection(button) {
   console.log(`📝 Citation selected: ${citedBookId}`);
 
   try {
+    console.log('🔍 About to insert citation');
+    console.log('🔍 pendingContext.range:', pendingContext.range);
+    console.log('🔍 pendingContext.range.collapsed:', pendingContext.range?.collapsed);
+    console.log('🔍 pendingContext.range.startContainer:', pendingContext.range?.startContainer);
+
     // Dynamic import to avoid circular dependencies
     const { insertCitationAtCursor } = await import('./citationInserter.js');
+
+    console.log('🔍 Calling insertCitationAtCursor...');
 
     // Insert the citation
     await insertCitationAtCursor(
@@ -348,11 +453,14 @@ async function handleCitationSelection(button) {
       pendingContext.saveCallback
     );
 
-    // Close the search container
+    console.log('🔍 insertCitationAtCursor completed');
+
+    // Close the search toolbar
     closeCitationSearchContainer();
 
   } catch (error) {
     console.error('Error inserting citation:', error);
+    console.error('Error stack:', error.stack);
     showError('Failed to insert citation');
   }
 }
@@ -361,7 +469,7 @@ async function handleCitationSelection(button) {
  * Show error message in results
  */
 function showError(message) {
-  const resultsContainer = document.getElementById('citation-search-results');
+  const resultsContainer = document.getElementById('citation-toolbar-results');
   if (resultsContainer) {
     resultsContainer.innerHTML = `<div class="citation-search-empty" style="color: #ef4444;">${escapeHtml(message)}</div>`;
   }

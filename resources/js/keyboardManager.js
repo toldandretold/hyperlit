@@ -134,6 +134,11 @@ class KeyboardManager {
   }
 
   preventToolbarScroll(e) {
+    // Allow scrolling inside scrollable containers (like citation results)
+    const scrollableContainer = e.target.closest('#citation-toolbar-results');
+    if (scrollableContainer) {
+      return; // Don't prevent - allow native scroll
+    }
     e.preventDefault();
     e.stopPropagation();
     return false;
@@ -361,6 +366,7 @@ scrollCaretIntoView(element) {
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
     const searchToolbar = document.querySelector("#search-toolbar");
+    const citationToolbar = document.querySelector("#citation-toolbar");
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
@@ -393,7 +399,7 @@ scrollCaretIntoView(element) {
       const newKeyboardTop = effectiveOffsetTop + vv.height;
       console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop}`);
       this.state.keyboardTop = newKeyboardTop;
-      this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, bottomRightButtons, mainContent);
+      this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent);
 
       // Also adjust hyperlit-container if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
@@ -407,11 +413,14 @@ scrollCaretIntoView(element) {
       if (searchToolbar) {
         searchToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
       }
+      if (citationToolbar) {
+        citationToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
+      }
       if (bottomRightButtons) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, bottomRightButtons);
+      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons);
 
       // Reset hyperlit-container height if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
@@ -428,12 +437,13 @@ scrollCaretIntoView(element) {
     }
   }
 
-  moveToolbarAboveKeyboard(editToolbar, searchToolbar, bottomRightButtons, mainContent) {
+  moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent) {
     console.log("🔧 KeyboardManager.moveToolbarAboveKeyboard called");
 
     // Determine which toolbar is visible
     const visibleToolbar =
       (searchToolbar && searchToolbar.classList.contains('visible')) ? searchToolbar :
+      (citationToolbar && citationToolbar.classList.contains('visible')) ? citationToolbar :
       (editToolbar && editToolbar.classList.contains('visible')) ? editToolbar :
       null;
 
@@ -566,6 +576,7 @@ removeSpacer() {
       document.querySelector(".main-content"),
       document.querySelector("#edit-toolbar"),
       document.querySelector("#search-toolbar"),
+      document.querySelector("#citation-toolbar"),
       document.querySelector("#bottom-right-buttons")
     );
 

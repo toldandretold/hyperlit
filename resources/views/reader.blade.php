@@ -252,6 +252,12 @@
     <span id="search-match-counter">0 of 0</span>
   </div>
 
+  <!-- Citation search toolbar -->
+  <div id="citation-toolbar">
+    <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
+    <div id="citation-toolbar-results"></div>
+  </div>
+
 
   <!-- toggle hidden containers -->
   <div id="toc-container" class="hidden">

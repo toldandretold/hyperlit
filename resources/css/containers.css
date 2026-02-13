@@ -1511,7 +1511,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 
 .citation-search-wrapper {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 0.75em;
   width: 100%;
 }
@@ -1538,9 +1538,9 @@ body.hyperlit-container-open .reader-content-wrapper {
 
 .citation-search-results {
   overflow-y: auto;
-  max-height: calc(50vh - 5em);
+  max-height: 15em;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 0.5em;
 }
 
