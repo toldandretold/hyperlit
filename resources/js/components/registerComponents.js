@@ -64,6 +64,11 @@ import {
   destroyFootnoteCitationListeners
 } from '../footnotesCitations.js';
 
+import {
+  initializeCitationSearch,
+  destroyCitationSearch
+} from '../citations/citationSearch.js';
+
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -215,6 +220,15 @@ export function registerAllComponents() {
     initFn: initializeHomepageSearch,
     destroyFn: destroyHomepageSearch,
     pages: ['home'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'citationSearch',
+    initFn: initializeCitationSearch,
+    destroyFn: destroyCitationSearch,
+    pages: ['reader'],
     dependencies: [],
     required: false
   });

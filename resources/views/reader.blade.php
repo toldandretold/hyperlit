@@ -209,6 +209,13 @@
       </svg>
     </button>
 
+    <button type="button" id="citationButton" title="Insert citation">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <text x="2" y="19" font-size="16" font-weight="500" font-family="system-ui, -apple-system, sans-serif">(a)</text>
+      </svg>
+    </button>
+
     <button id="undoButton">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <rect width="24" height="24" />

@@ -107,11 +107,15 @@ export function detectFootnote(element) {
 
 /**
  * Detect citation content
+ * Supports both formats:
+ * - Old: <a class="in-text-citation" href="#...">
+ * - New: <a id="Ref..." class="citation-ref" href="/book#Ref...">Year</a>
+ *
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Citation data or null
  */
 export function detectCitation(element) {
-  // Check if element is a citation link
+  // Check if element is an old-style citation link
   if (element.tagName === 'A' && element.classList.contains('in-text-citation')) {
     const href = element.getAttribute('href');
     if (href && href.startsWith('#')) {
@@ -123,7 +127,28 @@ export function detectCitation(element) {
     }
   }
 
-  // Also check if we're inside a citation element (for when clicking on highlighted citations)
+  // Check if element is a new-style citation link (Ref ID format)
+  if (element.tagName === 'A' && element.id && element.id.startsWith('Ref')) {
+    return {
+      type: 'citation',
+      element: element,
+      referenceId: element.id
+    };
+  }
+
+  // Check if element has class="citation-ref"
+  if (element.tagName === 'A' && element.classList.contains('citation-ref')) {
+    const referenceId = element.id || null;
+    if (referenceId) {
+      return {
+        type: 'citation',
+        element: element,
+        referenceId: referenceId
+      };
+    }
+  }
+
+  // Also check if we're inside an old-style citation element
   const parentCitation = element.closest('a.in-text-citation');
   if (parentCitation) {
     const href = parentCitation.getAttribute('href');
@@ -134,6 +159,16 @@ export function detectCitation(element) {
         referenceId: href.substring(1)
       };
     }
+  }
+
+  // Also check if we're inside a new-style citation element
+  const parentRefCitation = element.closest('a.citation-ref, a[id^="Ref"]');
+  if (parentRefCitation && parentRefCitation.id) {
+    return {
+      type: 'citation',
+      element: parentRefCitation,
+      referenceId: parentRefCitation.id
+    };
   }
 
   return null;

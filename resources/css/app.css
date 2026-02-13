@@ -326,10 +326,17 @@ sup.open-icon {
     color: var(--color-primary);
 }
 
+.citation-ref {
+    color: var(--color-primary);
+    text-decoration: none;
+    cursor: pointer;
+}
+
 /* Touch-friendly footnotes and citations */
 sup[fn-count-id],
 .footnote-ref,
-.in-text-citation {
+.in-text-citation,
+.citation-ref {
     /* Increase touch target size */
     position: relative;
     cursor: pointer;
@@ -338,7 +345,8 @@ sup[fn-count-id],
 }
 
 sup[fn-count-id]::before,
-.in-text-citation::before {
+.in-text-citation::before,
+.citation-ref::before {
     content: '';
     position: absolute;
     top: -8px;
@@ -350,14 +358,16 @@ sup[fn-count-id]::before,
 
 /* Visual feedback on touch/hover */
 sup[fn-count-id]:hover,
-.in-text-citation:hover {
+.in-text-citation:hover,
+.citation-ref:hover {
     background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
     border-radius: 3px;
 }
 
 /* Active state for touch feedback */
 sup[fn-count-id]:active,
-.in-text-citation:active {
+.in-text-citation:active,
+.citation-ref:active {
     background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
     transform: scale(1.05); /* Slight scale up when tapped */
 }

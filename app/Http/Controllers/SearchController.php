@@ -48,6 +48,7 @@ class SearchController extends Controller
                     book,
                     title,
                     author,
+                    bibtex,
                     ts_rank(search_vector, to_tsquery('simple', ?)) as relevance,
                     ts_headline('simple', COALESCE(title, '') || ' - ' || COALESCE(author, ''),
                         to_tsquery('simple', ?),

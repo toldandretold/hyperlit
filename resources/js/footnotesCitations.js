@@ -103,6 +103,11 @@ export function initializeFootnoteCitationListeners() {
       event.preventDefault();
       event.stopPropagation();
       handleFootnoteOrCitationClick(target);
+    } else if (target.tagName === 'A' && target.classList.contains('citation-ref')) {
+      // New author-date citation format: (Author <a class="citation-ref" id="Ref...">Year</a>)
+      event.preventDefault();
+      event.stopPropagation();
+      handleFootnoteOrCitationClick(target);
     } else if (target.tagName === 'A') {
       // Check if this is a footnote link inside a sup (old format without footnote-ref class)
       const parentSup = target.closest('sup[fn-count-id]');
