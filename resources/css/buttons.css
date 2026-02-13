@@ -137,15 +137,18 @@ black #221F20;
   fill: none;
 }
 
-/* Footnote button text - filled like Bold/Italic */
-#footnoteButton svg text {
+/* Footnote/Citation button text - filled like Bold/Italic */
+#footnoteButton svg text,
+#citationButton svg text {
   fill: var(--icon-fill-primary);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Footnote hover state */
+/* Footnote/Citation hover state */
 #footnoteButton:hover svg text,
-#footnoteButton.active svg text {
+#footnoteButton.active svg text,
+#citationButton:hover svg text,
+#citationButton.active svg text {
   fill: var(--icon-hover-fill);
 }
 
@@ -191,7 +194,8 @@ black #221F20;
 #headingButton,
 #blockquoteButton,
 #codeButton,
-#footnoteButton {
+#footnoteButton,
+#citationButton {
   width: 28px;
   height: 28px;
 }
@@ -1460,7 +1464,8 @@ mark.search-highlight.current {
   #headingButton,
   #blockquoteButton,
   #codeButton,
-  #footnoteButton {
+  #footnoteButton,
+  #citationButton {
     width: 26px;
     height: 26px;
   }

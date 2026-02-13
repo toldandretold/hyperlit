@@ -1504,6 +1504,83 @@ body.hyperlit-container-open .reader-content-wrapper {
   visibility: visible;
 }
 
+/* ========================================
+   Citation Search (inside bottom-up-container)
+   Content injected dynamically when citation button pressed
+   ======================================== */
+
+.citation-search-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 100%;
+}
+
+.citation-search-input {
+  width: 100%;
+  padding: 0.75em 1em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5em;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: var(--color-text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.citation-search-input:focus {
+  border-color: var(--hyperlit-aqua);
+}
+
+.citation-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.citation-search-results {
+  overflow-y: auto;
+  max-height: calc(50vh - 5em);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.citation-result-item {
+  padding: 0.75em 1em;
+  background-color: rgba(75, 75, 75, 0.6);
+  border: none;
+  border-radius: 0.5em;
+  color: var(--color-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.citation-result-item:hover {
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+}
+
+.citation-result-item .citation-title {
+  font-weight: 500;
+  display: block;
+  margin-bottom: 0.25em;
+}
+
+.citation-result-item .citation-author {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.citation-search-empty,
+.citation-search-loading {
+  padding: 1em;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
   font-size: 12px;

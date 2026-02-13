@@ -46,6 +46,8 @@ class UnifiedSyncController extends Controller
                 'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
                 'footnotes_count' => isset($data['footnotes']) ? count($data['footnotes']) : 0,
+                'bibliography_count' => isset($data['bibliography']) ? count($data['bibliography']) : 0,
+                'bibliographyDeletions_count' => isset($data['bibliographyDeletions']) ? count($data['bibliographyDeletions']) : 0,
                 'has_library' => isset($data['library']),
             ]);
 
@@ -123,6 +125,8 @@ class UnifiedSyncController extends Controller
                     'hyperlights' => null,
                     'hyperlightDeletions' => null,
                     'footnotes' => null,
+                    'bibliography' => null,
+                    'bibliographyDeletions' => null,
                     'library' => null,
                 ];
 
@@ -260,6 +264,55 @@ class UnifiedSyncController extends Controller
                     }
 
                     $results['footnotes'] = ['success' => true, 'message' => 'Footnotes synced successfully'];
+                }
+
+                // 5.5. Sync bibliography/references (if present)
+                // Group by each reference's own book field to support cross-book citations
+                if (!empty($data['bibliography'])) {
+                    $refsByBook = [];
+                    foreach ($data['bibliography'] as $ref) {
+                        $refBook = $ref['book'] ?? $bookId;
+                        $refsByBook[$refBook][] = $ref;
+                    }
+
+                    foreach ($refsByBook as $refBookId => $refGroup) {
+                        $referencesController = new DbReferencesController();
+                        $referencesRequest = new Request(['book' => $refBookId, 'data' => $refGroup]);
+                        $referencesRequest->setUserResolver(function () use ($request) {
+                            return $request->user();
+                        });
+                        foreach ($request->cookies as $key => $value) {
+                            $referencesRequest->cookies->set($key, $value);
+                        }
+
+                        $response = $referencesController->upsertReferences($referencesRequest);
+                        $refResult = json_decode($response->getContent(), true);
+
+                        if (!($refResult['success'] ?? false)) {
+                            throw new \Exception('Bibliography sync failed: ' . ($refResult['message'] ?? 'Unknown error'));
+                        }
+                    }
+
+                    $results['bibliography'] = ['success' => true, 'message' => 'Bibliography synced successfully'];
+                }
+
+                // 5.6. Handle bibliography deletions (if present)
+                if (!empty($data['bibliographyDeletions'])) {
+                    foreach ($data['bibliographyDeletions'] as $deletion) {
+                        $refBook = $deletion['book'] ?? $bookId;
+                        $referenceId = $deletion['referenceId'] ?? null;
+
+                        if ($referenceId) {
+                            \DB::table('bibliography')
+                                ->where('book', $refBook)
+                                ->where('referenceId', $referenceId)
+                                ->delete();
+
+                            Log::info("Deleted bibliography entry: {$referenceId} from book: {$refBook}");
+                        }
+                    }
+
+                    $results['bibliographyDeletions'] = ['success' => true, 'message' => 'Bibliography deletions processed'];
                 }
 
                 // 6. Sync library record (if present)

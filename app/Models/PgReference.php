@@ -20,6 +20,7 @@ class PgReference extends Model
     protected $fillable = [
         'book',
         'referenceId',
+        'source_id',
         'content',
     ];
 }

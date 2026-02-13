@@ -11,8 +11,9 @@
  * Version 23: Added 'license' and 'custom_license_text' fields to library store
  * Version 24: Added multi-entry node_id index to hyperlights and hypercites stores
  * Version 25: Fixed node_id index to properly set multiEntry: true
+ * Version 26: Added source_id index to bibliography store for linked citations
  */
-export const DB_VERSION = 25;
+export const DB_VERSION = 26;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -51,7 +52,7 @@ export async function openDatabase() {
         {
           name: "bibliography",
           keyPath: ["book", "referenceId"],
-          indices: ["book", "referenceId"],
+          indices: ["book", "referenceId", "source_id"],
         },
         {
           name: "markdownStore",
@@ -260,6 +261,20 @@ export async function openDatabase() {
           }
           hypercitesStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
           console.log("✅ Recreated node_id index on hypercites with multiEntry: true");
+        }
+      }
+
+      // Migration logic for schema version 26
+      if (oldVersion < 26) {
+        console.log("📦 Migrating to schema version 26: Adding source_id index to bibliography");
+
+        // Add source_id index to bibliography store for linked citations
+        if (db.objectStoreNames.contains("bibliography")) {
+          const bibliographyStore = transaction.objectStore("bibliography");
+          if (!bibliographyStore.indexNames.contains("source_id")) {
+            bibliographyStore.createIndex("source_id", "source_id", { unique: false });
+            console.log("✅ Added source_id index to bibliography store");
+          }
         }
       }
     };

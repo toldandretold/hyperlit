@@ -392,10 +392,13 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // Convert to the format expected by the frontend
+        // Convert to full record format including source_id for linked citations
         $bibliographyData = [];
         foreach ($references as $reference) {
-            $bibliographyData[$reference->referenceId] = $reference->content;
+            $bibliographyData[$reference->referenceId] = [
+                'content' => $reference->content,
+                'source_id' => $reference->source_id ?? null,
+            ];
         }
 
         return [

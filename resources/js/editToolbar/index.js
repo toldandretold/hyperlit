@@ -43,6 +43,7 @@ class EditToolbar {
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
     this.footnoteButton = document.getElementById("footnoteButton");
+    this.citationButton = document.getElementById("citationButton");
     this.undoButton = document.getElementById("undoButton");
     this.redoButton = document.getElementById("redoButton");
 
@@ -185,6 +186,11 @@ class EditToolbar {
         element: this.footnoteButton,
         name: "footnote",
         action: () => this.insertFootnote(),
+      },
+      {
+        element: this.citationButton,
+        name: "citation",
+        action: () => this.openCitationSearch(),
       },
       {
         element: this.undoButton,
@@ -336,6 +342,46 @@ class EditToolbar {
    */
   async formatBlock(type, headingLevel = "h2") {
     return this.blockFormatter.formatBlock(type, headingLevel);
+  }
+
+  /**
+   * Open the citation search container for inserting author-date citations
+   */
+  async openCitationSearch() {
+    // Get book ID from DOM at insertion time
+    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+
+    if (!bookId) {
+      console.warn("EditToolbar: Cannot open citation search: no book ID found.");
+      return;
+    }
+
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    if (!range) {
+      console.warn("EditToolbar: Cannot insert citation: no cursor position.");
+      return;
+    }
+
+    try {
+      // Store the selection/range for later use when citation is selected
+      this._pendingCitationRange = range.cloneRange();
+      this._pendingCitationBookId = bookId;
+
+      // Dynamic import to avoid circular dependencies
+      const { openCitationSearchContainer } = await import('../citations/citationSearch.js');
+
+      // Open the citation search container
+      openCitationSearchContainer({
+        bookId,
+        range: this._pendingCitationRange,
+        saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options)
+      });
+
+    } catch (error) {
+      console.error("Error opening citation search:", error);
+    }
   }
 
   /**
