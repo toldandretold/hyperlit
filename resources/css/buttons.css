@@ -1330,6 +1330,21 @@ mark.search-highlight.current {
     border: none;
     box-shadow: none;
     gap: clamp(4px, 2vw, 8px);
+    overflow: visible;
+  }
+
+  /* Extend tap areas for hyperlight buttons too */
+  #edit-toolbar #hyperlight-buttons button {
+    position: relative;
+  }
+
+  #edit-toolbar #hyperlight-buttons button::before {
+    content: '';
+    position: absolute;
+    top: -25px;
+    bottom: -50px;
+    left: -4px;
+    right: -4px;
   }
 
   .toolbar-separator {
@@ -1653,6 +1668,9 @@ mark.search-highlight.current {
     -webkit-transform: none !important;
     -moz-transform: none !important;
     -ms-transform: none !important;
+
+    /* Allow button tap areas to extend beyond toolbar */
+    overflow: visible;
   }
 
   @supports (-webkit-touch-callout: none) {
@@ -1671,6 +1689,17 @@ mark.search-highlight.current {
 
   #edit-toolbar button {
     flex-shrink: 0;
+    position: relative;
+  }
+
+  /* Extend tap target area above and below buttons for easier mobile tapping */
+  #edit-toolbar button::before {
+    content: '';
+    position: absolute;
+    top: -25px;
+    bottom: -50px;
+    left: -4px;
+    right: -4px;
   }
 
   /* When keyboard is open, ensure toolbar stays at bottom */
