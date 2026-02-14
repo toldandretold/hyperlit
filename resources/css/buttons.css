@@ -1148,7 +1148,7 @@ black #221F20;
     min-height: 10em;
     max-height: 50vh;
     -webkit-overflow-scrolling: touch;
-    overflow-y: scroll;
+    overflow-y: auto;
     touch-action: pan-y;
     overscroll-behavior: contain;
   }

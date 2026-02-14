@@ -133,6 +133,11 @@ export function openCitationSearchContainer(context) {
   toolbar.classList.add('visible');
   isOpen = true;
 
+  // Prevent scroll chaining when results container isn't scrollable
+  if (resultsContainer) {
+    resultsContainer.addEventListener('touchmove', handleResultsContainerTouch, { passive: false });
+  }
+
   // Focus input after a short delay to ensure toolbar is visible
   if (searchInput) {
     setTimeout(() => {
@@ -141,6 +146,20 @@ export function openCitationSearchContainer(context) {
   }
 
   console.log('📖 Citation search toolbar opened');
+}
+
+/**
+ * Handle touch events on results container to prevent parent scrolling when not scrollable
+ */
+function handleResultsContainerTouch(e) {
+  const container = e.currentTarget;
+  const isScrollable = container.scrollHeight > container.clientHeight;
+
+  // If container isn't scrollable, prevent touch from scrolling parent
+  // Don't use stopPropagation - let clicks still work
+  if (!isScrollable) {
+    e.preventDefault();
+  }
 }
 
 /**
@@ -162,6 +181,7 @@ export function closeCitationSearchContainer() {
   }
   if (resultsContainer) {
     resultsContainer.innerHTML = '';
+    resultsContainer.removeEventListener('touchmove', handleResultsContainerTouch);
   }
 
   // Clear pending context
