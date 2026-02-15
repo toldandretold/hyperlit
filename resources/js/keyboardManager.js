@@ -480,7 +480,8 @@ scrollCaretIntoView(element) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons);
+      const citationResults = document.querySelector("#citation-toolbar-results");
+      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons, citationResults);
 
       // Reset hyperlit-container height if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {

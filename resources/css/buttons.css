@@ -1186,8 +1186,9 @@ black #221F20;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 
-  /* Lower z-index than edit-toolbar so toolbar is clickable */
-  z-index: 999;
+  /* Higher z-index than edit-toolbar so backdrop-filter blur works over buttons
+     This is safe because when citation mode is active, toolbar buttons are hidden */
+  z-index: 9999999;
 
   /* Padding for results */
   padding: 8px 0;
