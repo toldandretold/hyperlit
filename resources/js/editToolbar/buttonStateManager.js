@@ -23,6 +23,7 @@ export class ButtonStateManager {
     this.headingButton = options.headingButton || null;
     this.blockquoteButton = options.blockquoteButton || null;
     this.codeButton = options.codeButton || null;
+    this.citationButton = options.citationButton || null;
 
     // Submenu reference
     this.headingSubmenu = options.headingSubmenu || null;
@@ -129,6 +130,24 @@ export class ButtonStateManager {
       const shouldDisable = !isInParagraphContext && !isActive;
       this.codeButton.classList.toggle("disabled", shouldDisable);
       this.codeButton.disabled = shouldDisable;
+    }
+
+    // Update citation button state
+    if (this.citationButton) {
+      // Check if we have a valid range in editable content
+      const hasValidRange = this.selectionManager.lastValidRange &&
+        this.selectionManager.lastValidRange.commonAncestorContainer;
+
+      // Verify the range is still in the document and in editable content
+      const editableContent = document.querySelector(this.selectionManager.editableSelector);
+      const isRangeValid = hasValidRange &&
+        editableContent &&
+        editableContent.contains(this.selectionManager.lastValidRange.commonAncestorContainer);
+
+      // Disable if no valid range in editable content
+      const shouldDisable = !isRangeValid;
+      this.citationButton.classList.toggle("disabled", shouldDisable);
+      this.citationButton.disabled = shouldDisable;
     }
   }
 

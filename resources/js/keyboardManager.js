@@ -320,12 +320,14 @@ processViewportChange() {
       }, 1000);
     }
 
+    // Save previous keyboard state before updating
+    const wasKeyboardOpen = this.isKeyboardOpen;
     this.isKeyboardOpen = keyboardOpen;
 
     // Track offsetTop on state changes (but reset to 0 on close for clean state)
     this.lastOffsetTop = keyboardOpen ? vv.offsetTop : 0;
 
-    this.adjustLayout(keyboardOpen);
+    this.adjustLayout(keyboardOpen, null, wasKeyboardOpen);
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
@@ -411,8 +413,8 @@ scrollCaretIntoView(element) {
 }
 
   // All the functions below are from YOUR working version. They are unchanged.
-  adjustLayout(keyboardOpen, overrideOffsetTop = null) {
-    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}`, 'keyboardManager.js');
+  adjustLayout(keyboardOpen, overrideOffsetTop = null, wasKeyboardOpen = null) {
+    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}, wasKeyboardOpen=${wasKeyboardOpen}`, 'keyboardManager.js');
 
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
@@ -422,11 +424,13 @@ scrollCaretIntoView(element) {
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
-    // CITATION MODE LOCK: If citation mode is active and keyboard is already open,
+    // CITATION MODE LOCK: If citation mode is active and keyboard WAS already open,
     // REFUSE to adjust anything - toolbar position is locked
+    // BUT allow repositioning when keyboard is OPENING (wasKeyboardOpen=false)
     const isCitationMode = editToolbar && editToolbar.classList.contains('citation-mode-active');
-    if (isCitationMode && this.isKeyboardOpen && keyboardOpen) {
-      console.log(`🔒 Citation mode active + keyboard already open - REFUSING to adjust layout`);
+    const keyboardWasAlreadyOpen = wasKeyboardOpen !== null ? wasKeyboardOpen : this.isKeyboardOpen;
+    if (isCitationMode && keyboardWasAlreadyOpen && keyboardOpen) {
+      console.log(`🔒 Citation mode active + keyboard WAS already open - REFUSING to adjust layout`);
       return; // Don't touch anything!
     }
 
