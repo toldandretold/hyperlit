@@ -1312,7 +1312,9 @@ black #221F20;
   }
 
   #citation-toolbar-results {
-    /* Remove bottom: 50px - JS handles positioning */
+    /* Match the JS keyboard-open state: fixed 200px height */
+    height: 200px !important;
+    bottom: 40px !important; /* Position above 40px edit toolbar */
     max-height: 50vh; /* Can keep this as fallback */
     transition: none !important;
   }
