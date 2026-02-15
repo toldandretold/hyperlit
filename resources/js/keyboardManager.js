@@ -54,7 +54,25 @@ class KeyboardManager {
     if (e.target.id === 'focus-preserver') {
       return;
     }
+    console.log(`👋 FOCUSIN: ${e.target.id || e.target.tagName}, isKeyboardOpen=${this.isKeyboardOpen}`);
     this.state.focusedElement = e.target;
+
+    // CITATION INPUT FIX: Prevent iOS from scrolling when citation input focuses
+    if (e.target.id === 'citation-search-input' && this.isKeyboardOpen) {
+      console.log('🚫 Preventing iOS scroll for citation input - forcing scroll position to stay put');
+      const vv = window.visualViewport;
+      const currentOffsetTop = vv.offsetTop;
+
+      // Force scroll position to stay the same (prevent iOS auto-scroll)
+      setTimeout(() => {
+        if (vv.offsetTop !== currentOffsetTop) {
+          console.log(`🚫 iOS tried to scroll (${currentOffsetTop}→${vv.offsetTop}), preventing...`);
+          window.scrollTo(0, 0);
+        }
+      }, 10);
+
+      return; // Don't trigger any repositioning
+    }
 
     // QUICK REOPEN FIX: If keyboard was recently closed, force layout on focusin
     // This catches cases where iOS doesn't fire viewport resize events on rapid reopen
@@ -114,8 +132,26 @@ class KeyboardManager {
     }
   }
 
-  handleFocusOut() {
+  handleFocusOut(e) {
+    console.log(`👋 FOCUSOUT: from ${e.target.id || e.target.tagName}, relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}, isKeyboardOpen=${this.isKeyboardOpen}`);
+
+    // CRITICAL FIX: Don't close keyboard if focus is moving to another editable element
+    // This prevents the jolt when switching from main-content to citation-search-input
+    if (e.relatedTarget) {
+      const isMovingToEditable =
+        e.relatedTarget.isContentEditable ||
+        ['INPUT', 'TEXTAREA'].includes(e.relatedTarget.tagName);
+
+      if (isMovingToEditable && e.relatedTarget.id !== 'focus-preserver') {
+        console.log(`🔄 STAYING OPEN: Focus moving to editable ${e.relatedTarget.id || e.relatedTarget.tagName} - keeping keyboard open`);
+        // Update focused element but DON'T close keyboard or reset layout
+        this.state.focusedElement = e.relatedTarget;
+        return;
+      }
+    }
+
     if (this.isKeyboardOpen) {
+      console.log(`⬇️ FOCUSOUT: Closing keyboard (was open, not moving to editable)`);
       this.isKeyboardOpen = false;
       setKeyboardWasRecentlyClosed(true);
 
@@ -139,6 +175,14 @@ class KeyboardManager {
     if (scrollableContainer) {
       return; // Don't prevent - allow native scroll
     }
+
+    // Allow interaction with citation search input and container
+    const citationInput = e.target.closest('#citation-search-input');
+    const citationContainer = e.target.closest('#citation-mode-container');
+    if (citationInput || citationContainer) {
+      return; // Don't prevent - allow input interaction
+    }
+
     e.preventDefault();
     e.stopPropagation();
     return false;
@@ -165,7 +209,7 @@ processViewportChange() {
     : window.innerHeight;
   const keyboardOpen = vv.height < referenceHeight * 0.9;
 
-  verbose.debug(`Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`, 'keyboardManager.js');
+  console.log(`🔍 VIEWPORT CHANGE: vv.height=${vv.height}px, vv.offsetTop=${vv.offsetTop}px, referenceHeight=${referenceHeight}px, threshold=${referenceHeight * 0.9}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}, focusedElement=${this.state.focusedElement?.id || 'none'}`);
 
   // Early exit if viewport shrinks but no editable element is focused
   // This prevents false keyboard detection from focus-preserver or other non-editable elements
@@ -174,16 +218,24 @@ processViewportChange() {
     return;
   }
 
+  // CITATION MODE FIX: If citation mode is active, NEVER reposition - toolbar is locked
+  const editToolbar = document.querySelector('#edit-toolbar');
+  const isCitationMode = editToolbar && editToolbar.classList.contains('citation-mode-active');
+  if (isCitationMode && this.isKeyboardOpen) {
+    console.log(`🔒 Citation mode active - LOCKING toolbar position, ignoring all viewport changes`);
+    return; // Don't process any viewport changes while in citation mode
+  }
+
   // REFOCUS FIX: Detect when offsetTop changes significantly while keyboard is already open
   // This happens on search-toolbar refocus when iOS fires viewport events twice
   const offsetTopChanged = Math.abs(vv.offsetTop - this.lastOffsetTop) > 50;
   if (keyboardOpen && this.isKeyboardOpen && offsetTopChanged) {
     console.log(`📍 Keyboard already open but offsetTop changed from ${this.lastOffsetTop}px to ${vv.offsetTop}px`);
 
-    // For search-input, skip repositioning to avoid content shift during iOS scroll
+    // For search-input, skip repositioning to avoid jolt during iOS scroll
     // Just update lastOffsetTop so future events work correctly
     if (this.state.focusedElement?.id === 'search-input') {
-      console.log('⏸️ Search input refocus - updating lastOffsetTop only, skipping adjustLayout');
+      console.log(`⏸️ ${this.state.focusedElement.id} refocus - updating lastOffsetTop only, skipping adjustLayout`);
       this.lastOffsetTop = vv.offsetTop;
       // Cache offsetTop for rapid reopen
       if (vv.offsetTop > 0) {
@@ -239,7 +291,7 @@ processViewportChange() {
   if (keyboardOpen !== this.isKeyboardOpen) {
     // Keyboard opening detected
     if (keyboardOpen && !this.isKeyboardOpen) {
-      verbose.debug('Keyboard opening...', 'keyboardManager.js');
+      console.log(`⬆️ KEYBOARD OPENING DETECTED: vv.height=${vv.height}px, referenceHeight=${referenceHeight}px`);
 
       // REFOCUS FIX: Skip positioning ONLY for search-input when offsetTop is still 0
       // Search input refocus has iOS scroll lag, contenteditable doesn't
@@ -255,7 +307,7 @@ processViewportChange() {
 
     // Keyboard closing detected
     if (!keyboardOpen && this.isKeyboardOpen) {
-      verbose.debug('Keyboard closed', 'keyboardManager.js');
+      console.log(`⬇️ KEYBOARD CLOSING DETECTED: vv.height=${vv.height}px, referenceHeight=${referenceHeight}px, focusedElement=${this.state.focusedElement?.id || 'none'}`);
       setKeyboardWasRecentlyClosed(true);
 
       // Auto-clear flag after 1 second as safeguard
@@ -268,12 +320,14 @@ processViewportChange() {
       }, 1000);
     }
 
+    // Save previous keyboard state before updating
+    const wasKeyboardOpen = this.isKeyboardOpen;
     this.isKeyboardOpen = keyboardOpen;
 
     // Track offsetTop on state changes (but reset to 0 on close for clean state)
     this.lastOffsetTop = keyboardOpen ? vv.offsetTop : 0;
 
-    this.adjustLayout(keyboardOpen);
+    this.adjustLayout(keyboardOpen, null, wasKeyboardOpen);
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
@@ -359,8 +413,8 @@ scrollCaretIntoView(element) {
 }
 
   // All the functions below are from YOUR working version. They are unchanged.
-  adjustLayout(keyboardOpen, overrideOffsetTop = null) {
-    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}`, 'keyboardManager.js');
+  adjustLayout(keyboardOpen, overrideOffsetTop = null, wasKeyboardOpen = null) {
+    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}, wasKeyboardOpen=${wasKeyboardOpen}`, 'keyboardManager.js');
 
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
@@ -370,6 +424,16 @@ scrollCaretIntoView(element) {
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
+    // CITATION MODE LOCK: If citation mode is active and keyboard WAS already open,
+    // REFUSE to adjust anything - toolbar position is locked
+    // BUT allow repositioning when keyboard is OPENING (wasKeyboardOpen=false)
+    const isCitationMode = editToolbar && editToolbar.classList.contains('citation-mode-active');
+    const keyboardWasAlreadyOpen = wasKeyboardOpen !== null ? wasKeyboardOpen : this.isKeyboardOpen;
+    if (isCitationMode && keyboardWasAlreadyOpen && keyboardOpen) {
+      console.log(`🔒 Citation mode active + keyboard WAS already open - REFUSING to adjust layout`);
+      return; // Don't touch anything!
+    }
+
     // Save scroll position when hyperlit container is open to prevent scroll during layout changes
     const scrollContainer = document.querySelector('.reader-content-wrapper')
       || document.querySelector('.main-content')
@@ -378,11 +442,11 @@ scrollCaretIntoView(element) {
     const savedScrollTop = (hyperlitOpen && scrollContainer) ? scrollContainer.scrollTop : null;
 
     if (keyboardOpen) {
-      verbose.debug("KeyboardManager: KEYBOARD OPENING - will modify layout", 'keyboardManager.js');
+      console.log(`🔧 KeyboardManager: KEYBOARD OPENING - will modify layout`);
       const vv = window.visualViewport;
       const effectiveOffsetTop = overrideOffsetTop !== null ? overrideOffsetTop : vv.offsetTop;
 
-      verbose.debug(`adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}`, 'keyboardManager.js');
+      console.log(`🔍 adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}, window.innerHeight=${window.innerHeight}`);
 
       if (appContainer) {
         appContainer.style.setProperty("position", "fixed", "important");
@@ -397,7 +461,7 @@ scrollCaretIntoView(element) {
       this.createOrUpdateSpacer(keyboardHeight);
 
       const newKeyboardTop = effectiveOffsetTop + vv.height;
-      console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop}`);
+      console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop} (calculation: ${effectiveOffsetTop} + ${vv.height})`);
       this.state.keyboardTop = newKeyboardTop;
       this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent);
 
@@ -420,7 +484,8 @@ scrollCaretIntoView(element) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons);
+      const citationResults = document.querySelector("#citation-toolbar-results");
+      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons, citationResults);
 
       // Reset hyperlit-container height if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
@@ -471,7 +536,8 @@ scrollCaretIntoView(element) {
     visibleToolbar.style.setProperty("top", `${top}px`, "important");
     visibleToolbar.style.setProperty("left", "0", "important");
     visibleToolbar.style.setProperty("right", "0", "important");
-    visibleToolbar.style.setProperty("z-index", "999999", "important");
+    // Use higher z-index to stay above citation-toolbar-results (which is 9999999)
+    visibleToolbar.style.setProperty("z-index", "99999999", "important");
 
     // Remove old listener before adding to prevent buildup
     visibleToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
@@ -506,6 +572,21 @@ scrollCaretIntoView(element) {
         });
       }
     }
+
+    // Position citation results above the toolbar
+    const citationResults = document.getElementById('citation-toolbar-results');
+    if (citationResults) {
+      const resultsMaxHeight = 200;
+      const resultsBottom = this.state.keyboardTop - toolbarHeight;
+      const resultsTop = resultsBottom - resultsMaxHeight;
+
+      citationResults.style.setProperty("position", "fixed", "important");
+      citationResults.style.setProperty("bottom", "auto", "important");
+      citationResults.style.setProperty("top", `${resultsTop}px`, "important");
+      citationResults.style.setProperty("height", `${resultsMaxHeight}px`, "important");
+      citationResults.style.setProperty("left", "0", "important");
+      citationResults.style.setProperty("right", "0", "important");
+    }
   }
 
   adjustHyperlitContainerHeight(container, vv) {
@@ -531,6 +612,8 @@ scrollCaretIntoView(element) {
       "position",
       "top",
       "left",
+      "bottom",
+      "right",
       "height",
       "width",
       "z-index",
@@ -577,7 +660,8 @@ removeSpacer() {
       document.querySelector("#edit-toolbar"),
       document.querySelector("#search-toolbar"),
       document.querySelector("#citation-toolbar"),
-      document.querySelector("#bottom-right-buttons")
+      document.querySelector("#bottom-right-buttons"),
+      document.querySelector("#citation-toolbar-results")
     );
 
     window.removeEventListener("focusin", this.handleFocusIn, true);

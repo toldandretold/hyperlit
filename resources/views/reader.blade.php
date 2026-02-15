@@ -216,6 +216,7 @@
       </svg>
     </button>
 
+    <!-- Undo/Redo buttons temporarily removed
     <button id="undoButton">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <rect width="24" height="24" />
@@ -228,8 +229,23 @@
       <path d="M30.3,12.6c10.4,0,18.9,8.4,18.9,18.9s-8.5,18.9-18.9,18.9h-8.2c-0.8,0-1.3-0.6-1.3-1.4v-3.2 c0-0.8,0.6-1.5,1.4-1.5h8.1c7.1,0,12.8-5.7,12.8-12.8s-5.7-12.8-12.8-12.8H16.4c0,0-0.8,0-1.1,0.1c-0.8,0.4-0.6,1,0.1,1.7l4.9,4.9 c0.6,0.6,0.5,1.5-0.1,2.1L18,29.7c-0.6,0.6-1.3,0.6-1.9,0.1l-13-13c-0.5-0.5-0.5-1.3,0-1.8L16,2.1c0.6-0.6,1.6-0.6,2.1,0l2.1,2.1 c0.6,0.6,0.6,1.6,0,2.1l-4.9,4.9c-0.6,0.6-0.6,1.3,0.4,1.3c0.3,0,0.7,0,0.7,0L30.3,12.6z" transform="scale(-0.35, 0.35) translate(-60.2, 8.2)" />
     </svg>
   </button>
+  -->
+
+  <!-- Citation mode container - shown when citation button clicked -->
+  <div id="citation-mode-container" class="hidden">
+    <div class="citation-input-wrapper">
+      <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
+      <button type="button" id="citation-close-btn" class="citation-close-btn" title="Close (ESC)">×</button>
+    </div>
+  </div>
 
   </div>
+
+  <!-- Keyboard gap blocker - prevents taps in Safari gap from closing keyboard -->
+  <div id="keyboard-gap-blocker"></div>
+
+  <!-- Citation results - outside edit-toolbar so it can blur both toolbar and bottom-right-buttons -->
+  <div id="citation-toolbar-results"></div>
 
   <!-- Search toolbar - iOS Safari style find bar -->
   <div id="search-toolbar">
@@ -252,11 +268,14 @@
     <span id="search-match-counter">0 of 0</span>
   </div>
 
-  <!-- Citation search toolbar -->
+  <!-- Citation search toolbar - deprecated, will be removed after migration -->
+  <!-- Keeping temporarily for rollback capability -->
+  <!--
   <div id="citation-toolbar">
     <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
     <div id="citation-toolbar-results"></div>
   </div>
+  -->
 
 
   <!-- toggle hidden containers -->

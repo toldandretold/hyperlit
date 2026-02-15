@@ -10,10 +10,12 @@ import { SelectionManager } from "./selectionManager.js";
 import { ButtonStateManager } from "./buttonStateManager.js";
 import { HistoryHandler } from "./historyHandler.js";
 import { HeadingSubmenu } from "./headingSubmenu.js";
+import { CitationMode } from "./citationMode.js";
 import { TextFormatter } from "./textFormatter.js";
 import { ListConverter } from "./listConverter.js";
 import { BlockFormatter } from "./blockFormatter.js";
 import { setCurrentBookId } from "../historyManager.js";
+import { initTapAreaExtender } from "./tapAreaExtender.js";
 
 // Private module-level variable to hold the toolbar instance
 let editToolbarInstance = null;
@@ -63,6 +65,7 @@ class EditToolbar {
       headingButton: this.headingButton,
       blockquoteButton: this.blockquoteButton,
       codeButton: this.codeButton,
+      citationButton: this.citationButton,
       headingSubmenu: this.headingSubmenu,
       selectionManager: this.selectionManager
     });
@@ -83,6 +86,28 @@ class EditToolbar {
       currentBookId: this.currentBookId,
       formatBlockCallback: (type, level) => this.formatBlock(type, level),
       saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html)
+    });
+
+    // Get all buttons except citation button for hiding during citation mode
+    this.allFormattingButtons = [
+      this.boldButton,
+      this.italicButton,
+      this.headingButton,
+      this.blockquoteButton,
+      this.codeButton,
+      this.footnoteButton,
+      this.undoButton,
+      this.redoButton
+    ].filter(btn => btn); // Filter out any null buttons
+
+    // Initialize CitationMode
+    this.citationMode = new CitationMode({
+      toolbar: this.toolbar,
+      citationButton: this.citationButton,
+      citationContainer: document.getElementById('citation-mode-container'),
+      citationInput: document.getElementById('citation-search-input'),
+      citationResults: document.getElementById('citation-toolbar-results'),
+      allButtons: this.allFormattingButtons
     });
 
     // Initialize TextFormatter
@@ -124,6 +149,34 @@ class EditToolbar {
     }
     this.attachButtonHandlers();
     this.hide();
+
+    // Initialize tap area extender for mobile (captures taps in gaps below/around buttons)
+    initTapAreaExtender(this.toolbar);
+
+    // Prevent toolbar gap taps from closing keyboard on mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && this.toolbar) {
+      this.toolbar.addEventListener('touchstart', (e) => {
+        // If touch hit a button, let it through
+        if (e.target.closest('button')) return;
+
+        // Touch hit toolbar background/gap - prevent keyboard close
+        console.log('🛡️ Toolbar gap tap - preventing keyboard close');
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+
+      // Also prevent touches on keyboard gap blocker
+      const gapBlocker = document.getElementById('keyboard-gap-blocker');
+      if (gapBlocker) {
+        gapBlocker.addEventListener('touchstart', (e) => {
+          console.log('🛡️ Gap blocker: preventing keyboard close');
+          e.preventDefault();
+          e.stopPropagation();
+        }, { passive: false });
+      }
+    }
+
     // Set the initial book ID in historyManager
     if (this.currentBookId) {
       setCurrentBookId(this.currentBookId);
@@ -314,6 +367,10 @@ class EditToolbar {
       this.hide();
       // Close heading submenu if open
       this.closeHeadingSubmenu();
+      // Close citation mode if open
+      if (this.citationMode.isOpen) {
+        this.citationMode.close();
+      }
       // Detach selection change listener via SelectionManager
       this.selectionManager.detachListener();
     }
@@ -345,9 +402,16 @@ class EditToolbar {
   }
 
   /**
-   * Open the citation search container for inserting author-date citations
+   * Toggle the citation search interface (integrated into toolbar)
+   * If open, closes it. If closed, opens it.
    */
   async openCitationSearch() {
+    // If citation mode is already open, close it
+    if (this.citationMode.isOpen) {
+      this.citationMode.close();
+      return;
+    }
+
     // Get book ID from DOM at insertion time
     const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
 
@@ -364,24 +428,12 @@ class EditToolbar {
       return;
     }
 
-    try {
-      // Store the selection/range for later use when citation is selected
-      this._pendingCitationRange = range.cloneRange();
-      this._pendingCitationBookId = bookId;
-
-      // Dynamic import to avoid circular dependencies
-      const { openCitationSearchContainer } = await import('../citations/citationSearch.js');
-
-      // Open the citation search container
-      openCitationSearchContainer({
-        bookId,
-        range: this._pendingCitationRange,
-        saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options)
-      });
-
-    } catch (error) {
-      console.error("Error opening citation search:", error);
-    }
+    // Open citation mode with context
+    this.citationMode.open({
+      bookId,
+      range: range.cloneRange(),
+      saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options)
+    });
   }
 
   /**
