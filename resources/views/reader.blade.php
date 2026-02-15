@@ -229,7 +229,21 @@
     </svg>
   </button>
 
+  <!-- Citation mode container - shown when citation button clicked -->
+  <div id="citation-mode-container" class="hidden">
+    <div class="citation-input-wrapper">
+      <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
+      <button type="button" id="citation-close-btn" class="citation-close-btn" title="Close (ESC)">×</button>
+    </div>
   </div>
+
+  </div>
+
+  <!-- Keyboard gap blocker - prevents taps in Safari gap from closing keyboard -->
+  <div id="keyboard-gap-blocker"></div>
+
+  <!-- Citation results - outside edit-toolbar so it can blur both toolbar and bottom-right-buttons -->
+  <div id="citation-toolbar-results"></div>
 
   <!-- Search toolbar - iOS Safari style find bar -->
   <div id="search-toolbar">
@@ -252,11 +266,14 @@
     <span id="search-match-counter">0 of 0</span>
   </div>
 
-  <!-- Citation search toolbar -->
+  <!-- Citation search toolbar - deprecated, will be removed after migration -->
+  <!-- Keeping temporarily for rollback capability -->
+  <!--
   <div id="citation-toolbar">
     <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
     <div id="citation-toolbar-results"></div>
   </div>
+  -->
 
 
   <!-- toggle hidden containers -->

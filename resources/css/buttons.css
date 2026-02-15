@@ -653,18 +653,25 @@ black #221F20;
 }
 
 
-/* Edit toolbar container */
+/* Edit toolbar container - horizontal at bottom (all screen sizes) */
 #edit-toolbar {
   position: fixed;
-  top: calc(10px + var(--top-container-height, 60px) + 8px);
-  right: 10px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   transform: none;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: clamp(8px, 3.5vw, 16px);
-  transition: opacity 0.3s ease, right 0.3s ease;
-  z-index: 1000;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--icon-background) 98%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  transition: opacity 0.3s ease;
+  z-index: 9999; /* Higher than citation-toolbar-results (999) so toolbar is clickable */
   opacity: 0;
   visibility: hidden;
 
@@ -1038,41 +1045,54 @@ black #221F20;
 
 /*
   =====================================================================
-  CITATION TOOLBAR
-  Lightweight toolbar for citation search, same pattern as search-toolbar
+  CITATION MODE (integrated into edit toolbar)
   =====================================================================
 */
 
-#citation-toolbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column-reverse;
+/* Citation mode container - replaces buttons in toolbar */
+#citation-mode-container {
+  display: none; /* Hidden by default - only show in citation mode */
+  flex-direction: row;
   align-items: center;
-  gap: 0;
-  padding: 0 16px 10px 16px;
-  background-color: transparent;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 999999;
+  gap: 8px;
+  flex: 1;
+  max-width: 500px;
+  position: relative;
+  pointer-events: auto; /* Ensure clickable */
+
+  /* Smooth fade when appearing */
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  user-select: none;
-  -webkit-user-select: none;
+  transition: opacity 0.3s ease;
 }
 
-#citation-toolbar.visible {
-  opacity: 1;
-  visibility: visible;
+#citation-mode-container.hidden {
+  display: none !important;
 }
 
+/* When citation mode active, show and fade in */
+#edit-toolbar.citation-mode-active #citation-mode-container:not(.hidden) {
+  display: flex;
+  animation: fadeIn 0.3s ease forwards;
+}
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Input wrapper with close button - stays in toolbar */
+.citation-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative; /* For child positioning */
+  z-index: 1; /* Above other toolbar elements */
+}
+
+/* Citation search input */
 #citation-search-input {
   flex: 1;
-  max-width: 400px;
   padding: 6px 12px;
   background: var(--color-background);
   color: var(--color-text);
@@ -1081,6 +1101,25 @@ black #221F20;
   font-size: 14px;
   font-family: inherit;
   outline: none;
+  pointer-events: auto !important; /* Force clickable */
+  touch-action: manipulation; /* Enable touch on iOS */
+  position: relative; /* For pseudo-element positioning */
+}
+
+/* MOBILE: Extend tap area for citation search input */
+@media (max-width: 768px) {
+  #citation-search-input::before {
+    content: '';
+    position: absolute;
+    top: -15px; /* Extend above */
+    bottom: -100px; /* Extend ALL the way down - THIS is what matters for pressing below */
+    left: -10px; /* Extend left for full width */
+    right: -10px; /* Extend right for full width */
+    z-index: 1; /* Above toolbar background to capture clicks */
+    pointer-events: auto; /* CRITICAL: Make the extended area clickable */
+    /* Uncomment for debugging: */
+    background: rgba(0, 255, 0, 0.2);
+  }
 }
 
 #citation-search-input:focus {
@@ -1088,83 +1127,241 @@ black #221F20;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
 }
 
-/* Results container - inside toolbar, above input */
-#citation-toolbar-results {
-  width: 100%;
-  max-width: 400px;
-  max-height: 12em;
-  overflow-y: auto;
+/* Close button */
+.citation-close-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  position: relative; /* For extended tap area */
 }
 
+/* MOBILE: Extend close button tap area */
+@media (max-width: 768px) {
+  .citation-close-btn::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    bottom: -100px;
+    left: -8px;
+    right: -8px; /* Only extend right, don't overlap input to the left */
+  }
+}
 
-/* Result items */
-#citation-toolbar-results .citation-result-item {
-  padding: 0.75em 1em;
+.citation-close-btn:hover {
+  background-color: var(--icon-hover-background);
+  transform: scale(1.1);
+}
+
+.citation-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Results container - full width with blur background */
+#citation-toolbar-results {
+  position: fixed;
+  bottom: 60px; /* Clear space above ~52px toolbar */
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-height: 200px; /* Show only ~3 results, then scroll */
+  overflow-y: auto;
+  display: none; /* Hidden by default */
+  flex-direction: column-reverse; /* Most relevant at bottom, closest to input */
+  justify-content: flex-start; /* Items align to flex-start (bottom in reverse) */
+
+  /* EXACT same as bottom-up-container - transparent background lets blur show */
   background-color: transparent;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  /* Lower z-index than edit-toolbar so toolbar is clickable */
+  z-index: 999;
+
+  /* Padding for results */
+  padding: 8px 0;
+
+  /* Smooth scrolling */
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+
+  /* Smooth fade in */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Show when citation mode is active */
+#edit-toolbar.citation-mode-active ~ #citation-toolbar-results {
+  display: flex;
+  animation: fadeIn 0.2s ease 0.1s forwards;
+}
+
+/* Result items - just text on blurred background */
+.citation-result-item {
+  padding: 16px 20px;
+  background-color: transparent; /* No background - just text on blur */
   border: none;
-  border-bottom: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 10%, transparent);
   color: var(--color-text);
   font-size: 14px;
+  font-weight: 600; /* Bold author name */
+  line-height: 1.6;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  text-align: left;
-  width: 100%;
-  touch-action: pan-y;
+  transition: all 0.2s ease;
+  text-align: center; /* Center text */
+  display: block;
+  border-radius: 8px; /* Rounded edges */
+
+  /* Centered with max width */
+  max-width: 600px;
+  width: auto;
+  margin: 4px auto;
 }
 
-#citation-toolbar-results .citation-result-item:hover {
-  background-color: color-mix(in srgb, var(--icon-stroke-primary) 15%, transparent);
+/* Glass effect on hover */
+.citation-result-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
-#citation-toolbar-results .citation-result-item:active {
-  background-color: color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+.citation-result-item:active {
+  background-color: rgba(255, 255, 255, 0.12);
+  transform: scale(0.98);
+}
+
+/* Title styling - Hyperlit aqua blue */
+.citation-result-item i,
+.citation-result-item em {
+  color: #4EACAE; /* Hyperlit aqua */
+  font-style: italic;
+  font-weight: normal; /* Not bold for title */
+  pointer-events: none; /* Let clicks pass through to button */
 }
 
 /* Loading and empty states */
-#citation-toolbar-results .citation-search-empty,
-#citation-toolbar-results .citation-search-loading {
-  padding: 1em;
+.citation-search-empty,
+.citation-search-loading {
+  padding: 20px;
   text-align: center;
   color: var(--color-text);
-  opacity: 0.6;
+  font-size: 14px;
+  opacity: 0.7;
   font-style: italic;
 }
 
-/* Mobile adjustments */
+/* Fade buttons out smoothly instead of instant hide */
+#edit-toolbar > button {
+  transition: opacity 0.2s ease;
+}
+
+#edit-toolbar.citation-mode-active > button {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* After fade completes, hide from layout to prevent click issues */
 @media (max-width: 768px) {
-  #citation-toolbar {
-    padding: 0 12px 8px 12px;
+  #edit-toolbar.citation-mode-active > button {
+    display: none;
+  }
+}
+
+/* Mobile adjustments - instant show/hide (no transitions) */
+@media (max-width: 768px) {
+  /* Instant transitions on mobile - no animation conflicts with keyboard */
+  #edit-toolbar > button {
+    transition: none !important;
+  }
+
+  #edit-toolbar.citation-mode-active > button {
+    display: none !important;
+  }
+
+  #citation-mode-container {
+    max-width: none;
+    transition: none !important;
+    pointer-events: auto !important; /* Force clickable on mobile */
+  }
+
+  #citation-mode-container.hidden {
+    display: none !important;
+    pointer-events: none;
+  }
+
+  /* Ensure citation input is fully interactive on mobile */
+  #edit-toolbar.citation-mode-active #citation-mode-container:not(.hidden) {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 
   #citation-search-input {
-    max-width: none;
     font-size: 16px; /* Prevent zoom on iOS */
   }
 
   #citation-toolbar-results {
-    min-height: 10em;
-    max-height: 50vh;
-    -webkit-overflow-scrolling: touch;
-    overflow-y: auto;
-    touch-action: pan-y;
-    overscroll-behavior: contain;
+    /* Remove bottom: 50px - JS handles positioning */
+    max-height: 50vh; /* Can keep this as fallback */
+    transition: none !important;
   }
 
+  /* Mobile-specific hover states */
   @media (hover: none) and (pointer: coarse) {
-    #citation-toolbar-results .citation-result-item:hover {
+    .citation-result-item:hover {
       background-color: transparent;
     }
 
-    #citation-toolbar-results .citation-result-item:active {
+    .citation-result-item:active {
       background-color: color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
     }
   }
 }
 
-/* end citation toolbar */
+/* Desktop-only smooth transitions for citation mode */
+@media (min-width: 769px) {
+  #edit-toolbar > button {
+    transition: opacity 0.25s ease;
+  }
+
+  #edit-toolbar.citation-mode-active > button {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #citation-mode-container {
+    transition: opacity 0.25s ease 0.1s;
+  }
+
+  #citation-mode-container.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #edit-toolbar.citation-mode-active #citation-mode-container:not(.hidden) {
+    opacity: 1;
+  }
+
+  #citation-toolbar-results {
+    transition: opacity 0.25s ease 0.15s;
+  }
+
+  #edit-toolbar.citation-mode-active ~ #citation-toolbar-results {
+    opacity: 1;
+  }
+}
+
+/* end citation mode */
 
 /*
   =====================================================================
@@ -1690,16 +1887,26 @@ mark.search-highlight.current {
   #edit-toolbar button {
     flex-shrink: 0;
     position: relative;
+    padding-bottom: 44px !important; /* Extend tap area downward */
+    background-clip: content-box; /* Keep background only on visible part */
+    margin-bottom: -44px !important; /* Don't push other elements down */
   }
 
-  /* Extend tap target area above and below buttons for easier mobile tapping */
-  #edit-toolbar button::before {
-    content: '';
-    position: absolute;
-    top: -25px;
-    bottom: -50px;
-    left: -4px;
-    right: -4px;
+  /* Keyboard gap blocker - covers Safari's bottom gap */
+  #keyboard-gap-blocker {
+    position: fixed;
+    bottom: -100px; /* Start below viewport */
+    left: 0;
+    right: 0;
+    height: 100px; /* Cover the gap area */
+    z-index: 999998; /* Below toolbar but above content */
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  /* Make sure close button also has extended tap area */
+  .citation-close-btn {
+    position: relative;
   }
 
   /* When keyboard is open, ensure toolbar stays at bottom */

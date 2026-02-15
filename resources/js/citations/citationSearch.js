@@ -2,6 +2,10 @@
  * Citation Search Module
  * Handles searching the library for citations to insert
  * Uses a lightweight toolbar (same pattern as search-toolbar)
+ *
+ * ⚠️ DEPRECATED - This module is being replaced by CitationMode in editToolbar/citationMode.js
+ * The citation search interface is now integrated directly into the edit toolbar.
+ * This file is kept temporarily for rollback capability and will be removed after migration.
  */
 
 import DOMPurify from 'dompurify';

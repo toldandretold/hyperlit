@@ -1544,42 +1544,7 @@ body.hyperlit-container-open .reader-content-wrapper {
   gap: 0.5em;
 }
 
-.citation-result-item {
-  padding: 0.75em 1em;
-  background-color: rgba(75, 75, 75, 0.6);
-  border: none;
-  border-radius: 0.5em;
-  color: var(--color-text);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  width: 100%;
-}
-
-.citation-result-item:hover {
-  background-color: var(--hyperlit-aqua);
-  color: var(--hyperlit-black);
-}
-
-.citation-result-item .citation-title {
-  font-weight: 500;
-  display: block;
-  margin-bottom: 0.25em;
-}
-
-.citation-result-item .citation-author {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.citation-search-empty,
-.citation-search-loading {
-  padding: 1em;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-style: italic;
-}
+/* Old citation styles removed - now in buttons.css */
 
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
