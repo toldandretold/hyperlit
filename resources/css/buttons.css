@@ -1888,9 +1888,17 @@ mark.search-highlight.current {
   #edit-toolbar button {
     flex-shrink: 0;
     position: relative;
-    padding-bottom: 44px !important; /* Extend tap area downward */
-    background-clip: content-box; /* Keep background only on visible part */
-    margin-bottom: -44px !important; /* Don't push other elements down */
+  }
+
+  /* Extended tap area using ::after instead of padding */
+  #edit-toolbar button::after {
+    content: '';
+    position: absolute;
+    bottom: -44px; /* Extend below the button */
+    left: 0;
+    right: 0;
+    height: 44px;
+    /* Uncomment for debugging: background: rgba(255, 0, 0, 0.2); */
   }
 
   /* Keyboard gap blocker - covers Safari's bottom gap */
