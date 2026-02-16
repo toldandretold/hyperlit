@@ -154,27 +154,83 @@ class EditToolbar {
     // Initialize tap area extender for mobile (captures taps in gaps below/around buttons)
     initTapAreaExtender(this.toolbar);
 
-    // Prevent toolbar gap taps from closing keyboard on mobile
+    // NUCLEAR OPTION: Prevent ALL touches below a certain Y threshold when keyboard is open
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile && this.toolbar) {
-      this.toolbar.addEventListener('touchstart', (e) => {
-        // If touch hit a button, let it through
-        if (e.target.closest('button')) return;
+    if (isMobile) {
+      const globalTouchHandler = (e) => {
+        // Only intercept when keyboard is open
+        const keyboardManager = window.activeKeyboardManager;
+        if (!keyboardManager || !keyboardManager.isKeyboardOpen) {
+          return;
+        }
 
-        // Touch hit toolbar background/gap - prevent keyboard close
-        console.log('🛡️ Toolbar gap tap - preventing keyboard close');
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
+        const touch = e.touches?.[0] || e.changedTouches?.[0];
+        if (!touch) return;
+
+        const touchY = touch.clientY;
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+
+        // Calculate toolbar area (bottom 15% of visible viewport)
+        const toolbarZoneStart = viewportHeight * 0.85;
+
+        console.log(`🔍 Global touch at y=${touchY}, viewport=${viewportHeight}, toolbarZone=${toolbarZoneStart}`);
+
+        // If touch is in the toolbar zone
+        if (touchY >= toolbarZoneStart) {
+          const target = e.target;
+
+          // Allow touches on buttons and inputs
+          if (target.closest('button') || target.closest('input') || target.closest('textarea')) {
+            console.log('✅ Allowing touch on interactive element');
+            return;
+          }
+
+          // Block everything else in the toolbar zone
+          console.log(`🛡️ BLOCKING ${e.type} in toolbar zone - preventing keyboard dismiss`);
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+      };
+
+      // Attach to DOCUMENT with capture:true to catch as early as possible
+      document.addEventListener('touchstart', globalTouchHandler, { capture: true, passive: false });
+      document.addEventListener('touchend', globalTouchHandler, { capture: true, passive: false });
+      document.addEventListener('touchmove', globalTouchHandler, { capture: true, passive: false });
+
+      console.log('🛡️ Global touch interceptor installed');
 
       // Also prevent touches on keyboard gap blocker
       const gapBlocker = document.getElementById('keyboard-gap-blocker');
       if (gapBlocker) {
+        console.log('🛡️ Gap blocker element found, attaching touch event listeners');
+
         gapBlocker.addEventListener('touchstart', (e) => {
-          console.log('🛡️ Gap blocker: preventing keyboard close');
+          const touch = e.touches[0];
+          console.log(`🛡️ Gap blocker TOUCHSTART at (${touch.clientX}, ${touch.clientY}) - preventing keyboard close`);
           e.preventDefault();
           e.stopPropagation();
-        }, { passive: false });
+          e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+
+        gapBlocker.addEventListener('touchend', (e) => {
+          const touch = e.changedTouches[0];
+          console.log(`🛡️ Gap blocker TOUCHEND at (${touch.clientX}, ${touch.clientY}) - preventing keyboard close`);
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+
+        gapBlocker.addEventListener('click', (e) => {
+          console.log(`🛡️ Gap blocker CLICK at (${e.clientX}, ${e.clientY}) - preventing keyboard close`);
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+
+        console.log('✅ Gap blocker listeners attached successfully');
+      } else {
+        console.warn('❌ Gap blocker element NOT found - cannot attach listeners');
       }
     }
 
@@ -551,6 +607,17 @@ class EditToolbar {
     this.toolbar.classList.add("visible");
     this.isVisible = true;
     this.selectionManager.setVisible(true);
+
+    // Clear any inline positioning styles to let CSS handle it
+    // (unless keyboard is open and keyboardManager is controlling position)
+    const keyboardIsOpen = window.activeKeyboardManager && window.activeKeyboardManager.isKeyboardOpen;
+    if (!keyboardIsOpen) {
+      this.toolbar.style.removeProperty('left');
+      this.toolbar.style.removeProperty('right');
+      this.toolbar.style.removeProperty('transform');
+      this.toolbar.style.removeProperty('width');
+      this.toolbar.style.removeProperty('top');
+    }
   }
 
   /**
@@ -563,6 +630,13 @@ class EditToolbar {
     this.toolbar.classList.remove("visible");
     this.isVisible = false;
     this.selectionManager.setVisible(false);
+
+    // Clear inline positioning styles when hiding
+    this.toolbar.style.removeProperty('left');
+    this.toolbar.style.removeProperty('right');
+    this.toolbar.style.removeProperty('transform');
+    this.toolbar.style.removeProperty('width');
+    this.toolbar.style.removeProperty('top');
   }
 
   /**

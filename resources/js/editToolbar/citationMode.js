@@ -415,14 +415,18 @@ export class CitationMode {
       return;
     }
 
-    // Check if click is inside citation container, results container, or citation button
+    // Check if click is inside citation container, results container, citation button, or gap blocker
     const isInsideContainer = this.citationContainer.contains(target);
     const isInsideResults = this.citationResults.contains(target);
     const isOnCitationButton = this.citationButton.contains(target);
+    const gapBlocker = document.getElementById('keyboard-gap-blocker');
+    const isOnGapBlocker = gapBlocker && (target === gapBlocker || gapBlocker.contains(target));
 
-    if (!isInsideContainer && !isInsideResults && !isOnCitationButton) {
+    if (!isInsideContainer && !isInsideResults && !isOnCitationButton && !isOnGapBlocker) {
       console.log('👋 Citation mode: Closing from outside click');
       this.close();
+    } else if (isOnGapBlocker) {
+      console.log('🛡️ Citation mode: Ignoring click on gap blocker');
     }
   }
 

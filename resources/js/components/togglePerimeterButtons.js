@@ -19,7 +19,7 @@ export default class TogglePerimeterButtons {
     // Define all possible elements this manager might control.
     this.possibleLoadingElementIds = [
       "bottom-right-buttons", "bottom-left-buttons", "topRightContainer", "logoNavWrapper",
-      "userButtonContainer", "edit-toolbar",
+      "userButtonContainer",
     ];
 
     // Initialize properties that will be set by rebindElements
@@ -382,6 +382,7 @@ shouldIgnoreEvent(event) {
       this.loadingElements.forEach((element) => {
         element.style.removeProperty("left");
         element.style.removeProperty("right");
+        element.style.removeProperty("bottom");
       });
     } else {
       // On desktop, run the original intelligent positioning logic.
@@ -399,11 +400,16 @@ shouldIgnoreEvent(event) {
 
         const newPos = marginSize - buttonGap - buttonWidth;
 
+        // Get edit toolbar height to position bottom buttons above it
+        const editToolbar = document.getElementById("edit-toolbar");
+        const toolbarHeight = editToolbar ? editToolbar.offsetHeight : 0;
+        const verticalGap = 20; // Gap between toolbar and buttons
+        const bottomOffset = toolbarHeight + verticalGap;
+
         this.loadingElements.forEach((element) => {
           if (
             element.id === "bottom-right-buttons" ||
-            element.id === "topRightContainer" ||
-            element.id === "edit-toolbar"
+            element.id === "topRightContainer"
           ) {
             element.style.right = `${Math.max(10, newPos)}px`;
           } else if (
@@ -412,6 +418,14 @@ shouldIgnoreEvent(event) {
             element.id === "bottom-left-buttons"
           ) {
             element.style.left = `${Math.max(10, newPos)}px`;
+          }
+
+          // Position bottom buttons above edit toolbar on desktop
+          if (
+            element.id === "bottom-right-buttons" ||
+            element.id === "bottom-left-buttons"
+          ) {
+            element.style.bottom = `${bottomOffset}px`;
           }
         });
       });
