@@ -1411,9 +1411,9 @@ body.hyperlit-container-open .reader-content-wrapper {
   justify-content: center;
 }
 
-/* When hidden, ensure container stays off-screen */
+/* When hidden, ensure container is fully removed from rendering */
 #bottom-up-container.hidden {
-  display: flex; /* Changed from block to maintain flex layout */
+  display: none !important; /* Completely hide to prevent backdrop-filter from showing */
   transform: translateY(calc(100% + 2em));
 }
 

@@ -1171,7 +1171,7 @@ black #221F20;
 /* Results container - full width with blur background */
 #citation-toolbar-results {
   position: fixed;
-  bottom: 60px; /* Clear space above ~52px toolbar */
+  bottom: 52px; /* Desktop: Position above ~52px toolbar */
   left: 0;
   right: 0;
   width: 100%;
@@ -1198,15 +1198,36 @@ black #221F20;
   touch-action: pan-y;
   overscroll-behavior: contain;
 
-  /* Smooth fade in */
+  /* Smooth fade in and height transitions */
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: max-height 0.25s ease-out, opacity 0.2s ease;
 }
 
 /* Show when citation mode is active */
 #edit-toolbar.citation-mode-active ~ #citation-toolbar-results {
   display: flex;
   animation: fadeIn 0.2s ease 0.1s forwards;
+}
+
+/* State-specific heights for desktop */
+/* Compact height for empty/loading states */
+#citation-toolbar-results[data-state="empty"],
+#citation-toolbar-results[data-state="loading"] {
+  max-height: 70px;
+  overflow-y: hidden;
+  padding-bottom: 0; /* Remove bottom padding for flush alignment */
+}
+
+/* Full height for results */
+#citation-toolbar-results[data-state="results"] {
+  max-height: 200px;
+}
+
+/* Collapsed when hidden */
+#citation-toolbar-results[data-state="hidden"] {
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
 }
 
 /* Result items - just text on blurred background */
@@ -1312,11 +1333,25 @@ black #221F20;
   }
 
   #citation-toolbar-results {
-    /* Match the JS keyboard-open state: fixed 200px height */
-    height: 200px !important;
-    bottom: 40px !important; /* Position above 40px edit toolbar */
-    max-height: 50vh; /* Can keep this as fallback */
-    transition: none !important;
+    bottom: 40px; /* Mobile: Position above 40px edit toolbar */
+    max-height: 50vh;
+    transition: none !important; /* Instant transitions on mobile - no animation conflicts with keyboard */
+  }
+
+  /* Mobile-specific state heights */
+  #citation-toolbar-results[data-state="empty"],
+  #citation-toolbar-results[data-state="loading"] {
+    max-height: 70px;
+    padding-bottom: 0; /* Remove bottom padding for flush alignment */
+  }
+
+  #citation-toolbar-results[data-state="results"] {
+    max-height: 200px;
+  }
+
+  #citation-toolbar-results[data-state="hidden"] {
+    max-height: 0;
+    padding: 0;
   }
 
   /* Mobile-specific hover states */

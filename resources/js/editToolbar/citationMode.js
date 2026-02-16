@@ -11,7 +11,8 @@ export class CitationMode {
     citationContainer,
     citationInput,
     citationResults,
-    allButtons
+    allButtons,
+    closeHeadingSubmenuCallback
   }) {
     this.toolbar = toolbar;
     this.citationButton = citationButton;
@@ -20,6 +21,7 @@ export class CitationMode {
     this.citationResults = citationResults;
     this.allButtons = allButtons; // Array of all toolbar buttons except citation
     this.closeButton = document.getElementById('citation-close-btn');
+    this.closeHeadingSubmenuCallback = closeHeadingSubmenuCallback;
 
     // State
     this.isOpen = false;
@@ -44,6 +46,11 @@ export class CitationMode {
   open(context) {
     if (this.isOpen) return;
 
+    // Close heading submenu if it's open (prevents visual overlap)
+    if (this.closeHeadingSubmenuCallback) {
+      this.closeHeadingSubmenuCallback();
+    }
+
     this.pendingContext = context;
     this.isOpen = true;
     this.justOpened = true; // Flag to prevent immediate closure
@@ -63,6 +70,15 @@ export class CitationMode {
     // Clear previous state
     this.citationInput.value = '';
     this.citationResults.innerHTML = '';
+    this.citationResults.dataset.state = 'hidden';
+
+    // DEBUG: Log container position
+    setTimeout(() => {
+      const rect = this.citationResults.getBoundingClientRect();
+      const computed = window.getComputedStyle(this.citationResults);
+      console.log('📏 [HIDDEN] Bottom of results div:', rect.bottom, 'px from top of viewport');
+      console.log('📏 [HIDDEN] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+    }, 100);
 
     // MOBILE SCROLL LOCK: Lock window scroll position when citation mode opens
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -114,6 +130,10 @@ export class CitationMode {
 
     // Hide citation container
     this.citationContainer.classList.add('hidden');
+
+    // Hide citation results container (fixes dark rectangle bug on iOS)
+    this.citationResults.dataset.state = 'hidden';
+    this.citationResults.innerHTML = '';
 
     // MOBILE SCROLL LOCK: Remove scroll lock handler
     if (this.boundScrollLockHandler) {
@@ -220,11 +240,33 @@ export class CitationMode {
 
     if (query.length < 2) {
       this.citationResults.innerHTML = '';
+      this.citationResults.dataset.state = 'hidden';
+
+      // DEBUG: Log container position
+      setTimeout(() => {
+        const rect = this.citationResults.getBoundingClientRect();
+        const computed = window.getComputedStyle(this.citationResults);
+        console.log('📏 [HIDDEN] Bottom of results div:', rect.bottom, 'px from top of viewport');
+        console.log('📏 [HIDDEN] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+      }, 50);
       return;
     }
 
     // Show loading state
     this.citationResults.innerHTML = '<div class="citation-search-loading">Searching...</div>';
+    this.citationResults.dataset.state = 'loading';
+    this.repositionContainer();
+
+    // DEBUG: Log container position
+    setTimeout(() => {
+      const rect = this.citationResults.getBoundingClientRect();
+      const computed = window.getComputedStyle(this.citationResults);
+      const toolbar = document.getElementById('edit-toolbar').getBoundingClientRect();
+      console.log('📏 [LOADING] Bottom of results div:', rect.bottom, 'px from top');
+      console.log('📏 [LOADING] Top of toolbar:', toolbar.top, 'px from top');
+      console.log('📏 [LOADING] GAP between results and toolbar:', toolbar.top - rect.bottom, 'px');
+      console.log('📏 [LOADING] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+    }, 300);
 
     // Debounce search
     this.debounceTimer = setTimeout(() => {
@@ -256,7 +298,40 @@ export class CitationMode {
     } catch (error) {
       if (error.name !== 'AbortError') {
         this.citationResults.innerHTML = '<div class="citation-search-empty">Search failed. Please try again.</div>';
+        this.citationResults.dataset.state = 'empty';
+        this.repositionContainer();
+
+        // DEBUG: Log container position
+        setTimeout(() => {
+          const rect = this.citationResults.getBoundingClientRect();
+          const computed = window.getComputedStyle(this.citationResults);
+          const toolbar = document.getElementById('edit-toolbar').getBoundingClientRect();
+          console.log('📏 [EMPTY/ERROR] Bottom of results div:', rect.bottom, 'px from top');
+          console.log('📏 [EMPTY/ERROR] Top of toolbar:', toolbar.top, 'px from top');
+          console.log('📏 [EMPTY/ERROR] GAP between results and toolbar:', toolbar.top - rect.bottom, 'px');
+          console.log('📏 [EMPTY/ERROR] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+        }, 300);
       }
+    }
+  }
+
+  repositionContainer() {
+    console.log(`🔄 repositionContainer called, state=${this.citationResults?.dataset?.state}, keyboardOpen=${window.activeKeyboardManager?.isKeyboardOpen}`);
+
+    // Trigger keyboard manager to reposition container with new height
+    if (window.activeKeyboardManager && window.activeKeyboardManager.isKeyboardOpen) {
+      console.log(`✅ Calling moveToolbarAboveKeyboard from repositionContainer`);
+      const editToolbar = document.getElementById('edit-toolbar');
+      const searchToolbar = document.getElementById('search-toolbar');
+      const citationToolbar = document.getElementById('citation-toolbar');
+      const bottomRightButtons = document.getElementById('bottom-right-buttons');
+      const mainContent = document.querySelector('.main-content');
+
+      window.activeKeyboardManager.moveToolbarAboveKeyboard(
+        editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent
+      );
+    } else {
+      console.log(`❌ Skipping reposition: activeKeyboardManager=${!!window.activeKeyboardManager}, isKeyboardOpen=${window.activeKeyboardManager?.isKeyboardOpen}`);
     }
   }
 
@@ -268,6 +343,19 @@ export class CitationMode {
     if (results.length === 0) {
       console.log('🔍 No results - showing empty state');
       this.citationResults.innerHTML = '<div class="citation-search-empty">No results found</div>';
+      this.citationResults.dataset.state = 'empty';
+      this.repositionContainer();
+
+      // DEBUG: Log container position
+      setTimeout(() => {
+        const rect = this.citationResults.getBoundingClientRect();
+        const computed = window.getComputedStyle(this.citationResults);
+        const toolbar = document.getElementById('edit-toolbar').getBoundingClientRect();
+        console.log('📏 [EMPTY] Bottom of results div:', rect.bottom, 'px from top');
+        console.log('📏 [EMPTY] Top of toolbar:', toolbar.top, 'px from top');
+        console.log('📏 [EMPTY] GAP between results and toolbar:', toolbar.top - rect.bottom, 'px');
+        console.log('📏 [EMPTY] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+      }, 300);
       return;
     }
 
@@ -293,7 +381,20 @@ export class CitationMode {
     this.citationResults.innerHTML = '';
     console.log('🔍 Appending', buttons.length, 'buttons...');
     buttons.forEach(btn => this.citationResults.appendChild(btn));
+    this.citationResults.dataset.state = 'results';
+    this.repositionContainer();
     console.log('🔍 Done! citationResults.children.length:', this.citationResults.children.length);
+
+    // DEBUG: Log container position
+    setTimeout(() => {
+      const rect = this.citationResults.getBoundingClientRect();
+      const computed = window.getComputedStyle(this.citationResults);
+      const toolbar = document.getElementById('edit-toolbar').getBoundingClientRect();
+      console.log('📏 [RESULTS] Bottom of results div:', rect.bottom, 'px from top');
+      console.log('📏 [RESULTS] Top of toolbar:', toolbar.top, 'px from top');
+      console.log('📏 [RESULTS] GAP between results and toolbar:', toolbar.top - rect.bottom, 'px');
+      console.log('📏 [RESULTS] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
+    }, 300);
   }
 
   handleDocumentClick(event) {

@@ -576,9 +576,24 @@ scrollCaretIntoView(element) {
     // Position citation results above the toolbar
     const citationResults = document.getElementById('citation-toolbar-results');
     if (citationResults) {
-      const resultsMaxHeight = 200;
+      // Use different heights based on state
+      const state = citationResults.dataset.state;
+      let resultsMaxHeight;
+      if (state === 'empty' || state === 'loading') {
+        resultsMaxHeight = 70; // Compact height for empty/loading
+        console.log(`🎨 KeyboardManager: Using 70px height for state="${state}"`);
+      } else if (state === 'hidden') {
+        resultsMaxHeight = 0; // Collapsed when hidden
+        console.log(`🎨 KeyboardManager: Using 0px height for state="${state}"`);
+      } else {
+        resultsMaxHeight = 200; // Full height for results
+        console.log(`🎨 KeyboardManager: Using 200px height for state="${state}"`);
+      }
+
       const resultsBottom = this.state.keyboardTop - toolbarHeight;
       const resultsTop = resultsBottom - resultsMaxHeight;
+
+      console.log(`🎨 KeyboardManager: keyboardTop=${this.state.keyboardTop}, toolbarHeight=${toolbarHeight}, resultsBottom=${resultsBottom}, resultsTop=${resultsTop}, height=${resultsMaxHeight}px`);
 
       citationResults.style.setProperty("position", "fixed", "important");
       citationResults.style.setProperty("bottom", "auto", "important");

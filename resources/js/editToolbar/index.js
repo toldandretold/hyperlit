@@ -107,7 +107,8 @@ class EditToolbar {
       citationContainer: document.getElementById('citation-mode-container'),
       citationInput: document.getElementById('citation-search-input'),
       citationResults: document.getElementById('citation-toolbar-results'),
-      allButtons: this.allFormattingButtons
+      allButtons: this.allFormattingButtons,
+      closeHeadingSubmenuCallback: () => this.closeHeadingSubmenu()
     });
 
     // Initialize TextFormatter

@@ -292,6 +292,7 @@ export async function universalPageInitializer(progressCallback = null) {
   verbose.init('Content loading process complete', 'viewManager.js');
 
   activeKeyboardManager = new KeyboardManager();
+  window.activeKeyboardManager = activeKeyboardManager; // Make it globally accessible for citationMode
   window.addEventListener("beforeunload", () => {
     if (activeKeyboardManager) activeKeyboardManager.destroy();
   });

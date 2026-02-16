@@ -259,6 +259,10 @@ export class ContainerManager {
     if (highlightId) this.highlightId = highlightId;
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();
 
+    // Clear any inline styles that might interfere
+    this.container.style.visibility = '';
+    this.container.style.transform = '';
+
     this.container.classList.remove("hidden");
     this.container.classList.add("open");
     this.isOpen = true;
@@ -295,13 +299,19 @@ export class ContainerManager {
       this.container.style.right = '';
       this.container.style.bottom = '';
       this.container.style.transform = '';
+      this.container.style.visibility = ''; // Clear inline visibility
+
+      // CRITICAL FIX: Add .hidden class and remove .open class
+      // This ensures bottom-up-container transforms off-screen properly
+      this.container.classList.remove('open');
+      this.container.classList.add('hidden');
     }
 
     if (this.container.id === "highlight-container" && this.highlightId) {
       // ... existing highlight saving code ...
     }
 
-    this.container.style.visibility = "hidden";
+    // Don't set inline visibility - let CSS classes handle it
     this.isOpen = false;
     window.activeContainer = "main-content";
 
