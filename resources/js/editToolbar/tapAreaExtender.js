@@ -36,7 +36,7 @@ export function initTapAreaExtender(toolbar) {
         left: rect.left - 10,
         right: rect.right + 10,
         top: rect.top - 20,
-        bottom: rect.bottom + 100, // Extended tap zone below button
+        bottom: rect.bottom + 120, // Increased to match gap blocker height
       };
 
       const matches = (
@@ -57,6 +57,7 @@ export function initTapAreaExtender(toolbar) {
       console.log(`🎯 Touchstart: Preventing default to stop focus change for ${matchedButton.id}`);
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation(); // Stop ALL other handlers
     } else {
       console.log('🎯 Touchstart: No matching button found');
     }
@@ -68,6 +69,7 @@ export function initTapAreaExtender(toolbar) {
       console.log(`🎯 Touchend: Triggering ${matchedButton.id} from extended zone`);
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation(); // Stop ALL other handlers
       matchedButton.click();
       matchedButton = null;
     }

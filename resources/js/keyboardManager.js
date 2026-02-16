@@ -134,6 +134,7 @@ class KeyboardManager {
 
   handleFocusOut(e) {
     console.log(`👋 FOCUSOUT: from ${e.target.id || e.target.tagName}, relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}, isKeyboardOpen=${this.isKeyboardOpen}`);
+    console.trace('📍 FOCUSOUT stack trace');
 
     // CRITICAL FIX: Don't close keyboard if focus is moving to another editable element
     // This prevents the jolt when switching from main-content to citation-search-input
@@ -152,6 +153,7 @@ class KeyboardManager {
 
     if (this.isKeyboardOpen) {
       console.log(`⬇️ FOCUSOUT: Closing keyboard (was open, not moving to editable)`);
+      console.log(`⬇️ FOCUSOUT reason: relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}`);
       this.isKeyboardOpen = false;
       setKeyboardWasRecentlyClosed(true);
 
@@ -483,6 +485,19 @@ scrollCaretIntoView(element) {
       if (bottomRightButtons) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
+
+      // Reset gap blocker when keyboard closes
+      const gapBlocker = document.getElementById('keyboard-gap-blocker');
+      if (gapBlocker) {
+        gapBlocker.style.removeProperty('position');
+        gapBlocker.style.removeProperty('top');
+        gapBlocker.style.removeProperty('left');
+        gapBlocker.style.removeProperty('right');
+        gapBlocker.style.removeProperty('height');
+        gapBlocker.style.removeProperty('z-index');
+        gapBlocker.style.removeProperty('pointer-events');
+      }
+
       this.removeSpacer();
       const citationResults = document.querySelector("#citation-toolbar-results");
       this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons, citationResults);
@@ -534,10 +549,44 @@ scrollCaretIntoView(element) {
 
     visibleToolbar.style.setProperty("position", "fixed", "important");
     visibleToolbar.style.setProperty("top", `${top}px`, "important");
-    visibleToolbar.style.setProperty("left", "0", "important");
-    visibleToolbar.style.setProperty("right", "0", "important");
+
+    // Desktop (≥769px): Center toolbar to match 40ch content width
+    // Mobile (≤768px): Full-width toolbar
+    const isDesktop = window.innerWidth >= 769;
+    if (isDesktop) {
+      visibleToolbar.style.setProperty("left", "50%", "important");
+      visibleToolbar.style.setProperty("right", "auto", "important");
+      visibleToolbar.style.setProperty("transform", "translateX(-50%)", "important");
+      visibleToolbar.style.setProperty("width", "40ch", "important");
+    } else {
+      visibleToolbar.style.setProperty("left", "0", "important");
+      visibleToolbar.style.setProperty("right", "0", "important");
+      visibleToolbar.style.removeProperty("transform");
+      visibleToolbar.style.removeProperty("width");
+    }
+
     // Use higher z-index to stay above citation-toolbar-results (which is 9999999)
     visibleToolbar.style.setProperty("z-index", "99999999", "important");
+
+    // Reposition keyboard-gap-blocker to cover the area below toolbar buttons
+    const gapBlocker = document.getElementById('keyboard-gap-blocker');
+    if (gapBlocker) {
+      // Position gap blocker to cover the bottom portion of toolbar + area below
+      // This catches taps "slightly below buttons" in the iOS gesture zone
+      // Must be BELOW toolbar z-index so buttons remain clickable
+      const gapHeight = 150; // Cover bottom portion of toolbar + area below
+      const gapTop = top + (toolbarHeight / 2); // Start at middle of toolbar
+
+      gapBlocker.style.setProperty('position', 'fixed', 'important');
+      gapBlocker.style.setProperty('top', `${gapTop}px`, 'important');
+      gapBlocker.style.setProperty('left', '0', 'important');
+      gapBlocker.style.setProperty('right', '0', 'important');
+      gapBlocker.style.setProperty('height', `${gapHeight}px`, 'important');
+      gapBlocker.style.setProperty('z-index', '99999998', 'important'); // Below toolbar (99999999) but above content
+      gapBlocker.style.setProperty('pointer-events', 'auto', 'important');
+
+      console.log(`🛡️ Gap blocker: toolbar at ${top}-${top + toolbarHeight}, gap blocker at ${gapTop}-${gapTop + gapHeight}, z-index=99999998`);
+    }
 
     // Remove old listener before adding to prevent buildup
     visibleToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
@@ -599,8 +648,20 @@ scrollCaretIntoView(element) {
       citationResults.style.setProperty("bottom", "auto", "important");
       citationResults.style.setProperty("top", `${resultsTop}px`, "important");
       citationResults.style.setProperty("height", `${resultsMaxHeight}px`, "important");
-      citationResults.style.setProperty("left", "0", "important");
-      citationResults.style.setProperty("right", "0", "important");
+
+      // Match toolbar positioning (centered on desktop, full-width on mobile)
+      const isDesktop = window.innerWidth >= 769;
+      if (isDesktop) {
+        citationResults.style.setProperty("left", "50%", "important");
+        citationResults.style.setProperty("right", "auto", "important");
+        citationResults.style.setProperty("transform", "translateX(-50%)", "important");
+        citationResults.style.setProperty("width", "40ch", "important");
+      } else {
+        citationResults.style.setProperty("left", "0", "important");
+        citationResults.style.setProperty("right", "0", "important");
+        citationResults.style.removeProperty("transform");
+        citationResults.style.removeProperty("width");
+      }
     }
   }
 
@@ -634,6 +695,7 @@ scrollCaretIntoView(element) {
       "z-index",
       "padding-bottom",
       "touch-action",
+      "transform",
     ];
     elements.forEach((el) => {
       if (!el) return;
