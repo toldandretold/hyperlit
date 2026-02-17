@@ -50,7 +50,9 @@ class SearchController extends Controller
                     author,
                     bibtex,
                     ts_rank(search_vector, to_tsquery('simple', ?)) as relevance,
-                    ts_headline('simple', COALESCE(title, '') || ' - ' || COALESCE(author, ''),
+                    ts_headline('simple',
+                        COALESCE(title, '') || ' ' || COALESCE(author, '') || ' ' ||
+                        COALESCE(booktitle, '') || ' ' || COALESCE(chapter, '') || ' ' || COALESCE(editor, ''),
                         to_tsquery('simple', ?),
                         'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
                     ) as headline
