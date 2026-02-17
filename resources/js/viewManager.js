@@ -74,27 +74,41 @@ async function getCurrentAuthState() {
 // Note: refreshHighlightsWithCurrentAuth function removed as it was unused
 
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
-window.addEventListener("pageshow", (event) => {
+window.addEventListener("pageshow", async (event) => {
   if (event.persisted) {
-    verbose.init('Page restored from bfcache - reinitializing', 'viewManager.js');
-    
-    // Sync SPA history state with bfcache restored page
+    verbose.init('Page restored from bfcache - reinitializing all components', 'viewManager.js');
+
     syncHistoryStateAfterBfcache();
-    
+
     const pageType = document.body.getAttribute("data-page");
-    
-    // ✅ EXPANDED: Handle both reader pages AND homepage with reader content
     const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
-    
+
     if (hasReaderContent) {
-      // Small delay to ensure DOM is fully restored
+      // Small delay to ensure DOM is fully restored from bfcache
       setTimeout(async () => {
         try {
-          // Just ensure interactive features are working
+          // Reinitialize all ButtonRegistry components (TOC, footnotes, settings, etc.)
+          // reinitializeAll = destroyAll() + initializeAll(), handles both destroyed and active states
+          await buttonRegistry.reinitializeAll(pageType);
+
+          // Rebind container managers that live outside ButtonRegistry
+          // These mirror the existing pattern in universalPageInitializer (lines 319-337)
+          const { refManager } = await import('./footnotesCitations.js');
+          if (refManager?.rebindElements) {
+            refManager.rebindElements();
+          }
+
+          const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
+          if (hyperlitManager?.rebindElements) {
+            hyperlitManager.rebindElements();
+          } else {
+            initializeHyperlitManager();
+          }
+
           await checkEditPermissionsAndUpdateUI();
 
         } catch (error) {
-          log.error('Error handling browser navigation', 'viewManager.js', error);
+          log.error('Error reinitializing after bfcache restore', 'viewManager.js', error);
         }
       }, 200);
     }
