@@ -465,7 +465,11 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
         const currentHash = window.location.hash.substring(1); // Remove #
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
 
-        if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
+        if (isBackNavigation) {
+          // Browser has already set the URL via popstate — don't touch history
+          console.log('📊 Skipping URL update for back navigation');
+          history.replaceState(newState, '');
+        } else if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // We're opening a highlight container but there's a specific hypercite target
           // Preserve the original hypercite hash for in-container scrolling
           console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
@@ -476,12 +480,12 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           const bookSlug = pathSegments[0] || '';
           const newUrl = `/${bookSlug}/${urlUpdate.value}${window.location.hash || ''}`;
           console.log(`📊 Updating URL with path for footnote: ${newUrl}`);
-          history.pushState(newState, '', newUrl);
+          history.replaceState(newState, '', newUrl);
         } else {
           // Hash-based URL (for hypercites, highlights, citations)
           const newUrl = `${window.location.pathname}${window.location.search}#${urlUpdate.value}`;
           console.log(`📊 Updating URL for single content: ${newUrl}`);
-          history.pushState(newState, '', newUrl);
+          history.replaceState(newState, '', newUrl);
         }
       } else {
         // Multiple content types or no hash needed - keep current URL

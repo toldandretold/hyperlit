@@ -179,8 +179,9 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
 
 /**
  * Close the hyperlit container
+ * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
-export function closeHyperlitContainer() {
+export function closeHyperlitContainer(silent = false) {
   // Check if container exists in DOM before trying to do anything
   // On homepage, there's no hyperlit-container element
   const container = document.getElementById("hyperlit-container");
@@ -221,35 +222,37 @@ export function closeHyperlitContainer() {
       console.log('🔓 Body scroll unlocked');
 
       // Clean up URL hash and history state when closing container
-      const currentUrl = window.location;
-      const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
-      const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
+      // If silent=true, the browser has already restored the URL via popstate — skip URL update
+      if (!silent) {
+        const currentUrl = window.location;
+        const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
+        const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
 
-      if (isFootnotePath) {
-        // Remove footnote ID from path: /book/footnoteID -> /book
-        const bookSlug = pathSegments[0] || '';
-        const cleanUrl = `/${bookSlug}${currentUrl.search}`;
-        console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
+        if (isFootnotePath) {
+          // Remove footnote ID from path: /book/footnoteID -> /book
+          const bookSlug = pathSegments[0] || '';
+          const cleanUrl = `/${bookSlug}${currentUrl.search}`;
+          console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
 
-        const currentState = history.state || {};
-        const newState = {
-          ...currentState,
-          hyperlitContainer: null
-        };
-        history.pushState(newState, '', cleanUrl);
-      } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
-                             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
-        // Remove hyperlit-related hash from URL
-        const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
-        console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+          const currentState = history.state || {};
+          const newState = {
+            ...currentState,
+            hyperlitContainer: null
+          };
+          history.replaceState(newState, '', cleanUrl);
+        } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
+                               currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
+          // Remove hyperlit-related hash from URL
+          const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
+          console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
 
-        // Push new clean state to history
-        const currentState = history.state || {};
-        const newState = {
-          ...currentState,
-          hyperlitContainer: null // Clear container state
-        };
-        history.pushState(newState, '', cleanUrl);
+          const currentState = history.state || {};
+          const newState = {
+            ...currentState,
+            hyperlitContainer: null
+          };
+          history.replaceState(newState, '', cleanUrl);
+        }
       }
 
       hyperlitManager.closeContainer();

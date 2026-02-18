@@ -338,7 +338,7 @@ export class ContainerManager {
           ...currentState,
           hyperlitContainer: null // Clear container state
         };
-        history.pushState(newState, '', cleanUrl);
+        history.replaceState(newState, '', cleanUrl);
       }
     }
 
