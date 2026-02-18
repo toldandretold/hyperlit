@@ -251,6 +251,12 @@ class OpenAlexController extends Controller
         $firstPage = $work['biblio']['first_page'] ?? null;
         $lastPage  = $work['biblio']['last_page'] ?? null;
 
+        // Only store URLs with a safe http(s) scheme
+        $sanitiseUrl = fn(?string $url): ?string =>
+            ($url && filter_var($url, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $url))
+                ? $url
+                : null;
+
         return [
             'book'           => null,
             'title'          => $work['title'] ?? null,
@@ -263,8 +269,8 @@ class OpenAlexController extends Controller
             'source'         => 'openalex',
             'is_oa'          => $work['open_access']['is_oa'] ?? null,
             'oa_status'      => $work['open_access']['oa_status'] ?? null,
-            'oa_url'         => $work['open_access']['oa_url'] ?? null,
-            'pdf_url'        => $pdfUrl,
+            'oa_url'         => $sanitiseUrl($work['open_access']['oa_url'] ?? null),
+            'pdf_url'        => $sanitiseUrl($pdfUrl),
             'work_license'   => $work['primary_location']['license'] ?? null,
             'cited_by_count' => $work['cited_by_count'] ?? null,
             'language'       => $work['language'] ?? null,

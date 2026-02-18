@@ -37,7 +37,8 @@ Route::prefix('search')->middleware('throttle:60,1')->group(function () {
 });
 
 // OpenAlex: save a work as a library stub — no auth required (anonymous users can cite too)
-Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary']);
+Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary'])
+    ->middleware('throttle:10,1');
 
 // OpenAlex citation lookup — requires authentication
 Route::middleware('auth:sanctum')->group(function () {
