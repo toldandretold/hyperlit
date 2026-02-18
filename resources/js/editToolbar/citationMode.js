@@ -423,13 +423,19 @@ export class CitationMode {
       const loadMore = document.createElement('button');
       loadMore.className = 'citation-load-more citation-result-item';
       loadMore.textContent = 'Load more results';
-      loadMore.addEventListener('click', (e) => {
+
+      const triggerLoadMore = (e) => {
+        e.preventDefault();      // suppress click synthesis on mobile
         e.stopPropagation();
+        if (loadMore.disabled) return;
         this.currentOffset += 15;
         loadMore.textContent = 'Loading…';
         loadMore.disabled = true;
         this.performSearch(this.currentQuery, this.currentOffset);
-      });
+      };
+
+      loadMore.addEventListener('touchend', triggerLoadMore, { passive: false });
+      loadMore.addEventListener('click', triggerLoadMore);
       this.citationResults.appendChild(loadMore);
     }
 
@@ -517,7 +523,12 @@ export class CitationMode {
 
     // Handle as tap
     const target = document.elementFromPoint(touchEndX, touchEndY);
-    if (target && target.classList.contains('citation-result-item') && !target.classList.contains('citation-load-more')) {
+    if (target && target.classList.contains('citation-load-more')) {
+      // Handled by the button's own touchend listener; suppress click synthesis here too
+      event.preventDefault();
+      return;
+    }
+    if (target && target.classList.contains('citation-result-item')) {
       event.preventDefault();
       this.handleCitationSelection(target);
     }
