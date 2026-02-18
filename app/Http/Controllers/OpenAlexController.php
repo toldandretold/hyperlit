@@ -198,13 +198,14 @@ class OpenAlexController extends Controller
      *
      * @return array<int, array>
      */
-    public function fetchFromOpenAlex(string $query, int $limit = 10): array
+    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1): array
     {
         $response = Http::withHeaders([
             'User-Agent' => self::USER_AGENT,
         ])->get(self::BASE_URL . '/works', [
             'search'   => $query,
             'per_page' => $limit,
+            'page'     => $page,
             'select'   => self::SELECT_FIELDS,
         ]);
 

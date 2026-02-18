@@ -69,6 +69,8 @@ class SearchController extends Controller
     {
         $query = $request->input('q', '');
         $limit = min((int) $request->input('limit', 15), self::MAX_RESULTS);
+        $offset = max(0, (int) $request->input('offset', 0));
+        $openAlexPage = (int) floor($offset / $limit) + 1;
 
         if (strlen($query) < 2) {
             return response()->json([
@@ -80,8 +82,8 @@ class SearchController extends Controller
         }
 
         try {
-            // 1. Library results
-            $libraryCollection = $this->runLibrarySearch($request, $query, $limit) ?? collect();
+            // 1. Library results (paginated via SQL offset)
+            $libraryCollection = $this->runLibrarySearch($request, $query, $limit, $offset) ?? collect();
 
             $libraryResults = $libraryCollection->map(function ($row) {
                 $arr = (array) $row;
@@ -91,10 +93,12 @@ class SearchController extends Controller
 
             // 2. Supplement with OpenAlex if fewer than 10 library hits
             $openAlexResults = [];
+            $openAlexFull = false;
             if (count($libraryResults) < 10) {
                 $openAlexLimit = max(10 - count($libraryResults), 5);
                 $openAlexController = new OpenAlexController();
-                $candidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit);
+                $candidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit, $openAlexPage);
+                $openAlexFull = count($candidates) >= $openAlexLimit;
 
                 // Deduplicate against library results by normalised title
                 $libraryTitles = array_map(
@@ -123,11 +127,13 @@ class SearchController extends Controller
             $results = array_merge($libraryResults, $openAlexResults);
 
             return response()->json([
-                'success' => true,
-                'results' => $results,
-                'query'   => $query,
-                'mode'    => 'combined',
-                'count'   => count($results),
+                'success'  => true,
+                'results'  => $results,
+                'query'    => $query,
+                'mode'     => 'combined',
+                'count'    => count($results),
+                'has_more' => count($libraryResults) >= $limit || $openAlexFull,
+                'offset'   => $offset,
             ]);
 
         } catch (\Exception $e) {
@@ -143,7 +149,7 @@ class SearchController extends Controller
     /**
      * Execute the library full-text search and return the raw collection (or null on empty tsquery).
      */
-    private function runLibrarySearch(Request $request, string $query, int $limit): ?\Illuminate\Support\Collection
+    private function runLibrarySearch(Request $request, string $query, int $limit, int $offset = 0): ?\Illuminate\Support\Collection
     {
         $tsQuery = $this->buildTsQuery($query);
 
@@ -173,6 +179,7 @@ class SearchController extends Controller
 
         return $dbQuery
             ->orderByDesc('relevance')
+            ->skip($offset)
             ->limit($limit)
             ->get();
     }
