@@ -85,7 +85,7 @@ export function parseAuthorYear(bibtex) {
  * @param {Function} saveCallback - Callback to save node to IndexedDB
  * @returns {Promise<{referenceId: string, anchorElement: HTMLElement}>}
  */
-export async function insertCitationAtCursor(range, currentBookId, citedBookId, bibtex, saveCallback) {
+export async function insertCitationAtCursor(range, currentBookId, citedBookId, bibtex, saveCallback, sourceHasNodes = true) {
   if (!range) {
     throw new Error('No valid cursor position');
   }
@@ -152,7 +152,7 @@ export async function insertCitationAtCursor(range, currentBookId, citedBookId, 
 
   // 7. Create bibliography record in IndexedDB
   const formattedCitation = await formatBibtexToCitation(bibtex);
-  await createBibliographyRecord(referenceId, currentBookId, citedBookId, formattedCitation);
+  await createBibliographyRecord(referenceId, currentBookId, citedBookId, formattedCitation, sourceHasNodes);
 
   console.log(`✅ Citation inserted: ${referenceId} citing ${citedBookId}`);
 
@@ -166,7 +166,7 @@ export async function insertCitationAtCursor(range, currentBookId, citedBookId, 
  * @param {string} sourceId - The book being cited (pointer)
  * @param {string} content - Formatted citation text
  */
-async function createBibliographyRecord(referenceId, bookId, sourceId, content) {
+async function createBibliographyRecord(referenceId, bookId, sourceId, content, sourceHasNodes = true) {
   const db = await openDatabase();
   const tx = db.transaction('bibliography', 'readwrite');
   const store = tx.objectStore('bibliography');
@@ -177,6 +177,7 @@ async function createBibliographyRecord(referenceId, bookId, sourceId, content) 
     referenceId: referenceId,
     source_id: sourceId,
     content: content,
+    source_has_nodes: sourceHasNodes,
     created_at: now,
     updated_at: now
   };

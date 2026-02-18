@@ -254,6 +254,7 @@ class OpenAlexController extends Controller
             'book'           => null,
             'title'          => $work['title'] ?? null,
             'author'         => $author,
+            'has_nodes'      => false,
             'year'           => $work['publication_year'] ?? null,
             'journal'        => $work['primary_location']['source']['display_name'] ?? null,
             'doi'            => $doi,

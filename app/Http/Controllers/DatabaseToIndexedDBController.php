@@ -385,7 +385,9 @@ class DatabaseToIndexedDBController extends Controller
     private function getBibliography(string $bookId): ?array
     {
         $references = DB::table('bibliography')
-            ->where('book', $bookId)
+            ->leftJoin('library', 'bibliography.source_id', '=', 'library.book')
+            ->select('bibliography.*', 'library.has_nodes as source_has_nodes')
+            ->where('bibliography.book', $bookId)
             ->get();
 
         if ($references->isEmpty()) {
@@ -398,6 +400,7 @@ class DatabaseToIndexedDBController extends Controller
             $bibliographyData[$reference->referenceId] = [
                 'content' => $reference->content,
                 'source_id' => $reference->source_id ?? null,
+                'source_has_nodes' => $reference->source_has_nodes, // null → treated as true (backward compat)
             ];
         }
 

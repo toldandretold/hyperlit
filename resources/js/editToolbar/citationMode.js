@@ -390,6 +390,7 @@ export class CitationMode {
       button.innerHTML = sanitized;
       button.dataset.bookId = result.book || result.id || ''; // Try both book and id
       button.dataset.bibtex = result.bibtex || '';
+      button.dataset.hasNodes = (result.has_nodes !== false) ? '1' : '0';
 
       return button;
     }));
@@ -505,6 +506,7 @@ export class CitationMode {
     }
 
     const { range, bookId, saveCallback } = this.pendingContext;
+    const sourceHasNodes = button.dataset.hasNodes !== '0';
 
     try {
       // Dynamic import to avoid circular dependencies
@@ -515,7 +517,8 @@ export class CitationMode {
         bookId,
         citedBookId,
         bibtex,
-        saveCallback
+        saveCallback,
+        sourceHasNodes
       );
 
       // Close the citation mode
