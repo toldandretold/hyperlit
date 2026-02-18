@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\OpenAlexController;
 
 class SearchController extends Controller
 {
@@ -29,10 +30,9 @@ class SearchController extends Controller
         }
 
         try {
-            // Convert search query to tsquery format
-            $tsQuery = $this->buildTsQuery($query);
+            $results = $this->runLibrarySearch($request, $query, $limit);
 
-            if (empty($tsQuery)) {
+            if ($results === null) {
                 return response()->json([
                     'success' => true,
                     'results' => [],
@@ -40,32 +40,6 @@ class SearchController extends Controller
                     'mode' => 'library'
                 ]);
             }
-
-            // Build the base query
-            // Using 'simple' config to match the search_vector (preserves stop words)
-            $dbQuery = DB::table('library')
-                ->selectRaw("
-                    book,
-                    title,
-                    author,
-                    bibtex,
-                    ts_rank(search_vector, to_tsquery('simple', ?)) as relevance,
-                    ts_headline('simple',
-                        COALESCE(title, '') || ' ' || COALESCE(author, '') || ' ' ||
-                        COALESCE(booktitle, '') || ' ' || COALESCE(chapter, '') || ' ' || COALESCE(editor, ''),
-                        to_tsquery('simple', ?),
-                        'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
-                    ) as headline
-                ", [$tsQuery, $tsQuery])
-                ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery]);
-
-            // Apply visibility filter: public books + user's own books
-            $this->applyVisibilityFilter($dbQuery, $request);
-
-            $results = $dbQuery
-                ->orderByDesc('relevance')
-                ->limit($limit)
-                ->get();
 
             return response()->json([
                 'success' => true,
@@ -83,6 +57,113 @@ class SearchController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
+    }
+
+    /**
+     * Combined library + OpenAlex search
+     * GET /api/search/combined?q=query&limit=15
+     *
+     * Returns library results first; if fewer than 10, supplements with OpenAlex.
+     */
+    public function searchWithOpenAlex(Request $request)
+    {
+        $query = $request->input('q', '');
+        $limit = min((int) $request->input('limit', 15), self::MAX_RESULTS);
+
+        if (strlen($query) < 2) {
+            return response()->json([
+                'success' => true,
+                'results' => [],
+                'query'   => $query,
+                'mode'    => 'combined',
+            ]);
+        }
+
+        try {
+            // 1. Library results
+            $libraryCollection = $this->runLibrarySearch($request, $query, $limit) ?? collect();
+
+            $libraryResults = $libraryCollection->map(function ($row) {
+                $arr = (array) $row;
+                $arr['source'] = 'library';
+                return $arr;
+            })->values()->all();
+
+            // 2. Supplement with OpenAlex if fewer than 10 library hits
+            $openAlexResults = [];
+            if (count($libraryResults) < 10) {
+                $openAlexLimit = max(10 - count($libraryResults), 5);
+                $openAlexController = new OpenAlexController();
+                $candidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit);
+
+                // Deduplicate against library results by normalised title
+                $libraryTitles = array_map(
+                    fn($r) => strtolower(trim($r['title'] ?? '')),
+                    $libraryResults
+                );
+
+                foreach ($candidates as $candidate) {
+                    $t = strtolower(trim($candidate['title'] ?? ''));
+                    if ($t !== '' && !in_array($t, $libraryTitles, true)) {
+                        $openAlexResults[] = $candidate;
+                    }
+                }
+            }
+
+            $results = array_merge($libraryResults, $openAlexResults);
+
+            return response()->json([
+                'success' => true,
+                'results' => $results,
+                'query'   => $query,
+                'mode'    => 'combined',
+                'count'   => count($results),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Combined search failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Execute the library full-text search and return the raw collection (or null on empty tsquery).
+     */
+    private function runLibrarySearch(Request $request, string $query, int $limit): ?\Illuminate\Support\Collection
+    {
+        $tsQuery = $this->buildTsQuery($query);
+
+        if (empty($tsQuery)) {
+            return null;
+        }
+
+        // Using 'simple' config to match the search_vector (preserves stop words)
+        $dbQuery = DB::table('library')
+            ->selectRaw("
+                book,
+                title,
+                author,
+                bibtex,
+                ts_rank(search_vector, to_tsquery('simple', ?)) as relevance,
+                ts_headline('simple',
+                    COALESCE(title, '') || ' ' || COALESCE(author, '') || ' ' ||
+                    COALESCE(booktitle, '') || ' ' || COALESCE(chapter, '') || ' ' || COALESCE(editor, ''),
+                    to_tsquery('simple', ?),
+                    'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
+                ) as headline
+            ", [$tsQuery, $tsQuery])
+            ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery]);
+
+        $this->applyVisibilityFilter($dbQuery, $request);
+
+        return $dbQuery
+            ->orderByDesc('relevance')
+            ->limit($limit)
+            ->get();
     }
 
     /**

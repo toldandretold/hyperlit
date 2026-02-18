@@ -283,7 +283,7 @@ export class CitationMode {
     this.abortController = new AbortController();
 
     try {
-      const response = await fetch(`/api/search/library?q=${encodeURIComponent(query)}&limit=15`, {
+      const response = await fetch(`/api/search/combined?q=${encodeURIComponent(query)}&limit=15`, {
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
         },
@@ -362,17 +362,35 @@ export class CitationMode {
     console.log('🔍 Creating buttons for results...');
     // Use Promise.all to await all formatting promises
     const buttons = await Promise.all(results.map(async result => {
-      const formattedCitation = await formatBibtexToCitation(result.bibtex);
-      const sanitized = DOMPurify.sanitize(formattedCitation, {
-        ALLOWED_TAGS: ['i', 'em', 'b', 'strong', 'a'],
-        ALLOWED_ATTR: ['href', 'target']
-      });
+      let sanitized;
+
+      if (result.source === 'openalex' || !result.bibtex) {
+        // OpenAlex result or library result without bibtex — simple title/author display
+        const title = result.title || 'Untitled';
+        const meta = [result.author, result.year, result.journal].filter(Boolean).join(', ');
+        const raw = `<em>${title}</em>${meta ? ' — ' + meta : ''}`;
+        sanitized = DOMPurify.sanitize(raw, {
+          ALLOWED_TAGS: ['i', 'em', 'b', 'strong'],
+        });
+      } else {
+        const formattedCitation = await formatBibtexToCitation(result.bibtex);
+        sanitized = DOMPurify.sanitize(formattedCitation, {
+          ALLOWED_TAGS: ['i', 'em', 'b', 'strong', 'a'],
+          ALLOWED_ATTR: ['href', 'target']
+        });
+      }
 
       const button = document.createElement('button');
       button.className = 'citation-result-item';
+      if (result.source === 'openalex') {
+        // OpenAlex results cannot be inserted yet — they have no library entry
+        button.classList.add('citation-result-openalex');
+        button.disabled = true;
+        button.title = 'Not in your library — citation linkage coming soon';
+      }
       button.innerHTML = sanitized;
-      button.dataset.bookId = result.id || result.book; // Try both id and book
-      button.dataset.bibtex = result.bibtex;
+      button.dataset.bookId = result.book || result.id || ''; // Try both book and id
+      button.dataset.bibtex = result.bibtex || '';
 
       return button;
     }));
