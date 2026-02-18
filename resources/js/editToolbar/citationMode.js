@@ -383,10 +383,9 @@ export class CitationMode {
       const button = document.createElement('button');
       button.className = 'citation-result-item';
       if (result.source === 'openalex') {
-        // OpenAlex results cannot be inserted yet — they have no library entry
         button.classList.add('citation-result-openalex');
-        button.disabled = true;
-        button.title = 'Not in your library — citation linkage coming soon';
+        button.title = 'Click to cite — will be added to your library';
+        button.dataset.openalexId = result.openalex_id || '';
       }
       button.innerHTML = sanitized;
       button.dataset.bookId = result.book || result.id || ''; // Try both book and id

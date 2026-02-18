@@ -102,11 +102,21 @@ class SearchController extends Controller
                     $libraryResults
                 );
 
+                $deduplicated = [];
                 foreach ($candidates as $candidate) {
                     $t = strtolower(trim($candidate['title'] ?? ''));
                     if ($t !== '' && !in_array($t, $libraryTitles, true)) {
-                        $openAlexResults[] = $candidate;
+                        $deduplicated[] = $candidate;
                     }
+                }
+
+                // Upsert deduplicated results as library stubs so they're immediately insertable
+                if (!empty($deduplicated)) {
+                    $openAlexResults = $openAlexController->upsertLibraryStubs(
+                        $deduplicated,
+                        Auth::id(),
+                        $request->cookie('anon_token')
+                    );
                 }
             }
 

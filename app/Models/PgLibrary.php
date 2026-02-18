@@ -48,7 +48,17 @@ class PgLibrary extends Model
         'creator',
         'creator_token',
         'visibility',
-        'listed'
+        'listed',
+        'has_nodes',
+        'openalex_id',
+        'doi',
+        'is_oa',
+        'oa_status',
+        'oa_url',
+        'pdf_url',
+        'work_license',
+        'cited_by_count',
+        'language',
     ];
 
     protected $casts = [
@@ -58,7 +68,10 @@ class PgLibrary extends Model
         'total_views' => 'integer',
         'total_citations' => 'integer',
         'total_highlights' => 'integer',
-        'listed' => 'boolean'
+        'listed' => 'boolean',
+        'has_nodes' => 'boolean',
+        'is_oa' => 'boolean',
+        'cited_by_count' => 'integer',
     ];
 
     /**

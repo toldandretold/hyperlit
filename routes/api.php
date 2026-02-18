@@ -36,6 +36,9 @@ Route::prefix('search')->middleware('throttle:60,1')->group(function () {
     Route::get('/combined', [SearchController::class, 'searchWithOpenAlex']);
 });
 
+// OpenAlex: save a work as a library stub — no auth required (anonymous users can cite too)
+Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary']);
+
 // OpenAlex citation lookup — requires authentication
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
