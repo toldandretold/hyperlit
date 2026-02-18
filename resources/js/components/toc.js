@@ -18,8 +18,13 @@ let tocManager = null;
 
 class TocContainerManager extends ContainerManager {
   async openContainer() {
-    // First, render the TOC with preserved masks.
-    await generateTableOfContents(); 
+    // Restore baseline container structure (scroller, masks, controls).
+    // The base class always does this; the TocContainerManager override must too.
+    if (this.initialContent) {
+      this.container.innerHTML = this.initialContent;
+    }
+    // Now render TOC into the restored structure.
+    await generateTableOfContents();
     
     // DEBUG: Log what initialContent contains
     console.log('🚨 INITIAL CONTENT:', this.initialContent);

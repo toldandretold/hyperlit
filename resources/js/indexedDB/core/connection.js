@@ -22,7 +22,7 @@ export const DB_VERSION = 26;
  *
  * @returns {Promise<IDBDatabase>} The opened database instance
  */
-export async function openDatabase() {
+export async function openDatabase(retryCount = 0) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("MarkdownDB", DB_VERSION);
 
@@ -280,9 +280,25 @@ export async function openDatabase() {
     };
 
     request.onsuccess = (event) => resolve(event.target.result);
-    request.onerror = (event) => {
-      console.error("❌ Failed to open IndexedDB:", event.target.error);
-      reject("IndexedDB Error: " + event.target.error);
+    request.onerror = async (event) => {
+      const error = event.target.error;
+      const isConnectionLost =
+        error?.name === 'UnknownError' &&
+        error?.message?.includes('Connection to Indexed Database server lost');
+
+      if (isConnectionLost && retryCount < 3) {
+        console.warn(`⚠️ IDB connection lost after bfcache restore, retrying (${retryCount + 1}/3)...`);
+        await new Promise(r => setTimeout(r, 300));
+        try {
+          resolve(await openDatabase(retryCount + 1));
+        } catch (e) {
+          reject(e);
+        }
+        return;
+      }
+
+      console.error("❌ Failed to open IndexedDB:", error);
+      reject(`IndexedDB Error: ${error}`);
     };
   });
 }
