@@ -152,7 +152,8 @@ class EditToolbar {
     this.hide();
 
     // Initialize tap area extender for mobile (captures taps in gaps below/around buttons)
-    initTapAreaExtender(this.toolbar);
+    // Starts disabled — enabled only while in edit mode
+    this.tapExtender = initTapAreaExtender(this.toolbar);
 
     // NUCLEAR OPTION: Prevent ALL touches below a certain Y threshold when keyboard is open
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -415,6 +416,7 @@ class EditToolbar {
   setEditMode(isEditMode) {
     if (isEditMode) {
       this.show();
+      this.tapExtender?.enable();
       // Attach selection change listener via SelectionManager
       this.selectionManager.attachListener(() => this.buttonStateManager.updateButtonStates());
       // Initial button state update
@@ -422,6 +424,7 @@ class EditToolbar {
       this.historyHandler.updateHistoryButtonStates(); // Ensure history buttons are up to date on mode change
     } else {
       this.hide();
+      this.tapExtender?.disable();
       // Close heading submenu if open
       this.closeHeadingSubmenu();
       // Close citation mode if open
