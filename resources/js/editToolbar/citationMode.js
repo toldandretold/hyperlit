@@ -28,6 +28,9 @@ export class CitationMode {
     this.pendingContext = null;
     this.debounceTimer = null;
     this.abortController = null;
+    this.currentQuery = '';
+    this.currentOffset = 0;
+    this.hasMore = false;
 
     // Touch tracking
     this.touchStartX = null;
@@ -124,6 +127,9 @@ export class CitationMode {
 
     this.isOpen = false;
     this.pendingContext = null;
+    this.currentQuery = '';
+    this.currentOffset = 0;
+    this.hasMore = false;
 
     // Remove citation mode class (CSS will show other buttons)
     this.toolbar.classList.remove('citation-mode-active');
@@ -268,13 +274,18 @@ export class CitationMode {
       console.log('📏 [LOADING] Height:', rect.height, 'CSS bottom:', computed.bottom, 'CSS max-height:', computed.maxHeight);
     }, 300);
 
+    // Reset pagination for new query
+    this.currentQuery = query;
+    this.currentOffset = 0;
+    this.hasMore = false;
+
     // Debounce search
     this.debounceTimer = setTimeout(() => {
-      this.performSearch(query);
+      this.performSearch(query, 0);
     }, 300);
   }
 
-  async performSearch(query) {
+  async performSearch(query, offset = 0) {
     // Cancel previous request
     if (this.abortController) {
       this.abortController.abort();
@@ -283,7 +294,8 @@ export class CitationMode {
     this.abortController = new AbortController();
 
     try {
-      const response = await fetch(`/api/search/library?q=${encodeURIComponent(query)}&limit=15`, {
+      const url = `/api/search/combined?q=${encodeURIComponent(query)}&limit=15&offset=${offset}`;
+      const response = await fetch(url, {
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
         },
@@ -293,7 +305,7 @@ export class CitationMode {
       if (!response.ok) throw new Error('Search failed');
 
       const data = await response.json();
-      await this.renderResults(data.results || []);
+      await this.renderResults(data.results || [], offset, data.has_more ?? false);
 
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -335,12 +347,20 @@ export class CitationMode {
     }
   }
 
-  async renderResults(results) {
-    console.log('🔍 renderResults called with', results.length, 'results');
+  async renderResults(results, offset = 0, hasMore = false) {
+    console.log('🔍 renderResults called with', results.length, 'results, offset:', offset, 'hasMore:', hasMore);
     console.log('🔍 citationResults element:', this.citationResults);
     console.log('🔍 citationResults parent:', this.citationResults?.parentElement);
 
-    if (results.length === 0) {
+    // Remove any existing "load more" button before appending
+    this.citationResults.querySelector('.citation-load-more')?.remove();
+
+    if (offset === 0) {
+      // First page — clear and replace
+      this.citationResults.innerHTML = '';
+    }
+
+    if (results.length === 0 && offset === 0) {
       console.log('🔍 No results - showing empty state');
       this.citationResults.innerHTML = '<div class="citation-search-empty">No results found</div>';
       this.citationResults.dataset.state = 'empty';
@@ -362,25 +382,58 @@ export class CitationMode {
     console.log('🔍 Creating buttons for results...');
     // Use Promise.all to await all formatting promises
     const buttons = await Promise.all(results.map(async result => {
-      const formattedCitation = await formatBibtexToCitation(result.bibtex);
-      const sanitized = DOMPurify.sanitize(formattedCitation, {
-        ALLOWED_TAGS: ['i', 'em', 'b', 'strong', 'a'],
-        ALLOWED_ATTR: ['href', 'target']
-      });
+      let sanitized;
+
+      if (result.source === 'openalex' || !result.bibtex) {
+        // OpenAlex result or library result without bibtex — simple title/author display
+        const title = result.title || 'Untitled';
+        const meta = [result.author, result.year, result.journal].filter(Boolean).join(', ');
+        const raw = `<em>${title}</em>${meta ? ' — ' + meta : ''}`;
+        sanitized = DOMPurify.sanitize(raw, {
+          ALLOWED_TAGS: ['i', 'em', 'b', 'strong'],
+        });
+      } else {
+        const formattedCitation = await formatBibtexToCitation(result.bibtex);
+        sanitized = DOMPurify.sanitize(formattedCitation, {
+          ALLOWED_TAGS: ['i', 'em', 'b', 'strong', 'a'],
+          ALLOWED_ATTR: ['href', 'target']
+        });
+      }
 
       const button = document.createElement('button');
       button.className = 'citation-result-item';
+      if (result.source === 'openalex') {
+        button.classList.add('citation-result-openalex');
+        button.title = 'Click to cite — will be added to your library';
+        button.dataset.openalexId = result.openalex_id || '';
+      }
       button.innerHTML = sanitized;
-      button.dataset.bookId = result.id || result.book; // Try both id and book
-      button.dataset.bibtex = result.bibtex;
+      button.dataset.bookId = result.book || result.id || ''; // Try both book and id
+      button.dataset.bibtex = result.bibtex || '';
+      button.dataset.hasNodes = (result.has_nodes !== false) ? '1' : '0';
 
       return button;
     }));
 
-    console.log('🔍 Clearing results container...');
-    this.citationResults.innerHTML = '';
     console.log('🔍 Appending', buttons.length, 'buttons...');
     buttons.forEach(btn => this.citationResults.appendChild(btn));
+
+    // Show "Load more" button at DOM end (= visual top, due to column-reverse)
+    if (hasMore) {
+      const loadMore = document.createElement('button');
+      loadMore.className = 'citation-load-more citation-result-item';
+      loadMore.textContent = 'Load more results';
+      loadMore.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.currentOffset += 15;
+        loadMore.textContent = 'Loading…';
+        loadMore.disabled = true;
+        this.performSearch(this.currentQuery, this.currentOffset);
+      });
+      this.citationResults.appendChild(loadMore);
+    }
+
+    this.hasMore = hasMore;
     this.citationResults.dataset.state = 'results';
     this.repositionContainer();
     console.log('🔍 Done! citationResults.children.length:', this.citationResults.children.length);
@@ -409,6 +462,7 @@ export class CitationMode {
     // Check if click is on a result item or inside one (for child elements like <i>, <em>)
     const resultItem = target.closest('.citation-result-item');
     if (resultItem) {
+      if (resultItem.classList.contains('citation-load-more')) return;
       event.preventDefault();
       event.stopPropagation();
       this.handleCitationSelection(resultItem);
@@ -463,7 +517,7 @@ export class CitationMode {
 
     // Handle as tap
     const target = document.elementFromPoint(touchEndX, touchEndY);
-    if (target && target.classList.contains('citation-result-item')) {
+    if (target && target.classList.contains('citation-result-item') && !target.classList.contains('citation-load-more')) {
       event.preventDefault();
       this.handleCitationSelection(target);
     }
@@ -488,6 +542,7 @@ export class CitationMode {
     }
 
     const { range, bookId, saveCallback } = this.pendingContext;
+    const sourceHasNodes = button.dataset.hasNodes !== '0';
 
     try {
       // Dynamic import to avoid circular dependencies
@@ -498,7 +553,8 @@ export class CitationMode {
         bookId,
         citedBookId,
         bibtex,
-        saveCallback
+        saveCallback,
+        sourceHasNodes
       );
 
       // Close the citation mode

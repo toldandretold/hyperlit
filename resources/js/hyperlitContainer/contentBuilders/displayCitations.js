@@ -35,9 +35,11 @@ export async function buildCitationContent(contentType, db = null) {
     });
 
     if (result && result.content) {
-      // Build navigation link if source_id exists (linked citation)
+      // Build navigation link if source_id exists and source has content to open
+      // source_has_nodes: undefined/null on old records → treat as true (backward compat)
+      const sourceHasNodes = result.source_has_nodes !== false;
       let navigationLink = '';
-      if (result.source_id) {
+      if (result.source_id && sourceHasNodes) {
         // Fetch the library entry to check visibility
         const libraryStore = transaction.objectStore('library');
         const libraryRecord = await new Promise((resolve) => {

@@ -16,6 +16,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UnifiedSyncController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NodeHistoryController;
+use App\Http\Controllers\OpenAlexController;
 
 
 
@@ -31,6 +32,17 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::prefix('search')->middleware('throttle:60,1')->group(function () {
     Route::get('/library', [SearchController::class, 'searchLibrary']);
     Route::get('/nodes', [SearchController::class, 'searchNodes']);
+    Route::get('/openalex', [OpenAlexController::class, 'search']);
+    Route::get('/combined', [SearchController::class, 'searchWithOpenAlex']);
+});
+
+// OpenAlex: save a work as a library stub — no auth required (anonymous users can cite too)
+Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary'])
+    ->middleware('throttle:10,1');
+
+// OpenAlex citation lookup — requires authentication
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
 });
 
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');

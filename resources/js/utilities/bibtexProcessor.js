@@ -58,8 +58,9 @@ export async function formatBibtexToCitation(bibtex) {
   // Title formatting: quotes for articles/chapters, italics for books
   let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
   console.log("🔗 URL found in BibTeX:", url);
-  if (url) {
-    formattedTitle = `<a href="${url}" target="_blank">${formattedTitle}</a>`;
+  const safeUrl = url && /^https?:\/\//i.test(url) ? url : null;
+  if (safeUrl) {
+    formattedTitle = `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
     console.log("✅ Title formatted with link:", formattedTitle);
   } else {
     console.log("❌ No URL found, title will not be linked");
