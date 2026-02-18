@@ -114,8 +114,8 @@ export async function handleOverlappingHyperciteClick(uElement, event) {
       // Preserve existing state when updating URL for overlapping hypercite
       const currentState = history.state || {};
       const newState = { ...currentState, overlapping_hypercite: { hyperciteIds: hyperciteIds } };
-      history.pushState(newState, '', newUrl);
-      console.log(`📊 Added overlapping hypercite to history - length: ${window.history.length}`);
+      history.replaceState(newState, '', newUrl);
+      console.log(`📊 Updated URL for overlapping hypercite (replaceState, no new history entry)`);
     } catch (error) {
       console.warn('Failed to update URL for overlapping hypercite:', error);
     }

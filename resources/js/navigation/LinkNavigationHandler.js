@@ -12,7 +12,7 @@ import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
 import { currentLazyLoader } from '../initializePage.js';
 import { getLocalStorageKey } from '../indexedDB/index.js';
-import { restoreHyperlitContainerFromHistory, closeHyperlitContainer } from '../hyperlitContainer/index.js';
+import { closeHyperlitContainer } from '../hyperlitContainer/index.js';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler = null;
@@ -492,64 +492,16 @@ export class LinkNavigationHandler {
       return;
     }
     
-    // Check if this is a hyperlight URL that needs special handling
-    const currentPath = window.location.pathname;
-    const currentHash = window.location.hash.substring(1); // Remove #
-    
-    if (this.isHyperlightUrl(currentPath) && currentHash) {
-      verbose.nav(`Back button with hyperlight URL: ${currentPath} -> ${currentHash}`, '/navigation/LinkNavigationHandler.js');
-
-      try {
-        // Extract hyperlight ID from path
-        const pathSegments = currentPath.split('/').filter(Boolean);
-        const hyperlightId = pathSegments.find(segment => segment.startsWith('HL_'));
-
-        if (hyperlightId) {
-          verbose.nav(`Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`, '/navigation/LinkNavigationHandler.js');
-          
-          // Use the existing hyperlight navigation system
-          // navigateToHyperciteTarget already imported statically
-          // currentLazyLoader already imported statically
-          
-          if (currentLazyLoader && currentHash.startsWith('hypercite_')) {
-            navigateToHyperciteTarget(hyperlightId, currentHash, currentLazyLoader);
-            return; // Successfully handled
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to handle hyperlight URL in popstate:', error);
-      }
-    }
-    
-    // Try to restore container state from history for non-hyperlight URLs
+    // Close any open container silently — the browser has already restored the URL via popstate
     try {
-      // restoreHyperlitContainerFromHistory already imported statically
-      const containerRestored = await restoreHyperlitContainerFromHistory();
+      closeHyperlitContainer(true);
+    } catch (e) { /* ignore */ }
 
-      if (containerRestored) {
-        verbose.nav('Successfully restored hyperlit container from browser history', '/navigation/LinkNavigationHandler.js');
-        return; // Don't need to do anything else if container was restored
-      }
-    } catch (error) {
-      console.warn('Failed to restore hyperlit container from history:', error);
-    }
-    
-    // If no container to restore, close any open containers and scroll to the hash if present.
-    // This prevents a loop where a container is re-opened from the hash after a back navigation.
-    try {
-      // closeHyperlitContainer already imported statically
-      closeHyperlitContainer();
-    } catch (error) {
-      // ignore
-    }
-    
     // Always attempt to scroll to the hash on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
-      verbose.nav(`Popstate with no state: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
+      verbose.nav(`Popstate: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
       try {
-        // navigateToInternalId already imported statically
-        // currentLazyLoader already imported statically
         if (currentLazyLoader) {
           navigateToInternalId(targetId, currentLazyLoader, false);
         }

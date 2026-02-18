@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * Custom user provider that uses a SECURITY DEFINER function for authentication.
@@ -103,9 +104,19 @@ class RlsUserProvider extends EloquentUserProvider
         }
 
         // Use forceFill to set ALL attributes including non-fillable ones like 'id'
+        // Note: forceFill triggers the 'hashed' cast, so if the DB has a plaintext
+        // password, $user->password will be a proper bcrypt hash in memory — but
+        // the DB still holds plaintext. Detect and fix that here via the admin connection.
         $user = new User();
         $user->forceFill((array) $fullUser);
         $user->exists = true;
+
+        if (!Hash::isHashed($fullUser->password)) {
+            DB::connection('pgsql_admin')
+                ->table('users')
+                ->where('id', $fullUser->id)
+                ->update(['password' => $user->password]);
+        }
 
         return $user;
     }
