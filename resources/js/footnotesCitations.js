@@ -4,6 +4,7 @@ import { openDatabase } from "./indexedDB/index.js";
 import { ContainerManager } from "./containerManager.js";
 import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index.js';
 import { log, verbose } from './utilities/logger.js';
+import { isActivelyScrollingForLinkBlock } from './scrolling.js';
 
 // Legacy container manager - now using unified system
 const refManager = new ContainerManager(
@@ -66,6 +67,14 @@ export function initializeFootnoteCitationListeners() {
 
   // Create the click handler
   footnoteClickHandler = (event) => {
+    // Prevent footnote clicks during active scrolling.
+    // Same guard used by lazyLoaderFactory.js for <a> link clicks.
+    // Without this, a touch-scroll over a sup[fn-count-id] fires a synthetic
+    // click at touchend, opening a phantom footnote container.
+    if (isActivelyScrollingForLinkBlock()) {
+      return;
+    }
+
     const target = event.target;
 
     // Check if the clicked element or its parent is a footnote or citation
