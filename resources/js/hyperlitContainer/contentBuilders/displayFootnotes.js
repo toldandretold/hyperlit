@@ -1,18 +1,18 @@
 /**
  * Footnote Content Builder
- * Constructs HTML content for displaying footnotes in the hyperlit container
+ * Constructs HTML content for displaying footnotes in the hyperlit container.
+ * Footnote text content is rendered separately via subBookLoader (lazy loader pipeline).
  */
 
-import { book } from '../../app.js';
-import { openDatabase } from '../../indexedDB/index.js';
 import { getDisplayNumber } from '../../footnotes/FootnoteNumberingService.js';
-import { canUserEditBook } from '../../utilities/auth.js';
 
 /**
- * Build footnote content section
+ * Build footnote content section — structural HTML only (sup number + HR).
+ * Actual footnote text is loaded asynchronously by subBookLoader in handlePostOpenActions.
+ *
  * @param {Object} contentType - The footnote content type object
- * @param {IDBDatabase} db - Reused database connection
- * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
+ * @param {IDBDatabase} db - Unused (kept for signature compatibility)
+ * @param {boolean} editModeEnabled - Unused (kept for signature compatibility)
  * @returns {Promise<string>} HTML string for footnote content
  */
 export async function buildFootnoteContent(contentType, db = null, editModeEnabled = true) {
@@ -22,75 +22,27 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
     // footnoteId may be stored as footnoteId or elementId depending on context
     const footnoteId = contentType.footnoteId || contentType.elementId;
 
-    // footnoteId is already extracted by detection.js
     if (!footnoteId) {
       console.error('No footnoteId found in contentType:', contentType);
       return '';
     }
 
-    // Check if user can edit this book's footnotes
-    console.time('canUserEditBook');
-    const hasPermission = await canUserEditBook(book);
-    console.timeEnd('canUserEditBook');
-
-    // Final editability: user must have permission AND edit mode must be enabled
-    const isEditable = hasPermission && editModeEnabled;
-
-    const database = db || await openDatabase();
-    const transaction = database.transaction(["footnotes"], "readonly");
-    const store = transaction.objectStore("footnotes");
-
-    const key = [book, footnoteId];
-    const result = await new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
     // Use dynamic display number from FootnoteNumberingService, fallback to fnCountId
     const displayNumber = getDisplayNumber(footnoteId) || fnCountId || '?';
 
-    if (result) {
-      // Remove or replace block-level tags to keep content inline
-      const inlineContent = (result.content || '')
-        .replace(/<\/?p[^>]*>/g, '') // Remove <p> tags
-        .replace(/<\/?div[^>]*>/g, '') // Remove <div> tags
-        .replace(/<a[^>]*id="[^"]*Fn[^"]*"[^>]*><\/a>/gi, ''); // Remove anchor tags (footnote jump targets)
-
-      const isEmpty = !result.content || !result.content.trim();
-      const emptyClass = isEmpty ? 'empty-footnote' : '';
-
-      console.timeEnd('buildFootnoteContent-total');
-      return `
-        <div class="footnotes-section" data-content-id="${footnoteId}" data-footnote-id="${footnoteId}">
-          <div class="footnote-content">
-            <div class="footnote-header" style="display: flex; align-items: flex-start;">
-              <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <div class="footnote-text ${emptyClass}" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;">${inlineContent}</div>
-            </div>
-          </div>
-          <hr style="margin: 2em 0; opacity: 0.5;">
-        </div>`;
-    } else {
-      // New footnote with no content yet (or not found)
-      console.timeEnd('buildFootnoteContent-total');
-      return `
-        <div class="footnotes-section" data-content-id="${footnoteId}" data-footnote-id="${footnoteId}">
-          <div class="footnote-content">
-            <div class="footnote-header" style="display: flex; align-items: flex-start;">
-              <sup class="footnote-number" style="margin-right: 1em; flex-shrink: 0; font-weight: bold;">${displayNumber}</sup>
-              <div class="footnote-text empty-footnote" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" data-footnote-id="${footnoteId}" tabindex="0" style="flex: 1; outline: none;"></div>
-            </div>
-          </div>
-          <hr style="margin: 2em 0; opacity: 0.5;">
-        </div>`;
-    }
+    console.timeEnd('buildFootnoteContent-total');
+    return `
+      <div class="footnotes-section" data-content-id="${footnoteId}" data-footnote-id="${footnoteId}">
+        <div class="footnote-content">
+          <sup class="footnote-number" style="font-weight: bold;">${displayNumber}</sup>
+        </div>
+        <hr style="margin: 2em 0; opacity: 0.5;">
+      </div>`;
   } catch (error) {
     console.timeEnd('buildFootnoteContent-total');
     console.error('Error building footnote content:', error);
     const footnoteId = contentType.elementId || 'unknown';
     const fnCountId = contentType.fnCountId || '?';
-    // Use dynamic display number for error case too
     const displayNumber = getDisplayNumber(footnoteId) || fnCountId;
     return `
       <div class="footnotes-section" data-content-id="${footnoteId}">

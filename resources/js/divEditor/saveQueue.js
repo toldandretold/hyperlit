@@ -39,7 +39,8 @@ const DEBOUNCE_DELAYS = {
 // ================================================================
 
 export class SaveQueue {
-  constructor() {
+  constructor(bookId = null) {
+    this.bookId = bookId;
     // Track what needs to be saved
     this.pendingSaves = {
       nodes: new Map(),
@@ -132,7 +133,7 @@ export class SaveQueue {
       });
 
       if (recordsToUpdate.length > 0) {
-        await batchUpdateIndexedDBRecords(recordsToUpdate);
+        await batchUpdateIndexedDBRecords(recordsToUpdate, this.bookId ? { bookId: this.bookId } : {});
         // ✅ Mark cache dirty after successful saves
         markCacheDirty();
         // ✅ Invalidate search index so next search reflects edits

@@ -1020,6 +1020,9 @@ export function createChunkElement(nodes, instance) {
       // ✅ data-node-id should already be in HTML from server
       // But ensure numerical id is set
       firstElement.setAttribute('id', node.startLine);
+      if (node.node_id && !firstElement.getAttribute('data-node-id')) {
+        firstElement.setAttribute('data-node-id', node.node_id);
+      }
       chunkWrapper.appendChild(firstElement);
     } else {
       console.error(`⚠️ Node ${nodeIndex + 1} (line ${node.startLine}) produced no Element content. HTML: ${html.substring(0, 100)}`);

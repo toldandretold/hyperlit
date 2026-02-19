@@ -142,6 +142,9 @@ let supTagHandler = null;
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
 let saveQueue = null;
 
+// 📌 Store the currently-observed editable div so stopObserving removes listeners from the right element
+let observedEditableDiv = null;
+
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
 let mutationProcessor = null;
 
@@ -206,15 +209,22 @@ window.addEventListener('beforeunload', () => {
 // 4. Delegates all actual work to specialized modules
 // ================================================================
 
-export function startObserving(editableDiv) {
+export function isEditorObserving() {
+  return observer !== null;
+}
+
+export function startObserving(editableDiv, bookId = null) {
 
   verbose.content("startObserving function called - multi-chunk mode", 'divEditor/index.js');
 
   // Stop any existing observer first
   stopObserving();
 
-  // 💾 Initialize SaveQueue
-  saveQueue = new SaveQueue();
+  // 📌 Store reference so stopObserving removes listeners from the right element
+  observedEditableDiv = editableDiv;
+
+  // 💾 Initialize SaveQueue (passes bookId for sub-book saves)
+  saveQueue = new SaveQueue(bookId);
 
   // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
   // 🔧 FIX 7b: Remove old handler if it exists
@@ -364,10 +374,12 @@ export function startObserving(editableDiv) {
   });
 
   // ✅ Only ensure structure if document is truly empty (new/imported books)
-  // For existing books, lazy loader creates structure on demand
-  const hasContent = document.querySelector('.main-content .chunk [id]');
-  if (!hasContent) {
-    ensureMinimumDocumentStructure();
+  // For sub-book editors (bookId set), skip — sub-book content is always pre-populated
+  if (!bookId) {
+    const hasContent = document.querySelector('.main-content .chunk [id]');
+    if (!hasContent) {
+      ensureMinimumDocumentStructure();
+    }
   }
 
   // 💾 Start monitoring pending saves (for debugging)
@@ -507,7 +519,8 @@ export function stopObserving() {
   }
 
   // 🔧 FIX 7b: Remove video delete handler
-  const editableDiv = document.querySelector('.main-content');
+  // Use stored observedEditableDiv (not hardcoded .main-content) so sub-book editors clean up correctly
+  const editableDiv = observedEditableDiv;
   if (videoDeleteHandler && editableDiv) {
     editableDiv.removeEventListener('click', videoDeleteHandler);
     videoDeleteHandler = null;
@@ -529,6 +542,9 @@ export function stopObserving() {
     inputEventHandler = null;
     verbose.content("Input event handlers removed", 'divEditor/index.js');
   }
+
+  // 📌 Clear stored div reference
+  observedEditableDiv = null;
 
   observedChunks.clear();
   verbose.content("Multi-chunk observer stopped and tracking cleared", 'divEditor/index.js');
