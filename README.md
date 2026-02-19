@@ -275,6 +275,8 @@ So the question in need of asnwering isn't 'why hasn't the internet augmented so
 
 ## Contact
 
+[fml@hyperlit.io](mailto:fml@hyperlit.io)
+
 [GitHub issues](https://github.com/toldandretold/hyperlit/issues) or [@toldandretold](https://github.com/toldandretold)
 
 Leave a hyperlight in [my hypertext library](https://hyperlit.io/u/toldandretold)
