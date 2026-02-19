@@ -155,6 +155,8 @@ export function createLazyLoader(config) {
     isUpdatingJsonContent = false,
     bookId = "latest",
     onFirstChunkLoaded,
+    containerElement,                           // NEW: skip getElementById (for sub-books)
+    scrollableParent: scrollableParentOverride, // NEW: bypass auto-detection (for sub-books)
   } = config;
 
   if (!nodes || nodes.length === 0) {
@@ -163,7 +165,7 @@ export function createLazyLoader(config) {
   }
 
   // --- MOVE THIS BLOCK UP! ---
-  const container = document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
+  const container = containerElement || document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
   if (!container) {
     log.error(`Container element with id "${bookId}" not found in the DOM`, 'lazyLoaderFactory.js');
     return null;
@@ -172,19 +174,23 @@ export function createLazyLoader(config) {
 
   // Now, container is defined, so you can safely use it:
   let scrollableParent;
-  const readerWrapper = container.closest(".reader-content-wrapper");
-  const homeWrapper = container.closest(".home-content-wrapper");
-  const userWrapper = container.closest(".user-content-wrapper");
-
-  if (readerWrapper) {
-      scrollableParent = readerWrapper;
-  } else if (homeWrapper) {
-      scrollableParent = homeWrapper;
-  } else if (userWrapper) {
-      scrollableParent = userWrapper;
+  if (scrollableParentOverride) {
+    scrollableParent = scrollableParentOverride;
   } else {
-      scrollableParent = window;
-      verbose.init('Using window as scrollable parent', 'lazyLoaderFactory.js');
+    const readerWrapper = container.closest(".reader-content-wrapper");
+    const homeWrapper = container.closest(".home-content-wrapper");
+    const userWrapper = container.closest(".user-content-wrapper");
+
+    if (readerWrapper) {
+        scrollableParent = readerWrapper;
+    } else if (homeWrapper) {
+        scrollableParent = homeWrapper;
+    } else if (userWrapper) {
+        scrollableParent = userWrapper;
+    } else {
+        scrollableParent = window;
+        verbose.init('Using window as scrollable parent', 'lazyLoaderFactory.js');
+    }
   }
   
   // Create the instance to track lazy-loader state.
@@ -1540,7 +1546,10 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for next chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
@@ -1607,7 +1616,10 @@ export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for previous chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
@@ -1679,7 +1691,10 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   // ✅ Check if cache is dirty and refresh if needed
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before loading chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
