@@ -288,6 +288,9 @@ class DbHyperlightController extends Controller
                             'highlightedText' => $item['highlightedText'] ?? null,
                             'highlightedHTML' => $item['highlightedHTML'] ?? null,
                             'annotation' => $item['annotation'] ?? null,
+                            'preview_nodes' => isset($item['preview_nodes'])
+                                ? json_encode($item['preview_nodes'])
+                                : null,
                             'startLine' => $item['startLine'] ?? null,
                             'creator' => $creator,
                             'creator_token' => $creator_token,

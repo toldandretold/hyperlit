@@ -21,5 +21,10 @@ class PgFootnote extends Model
         'book',
         'footnoteId',
         'content',
+        'preview_nodes',
+    ];
+
+    protected $casts = [
+        'preview_nodes' => 'array',
     ];
 }

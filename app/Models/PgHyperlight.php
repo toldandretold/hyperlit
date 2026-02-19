@@ -20,6 +20,7 @@ class PgHyperlight extends Model
         'node_id',
         'charData',
         'annotation',
+        'preview_nodes',
         'highlightedHTML',
         'highlightedText',
         'startLine',
@@ -33,6 +34,7 @@ class PgHyperlight extends Model
     protected $casts = [
         'node_id' => 'array',
         'charData' => 'array',
+        'preview_nodes' => 'array',
         'hidden' => 'boolean'
     ];
 

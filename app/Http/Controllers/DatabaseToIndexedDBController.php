@@ -302,6 +302,9 @@ class DatabaseToIndexedDBController extends Controller
                     'charStart' => $nodeCharData['charStart'],
                     'charEnd' => $nodeCharData['charEnd'],
                     'annotation' => $hl->annotation,
+                    'preview_nodes' => $hl->preview_nodes
+                        ? json_decode($hl->preview_nodes, true)
+                        : null,
                     'time_since' => $hl->time_since,
                     'hidden' => $hl->hidden ?? false,
                     'is_user_highlight' => $lookup[$hl->hyperlight_id]['is_user_highlight'] ?? false
@@ -484,6 +487,9 @@ class DatabaseToIndexedDBController extends Controller
                     'node_id' => json_decode($hyperlight->node_id ?? '[]', true),
                     'charData' => json_decode($hyperlight->charData ?? '{}', true),
                     'annotation' => $hyperlight->annotation,
+                    'preview_nodes' => $hyperlight->preview_nodes
+                        ? json_decode($hyperlight->preview_nodes, true)
+                        : null,
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
                     'startLine' => $hyperlight->startLine,
@@ -705,6 +711,32 @@ class DatabaseToIndexedDBController extends Controller
                 'error' => 'Internal server error'
             ], 500);
         }
+    }
+
+    /**
+     * Get full sub-book data for IndexedDB import.
+     * Sub-book IDs are two segments: {parentBook}/{subId} (e.g. TheBible/HL_12345).
+     * Delegates to getBookData() with the reconstructed full ID.
+     */
+    public function getSubBookData(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookData($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get sub-book metadata for cache validation.
+     */
+    public function getSubBookMetadata(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookMetadata($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get sub-book library record.
+     */
+    public function getSubBookLibrary(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookLibrary($request, $parentBook . '/' . $subId);
     }
 
     /**

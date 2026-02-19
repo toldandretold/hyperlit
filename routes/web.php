@@ -240,10 +240,15 @@ Route::get('/{book}/{hl?}', [TextController::class, 'show'])
      ])
      ->name('book.show');
 
-// Book with footnote route (footnote IDs contain _Fn or start with Fn)
+// Book with footnote route
+// Matches all known footnote ID formats:
+//   Fn1766534896037_2ksr                        (starts with Fn)
+//   asdf324_Fn1766385828280_2zhg                (_Fn in middle)
+//   ahumada2025_section_1_Fn1766534896037_2ksr  (_Fn in middle)
+//   book_1757846828811Fn175784683098524         (Fn in middle, no preceding _)
 Route::get('/{book}/{fn}', [TextController::class, 'show'])
      ->where([
        'book' => '[A-Za-z0-9_-]+',
-       'fn'   => '(?:Fn\d|[A-Za-z0-9_-]+_Fn)[A-Za-z0-9_-]+'
+       'fn'   => '[A-Za-z0-9_-]*Fn[A-Za-z0-9_-]+'
      ])
      ->name('book.footnote');

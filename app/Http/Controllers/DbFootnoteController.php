@@ -69,15 +69,24 @@ class DbFootnoteController extends Controller
                     ->where('footnoteId', $item['footnoteId'])
                     ->first();
 
+                $previewNodes = isset($item['preview_nodes'])
+                    ? json_encode($item['preview_nodes'])
+                    : null;
+
                 if ($existing) {
+                    $updates = ['content' => $item['content'] ?? ''];
+                    if ($previewNodes !== null) {
+                        $updates['preview_nodes'] = $previewNodes;
+                    }
                     PgFootnote::where('book', $book)
                         ->where('footnoteId', $item['footnoteId'])
-                        ->update(['content' => $item['content'] ?? '']);
+                        ->update($updates);
                 } else {
                     PgFootnote::create([
-                        'book' => $book,
-                        'footnoteId' => $item['footnoteId'],
-                        'content' => $item['content'] ?? '',
+                        'book'          => $book,
+                        'footnoteId'    => $item['footnoteId'],
+                        'content'       => $item['content'] ?? '',
+                        'preview_nodes' => $previewNodes,
                     ]);
                 }
                 $upsertedCount++;

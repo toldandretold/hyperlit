@@ -11,8 +11,27 @@ use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
 {
-    public function show(Request $request, $book)
+    public function show(Request $request, $book, $hl = null, $fn = null)
     {
+        // Check if the second path segment identifies a sub-book.
+        // $hl comes from /{book}/{hl?} routes, $fn from /{book}/{fn} routes.
+        $subId = $hl ?? $fn;
+        if ($subId) {
+            $subBookId = $book . '/' . $subId;
+            if (DB::table('nodes')->where('book', $subBookId)->exists()) {
+                $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
+                return view('reader', [
+                    'html'       => '',
+                    'book'       => $subBookId,
+                    'editMode'   => $editMode,
+                    'dataSource' => 'database',
+                    'pageType'   => 'reader',
+                ]);
+            }
+            // No sub-book nodes found — fall through to normal behavior
+            // (load main book; JS handles scroll to the highlight/footnote)
+        }
+
         // If the path matches a username (allow basic slug variants),
         // (re)generate a user-home pseudo-book in DB and point $book to that.
         $possible = urldecode($book);
