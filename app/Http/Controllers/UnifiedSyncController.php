@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 
 class UnifiedSyncController extends Controller
 {
+    use SubBookPreviewTrait;
     /**
      * Unified sync endpoint - handles all data types in a single atomic transaction
      *
@@ -337,6 +339,27 @@ class UnifiedSyncController extends Controller
                 return $results;
             });
 
+            // Best-effort: write preview_nodes for every sub-book whose nodes were synced.
+            // Done outside the transaction so a failure here never rolls back the node sync.
+            // Sub-book nodes arrive bundled inside the parent book's request, so we must
+            // inspect each node chunk's `book` field rather than the top-level $bookId.
+            $subBookIdsWithNodes = collect($data['nodes'] ?? [])
+                ->pluck('book')
+                ->unique()
+                ->filter(fn($b) => str_contains((string) $b, '/'))
+                ->values();
+
+            foreach ($subBookIdsWithNodes as $subBookId) {
+                try {
+                    $this->updateSubBookPreviewNodes($subBookId);
+                } catch (\Exception $e) {
+                    Log::warning('preview_nodes update failed (non-fatal)', [
+                        'book'  => $subBookId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             Log::info('Unified sync completed successfully', [
                 'book' => $bookId,
                 'results' => array_map(function($r) { return $r['success'] ?? false; }, $result)
@@ -362,4 +385,5 @@ class UnifiedSyncController extends Controller
             ], 500);
         }
     }
+
 }

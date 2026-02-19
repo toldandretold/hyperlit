@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
 use App\Models\PgFootnote;
 use App\Models\PgLibrary;
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
 
 class SubBookController extends Controller
 {
+    use SubBookPreviewTrait;
     /**
      * Create a new sub-book for a hyperlight annotation or footnote.
      *
@@ -32,6 +34,7 @@ class SubBookController extends Controller
                 'itemId'         => 'required|string',
                 'title'          => 'nullable|string|max:500',
                 'previewContent' => 'nullable|string',
+                'nodeId'         => 'nullable|uuid',
             ]);
 
             $type       = $validated['type'];
@@ -61,23 +64,34 @@ class SubBookController extends Controller
                 ]
             );
 
-            // Create initial node only if one doesn't exist yet
-            $nodeExists = DB::table('nodes')->where('book', $subBookId)->exists();
-            if (!$nodeExists) {
-                $initialContent = $validated['previewContent'] ?? '';
-
+            // Create initial node only if one doesn't exist yet; always return nodeId
+            $node = DB::table('nodes')->where('book', $subBookId)->first();
+            if (!$node) {
+                // Use client-provided UUID if valid, otherwise generate one
+                $uuid = $validated['nodeId'] ?? (string) Str::uuid();
+                $previewText = strip_tags($validated['previewContent'] ?? '');
+                $initialContent = '<p data-node-id="' . e($uuid) . '" no-delete-id="pleasse" style="min-height:1.5em;">'
+                                . e($previewText)
+                                . '</p>';
                 DB::table('nodes')->insert([
                     'book'       => $subBookId,
                     'chunk_id'   => 0,
                     'startLine'  => 1,
-                    'node_id'    => (string) Str::uuid(),
+                    'node_id'    => $uuid,
                     'content'    => $initialContent,
-                    'plainText'  => strip_tags($initialContent),
+                    'plainText'  => $previewText,
                     'raw_json'   => json_encode([]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+                $nodeId = $uuid;
+            } else {
+                $nodeId = $node->node_id;
             }
+
+            // Populate preview_nodes on the parent footnote/hyperlight so the sub-book
+            // renders immediately without needing a separate node-fetch round-trip.
+            $this->updateSubBookPreviewNodes($subBookId);
 
             Log::info('SubBookController::create - success', [
                 'sub_book_id' => $subBookId,
@@ -88,6 +102,7 @@ class SubBookController extends Controller
             return response()->json([
                 'success'   => true,
                 'subBookId' => $subBookId,
+                'nodeId'    => $nodeId,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -233,19 +248,13 @@ class SubBookController extends Controller
                 return response()->json(['success' => false, 'message' => 'Not authorized'], 403);
             }
         } else {
-            // footnote — check parent book ownership (footnotes don't have their own creator field)
+            // footnote — ownership is determined by the parent book
+            // The footnote row may not be synced to PostgreSQL yet (newly created client-side),
+            // so we only check parent book ownership, not footnote record existence.
             $library = PgLibrary::where('book', $parentBook)->first();
 
             if (!$library) {
                 return response()->json(['success' => false, 'message' => 'Parent book not found'], 404);
-            }
-
-            $footnote = PgFootnote::where('book', $parentBook)
-                ->where('footnoteId', $itemId)
-                ->first();
-
-            if (!$footnote) {
-                return response()->json(['success' => false, 'message' => 'Footnote not found'], 404);
             }
 
             $isOwner = false;

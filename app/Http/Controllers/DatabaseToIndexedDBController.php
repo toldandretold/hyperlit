@@ -370,10 +370,14 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // Convert to the format expected by the frontend
         $footnotesData = [];
         foreach ($footnotes as $footnote) {
-            $footnotesData[$footnote->footnoteId] = $footnote->content;
+            $footnotesData[$footnote->footnoteId] = [
+                'content'       => $footnote->content,
+                'preview_nodes' => $footnote->preview_nodes
+                    ? json_decode($footnote->preview_nodes, true)
+                    : null,
+            ];
         }
 
         return [

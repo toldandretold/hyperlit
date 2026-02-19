@@ -848,11 +848,13 @@ async function loadFootnotesToIndexedDB(db, footnotes) {
   const footnotesData = footnotes.data;
   const promises = [];
 
-  for (const [footnoteId, content] of Object.entries(footnotesData)) {
+  for (const [footnoteId, footnoteData] of Object.entries(footnotesData)) {
+    const isNewFormat = typeof footnoteData === 'object' && footnoteData !== null;
     const record = {
-      book: footnotes.book,
-      footnoteId: footnoteId,
-      content: content
+      book:          footnotes.book,
+      footnoteId:    footnoteId,
+      content:       isNewFormat ? (footnoteData.content ?? '') : footnoteData,
+      preview_nodes: isNewFormat ? (footnoteData.preview_nodes ?? null) : null,
     };
 
     promises.push(new Promise((resolve, reject) => {

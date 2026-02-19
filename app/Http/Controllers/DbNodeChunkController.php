@@ -12,13 +12,73 @@ use Illuminate\Support\Facades\Auth;
 class DbNodeChunkController extends Controller
 {
     /**
-     * Check if user has permission to modify the book
+     * Permission check for sub-book (slash-ID) node updates.
+     *
+     * All nodes — regular books, footnotes, and hyperlight annotations — are stored
+     * in the same nodes table. Footnotes and hyperlights are treated as "sub-books"
+     * whose book ID is a slash-delimited string identifying the parent and the item,
+     * e.g. "booka/HL_abc123" or "booka/Fn_abc123".
+     *
+     * Ownership rules differ by type:
+     *   - Hyperlight annotations: owned by whoever created the highlight (may not be
+     *     the book owner — any user can annotate a public book).
+     *   - Footnotes: owned by whoever owns the parent book.
+     */
+    private function checkSubBookPermission(Request $request, string $parentBook, string $itemId): bool
+    {
+        $user = Auth::user();
+        $anonymousToken = $request->cookie('anon_token');
+
+        // Try hyperlight first
+        $hyperlight = PgHyperlight::where('book', $parentBook)
+            ->where('hyperlight_id', $itemId)
+            ->first();
+
+        if ($hyperlight) {
+            if ($user && $hyperlight->creator) {
+                return $hyperlight->creator === $user->name;
+            }
+            if (!$user && $hyperlight->creator_token && $anonymousToken) {
+                return $hyperlight->creator_token === $anonymousToken;
+            }
+            return false;
+        }
+
+        // Fall back to parent book ownership (footnote path)
+        $library = PgLibrary::where('book', $parentBook)->first();
+        if (!$library) {
+            Log::warning('Sub-book permission denied: parent book not found', [
+                'parentBook' => $parentBook, 'itemId' => $itemId
+            ]);
+            return false;
+        }
+
+        if ($user && $library->creator) {
+            return $library->creator === $user->name;
+        }
+        if (!$user && $library->creator_token && $anonymousToken) {
+            return $library->creator_token === $anonymousToken;
+        }
+        return false;
+    }
+
+    /**
+     * This function uploads all nodes to nodes table. This includes nodes for regular
+     * books, footnotes and hyperlight annotations. These are all stored as "books",
+     * but in strings that indicate their parent. For example a highlight in booka
+     * is itself booka/highlight_id.
      * (Authorization only - Authentication is handled by middleware)
      */
     private function checkBookPermission(Request $request, $bookId)
     {
+        // Sub-book IDs (e.g. "book_xxx/Fn_xxx") use item-specific ownership rules
+        if (str_contains($bookId, '/')) {
+            [$parentBook, $itemId] = explode('/', $bookId, 2);
+            return $this->checkSubBookPermission($request, $parentBook, $itemId);
+        }
+
         $user = Auth::user();
-        
+
         if ($user) {
             // Logged in user - check they own the book
             $book = PgLibrary::where('book', $bookId)

@@ -205,6 +205,7 @@ export function closeHyperlitContainer(silent = false) {
       import('./index.js').then(({ cleanupContainerListeners }) => cleanupContainerListeners());
       import('./noteListener.js').then(({ detachNoteListeners }) => detachNoteListeners());
       import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
+      import('./subBookLoader.js').then(({ destroyAllSubBooks }) => destroyAllSubBooks());
 
       // Remove scroll containment handlers (container already validated at function start)
       if (container) {
