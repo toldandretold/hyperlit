@@ -154,6 +154,12 @@ export async function loadSubBook(
   subBookLoaders.set(subBookId, { loader, containerDiv });
   lazyLoaders[subBookId] = loader;
 
+  // 6. Async enrichment — fetch full data into IndexedDB so marks and editors work correctly.
+  //    Skip for brand-new sub-books (backend create hasn't completed yet).
+  if (!isNewSubBook) {
+    enrichSubBookFromDB(subBookId, loader); // intentionally not awaited
+  }
+
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded (${nodes.length} nodes)`);
   return loader;
 }
