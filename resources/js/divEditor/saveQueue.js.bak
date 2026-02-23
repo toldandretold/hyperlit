@@ -80,7 +80,7 @@ export class SaveQueue {
    * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
    * @param {string} [explicitBookId] - Optional: explicit bookId (for sub-books where element is detached from DOM)
    */
-   queueDeletion(nodeId, nodeElement = null, explicitBookId = null) {
+  queueDeletion(nodeId, nodeElement = null, explicitBookId = null) {
     // ✅ FIX: Capture UUID - prefer passed element, fallback to DOM lookup
     const element = nodeElement || document.getElementById(nodeId);
     const nodeUUID = element?.getAttribute('data-node-id');

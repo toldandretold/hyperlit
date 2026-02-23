@@ -171,17 +171,9 @@ export class ChunkMutationHandler {
               const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
               totalNodes += numericalIdNodes.length;
 
-              // ✅ FIX: Get bookId from observedChunks using composite key lookup
-              let chunkBookId = null;
-              if (chunkId) {
-                // Find the matching composite key in observedChunks
-                for (const [key, data] of this.observedChunks) {
-                  if (key.endsWith(`:${chunkId}`)) {
-                    chunkBookId = data.bookId;
-                    break;
-                  }
-                }
-              }
+              // ✅ FIX: Get bookId from observedChunks (captured when chunk was first observed)
+              const chunkData = chunkId ? this.observedChunks.get(chunkId) : null;
+              const chunkBookId = chunkData?.bookId;
 
               if (numericalIdNodes.length > 0) {
                 numericalIdNodes.forEach(node => {
@@ -242,7 +234,7 @@ export class ChunkMutationHandler {
     const mutationsByChunk = new Map();
     const newChunksFound = new Set();
 
-    // Group mutations by chunk and track container context
+    // Group mutations by chunk
     for (const mutation of mutations) {
       const chunk = this.findContainingChunk(mutation.target);
 
@@ -254,21 +246,16 @@ export class ChunkMutationHandler {
           continue;
         }
 
-        // ✅ FIX: Determine container context from mutation target
-        const subBookContainer = mutation.target.closest('.sub-book-content');
-        const containerId = subBookContainer?.dataset?.bookId || 'main';
-        const compositeKey = `${containerId}:${chunkId}`;
-
         // Handle new chunks being added via lazy loading
-        if (!this.observedChunks.has(compositeKey)) {
-          this.handleNewChunk(chunk, subBookContainer);
+        if (!this.observedChunks.has(chunkId)) {
+          this.handleNewChunk(chunk);
           newChunksFound.add(chunkId);
         }
 
-        if (!mutationsByChunk.has(compositeKey)) {
-          mutationsByChunk.set(compositeKey, { mutations: [], container: subBookContainer, chunkId });
+        if (!mutationsByChunk.has(chunkId)) {
+          mutationsByChunk.set(chunkId, []);
         }
-        mutationsByChunk.get(compositeKey).mutations.push(mutation);
+        mutationsByChunk.get(chunkId).push(mutation);
       }
     }
 
@@ -277,29 +264,21 @@ export class ChunkMutationHandler {
     }
 
     // Process mutations for each chunk
-    for (const [compositeKey, { mutations: chunkMutations, container, chunkId }] of mutationsByChunk) {
+    for (const [chunkId, chunkMutations] of mutationsByChunk) {
       // 🚀 PERFORMANCE: Trust cached chunk reference (100x faster than querySelector)
-      const chunkData = this.observedChunks.get(compositeKey);
+      const chunkData = this.observedChunks.get(chunkId);
       let liveChunk = chunkData?.chunk;
       let bookId = chunkData?.bookId;
 
       // Only query DOM if cache miss (chunk was just added)
       if (!liveChunk) {
-        // ✅ FIX: Search within the correct container scope
-        if (container) {
-          // Sub-book context: search within the sub-book container
-          liveChunk = container.querySelector(`[data-chunk-id="${chunkId}"]`);
-          bookId = container.dataset?.bookId;
-        } else {
-          // Main book context: search within main-content only
-          const mainContent = document.querySelector('.main-content');
-          liveChunk = mainContent?.querySelector(`[data-chunk-id="${chunkId}"]`);
-          bookId = mainContent?.id || 'latest';
-        }
-        
+        liveChunk = document.querySelector(`[data-chunk-id="${chunkId}"]`);
         if (liveChunk) {
-          console.log(`[DEBUG processByChunk] Found chunk ${chunkId} in ${container ? 'sub-book' : 'main book'}: bookId=${bookId}`);
-          this.observedChunks.set(compositeKey, { chunk: liveChunk, bookId });
+          // ✅ FIX: Capture bookId when we find the chunk in DOM
+          bookId = liveChunk.closest('[data-book-id]')?.dataset?.bookId ||
+                   document.querySelector('.main-content')?.id ||
+                   'latest';
+          this.observedChunks.set(chunkId, { chunk: liveChunk, bookId });
         }
       }
 
@@ -323,10 +302,8 @@ export class ChunkMutationHandler {
 
   /**
    * Handle a new chunk being discovered
-   * @param {HTMLElement} chunk - The chunk element
-   * @param {HTMLElement} [container] - Optional: the sub-book container if in sub-book context
    */
-  handleNewChunk(chunk, container = null) {
+  handleNewChunk(chunk) {
     const chunkId = chunk.getAttribute('data-chunk-id');
 
     if (!chunkId) {
@@ -334,26 +311,15 @@ export class ChunkMutationHandler {
       return;
     }
 
-    // ✅ FIX: Determine bookId from container context
-    let bookId;
-    let compositeKey;
-    
-    if (container) {
-      // Sub-book context
-      bookId = container.dataset?.bookId;
-      compositeKey = `${bookId}:${chunkId}`;
-    } else {
-      // Main book context
-      bookId = document.querySelector('.main-content')?.id || 'latest';
-      compositeKey = `main:${chunkId}`;
-    }
-
-    console.log(`[DEBUG handleNewChunk] chunkId=${chunkId} in ${container ? 'sub-book' : 'main book'}: bookId=${bookId}, compositeKey=${compositeKey}`);
+    // ✅ FIX: Capture bookId when chunk is first observed (still attached to DOM)
+    const bookId = chunk.closest('[data-book-id]')?.dataset?.bookId ||
+                   document.querySelector('.main-content')?.id ||
+                   'latest';
 
     verbose.content(`New chunk loaded: ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
 
     // Store both chunk and bookId for later use during deletions
-    this.observedChunks.set(compositeKey, { chunk, bookId });
+    this.observedChunks.set(chunkId, { chunk, bookId });
     trackChunkNodeCount(chunk);
 
     // 🚀 PERFORMANCE: Clear chunk cache when structure changes
@@ -371,7 +337,7 @@ export class ChunkMutationHandler {
       chunk._bookId = bookId;
     }
 
-    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
+    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId}`, 'divEditor/chunkMutationHandler.js');
 
     // Skip during renumbering
     if (window.renumberingInProgress) {
