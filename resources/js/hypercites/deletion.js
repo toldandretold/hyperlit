@@ -6,7 +6,7 @@
  */
 
 import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately } from '../indexedDB/index.js';
-import { book } from '../app.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
 import { getHyperciteById } from './database.js';
 
@@ -148,7 +148,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     const affectedBooks = new Set([targetHypercite.book]); // Book A (where cited text lives)
 
     // Also update the book where the deletion occurred (Book B)
-    const currentBook = book; // From app.js import
+    const currentBook = getActiveBook();
     if (currentBook && currentBook !== targetHypercite.book) {
       affectedBooks.add(currentBook);
     }

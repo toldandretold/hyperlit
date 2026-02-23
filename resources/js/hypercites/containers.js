@@ -7,7 +7,7 @@
 
 import { openDatabase } from '../indexedDB/index.js';
 import { fetchLibraryFromServer } from './database.js';
-import { book } from '../app.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../utilities/auth.js";
 import { openHyperlitContainer } from '../hyperlitContainer/index.js';
@@ -112,7 +112,7 @@ export async function createOverlappingPolyContainer(allCitedINLinks, validHyper
 
   // Extract all overlapping hypercite IDs and the source book
   const overlappingHyperciteIds = validHypercites.map(hc => hc.hyperciteId);
-  const sourceBook = validHypercites.length > 0 ? validHypercites[0].book : book;
+  const sourceBook = validHypercites.length > 0 ? validHypercites[0].book : getActiveBook();
 
   // Generate HTML for all links with management buttons
   const linksHTML = (
