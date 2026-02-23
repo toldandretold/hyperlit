@@ -56,7 +56,10 @@ class SubBookController extends Controller
                 [
                     'creator'       => $creator,
                     'creator_token' => $creatorToken,
-                    'visibility'    => 'private',
+                    'visibility'    => $type === 'footnote'
+                        ? ($this->getParentLibraryVisibility($parentBook) ?? 'private')
+                        : 'private',
+                    'listed'        => false,
                     'title'         => $validated['title'] ?? "Annotation: {$itemId}",
                     'type'          => 'sub_book',
                     'has_nodes'     => true,
@@ -70,7 +73,7 @@ class SubBookController extends Controller
                 // Use client-provided UUID if valid, otherwise generate one
                 $uuid = $validated['nodeId'] ?? (string) Str::uuid();
                 $previewText = strip_tags($validated['previewContent'] ?? '');
-                $initialContent = '<p data-node-id="' . e($uuid) . '" no-delete-id="pleasse" style="min-height:1.5em;">'
+                $initialContent = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" style="min-height:1.5em;">'
                                 . e($previewText)
                                 . '</p>';
                 DB::table('nodes')->insert([
@@ -217,6 +220,14 @@ class SubBookController extends Controller
                 'message' => 'Failed to migrate existing annotation',
             ], 500);
         }
+    }
+
+    /**
+     * Look up the visibility of the parent library record.
+     */
+    private function getParentLibraryVisibility(string $parentBook): ?string
+    {
+        return PgLibrary::where('book', $parentBook)->value('visibility');
     }
 
     /**
