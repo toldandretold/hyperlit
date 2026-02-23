@@ -298,7 +298,6 @@ export class ChunkMutationHandler {
         }
         
         if (liveChunk) {
-          console.log(`[DEBUG processByChunk] Found chunk ${chunkId} in ${container ? 'sub-book' : 'main book'}: bookId=${bookId}`);
           this.observedChunks.set(compositeKey, { chunk: liveChunk, bookId });
         }
       }
@@ -347,8 +346,6 @@ export class ChunkMutationHandler {
       bookId = document.querySelector('.main-content')?.id || 'latest';
       compositeKey = `main:${chunkId}`;
     }
-
-    console.log(`[DEBUG handleNewChunk] chunkId=${chunkId} in ${container ? 'sub-book' : 'main book'}: bookId=${bookId}, compositeKey=${compositeKey}`);
 
     verbose.content(`New chunk loaded: ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
 

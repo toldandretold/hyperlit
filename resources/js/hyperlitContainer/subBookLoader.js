@@ -4,10 +4,46 @@
  * within the hyperlit container's scroller div.
  */
 
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from '../lazyLoaderFactory.js';
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoaderFactory.js';
 import { attachMarkListeners } from '../hyperlights/index.js';
 import { getNodeChunksFromIndexedDB, addNodeChunkToIndexedDB } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
+
+/**
+ * Rehydrate existing chunks with fresh hyperlights/hypercites data
+ * Re-renders chunk content in-place without clearing or repositioning
+ */
+async function rehydrateChunksWithHyperlights(loader) {
+  const container = loader.container;
+  const existingChunks = container.querySelectorAll('[data-chunk-id]');
+  
+  console.log(`🔄 Rehydrating ${existingChunks.length} chunks with fresh hyperlights`);
+  
+  for (const chunkEl of existingChunks) {
+    const chunkId = parseInt(chunkEl.getAttribute('data-chunk-id'));
+    
+    // Get fresh nodes for this chunk from loader's updated nodes
+    const chunkNodes = loader.nodes.filter(n => n.chunk_id === chunkId);
+    
+    if (chunkNodes.length === 0) {
+      console.warn(`⚠️ No fresh nodes found for chunk ${chunkId}, skipping rehydration`);
+      continue;
+    }
+    
+    // Create new chunk element with fresh hyperlights/hypercites
+    const newChunkEl = createChunkElement(chunkNodes, loader);
+    
+    if (newChunkEl) {
+      // Replace content in-place (preserving the chunk wrapper)
+      chunkEl.innerHTML = newChunkEl.innerHTML;
+      
+      // Re-attach listeners to the updated content
+      attachMarkListeners(chunkEl);
+      
+      console.log(`✅ Rehydrated chunk ${chunkId} with ${chunkNodes.length} nodes`);
+    }
+  }
+}
 
 /** Map of subBookId -> { loader, containerDiv } for all currently-active sub-books. */
 export const subBookLoaders = new Map();
@@ -23,10 +59,16 @@ async function enrichSubBookFromDB(subBookId, loader) {
     const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
     const result = await syncBookDataFromDatabase(subBookId);
 
-    // Only refresh if the loader is still mounted (user hasn't closed the container)
+    // Only rehydrate if the loader is still mounted (user hasn't closed the container)
     if (result.success && subBookLoaders.has(subBookId)) {
-      await loader.refresh();
-      console.log(`✅ subBookLoader: Enriched and refreshed "${subBookId}"`);
+      // Update loader's nodes with fresh data from IndexedDB
+      const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
+      loader.nodes = freshNodes;
+      
+      // Rehydrate existing chunks with fresh hyperlights/hypercites
+      await rehydrateChunksWithHyperlights(loader);
+      
+      console.log(`✅ subBookLoader: Enriched and rehydrated "${subBookId}"`);
     }
   } catch (err) {
     console.warn(`⚠️ subBookLoader: Async enrichment failed for "${subBookId}":`, err);
@@ -144,10 +186,14 @@ export async function loadSubBook(
     return null;
   }
 
-  // 4. Load the first chunk
-  const firstChunk = nodes.find(c => c.chunk_id === 0) ?? nodes[0];
-  if (firstChunk) {
-    await loader.loadChunk(firstChunk.chunk_id, 'down');
+  // 4. Load ONLY chunks containing the first 5 preview nodes
+  // This ensures preview content is visible immediately without loading everything
+  const firstFiveNodes = nodes.slice(0, 5);
+  const uniqueChunkIds = [...new Set(firstFiveNodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+  console.log(`📥 subBookLoader: Loading ${uniqueChunkIds.length} preview chunk(s) for "${subBookId}" (${firstFiveNodes.length} preview nodes)`);
+  
+  for (const chunkId of uniqueChunkIds) {
+    await loader.loadChunk(chunkId, 'down');
   }
 
   // 5. Register for cleanup
