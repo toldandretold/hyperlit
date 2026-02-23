@@ -626,30 +626,40 @@ export function createLazyLoader(config) {
 
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
+    console.log('🔍 OBSERVER TRIGGERED with', entries.length, 'entries for book:', instance.bookId);
     verbose.content(`Observer triggered (${entries.length} entries)`, 'lazyLoaderFactory.js');
 
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      console.log('🔒 Observer BLOCKED - scrollLocked:', instance.scrollLocked, 'isNavigating:', instance.isNavigatingToInternalId);
       verbose.debug(`Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`, 'lazyLoaderFactory.js');
       return;
     }
 
     // ✅ Don't load chunks if deletions are in progress
     if (isChunkLoadingInProgress()) {
+      console.log('🚫 Observer BLOCKED - chunk deletion in progress');
       verbose.debug('Skipping lazy load - chunk deletion in progress', 'lazyLoaderFactory.js');
       return;
     }
 
     entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
+      console.log('📍 Entry:', entry.target.id, 'isIntersecting:', entry.isIntersecting, 'ratio:', entry.intersectionRatio);
+      
+      if (!entry.isIntersecting) {
+        console.log('  ↳ Not intersecting, skipping');
+        return;
+      }
 
-      if (entry.target.id === topSentinel.id) {
+      if (entry.target.id === instance.topSentinel?.id) {
+        console.log('⬆️ TOP sentinel intersecting!');
         verbose.debug('TOP sentinel intersecting - attempting to load previous chunk', 'lazyLoaderFactory.js');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
           verbose.debug(`First chunk in DOM: ${firstChunkId}, checking if can load previous...`, 'lazyLoaderFactory.js');
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
+            console.log('⬆️ Loading previous chunk:', firstChunkId - 1);
             verbose.debug(`Loading previous chunk: ${firstChunkId - 1}`, 'lazyLoaderFactory.js');
             loadPreviousChunkFixed(firstChunkId, instance);
           } else {
@@ -659,11 +669,13 @@ export function createLazyLoader(config) {
           verbose.debug('Top sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
-      if (entry.target.id === bottomSentinel.id) {
+      if (entry.target.id === instance.bottomSentinel?.id) {
+        console.log('⬇️ BOTTOM sentinel intersecting!');
         verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
+          console.log('⬇️ Last chunk is', lastChunkId, '- attempting to load next');
           verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
           loadNextChunkFixed(lastChunkId, instance);
         } else {
@@ -675,6 +687,11 @@ export function createLazyLoader(config) {
 
   observer.observe(topSentinel);
   observer.observe(bottomSentinel);
+  console.log('👁️ Observer attached to sentinels for book:', instance.bookId);
+  console.log('   Root element:', observerOptions.root?.id || observerOptions.root?.className || observerOptions.root || 'viewport (null)');
+  console.log('   Top sentinel:', topSentinel.id);
+  console.log('   Bottom sentinel:', bottomSentinel.id);
+  console.log('   Container:', container.className, container.getAttribute('data-book-id') || container.id);
   verbose.init("Observer attached to sentinels", 'lazyLoaderFactory.js');
 
   attachMarkers(container);
@@ -1765,10 +1782,13 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
  * Repositions the sentinels around loaded chunks.
  */
 function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
+  console.log('🔄 REPOSITIONING sentinels for book:', instance.bookId);
   verbose.content("Repositioning sentinels", 'lazyLoaderFactory.js');
   const container = instance.container;
   const allChunks = Array.from(container.querySelectorAll("[data-chunk-id]"));
+  console.log('   Found chunks:', allChunks.length);
   if (allChunks.length === 0) {
+    console.log('   No chunks, aborting reposition');
     return;
   }
   allChunks.sort(
@@ -1776,9 +1796,19 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
     parseFloat(a.getAttribute("data-chunk-id")) -
     parseFloat(b.getAttribute("data-chunk-id"))
 );
-  if (instance.observer) instance.observer.disconnect();
-  if (instance.topSentinel) instance.topSentinel.remove();
-  if (instance.bottomSentinel) instance.bottomSentinel.remove();
+  console.log('   Sorted chunk IDs:', allChunks.map(c => c.getAttribute('data-chunk-id')));
+  if (instance.observer) {
+    console.log('   Disconnecting existing observer');
+    instance.observer.disconnect();
+  }
+  if (instance.topSentinel) {
+    console.log('   Removing old top sentinel:', instance.topSentinel.id);
+    instance.topSentinel.remove();
+  }
+  if (instance.bottomSentinel) {
+    console.log('   Removing old bottom sentinel:', instance.bottomSentinel.id);
+    instance.bottomSentinel.remove();
+  }
   const uniqueId = container.id || Math.random().toString(36).substr(2, 5);
   const topSentinel = document.createElement("div");
   topSentinel.id = `${uniqueId}-top-sentinel`;
@@ -1794,7 +1824,9 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
   allChunks[allChunks.length - 1].after(bottomSentinel);
   instance.topSentinel = topSentinel;
   instance.bottomSentinel = bottomSentinel;
+  console.log('   New sentinels - top:', topSentinel.id, 'bottom:', bottomSentinel.id);
   if (instance.observer) {
+    console.log('   Re-attaching observer to new sentinels');
     instance.observer.observe(topSentinel);
     instance.observer.observe(bottomSentinel);
     verbose.content("Sentinels repositioned and observer reattached", 'lazyLoaderFactory.js');
