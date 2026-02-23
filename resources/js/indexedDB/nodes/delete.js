@@ -32,9 +32,11 @@ export async function deleteIndexedDBRecord(id) {
       return false;
     }
 
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
+    // ✅ FIX: Get book ID from DOM — check sub-book container first
     const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    const element = document.getElementById(id);
+    const subBookFromDom = element?.closest('[data-book-id]');
+    const bookId = subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest";
     const numericId = parseNodeId(id);
 
     const db = await openDatabase();

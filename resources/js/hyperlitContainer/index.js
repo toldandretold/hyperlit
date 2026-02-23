@@ -869,6 +869,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
                 previousIsEditing = window.isEditing;
                 if (!window.isEditing) window.isEditing = true;
                 startObserving(subBookEl, subBookId);
+                const { addPasteListener } = await import('../paste/index.js');
+                addPasteListener(subBookEl);
                 subBookEditorAttached = true;
                 console.log(`✏️ Sub-book editor activated for highlight: ${subBookId}`);
                 const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
@@ -958,6 +960,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
               startObserving(subBookEl, subBookId);
+              const { addPasteListener } = await import('../paste/index.js');
+              addPasteListener(subBookEl);
               console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);
               const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
               getToolbar()?.setBookId(subBookId);

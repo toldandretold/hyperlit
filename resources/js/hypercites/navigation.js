@@ -5,7 +5,7 @@
  * Manages navigation between books, highlights, and internal IDs.
  */
 
-import { book } from '../app.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
@@ -30,7 +30,7 @@ export async function CoupleClick(uElement) {
   console.log("Parent element found:", parent);
 
   const startLine = parent.id;
-  const bookId = book || "latest";
+  const bookId = getActiveBook() || "latest";
 
   try {
     const nodeChunk = await getHyperciteData(bookId, startLine);

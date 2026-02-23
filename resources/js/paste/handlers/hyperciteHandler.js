@@ -5,7 +5,7 @@
  * Updates citedIN arrays and relationship statuses in both source and target documents.
  */
 
-import { book } from '../../app.js';
+import { getActiveBook } from '../../utilities/activeContext.js';
 import {
   updateCitationForExistingHypercite,
   getNodeChunksFromIndexedDB,
@@ -152,7 +152,7 @@ export async function handleHypercitePaste(event) {
   console.log(`Detected ${citeLinks.length} hypercite(s) in pasted content`);
 
   // Get current book (where paste is happening)
-  const bookb = book;
+  const bookb = getActiveBook();
 
   // Process all hypercite links and build combined HTML
   let combinedHtml = '';
