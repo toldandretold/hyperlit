@@ -66,6 +66,7 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
+import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
 import { openHyperlitContainer, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
@@ -138,6 +139,11 @@ export async function cleanupContainerListeners() {
   // Restore window.isEditing to its pre-container value
   window.isEditing = previousIsEditing;
   previousIsEditing = false;
+
+  // Clear sub-book context and restore the toolbar to the main book
+  clearActiveBook();
+  const { getEditToolbar } = await import('../editToolbar/index.js');
+  getEditToolbar()?.setBookId(book);
 }
 
 // ============================================================================
@@ -865,6 +871,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
                 startObserving(subBookEl, subBookId);
                 subBookEditorAttached = true;
                 console.log(`✏️ Sub-book editor activated for highlight: ${subBookId}`);
+                const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+                getToolbar()?.setBookId(subBookId);
 
                 const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
                 if (firstNode) {
@@ -951,6 +959,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               if (!window.isEditing) window.isEditing = true;
               startObserving(subBookEl, subBookId);
               console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);
+              const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+              getToolbar()?.setBookId(subBookId);
 
               const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
               if (firstNode) {

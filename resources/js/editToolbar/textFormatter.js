@@ -47,10 +47,8 @@ export class TextFormatter {
     this.isFormatting = true;
 
     try {
-      const editableContent = document.querySelector(this.editableSelector);
-      if (!editableContent) return;
-
-      // Use SelectionManager to get working selection
+      // Get the working selection first so we can derive the editable container from it.
+      // This handles sub-book editing where the active element is not .main-content.
       const { selection: workingSelection, range: workingRange } = this.selectionManager.getWorkingSelection();
 
       if (!workingSelection || !workingRange) {
@@ -59,6 +57,15 @@ export class TextFormatter {
       }
 
       this.selectionManager.currentSelection = workingSelection;
+
+      // Find the nearest contenteditable ancestor of the selection, falling back to the
+      // main-content selector for backwards compatibility.
+      const anchor = workingRange.commonAncestorContainer;
+      const anchorEl = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+      const editableContent = anchorEl.closest('[contenteditable="true"]')
+        || document.querySelector(this.editableSelector);
+      if (!editableContent) return;
+
       editableContent.focus();
 
       const affectedElementsBefore = getElementsInSelectionRange(workingRange);

@@ -12,6 +12,7 @@ import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
 import { withPending } from '../utilities/operationState.js';
+import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;
@@ -186,6 +187,21 @@ export function handleSelection() {
     });
   }
 
+  // Detect whether the selection lives inside a sub-book and update active context
+  if (selection.rangeCount > 0) {
+    const anchor = selection.getRangeAt(0).commonAncestorContainer;
+    const subBookEl = (anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement
+      : anchor
+    ).closest('[data-book-id]');
+
+    if (subBookEl) {
+      setActiveBook(subBookEl.getAttribute('data-book-id'));
+    } else {
+      clearActiveBook();
+    }
+  }
+
   if (selectedText.length > 0) {
     // Only log first 100 chars to avoid massive logs for large selections
     const preview = selectedText.length > 100
@@ -268,12 +284,12 @@ export function initializeHighlightingControls(currentBookId) {
   }
 
   // --- Attach Listeners for the Action Buttons ---
-  // We pass the currentBookId into the handlers to avoid stale state.
+  // Call getActiveBook() at click time so sub-book context is always current.
   addTouchAndClickListener(copyButton, (event) =>
-    createHighlightHandler(event, currentBookId)
+    createHighlightHandler(event, getActiveBook())
   );
   addTouchAndClickListener(deleteButton, (event) =>
-    deleteHighlightHandler(event, currentBookId)
+    deleteHighlightHandler(event, getActiveBook())
   );
 
   // Prevent iOS from cancelling selection

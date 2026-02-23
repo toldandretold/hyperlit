@@ -360,9 +360,15 @@ async function syncItemsForBook(bookId, bookItems) {
         const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
         const freshNodes = await getNodesByUUIDs([...allNodeIdsToSync]);
 
-        // Replace sync payload nodes with fresh data
-        syncPayload.updates.nodes = freshNodes;
-        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync`);
+        // Only substitute fresh data when it belongs to the correct book.
+        // getNodesByUUIDs may return a different book's record (alphabetically first)
+        // when the same node_id exists across books (sub-book nodes share a node_id
+        // prefix with the parent book because setElementIds uses the global `book`).
+        const correctFreshNodes = freshNodes.filter(n => n.book === bookId);
+        syncPayload.updates.nodes = correctFreshNodes.length > 0
+          ? correctFreshNodes
+          : syncPayload.updates.nodes;
+        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync (${correctFreshNodes.length} matched book ${bookId})`);
       }
 
       // Add deletions (verify node still doesn't exist in IndexedDB)

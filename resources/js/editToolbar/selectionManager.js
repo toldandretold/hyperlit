@@ -59,8 +59,10 @@ export class SelectionManager {
           return; // Don't update anything if selection changed due to toolbar button click
         }
 
-        // Store selection if it's within editable content
-        if (editableContent.contains(container)) {
+        // Store selection if it's within the main editable content OR a sub-book element
+        const containerEl = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+        const inSubBook = !!containerEl?.closest('[data-book-id][contenteditable="true"]');
+        if (editableContent.contains(container) || inSubBook) {
           // STORE THE VALID SELECTION
           this.currentSelection = selection;
           this.lastValidRange = range.cloneRange();
@@ -111,9 +113,12 @@ export class SelectionManager {
     const editableContent = document.querySelector(this.editableSelector);
     if (!editableContent) return false;
 
+    const rangeContainer = this.lastValidRange?.commonAncestorContainer;
+    const rangeContainerEl = rangeContainer?.nodeType === Node.TEXT_NODE ? rangeContainer.parentElement : rangeContainer;
+    const rangeInSubBook = !!rangeContainerEl?.closest('[data-book-id][contenteditable="true"]');
     if (
       this.lastValidRange &&
-      editableContent.contains(this.lastValidRange.commonAncestorContainer)
+      (editableContent?.contains(rangeContainer) || rangeInSubBook)
     ) {
       try {
         const selection = window.getSelection();
