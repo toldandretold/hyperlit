@@ -12,6 +12,28 @@ import { lazyLoaders } from '../initializePage.js';
 /** Map of subBookId -> { loader, containerDiv } for all currently-active sub-books. */
 export const subBookLoaders = new Map();
 
+/** Sub-books fully synced from the DB this session — skip re-fetch on repeated opens. */
+const enrichedSubBooks = new Set();
+
+async function enrichSubBookFromDB(subBookId, loader) {
+  if (enrichedSubBooks.has(subBookId)) return;
+  enrichedSubBooks.add(subBookId);
+
+  try {
+    const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
+    const result = await syncBookDataFromDatabase(subBookId);
+
+    // Only refresh if the loader is still mounted (user hasn't closed the container)
+    if (result.success && subBookLoaders.has(subBookId)) {
+      await loader.refresh();
+      console.log(`✅ subBookLoader: Enriched and refreshed "${subBookId}"`);
+    }
+  } catch (err) {
+    console.warn(`⚠️ subBookLoader: Async enrichment failed for "${subBookId}":`, err);
+    enrichedSubBooks.delete(subBookId); // allow retry on next open
+  }
+}
+
 /**
  * Fire-and-forget backend create/upsert call — does not block rendering.
  * Pass nodeId so the backend uses the same UUID we already wrote to IndexedDB.
@@ -74,7 +96,7 @@ export async function loadSubBook(
       isNewSubBook = true;
       const localNodeId = crypto.randomUUID();
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
-      const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="pleasse" style="min-height:1.5em;">${strippedText}</p>`;
+      const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       await addNodeChunkToIndexedDB(subBookId, 1, initialHtml, 0, localNodeId);
       console.log(`📝 subBookLoader: Wrote initial node (${localNodeId}) to IndexedDB for "${subBookId}"`);
       nodes = await getNodeChunksFromIndexedDB(subBookId);
