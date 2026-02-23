@@ -166,12 +166,12 @@ export function queueNodeForSave(nodeId, action = 'update') {
   saveQueue.queueNode(nodeId, action);
 }
 
-export function queueNodeForDeletion(nodeId, nodeElement = null) {
+export function queueNodeForDeletion(nodeId, nodeElement = null, bookId = null) {
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', nodeId);
     return;
   }
-  saveQueue.queueDeletion(nodeId, nodeElement);
+  saveQueue.queueDeletion(nodeId, nodeElement, bookId);
 }
 
 

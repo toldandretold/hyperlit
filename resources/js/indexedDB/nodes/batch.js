@@ -834,13 +834,18 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
  * Batch delete multiple IndexedDB records
  *
  * @param {Array} nodeIds - Array of node IDs to delete
+ * @param {Map} deletionMap - Map of nodeId -> UUID for deleted nodes
+ * @param {string} bookId - Book ID to delete from (required for sub-book support)
  * @returns {Promise<void>}
  */
-export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map()) {
+export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map(), bookId = null) {
   return withPending(async () => {
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
-    const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    // ✅ FIX: Accept bookId as parameter for sub-book support
+    // Fallback to DOM lookup only if not provided (backwards compatibility)
+    if (!bookId) {
+      const mainContent = document.querySelector('.main-content');
+      bookId = mainContent?.id || book || "latest";
+    }
 
     // ✅ OPTIMIZATION: Remove duplicates using Set
     const uniqueNodeIds = [...new Set(nodeIds)];

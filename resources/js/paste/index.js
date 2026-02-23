@@ -22,9 +22,9 @@
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { marked } from 'marked';
-import { book } from '../app.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 import { getCurrentChunk } from '../chunkManager.js';
-import { initializeMainLazyLoader } from '../initializePage.js';
+import { initializeMainLazyLoader, lazyLoaders } from '../initializePage.js';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/editIndicator.js';
 import {
   setPasteInProgress,
@@ -206,6 +206,27 @@ async function handlePaste(event) {
     pasteHandled = true;
     setTimeout(() => (pasteHandled = false), 0);
 
+    // 🔍 Detect sub-book context EARLY (before any processing that needs book ID)
+    // Check if cursor is in a sub-book (hyperlit-container) by looking at current selection
+    const selection = window.getSelection();
+    let targetBookId = getActiveBook();
+    let isSubBook = false;
+    let subBookEl = null;
+    
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let node = range.startContainer;
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        node = node.parentElement;
+      }
+      subBookEl = node?.closest('[data-book-id][contenteditable="true"]');
+      if (subBookEl) {
+        targetBookId = subBookEl.dataset.bookId;
+        isSubBook = true;
+        console.log(`🎯 [${pasteOpId}] Detected sub-book context: ${targetBookId}`);
+      }
+    }
+
     // 2) Grab and process clipboard data
     let plainText = event.clipboardData.getData("text/plain");
     let rawHtml = event.clipboardData.getData("text/html") || "";
@@ -343,7 +364,7 @@ async function handlePaste(event) {
         const generalConfig = getFormatConfig('general');
         const ProcessorClass = generalConfig.processor;
         const processor = new ProcessorClass();
-        const result = await processor.process(rawHtml, book);
+        const result = await processor.process(rawHtml, targetBookId);
         htmlContent = result.html;
         formatType = 'general';
         extractedFootnotes = result.footnotes;
@@ -357,7 +378,7 @@ async function handlePaste(event) {
         if (estimatedNodes <= SMALL_NODE_LIMIT) {
           // 🚀 Small paste: Use lite processing (normalize + cleanup only)
           console.log(`⚡ Running ${formatType} processor [LITE mode]...`);
-          const result = await processor.processLite(rawHtml, book);
+          const result = await processor.processLite(rawHtml, targetBookId);
           htmlContent = result.html;
           formatType = result.formatType;
           extractedFootnotes = [];
@@ -366,7 +387,7 @@ async function handlePaste(event) {
         } else {
           // 🐌 Large paste: Use full processing
           console.log(`⚙️ Running ${formatType} processor [FULL mode]...`);
-          const result = await processor.process(rawHtml, book);
+          const result = await processor.process(rawHtml, targetBookId);
           htmlContent = result.html;
           formatType = result.formatType;
           extractedFootnotes = result.footnotes;
@@ -416,16 +437,17 @@ async function handlePaste(event) {
     const chunkElement = chunk
       ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
       : null;
+    
     if (handleCodeBlockPaste(event, chunkElement)) return;
 
     // 5) Route to the correct handler (small vs. large paste).
-    if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, book)) {
+    if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, targetBookId)) {
       // Small paste completed - hide overlay if it was shown (markdown conversion)
       await ProgressOverlayConductor.hide();
       return;
     }
 
-    const insertionPoint = getInsertionPoint(chunkElement, book);
+    const insertionPoint = getInsertionPoint(chunkElement, targetBookId);
     if (!insertionPoint) {
       // Prevent browser default paste that would dump raw HTML into DOM
       event.preventDefault();
@@ -490,7 +512,21 @@ async function handlePaste(event) {
     const newAndUpdatedNodes = pasteResult.chunks;
     const pasteBook = pasteResult.book;
 
-    const loader = initializeMainLazyLoader();
+    // Get the correct lazy loader based on context
+    let loader;
+    if (isSubBook) {
+      // For sub-books, use the lazy loader from the registry
+      loader = lazyLoaders[targetBookId];
+      if (!loader) {
+        console.error(`❌ [${pasteOpId}] Lazy loader not found for sub-book: ${targetBookId}`);
+        await ProgressOverlayConductor.hide();
+        return;
+      }
+      console.log(`✅ [${pasteOpId}] Using sub-book lazy loader: ${targetBookId}`);
+    } else {
+      // For main content, use the main lazy loader
+      loader = initializeMainLazyLoader();
+    }
 
     console.log(`🔄 [${pasteOpId}] Refreshing DOM via lazy loader...`);
 
