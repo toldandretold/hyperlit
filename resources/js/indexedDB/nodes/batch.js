@@ -540,7 +540,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
     // ✅ FIX: Get book ID from DOM instead of stale global variable
     // During new book creation, global variable may not be updated yet
     const mainContent = document.querySelector('.main-content');
-    const bookId = options?.bookId || mainContent?.id || book || "latest";
+    const firstRecordEl = document.getElementById(recordsToProcess[0]?.id);
+    const subBookFromDom = firstRecordEl?.closest('[data-book-id]');
+    const bookId = options?.bookId
+      || subBookFromDom?.dataset?.bookId
+      || mainContent?.id
+      || book
+      || "latest";
     console.log(
       `🔄 Batch updating ${recordsToProcess.length} IndexedDB records`,
     );

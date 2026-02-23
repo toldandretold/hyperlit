@@ -119,6 +119,9 @@ export class HeadingSubmenu {
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
 
+      // Desktop: prevent focus moving to button on mousedown (preserves selection)
+      newBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
+
       // Add click listener
       newBtn.addEventListener("click", this.handleHeadingSelection);
 
@@ -155,6 +158,9 @@ export class HeadingSubmenu {
     if (removeBtn) {
       const newRemoveBtn = removeBtn.cloneNode(true);
       removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
+
+      // Desktop: prevent focus moving to button on mousedown (preserves selection)
+      newRemoveBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
 
       newRemoveBtn.addEventListener("click", this.handleRemoveHeading);
 

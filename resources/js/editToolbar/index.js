@@ -360,6 +360,11 @@ class EditToolbar {
           }
         );
 
+        // Desktop: prevent focus moving to button on mousedown (preserves selection)
+        element.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+        });
+
         // Keep desktop click handler
         element.addEventListener("click", (e) => {
           e.preventDefault();
@@ -545,10 +550,17 @@ class EditToolbar {
   async saveToIndexedDB(id, html, options = {}) {
     // `id` here is the string ID from the DOM
     console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
-    if (!this.currentBookId) {
-      console.warn(
-        "EditToolbar: Cannot save to IndexedDB: currentBookId is not set."
-      );
+
+    // Derive the correct book from where the element actually lives in the DOM.
+    // When editing a sub-book the element is inside [data-book-id][contenteditable],
+    // so we use that book ID rather than this.currentBookId (which may still point
+    // to the main book if setBookId(subBookId) hasn't been called yet).
+    const element = document.getElementById(id);
+    const subBookEl = element?.closest('[data-book-id][contenteditable="true"]');
+    const bookId = subBookEl?.dataset?.bookId || this.currentBookId;
+
+    if (!bookId) {
+      console.warn("EditToolbar: Cannot save to IndexedDB: book ID not found.");
       return;
     }
 
@@ -558,7 +570,7 @@ class EditToolbar {
       id: id,
       html: html,
       action: "update", // This action type is used internally by updateSingleIndexedDBRecord
-      book: this.currentBookId,
+      book: bookId,
     }, options);
 
     console.log(
