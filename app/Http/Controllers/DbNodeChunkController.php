@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PgNodeChunk;
-use App\Models\PgLibrary;
+use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
+use App\Models\PgLibrary;
+use App\Models\PgNodeChunk;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class DbNodeChunkController extends Controller
 {
+    use SubBookPreviewTrait;
+
     /**
      * Permission check for sub-book (slash-ID) node updates.
      *
@@ -38,27 +41,30 @@ class DbNodeChunkController extends Controller
             if ($user && $hyperlight->creator) {
                 return $hyperlight->creator === $user->name;
             }
-            if (!$user && $hyperlight->creator_token && $anonymousToken) {
+            if (! $user && $hyperlight->creator_token && $anonymousToken) {
                 return $hyperlight->creator_token === $anonymousToken;
             }
+
             return false;
         }
 
         // Fall back to parent book ownership (footnote path)
         $library = PgLibrary::where('book', $parentBook)->first();
-        if (!$library) {
+        if (! $library) {
             Log::warning('Sub-book permission denied: parent book not found', [
-                'parentBook' => $parentBook, 'itemId' => $itemId
+                'parentBook' => $parentBook, 'itemId' => $itemId,
             ]);
+
             return false;
         }
 
         if ($user && $library->creator) {
             return $library->creator === $user->name;
         }
-        if (!$user && $library->creator_token && $anonymousToken) {
+        if (! $user && $library->creator_token && $anonymousToken) {
             return $library->creator_token === $anonymousToken;
         }
+
         return false;
     }
 
@@ -74,6 +80,7 @@ class DbNodeChunkController extends Controller
         // Sub-book IDs (e.g. "book_xxx/Fn_xxx") use item-specific ownership rules
         if (str_contains($bookId, '/')) {
             [$parentBook, $itemId] = explode('/', $bookId, 2);
+
             return $this->checkSubBookPermission($request, $parentBook, $itemId);
         }
 
@@ -84,44 +91,48 @@ class DbNodeChunkController extends Controller
             $book = PgLibrary::where('book', $bookId)
                 ->where('creator', $user->name)
                 ->first();
-                
-            if (!$book) {
+
+            if (! $book) {
                 Log::warning('Book access denied for logged-in user', [
                     'book' => $bookId,
                     'user' => $user->name,
-                    'reason' => 'book_not_owned'
+                    'reason' => 'book_not_owned',
                 ]);
+
                 return false;
             }
-            
+
             Log::debug('Book access granted for logged-in user', [
                 'book' => $bookId,
-                'user' => $user->name
+                'user' => $user->name,
             ]);
+
             return true;
-            
+
         } else {
             // Anonymous user - middleware already validated the token
             // Just check if book belongs to this anonymous token
             $anonymousToken = $request->cookie('anon_token');
-            
+
             // Token existence already validated by middleware, so we can trust it
             $book = PgLibrary::where('book', $bookId)
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Make sure it's not owned by a logged-in user
                 ->first();
-                
-            if (!$book) {
+
+            if (! $book) {
                 Log::warning('Book access denied for anonymous user', [
                     'book' => $bookId,
-                    'reason' => 'book_not_owned_by_token'
+                    'reason' => 'book_not_owned_by_token',
                 ]);
+
                 return false;
             }
-            
+
             Log::debug('Book access granted for anonymous user', [
-                'book' => $bookId
+                'book' => $bookId,
             ]);
+
             return true;
         }
     }
@@ -133,28 +144,28 @@ class DbNodeChunkController extends Controller
     {
         $publicFields = ['hyperlights', 'hypercites', 'book', 'startLine'];
         $itemKeys = array_keys($item);
-        
+
         // Remove special action fields
-        $itemKeys = array_filter($itemKeys, function($key) {
-            return !str_starts_with($key, '_');
+        $itemKeys = array_filter($itemKeys, function ($key) {
+            return ! str_starts_with($key, '_');
         });
-        
+
         $nonPublicFieldsWithValues = [];
-        
+
         // Check if all fields are either public fields or null/empty
         foreach ($itemKeys as $key) {
-            if (!in_array($key, $publicFields) && !empty($item[$key])) {
+            if (! in_array($key, $publicFields) && ! empty($item[$key])) {
                 $nonPublicFieldsWithValues[$key] = $item[$key];
             }
         }
-        
+
         $isPublicOnly = empty($nonPublicFieldsWithValues);
-        
+
         Log::debug('Public fields check', [
             'is_public_only' => $isPublicOnly,
-            'non_public_fields' => array_keys($nonPublicFieldsWithValues)
+            'non_public_fields' => array_keys($nonPublicFieldsWithValues),
         ]);
-        
+
         return $isPublicOnly;
     }
 
@@ -162,31 +173,31 @@ class DbNodeChunkController extends Controller
     {
         try {
             $data = $request->all();
-            
+
             Log::info('Bulk create started', [
                 'data_count' => isset($data['data']) ? count($data['data']) : 0,
-                'request_size' => strlen(json_encode($data))
+                'request_size' => strlen(json_encode($data)),
             ]);
-            
+
             $bookId = $data['book'] ?? null;
-            if (!$bookId) {
+            if (! $bookId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book ID is required'
+                    'message' => 'Book ID is required',
                 ], 400);
             }
-            
+
             // Check book ownership permissions
-            if (!$this->checkBookPermission($request, $bookId)) {
+            if (! $this->checkBookPermission($request, $bookId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Access denied'
+                    'message' => 'Access denied',
                 ], 403);
             }
-            
+
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
-                
+
                 foreach ($data['data'] as $item) {
                     $records[] = [
                         'book' => $item['book'] ?? null,
@@ -204,32 +215,44 @@ class DbNodeChunkController extends Controller
                         'updated_at' => now(),
                     ];
                 }
-                
+
                 PgNodeChunk::insert($records);
-                
+
                 Log::info('Bulk create completed', [
                     'book' => $bookId,
-                    'records_inserted' => count($records)
+                    'records_inserted' => count($records),
                 ]);
-                
+
+                // Update preview_nodes for sub-books (best-effort, don't fail the request)
+                if (str_contains($bookId, '/')) {
+                    try {
+                        $this->updateSubBookPreviewNodes($bookId);
+                    } catch (\Exception $e) {
+                        Log::warning('preview_nodes update failed (non-fatal)', [
+                            'book' => $bookId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
                 return response()->json(['success' => true]);
             }
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid data format'
+                'message' => 'Invalid data format',
             ], 400);
-            
+
         } catch (\Exception $e) {
             Log::error('Bulk create failed', [
                 'error' => $e->getMessage(),
-                'book' => $data['book'] ?? 'unknown'
+                'book' => $data['book'] ?? 'unknown',
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -238,29 +261,29 @@ class DbNodeChunkController extends Controller
     {
         try {
             $data = $request->all();
-            
+
             Log::info('Upsert started', [
                 'book' => $data['book'] ?? 'not_specified',
                 'data_count' => isset($data['data']) ? count($data['data']) : 0,
-                'request_size' => strlen(json_encode($data))
+                'request_size' => strlen(json_encode($data)),
             ]);
-            
+
             $book = $data['book'] ?? null;
-            if (!$book) {
+            if (! $book) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book name is required'
+                    'message' => 'Book name is required',
                 ], 400);
             }
-            
+
             // Check book ownership permissions
-            if (!$this->checkBookPermission($request, $book)) {
+            if (! $this->checkBookPermission($request, $book)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Access denied'
+                    'message' => 'Access denied',
                 ], 403);
             }
-            
+
             if (isset($data['data']) && is_array($data['data'])) {
                 // SYNC AUDIT: This is the NUCLEAR upsert - deletes ALL nodes then re-inserts
                 $deletedCount = PgNodeChunk::where('book', $book)->count();
@@ -271,7 +294,7 @@ class DbNodeChunkController extends Controller
                     'caller' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3),
                 ]);
                 PgNodeChunk::where('book', $book)->delete();
-                
+
                 $records = [];
                 foreach ($data['data'] as $item) {
                     $records[] = [
@@ -290,273 +313,287 @@ class DbNodeChunkController extends Controller
                         'updated_at' => now(),
                     ];
                 }
-                
+
                 // Bulk insert all records at once
                 PgNodeChunk::insert($records);
-                
+
                 Log::info('Upsert completed', [
                     'book' => $book,
                     'records_inserted' => count($records),
-                    'records_deleted' => $deletedCount
+                    'records_deleted' => $deletedCount,
                 ]);
-                
+
+                // Update preview_nodes for sub-books (best-effort, don't fail the request)
+                if (str_contains($book, '/')) {
+                    try {
+                        $this->updateSubBookPreviewNodes($book);
+                    } catch (\Exception $e) {
+                        Log::warning('preview_nodes update failed (non-fatal)', [
+                            'book' => $book,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
                 return response()->json([
-                    'success' => true, 
-                    'message' => "Node chunks synced successfully for book: {$book}"
+                    'success' => true,
+                    'message' => "Node chunks synced successfully for book: {$book}",
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid data format'
+                'message' => 'Invalid data format',
             ], 400);
-            
+
         } catch (\Exception $e) {
             Log::error('Upsert failed', [
                 'error' => $e->getMessage(),
-                'book' => $data['book'] ?? 'unknown'
+                'book' => $data['book'] ?? 'unknown',
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
+    // In app/Http/Controllers/DbNodeChunkController.php
 
     // In app/Http/Controllers/DbNodeChunkController.php
 
-// In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeChunkController.php
 
-// In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeChunkController.php
 
-// In app/Http/Controllers/DbNodeChunkController.php
+    public function targetedUpsert(Request $request)
+    {
+        try {
+            $data = $request->all();
 
-public function targetedUpsert(Request $request)
-{
-    try {
-        $data = $request->all();
-
-        if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
-            return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
-        }
-
-        // Group items by book to handle multi-book updates (e.g., hypercite delinks)
-        $itemsByBook = [];
-        foreach ($data['data'] as $item) {
-            $book = $item['book'] ?? null;
-            if (!$book) {
-                Log::warning('Skipping item without book ID', ['item' => $item]);
-                continue;
+            if (! isset($data['data']) || ! is_array($data['data']) || empty($data['data'])) {
+                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
             }
 
-            if (!isset($itemsByBook[$book])) {
-                $itemsByBook[$book] = [];
-            }
-            $itemsByBook[$book][] = $item;
-        }
+            // Group items by book to handle multi-book updates (e.g., hypercite delinks)
+            $itemsByBook = [];
+            foreach ($data['data'] as $item) {
+                $book = $item['book'] ?? null;
+                if (! $book) {
+                    Log::warning('Skipping item without book ID', ['item' => $item]);
 
-        Log::info('Targeted upsert processing', [
-            'books' => array_keys($itemsByBook),
-            'total_items' => count($data['data'])
-        ]);
-
-        // Process each book's items
-        foreach ($itemsByBook as $bookId => $items) {
-            $hasPermission = $this->checkBookPermission($request, $bookId);
-
-            Log::info('Targeted upsert permissions check', [
-                'book' => $bookId,
-                'user_has_ownership_permission' => $hasPermission,
-                'items_count' => count($items)
-            ]);
-
-            foreach ($items as $item) {
-
-            if (isset($item['_action']) && $item['_action'] === 'delete') {
-                if ($hasPermission) {
-                    PgNodeChunk::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
+                    continue;
                 }
-                continue;
-            }
 
-            // Try to find by node_id first (for renumbering support)
-            // If node_id exists, it's the authoritative identifier
-            $existingChunk = null;
-            if (!empty($item['node_id'])) {
-                $existingChunk = PgNodeChunk::where('book', $item['book'])
-                    ->where('node_id', $item['node_id'])
-                    ->first();
-            }
-
-            // Fall back to startLine lookup (for backwards compatibility)
-            if (!$existingChunk) {
-                $existingChunk = PgNodeChunk::where('book', $item['book'])
-                    ->where('startLine', $item['startLine'])
-                    ->first();
-            }
-
-            Log::debug('Existing chunk loaded', [
-                'book' => $item['book'],
-                'startLine' => $item['startLine'],
-                'exists' => $existingChunk !== null,
-                'hypercites_raw' => $existingChunk ? $existingChunk->getAttributes()['hypercites'] ?? 'NULL_ATTR' : 'NO_CHUNK',
-                'hypercites_cast' => $existingChunk ? $existingChunk->hypercites : 'NO_CHUNK'
-            ]);
-
-            // --- REVISED LOGIC ---
-
-            $updateData = [];
-            // For owners, prepare all possible updatable fields.
-            if ($hasPermission) {
-                $updateData = [
-                    'chunk_id' => $item['chunk_id'] ?? ($existingChunk ? $existingChunk->chunk_id : 0),
-                    'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
-                    'content' => $item['content'] ?? ($existingChunk ? $existingChunk->content : null),
-                    'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
-                    'plainText' => $item['plainText'] ?? ($existingChunk ? $existingChunk->plainText : null),
-                    'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
-                ];
-            }
-            
-            // 🔄 OLD SYSTEM: Safely merge hyperlights (for ALL users to prevent data loss).
-            // COMMENTED OUT - NEW SYSTEM uses normalized hyperlights table
-            /*
-            $dbHighlights = $existingChunk->hyperlights ?? []; // Eloquent casts this to a PHP array
-            $clientHighlights = $item['hyperlights'] ?? [];
-
-            // Use highlightID as a key for merging to prevent duplicates and handle updates.
-            $mergedHighlightsMap = array_reduce($dbHighlights, function ($carry, $highlight) {
-                if (!empty($highlight['highlightID'])) {
-                    $carry[$highlight['highlightID']] = $highlight;
+                if (! isset($itemsByBook[$book])) {
+                    $itemsByBook[$book] = [];
                 }
-                return $carry;
-            }, []);
-
-            foreach ($clientHighlights as $clientHighlight) {
-                unset($clientHighlight['is_user_highlight']);
-                if (empty($clientHighlight['highlightID'])) continue;
-
-                if (isset($clientHighlight['_deleted']) && $clientHighlight['_deleted'] === true) {
-                    unset($mergedHighlightsMap[$clientHighlight['highlightID']]);
-                } else {
-                    $mergedHighlightsMap[$clientHighlight['highlightID']] = $clientHighlight;
-                }
+                $itemsByBook[$book][] = $item;
             }
 
-            // The final PHP array of highlights.
-            $finalMergedHighlights = array_values($mergedHighlightsMap);
-
-            // Assign the PHP arrays directly to the update payload. Eloquent will handle encoding.
-            $updateData['hyperlights'] = $finalMergedHighlights;
-            */
-
-            // 🔄 NEW SYSTEM: Don't touch hyperlights column - leave existing data intact
-            // 'hyperlights' intentionally not added to $updateData
-
-            // 🔄 OLD SYSTEM: DEBUG logs and assignment for hypercites
-            // COMMENTED OUT - NEW SYSTEM uses normalized hypercites table
-            /*
-            // DEBUG: Log hypercites update
-            Log::debug('Hypercites update debug', [
-                'startLine' => $item['startLine'],
-                'incoming_hypercites' => $item['hypercites'] ?? 'NOT_SET',
-                'existing_hypercites' => $existingChunk->hypercites ?? 'NOT_SET',
-                'incoming_is_set' => isset($item['hypercites']),
-                'incoming_is_array' => isset($item['hypercites']) ? is_array($item['hypercites']) : false,
-                'incoming_count' => isset($item['hypercites']) && is_array($item['hypercites']) ? count($item['hypercites']) : 'N/A'
+            Log::info('Targeted upsert processing', [
+                'books' => array_keys($itemsByBook),
+                'total_items' => count($data['data']),
             ]);
 
-            $updateData['hypercites'] = $item['hypercites'] ?? ($existingChunk->hypercites ?? []);
+            // Process each book's items
+            foreach ($itemsByBook as $bookId => $items) {
+                $hasPermission = $this->checkBookPermission($request, $bookId);
 
-            Log::debug('Hypercites final value', [
-                'startLine' => $item['startLine'],
-                'final_hypercites' => $updateData['hypercites'],
-                'final_count' => is_array($updateData['hypercites']) ? count($updateData['hypercites']) : 'NOT_ARRAY'
-            ]);
-            */
+                Log::info('Targeted upsert permissions check', [
+                    'book' => $bookId,
+                    'user_has_ownership_permission' => $hasPermission,
+                    'items_count' => count($items),
+                ]);
 
-            // 🔄 NEW SYSTEM: Don't touch hypercites column - leave existing data intact
-            // 'hypercites' intentionally not added to $updateData
-            
-            // Rebuild the raw_json field with the most up-to-date, merged data.
-            $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
+                foreach ($items as $item) {
 
-            // Ensure $rawJson is an array (in case cast didn't work or old data exists)
-            if (is_string($rawJson)) {
-                $rawJson = json_decode($rawJson, true) ?? [];
-            }
-            if (!is_array($rawJson)) {
-                $rawJson = [];
-            }
+                    if (isset($item['_action']) && $item['_action'] === 'delete') {
+                        if ($hasPermission) {
+                            PgNodeChunk::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
+                        }
 
-            // Overwrite the raw_json fields with our authoritative, merged data.
-            // array_merge will combine the base data with our specific updates.
-            $rawJson = array_merge($rawJson, $updateData);
-            
-            // Assign the final PHP array for raw_json. Eloquent will handle encoding.
-            $updateData['raw_json'] = $this->cleanItemForStorage($rawJson);
-            
-            // --- END REVISED LOGIC ---
+                        continue;
+                    }
 
-            $updateData['updated_at'] = now();
+                    // Try to find by node_id first (for renumbering support)
+                    // If node_id exists, it's the authoritative identifier
+                    $existingChunk = null;
+                    if (! empty($item['node_id'])) {
+                        $existingChunk = PgNodeChunk::where('book', $item['book'])
+                            ->where('node_id', $item['node_id'])
+                            ->first();
+                    }
 
-            Log::debug('About to save/update', [
-                'book' => $item['book'],
-                'startLine' => $item['startLine'],
-                'node_id' => $item['node_id'] ?? 'none',
-                'existing_found_by' => $existingChunk ? 'node_id or startLine' : 'none',
-                'updateData_keys' => array_keys($updateData),
-                // 🔄 NEW SYSTEM: hypercites/hyperlights no longer in $updateData
-                // 'updateData_hypercites' => $updateData['hypercites']
-            ]);
+                    // Fall back to startLine lookup (for backwards compatibility)
+                    if (! $existingChunk) {
+                        $existingChunk = PgNodeChunk::where('book', $item['book'])
+                            ->where('startLine', $item['startLine'])
+                            ->first();
+                    }
 
-            // If we found existing chunk (by node_id or startLine), update it
-            // This handles renumbering: node_id stays same, startLine changes
-            if ($existingChunk) {
-                // Update all fields including startLine
-                $existingChunk->fill($updateData);
-                $existingChunk->startLine = $item['startLine']; // Explicitly update startLine
-                $existingChunk->save();
-                $result = $existingChunk;
-            } else {
-                // Create new record - always include required NOT NULL fields
-                $result = PgNodeChunk::create(array_merge(
-                    [
+                    Log::debug('Existing chunk loaded', [
                         'book' => $item['book'],
                         'startLine' => $item['startLine'],
-                        'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
-                        'content' => $item['content'] ?? '',    // Required NOT NULL field
-                        'node_id' => $item['node_id'] ?? null,
-                    ],
-                    $updateData
-                ));
+                        'exists' => $existingChunk !== null,
+                        'hypercites_raw' => $existingChunk ? $existingChunk->getAttributes()['hypercites'] ?? 'NULL_ATTR' : 'NO_CHUNK',
+                        'hypercites_cast' => $existingChunk ? $existingChunk->hypercites : 'NO_CHUNK',
+                    ]);
+
+                    // --- REVISED LOGIC ---
+
+                    $updateData = [];
+                    // For owners, prepare all possible updatable fields.
+                    if ($hasPermission) {
+                        $updateData = [
+                            'chunk_id' => $item['chunk_id'] ?? ($existingChunk ? $existingChunk->chunk_id : 0),
+                            'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
+                            'content' => $item['content'] ?? ($existingChunk ? $existingChunk->content : null),
+                            'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
+                            'plainText' => $item['plainText'] ?? ($existingChunk ? $existingChunk->plainText : null),
+                            'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
+                        ];
+                    }
+
+                    // 🔄 OLD SYSTEM: Safely merge hyperlights (for ALL users to prevent data loss).
+                    // COMMENTED OUT - NEW SYSTEM uses normalized hyperlights table
+                    /*
+                    $dbHighlights = $existingChunk->hyperlights ?? []; // Eloquent casts this to a PHP array
+                    $clientHighlights = $item['hyperlights'] ?? [];
+
+                    // Use highlightID as a key for merging to prevent duplicates and handle updates.
+                    $mergedHighlightsMap = array_reduce($dbHighlights, function ($carry, $highlight) {
+                        if (!empty($highlight['highlightID'])) {
+                            $carry[$highlight['highlightID']] = $highlight;
+                        }
+                        return $carry;
+                    }, []);
+
+                    foreach ($clientHighlights as $clientHighlight) {
+                        unset($clientHighlight['is_user_highlight']);
+                        if (empty($clientHighlight['highlightID'])) continue;
+
+                        if (isset($clientHighlight['_deleted']) && $clientHighlight['_deleted'] === true) {
+                            unset($mergedHighlightsMap[$clientHighlight['highlightID']]);
+                        } else {
+                            $mergedHighlightsMap[$clientHighlight['highlightID']] = $clientHighlight;
+                        }
+                    }
+
+                    // The final PHP array of highlights.
+                    $finalMergedHighlights = array_values($mergedHighlightsMap);
+
+                    // Assign the PHP arrays directly to the update payload. Eloquent will handle encoding.
+                    $updateData['hyperlights'] = $finalMergedHighlights;
+                    */
+
+                    // 🔄 NEW SYSTEM: Don't touch hyperlights column - leave existing data intact
+                    // 'hyperlights' intentionally not added to $updateData
+
+                    // 🔄 OLD SYSTEM: DEBUG logs and assignment for hypercites
+                    // COMMENTED OUT - NEW SYSTEM uses normalized hypercites table
+                    /*
+                    // DEBUG: Log hypercites update
+                    Log::debug('Hypercites update debug', [
+                        'startLine' => $item['startLine'],
+                        'incoming_hypercites' => $item['hypercites'] ?? 'NOT_SET',
+                        'existing_hypercites' => $existingChunk->hypercites ?? 'NOT_SET',
+                        'incoming_is_set' => isset($item['hypercites']),
+                        'incoming_is_array' => isset($item['hypercites']) ? is_array($item['hypercites']) : false,
+                        'incoming_count' => isset($item['hypercites']) && is_array($item['hypercites']) ? count($item['hypercites']) : 'N/A'
+                    ]);
+
+                    $updateData['hypercites'] = $item['hypercites'] ?? ($existingChunk->hypercites ?? []);
+
+                    Log::debug('Hypercites final value', [
+                        'startLine' => $item['startLine'],
+                        'final_hypercites' => $updateData['hypercites'],
+                        'final_count' => is_array($updateData['hypercites']) ? count($updateData['hypercites']) : 'NOT_ARRAY'
+                    ]);
+                    */
+
+                    // 🔄 NEW SYSTEM: Don't touch hypercites column - leave existing data intact
+                    // 'hypercites' intentionally not added to $updateData
+
+                    // Rebuild the raw_json field with the most up-to-date, merged data.
+                    $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
+
+                    // Ensure $rawJson is an array (in case cast didn't work or old data exists)
+                    if (is_string($rawJson)) {
+                        $rawJson = json_decode($rawJson, true) ?? [];
+                    }
+                    if (! is_array($rawJson)) {
+                        $rawJson = [];
+                    }
+
+                    // Overwrite the raw_json fields with our authoritative, merged data.
+                    // array_merge will combine the base data with our specific updates.
+                    $rawJson = array_merge($rawJson, $updateData);
+
+                    // Assign the final PHP array for raw_json. Eloquent will handle encoding.
+                    $updateData['raw_json'] = $this->cleanItemForStorage($rawJson);
+
+                    // --- END REVISED LOGIC ---
+
+                    $updateData['updated_at'] = now();
+
+                    Log::debug('About to save/update', [
+                        'book' => $item['book'],
+                        'startLine' => $item['startLine'],
+                        'node_id' => $item['node_id'] ?? 'none',
+                        'existing_found_by' => $existingChunk ? 'node_id or startLine' : 'none',
+                        'updateData_keys' => array_keys($updateData),
+                        // 🔄 NEW SYSTEM: hypercites/hyperlights no longer in $updateData
+                        // 'updateData_hypercites' => $updateData['hypercites']
+                    ]);
+
+                    // If we found existing chunk (by node_id or startLine), update it
+                    // This handles renumbering: node_id stays same, startLine changes
+                    if ($existingChunk) {
+                        // Update all fields including startLine
+                        $existingChunk->fill($updateData);
+                        $existingChunk->startLine = $item['startLine']; // Explicitly update startLine
+                        $existingChunk->save();
+                        $result = $existingChunk;
+                    } else {
+                        // Create new record - always include required NOT NULL fields
+                        $result = PgNodeChunk::create(array_merge(
+                            [
+                                'book' => $item['book'],
+                                'startLine' => $item['startLine'],
+                                'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
+                                'content' => $item['content'] ?? '',    // Required NOT NULL field
+                                'node_id' => $item['node_id'] ?? null,
+                            ],
+                            $updateData
+                        ));
+                    }
+
+                    Log::debug('After updateOrCreate', [
+                        'book' => $item['book'],
+                        'startLine' => $item['startLine'],
+                        'saved_hypercites' => $result->hypercites,
+                        'saved_hypercites_count' => is_array($result->hypercites) ? count($result->hypercites) : 'NOT_ARRAY',
+                    ]);
+                }
             }
 
-            Log::debug('After updateOrCreate', [
-                'book' => $item['book'],
-                'startLine' => $item['startLine'],
-                'saved_hypercites' => $result->hypercites,
-                'saved_hypercites_count' => is_array($result->hypercites) ? count($result->hypercites) : 'NOT_ARRAY'
+            Log::info('Targeted upsert completed successfully');
+
+            return response()->json(['success' => true, 'message' => 'Node chunks updated successfully (targeted)']);
+
+        } catch (\Exception $e) {
+            Log::error('Targeted upsert failed', [
+                'error' => $e->getMessage(),
+                'book' => $data['data'][0]['book'] ?? 'unknown',
+                'trace' => $e->getTraceAsString(),
             ]);
-            }
+
+            return response()->json(['success' => false, 'message' => 'Failed to sync data (targeted)', 'error' => $e->getMessage()], 500);
         }
-
-        Log::info('Targeted upsert completed successfully');
-        return response()->json(['success' => true, 'message' => "Node chunks updated successfully (targeted)"]);
-
-    } catch (\Exception $e) {
-        Log::error('Targeted upsert failed', [
-            'error' => $e->getMessage(),
-            'book' => $data['data'][0]['book'] ?? 'unknown',
-            'trace' => $e->getTraceAsString()
-        ]);
-        
-        return response()->json(['success' => false, 'message' => 'Failed to sync data (targeted)', 'error' => $e->getMessage()], 500);
     }
-}
 
     /**
      * Get highlights that should be hidden from the current user but preserved in the node
@@ -566,25 +603,29 @@ public function targetedUpsert(Request $request)
         if (empty($existingHighlights)) {
             return [];
         }
-        
+
         $user = Auth::user();
         $anonymousToken = $request->cookie('anon_token');
-        
+
         $hiddenHighlights = [];
-        
+
         foreach ($existingHighlights as $highlight) {
             $highlightId = $highlight['highlightID'] ?? null;
-            if (!$highlightId) continue;
-            
+            if (! $highlightId) {
+                continue;
+            }
+
             // Check if this highlight should be hidden from current user
             $hyperlightRecord = PgHyperlight::where('book', $bookId)
                 ->where('hyperlight_id', $highlightId)
                 ->first();
-                
-            if (!$hyperlightRecord) continue;
-            
+
+            if (! $hyperlightRecord) {
+                continue;
+            }
+
             $shouldHide = false;
-            
+
             // If highlight is marked as hidden
             if ($hyperlightRecord->hidden) {
                 // Only show to the creator of the highlight
@@ -594,12 +635,12 @@ public function targetedUpsert(Request $request)
                     $shouldHide = ($hyperlightRecord->creator_token !== $anonymousToken);
                 }
             }
-            
+
             if ($shouldHide) {
                 $hiddenHighlights[] = $highlight;
             }
         }
-        
+
         return $hiddenHighlights;
     }
 
@@ -628,7 +669,7 @@ public function targetedUpsert(Request $request)
         try {
             $data = $request->all();
 
-            if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
+            if (! isset($data['data']) || ! is_array($data['data']) || empty($data['data'])) {
                 return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
             }
 
@@ -636,11 +677,12 @@ public function targetedUpsert(Request $request)
             $itemsByBook = [];
             foreach ($data['data'] as $item) {
                 $book = $item['book'] ?? null;
-                if (!$book) {
+                if (! $book) {
                     Log::warning('Skipping item without book ID', ['item' => $item]);
+
                     continue;
                 }
-                if (!isset($itemsByBook[$book])) {
+                if (! isset($itemsByBook[$book])) {
                     $itemsByBook[$book] = [];
                 }
                 $itemsByBook[$book][] = $item;
@@ -648,7 +690,7 @@ public function targetedUpsert(Request $request)
 
             Log::info('Bulk targeted upsert processing', [
                 'books' => array_keys($itemsByBook),
-                'total_items' => count($data['data'])
+                'total_items' => count($data['data']),
             ]);
 
             $totalDeleted = 0;
@@ -657,8 +699,9 @@ public function targetedUpsert(Request $request)
             foreach ($itemsByBook as $bookId => $items) {
                 $hasPermission = $this->checkBookPermission($request, $bookId);
 
-                if (!$hasPermission) {
+                if (! $hasPermission) {
                     Log::warning("Permission denied for book {$bookId}");
+
                     continue;
                 }
 
@@ -686,13 +729,13 @@ public function targetedUpsert(Request $request)
                 ]);
 
                 // Phase 1: Batch delete (single query)
-                if (!empty($toDelete)) {
+                if (! empty($toDelete)) {
                     $deleted = $this->batchDelete($bookId, $toDelete);
                     $totalDeleted += $deleted;
                 }
 
                 // Phase 2: Batch upsert
-                if (!empty($toUpsert)) {
+                if (! empty($toUpsert)) {
                     $upserted = $this->batchUpsert($bookId, $toUpsert);
                     $totalUpserted += $upserted;
                 }
@@ -717,30 +760,42 @@ public function targetedUpsert(Request $request)
                         'delta' => $delta,
                     ]);
                 }
+
+                // Update preview_nodes for sub-books (best-effort, don't fail the request)
+                if (str_contains($bookId, '/')) {
+                    try {
+                        $this->updateSubBookPreviewNodes($bookId);
+                    } catch (\Exception $e) {
+                        Log::warning('preview_nodes update failed (non-fatal)', [
+                            'book' => $bookId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
             }
 
             Log::info('Bulk targeted upsert completed', [
                 'deleted' => $totalDeleted,
-                'upserted' => $totalUpserted
+                'upserted' => $totalUpserted,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => "Node chunks updated successfully (bulk)",
+                'message' => 'Node chunks updated successfully (bulk)',
                 'deleted' => $totalDeleted,
-                'upserted' => $totalUpserted
+                'upserted' => $totalUpserted,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Bulk targeted upsert failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data (bulk)',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -788,18 +843,18 @@ public function targetedUpsert(Request $request)
         }
 
         // Separate items with node_id from those without
-        $withNodeId = array_values(array_filter($items, fn($item) => !empty($item['node_id'])));
-        $withoutNodeId = array_values(array_filter($items, fn($item) => empty($item['node_id'])));
+        $withNodeId = array_values(array_filter($items, fn ($item) => ! empty($item['node_id'])));
+        $withoutNodeId = array_values(array_filter($items, fn ($item) => empty($item['node_id'])));
 
         $count = 0;
 
         // Phase 1: Upsert records WITH node_id (conflict on book + node_id)
-        if (!empty($withNodeId)) {
+        if (! empty($withNodeId)) {
             $count += $this->batchUpsertByNodeId($bookId, $withNodeId);
         }
 
         // Phase 2: Upsert records WITHOUT node_id (conflict on book + startLine)
-        if (!empty($withoutNodeId)) {
+        if (! empty($withoutNodeId)) {
             $count += $this->batchUpsertByStartLine($bookId, $withoutNodeId);
         }
 
@@ -833,14 +888,14 @@ public function targetedUpsert(Request $request)
         // This handles edge cases like undo scenarios where restored nodes need their original startLines
         // Note: The (book, startLine) unique constraint is DEFERRABLE INITIALLY DEFERRED,
         // so bulk updates can temporarily have duplicates - uniqueness is checked at commit.
-        if (!empty($startLines) && !empty($nodeIds)) {
+        if (! empty($startLines) && ! empty($nodeIds)) {
             // SYNC AUDIT: Query what will be pre-cleared BEFORE deleting
             $preClearVictims = \DB::table('nodes')
                 ->where('book', $bookId)
                 ->whereIn('startLine', $startLines)
-                ->where(function($q) use ($nodeIds) {
+                ->where(function ($q) use ($nodeIds) {
                     $q->whereNull('node_id')
-                      ->orWhereNotIn('node_id', $nodeIds);
+                        ->orWhereNotIn('node_id', $nodeIds);
                 })
                 ->select('startLine', 'node_id', \DB::raw('LEFT(content, 80) as content_preview'))
                 ->get();
@@ -896,7 +951,7 @@ public function targetedUpsert(Request $request)
 
         $sql = '
             INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
-            VALUES ' . implode(', ', $values) . '
+            VALUES '.implode(', ', $values).'
             ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
             DO UPDATE SET
                 "startLine" = EXCLUDED."startLine",
@@ -911,7 +966,7 @@ public function targetedUpsert(Request $request)
 
         \DB::statement($sql, $bindings);
 
-        Log::debug("Batch upserted " . count($items) . " nodes by node_id", ['book' => $bookId]);
+        Log::debug('Batch upserted '.count($items).' nodes by node_id', ['book' => $bookId]);
 
         return count($items);
     }
@@ -946,7 +1001,7 @@ public function targetedUpsert(Request $request)
 
         $sql = '
             INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
-            VALUES ' . implode(', ', $values) . '
+            VALUES '.implode(', ', $values).'
             ON CONFLICT (book, "startLine")
             DO UPDATE SET
                 node_id = COALESCE(EXCLUDED.node_id, nodes.node_id),
@@ -961,7 +1016,7 @@ public function targetedUpsert(Request $request)
 
         \DB::statement($sql, $bindings);
 
-        Log::debug("Batch upserted " . count($items) . " nodes by startLine", ['book' => $bookId]);
+        Log::debug('Batch upserted '.count($items).' nodes by startLine', ['book' => $bookId]);
 
         return count($items);
     }

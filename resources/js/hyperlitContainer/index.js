@@ -943,11 +943,15 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           const subBookId = `${book}/${footnoteId}`;
           const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);
           const { loadSubBook } = await import('./subBookLoader.js');
+          // Determine mode: 'create' for new footnotes, 'read' for existing
+          const mode = isNewFootnote ? 'create' : 'read';
+          console.log(`📂 Loading footnote "${subBookId}" in ${mode} mode`);
           // Await so we can attach the sub-book editor immediately after the first chunk renders
           const loader = await loadSubBook(subBookId, book, footnoteId, 'footnote', scroller, {
             annotationHtml: fnRecord?.content || '',
             previewNodes: fnRecord?.preview_nodes || null,
             targetElement: footnotesSection,
+            mode,
           });
 
           // Swap divEditor onto the sub-book when edit mode is active
