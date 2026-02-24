@@ -109,7 +109,9 @@ export class ContainerManager {
         if (this.isOpen) {
           // Use specialized close function for hyperlit-container to unlock body scroll
           if (this.containerId === 'hyperlit-container') {
-            await closeHyperlitContainer();
+            // 🔑 CRITICAL: Check if we need to save before closing
+            const { saveAndCloseHyperlitContainer } = await import('./hyperlitContainer/core.js');
+            await saveAndCloseHyperlitContainer();
           } else {
             this.closeContainer();
           }

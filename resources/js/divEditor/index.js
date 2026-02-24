@@ -118,6 +118,7 @@ let isObserverRestarting = false;
 
 // 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
 let inputEventHandler = null;
+let debouncedInputHandlerRef = null; // Reference to debounced handler for flushing on close
 let isComposing = false; // Track mobile IME composition state
 
 // 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
@@ -195,6 +196,18 @@ export async function flushAllPendingSaves() {
   if (saveQueue) {
     await saveQueue.flush();
     console.log('✅ All pending saves flushed');
+  }
+}
+
+// 🔑 CRITICAL: Flush input debounce to capture recent typing
+// This forces the 200ms debounced input handler to execute immediately
+export function flushInputDebounce() {
+  console.log('[EditSession] Flushing input debounce...');
+  if (debouncedInputHandlerRef) {
+    debouncedInputHandlerRef.flush();
+    console.log('[EditSession] Input debounce flushed');
+  } else {
+    console.log('[EditSession] No input debounce to flush');
   }
 }
 
@@ -331,7 +344,7 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
-  const debouncedInputHandler = debounce((e) => {
+  debouncedInputHandlerRef = debounce((e) => {
     console.log('🎯 INPUT EVENT FIRED:', e.type, e.inputType, 'isEditing:', window.isEditing, 'isComposing:', isComposing);
     if (!window.isEditing || isComposing) {
       console.log('🚫 INPUT HANDLER: Skipped (not editing or composing)');
@@ -389,7 +402,7 @@ export async function startObserving(editableDiv, bookId = null) {
     }
   }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel
 
-  inputEventHandler = debouncedInputHandler;
+  inputEventHandler = debouncedInputHandlerRef;
   editableDiv.addEventListener('input', inputEventHandler);
 
   // 🚀 MOBILE: Handle IME composition events (autocorrect, predictive text)
@@ -402,7 +415,7 @@ export async function startObserving(editableDiv, bookId = null) {
     isComposing = false;
     verbose.content('IME composition ended - resuming input processing', 'divEditor/index.js');
     // Trigger input handler after composition completes
-    debouncedInputHandler(e);
+    debouncedInputHandlerRef(e);
   });
 
   // ✅ Only ensure structure if document is truly empty (new/imported books)
@@ -588,6 +601,15 @@ export async function stopObserving() {
     supTagHandler.stopListening();
     supTagHandler = null;
     verbose.content("SupTagHandler destroyed", 'divEditor/index.js');
+  }
+
+  // 🔑 CRITICAL: Flush any pending input debounce BEFORE cleanup
+  // This captures typing that hasn't been queued yet (within 200ms debounce window)
+  if (debouncedInputHandlerRef) {
+    console.log('[EditSession] Flushing pending input debounce...');
+    debouncedInputHandlerRef.flush();
+    debouncedInputHandlerRef = null;
+    console.log('[EditSession] Input debounce flushed');
   }
 
   // 🚀 PERFORMANCE: Remove input event handlers
