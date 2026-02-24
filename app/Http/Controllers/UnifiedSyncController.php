@@ -2,19 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Concerns\SubBookPreviewTrait;
+use App\Models\PgLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\PgNodeChunk;
-use App\Models\PgHypercite;
-use App\Models\PgHyperlight;
-use App\Models\PgLibrary;
-use Illuminate\Support\Facades\Auth;
 
 class UnifiedSyncController extends Controller
 {
-    use SubBookPreviewTrait;
     /**
      * Unified sync endpoint - handles all data types in a single atomic transaction
      *
@@ -34,10 +28,10 @@ class UnifiedSyncController extends Controller
             $data = $request->all();
             $bookId = $data['book'] ?? null;
 
-            if (!$bookId) {
+            if (! $bookId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book ID is required'
+                    'message' => 'Book ID is required',
                 ], 400);
             }
 
@@ -56,7 +50,7 @@ class UnifiedSyncController extends Controller
             // SYNC AUDIT: Log incoming payload details for forensics
             $nodeDeleteActions = [];
             $nodeUpsertActions = [];
-            if (!empty($data['nodes'])) {
+            if (! empty($data['nodes'])) {
                 foreach ($data['nodes'] as $node) {
                     $action = $node['_action'] ?? 'upsert';
                     if ($action === 'delete') {
@@ -83,7 +77,7 @@ class UnifiedSyncController extends Controller
             // Check for stale data ONLY when syncing nodes (not highlights/hypercites)
             // This prevents a stale device from overwriting newer data
             // NOTE: Uses nodes' actual book fields, not top-level request book (for cross-book hypercite support)
-            if (!empty($data['nodes'])) {
+            if (! empty($data['nodes'])) {
                 // Get unique books from node items (the books that will actually be modified)
                 $nodeBooks = array_values(array_unique(array_filter(array_column($data['nodes'], 'book'))));
 
@@ -94,8 +88,9 @@ class UnifiedSyncController extends Controller
                         Log::channel('sync_audit')->info('STALE_CHECK_SKIPPED', [
                             'book' => $nodeBook,
                             'reason' => 'library timestamp is for different book',
-                            'library_book' => $libraryBook
+                            'library_book' => $libraryBook,
                         ]);
+
                         continue;
                     }
 
@@ -106,14 +101,14 @@ class UnifiedSyncController extends Controller
                         Log::channel('sync_audit')->warning('STALE_DATA_REJECTED', [
                             'book' => $nodeBook,
                             'frontend_timestamp' => $frontendTimestamp,
-                            'server_timestamp' => $currentLibrary->timestamp
+                            'server_timestamp' => $currentLibrary->timestamp,
                         ]);
 
                         return response()->json([
                             'success' => false,
                             'error' => 'STALE_DATA',
                             'message' => 'Your book is out of date. Please refresh to get the latest version.',
-                            'server_timestamp' => $currentLibrary->timestamp
+                            'server_timestamp' => $currentLibrary->timestamp,
                         ], 409);
                     }
                 }
@@ -133,8 +128,8 @@ class UnifiedSyncController extends Controller
                 ];
 
                 // 1. Sync node chunks (if present)
-                if (!empty($data['nodes'])) {
-                    $nodeChunkController = new DbNodeChunkController();
+                if (! empty($data['nodes'])) {
+                    $nodeChunkController = new DbNodeChunkController;
                     $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodes']]);
                     $nodeChunkRequest->setUserResolver(function () use ($request) {
                         return $request->user();
@@ -147,19 +142,19 @@ class UnifiedSyncController extends Controller
                     $response = $nodeChunkController->bulkTargetedUpsert($nodeChunkRequest);
                     $results['nodes'] = json_decode($response->getContent(), true);
 
-                    if (!($results['nodes']['success'] ?? false)) {
-                        throw new \Exception('Node chunks sync failed: ' . ($results['nodes']['message'] ?? 'Unknown error'));
+                    if (! ($results['nodes']['success'] ?? false)) {
+                        throw new \Exception('Node chunks sync failed: '.($results['nodes']['message'] ?? 'Unknown error'));
                     }
                 }
 
                 // 2. Sync hypercites (if present)
-                if (!empty($data['hypercites'])) {
+                if (! empty($data['hypercites'])) {
                     Log::debug('Hypercites data received in unified sync', [
                         'book' => $bookId,
-                        'hypercites' => $data['hypercites']
+                        'hypercites' => $data['hypercites'],
                     ]);
 
-                    $hyperciteController = new DbHyperciteController();
+                    $hyperciteController = new DbHyperciteController;
                     $hyperciteRequest = new Request(['book' => $bookId, 'data' => $data['hypercites']]);
                     $hyperciteRequest->setUserResolver(function () use ($request) {
                         return $request->user();
@@ -171,14 +166,14 @@ class UnifiedSyncController extends Controller
                     $response = $hyperciteController->upsert($hyperciteRequest);
                     $results['hypercites'] = json_decode($response->getContent(), true);
 
-                    if (!($results['hypercites']['success'] ?? false)) {
-                        throw new \Exception('Hypercites sync failed: ' . ($results['hypercites']['message'] ?? 'Unknown error'));
+                    if (! ($results['hypercites']['success'] ?? false)) {
+                        throw new \Exception('Hypercites sync failed: '.($results['hypercites']['message'] ?? 'Unknown error'));
                     }
                 }
 
                 // 3. Sync hyperlights (if present)
-                if (!empty($data['hyperlights'])) {
-                    $hyperlightController = new DbHyperlightController();
+                if (! empty($data['hyperlights'])) {
+                    $hyperlightController = new DbHyperlightController;
                     $hyperlightRequest = new Request(['book' => $bookId, 'data' => $data['hyperlights']]);
                     $hyperlightRequest->setUserResolver(function () use ($request) {
                         return $request->user();
@@ -190,14 +185,14 @@ class UnifiedSyncController extends Controller
                     $response = $hyperlightController->upsert($hyperlightRequest);
                     $results['hyperlights'] = json_decode($response->getContent(), true);
 
-                    if (!($results['hyperlights']['success'] ?? false)) {
-                        throw new \Exception('Hyperlights sync failed: ' . ($results['hyperlights']['message'] ?? 'Unknown error'));
+                    if (! ($results['hyperlights']['success'] ?? false)) {
+                        throw new \Exception('Hyperlights sync failed: '.($results['hyperlights']['message'] ?? 'Unknown error'));
                     }
                 }
 
                 // 4. Sync hyperlight deletions (if present)
-                if (!empty($data['hyperlightDeletions'])) {
-                    $hyperlightController = new DbHyperlightController();
+                if (! empty($data['hyperlightDeletions'])) {
+                    $hyperlightController = new DbHyperlightController;
 
                     foreach ($data['hyperlightDeletions'] as $item) {
                         $action = $item['_action'] ?? 'delete';
@@ -214,8 +209,8 @@ class UnifiedSyncController extends Controller
                             $response = $hyperlightController->delete($deleteRequest);
                             $deleteResult = json_decode($response->getContent(), true);
 
-                            if (!($deleteResult['success'] ?? false)) {
-                                throw new \Exception('Hyperlight deletion failed: ' . ($deleteResult['message'] ?? 'Unknown error'));
+                            if (! ($deleteResult['success'] ?? false)) {
+                                throw new \Exception('Hyperlight deletion failed: '.($deleteResult['message'] ?? 'Unknown error'));
                             }
                         } elseif ($action === 'hide') {
                             $hideRequest = new Request(['book' => $item['book'], 'data' => [$item]]);
@@ -229,8 +224,8 @@ class UnifiedSyncController extends Controller
                             $response = $hyperlightController->hide($hideRequest);
                             $hideResult = json_decode($response->getContent(), true);
 
-                            if (!($hideResult['success'] ?? false)) {
-                                throw new \Exception('Hyperlight hide failed: ' . ($hideResult['message'] ?? 'Unknown error'));
+                            if (! ($hideResult['success'] ?? false)) {
+                                throw new \Exception('Hyperlight hide failed: '.($hideResult['message'] ?? 'Unknown error'));
                             }
                         }
                     }
@@ -240,7 +235,7 @@ class UnifiedSyncController extends Controller
 
                 // 5. Sync footnotes (if present)
                 // Group by each footnote's own book field to support cross-book citations
-                if (!empty($data['footnotes'])) {
+                if (! empty($data['footnotes'])) {
                     $footnotesByBook = [];
                     foreach ($data['footnotes'] as $footnote) {
                         $fnBook = $footnote['book'] ?? $bookId;
@@ -248,7 +243,7 @@ class UnifiedSyncController extends Controller
                     }
 
                     foreach ($footnotesByBook as $fnBookId => $fnGroup) {
-                        $footnoteController = new DbFootnoteController();
+                        $footnoteController = new DbFootnoteController;
                         $footnoteRequest = new Request(['book' => $fnBookId, 'data' => $fnGroup]);
                         $footnoteRequest->setUserResolver(function () use ($request) {
                             return $request->user();
@@ -260,8 +255,8 @@ class UnifiedSyncController extends Controller
                         $response = $footnoteController->upsert($footnoteRequest);
                         $fnResult = json_decode($response->getContent(), true);
 
-                        if (!($fnResult['success'] ?? false)) {
-                            throw new \Exception('Footnotes sync failed: ' . ($fnResult['message'] ?? 'Unknown error'));
+                        if (! ($fnResult['success'] ?? false)) {
+                            throw new \Exception('Footnotes sync failed: '.($fnResult['message'] ?? 'Unknown error'));
                         }
                     }
 
@@ -270,7 +265,7 @@ class UnifiedSyncController extends Controller
 
                 // 5.5. Sync bibliography/references (if present)
                 // Group by each reference's own book field to support cross-book citations
-                if (!empty($data['bibliography'])) {
+                if (! empty($data['bibliography'])) {
                     $refsByBook = [];
                     foreach ($data['bibliography'] as $ref) {
                         $refBook = $ref['book'] ?? $bookId;
@@ -278,7 +273,7 @@ class UnifiedSyncController extends Controller
                     }
 
                     foreach ($refsByBook as $refBookId => $refGroup) {
-                        $referencesController = new DbReferencesController();
+                        $referencesController = new DbReferencesController;
                         $referencesRequest = new Request(['book' => $refBookId, 'data' => $refGroup]);
                         $referencesRequest->setUserResolver(function () use ($request) {
                             return $request->user();
@@ -290,8 +285,8 @@ class UnifiedSyncController extends Controller
                         $response = $referencesController->upsertReferences($referencesRequest);
                         $refResult = json_decode($response->getContent(), true);
 
-                        if (!($refResult['success'] ?? false)) {
-                            throw new \Exception('Bibliography sync failed: ' . ($refResult['message'] ?? 'Unknown error'));
+                        if (! ($refResult['success'] ?? false)) {
+                            throw new \Exception('Bibliography sync failed: '.($refResult['message'] ?? 'Unknown error'));
                         }
                     }
 
@@ -299,7 +294,7 @@ class UnifiedSyncController extends Controller
                 }
 
                 // 5.6. Handle bibliography deletions (if present)
-                if (!empty($data['bibliographyDeletions'])) {
+                if (! empty($data['bibliographyDeletions'])) {
                     foreach ($data['bibliographyDeletions'] as $deletion) {
                         $refBook = $deletion['book'] ?? $bookId;
                         $referenceId = $deletion['referenceId'] ?? null;
@@ -318,8 +313,8 @@ class UnifiedSyncController extends Controller
                 }
 
                 // 6. Sync library record (if present)
-                if (!empty($data['library'])) {
-                    $libraryController = new DbLibraryController();
+                if (! empty($data['library'])) {
+                    $libraryController = new DbLibraryController;
                     $libraryRequest = new Request(['data' => $data['library']]);
                     $libraryRequest->setUserResolver(function () use ($request) {
                         return $request->user();
@@ -331,59 +326,42 @@ class UnifiedSyncController extends Controller
                     $response = $libraryController->upsert($libraryRequest);
                     $results['library'] = json_decode($response->getContent(), true);
 
-                    if (!($results['library']['success'] ?? false)) {
-                        throw new \Exception('Library sync failed: ' . ($results['library']['message'] ?? 'Unknown error'));
+                    if (! ($results['library']['success'] ?? false)) {
+                        throw new \Exception('Library sync failed: '.($results['library']['message'] ?? 'Unknown error'));
                     }
                 }
 
                 return $results;
             });
 
-            // Best-effort: write preview_nodes for every sub-book whose nodes were synced.
-            // Done outside the transaction so a failure here never rolls back the node sync.
-            // Sub-book nodes arrive bundled inside the parent book's request, so we must
-            // inspect each node chunk's `book` field rather than the top-level $bookId.
-            $subBookIdsWithNodes = collect($data['nodes'] ?? [])
-                ->pluck('book')
-                ->unique()
-                ->filter(fn($b) => str_contains((string) $b, '/'))
-                ->values();
-
-            foreach ($subBookIdsWithNodes as $subBookId) {
-                try {
-                    $this->updateSubBookPreviewNodes($subBookId);
-                } catch (\Exception $e) {
-                    Log::warning('preview_nodes update failed (non-fatal)', [
-                        'book'  => $subBookId,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
+            // NOTE: preview_nodes updates are now handled by DbNodeChunkController
+            // which is called above for all node operations (bulkTargetedUpsert, etc.)
 
             Log::info('Unified sync completed successfully', [
                 'book' => $bookId,
-                'results' => array_map(function($r) { return $r['success'] ?? false; }, $result)
+                'results' => array_map(function ($r) {
+                    return $r['success'] ?? false;
+                }, $result),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'All data synced successfully',
-                'results' => $result
+                'results' => $result,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Unified sync failed', [
                 'book' => $bookId ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Sync failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-
 }
