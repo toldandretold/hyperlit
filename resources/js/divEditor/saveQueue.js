@@ -48,6 +48,9 @@ export class SaveQueue {
       lastActivity: null
     };
 
+    // 🔑 CRITICAL: Track save completion for proper close handling
+    this.currentSavePromise = null;
+
     // ✅ REMOVED: ensureMinimumStructure callback - no longer needed with no-delete-id marker system
 
     // Bind methods
@@ -148,43 +151,51 @@ export class SaveQueue {
     const additions = nodesToSave.filter(n => n.action === 'add');
     const deletions = nodesToSave.filter(n => n.action === 'delete');
 
-    try {
-      const recordsToUpdate = [...updates, ...additions].filter(node => {
-        const element = document.getElementById(node.id);
-        if (!element) {
-          console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
-          return false;
+    // 🔑 CRITICAL: Create save operation promise for completion tracking
+    this.currentSavePromise = (async () => {
+      try {
+        const recordsToUpdate = [...updates, ...additions].filter(node => {
+          const element = document.getElementById(node.id);
+          if (!element) {
+            console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
+            return false;
+          }
+          return true;
+        });
+
+        if (recordsToUpdate.length > 0) {
+          console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
+          await batchUpdateIndexedDBRecords(recordsToUpdate, this.bookId ? { bookId: this.bookId } : {});
+          console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
+          // ✅ Mark cache dirty after successful saves
+          markCacheDirty();
+          // ✅ Invalidate search index so next search reflects edits
+          invalidateSearchIndex();
+        } else {
+          console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
         }
-        return true;
-      });
 
-      if (recordsToUpdate.length > 0) {
-        console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
-        await batchUpdateIndexedDBRecords(recordsToUpdate, this.bookId ? { bookId: this.bookId } : {});
-        console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
-        // ✅ Mark cache dirty after successful saves
-        markCacheDirty();
-        // ✅ Invalidate search index so next search reflects edits
-        invalidateSearchIndex();
-      } else {
-        console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
+        if (deletions.length > 0) {
+          await Promise.all(deletions.map(node =>
+            deleteIndexedDBRecordWithRetry(node.id)
+          ));
+          // ✅ Mark cache dirty after successful deletions
+          markCacheDirty();
+          // ✅ Invalidate search index so next search reflects edits
+          invalidateSearchIndex();
+        }
+
+      } catch (error) {
+        console.error('❌ Error in batch save:', error);
+        // Re-queue failed saves
+        nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
+      } finally {
+        this.currentSavePromise = null;
       }
-
-      if (deletions.length > 0) {
-        await Promise.all(deletions.map(node =>
-          deleteIndexedDBRecordWithRetry(node.id)
-        ));
-        // ✅ Mark cache dirty after successful deletions
-        markCacheDirty();
-        // ✅ Invalidate search index so next search reflects edits
-        invalidateSearchIndex();
-      }
-
-    } catch (error) {
-      console.error('❌ Error in batch save:', error);
-      // Re-queue failed saves
-      nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
-    }
+    })();
+    
+    // Wait for this save to complete
+    await this.currentSavePromise;
   }
 
   /**
@@ -281,6 +292,13 @@ export class SaveQueue {
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
 
+    // 🔑 CRITICAL: Wait for any ongoing save to complete first
+    if (this.currentSavePromise) {
+      console.log('[SaveQueue] Waiting for ongoing save to complete...');
+      await this.currentSavePromise;
+      console.log('[SaveQueue] Ongoing save completed');
+    }
+
     // Await the async save operations to ensure they complete
     if (this.pendingSaves.nodes.size > 0) {
       await this.saveNodeToDatabase();
@@ -288,6 +306,13 @@ export class SaveQueue {
 
     if (this.pendingSaves.deletions.size > 0) {
       await this.processBatchDeletions();
+    }
+    
+    // 🔑 CRITICAL: Wait for any save that started during this flush
+    if (this.currentSavePromise) {
+      console.log('[SaveQueue] Waiting for final save to complete...');
+      await this.currentSavePromise;
+      console.log('[SaveQueue] Final save completed');
     }
     
     console.log('✅ SaveQueue flush complete');
