@@ -103,13 +103,13 @@ export class ContainerManager {
 
     // If the overlay exists, set up its click handler
     if (this.overlay) {
-      this.overlayClickHandler = (e) => {
+      this.overlayClickHandler = async (e) => {
         e.stopPropagation();
         e.preventDefault();
         if (this.isOpen) {
           // Use specialized close function for hyperlit-container to unlock body scroll
           if (this.containerId === 'hyperlit-container') {
-            closeHyperlitContainer();
+            await closeHyperlitContainer();
           } else {
             this.closeContainer();
           }

@@ -130,7 +130,7 @@ export async function cleanupContainerListeners() {
     const { startObserving } = await import('../divEditor/index.js');
     const mainContent = document.querySelector('.main-content');
     if (mainContent) {
-      startObserving(mainContent); // internally calls stopObserving() first
+      await startObserving(mainContent); // internally calls stopObserving() first
       console.log('✏️ Sub-book editor stopped, main editor restored');
     }
     mainEditorWasActive = false;
@@ -868,7 +868,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
                 subBookEl.contentEditable = 'true';
                 previousIsEditing = window.isEditing;
                 if (!window.isEditing) window.isEditing = true;
-                startObserving(subBookEl, subBookId);
+                await startObserving(subBookEl, subBookId);
                 const { addPasteListener } = await import('../paste/index.js');
                 addPasteListener(subBookEl);
                 subBookEditorAttached = true;
@@ -963,7 +963,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               subBookEl.contentEditable = 'true';
               previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
-              startObserving(subBookEl, subBookId);
+              await startObserving(subBookEl, subBookId);
               const { addPasteListener } = await import('../paste/index.js');
               addPasteListener(subBookEl);
               console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);

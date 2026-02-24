@@ -39,8 +39,8 @@ export function openReferenceContainer(content) {
 }
 
 // Function to close the reference container (now redirects to unified system)
-export function closeReferenceContainer() {
-  closeHyperlitContainer();
+export async function closeReferenceContainer() {
+  await closeHyperlitContainer();
 }
 
 // Main click handler for footnotes and citations (now uses unified system)

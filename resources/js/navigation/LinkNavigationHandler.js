@@ -494,7 +494,7 @@ export class LinkNavigationHandler {
     
     // Close any open container silently — the browser has already restored the URL via popstate
     try {
-      closeHyperlitContainer(true);
+      await closeHyperlitContainer(true);
     } catch (e) { /* ignore */ }
 
     // Always attempt to scroll to the hash on the main page if one exists.

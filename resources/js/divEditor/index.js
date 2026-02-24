@@ -29,6 +29,13 @@ import { EnterKeyHandler } from './enterKeyHandler.js';
 import { SupTagHandler } from './supTagHandler.js';
 import { ChunkMutationHandler } from './chunkMutationHandler.js';
 import {
+  registerEditSession,
+  unregisterEditSession,
+  verifyMutationSource,
+  isEventInActiveDiv,
+  getActiveEditSession
+} from './editSessionManager.js';
+import {
   handleHyperciteRemoval,
   ensureMinimumDocumentStructure as ensureMinimumStructureImpl,
   checkForImminentEmptyState,
@@ -159,11 +166,13 @@ let enterKeyHandler = null;
 // ================================================================
 
 export function queueNodeForSave(nodeId, action = 'update') {
+  console.log(`🎯 queueNodeForSave called: ${nodeId}, action: ${action}, saveQueue exists: ${!!saveQueue}`);
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue node', nodeId);
     return;
   }
   saveQueue.queueNode(nodeId, action);
+  console.log(`🎯 queueNodeForSave: queued ${nodeId}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
 }
 
 export function queueNodeForDeletion(nodeId, nodeElement = null, bookId = null) {
@@ -180,11 +189,12 @@ export function queueNodeForDeletion(nodeId, nodeElement = null, bookId = null) 
 // ================================================================
 
 // Force save all pending changes (useful for page unload)
-export function flushAllPendingSaves() {
+export async function flushAllPendingSaves() {
   console.log('🚨 Flushing all pending saves...');
 
   if (saveQueue) {
-    saveQueue.flush();
+    await saveQueue.flush();
+    console.log('✅ All pending saves flushed');
   }
 }
 
@@ -213,7 +223,7 @@ export function isEditorObserving() {
   return observer !== null;
 }
 
-export function startObserving(editableDiv, bookId = null) {
+export async function startObserving(editableDiv, bookId = null) {
 
   verbose.content("startObserving function called - multi-chunk mode", 'divEditor/index.js');
 
@@ -222,6 +232,10 @@ export function startObserving(editableDiv, bookId = null) {
 
   // 📌 Store reference so stopObserving removes listeners from the right element
   observedEditableDiv = editableDiv;
+
+  // 📝 Register this edit session (handles preemption of existing sessions)
+  const containerId = bookId || 'main-content';
+  await registerEditSession(containerId, editableDiv, bookId);
 
   // 💾 Initialize SaveQueue (passes bookId for sub-book saves)
   saveQueue = new SaveQueue(bookId);
@@ -318,11 +332,19 @@ export function startObserving(editableDiv, bookId = null) {
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
   const debouncedInputHandler = debounce((e) => {
-    if (!window.isEditing || isComposing) return; // Skip during mobile IME composition
+    console.log('🎯 INPUT EVENT FIRED:', e.type, e.inputType, 'isEditing:', window.isEditing, 'isComposing:', isComposing);
+    if (!window.isEditing || isComposing) {
+      console.log('🚫 INPUT HANDLER: Skipped (not editing or composing)');
+      return; // Skip during mobile IME composition
+    }
 
     // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
+    console.log('🎯 SELECTION:', selection ? 'exists' : 'null', 'rangeCount:', selection?.rangeCount);
+    if (!selection || !selection.rangeCount) {
+      console.log('🚫 INPUT HANDLER: No selection');
+      return;
+    }
 
     let targetElement = selection.getRangeAt(0).startContainer;
 
@@ -331,17 +353,24 @@ export function startObserving(editableDiv, bookId = null) {
       targetElement = targetElement.parentElement;
     }
 
-    if (!targetElement) return;
+    if (!targetElement) {
+      console.log('🚫 INPUT HANDLER: No target element');
+      return;
+    }
+    console.log('🎯 TARGET ELEMENT:', targetElement.nodeName, 'id:', targetElement.id);
 
     // 🚀 PERFORMANCE: Check cache first (50-90% faster on repeat keystrokes)
     let parentWithId = elementToNumericalParent.get(targetElement);
+    console.log('🎯 CACHE CHECK:', parentWithId ? `found ${parentWithId.id}` : 'cache miss');
 
     if (!parentWithId) {
       // Cache miss - do expensive lookup
       parentWithId = targetElement.closest('[id]');
+      console.log('🎯 CLOSEST [id]:', parentWithId ? parentWithId.id : 'none found');
 
       while (parentWithId && !NUMERICAL_ID_PATTERN.test(parentWithId.id)) {
         parentWithId = parentWithId.parentElement?.closest('[id]');
+        console.log('🎯 PARENT SEARCH:', parentWithId ? parentWithId.id : 'no match');
       }
 
       // Cache the result for future lookups
@@ -351,9 +380,12 @@ export function startObserving(editableDiv, bookId = null) {
     }
 
     if (parentWithId?.id) {
+      console.log(`🎯 QUEUEING NODE: ${parentWithId.id}`);
       verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
       queueNodeForSave(parentWithId.id, 'update');
       checkAndInvalidateTocCache(parentWithId.id, parentWithId);
+    } else {
+      console.log('🚫 INPUT HANDLER: No parent with valid ID found');
     }
   }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel
 
@@ -422,8 +454,20 @@ export function startObserving(editableDiv, bookId = null) {
 
   // Create observer for the main-content container
   observer = new MutationObserver((mutations) => {
-    // 🚀 PERFORMANCE: Queue mutations for batch processing via MutationProcessor
-    mutationProcessor.enqueue(mutations);
+    // 🛡️ Verify mutations are from the correct container
+    const validMutations = mutations.filter(mutation => {
+      if (!verifyMutationSource(mutation)) {
+        // Mutation is from wrong container - log and skip
+        console.warn('[Observer] Skipping leaked mutation:', mutation.type, 'on', mutation.target?.id || mutation.target?.nodeName);
+        return false;
+      }
+      return true;
+    });
+    
+    // 🚀 PERFORMANCE: Queue valid mutations for batch processing via MutationProcessor
+    if (validMutations.length > 0) {
+      mutationProcessor.enqueue(validMutations);
+    }
   });
 
   
@@ -448,6 +492,10 @@ export function startObserving(editableDiv, bookId = null) {
     // This reduces mutation events by ~80% during typing
     // Removed attributeOldValue and characterDataOldValue for better performance (not used)
   });
+
+  // Log successful connection
+  const targetId = editableDiv.id || editableDiv.getAttribute('data-book-id') || 'unknown';
+  console.log(`[Observer] 🔌 CONNECTED to ${targetId}`);
 
   // NEW: Set the current observed chunk after everything is set up
   const currentChunk = getCurrentChunk();
@@ -493,10 +541,18 @@ function initializeCurrentChunks(editableDiv) {
 // - Tracking state and references
 // ================================================================
 
-export function stopObserving() {
+export async function stopObserving() {
   if (observer) {
+    const oldTarget = observedEditableDiv?.id || observedEditableDiv?.getAttribute('data-book-id') || 'unknown';
     observer.disconnect();
+    console.log(`[Observer] 🔌 DISCONNECTED from ${oldTarget}`);
     observer = null;
+  }
+
+  // 📝 Unregister the edit session
+  const activeSession = getActiveEditSession();
+  if (activeSession) {
+    unregisterEditSession(activeSession.containerId);
   }
 
   if (enterKeyHandler) {
@@ -600,13 +656,20 @@ document.addEventListener("selectionchange", () => {
   // Early return for performance - don't process if not editing
   if (!window.isEditing) return;
 
-  // 🛡️ IMMEDIATE CURSOR VALIDATION (runs before debounced handler)
-  // Only checks and fixes if cursor is in a sentinel div - very lightweight
+  // 🛡️ VERIFY: Check if selection is in the active edit container
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
     let node = range.startContainer;
     let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    
+    // Check if selection is within the active edit div
+    if (!isEventInActiveDiv(element)) {
+      // Selection is outside active container - ignore this selectionchange
+      // This prevents main-content cursor changes from affecting hyperlit editing
+      verbose.content(`selectionchange ignored - outside active div`, 'divEditor/index.js');
+      return;
+    }
 
     // Quick check: is cursor directly in a sentinel div?
     const id = element?.id || '';

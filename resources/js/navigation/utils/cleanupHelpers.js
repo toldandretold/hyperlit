@@ -111,7 +111,7 @@ export async function cleanupLogoNav() {
  */
 export async function closeOpenContainers() {
   try {
-    closeHyperlitContainer();
+    await closeHyperlitContainer();
 
     // Close source container if open
     const sourceButton = document.getElementById('cloudRef');
