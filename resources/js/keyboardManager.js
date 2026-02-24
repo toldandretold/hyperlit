@@ -134,7 +134,6 @@ class KeyboardManager {
 
   handleFocusOut(e) {
     console.log(`👋 FOCUSOUT: from ${e.target.id || e.target.tagName}, relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}, isKeyboardOpen=${this.isKeyboardOpen}`);
-    console.trace('📍 FOCUSOUT stack trace');
 
     // CRITICAL FIX: Don't close keyboard if focus is moving to another editable element
     // This prevents the jolt when switching from main-content to citation-search-input

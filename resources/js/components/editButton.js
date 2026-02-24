@@ -376,7 +376,7 @@ export function disableEditMode() {
   Promise.all([
     import('../editToolbar/index.js'),
     import('../divEditor/index.js')
-  ]).then(([editToolbar, divEditor]) => {
+  ]).then(async ([editToolbar, divEditor]) => {
     const { getEditToolbar } = editToolbar;
     const { stopObserving, flushAllPendingSaves } = divEditor;
 
@@ -386,7 +386,7 @@ export function disableEditMode() {
       toolbar.setEditMode(false);
     }
 
-    stopObserving();
+    await stopObserving();
 
     // Check if renumbering is needed (any ID is not a clean 100-multiple)
     const needsRenumbering = Array.from(
@@ -408,7 +408,7 @@ export function disableEditMode() {
       });
     } else {
       // No decimals - just flush pending saves
-      flushAllPendingSaves();
+      await flushAllPendingSaves();
     }
   }).catch(err => {
     console.warn('Edit modules not loaded:', err);

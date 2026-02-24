@@ -181,7 +181,7 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
  * Close the hyperlit container
  * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
-export function closeHyperlitContainer(silent = false) {
+export async function closeHyperlitContainer(silent = false) {
   // Check if container exists in DOM before trying to do anything
   // On homepage, there's no hyperlit-container element
   const container = document.getElementById("hyperlit-container");
@@ -200,12 +200,25 @@ export function closeHyperlitContainer(silent = false) {
 
   if (hyperlitManager && hyperlitManager.closeContainer) {
     try {
-      // Clean up all registered event listeners to prevent accumulation
-      // Use dynamic imports to avoid circular dependency (index.js imports from core.js)
-      import('./index.js').then(({ cleanupContainerListeners }) => cleanupContainerListeners());
-      import('./noteListener.js').then(({ detachNoteListeners }) => detachNoteListeners());
-      import('../footnotes/footnoteAnnotations.js').then(({ cleanupFootnoteListeners }) => cleanupFootnoteListeners());
-      import('./subBookLoader.js').then(({ destroyAllSubBooks }) => destroyAllSubBooks());
+      // 🔑 CRITICAL: Sequence cleanup to prevent data loss
+      // STEP 1: Flush pending saves FIRST (while DOM still exists)
+      // This must complete before destroying DOM elements
+      console.log('[HyperlitContainer] 💾 Flushing saves before cleanup...');
+      const { cleanupContainerListeners } = await import('./index.js');
+      await cleanupContainerListeners(); // Calls stopObserving() which flushes saveQueue
+      console.log('[HyperlitContainer] ✅ Saves flushed and persisted, proceeding with cleanup');
+      
+      // STEP 2: Now safe to destroy sub-books (after saves complete)
+      const { destroyAllSubBooks } = await import('./subBookLoader.js');
+      await destroyAllSubBooks(); // DOM elements destroyed here
+      console.log('[HyperlitContainer] ✅ Sub-books destroyed');
+      
+      // STEP 3: Other cleanup (order less critical)
+      const { detachNoteListeners } = await import('./noteListener.js');
+      await detachNoteListeners();
+      
+      const { cleanupFootnoteListeners } = await import('../footnotes/footnoteAnnotations.js');
+      await cleanupFootnoteListeners();
 
       // Remove scroll containment handlers (container already validated at function start)
       if (container) {
@@ -257,6 +270,7 @@ export function closeHyperlitContainer(silent = false) {
       }
 
       hyperlitManager.closeContainer();
+      console.log('[HyperlitContainer] ✅ Container closed successfully');
     } catch (error) {
       console.warn('Could not close hyperlit container:', error);
     }

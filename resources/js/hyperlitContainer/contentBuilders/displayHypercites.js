@@ -914,7 +914,7 @@ export async function handleHyperciteDelete(event) {
     const { closeHyperlitContainer } = await import('../core.js');
 
     // Close container and reload to show updated state
-    closeHyperlitContainer();
+    await closeHyperlitContainer();
     console.log('✅ Removed citation successfully');
     return;
   } catch (error) {

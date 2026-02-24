@@ -66,11 +66,14 @@ export class SaveQueue {
    * Add node to pending saves queue
    */
   queueNode(nodeId, action = 'update') {
+    console.log(`🎯 SaveQueue.queueNode: ${nodeId}, action: ${action}, current pending: ${this.pendingSaves.nodes.size}`);
     this.pendingSaves.nodes.set(nodeId, { id: nodeId, action });
     this.pendingSaves.lastActivity = Date.now();
 
     verbose.content(`Queued node ${nodeId} for ${action}`, 'divEditor/saveQueue.js');
+    console.log(`🎯 SaveQueue: calling debouncedSaveNode`);
     this.debouncedSaveNode();
+    console.log(`🎯 SaveQueue: debouncedSaveNode called, timer started`);
   }
 
   /**
@@ -129,9 +132,14 @@ export class SaveQueue {
    * Save queued nodes to database
    */
   async saveNodeToDatabase() {
-    if (this.pendingSaves.nodes.size === 0) return;
+    console.log(`🎯 saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`);
+    if (this.pendingSaves.nodes.size === 0) {
+      console.log('🎯 saveNodeToDatabase: no pending nodes, returning');
+      return;
+    }
 
     const nodesToSave = Array.from(this.pendingSaves.nodes.values());
+    console.log(`🎯 saveNodeToDatabase: processing ${nodesToSave.length} nodes`);
     this.pendingSaves.nodes.clear();
 
     verbose.content(`Processing ${nodesToSave.length} pending node saves`, 'divEditor/saveQueue.js');
@@ -151,11 +159,15 @@ export class SaveQueue {
       });
 
       if (recordsToUpdate.length > 0) {
+        console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
         await batchUpdateIndexedDBRecords(recordsToUpdate, this.bookId ? { bookId: this.bookId } : {});
+        console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
         // ✅ Mark cache dirty after successful saves
         markCacheDirty();
         // ✅ Invalidate search index so next search reflects edits
         invalidateSearchIndex();
+      } else {
+        console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
       }
 
       if (deletions.length > 0) {
@@ -262,20 +274,23 @@ export class SaveQueue {
   /**
    * Force save all pending changes immediately
    */
-  flush() {
+  async flush() {
     console.log('🚨 Flushing all pending saves...');
 
     // Clear debounce timers and execute immediately
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
 
+    // Await the async save operations to ensure they complete
     if (this.pendingSaves.nodes.size > 0) {
-      this.saveNodeToDatabase();
+      await this.saveNodeToDatabase();
     }
 
     if (this.pendingSaves.deletions.size > 0) {
-      this.processBatchDeletions();
+      await this.processBatchDeletions();
     }
+    
+    console.log('✅ SaveQueue flush complete');
   }
 
   /**

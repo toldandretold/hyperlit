@@ -119,7 +119,7 @@ export async function cleanupReaderView() {
   verbose.init('Cleaning up previous reader view', 'viewManager.js');
 
   // Close any open containers before destroying the view
-  closeHyperlitContainer();
+  await closeHyperlitContainer();
 
   // SPA TRANSITION FIX: Do not remove the navigation overlay here.
   // It is shown just before the transition and must persist.
@@ -147,7 +147,7 @@ export async function cleanupReaderView() {
 
   try {
     const { stopObserving } = await import('./divEditor/index.js');
-    stopObserving();
+    await stopObserving();
   } catch (e) {
     // Module not loaded yet, nothing to stop
   }
