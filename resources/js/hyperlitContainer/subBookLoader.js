@@ -89,10 +89,12 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
     
     // Get the current state
     const subBookState = subBookLoaders.get(subBookId);
-    if (!subBookState) {
-      console.warn(`⚠️ Sub-book state not found for "${subBookId}"`);
+    if (!subBookState || !subBookState.loader) {
+      console.warn(`⚠️ Sub-book loader not found for "${subBookId}"`);
       return;
     }
+    
+    const loader = subBookState.loader;
     
     // Get fresh full nodes from IndexedDB
     const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
@@ -103,32 +105,20 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
     
     console.log(`📥 Loaded ${freshNodes.length} full nodes from IndexedDB`);
     
+    // Update loader with full nodes
+    loader.nodes = freshNodes;
+    loader.previewNodeIds = null; // Clear preview restriction
+    
+    // Clear currently loaded chunks to start fresh
+    loader.currentlyLoadedChunks.clear();
+    
     // Clear preview content
     console.log(`🧹 Clearing preview content for full lazy load`);
     container.innerHTML = '';
     
-    // Create lazy loader NOW with full data
-    console.log(`🚀 Creating lazy loader for "${subBookId}"`);
-    const loader = createLazyLoader({
-      nodes: freshNodes,
-      loadNextChunk: loadNextChunkFixed,
-      loadPreviousChunk: loadPreviousChunkFixed,
-      attachMarkListeners,
-      bookId: subBookId,
-      containerElement: container,
-      scrollableParent: scrollerDiv,
-    });
-    
-    if (!loader) {
-      console.error(`❌ Failed to create lazy loader for "${subBookId}"`);
-      container.innerHTML = '<p style="opacity:0.5;font-style:italic;">Failed to load content.</p>';
-      return;
-    }
-    
-    // Update the stored state with the new loader
-    subBookState.loader = loader;
-    subBookState.hasMoreContent = true;
-    lazyLoaders[subBookId] = loader;
+    // Insert bottom sentinel to activate lazy loading
+    console.log(`🚀 Inserting bottom sentinel to activate lazy loading`);
+    insertBottomSentinel(loader);
     
     // Start loading from chunk 0
     const firstChunkId = freshNodes[0]?.chunk_id ?? 0;
@@ -407,87 +397,105 @@ export async function loadSubBook(
     return loader;
   }
 
-  // BRANCH: Read mode = preview mode (no flash, lazy load on demand)
-  console.log(`👁️ Loading sub-book "${subBookId}" in read mode (preview)`);
+  // BRANCH: Read mode = preview mode WITH lazy loader (for highlighting, but 5 nodes only)
+  console.log(`👁️ Loading sub-book "${subBookId}" in read mode (preview with lazy loader)`);
   
-  // Render preview content directly WITHOUT lazy loader (prevents flash)
+  // Get preview nodes (first 5)
   const firstFiveNodes = nodes.slice(0, 5);
-  console.log(`📥 subBookLoader: Rendering ${firstFiveNodes.length} preview nodes for "${subBookId}"`);
+  const previewNodeIds = firstFiveNodes.map(n => n.node_id);
+  console.log(`📥 subBookLoader: Preparing ${firstFiveNodes.length} preview nodes for "${subBookId}"`);
   
-  // Group preview nodes by chunk
-  const nodesByChunk = {};
-  firstFiveNodes.forEach(node => {
-    if (!nodesByChunk[node.chunk_id]) {
-      nodesByChunk[node.chunk_id] = [];
-    }
-    nodesByChunk[node.chunk_id].push(node);
+  // Create lazy loader with preview nodes only (not all nodes)
+  // This enables highlighting while keeping load minimal
+  const loader = createLazyLoader({
+    nodes: firstFiveNodes,
+    loadNextChunk: loadNextChunkFixed,
+    loadPreviousChunk: loadPreviousChunkFixed,
+    attachMarkListeners,
+    bookId: subBookId,
+    containerElement: containerDiv,
+    scrollableParent: scrollerDiv,
   });
+
+  if (!loader) {
+    console.error(`❌ subBookLoader: createLazyLoader returned null for "${subBookId}"`);
+    containerDiv.innerHTML = '<p style="opacity:0.5;font-style:italic;">Failed to load content.</p>';
+    subBookLoaders.set(subBookId, { loader: null, containerDiv });
+    return null;
+  }
+
+  // Load only the chunk containing preview nodes
+  const uniqueChunkIds = [...new Set(firstFiveNodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+  console.log(`📥 subBookLoader: Loading ${uniqueChunkIds.length} preview chunk(s) for "${subBookId}"`);
   
-  // Create chunk elements directly (no lazy loader, no sentinels, no flash)
-  for (const [chunkId, chunkNodes] of Object.entries(nodesByChunk)) {
-    const chunkEl = createChunkElement(chunkNodes, { bookId: subBookId });
+  for (const chunkId of uniqueChunkIds) {
+    await loader.loadChunk(chunkId, 'down');
+    
+    // Re-render with ONLY preview nodes (not all nodes in the chunk)
+    const chunkEl = containerDiv.querySelector(`[data-chunk-id="${chunkId}"]`);
     if (chunkEl) {
-      containerDiv.appendChild(chunkEl);
-      attachMarkListeners(chunkEl);
-      console.log(`✅ Rendered chunk ${chunkId} with ${chunkNodes.length} preview nodes`);
+      const previewNodesInChunk = firstFiveNodes.filter(n => n.chunk_id === chunkId);
+      if (previewNodesInChunk.length > 0) {
+        console.log(`🔄 Re-rendering chunk ${chunkId} with ${previewNodesInChunk.length} preview nodes only`);
+        const newChunkEl = createChunkElement(previewNodesInChunk, loader);
+        if (newChunkEl) {
+          // Preserve height to prevent layout shift
+          const originalHeight = chunkEl.offsetHeight;
+          chunkEl.style.height = originalHeight + 'px';
+          chunkEl.style.minHeight = originalHeight + 'px';
+          
+          chunkEl.innerHTML = newChunkEl.innerHTML;
+          attachMarkListeners(chunkEl);
+          
+          // Release height constraints
+          requestAnimationFrame(() => {
+            chunkEl.style.height = '';
+            chunkEl.style.minHeight = '';
+          });
+        }
+      }
     }
   }
-  
-  // Store state for lazy loading later
-  const previewNodeIds = firstFiveNodes.map(n => n.node_id);
+
+  // Store preview node IDs on loader
+  loader.previewNodeIds = previewNodeIds;
   console.log(`📍 Stored ${previewNodeIds.length} preview node IDs for "${subBookId}"`);
   
-  // Check if full nodes already exist in IndexedDB
+  // Remove bottom sentinel - we'll add it back when user clicks "[read more]"
+  if (loader.bottomSentinel) {
+    console.log(`🗑️ Removing bottom sentinel from sub-book "${subBookId}"`);
+    loader.observer?.unobserve(loader.bottomSentinel);
+    loader.bottomSentinel.remove();
+    loader.bottomSentinel = null;
+  }
+
+  // Register for cleanup
+  subBookLoaders.set(subBookId, { loader, containerDiv });
+  lazyLoaders[subBookId] = loader;
+
+  // Check if full nodes exist and add [read more] button
   const existingNodes = await getNodeChunksFromIndexedDB(subBookId);
   const totalAvailableNodes = existingNodes?.length || nodes.length;
   const hasMoreContent = totalAvailableNodes > firstFiveNodes.length;
   
-  // Add "[read more]" button if there are more nodes available
   if (hasMoreContent) {
     addReadMoreButton(subBookId, containerDiv, previewNodeIds, scrollerDiv, totalAvailableNodes);
   }
-  
-  // Create a minimal state object for hydration and cleanup
-  const subBookState = {
-    loader: null,
-    containerDiv,
-    previewNodeIds,
-    scrollerDiv,
-    hasMoreContent,
-    nodes: existingNodes || nodes,
-    bookId: subBookId
-  };
-  subBookLoaders.set(subBookId, subBookState);
-  
-  // If full nodes exist, hydrate preview nodes with hyperlights/hypercites immediately
-  if (existingNodes?.length > 0) {
-    console.log(`📚 Full data exists (${existingNodes.length} nodes) - hydrating preview nodes with hyperlights`);
-    await hydratePreviewNodes(subBookState, previewNodeIds, existingNodes);
-  }
-  
-  // Async enrichment — fetch fresh data from backend to IndexedDB
-  if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, subBookState);
-  }
-  
-  // Return a mock loader object for compatibility
-  const mockLoader = {
-    bookId: subBookId,
-    container: containerDiv,
-    nodes: subBookState.nodes,
-    previewNodeIds,
-    currentlyLoadedChunks: new Set(Object.keys(nodesByChunk).map(Number)),
-    observer: null,
-    topSentinel: null,
-    bottomSentinel: null,
-    isRestoringFromCache: false,
-    disconnect: () => {
-      console.log(`🧹 Sub-book "${subBookId}" cleanup (preview mode)`);
-    }
-  };
 
-  console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in preview mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes)`);
-  return mockLoader;
+  // If full nodes exist, hydrate with hyperlights immediately
+  if (existingNodes?.length > 0) {
+    console.log(`📚 Full data exists (${existingNodes.length} nodes) - hydrating preview with hyperlights`);
+    loader.nodes = existingNodes;
+    await hydratePreviewNodes({ loader, containerDiv, bookId: subBookId }, previewNodeIds, existingNodes);
+  }
+
+  // Async enrichment — fetch fresh data from backend
+  if (!isNewSubBook) {
+    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodes || nodes, bookId: subBookId });
+  }
+
+  console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);
+  return loader;
 }
 
 /**
