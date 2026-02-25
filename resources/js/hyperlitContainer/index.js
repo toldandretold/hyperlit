@@ -849,11 +849,6 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
     contentHtml = '<div class="error">No content available</div>';
   }
 
-  // Append edit button if user has edit permission
-  if (hasAnyEditPermission) {
-    contentHtml += buildEditButtonHtml(editModeEnabled);
-  }
-
   console.log(`📦 Final content HTML (${contentHtml.length} chars):`, contentHtml);
 
   // Return just the content, not the full structure
@@ -1199,15 +1194,23 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
     }
 
-    // Attach edit button click handler if user has edit permission
+    // Insert edit button as direct child of container (NOT inside scroller)
+    // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch
     if (hasAnyEditPermission) {
-      const editBtn = document.getElementById('hyperlit-edit-btn');
-      if (editBtn) {
-        registerListener(editBtn, 'click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleEditButtonClick();
-        });
+      const existing = document.getElementById('hyperlit-edit-btn');
+      if (existing) existing.remove();
+
+      const container = document.getElementById('hyperlit-container');
+      if (container) {
+        container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
+        const editBtn = document.getElementById('hyperlit-edit-btn');
+        if (editBtn) {
+          registerListener(editBtn, 'click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleEditButtonClick();
+          });
+        }
       }
     }
   }, 100);
