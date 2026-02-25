@@ -34,7 +34,7 @@ class SubBookController extends Controller
                 'itemId'         => 'required|string',
                 'title'          => 'nullable|string|max:500',
                 'previewContent' => 'nullable|string',
-                'nodeId'         => 'nullable|uuid',
+                'nodeId'         => 'nullable|string',
             ]);
 
             $type       = $validated['type'];
