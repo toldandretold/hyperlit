@@ -204,6 +204,60 @@ async function prepareContainerClose() {
   await flushAllPendingSaves();
   
   console.log('[HyperlitContainer] Save complete');
+
+  // Save preview_nodes locally for each active sub-book
+  // This provides fast initial render on reopen without needing server data
+  try {
+    const { subBookLoaders } = await import('./subBookLoader.js');
+    const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index.js');
+
+    for (const [subBookId] of subBookLoaders) {
+      const nodes = await getNodeChunksFromIndexedDB(subBookId);
+      if (!nodes?.length) continue;
+
+      const previewNodes = nodes.slice(0, 5).map(n => ({
+        book: n.book, chunk_id: n.chunk_id, startLine: n.startLine,
+        node_id: n.node_id, content: n.content,
+        footnotes: n.footnotes || [], hyperlights: n.hyperlights || [],
+        hypercites: n.hypercites || [],
+      }));
+
+      const [parentBook, itemId] = subBookId.split('/');
+      const db = await openDatabase();
+
+      if (itemId.startsWith('Fn')) {
+        const tx = db.transaction('footnotes', 'readwrite');
+        const store = tx.objectStore('footnotes');
+        const existing = await new Promise(r => {
+          const req = store.get([parentBook, itemId]);
+          req.onsuccess = () => r(req.result);
+          req.onerror = () => r(null);
+        });
+        if (existing) {
+          existing.preview_nodes = previewNodes;
+          store.put(existing);
+          await new Promise(r => { tx.oncomplete = r; });
+        }
+      } else if (itemId.startsWith('HL_')) {
+        const tx = db.transaction('hyperlights', 'readwrite');
+        const store = tx.objectStore('hyperlights');
+        const idx = store.index('hyperlight_id');
+        const existing = await new Promise(r => {
+          const req = idx.get(itemId);
+          req.onsuccess = () => r(req.result);
+          req.onerror = () => r(null);
+        });
+        if (existing) {
+          existing.preview_nodes = previewNodes;
+          store.put(existing);
+          await new Promise(r => { tx.oncomplete = r; });
+        }
+      }
+      console.log(`💾 Saved preview_nodes for ${subBookId} (${previewNodes.length} nodes)`);
+    }
+  } catch (err) {
+    console.warn('⚠️ Failed to save sub-book preview_nodes:', err);
+  }
 }
 
 /**

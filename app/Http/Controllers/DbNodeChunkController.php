@@ -580,6 +580,20 @@ class DbNodeChunkController extends Controller
                 }
             }
 
+            // Update preview_nodes for any sub-books that were modified
+            foreach (array_keys($itemsByBook) as $processedBookId) {
+                if (str_contains($processedBookId, '/')) {
+                    try {
+                        $this->updateSubBookPreviewNodes($processedBookId);
+                    } catch (\Exception $e) {
+                        Log::warning('preview_nodes update failed (non-fatal)', [
+                            'book' => $processedBookId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
             Log::info('Targeted upsert completed successfully');
 
             return response()->json(['success' => true, 'message' => 'Node chunks updated successfully (targeted)']);
