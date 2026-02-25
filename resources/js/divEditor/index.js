@@ -467,6 +467,9 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // Create observer for the main-content container
   observer = new MutationObserver((mutations) => {
+    // Skip all mutations during programmatic DOM updates (e.g. highlight reprocessing)
+    if (isProgrammaticUpdateInProgress()) return;
+
     // 🛡️ Verify mutations are from the correct container
     const validMutations = mutations.filter(mutation => {
       if (!verifyMutationSource(mutation)) {

@@ -1100,6 +1100,22 @@ body[data-page="user"] #userLibraryContainer {
   -webkit-user-modify: read-write;
 }
 
+/* Allow touch cursor placement in editable sub-books on mobile */
+#hyperlit-container .sub-book-content[contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+#hyperlit-container .sub-book-content[contenteditable="true"] * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
 /* Only show placeholder when contenteditable is true (edit mode is ON) */
 #hyperlit-container .footnote-text[contenteditable="true"]:empty::before,
 #hyperlit-container .footnote-text[contenteditable="true"].empty-footnote::before {
