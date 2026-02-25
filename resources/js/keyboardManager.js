@@ -21,6 +21,7 @@ class KeyboardManager {
     this.keyboardClosedFlagTimer = null; // Auto-clear keyboardWasRecentlyClosed flag
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
+    this.handleViewportScroll = this.handleViewportScroll.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
     this.handleFocusIn = this.handleFocusIn.bind(this);
     this.handleFocusOut = this.handleFocusOut.bind(this);
@@ -40,6 +41,10 @@ class KeyboardManager {
       "resize",
       this.handleViewportChange,
     );
+    window.visualViewport.addEventListener(
+      "scroll",
+      this.handleViewportScroll,
+    );
   }
 
   // SIMPLIFIED: This now only tracks the focused element. No more guessing.
@@ -54,7 +59,12 @@ class KeyboardManager {
     if (e.target.id === 'focus-preserver') {
       return;
     }
-    console.log(`👋 FOCUSIN: ${e.target.id || e.target.tagName}, isKeyboardOpen=${this.isKeyboardOpen}`);
+    // Cancel any deferred keyboard-close from a focusout(null) — focus landed on a new editable
+    if (this._pendingCloseTimer) {
+      clearTimeout(this._pendingCloseTimer);
+      this._pendingCloseTimer = null;
+    }
+
     this.state.focusedElement = e.target;
 
     // CITATION INPUT FIX: Prevent iOS from scrolling when citation input focuses
@@ -153,6 +163,34 @@ class KeyboardManager {
     if (this.isKeyboardOpen) {
       console.log(`⬇️ FOCUSOUT: Closing keyboard (was open, not moving to editable)`);
       console.log(`⬇️ FOCUSOUT reason: relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}`);
+
+      // When relatedTarget is null (common on iOS when switching between contenteditables),
+      // defer the close to give focusin a chance to fire on the new target (~80ms).
+      // This prevents the toolbar jolt when switching between sub-books.
+      if (!e.relatedTarget) {
+        this.state.focusedElement = null;
+        this._pendingCloseTimer = setTimeout(() => {
+          this._pendingCloseTimer = null;
+          // If focusin didn't reclaim focus, truly close
+          if (!this.state.focusedElement) {
+            this.isKeyboardOpen = false;
+            setKeyboardWasRecentlyClosed(true);
+
+            // Auto-clear flag after 1 second as safeguard
+            if (this.keyboardClosedFlagTimer) {
+              clearTimeout(this.keyboardClosedFlagTimer);
+            }
+            this.keyboardClosedFlagTimer = setTimeout(() => {
+              setKeyboardWasRecentlyClosed(false);
+              console.log('⏱️ Auto-cleared keyboardWasRecentlyClosed flag after timeout');
+            }, 1000);
+
+            this.adjustLayout(false);
+          }
+        }, 80);
+        return; // Don't null focusedElement again below
+      }
+
       this.isKeyboardOpen = false;
       setKeyboardWasRecentlyClosed(true);
 
@@ -188,6 +226,19 @@ class KeyboardManager {
     e.stopPropagation();
     return false;
   }
+
+handleViewportScroll() {
+  if (!this.isKeyboardOpen) return;
+
+  const vv = window.visualViewport;
+  const newOffsetTop = vv.offsetTop;
+
+  // Only act if offsetTop actually changed
+  if (Math.abs(newOffsetTop - this.lastOffsetTop) < 1) return;
+
+  this.lastOffsetTop = newOffsetTop;
+  this.adjustLayout(true);
+}
 
 // Debounced handler for viewport changes
 handleViewportChange() {
@@ -231,7 +282,6 @@ processViewportChange() {
   // This happens on search-toolbar refocus when iOS fires viewport events twice
   const offsetTopChanged = Math.abs(vv.offsetTop - this.lastOffsetTop) > 50;
   if (keyboardOpen && this.isKeyboardOpen && offsetTopChanged) {
-    console.log(`📍 Keyboard already open but offsetTop changed from ${this.lastOffsetTop}px to ${vv.offsetTop}px`);
 
     // For search-input, skip repositioning to avoid jolt during iOS scroll
     // Just update lastOffsetTop so future events work correctly
@@ -462,7 +512,6 @@ scrollCaretIntoView(element) {
       this.createOrUpdateSpacer(keyboardHeight);
 
       const newKeyboardTop = effectiveOffsetTop + vv.height;
-      console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop} (calculation: ${effectiveOffsetTop} + ${vv.height})`);
       this.state.keyboardTop = newKeyboardTop;
       this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent);
 
@@ -544,7 +593,6 @@ scrollCaretIntoView(element) {
 
     console.log(`🔍 DEBUG moveToolbar: this.state.keyboardTop=${this.state.keyboardTop}, toolbarHeight=${toolbarHeight}`);
     const top = this.state.keyboardTop - toolbarHeight;
-    console.log(`🔍 DEBUG moveToolbar: Calculated top=${top}`);
 
     visibleToolbar.style.setProperty("position", "fixed", "important");
     visibleToolbar.style.setProperty("top", `${top}px`, "important");
@@ -728,6 +776,10 @@ removeSpacer() {
       clearTimeout(this.keyboardClosedFlagTimer);
       this.keyboardClosedFlagTimer = null;
     }
+    if (this._pendingCloseTimer) {
+      clearTimeout(this._pendingCloseTimer);
+      this._pendingCloseTimer = null;
+    }
 
     // Reset inline styles on all elements we modified
     this.resetInlineStyles(
@@ -746,6 +798,10 @@ removeSpacer() {
       window.visualViewport.removeEventListener(
         "resize",
         this.handleViewportChange,
+      );
+      window.visualViewport.removeEventListener(
+        "scroll",
+        this.handleViewportScroll,
       );
     }
   }
