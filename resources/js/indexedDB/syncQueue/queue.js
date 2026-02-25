@@ -36,7 +36,8 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
     return;
   }
 
-  const key = `${store}-${id}`;
+  const itemBook = data?.book || '';
+  const key = `${store}-${itemBook}-${id}`;
   if (type === "update" && !data) {
     console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
     return;

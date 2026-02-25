@@ -12,6 +12,9 @@ import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor
 // Create the hyperlit container manager instance
 export let hyperlitManager = null;
 
+// Re-entrancy guard for saveAndCloseHyperlitContainer (prevents double-tap)
+let isClosing = false;
+
 // ============================================================================
 // EDIT MODE STATE MANAGEMENT
 // ============================================================================
@@ -264,7 +267,7 @@ async function prepareContainerClose() {
  * Close the hyperlit container
  * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
-export async function closeHyperlitContainer(silent = false) {
+export async function closeHyperlitContainer(silent = false, skipPrepare = false) {
   // Check if container exists in DOM before trying to do anything
   // On homepage, there's no hyperlit-container element
   const container = document.getElementById("hyperlit-container");
@@ -284,7 +287,10 @@ export async function closeHyperlitContainer(silent = false) {
   if (hyperlitManager && hyperlitManager.closeContainer) {
     try {
       // 🔑 CRITICAL: Prepare for close - save if in edit mode
-      await prepareContainerClose();
+      // skipPrepare=true when called from saveAndCloseHyperlitContainer (already prepped)
+      if (!skipPrepare) {
+        await prepareContainerClose();
+      }
       
       // 🔑 CRITICAL: Sequence cleanup
       // STEP 1: Flush any remaining saves
@@ -368,51 +374,58 @@ export async function closeHyperlitContainer(silent = false) {
  * Prevents data loss when closing container during active edit mode
  */
 export async function saveAndCloseHyperlitContainer() {
-  console.log('[HyperlitContainer] saveAndCloseHyperlitContainer() called');
-  
-  // Check if we're in edit mode with pending changes
-  if (!window.isEditing) {
-    console.log('[HyperlitContainer] Reader mode - closing without save');
-    await closeHyperlitContainer();
-    return;
-  }
-  
-  console.log('[HyperlitContainer] Edit mode - showing save overlay and waiting for save...');
-  
-  // Show "Saving..." progress overlay with interaction blocking
-  // This prevents the user from clicking again while save is in progress
-  ProgressOverlayConductor.showSPATransition(
-    50, 
-    'Saving your changes...', 
-    true // blockInteractions = true
-  );
-  
+  if (isClosing) return; // block double-tap
+  isClosing = true;
+
   try {
-    // Prepare for close - this flushes input debounce and saves to IndexedDB
-    await prepareContainerClose();
-    
-    // Update progress to 100%
-    ProgressOverlayConductor.updateProgress(100, 'Save complete');
-    
-    // Small delay to show "Save complete" message before hiding
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    console.log('[HyperlitContainer] Save complete, hiding overlay and closing container');
-    
-    // Hide the progress overlay
-    await ProgressOverlayConductor.hide();
-    
-    // Now safe to close the container
-    await closeHyperlitContainer();
-    
-  } catch (error) {
-    console.error('[HyperlitContainer] Error during save and close:', error);
-    
-    // Hide overlay even if there was an error
-    await ProgressOverlayConductor.hide();
-    
-    // Still try to close the container
-    await closeHyperlitContainer();
+    console.log('[HyperlitContainer] saveAndCloseHyperlitContainer() called');
+
+    // Check if we're in edit mode with pending changes
+    if (!window.isEditing) {
+      console.log('[HyperlitContainer] Reader mode - closing without save');
+      await closeHyperlitContainer(false, true);
+      return;
+    }
+
+    console.log('[HyperlitContainer] Edit mode - showing save overlay and waiting for save...');
+
+    // Show "Saving..." progress overlay with interaction blocking
+    // This prevents the user from clicking again while save is in progress
+    ProgressOverlayConductor.showSPATransition(
+      50,
+      'Saving your changes...',
+      true // blockInteractions = true
+    );
+
+    try {
+      // Prepare for close - this flushes input debounce and saves to IndexedDB
+      await prepareContainerClose();
+
+      // Update progress to 100%
+      ProgressOverlayConductor.updateProgress(100, 'Save complete');
+
+      // Small delay to show "Save complete" message before hiding
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      console.log('[HyperlitContainer] Save complete, hiding overlay and closing container');
+
+      // Hide the progress overlay
+      await ProgressOverlayConductor.hide();
+
+      // Now safe to close the container (skipPrepare - already prepped above)
+      await closeHyperlitContainer(false, true);
+
+    } catch (error) {
+      console.error('[HyperlitContainer] Error during save and close:', error);
+
+      // Hide overlay even if there was an error
+      await ProgressOverlayConductor.hide();
+
+      // Still try to close the container (skipPrepare - already prepped or failed)
+      await closeHyperlitContainer(false, true);
+    }
+  } finally {
+    isClosing = false;
   }
 }
 

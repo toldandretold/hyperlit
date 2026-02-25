@@ -241,7 +241,7 @@ export async function startObserving(editableDiv, bookId = null) {
   verbose.content("startObserving function called - multi-chunk mode", 'divEditor/index.js');
 
   // Stop any existing observer first
-  stopObserving();
+  await stopObserving();
 
   // 📌 Store reference so stopObserving removes listeners from the right element
   observedEditableDiv = editableDiv;
@@ -580,8 +580,18 @@ export async function stopObserving() {
     verbose.content("MutationProcessor destroyed", 'divEditor/index.js');
   }
 
-  // 💾 Cleanup SaveQueue
+  // 🔑 CRITICAL: Flush input debounce BEFORE SaveQueue cleanup
+  // This captures typing that hasn't been queued yet (within debounce window)
+  if (debouncedInputHandlerRef) {
+    console.log('[EditSession] Flushing pending input debounce...');
+    debouncedInputHandlerRef.flush();
+    debouncedInputHandlerRef = null;
+    console.log('[EditSession] Input debounce flushed');
+  }
+
+  // 💾 Flush then cleanup SaveQueue
   if (saveQueue) {
+    await saveQueue.flush();
     saveQueue.destroy();
     saveQueue = null;
     verbose.content("SaveQueue destroyed", 'divEditor/index.js');
@@ -601,15 +611,6 @@ export async function stopObserving() {
     supTagHandler.stopListening();
     supTagHandler = null;
     verbose.content("SupTagHandler destroyed", 'divEditor/index.js');
-  }
-
-  // 🔑 CRITICAL: Flush any pending input debounce BEFORE cleanup
-  // This captures typing that hasn't been queued yet (within 200ms debounce window)
-  if (debouncedInputHandlerRef) {
-    console.log('[EditSession] Flushing pending input debounce...');
-    debouncedInputHandlerRef.flush();
-    debouncedInputHandlerRef = null;
-    console.log('[EditSession] Input debounce flushed');
   }
 
   // 🚀 PERFORMANCE: Remove input event handlers

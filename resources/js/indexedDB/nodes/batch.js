@@ -617,7 +617,27 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       }
 
       let nodeId = record.id;
-      let node = document.getElementById(nodeId);
+      let node = null;
+
+      // Use node_id (UUID from data-node-id) for DOM lookup — unique across all books
+      const existingForLookup = originalNodeChunkStates.get(numericNodeId);
+      if (existingForLookup?.node_id) {
+        node = document.querySelector(`[data-node-id="${existingForLookup.node_id}"]`);
+      }
+
+      // Fallback for new nodes (no existing record): scope to book container
+      if (!node && bookId) {
+        const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+          || document.getElementById(bookId);
+        if (bookContainer) {
+          node = bookContainer.querySelector(`[id="${nodeId}"]`);
+        }
+      }
+
+      // Final fallback: global lookup (main content, no collision risk)
+      if (!node) {
+        node = document.getElementById(nodeId);
+      }
       while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
         node = node.parentElement;
         if (node?.id) nodeId = node.id;
