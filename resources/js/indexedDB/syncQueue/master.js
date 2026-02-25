@@ -459,21 +459,23 @@ export const debouncedMasterSync = debounce(async () => {
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
-  // Determine the book ID from queued data
+  // Group items by book so each sub-book syncs independently
+  const itemsByBook = new Map();
   const mainContent = document.querySelector('.main-content');
-  let syncBookId = null;
-  for (const item of itemsToSync.values()) {
-    const itemBook = item.data?.book;
-    if (itemBook && !syntheticBooks.includes(itemBook)) {
-      syncBookId = itemBook;
-      break;
+  const fallbackBookId = mainContent?.id || book || "latest";
+
+  for (const [key, item] of itemsToSync) {
+    const itemBook = item.data?.book || fallbackBookId;
+    if (!itemsByBook.has(itemBook)) {
+      itemsByBook.set(itemBook, new Map());
     }
-  }
-  if (!syncBookId) {
-    syncBookId = mainContent?.id || book || "latest";
+    itemsByBook.get(itemBook).set(key, item);
   }
 
-  await syncItemsForBook(syncBookId, itemsToSync);
+  // Sync each book's items separately
+  for (const [bookId, bookItems] of itemsByBook) {
+    await syncItemsForBook(bookId, bookItems);
+  }
 
   // ✅ Dynamically import toolbar (only exists when editing)
   try {

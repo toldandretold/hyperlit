@@ -90,6 +90,9 @@ let isProcessingClick = false;
 let mainEditorWasActive = false;
 let previousIsEditing = false;
 
+// Prevents duplicate focusin listeners from attachSubBookFocusSwitcher
+let focusSwitcherAttached = false;
+
 // ============================================================================
 // LISTENER CLEANUP INFRASTRUCTURE
 // ============================================================================
@@ -124,6 +127,7 @@ export async function cleanupContainerListeners() {
     }
   }
   activeListeners.length = 0;
+  focusSwitcherAttached = false;
 
   // Always stop sub-book observer if one is active (even if main editor wasn't active)
   const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
@@ -412,8 +416,11 @@ function placeCursorAtEnd(element) {
  * Uses registerListener() so it's cleaned up on container close.
  */
 function attachSubBookFocusSwitcher() {
+  if (focusSwitcherAttached) return;
+  focusSwitcherAttached = true;
+
   const container = document.getElementById('hyperlit-container');
-  if (!container) return;
+  if (!container) { focusSwitcherAttached = false; return; }
 
   const handler = async (e) => {
     if (!getHyperlitEditMode()) return;
@@ -856,6 +863,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   if (editModeEnabled) {
     attachNoteListeners();
     initializePlaceholders();
+    attachSubBookFocusSwitcher();
   }
 
   // Track whether any sub-book editor has been attached (shared across highlight + footnote sections)
