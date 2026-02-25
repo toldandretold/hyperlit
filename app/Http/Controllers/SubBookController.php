@@ -70,8 +70,8 @@ class SubBookController extends Controller
             // Create initial node only if one doesn't exist yet; always return nodeId
             $node = DB::table('nodes')->where('book', $subBookId)->first();
             if (!$node) {
-                // Use client-provided UUID if valid, otherwise generate one
-                $uuid = $validated['nodeId'] ?? (string) Str::uuid();
+                // Use client-provided nodeId if present, otherwise generate a UUID fallback
+                $nodeId = $validated['nodeId'] ?? (string) Str::uuid();
                 $previewText = strip_tags($validated['previewContent'] ?? '');
                 $initialContent = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" style="min-height:1.5em;">'
                                 . e($previewText)
