@@ -290,7 +290,7 @@ class DbHyperlightController extends Controller
                             'annotation' => $item['annotation'] ?? null,
                             'preview_nodes' => isset($item['preview_nodes'])
                                 ? json_encode($item['preview_nodes'])
-                                : null,
+                                : ($existingRecord ? $existingRecord->preview_nodes : null),
                             'startLine' => $item['startLine'] ?? null,
                             'creator' => $creator,
                             'creator_token' => $creator_token,
@@ -299,6 +299,25 @@ class DbHyperlightController extends Controller
                             'updated_at' => now(),
                         ]
                     );
+
+                    // When creating a new hyperlight, also create the sub-book library record
+                    // so the annotation sub-book infrastructure exists after first sync
+                    if (!$existingRecord) {
+                        $subBookId = $bookId . '/' . ($item['hyperlight_id'] ?? '');
+                        PgLibrary::firstOrCreate(
+                            ['book' => $subBookId],
+                            [
+                                'creator'       => $creator,
+                                'creator_token' => $creator_token,
+                                'visibility'    => 'public',
+                                'listed'        => false,
+                                'title'         => 'Annotation: ' . ($item['hyperlight_id'] ?? ''),
+                                'type'          => 'sub_book',
+                                'has_nodes'     => true,
+                                'raw_json'      => json_encode([]),
+                            ]
+                        );
+                    }
 
                     $processedCount++;
                     if ($bookId) {

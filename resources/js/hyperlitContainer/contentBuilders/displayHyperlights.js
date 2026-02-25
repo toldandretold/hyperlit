@@ -44,6 +44,24 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     const validResults = results.filter((r) => r);
     console.log(`✅ Valid highlight results:`, validResults);
 
+    // Check which highlights have sub-book nodes in IndexedDB (handles same-session re-open)
+    const highlightsWithNodes = new Set();
+    try {
+      const nodesTx = database.transaction("nodes", "readonly");
+      const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
+      for (const h of validResults) {
+        const subBookId = `${h.book}/${h.hyperlight_id}`;
+        const count = await new Promise(res => {
+          const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => res(0);
+        });
+        if (count > 0) highlightsWithNodes.add(h.hyperlight_id);
+      }
+    } catch (e) {
+      console.warn('Failed to check sub-book nodes:', e);
+    }
+
     if (validResults.length === 0) {
       console.warn("⚠️ No valid highlight results found");
       return `
@@ -151,6 +169,15 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 `;
       html += `  </blockquote>
 `;
+
+      // Add annotation target container for highlights that have annotations
+      // This gives loadSubBook() a target element (same pattern as .footnotes-section)
+      if (h.annotation || h.preview_nodes || highlightsWithNodes.has(h.hyperlight_id) || newHighlightIds.includes(h.hyperlight_id)) {
+        html += `  <div class="highlight-annotation" data-highlight-id="${h.hyperlight_id}">
+`;
+        html += `  </div>
+`;
+      }
 
       html += `  <br>
 `;

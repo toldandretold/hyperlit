@@ -217,6 +217,30 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
   enrichedSubBooks.add(subBookId);
 
   try {
+    // ── Timestamp guard (same pattern as checkAndUpdateIfNeeded in initializePage.js) ──
+    const { getLibraryRecordFromServer, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+
+    const [serverRecord, localRecord] = await Promise.all([
+      getLibraryRecordFromServer(subBookId),
+      getLibraryObjectFromIndexedDB(subBookId),
+    ]);
+
+    const serverTimestamp = serverRecord?.timestamp || 0;
+    const localTimestamp  = localRecord?.timestamp  || 0;
+
+    console.log(`🔍 Sub-book timestamp check for "${subBookId}":`, {
+      serverTimestamp, localTimestamp,
+      serverNewer: serverTimestamp > localTimestamp
+    });
+
+    // If no server record, or local is same/newer → skip destructive sync
+    if (!serverRecord || serverTimestamp <= localTimestamp) {
+      console.log(`⏳ Sub-book "${subBookId}": local is up-to-date, skipping server sync`);
+      return;
+    }
+
+    // Server is newer → proceed with destructive sync
+    console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
     const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
     const result = await syncBookDataFromDatabase(subBookId);
 
@@ -225,24 +249,24 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       // Get fresh data from IndexedDB (includes hyperlights/hypercites)
       const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
       const previewNodeIds = subBookState.previewNodeIds || [];
-      
+
       console.log(`📚 Enrichment complete: ${freshNodes.length} total nodes, ${previewNodeIds.length} were previewed`);
-      
+
       // Hydrate preview nodes with fresh hyperlights/hypercites data
       await hydratePreviewNodes(subBookState, previewNodeIds, freshNodes);
-      
+
       // Update state with fresh data
       subBookState.nodes = freshNodes;
-      
+
       // Check if there's more content than we previewed
       if (freshNodes.length > previewNodeIds.length && !subBookState.hasMoreContent) {
         console.log(`📊 More content available: ${freshNodes.length} > ${previewNodeIds.length}`);
         subBookState.hasMoreContent = true;
-        
+
         // Add [read more] button if not already present
         addReadMoreButton(subBookId, subBookState.containerDiv, previewNodeIds, subBookState.scrollerDiv, freshNodes.length);
       }
-      
+
       console.log(`✅ subBookLoader: Enriched and hydrated "${subBookId}" with ${freshNodes.length} nodes`);
     }
   } catch (err) {
