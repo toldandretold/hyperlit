@@ -359,7 +359,7 @@ export async function loadSubBook(
   // 2. Fire backend create ONLY for brand-new sub-books
   if (isNewSubBook) {
     const firstLocalNodeId = nodes[0]?.node_id ?? null;
-    createSubBookOnBackend(subBookId, parentBook, itemId, type, annotationHtml, firstLocalNodeId);
+    await createSubBookOnBackend(subBookId, parentBook, itemId, type, annotationHtml, firstLocalNodeId);
   }
 
   // 3. Create the container div (no id — avoids "/" in HTML id attributes)
