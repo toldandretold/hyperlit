@@ -8,6 +8,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 import { attachMarkListeners } from '../hyperlights/index.js';
 import { getNodeChunksFromIndexedDB, addNodeChunkToIndexedDB } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
+import { generateNodeId } from '../utilities/IDfunctions.js';
 
 /**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
@@ -346,7 +347,7 @@ export async function loadSubBook(
     } else {
       // Nothing exists anywhere — synthesise a local node and register on backend
       isNewSubBook = true;
-      const localNodeId = crypto.randomUUID();
+      const localNodeId = generateNodeId(subBookId);
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       await addNodeChunkToIndexedDB(subBookId, 1, initialHtml, 0, localNodeId);
