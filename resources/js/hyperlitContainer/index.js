@@ -156,6 +156,11 @@ export async function cleanupContainerListeners() {
   clearActiveBook();
   const { getEditToolbar } = await import('../editToolbar/index.js');
   getEditToolbar()?.setBookId(book);
+
+  // Hide toolbar if main book was in read mode (we showed it for hyperlit edit)
+  if (!window.isEditing) {
+    getEditToolbar()?.setEditMode(false);
+  }
 }
 
 // ============================================================================
@@ -296,6 +301,7 @@ async function handleEditButtonClick() {
       }
       const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
       getToolbar()?.setBookId(subBookId);
+      getToolbar()?.setEditMode(true);
     }
   } else {
     const { detachNoteListeners } = await import('./noteListener.js');
@@ -304,6 +310,16 @@ async function handleEditButtonClick() {
     // Stop any active sub-book observer
     const { stopObserving } = await import('../divEditor/index.js');
     await stopObserving();
+
+    // Hide toolbar if main book was in read mode
+    if (!previousIsEditing) {
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      getToolbar()?.setEditMode(false);
+    }
+
+    // Reset so the next toggle cycle starts clean
+    window.isEditing = previousIsEditing;
+    previousIsEditing = false;
   }
 
   // Restore scroll position
@@ -439,7 +455,6 @@ function attachSubBookFocusSwitcher() {
     // Switch observer to the newly focused sub-book
     const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
     if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
-    previousIsEditing = window.isEditing;
     if (!window.isEditing) window.isEditing = true;
 
     await startObserving(subBookEl, subBookId); // auto-stops + flushes previous
@@ -1033,6 +1048,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               console.log(`✏️ Sub-book editor activated for highlight: ${subBookId}`);
               const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
               getToolbar()?.setBookId(subBookId);
+              getToolbar()?.setEditMode(true);
 
               const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
               if (firstNode) {
@@ -1113,9 +1129,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
 
           // Mark footnote sub-book as user-editable
           const subBookEl = scroller.querySelector(`.sub-book-content[data-book-id="${subBookId}"]`);
-          if (subBookEl && editModeEnabled) {
+          if (subBookEl) {
             subBookEl.setAttribute('data-user-can-edit', 'true');
-            subBookEl.contentEditable = 'true';
+            if (editModeEnabled) {
+              subBookEl.contentEditable = 'true';
+            }
           }
 
           // Swap divEditor onto the sub-book when edit mode is active (only if no editor attached yet)
@@ -1135,6 +1153,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);
               const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
               getToolbar()?.setBookId(subBookId);
+              getToolbar()?.setEditMode(true);
 
               const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
               if (firstNode) {
