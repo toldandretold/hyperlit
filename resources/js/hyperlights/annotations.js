@@ -4,6 +4,7 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync, updateAnnotationsTimestamp } from "../indexedDB/index.js";
+import { getCurrentContainer } from "../hyperlitContainer/stack.js";
 
 /**
  * Extracts the current HTML content from within the annotation element.
@@ -58,7 +59,7 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
  * @param {string} highlightId - The highlight ID
  */
 export function attachAnnotationListener(highlightId) {
-  const container = document.getElementById("hyperlit-container");
+  const container = getCurrentContainer();
   if (!container || container.classList.contains("hidden")) return;
 
   const annotationEl = container.querySelector(

@@ -275,6 +275,22 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     return; // Nothing to close - container doesn't exist on this page
   }
 
+  // =========================================================================
+  // STACK UNWIND: If stacked layers exist, pop them all from top to bottom
+  // before closing the base layer.
+  // =========================================================================
+  try {
+    const { getDepth, popTopLayer, clear: clearStack } = await import('./stack.js');
+    // Pop all dynamic layers (depth > 1 means there are stacked layers above base)
+    while (getDepth() > 1) {
+      await popTopLayer();
+    }
+    // Clear the base layer entry from the stack (if any)
+    clearStack();
+  } catch (err) {
+    console.warn('Stack unwind error (non-fatal):', err);
+  }
+
   if (!hyperlitManager) {
     try {
       initializeHyperlitManager();

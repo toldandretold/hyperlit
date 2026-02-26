@@ -523,6 +523,25 @@ export async function loadSubBook(
   return loader;
 }
 
+// ============================================================================
+// STATE SAVE / RESTORE (for stack support)
+// ============================================================================
+
+/**
+ * Snapshot the current subBookLoaders map so it can be restored later.
+ */
+export function saveSubBookState() {
+  return new Map(subBookLoaders);
+}
+
+/**
+ * Restore subBookLoaders from a snapshot.
+ */
+export function restoreSubBookState(saved) {
+  subBookLoaders.clear();
+  for (const [k, v] of saved) subBookLoaders.set(k, v);
+}
+
 /**
  * Disconnect the lazy loader and remove the DOM element for a specific sub-book.
  * @param {string} subBookId

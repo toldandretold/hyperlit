@@ -5,6 +5,7 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
+import { getCurrentContainer } from "../hyperlitContainer/stack.js";
 
 /**
  * Get the current book ID from the DOM (more reliable than global variable)
@@ -64,7 +65,7 @@ export const saveFootnoteToIndexedDB = (footnoteId, content) =>
  * @param {string} footnoteId
  */
 export function attachFootnoteListener(footnoteId) {
-  const container = document.getElementById("hyperlit-container");
+  const container = getCurrentContainer();
   if (!container || container.classList.contains("hidden")) return;
 
   const footnoteEl = container.querySelector(

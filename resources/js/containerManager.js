@@ -109,9 +109,15 @@ export class ContainerManager {
         if (this.isOpen) {
           // Use specialized close function for hyperlit-container to unlock body scroll
           if (this.containerId === 'hyperlit-container') {
-            // 🔑 CRITICAL: Check if we need to save before closing
-            const { saveAndCloseHyperlitContainer } = await import('./hyperlitContainer/core.js');
-            await saveAndCloseHyperlitContainer();
+            // Check if we have stacked layers — if so, peel off only the top
+            const { isStacked, popTopLayer } = await import('./hyperlitContainer/stack.js');
+            if (isStacked()) {
+              await popTopLayer();
+            } else {
+              // 🔑 CRITICAL: Check if we need to save before closing
+              const { saveAndCloseHyperlitContainer } = await import('./hyperlitContainer/core.js');
+              await saveAndCloseHyperlitContainer();
+            }
           } else {
             this.closeContainer();
           }

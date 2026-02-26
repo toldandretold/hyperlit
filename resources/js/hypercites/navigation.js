@@ -13,6 +13,7 @@ import { getHyperciteData, getHyperciteById } from './database.js';
 import { highlightTargetHypercite } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
+import { getCurrentContainer } from '../hyperlitContainer/stack.js';
 import { currentLazyLoader } from '../initializePage.js';
 
 /**
@@ -266,12 +267,12 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Check if hypercite exists inside the opened hyperlit container
-      const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+      const currentContainer = getCurrentContainer();
+      const hyperciteInContainer = currentContainer?.querySelector(`#${internalId}`);
       if (hyperciteInContainer) {
         console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
         // Scroll within the hyperlit container
-        const container = document.getElementById('hyperlit-container');
-        const scroller = container.querySelector('.scroller');
+        const scroller = currentContainer.querySelector('.scroller');
         if (scroller) {
           hyperciteInContainer.scrollIntoView({
             behavior: 'smooth',
@@ -361,7 +362,8 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
     if (internalId) {
       // Wait for the container to render
       setTimeout(() => {
-        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+        const fnContainer = getCurrentContainer();
+        const hyperciteInContainer = fnContainer?.querySelector(`#${internalId}`);
         if (hyperciteInContainer) {
           console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
           hyperciteInContainer.scrollIntoView({
