@@ -1288,7 +1288,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
     getCurrentContainer: getContainer, getCurrentScroller: getScroller,
   } = await import('./stack.js');
   const { getHyperlitEditMode, setHyperlitEditMode } = await import('./core.js');
-  const { saveSubBookState } = await import('./subBookLoader.js');
+  const { saveSubBookState, resetSubBookState } = await import('./subBookLoader.js');
   const { detachNoteListeners } = await import('./noteListener.js');
 
   const currentDepth = getDepth();
@@ -1311,6 +1311,9 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const savedModuleState = saveModuleState();
   const savedSubBookState = saveSubBookState();
   const savedEditMode = getHyperlitEditMode();
+
+  // Clear sub-book state for the fresh layer — Level 1's entries are saved above
+  resetSubBookState();
 
   // --- 3. Push saved state onto stack ---
   const currentContainer = getContainer();

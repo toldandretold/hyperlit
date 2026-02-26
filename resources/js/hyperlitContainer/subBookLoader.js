@@ -539,7 +539,23 @@ export function saveSubBookState() {
  */
 export function restoreSubBookState(saved) {
   subBookLoaders.clear();
-  for (const [k, v] of saved) subBookLoaders.set(k, v);
+  for (const [k, v] of saved) {
+    subBookLoaders.set(k, v);
+    if (v.loader) lazyLoaders[k] = v.loader;
+  }
+}
+
+/**
+ * Clear subBookLoaders and lazyLoaders entries without removing DOM elements.
+ * Used when pushing a stacked layer — Level 1's DOM stays intact while
+ * the module-level maps are reset for the fresh Level 2 layer.
+ */
+export function resetSubBookState() {
+  for (const [id, entry] of subBookLoaders) {
+    entry.loader?.disconnect();
+    delete lazyLoaders[id];
+  }
+  subBookLoaders.clear();
 }
 
 /**
