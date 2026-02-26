@@ -19,6 +19,7 @@ class PgFootnote extends Model
     // Allow mass assignment for these fields
     protected $fillable = [
         'book',
+        'sub_book_id',
         'footnoteId',
         'content',
         'preview_nodes',

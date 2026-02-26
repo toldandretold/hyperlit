@@ -17,8 +17,6 @@ trait SubBookPreviewTrait
      */
     protected function updateSubBookPreviewNodes(string $subBookId): void
     {
-        [$parentBook, $itemId] = explode('/', $subBookId, 2);
-
         // 1. Fetch the first 5 nodes for this sub-book
         $nodeRows = DB::table('nodes')
             ->where('book', $subBookId)
@@ -106,23 +104,27 @@ trait SubBookPreviewTrait
             'hypercites'  => array_values($hypercitesByNode[$node->node_id]  ?? []),
         ])->toArray();
 
-        // 5. Write to parent record — HL_ → hyperlights table, Fn → footnotes table
-        if (str_starts_with($itemId, 'HL_')) {
-            DB::table('hyperlights')
-                ->where('book', $parentBook)
-                ->where('hyperlight_id', $itemId)
-                ->update(['preview_nodes' => json_encode($previewNodes)]);
+        $previewJson = json_encode($previewNodes);
+
+        // 5. Write to parent record — look up by sub_book_id directly
+        $updated = DB::table('hyperlights')
+            ->where('sub_book_id', $subBookId)
+            ->update(['preview_nodes' => $previewJson]);
+
+        if ($updated) {
             Log::info('Updated hyperlight preview_nodes', ['sub_book' => $subBookId]);
-        } elseif (str_starts_with($itemId, 'Fn')) {
-            DB::table('footnotes')
-                ->where('book', $parentBook)
-                ->where('footnoteId', $itemId)
-                ->update(['preview_nodes' => json_encode($previewNodes)]);
+            return;
+        }
+
+        $updated = DB::table('footnotes')
+            ->where('sub_book_id', $subBookId)
+            ->update(['preview_nodes' => $previewJson]);
+
+        if ($updated) {
             Log::info('Updated footnote preview_nodes', ['sub_book' => $subBookId]);
         } else {
-            Log::warning('updateSubBookPreviewNodes: unrecognised itemId pattern', [
+            Log::warning('updateSubBookPreviewNodes: no parent record found', [
                 'sub_book' => $subBookId,
-                'itemId'   => $itemId,
             ]);
         }
     }

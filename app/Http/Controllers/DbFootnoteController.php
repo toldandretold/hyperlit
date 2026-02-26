@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SubBookIdHelper;
 use App\Models\PgFootnote;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
@@ -73,8 +74,13 @@ class DbFootnoteController extends Controller
                     ? json_encode($item['preview_nodes'])
                     : null;
 
+                $subBookId = SubBookIdHelper::build($book, $item['footnoteId']);
+
                 if ($existing) {
-                    $updates = ['content' => $item['content'] ?? ''];
+                    $updates = [
+                        'content'     => $item['content'] ?? '',
+                        'sub_book_id' => $subBookId,
+                    ];
                     if ($previewNodes !== null) {
                         $updates['preview_nodes'] = $previewNodes;
                     }
@@ -84,6 +90,7 @@ class DbFootnoteController extends Controller
                 } else {
                     PgFootnote::create([
                         'book'          => $book,
+                        'sub_book_id'   => $subBookId,
                         'footnoteId'    => $item['footnoteId'],
                         'content'       => $item['content'] ?? '',
                         'preview_nodes' => $previewNodes,

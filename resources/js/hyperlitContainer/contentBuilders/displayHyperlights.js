@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../../indexedDB/index.js';
 import { getCurrentUserId, getCurrentUser } from "../../utilities/auth.js";
+import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
 import DOMPurify from 'dompurify';
 
 /**
@@ -50,7 +51,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       const nodesTx = database.transaction("nodes", "readonly");
       const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
       for (const h of validResults) {
-        const subBookId = `${h.book}/${h.hyperlight_id}`;
+        const subBookId = buildSubBookId(h.book, h.hyperlight_id);
         const count = await new Promise(res => {
           const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
           req.onsuccess = () => res(req.result);

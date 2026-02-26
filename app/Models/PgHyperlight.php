@@ -16,6 +16,7 @@ class PgHyperlight extends Model
 
     protected $fillable = [
         'book',
+        'sub_book_id',
         'hyperlight_id',
         'node_id',
         'charData',
