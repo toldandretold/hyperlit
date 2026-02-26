@@ -201,8 +201,15 @@ function buildHyperlightsForNode(node, allHyperlights) {
     return [];
   }
 
+  console.log(`[DEBUG buildHyperlightsForNode] node.node_id=${node.node_id}, node.book=${node.book} (type: ${typeof node.book})`);
+  allHyperlights.forEach(hl => {
+    const nodeMatch = hl.node_id.includes(node.node_id);
+    const bookMatch = hl.book === node.book;
+    console.log(`  hl.hyperlight_id=${hl.hyperlight_id}, hl.book=${hl.book} (type: ${typeof hl.book}), hl.node_id=${JSON.stringify(hl.node_id)}, nodeMatch=${nodeMatch}, bookMatch=${bookMatch}`);
+  });
+
   return allHyperlights
-    .filter(hl => hl.node_id.includes(node.node_id))
+    .filter(hl => hl.node_id.includes(node.node_id) && hl.book === node.book)
     .map(hl => {
       // Extract per-node position from charData
       const charData = hl.charData?.[node.node_id];

@@ -215,13 +215,16 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books', [DatabaseToIndexedDBController::class, 'getAvailableBooks'])
         ->name('api.database-to-indexeddb.books');
 
-    // Sub-book routes (two-segment IDs: {parentBook}/{subId})
+    // Sub-book routes ({subId} allows slashes for nested IDs like "2/HL_123/HL_456")
     // Must be defined before the single-segment routes to avoid {bookId} swallowing the slash.
     Route::get('books/{parentBook}/{subId}/data', [DatabaseToIndexedDBController::class, 'getSubBookData'])
+        ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-data');
     Route::get('books/{parentBook}/{subId}/metadata', [DatabaseToIndexedDBController::class, 'getSubBookMetadata'])
+        ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-metadata');
     Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
+        ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-library');
 
     // Get full book data for IndexedDB import

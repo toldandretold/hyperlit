@@ -401,6 +401,7 @@ export async function createHighlightHandler(event, bookId) {
   // Find all affected nodes
   const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
   const affectedIds = new Set();
+  const affectedElements = new Map();
   const updatedNodeChunks = [];
 
   affectedMarks.forEach((mark) => {
@@ -409,6 +410,7 @@ export async function createHighlightHandler(event, bookId) {
     );
     if (container && container.id) {
       affectedIds.add(container.id);
+      affectedElements.set(container.id, container);
     }
   });
 
@@ -422,7 +424,7 @@ export async function createHighlightHandler(event, bookId) {
     const isEnd = chunkId === endContainer.id;
 
     const cleanLength = (() => {
-      const textElem = document.getElementById(chunkId);
+      const textElem = affectedElements.get(chunkId);
       const cleanElem = textElem.cloneNode(true);
 
       // Remove ALL HTML elements to get clean text length (consistent with calculateCleanTextOffset)
@@ -457,7 +459,7 @@ export async function createHighlightHandler(event, bookId) {
     const endOffset = isEnd ? cleanEndOffset : cleanLength;
 
     // ✅ NEW: Store per-node positions for new charData structure
-    const element = document.getElementById(chunkId);
+    const element = affectedElements.get(chunkId);
     const nodeId = element?.getAttribute('data-node-id') || chunkId;  // Fallback to startLine if no data-node-id
 
     nodeIdMap[chunkId] = nodeId;

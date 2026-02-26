@@ -59,7 +59,7 @@ class SubBookController extends Controller
                     'creator_token' => $creatorToken,
                     'visibility'    => $type === 'footnote'
                         ? ($this->getParentLibraryVisibility($parentBook) ?? 'private')
-                        : 'private',
+                        : 'public',
                     'listed'        => false,
                     'title'         => $validated['title'] ?? "Annotation: {$itemId}",
                     'type'          => 'sub_book',

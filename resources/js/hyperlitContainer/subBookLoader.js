@@ -429,7 +429,13 @@ export async function loadSubBook(
   const firstFiveNodes = nodes.slice(0, 5);
   const previewNodeIds = firstFiveNodes.map(n => n.node_id);
   console.log(`📥 subBookLoader: Preparing ${firstFiveNodes.length} preview nodes for "${subBookId}"`);
-  
+
+  // Hydrate preview nodes with highlight marks from the normalized hyperlights store.
+  // Preview nodes come from highlight.preview_nodes with empty hyperlights arrays —
+  // rebuildNodeArrays queries the hyperlights store by node_id and populates them.
+  const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild.js');
+  await rebuildNodeArrays(firstFiveNodes);
+
   // Create lazy loader with preview nodes only (not all nodes)
   // This enables highlighting while keeping load minimal
   const loader = createLazyLoader({
@@ -538,6 +544,7 @@ export function saveSubBookState() {
  * Restore subBookLoaders from a snapshot.
  */
 export function restoreSubBookState(saved) {
+  if (!saved) return;
   subBookLoaders.clear();
   for (const [k, v] of saved) {
     subBookLoaders.set(k, v);

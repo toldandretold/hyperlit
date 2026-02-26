@@ -1034,10 +1034,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             mode: isNewlyCreated ? 'create' : 'read',
           };
 
-          // Await the first editable sub-book so we can swap the editor onto it
-          const loader = needsEditor
-            ? await loadSubBook(subBookId, highlight.book, highlight.hyperlight_id, 'hyperlight', scroller, loaderOpts)
-            : loadSubBook(subBookId, highlight.book, highlight.hyperlight_id, 'hyperlight', scroller, loaderOpts);
+          const loader = await loadSubBook(subBookId, highlight.book, highlight.hyperlight_id, 'hyperlight', scroller, loaderOpts);
 
           // Mark user-owned sub-books and set contentEditable on all of them
           const subBookEl = scroller.querySelector(`.sub-book-content[data-book-id="${subBookId}"]`);
@@ -1258,6 +1255,7 @@ export function saveModuleState() {
  * Restore module-level state from a snapshot.
  */
 export function restoreModuleState(state) {
+  if (!state) return;
   activeListeners.length = 0;
   activeListeners.push(...state.listeners);
   focusSwitcherAttached = state.focusSwitcherAttached;
@@ -1285,7 +1283,7 @@ export function resetModuleState() {
  */
 async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote) {
   const {
-    pushLayer, getDepth, createStackedContainerDOM,
+    pushLayer, getDepth, getTopLayer, createStackedContainerDOM,
     getCurrentContainer: getContainer, getCurrentScroller: getScroller,
   } = await import('./stack.js');
   const { getHyperlitEditMode, setHyperlitEditMode } = await import('./core.js');
@@ -1316,23 +1314,36 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   // Clear sub-book state for the fresh layer — Level 1's entries are saved above
   resetSubBookState();
 
-  // --- 3. Push saved state onto stack ---
+  // --- 3. Push/update saved state on the stack ---
   const currentContainer = getContainer();
   const currentScroller = getScroller();
-  const currentOverlay = currentDepth === 0
-    ? document.getElementById('ref-overlay')
-    : currentContainer?.previousElementSibling; // overlay is always before its container in DOM
 
-  pushLayer({
-    depth: currentDepth,
-    container: currentContainer,
-    overlay: currentOverlay,
-    scroller: currentScroller,
-    isDynamic: currentDepth > 0,
-    savedModuleState,
-    savedSubBookState,
-    savedEditMode,
-  });
+  let updatedExistingEntry = false;
+  const topLayer = getTopLayer();
+
+  if (topLayer && topLayer.savedModuleState === null) {
+    // Active layer already has a stack entry — update its saved state
+    topLayer.savedModuleState = savedModuleState;
+    topLayer.savedSubBookState = savedSubBookState;
+    topLayer.savedEditMode = savedEditMode;
+    updatedExistingEntry = true;
+  } else {
+    // First stacked open — push base layer entry
+    const currentOverlay = currentDepth === 0
+      ? document.getElementById('ref-overlay')
+      : currentContainer?.previousElementSibling;
+
+    pushLayer({
+      depth: currentDepth,
+      container: currentContainer,
+      overlay: currentOverlay,
+      scroller: currentScroller,
+      isDynamic: currentDepth > 0,
+      savedModuleState,
+      savedSubBookState,
+      savedEditMode,
+    });
+  }
 
   // Disable pointer events on the now-lower layer
   if (currentContainer) {
@@ -1378,12 +1389,18 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
 
   if (contentTypes.length === 0) {
     console.warn('📚 No content detected for stacked layer, aborting');
-    // Clean up: remove DOM, pop layers
     const { popLayer: popRaw, removeStackedContainerDOM } = await import('./stack.js');
     popRaw(); // remove the new active layer
-    popRaw(); // remove the paused layer
+
+    if (updatedExistingEntry) {
+      // Undo the in-place update — restore the entry to its "active" null state
+      topLayer.savedModuleState = null;
+      topLayer.savedSubBookState = null;
+    } else {
+      popRaw(); // remove the pushed paused entry
+    }
+
     removeStackedContainerDOM(newContainer, newOverlay);
-    // Restore previous state
     restoreModuleState(savedModuleState);
     const { restoreSubBookState } = await import('./subBookLoader.js');
     restoreSubBookState(savedSubBookState);
