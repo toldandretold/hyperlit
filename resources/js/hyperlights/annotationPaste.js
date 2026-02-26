@@ -9,6 +9,7 @@ import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";
 import { saveHighlightAnnotation } from './annotations.js';
+import { getCurrentContainer } from "../hyperlitContainer/stack.js";
 
 /**
  * This is the main paste handler for the annotation area.
@@ -132,7 +133,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
  * This function attaches the paste listener. It is correct.
  */
 export function addHighlightContainerPasteListener(highlightId) {
-  const container = document.getElementById("hyperlit-container");
+  const container = getCurrentContainer();
   if (!container) return;
 
   const annotationDiv = container.querySelector(

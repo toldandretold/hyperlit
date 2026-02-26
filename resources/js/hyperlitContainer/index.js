@@ -77,6 +77,7 @@ import { buildCitationContent, buildHyperciteCitationContent } from './contentBu
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
+import { getCurrentContainer } from './stack.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -118,7 +119,7 @@ function registerListener(element, event, handler, options = {}) {
  * Called when the container closes to prevent listener accumulation.
  * Also stops any active sub-book editor and restores the main editor if it was running.
  */
-export async function cleanupContainerListeners() {
+export async function cleanupContainerListeners({ stackPop = false } = {}) {
   for (const { element, event, handler, options } of activeListeners) {
     try {
       element.removeEventListener(event, handler, options);
@@ -136,6 +137,10 @@ export async function cleanupContainerListeners() {
     const { stopObserving } = await import('../divEditor/index.js');
     await stopObserving();
   }
+
+  // Skip editor/toolbar restoration when popping a stacked layer
+  // (the layer below will restore its own state)
+  if (stackPop) return;
 
   // Restore main editor if it was active before the sub-book editor took over
   if (mainEditorWasActive) {
@@ -255,7 +260,7 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
 async function handleEditButtonClick() {
   const newState = toggleHyperlitEditMode();
   const editBtn = document.getElementById('hyperlit-edit-btn');
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   const scroller = container?.querySelector('.scroller');
 
   // Save scroll position BEFORE any DOM changes
@@ -339,7 +344,7 @@ async function handleEditButtonClick() {
  * @param {boolean} preventScroll - If true, prevents scrolling when focusing
  */
 function focusTopmostEditableElement(preventScroll = false) {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return;
 
   // First try to find an editable sub-book (lazy-loaded content with divEditor)
@@ -383,7 +388,7 @@ function focusTopmostEditableElement(preventScroll = false) {
  * @param {boolean} enabled - Whether edit mode is enabled
  */
 function toggleContentEditableInPlace(enabled) {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return;
 
   // Toggle footnotes (user must have permission - check data attribute)
@@ -435,7 +440,7 @@ function attachSubBookFocusSwitcher() {
   if (focusSwitcherAttached) return;
   focusSwitcherAttached = true;
 
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) { focusSwitcherAttached = false; return; }
 
   const handler = async (e) => {
@@ -530,6 +535,22 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   isProcessingClick = true;
 
   try {
+    // =========================================================================
+    // STACK DETECTION: If click originates from inside an existing container,
+    // push a new stacked layer instead of replacing the current one.
+    // =========================================================================
+    if (element && !isBackNavigation) {
+      const { isStacked, getDepth, getCurrentContainer: getContainer } = await import('./stack.js');
+      const sourceContainer = element.closest('.hyperlit-container-stacked, #hyperlit-container');
+      if (sourceContainer) {
+        console.log(`📚 Click from inside container at depth ${getDepth()}, pushing stacked layer`);
+        if (focusPreserver) focusPreserver.remove();
+        await pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote);
+        isProcessingClick = false;
+        return;
+      }
+    }
+
     // 🚀 PERFORMANCE: Open DB once and reuse throughout
     const db = await openDatabase();
     let contentTypes = [];
@@ -974,7 +995,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       }
 
       // Auto-load sub-book content for ALL highlights with annotations
-      const scroller = document.getElementById('hyperlit-container')?.querySelector('.scroller');
+      const scroller = getCurrentContainer()?.querySelector('.scroller');
       if (scroller) {
         const { loadSubBook } = await import('./subBookLoader.js');
         for (const highlight of results) {
@@ -1064,7 +1085,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       // This prevents listener accumulation - one listener handles all buttons
       setTimeout(async () => {
         const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
-        const container = document.getElementById('hyperlit-container');
+        const container = getCurrentContainer();
         if (container) {
           const handler = async (e) => {
             const button = e.target.closest('.delete-highlight-btn');
@@ -1098,7 +1119,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
 
       if (footnoteId) {
         // Auto-load footnote content via lazy loader
-        const scroller = document.getElementById('hyperlit-container')?.querySelector('.scroller');
+        const scroller = getCurrentContainer()?.querySelector('.scroller');
         if (scroller) {
           const db = await openDatabase();
           const tx = db.transaction('footnotes', 'readonly');
@@ -1200,7 +1221,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const existing = document.getElementById('hyperlit-edit-btn');
       if (existing) existing.remove();
 
-      const container = document.getElementById('hyperlit-container');
+      const container = getCurrentContainer();
       if (container) {
         container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
         const editBtn = document.getElementById('hyperlit-edit-btn');
@@ -1214,6 +1235,187 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       }
     }
   }, 100);
+}
+
+// ============================================================================
+// STATE SAVE / RESTORE (for stack support)
+// ============================================================================
+
+/**
+ * Snapshot module-level state so it can be restored when a stacked layer is popped.
+ */
+export function saveModuleState() {
+  return {
+    listeners: [...activeListeners],
+    focusSwitcherAttached,
+    mainEditorWasActive,
+    previousIsEditing,
+  };
+}
+
+/**
+ * Restore module-level state from a snapshot.
+ */
+export function restoreModuleState(state) {
+  activeListeners.length = 0;
+  activeListeners.push(...state.listeners);
+  focusSwitcherAttached = state.focusSwitcherAttached;
+  mainEditorWasActive = state.mainEditorWasActive;
+  previousIsEditing = state.previousIsEditing;
+}
+
+/**
+ * Reset module-level state for a fresh layer.
+ */
+export function resetModuleState() {
+  activeListeners.length = 0;
+  focusSwitcherAttached = false;
+  mainEditorWasActive = false;
+  previousIsEditing = false;
+}
+
+// ============================================================================
+// STACKED LAYER PUSH
+// ============================================================================
+
+/**
+ * Push a new stacked container layer when a click originates from inside
+ * an existing hyperlit container.
+ */
+async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote) {
+  const {
+    pushLayer, getDepth, createStackedContainerDOM,
+    getCurrentContainer: getContainer, getCurrentScroller: getScroller,
+  } = await import('./stack.js');
+  const { getHyperlitEditMode, setHyperlitEditMode } = await import('./core.js');
+  const { saveSubBookState } = await import('./subBookLoader.js');
+  const { detachNoteListeners } = await import('./noteListener.js');
+
+  const currentDepth = getDepth();
+
+  // --- 1. Pause current layer: flush saves, stop editor, detach listeners ---
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  flushInputDebounce();
+  await flushAllPendingSaves();
+
+  const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+  const activeSession = getActiveEditSession();
+  if (activeSession && activeSession.containerId !== 'main-content') {
+    const { stopObserving } = await import('../divEditor/index.js');
+    await stopObserving();
+  }
+
+  detachNoteListeners();
+
+  // --- 2. Snapshot module state ---
+  const savedModuleState = saveModuleState();
+  const savedSubBookState = saveSubBookState();
+  const savedEditMode = getHyperlitEditMode();
+
+  // --- 3. Push saved state onto stack ---
+  const currentContainer = getContainer();
+  const currentScroller = getScroller();
+  const currentOverlay = currentDepth === 0
+    ? document.getElementById('ref-overlay')
+    : currentContainer?.previousElementSibling; // overlay is always before its container in DOM
+
+  pushLayer({
+    depth: currentDepth,
+    container: currentContainer,
+    overlay: currentOverlay,
+    scroller: currentScroller,
+    isDynamic: currentDepth > 0,
+    savedModuleState,
+    savedSubBookState,
+    savedEditMode,
+  });
+
+  // Disable pointer events on the now-lower layer
+  if (currentContainer) {
+    currentContainer.style.pointerEvents = 'none';
+  }
+
+  // --- 4. Reset module state for the new layer ---
+  resetModuleState();
+
+  // Reset edit mode for fresh layer (inherits from parent)
+  setHyperlitEditMode(savedEditMode);
+
+  // --- 5. Create new DOM elements ---
+  const newDepth = getDepth();
+  const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
+
+  // Attach overlay click handler to pop this layer
+  newOverlay.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const { popTopLayer } = await import('./stack.js');
+    await popTopLayer();
+  });
+
+  // Push the new layer entry (representing the active layer)
+  // We don't push it yet — it's the "current" layer, stored implicitly.
+  // The stack stores paused layers below. But we need an entry so
+  // getCurrentContainer() returns the new container.
+  pushLayer({
+    depth: newDepth,
+    container: newContainer,
+    overlay: newOverlay,
+    scroller: newScroller,
+    isDynamic: true,
+    savedModuleState: null, // will be filled when this layer is paused
+    savedSubBookState: null,
+    savedEditMode: savedEditMode,
+  });
+
+  // --- 6. Run normal content pipeline into the new container ---
+  const db = await openDatabase();
+  const contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
+
+  if (contentTypes.length === 0) {
+    console.warn('📚 No content detected for stacked layer, aborting');
+    // Clean up: remove DOM, pop layers
+    const { popLayer: popRaw, removeStackedContainerDOM } = await import('./stack.js');
+    popRaw(); // remove the new active layer
+    popRaw(); // remove the paused layer
+    removeStackedContainerDOM(newContainer, newOverlay);
+    // Restore previous state
+    restoreModuleState(savedModuleState);
+    const { restoreSubBookState } = await import('./subBookLoader.js');
+    restoreSubBookState(savedSubBookState);
+    if (currentContainer) currentContainer.style.pointerEvents = '';
+    return;
+  }
+
+  // Check edit permissions
+  const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+  const editModeEnabled = getHyperlitEditMode();
+
+  // Build content HTML
+  const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
+
+  // Set content into the new container's scroller
+  newScroller.innerHTML = unifiedContent;
+
+  // Set max-height dynamically
+  const viewportHeight = window.innerHeight;
+  newContainer.style.maxHeight = `${viewportHeight - 16 - 4}px`;
+
+  // Lock body scroll (should already be locked from base layer, but ensure)
+  document.body.classList.add('hyperlit-container-open');
+
+  // Animate the container open
+  // Use rAF to ensure the transform is set before adding .open
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      newContainer.classList.add('open');
+    });
+  });
+
+  // Handle post-open actions (listeners, sub-book loading, edit button, etc.)
+  await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+
+  console.log(`📚 Stacked layer ${newDepth} opened successfully`);
 }
 
 /**

@@ -7,6 +7,7 @@ import { detectHypercites, detectHighlights } from './detection.js';
 import { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission } from './index.js';
 import { openHyperlitContainer, hyperlitManager, getHyperlitEditMode } from './core.js';
 import { openDatabase } from '../indexedDB/index.js';
+import { getCurrentContainer } from './stack.js';
 
 /**
  * Determine URL update for single content types
@@ -138,14 +139,14 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
 export async function getCurrentContainerState() {
   // Already imported statically
 
-  if (!hyperlitManager || !document.getElementById('hyperlit-container')?.style.display ||
-      document.getElementById('hyperlit-container').style.display === 'none') {
+  if (!hyperlitManager || !getCurrentContainer()?.style.display ||
+      getCurrentContainer().style.display === 'none') {
     return null;
   }
 
   // Try to extract state from current container content
   // This is a fallback method - ideally state should be tracked during opening
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return null;
 
   // Return basic state (full implementation would extract more details)
