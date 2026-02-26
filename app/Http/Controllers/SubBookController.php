@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
 use App\Models\PgFootnote;
@@ -40,7 +41,7 @@ class SubBookController extends Controller
             $type       = $validated['type'];
             $parentBook = $validated['parentBook'];
             $itemId     = $validated['itemId'];
-            $subBookId  = $parentBook . '/' . $itemId;
+            $subBookId  = SubBookIdHelper::build($parentBook, $itemId);
 
             // Verify the item belongs to the current user
             $authError = $this->checkItemOwnership($request, $type, $parentBook, $itemId);
@@ -146,7 +147,7 @@ class SubBookController extends Controller
             $type       = $validated['type'];
             $parentBook = $validated['parentBook'];
             $itemId     = $validated['itemId'];
-            $subBookId  = $parentBook . '/' . $itemId;
+            $subBookId  = SubBookIdHelper::build($parentBook, $itemId);
 
             // Verify the item belongs to the current user
             $authError = $this->checkItemOwnership($request, $type, $parentBook, $itemId);
@@ -244,7 +245,10 @@ class SubBookController extends Controller
                 ->first();
 
             if (!$item) {
-                return response()->json(['success' => false, 'message' => 'Hyperlight not found'], 404);
+                // Hyperlight may not be synced to the server yet (newly created client-side).
+                // Allow creation — the RequireAuthor middleware already verified authentication,
+                // and the sub-book will be owned by the current user.
+                return null;
             }
 
             $isOwner = false;

@@ -78,6 +78,7 @@ import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 import { getCurrentContainer } from './stack.js';
+import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -982,7 +983,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
         for (const highlight of results) {
           if (!highlight) continue;
-          const subBookId = `${highlight.book}/${highlight.hyperlight_id}`;
+          const subBookId = buildSubBookId(highlight.book, highlight.hyperlight_id);
           const count = await new Promise(res => {
             const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
             req.onsuccess = () => res(req.result);
@@ -1016,7 +1017,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             || (!highlight.creator && highlight.creator_token === currentUserId);
           const isOwnerOrNew = isUserHighlight || isNewlyCreated;
 
-          const subBookId = `${highlight.book}/${highlight.hyperlight_id}`;
+          const subBookId = buildSubBookId(highlight.book, highlight.hyperlight_id);
 
           // Find the target container rendered by displayHyperlights.js
           const targetEl = scroller.querySelector(
@@ -1129,7 +1130,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => resolve(null);
           });
-          const subBookId = `${book}/${footnoteId}`;
+          const subBookId = buildSubBookId(book, footnoteId);
           const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);
           const { loadSubBook } = await import('./subBookLoader.js');
           // Determine mode: 'create' for new footnotes, 'read' for existing

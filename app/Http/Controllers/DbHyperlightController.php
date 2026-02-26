@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SubBookIdHelper;
+use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
@@ -12,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 
 class DbHyperlightController extends Controller
 {
+    use SubBookPreviewTrait;
     private function isValidAnonymousToken($token)
     {
         // Anonymous sessions valid for 90 days (reduced from 365 for security)
@@ -152,6 +155,9 @@ class DbHyperlightController extends Controller
                     
                     $record = [
                         'book' => $item['book'] ?? null,
+                        'sub_book_id' => ($bookId && isset($item['hyperlight_id']))
+                            ? SubBookIdHelper::build($bookId, $item['hyperlight_id'])
+                            : null,
                         'hyperlight_id' => $item['hyperlight_id'] ?? null,
                         'node_id' => $item['node_id'] ?? null,
                         'charData' => $item['charData'] ?? null,
@@ -283,6 +289,9 @@ class DbHyperlightController extends Controller
                             'hyperlight_id' => $item['hyperlight_id'] ?? null,
                         ],
                         [
+                            'sub_book_id' => ($bookId && isset($item['hyperlight_id']))
+                                ? SubBookIdHelper::build($bookId, $item['hyperlight_id'])
+                                : null,
                             'node_id' => $item['node_id'] ?? null,
                             'charData' => $item['charData'] ?? [],
                             'highlightedText' => $item['highlightedText'] ?? null,
@@ -303,7 +312,7 @@ class DbHyperlightController extends Controller
                     // When creating a new hyperlight, also create the sub-book library record
                     // so the annotation sub-book infrastructure exists after first sync
                     if (!$existingRecord) {
-                        $subBookId = $bookId . '/' . ($item['hyperlight_id'] ?? '');
+                        $subBookId = SubBookIdHelper::build($bookId, $item['hyperlight_id'] ?? '');
                         PgLibrary::firstOrCreate(
                             ['book' => $subBookId],
                             [
@@ -317,6 +326,18 @@ class DbHyperlightController extends Controller
                                 'raw_json'      => json_encode([]),
                             ]
                         );
+
+                        // If SubBookController::create already ran (race condition with debounced sync),
+                        // the sub-book may have nodes but no preview_nodes on the hyperlight yet.
+                        // Populate preview_nodes now so the sub-book renders immediately.
+                        try {
+                            $this->updateSubBookPreviewNodes($subBookId);
+                        } catch (\Exception $e) {
+                            Log::warning('preview_nodes update failed (non-fatal)', [
+                                'sub_book_id' => $subBookId,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
                     }
 
                     $processedCount++;

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Helpers\SubBookIdHelper;
 use App\Models\PgNodeChunk;
 use App\Models\PgHyperlight;
 use App\Models\PgHypercite;
@@ -82,7 +83,8 @@ class BeaconSyncController extends Controller
                         // ✅ FIX: Add 'raw_json' here too
                         $lightData = array_merge($light, [
                             $ownerKey => $ownerValue,
-                            'raw_json' => json_encode($light)
+                            'raw_json' => json_encode($light),
+                            'sub_book_id' => SubBookIdHelper::build($bookId, $light['hyperlight_id']),
                         ]);
                         PgHyperlight::updateOrCreate(
                             ['book' => $bookId, 'hyperlight_id' => $light['hyperlight_id']],

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
@@ -27,15 +28,13 @@ class DbNodeChunkController extends Controller
      *     the book owner — any user can annotate a public book).
      *   - Footnotes: owned by whoever owns the parent book.
      */
-    private function checkSubBookPermission(Request $request, string $parentBook, string $itemId): bool
+    private function checkSubBookPermission(Request $request, string $bookId): bool
     {
         $user = Auth::user();
         $anonymousToken = $request->cookie('anon_token');
 
-        // Try hyperlight first
-        $hyperlight = PgHyperlight::where('book', $parentBook)
-            ->where('hyperlight_id', $itemId)
-            ->first();
+        // Try hyperlight first — sub_book_id matches nodes.book directly
+        $hyperlight = PgHyperlight::where('sub_book_id', $bookId)->first();
 
         if ($hyperlight) {
             if ($user && $hyperlight->creator) {
@@ -49,10 +48,13 @@ class DbNodeChunkController extends Controller
         }
 
         // Fall back to parent book ownership (footnote path)
+        $parsed = SubBookIdHelper::parse($bookId);
+        $parentBook = $parsed['foundation'];
+
         $library = PgLibrary::where('book', $parentBook)->first();
         if (! $library) {
             Log::warning('Sub-book permission denied: parent book not found', [
-                'parentBook' => $parentBook, 'itemId' => $itemId,
+                'bookId' => $bookId, 'parentBook' => $parentBook,
             ]);
 
             return false;
@@ -79,9 +81,7 @@ class DbNodeChunkController extends Controller
     {
         // Sub-book IDs (e.g. "book_xxx/Fn_xxx") use item-specific ownership rules
         if (str_contains($bookId, '/')) {
-            [$parentBook, $itemId] = explode('/', $bookId, 2);
-
-            return $this->checkSubBookPermission($request, $parentBook, $itemId);
+            return $this->checkSubBookPermission($request, $bookId);
         }
 
         $user = Auth::user();
