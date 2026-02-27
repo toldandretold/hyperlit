@@ -27,7 +27,8 @@ export async function buildCitationContent(contentType, db = null) {
     const transaction = database.transaction(["bibliography", "library"], "readonly");
     const bibliographyStore = transaction.objectStore("bibliography");
 
-    const key = [book, referenceId];
+    const lookupBook = contentType.parentBookId || book;
+    const key = [lookupBook, referenceId];
     const result = await new Promise((resolve, reject) => {
       const request = bibliographyStore.get(key);
       request.onsuccess = () => resolve(request.result);

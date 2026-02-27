@@ -299,8 +299,9 @@
   </div>
  
   <div id="source-container" class="hidden"></div>
+  <div id="source-overlay"></div>
 
-          
+
   <div id="toc-overlay"></div>
   <div id="ref-overlay"></div>
   

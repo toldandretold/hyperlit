@@ -1116,6 +1116,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const footnoteId = footnoteType.footnoteId;
 
       if (footnoteId) {
+        // Resolve parent book ID: prefer contentType, then DOM walk, then global
+        const parentBookId = footnoteType.parentBookId
+          || footnoteType.element?.closest('[data-book-id]')?.dataset?.bookId
+          || book;
+
         // Auto-load footnote content via lazy loader
         const scroller = getCurrentContainer()?.querySelector('.scroller');
         if (scroller) {
@@ -1123,18 +1128,18 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           const tx = db.transaction('footnotes', 'readonly');
           const store = tx.objectStore('footnotes');
           const fnRecord = await new Promise(resolve => {
-            const req = store.get([book, footnoteId]);
+            const req = store.get([parentBookId, footnoteId]);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => resolve(null);
           });
-          const subBookId = buildSubBookId(book, footnoteId);
+          const subBookId = buildSubBookId(parentBookId, footnoteId);
           const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);
           const { loadSubBook } = await import('./subBookLoader.js');
           // Determine mode: 'create' for new footnotes, 'read' for existing
           const mode = isNewFootnote ? 'create' : 'read';
-          console.log(`📂 Loading footnote "${subBookId}" in ${mode} mode`);
+          console.log(`📂 Loading footnote "${subBookId}" in ${mode} mode (parent: ${parentBookId})`);
           // Await so we can attach the sub-book editor immediately after the first chunk renders
-          const loader = await loadSubBook(subBookId, book, footnoteId, 'footnote', scroller, {
+          const loader = await loadSubBook(subBookId, parentBookId, footnoteId, 'footnote', scroller, {
             annotationHtml: fnRecord?.content || '',
             previewNodes: fnRecord?.preview_nodes || null,
             targetElement: footnotesSection,

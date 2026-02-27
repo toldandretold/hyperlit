@@ -4,7 +4,7 @@
  * Footnote text content is rendered separately via subBookLoader (lazy loader pipeline).
  */
 
-import { getDisplayNumber } from '../../footnotes/FootnoteNumberingService.js';
+import { getDisplayNumber, getCurrentBookId, buildFootnoteMap } from '../../footnotes/FootnoteNumberingService.js';
 
 /**
  * Build footnote content section — structural HTML only (sup number + HR).
@@ -18,7 +18,7 @@ import { getDisplayNumber } from '../../footnotes/FootnoteNumberingService.js';
 export async function buildFootnoteContent(contentType, db = null, editModeEnabled = true) {
   console.time('buildFootnoteContent-total');
   try {
-    const { fnCountId } = contentType;
+    const { fnCountId, parentBookId } = contentType;
     // footnoteId may be stored as footnoteId or elementId depending on context
     const footnoteId = contentType.footnoteId || contentType.elementId;
 
@@ -27,8 +27,17 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
       return '';
     }
 
+    // Ensure footnote map is built for the correct parent book
+    if (parentBookId && getCurrentBookId() !== parentBookId) {
+      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index.js');
+      const nodes = await getNodeChunksFromIndexedDB(parentBookId);
+      buildFootnoteMap(parentBookId, nodes);
+    }
+
     // Use dynamic display number from FootnoteNumberingService, fallback to fnCountId
-    const displayNumber = getDisplayNumber(footnoteId) || fnCountId || '?';
+    const displayNumber = getDisplayNumber(footnoteId)
+      || (fnCountId && fnCountId !== '?' ? fnCountId : null)
+      || '?';
 
     console.timeEnd('buildFootnoteContent-total');
     return `

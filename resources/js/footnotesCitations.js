@@ -1,36 +1,7 @@
 // footnotes-citations.js - New unified system for footnotes and citations
-import { book } from "./app.js";
-import { openDatabase } from "./indexedDB/index.js";
-import { ContainerManager } from "./containerManager.js";
 import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index.js';
 import { log, verbose } from './utilities/logger.js';
 import { isActivelyScrollingForLinkBlock } from './scrolling.js';
-
-// Legacy container manager - now using unified system
-const refManager = new ContainerManager(
-  "ref-container",   // The container to manage
-  "ref-overlay",     // The overlay element
-  null,              // No dedicated toggle button
-  ["main-content", "nav-buttons"] // IDs to freeze when ref-container is open
-);
-
-// Export the DOM elements for backward compatibility
-export const refContainer = document.getElementById("ref-container");
-export const refOverlay = document.getElementById("ref-overlay");
-export const isRefOpen = refManager.isOpen;
-
-// Export the manager itself so it can be rebound after SPA transitions
-export { refManager };
-
-// Destroy function for cleanup during navigation
-export function destroyRefManager() {
-  if (refManager) {
-    console.log('🧹 Destroying reference container manager');
-    refManager.destroy();
-    return true;
-  }
-  return false;
-}
 
 // Function to open the reference container with content (now redirects to unified system)
 export function openReferenceContainer(content) {

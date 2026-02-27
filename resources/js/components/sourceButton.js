@@ -1073,7 +1073,7 @@ export class SourceContainerManager extends ContainerManager {
 // This instance is created only ONCE.
 const sourceManager = new SourceContainerManager(
   "source-container",
-  "ref-overlay",
+  "source-overlay",
   "cloudRef",
   ["main-content"]
 );

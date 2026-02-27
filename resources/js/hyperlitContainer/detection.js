@@ -70,7 +70,8 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: element,
       fnCountId: element.getAttribute('fn-count-id'),
-      footnoteId: footnoteId
+      footnoteId: footnoteId,
+      parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -84,7 +85,8 @@ export function detectFootnote(element) {
         type: 'footnote',
         element: supElement,
         fnCountId: supElement.getAttribute('fn-count-id'),
-        footnoteId: footnoteId
+        footnoteId: footnoteId,
+        parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -98,7 +100,8 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: supElement,
       fnCountId: supElement.getAttribute('fn-count-id'),
-      footnoteId: footnoteId
+      footnoteId: footnoteId,
+      parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -122,7 +125,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: element,
-        referenceId: href.substring(1)
+        referenceId: href.substring(1),
+        parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -132,7 +136,8 @@ export function detectCitation(element) {
     return {
       type: 'citation',
       element: element,
-      referenceId: element.id
+      referenceId: element.id,
+      parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -143,7 +148,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: element,
-        referenceId: referenceId
+        referenceId: referenceId,
+        parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -156,7 +162,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: parentCitation,
-        referenceId: href.substring(1)
+        referenceId: href.substring(1),
+        parentBookId: parentCitation.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -167,7 +174,8 @@ export function detectCitation(element) {
     return {
       type: 'citation',
       element: parentRefCitation,
-      referenceId: parentRefCitation.id
+      referenceId: parentRefCitation.id,
+      parentBookId: parentRefCitation.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 

@@ -140,9 +140,12 @@ export class ButtonStateManager {
 
       // Verify the range is still in the document and in editable content
       const editableContent = document.querySelector(this.selectionManager.editableSelector);
+      const rangeContainer = this.selectionManager.lastValidRange?.commonAncestorContainer;
+      const rangeContainerEl = rangeContainer?.nodeType === Node.TEXT_NODE
+        ? rangeContainer.parentElement : rangeContainer;
+      const inSubBook = !!rangeContainerEl?.closest('[data-book-id][contenteditable="true"]');
       const isRangeValid = hasValidRange &&
-        editableContent &&
-        editableContent.contains(this.selectionManager.lastValidRange.commonAncestorContainer);
+        (editableContent?.contains(rangeContainer) || inSubBook);
 
       // Disable if no valid range in editable content
       const shouldDisable = !isRangeValid;

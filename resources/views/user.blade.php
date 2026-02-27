@@ -147,6 +147,7 @@
 <div id="highlight-container" class="hidden" contenteditable="true"></div>
 <div id="hypercite-container" class="hidden"></div>
 <div id="source-container" class="hidden"></div>
+<div id="source-overlay"></div>
 <div id="ref-container" class="hidden"></div>
 
 <div id="user-container" class="hidden">
