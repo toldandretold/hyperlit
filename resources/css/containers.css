@@ -461,7 +461,8 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 #toc-overlay,
-#user-overlay {
+#user-overlay,
+#source-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -496,7 +497,8 @@ body[data-page="user"] #userLibraryContainer {
 
 
 #toc-overlay.active,
-#user-overlay.active {
+#user-overlay.active,
+#source-overlay.active {
     opacity: 1;
     visibility: visible;
 }

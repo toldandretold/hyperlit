@@ -51,15 +51,21 @@ export class ContainerManager {
     this.button = this.buttonId ? document.getElementById(this.buttonId) : null;
     this.frozenElements = this.frozenContainerIds.map(id => document.getElementById(id)).filter(Boolean);
     
-    // Clean up old event listeners if elements have changed
-    if (oldContainer && oldContainer !== this.container && this.containerClickHandler) {
-      oldContainer.removeEventListener("click", this.containerClickHandler);
+    // Always remove old handlers before creating new ones.
+    // The old check (oldEl !== this.el) missed the case where the DOM element is the
+    // same but rebindElements() is called again — a new handler function was created and
+    // addEventListener'd without removing the previous one, causing accumulation.
+    if (this.containerClickHandler) {
+      if (oldContainer) oldContainer.removeEventListener("click", this.containerClickHandler);
+      if (this.container && this.container !== oldContainer) this.container.removeEventListener("click", this.containerClickHandler);
     }
-    if (oldOverlay && oldOverlay !== this.overlay && this.overlayClickHandler) {
-      oldOverlay.removeEventListener("click", this.overlayClickHandler);
+    if (this.overlayClickHandler) {
+      if (oldOverlay) oldOverlay.removeEventListener("click", this.overlayClickHandler);
+      if (this.overlay && this.overlay !== oldOverlay) this.overlay.removeEventListener("click", this.overlayClickHandler);
     }
-    if (oldButton && oldButton !== this.button && this.buttonClickHandler) {
-      oldButton.removeEventListener("click", this.buttonClickHandler);
+    if (this.buttonClickHandler) {
+      if (oldButton) oldButton.removeEventListener("click", this.buttonClickHandler);
+      if (this.button && this.button !== oldButton) this.button.removeEventListener("click", this.buttonClickHandler);
     }
 
     // If the container exists, store its initial content and set up its internal link listener
@@ -103,10 +109,20 @@ export class ContainerManager {
 
     // If the overlay exists, set up its click handler
     if (this.overlay) {
+      // Remove any handler previously anchored to this overlay for this containerId.
+      // This catches orphaned handlers from destroyed instances whose reference chain broke.
+      const handlerKey = `_cmOverlayHandler_${this.containerId}`;
+      if (this.overlay[handlerKey]) {
+        this.overlay.removeEventListener("click", this.overlay[handlerKey]);
+      }
+
       this.overlayClickHandler = async (e) => {
         e.stopPropagation();
         e.preventDefault();
-        if (this.isOpen) {
+        if (!this.isOpen || this._closePending) return;
+        console.log(`[Overlay] click handler fired. containerId=${this.containerId}`);
+        this._closePending = true;
+        try {
           // Use specialized close function for hyperlit-container to unlock body scroll
           if (this.containerId === 'hyperlit-container') {
             // Check if we have stacked layers — if so, peel off only the top
@@ -121,9 +137,13 @@ export class ContainerManager {
           } else {
             this.closeContainer();
           }
+        } finally {
+          this._closePending = false;
         }
       };
 
+      // Anchor the handler on the DOM element so any future instance can find and remove it
+      this.overlay[handlerKey] = this.overlayClickHandler;
       this.overlay.addEventListener("click", this.overlayClickHandler);
     }
 
@@ -251,11 +271,11 @@ export class ContainerManager {
   updateState() {
     if (this.isOpen) {
       this.container.classList.add("open");
-      this.overlay.classList.add("active");
+      if (this.overlay) this.overlay.classList.add("active");
       this.frozenElements.forEach((el) => this.freezeElement(el));
     } else {
       this.container.classList.remove("open");
-      this.overlay.classList.remove("active");
+      if (this.overlay) this.overlay.classList.remove("active");
       this.frozenElements.forEach((el) => this.unfreezeElement(el));
     }
   }
@@ -301,6 +321,7 @@ export class ContainerManager {
   }
 
   closeContainer() {
+    console.log(`[ContainerManager] closeContainer() called. container=${this.container?.id}, isOpen=${this.isOpen}`);
     if (this.container) {
       this.container.style.left = '';
       this.container.style.top = '';
@@ -355,6 +376,7 @@ export class ContainerManager {
     this.container.classList.add("hidden");
     this.container.style.visibility = "";
     this.cleanupURL();
+    console.log(`[ContainerManager] closeContainer() done. overlay.active=${this.overlay?.classList.contains('active')}`);
   }
 
   cleanupURL() {
@@ -391,6 +413,8 @@ export class ContainerManager {
 
     if (this.overlay && this.overlayClickHandler) {
       this.overlay.removeEventListener("click", this.overlayClickHandler);
+      const handlerKey = `_cmOverlayHandler_${this.containerId}`;
+      delete this.overlay[handlerKey];
       this.overlayClickHandler = null;
     }
 

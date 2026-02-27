@@ -15,6 +15,9 @@ export let hyperlitManager = null;
 // Re-entrancy guard for saveAndCloseHyperlitContainer (prevents double-tap)
 let isClosing = false;
 
+// Re-entrancy guard for closeHyperlitContainer (prevents concurrent close calls)
+let isClosingContainer = false;
+
 // ============================================================================
 // EDIT MODE STATE MANAGEMENT
 // ============================================================================
@@ -68,6 +71,12 @@ export function initializeHyperlitManager() {
  * @private
  */
 function initializeHyperlitManagerInternal() {
+  // Destroy any existing manager to prevent handler accumulation on shared overlay
+  if (hyperlitManager) {
+    hyperlitManager.destroy();
+    hyperlitManager = null;
+  }
+
   // Check if container exists in the DOM (should be there from blade template)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
@@ -268,118 +277,129 @@ async function prepareContainerClose() {
  * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
 export async function closeHyperlitContainer(silent = false, skipPrepare = false) {
-  // Check if container exists in DOM before trying to do anything
-  // On homepage, there's no hyperlit-container element
-  const container = document.getElementById("hyperlit-container");
-  if (!container) {
-    return; // Nothing to close - container doesn't exist on this page
+  console.log(`[closeHyperlitContainer] ENTER. silent=${silent}, skipPrepare=${skipPrepare}, isClosingContainer=${isClosingContainer}`);
+  if (isClosingContainer) {
+    console.log('[closeHyperlitContainer] BLOCKED — already closing');
+    return;
   }
-
-  // =========================================================================
-  // STACK UNWIND: If stacked layers exist, pop them all from top to bottom
-  // before closing the base layer.
-  // =========================================================================
+  isClosingContainer = true;
   try {
-    const { getDepth, popTopLayer, clear: clearStack } = await import('./stack.js');
-    // Pop all dynamic layers (depth > 1 means there are stacked layers above base)
-    while (getDepth() > 1) {
-      await popTopLayer();
+    // Check if container exists in DOM before trying to do anything
+    // On homepage, there's no hyperlit-container element
+    const container = document.getElementById("hyperlit-container");
+    if (!container) {
+      return; // Nothing to close - container doesn't exist on this page
     }
-    // Clear the base layer entry from the stack (if any)
-    clearStack();
-  } catch (err) {
-    console.warn('Stack unwind error (non-fatal):', err);
-  }
 
-  if (!hyperlitManager) {
+    // =========================================================================
+    // STACK UNWIND: If stacked layers exist, pop them all from top to bottom
+    // before closing the base layer.
+    // =========================================================================
     try {
-      initializeHyperlitManager();
-    } catch (error) {
-      console.warn('Could not initialize hyperlitManager for closing:', error);
-      return; // Exit early if initialization fails
+      const { getDepth, popTopLayer, clear: clearStack } = await import('./stack.js');
+      // Pop all dynamic layers (depth > 1 means there are stacked layers above base)
+      while (getDepth() > 1) {
+        await popTopLayer();
+      }
+      // Clear the base layer entry from the stack (if any)
+      clearStack();
+    } catch (err) {
+      console.warn('Stack unwind error (non-fatal):', err);
     }
-  }
 
-  if (hyperlitManager && hyperlitManager.closeContainer) {
-    try {
-      // 🔑 CRITICAL: Prepare for close - save if in edit mode
-      // skipPrepare=true when called from saveAndCloseHyperlitContainer (already prepped)
-      if (!skipPrepare) {
-        await prepareContainerClose();
+    if (!hyperlitManager) {
+      try {
+        initializeHyperlitManager();
+      } catch (error) {
+        console.warn('Could not initialize hyperlitManager for closing:', error);
+        return; // Exit early if initialization fails
       }
-      
-      // 🔑 CRITICAL: Sequence cleanup
-      // STEP 1: Flush any remaining saves
-      console.log('[HyperlitContainer] 💾 Final cleanup...');
-      const { cleanupContainerListeners } = await import('./index.js');
-      await cleanupContainerListeners();
-      console.log('[HyperlitContainer] ✅ Cleanup complete');
-      
-      // STEP 2: Now safe to destroy sub-books (after saves complete)
-      const { destroyAllSubBooks } = await import('./subBookLoader.js');
-      await destroyAllSubBooks(); // DOM elements destroyed here
-      console.log('[HyperlitContainer] ✅ Sub-books destroyed');
-      
-      // STEP 3: Other cleanup (order less critical)
-      const { detachNoteListeners } = await import('./noteListener.js');
-      await detachNoteListeners();
-      
-      const { cleanupFootnoteListeners } = await import('../footnotes/footnoteAnnotations.js');
-      await cleanupFootnoteListeners();
+    }
 
-      // Remove scroll containment handlers (container already validated at function start)
-      if (container) {
-        const scroller = container.querySelector('.scroller');
-        if (scroller) {
-          removeScrollContainment(scroller);
+    if (hyperlitManager && hyperlitManager.closeContainer) {
+      try {
+        // 🔑 CRITICAL: Prepare for close - save if in edit mode
+        // skipPrepare=true when called from saveAndCloseHyperlitContainer (already prepped)
+        if (!skipPrepare) {
+          await prepareContainerClose();
         }
-        // Reset inline max-height style
-        container.style.maxHeight = '';
-      }
 
-      // Unlock body scroll
-      // KeyboardManager handles all keyboard/viewport adjustments
-      document.body.classList.remove('hyperlit-container-open');
-      console.log('🔓 Body scroll unlocked');
+        // 🔑 CRITICAL: Sequence cleanup
+        // STEP 1: Flush any remaining saves
+        console.log('[HyperlitContainer] 💾 Final cleanup...');
+        const { cleanupContainerListeners } = await import('./index.js');
+        await cleanupContainerListeners();
+        console.log('[HyperlitContainer] ✅ Cleanup complete');
 
-      // Clean up URL hash and history state when closing container
-      // If silent=true, the browser has already restored the URL via popstate — skip URL update
-      if (!silent) {
-        const currentUrl = window.location;
-        const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
-        const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
+        // STEP 2: Now safe to destroy sub-books (after saves complete)
+        const { destroyAllSubBooks } = await import('./subBookLoader.js');
+        await destroyAllSubBooks(); // DOM elements destroyed here
+        console.log('[HyperlitContainer] ✅ Sub-books destroyed');
 
-        if (isFootnotePath) {
-          // Remove footnote ID from path: /book/footnoteID -> /book
-          const bookSlug = pathSegments[0] || '';
-          const cleanUrl = `/${bookSlug}${currentUrl.search}`;
-          console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
+        // STEP 3: Other cleanup (order less critical)
+        const { detachNoteListeners } = await import('./noteListener.js');
+        await detachNoteListeners();
 
-          const currentState = history.state || {};
-          const newState = {
-            ...currentState,
-            hyperlitContainer: null
-          };
-          history.replaceState(newState, '', cleanUrl);
-        } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
-                               currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
-          // Remove hyperlit-related hash from URL
-          const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
-          console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+        const { cleanupFootnoteListeners } = await import('../footnotes/footnoteAnnotations.js');
+        await cleanupFootnoteListeners();
 
-          const currentState = history.state || {};
-          const newState = {
-            ...currentState,
-            hyperlitContainer: null
-          };
-          history.replaceState(newState, '', cleanUrl);
+        // Remove scroll containment handlers (container already validated at function start)
+        if (container) {
+          const scroller = container.querySelector('.scroller');
+          if (scroller) {
+            removeScrollContainment(scroller);
+          }
+          // Reset inline max-height style
+          container.style.maxHeight = '';
         }
-      }
 
+        // Clean up URL hash and history state when closing container
+        // If silent=true, the browser has already restored the URL via popstate — skip URL update
+        if (!silent) {
+          const currentUrl = window.location;
+          const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
+          const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
+
+          if (isFootnotePath) {
+            // Remove footnote ID from path: /book/footnoteID -> /book
+            const bookSlug = pathSegments[0] || '';
+            const cleanUrl = `/${bookSlug}${currentUrl.search}`;
+            console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
+
+            const currentState = history.state || {};
+            const newState = {
+              ...currentState,
+              hyperlitContainer: null
+            };
+            history.replaceState(newState, '', cleanUrl);
+          } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
+                                 currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
+            // Remove hyperlit-related hash from URL
+            const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
+            console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+
+            const currentState = history.state || {};
+            const newState = {
+              ...currentState,
+              hyperlitContainer: null
+            };
+            history.replaceState(newState, '', cleanUrl);
+          }
+        }
+
+        console.log('[HyperlitContainer] ✅ Container closed successfully');
+      } catch (error) {
+        console.warn('Could not fully clean up hyperlit container:', error);
+      }
+      // NOTE: closeContainer() moved to outer finally so it runs even if hyperlitManager was null
+    }
+  } finally {
+    isClosingContainer = false;
+    // ALWAYS deactivate overlay + unlock scroll, even if cleanup threw or hyperlitManager was null
+    console.log('[closeHyperlitContainer] FINALLY — calling closeContainer()');
+    document.body.classList.remove('hyperlit-container-open');
+    if (hyperlitManager?.closeContainer) {
       hyperlitManager.closeContainer();
-      console.log('[HyperlitContainer] ✅ Container closed successfully');
-    } catch (error) {
-      console.warn('Could not close hyperlit container:', error);
     }
   }
 }
@@ -390,7 +410,9 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
  * Prevents data loss when closing container during active edit mode
  */
 export async function saveAndCloseHyperlitContainer() {
-  if (isClosing) return; // block double-tap
+  console.log(`[saveAndClose] ENTER. isClosing=${isClosing}, isOpen=${hyperlitManager?.isOpen}`);
+  if (isClosing) { console.log('[saveAndClose] BLOCKED by isClosing'); return; }
+  if (!hyperlitManager?.isOpen) { console.log('[saveAndClose] BLOCKED by !isOpen'); return; }
   isClosing = true;
 
   try {

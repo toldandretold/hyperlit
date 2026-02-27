@@ -477,16 +477,21 @@ class EditToolbar {
       return;
     }
 
-    // Get book ID from DOM at insertion time
-    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    // Resolve bookId from the selection's DOM position (sub-book aware)
+    const rangeEl = range?.commonAncestorContainer;
+    const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
+    const subBookEl = containerEl?.closest('[data-book-id]');
+    const bookId = subBookEl?.dataset?.bookId
+      || this.currentBookId
+      || document.querySelector('.main-content')?.id;
 
     if (!bookId) {
       console.warn("EditToolbar: Cannot open citation search: no book ID found.");
       return;
     }
-
-    // Get current selection using SelectionManager
-    const { selection, range } = this.selectionManager.getWorkingSelection();
 
     if (!range) {
       console.warn("EditToolbar: Cannot insert citation: no cursor position.");
@@ -505,16 +510,22 @@ class EditToolbar {
    * Insert a footnote at the current cursor position
    */
   async insertFootnote() {
-    // Get book ID from DOM at insertion time (more reliable than cached value)
-    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    // Walk up from selection to find sub-book container, fall back to main-content
+    const anchorEl = selection?.anchorNode?.nodeType === Node.TEXT_NODE
+      ? selection.anchorNode.parentElement
+      : selection?.anchorNode;
+    const subBookEl = anchorEl?.closest('[data-book-id][contenteditable="true"]');
+    const bookId = subBookEl?.dataset?.bookId
+      || document.querySelector('.main-content')?.id
+      || this.currentBookId;
 
     if (!bookId) {
       console.warn("EditToolbar: Cannot insert footnote: no book ID found.");
       return;
     }
-
-    // Get current selection using SelectionManager
-    const { selection, range } = this.selectionManager.getWorkingSelection();
 
     if (!range) {
       console.warn("EditToolbar: Cannot insert footnote: no cursor position.");
