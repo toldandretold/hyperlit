@@ -865,12 +865,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
 /**
  * Batch delete multiple IndexedDB records
  *
- * @param {Array} nodeIds - Array of node IDs to delete
- * @param {Map} deletionMap - Map of nodeId -> data-node-id for deleted nodes
+ * @param {Array} IDnumericals - Array of node IDs to delete
+ * @param {Map} deletionMap - Map of IDnumerical -> data-node-id for deleted nodes
  * @param {string} bookId - Book ID to delete from (required for sub-book support)
  * @returns {Promise<void>}
  */
-export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map(), bookId = null) {
+export async function batchDeleteIndexedDBRecords(IDnumericals, deletionMap = new Map(), bookId = null) {
   return withPending(async () => {
     // ✅ FIX: Accept bookId as parameter for sub-book support
     // Fallback to DOM lookup only if not provided (backwards compatibility)
@@ -880,11 +880,11 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
     }
 
     // ✅ OPTIMIZATION: Remove duplicates using Set
-    const uniqueNodeIds = [...new Set(nodeIds)];
-    const duplicatesSkipped = nodeIds.length - uniqueNodeIds.length;
+    const uniqueIDnumericals = [...new Set(IDnumericals)];
+    const duplicatesSkipped = IDnumericals.length - uniqueIDnumericals.length;
 
     const startTime = Date.now();
-    console.log(`🗑️ BATCH DELETE START: ${nodeIds.length} nodes queued (${uniqueNodeIds.length} unique${duplicatesSkipped > 0 ? `, ${duplicatesSkipped} duplicates skipped` : ''})`);
+    console.log(`🗑️ BATCH DELETE START: ${IDnumericals.length} nodes queued (${uniqueIDnumericals.length} unique${duplicatesSkipped > 0 ? `, ${duplicatesSkipped} duplicates skipped` : ''})`);
 
     try {
       const db = await openDatabase();
@@ -909,24 +909,24 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
       let errorCount = 0;
 
       // ✅ OPTIMIZATION: Build lookup sets ONCE for O(1) checks in cursor scans
-      const deletedNodeIds = new Set(uniqueNodeIds.map(id => parseNodeId(id)).filter(id => !isNaN(id)));
+      const deletedIDnumericals = new Set(uniqueIDnumericals.map(id => parseNodeId(id)).filter(id => !isNaN(id)));
       const deletedDataNodeIDs = new Set(Array.from(deletionMap.values()).filter(Boolean));
 
-      verbose.content(`OPTIMIZATION: Will scan highlights/hypercites once for ${deletedNodeIds.size} deleted nodes (${deletedDataNodeIDs.size} data-node-ids)`, 'indexedDB/nodes/batch.js');
+      verbose.content(`OPTIMIZATION: Will scan highlights/hypercites once for ${deletedIDnumericals.size} deleted nodes (${deletedDataNodeIDs.size} data-node-ids)`, 'indexedDB/nodes/batch.js');
 
       // Track which highlights/hypercites we've already processed (avoid N cursor scans)
       let highlightsProcessed = 0;
       let hypercitesProcessed = 0;
 
       // Process each node ID for deletion
-      const deletePromises = uniqueNodeIds.map(async (nodeId, index) => {
-        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-          console.warn(`❌ Skipping deletion – invalid node ID: ${nodeId}`);
+      const deletePromises = uniqueIDnumericals.map(async (IDnumerical, index) => {
+        if (!/^\d+(\.\d+)?$/.test(IDnumerical)) {
+          console.warn(`❌ Skipping deletion – invalid node ID: ${IDnumerical}`);
           errorCount++;
           return;
         }
 
-        const numericNodeId = parseNodeId(nodeId);
+        const numericNodeId = parseNodeId(IDnumerical);
         const compositeKey = [bookId, numericNodeId];
 
         return new Promise((resolve, reject) => {
@@ -947,7 +947,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
               };
               deleteReq.onerror = (e) => {
                 errorCount++;
-                console.error(`❌ Failed to delete ${nodeId}:`, e.target.error);
+                console.error(`❌ Failed to delete ${IDnumerical}:`, e.target.error);
                 reject(e.target.error);
               };
 
@@ -967,7 +967,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
                       // ✅ OPTIMIZATION: O(1) Set lookup instead of iterating through each deleted node
                       const affectsDeletedNode =
-                        deletedNodeIds.has(highlight.startLine) || // OLD schema check
+                        deletedIDnumericals.has(highlight.startLine) || // OLD schema check
                         (highlight.node_id && Array.isArray(highlight.node_id) &&
                          highlight.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
@@ -991,7 +991,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
                           cursor.update(highlight);
                         } else {
                           // Single-node highlight - OLD SYSTEM behavior (delete from OLD schema stores)
-                          if (deletedNodeIds.has(highlight.startLine)) {
+                          if (deletedIDnumericals.has(highlight.startLine)) {
                             deletedData.hyperlights.push(cursor.value); // Record for undo
                             cursor.delete();
                           } else {
@@ -1037,7 +1037,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
                       // ✅ OPTIMIZATION: O(1) Set lookup
                       const affectsDeletedNode =
-                        deletedNodeIds.has(hypercite.startLine) || // OLD schema check
+                        deletedIDnumericals.has(hypercite.startLine) || // OLD schema check
                         (hypercite.node_id && Array.isArray(hypercite.node_id) &&
                          hypercite.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
@@ -1059,7 +1059,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
                           // Save updated hypercite (don't delete it!)
                           cursor.update(hypercite);
-                        } else if (deletedNodeIds.has(hypercite.startLine)) {
+                        } else if (deletedIDnumericals.has(hypercite.startLine)) {
                           // OLD SYSTEM - hypercite only in old schema
                           deletedData.hypercites.push(cursor.value); // Record for undo
                           cursor.delete();
