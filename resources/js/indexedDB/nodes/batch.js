@@ -32,8 +32,8 @@ const debouncedTitleSync = debounce((bookId, nodeContent) => {
  * Helper function to determine chunk_id from the DOM
  * Looks for parent chunk div since data-chunk-id is on the chunk, not individual nodes
  */
-function determineChunkIdFromDOM(nodeId) {
-  const node = document.getElementById(nodeId);
+function determineChunkIdFromDOM(IDnumerical) {
+  const node = document.getElementById(IDnumerical);
   if (node) {
     // Look for parent chunk div (data-chunk-id is on the chunk, not the node)
     const chunkDiv = node.closest('.chunk[data-chunk-id]');
@@ -628,7 +628,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         return;
       }
 
-      let nodeId = record.id;
+      let IDnumerical = record.id;
       let node = null;
 
       // Use node_id (UUID from data-node-id) for DOM lookup — unique across all books
@@ -642,27 +642,27 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
           || document.getElementById(bookId);
         if (bookContainer) {
-          node = bookContainer.querySelector(`[id="${nodeId}"]`);
+          node = bookContainer.querySelector(`[id="${IDnumerical}"]`);
         }
       }
 
       // Final fallback: global lookup (main content, no collision risk)
       if (!node) {
-        node = document.getElementById(nodeId);
+        node = document.getElementById(IDnumerical);
       }
-      while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
+      while (node && !/^\d+(\.\d+)?$/.test(IDnumerical)) {
         node = node.parentElement;
-        if (node?.id) nodeId = node.id;
+        if (node?.id) IDnumerical = node.id;
       }
 
-      if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+      if (!/^\d+(\.\d+)?$/.test(IDnumerical)) {
         console.log(
           `Skipping batch update – no valid parent for ${record.id}`,
         );
         return;
       }
 
-      const finalNumericNodeId = parseNodeId(nodeId); // Use the final valid ID
+      const finalNumericNodeId = parseNodeId(IDnumerical); // Use the final valid ID
       const existing = originalNodeChunkStates.get(finalNumericNodeId);
       const existingHypercites = existing?.hypercites || [];
       const processedData = node
@@ -673,7 +673,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
 
       // 🔍 DEBUG: Log node_id extraction
-      verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${nodeId}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch.js');
+      verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${IDnumerical}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch.js');
       if (node && !nodeIdFromDOM) {
         console.warn(`⚠️ Node found but no data-node-id attribute! Element:`, node.outerHTML.substring(0, 200));
       }
@@ -704,7 +704,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         if (record.chunk_id !== undefined) {
           toSave.chunk_id = record.chunk_id;
         } else {
-          toSave.chunk_id = determineChunkIdFromDOM(nodeId);
+          toSave.chunk_id = determineChunkIdFromDOM(IDnumerical);
         }
         // ✅ UPDATE node_id from DOM if available
         if (nodeIdFromDOM) {
@@ -714,7 +714,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         toSave = {
           book: bookId,
           startLine: finalNumericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId),
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(IDnumerical),
           node_id: nodeIdFromDOM || null,
           content: processedData ? processedData.content : record.html || "",
           footnotes: processedData ? processedData.footnotes : [],

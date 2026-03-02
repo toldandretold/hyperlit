@@ -718,8 +718,8 @@ export function ensureNodeHasValidId(node, options = {}) {
   }
   
   if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
-    const { nodeId, cursorPosition } = window.__enterKeyInfo;
-    const referenceNode = document.getElementById(nodeId);
+    const { nodeId: IDnumerical, cursorPosition } = window.__enterKeyInfo;
+    const referenceNode = document.getElementById(IDnumerical);
     if (referenceNode) {
       if (cursorPosition === "start") {
         const parent = referenceNode.parentElement;

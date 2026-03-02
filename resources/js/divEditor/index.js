@@ -166,22 +166,22 @@ let enterKeyHandler = null;
 // Most functionality is delegated to specialized modules.
 // ================================================================
 
-export function queueNodeForSave(nodeId, action = 'update') {
-  console.log(`🎯 queueNodeForSave called: ${nodeId}, action: ${action}, saveQueue exists: ${!!saveQueue}`);
+export function queueNodeForSave(IDnumerical, action = 'update') {
+  console.log(`🎯 queueNodeForSave called: ${IDnumerical}, action: ${action}, saveQueue exists: ${!!saveQueue}`);
   if (!saveQueue) {
-    console.warn('⚠️ SaveQueue not initialized, cannot queue node', nodeId);
+    console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
     return;
   }
-  saveQueue.queueNode(nodeId, action);
-  console.log(`🎯 queueNodeForSave: queued ${nodeId}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
+  saveQueue.queueNode(IDnumerical, action);
+  console.log(`🎯 queueNodeForSave: queued ${IDnumerical}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
 }
 
-export function queueNodeForDeletion(nodeId, nodeElement = null, bookId = null) {
+export function queueNodeForDeletion(IDnumerical, nodeElement = null, bookId = null) {
   if (!saveQueue) {
-    console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', nodeId);
+    console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', IDnumerical);
     return;
   }
-  saveQueue.queueDeletion(nodeId, nodeElement, bookId);
+  saveQueue.queueDeletion(IDnumerical, nodeElement, bookId);
 }
 
 

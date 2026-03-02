@@ -21,8 +21,8 @@ export function initNodeWriteDependencies(deps) {
 /**
  * Helper function to determine chunk_id from the DOM
  */
-function determineChunkIdFromDOM(nodeId) {
-  const node = document.getElementById(nodeId);
+function determineChunkIdFromDOM(IDnumerical) {
+  const node = document.getElementById(IDnumerical);
   if (node) {
     const chunkIdAttr = node.getAttribute('data-chunk-id');
     if (chunkIdAttr) {

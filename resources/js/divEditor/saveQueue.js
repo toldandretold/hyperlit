@@ -68,12 +68,12 @@ export class SaveQueue {
   /**
    * Add node to pending saves queue
    */
-  queueNode(nodeId, action = 'update') {
-    console.log(`🎯 SaveQueue.queueNode: ${nodeId}, action: ${action}, current pending: ${this.pendingSaves.nodes.size}`);
-    this.pendingSaves.nodes.set(nodeId, { id: nodeId, action });
+  queueNode(IDnumerical, action = 'update') {
+    console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, current pending: ${this.pendingSaves.nodes.size}`);
+    this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action });
     this.pendingSaves.lastActivity = Date.now();
 
-    verbose.content(`Queued node ${nodeId} for ${action}`, 'divEditor/saveQueue.js');
+    verbose.content(`Queued node ${IDnumerical} for ${action}`, 'divEditor/saveQueue.js');
     console.log(`🎯 SaveQueue: calling debouncedSaveNode`);
     this.debouncedSaveNode();
     console.log(`🎯 SaveQueue: debouncedSaveNode called, timer started`);
@@ -82,13 +82,13 @@ export class SaveQueue {
   /**
    * Add node to pending deletions queue
    * Captures UUID and bookId from DOM before element is removed
-   * @param {string} nodeId - The node ID
+   * @param {string} IDnumerical - The numeric DOM id="" value
    * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
    * @param {string} [explicitBookId] - Optional: explicit bookId (for sub-books where element is detached from DOM)
    */
-   queueDeletion(nodeId, nodeElement = null, explicitBookId = null) {
+   queueDeletion(IDnumerical, nodeElement = null, explicitBookId = null) {
     // ✅ FIX: Capture UUID - prefer passed element, fallback to DOM lookup
-    const element = nodeElement || document.getElementById(nodeId);
+    const element = nodeElement || document.getElementById(IDnumerical);
     const nodeUUID = element?.getAttribute('data-node-id');
 
     // ✅ FIX: Determine bookId - use explicit if provided, else find from context
@@ -108,14 +108,14 @@ export class SaveQueue {
       }
     }
 
-    // Store both nodeId and {uuid, bookId} in a Map instead of Set
+    // Store both IDnumerical and {uuid, bookId} in a Map instead of Set
     if (!this.pendingSaves.deletionMap) {
       this.pendingSaves.deletionMap = new Map();
     }
-    this.pendingSaves.deletionMap.set(nodeId, { uuid: nodeUUID, bookId: finalBookId });
+    this.pendingSaves.deletionMap.set(IDnumerical, { uuid: nodeUUID, bookId: finalBookId });
 
     // Keep deletions Set for backward compatibility
-    this.pendingSaves.deletions.add(nodeId);
+    this.pendingSaves.deletions.add(IDnumerical);
     this.pendingSaves.lastActivity = Date.now();
 
     // ⚠️ DIAGNOSTIC: Log stack trace when deletion queue grows large
@@ -127,7 +127,7 @@ export class SaveQueue {
       });
     }
 
-    verbose.content(`Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
+    verbose.content(`Queued node ${IDnumerical} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
     this.debouncedBatchDelete();
   }
 

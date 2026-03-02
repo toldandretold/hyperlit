@@ -373,6 +373,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           numericStartLine,
         );
 
+        // NOTE: block.nodeId is a numeric startLine (id=""), NOT a data-node-id
         const blockElement = document.getElementById(block.nodeId);
         const nodeIdFromDOM = blockElement?.getAttribute('data-node-id');
 

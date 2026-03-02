@@ -832,8 +832,8 @@ export class ChunkMutationHandler {
       return false;
     }
 
-    const nodeId = removedNode.id;
-    if (!nodeId || !isNumericalId(nodeId)) {
+    const IDnumerical = removedNode.id;
+    if (!IDnumerical || !isNumericalId(IDnumerical)) {
       return false;
     }
 
