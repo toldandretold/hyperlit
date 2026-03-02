@@ -18,8 +18,23 @@ class DatabaseToIndexedDBController extends Controller
      */
     private function checkBookVisibility(string $bookId): ?object
     {
-        $result = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$bookId]);
-        return $result;
+        // check_book_visibility() SECURITY DEFINER function may not exist in all environments
+        // (e.g. if RLS migration hasn't run locally). Query pgsql_admin directly instead.
+        $row = DB::connection('pgsql_admin')
+            ->table('library')
+            ->where('book', $bookId)
+            ->first(['visibility', 'creator', 'creator_token']);
+
+        if (!$row) {
+            return null;
+        }
+
+        return (object) [
+            'book_exists'   => true,
+            'visibility'    => $row->visibility,
+            'creator'       => $row->creator,
+            'creator_token' => $row->creator_token,
+        ];
     }
 
     /**

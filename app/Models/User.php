@@ -35,7 +35,12 @@ class User extends Authenticatable
      */
     public static function findByNamePublic(string $name): ?self
     {
-        $result = DB::selectOne('SELECT * FROM lookup_user_by_name(?)', [$name]);
+        // lookup_user_by_name() SECURITY DEFINER function may not exist in all environments
+        // (e.g. if RLS migration hasn't run locally). Query pgsql_admin directly for public fields only.
+        $result = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('name', $name)
+            ->first(['id', 'name', 'created_at']);
 
         if (!$result) {
             return null;

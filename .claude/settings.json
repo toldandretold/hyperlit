@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(psql -U thuvo -d laravel -c \"ALTER TABLE nodes ADD COLUMN IF NOT EXISTS node_id VARCHAR\\(100\\) DEFAULT NULL;\")",
+      "Bash(psql -U thuvo -d laravel -c \"ALTER TABLE nodes_history ADD COLUMN IF NOT EXISTS node_id VARCHAR\\(100\\) DEFAULT NULL;\")",
+      "Bash(psql -U thuvo -d laravel -c \"CREATE UNIQUE INDEX IF NOT EXISTS nodes_book_node_id_unique ON nodes \\(book, node_id\\) WHERE node_id IS NOT NULL;\")",
+      "Bash(php artisan tinker --execute=\":*)"
+    ]
+  }
+}
