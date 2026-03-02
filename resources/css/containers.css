@@ -319,7 +319,7 @@ body[data-page="user"] #userLibraryContainer {
   background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 1001;
+  z-index: 1002; /* Above ref-overlay, below first stacked overlay */
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
   padding-right: 2em;
@@ -461,8 +461,7 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 #toc-overlay,
-#user-overlay,
-#source-overlay {
+#user-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -473,6 +472,19 @@ body[data-page="user"] #userLibraryContainer {
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
     z-index: 999;
+}
+
+#source-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 998; /* Below topRightContainer (999) so button remains clickable */
 }
 
 /* Reference Overlay */
@@ -486,7 +498,7 @@ body[data-page="user"] #userLibraryContainer {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
-    z-index: 1000; /* Below the containers */
+    z-index: 1001; /* Between main content and hyperlit container */
     overscroll-behavior: none; /* Prevent scroll chaining */
     touch-action: none; /* Block all touch scrolling/gestures */
     overflow: hidden; /* Prevent overflow scrolling */

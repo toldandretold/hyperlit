@@ -98,17 +98,21 @@ export function createStackedContainerDOM(depth) {
   const overlay = document.createElement('div');
   overlay.className = 'hyperlit-overlay-stacked';
   overlay.setAttribute('data-layer', depth);
-  overlay.style.zIndex = 1000 + (depth * 2);
-  // Lighter opacity for layer 1 so background doesn't get too dark
-  overlay.style.backgroundColor = depth === 1
-    ? 'rgba(0, 0, 0, 0.15)'
-    : 'rgba(0, 0, 0, 0.08)';
+  // Interleaved z-index: overlays sit between containers
+  // Layer 1 overlay: 1003 (between base container 1002 and stacked container 1004)
+  overlay.style.zIndex = 1001 + (depth * 2);
+  // Progressive darkening: each layer adds more darkness
+  // Depth 1: 0.15, Depth 2: 0.23, Depth 3: 0.31, etc.
+  const opacity = 0.15 + ((depth - 1) * 0.08);
+  overlay.style.backgroundColor = `rgba(0, 0, 0, ${Math.min(opacity, 0.5)})`;
 
   // --- Container ---
   const container = document.createElement('div');
   container.className = 'hyperlit-container-stacked';
   container.setAttribute('data-layer', depth);
-  container.style.zIndex = 1001 + (depth * 2);
+  // Interleaved z-index: containers sit above their preceding overlay
+  // Layer 1 container: 1004 (above overlay 1003)
+  container.style.zIndex = 1002 + (depth * 2);
 
   // Width shrinks by 2% per layer relative to the base 60%
   const widthPercent = 60 * Math.pow(0.98, depth);
