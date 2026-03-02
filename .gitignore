@@ -34,4 +34,5 @@ public/fonts/inter/info/
 
 # Log files
 storage/logs/*.log
-!storage/logs/.gitignore.claude/
+!storage/logs/.gitignore
+.claude/
