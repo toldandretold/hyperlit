@@ -23,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Required for proper IP detection when behind a CDN/proxy
         $middleware->trustProxies(at: '*');
 
+        // Bootstrap app.session_id BEFORE StartSession reads the sessions table.
+        // The sessions table RLS policy requires app.session_id to be set first.
+        // This must run before EncryptCookies/StartSession, so we prepend to the group.
+        $middleware->prependToGroup('web', [
+            \App\Http\Middleware\BootstrapDatabaseSessionContext::class,
+        ]);
+
         // Add RLS context middleware to set PostgreSQL session variables
         // This must run after session starts but before any database queries
         $middleware->appendToGroup('web', [
@@ -31,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Add CORS and security headers middleware for API routes
         $middleware->api(prepend: [
+            \App\Http\Middleware\BootstrapDatabaseSessionContext::class,
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
