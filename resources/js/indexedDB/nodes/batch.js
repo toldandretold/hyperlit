@@ -355,33 +355,45 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
 
         console.log(`Updated hyperlight ${hyperlight.highlightID} positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
       } else {
-        // Create new record
-        const newRecord = {
-          book: bookId,
-          hyperlight_id: hyperlight.highlightID,
-          startChar: hyperlight.charStart,
-          endChar: hyperlight.charEnd,
-          startLine: numericNodeId,
-          highlightedText: highlightedText,
-          highlightedHTML: highlightedHTML,
-          annotation: "",
-          // ✅ NEW: Initialize NEW schema fields
-          node_id: nodeUUID ? [nodeUUID] : [],
-          charData: nodeUUID ? {
-            [nodeUUID]: {
-              charStart: hyperlight.charStart,
-              charEnd: hyperlight.charEnd
-            }
-          } : {}
+        // SAFETY: Check if this highlight already exists under a different book
+        // (prevents duplicates when cross-book ID collisions cause marks to
+        // appear in the wrong sub-book's DOM)
+        const hlIndex = store.index('hyperlight_id');
+        const existCheck = hlIndex.get(hyperlight.highlightID);
+        existCheck.onsuccess = () => {
+          if (existCheck.result) {
+            console.warn(`⚠️ Skipping duplicate: ${hyperlight.highlightID} already exists under book ${existCheck.result.book}`);
+            return; // Don't create duplicate
+          }
+
+          // Create new record
+          const newRecord = {
+            book: bookId,
+            hyperlight_id: hyperlight.highlightID,
+            startChar: hyperlight.charStart,
+            endChar: hyperlight.charEnd,
+            startLine: numericNodeId,
+            highlightedText: highlightedText,
+            highlightedHTML: highlightedHTML,
+            annotation: "",
+            // ✅ NEW: Initialize NEW schema fields
+            node_id: nodeUUID ? [nodeUUID] : [],
+            charData: nodeUUID ? {
+              [nodeUUID]: {
+                charStart: hyperlight.charStart,
+                charEnd: hyperlight.charEnd
+              }
+            } : {}
+          };
+
+          store.put(newRecord);
+          syncArray.push(newRecord);
+
+          console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
+          if (nodeUUID) {
+            console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
+          }
         };
-
-        store.put(newRecord);
-        syncArray.push(newRecord);
-
-        console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
-        if (nodeUUID) {
-          console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
-        }
       }
     };
   });

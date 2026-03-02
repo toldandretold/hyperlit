@@ -38,6 +38,16 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
 
   const itemBook = data?.book || '';
   const key = `${store}-${itemBook}-${id}`;
+  
+  // 🔍 LOGGING for hyperlights specifically
+  if (store === "hyperlights") {
+    const existing = pendingSyncs.get(key);
+    console.log(`📤 queueForSync: ${store} | key=${key} | type=${type} | existing=${existing ? 'YES (will update)' : 'NO (new entry)'}`);
+    if (data) {
+      console.log(`   book=${data.book} | hyperlight_id=${data.hyperlight_id} | node_ids=${JSON.stringify(data.node_id)}`);
+    }
+  }
+  
   if (type === "update" && !data) {
     console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
     return;

@@ -247,7 +247,13 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
     try {
       // Process each affected node
       for (const nodeId of affectedNodeIds) {
-        const nodeElement = document.getElementById(nodeId);
+        // Scope to sub-book container to avoid cross-book ID collisions
+        // (numeric IDs like "1" exist in every sub-book)
+        const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+          || document.getElementById(bookId);
+        const nodeElement = bookContainer
+          ? bookContainer.querySelector(`[id="${nodeId}"]`)
+          : document.getElementById(nodeId);
         if (!nodeElement) {
           console.warn(`Node ${nodeId} not found in DOM`);
           continue;

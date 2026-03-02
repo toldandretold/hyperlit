@@ -390,25 +390,41 @@ export async function createHighlightHandler(event, bookId) {
   fixInvalidMarks();
 
   const newMarks = document.querySelectorAll('mark.highlight');
-  console.log("🎨 After rangy - created marks:", newMarks.length, Array.from(newMarks).map(m => ({
-    text: m.textContent,
-    parent: m.parentElement.tagName,
-    parentId: m.parentElement.id
-  })));
+  console.log("🎨 After rangy - created marks:", newMarks.length);
+  
+  // 🔍 DETAILED LOGGING: Show each mark's context
+  Array.from(newMarks).forEach((mark, idx) => {
+    const parent = mark.parentElement;
+    const dataNodeId = parent?.getAttribute('data-node-id') || 'NO data-node-id';
+    const parentId = parent?.id || 'NO id';
+    const subBook = mark.closest('[data-book-id]');
+    const subBookId = subBook?.getAttribute('data-book-id') || 'NO sub-book';
+    const containerType = parent?.tagName || 'UNKNOWN';
+    
+    console.log(`🔍 Mark ${idx}: text="${mark.textContent.substring(0,30)}" | data-node-id="${dataNodeId}" | parent.id="${parentId}" | sub-book="${subBookId}" | type=${containerType}`);
+  });
 
   modifyNewMarks(highlightId);
 
   // Find all affected nodes
   const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
+  console.log(`🔍 After modifyNewMarks: found ${affectedMarks.length} marks with class ${highlightId}`);
+  
   const affectedIds = new Set();
   const affectedElements = new Map();
   const updatedNodeChunks = [];
 
-  affectedMarks.forEach((mark) => {
+  affectedMarks.forEach((mark, idx) => {
     const container = mark.closest(
       "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
     );
     if (container && container.id) {
+      const dataNodeId = container.getAttribute('data-node-id') || 'NO data-node-id';
+      const subBook = container.closest('[data-book-id]');
+      const subBookId = subBook?.getAttribute('data-book-id') || 'main-content';
+      
+      console.log(`🔍 Affected mark ${idx}: container.id="${container.id}" | data-node-id="${dataNodeId}" | sub-book="${subBookId}"`);
+      
       affectedIds.add(container.id);
       affectedElements.set(container.id, container);
     }

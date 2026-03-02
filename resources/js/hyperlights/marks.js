@@ -8,7 +8,17 @@
  */
 export function modifyNewMarks(highlightId) {
     const newMarks = document.querySelectorAll('mark.highlight');
+    console.log(`🔧 modifyNewMarks called for ${highlightId}: found ${newMarks.length} marks with 'highlight' class`);
+    
     newMarks.forEach((mark, index) => {
+        const parent = mark.parentElement;
+        const dataNodeId = parent?.getAttribute('data-node-id') || 'NO data-node-id';
+        const parentId = parent?.id || 'NO id';
+        const subBook = mark.closest('[data-book-id]');
+        const subBookId = subBook?.getAttribute('data-book-id') || 'NO sub-book';
+        
+        console.log(`🔧 Modifying mark ${index}: text="${mark.textContent.substring(0,25)}..." | data-node-id="${dataNodeId}" | sub-book="${subBookId}"`);
+        
         if (index === 0) mark.setAttribute('id', highlightId);
 
         // Add classes separately - this is the fix!
@@ -27,7 +37,7 @@ export function modifyNewMarks(highlightId) {
         const intensity = Math.min(highlightCount / 5, 1);
         mark.style.setProperty('--highlight-intensity', intensity);
     });
-    console.log("✅ New highlight mark created with ID:", highlightId);
+    console.log(`✅ modifyNewMarks complete: processed ${newMarks.length} marks for ${highlightId}`);
 }
 
 /**
