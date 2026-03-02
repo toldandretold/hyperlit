@@ -203,6 +203,14 @@ Route::get('/u/{username}', function($username) {
     return app(\App\Http\Controllers\UserHomeServerController::class)->show($username);
 })->where('username', '[A-Za-z0-9_-]+')->name('user.home');
 
+// Password reset page — must be before the catch-all /{identifier} route
+Route::get('/reset-password/{token}', function (Request $request, string $token) {
+    return view('reset-password', [
+        'token' => $token,
+        'email' => $request->query('email', ''),
+    ]);
+})->name('password.reset');
+
 // Legacy user page route - redirects to new /u/{username} format
 Route::get('/{identifier}', function(Request $request, $identifier) {
     // Check if it's a username - redirect to new format

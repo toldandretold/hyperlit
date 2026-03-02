@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -275,13 +277,17 @@ class AuthController extends Controller
 
         // Use SECURITY DEFINER function to bypass RLS
         // This is needed because when logged in, app.current_token is empty
-        // but we need to validate the user's former anonymous token
-        $result = DB::selectOne(
-            'SELECT validate_anonymous_token(?, ?) as valid',
-            [$token, self::TOKEN_EXPIRY_DAYS]
-        );
-
-        return $result->valid ?? false;
+        // but we need to validate the user's former anonymous token.
+        // Falls back to false if the function doesn't exist (e.g. RLS migration not run).
+        try {
+            $result = DB::selectOne(
+                'SELECT validate_anonymous_token(?, ?) as valid',
+                [$token, self::TOKEN_EXPIRY_DAYS]
+            );
+            return $result->valid ?? false;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     public function getSessionInfo(Request $request)
@@ -434,6 +440,79 @@ class AuthController extends Controller
 
             return response()->json(['success' => false, 'message' => 'An error occurred during content association.'], 500);
         }
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $email = $request->input('email');
+
+        // Look up user via admin connection to bypass RLS.
+        // Password::sendResetLink() would call retrieveByCredentials() which calls
+        // auth_lookup_user() — a SECURITY DEFINER function that may not exist in all
+        // environments. Using pgsql_admin directly is equivalent and more robust.
+        $dbUser = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('email', $email)
+            ->first(['id', 'email']);
+
+        if ($dbUser) {
+            $user = new User();
+            $user->forceFill(['id' => $dbUser->id, 'email' => $dbUser->email]);
+            $user->exists = true;
+
+            $token = Password::broker()->getRepository()->create($user);
+            $user->sendPasswordResetNotification($token);
+        }
+
+        // Always return success to prevent email enumeration attacks
+        return response()->json([
+            'success' => true,
+            'message' => 'If that email is registered, a password reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token'                 => 'required',
+            'email'                 => 'required|email',
+            'password'              => 'required|min:8|confirmed',
+            'password_confirmation' => 'required',
+        ]);
+
+        // Look up user via admin connection to bypass RLS (same reason as forgotPassword).
+        $dbUser = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('email', $request->email)
+            ->first(['id', 'email']);
+
+        if (!$dbUser) {
+            return response()->json(['success' => false, 'message' => __('passwords.token')], 422);
+        }
+
+        $user = new User();
+        $user->forceFill(['id' => $dbUser->id, 'email' => $dbUser->email]);
+        $user->exists = true;
+
+        $broker = Password::broker();
+
+        if (!$broker->getRepository()->exists($user, $request->token)) {
+            return response()->json(['success' => false, 'message' => __('passwords.token')], 422);
+        }
+
+        // Update password via admin connection to bypass RLS — same pattern as register()
+        DB::connection('pgsql_admin')->table('users')->where('id', $dbUser->id)->update([
+            'password'       => Hash::make($request->password),
+            'remember_token' => Str::random(60),
+            'updated_at'     => now(),
+        ]);
+
+        $broker->getRepository()->delete($user);
+        event(new PasswordReset($user));
+
+        return response()->json(['success' => true, 'message' => 'Password reset successfully.']);
     }
 
     private function checkAnonymousContent(Request $request)

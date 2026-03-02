@@ -39,11 +39,17 @@ class SetDatabaseSessionContext
         if ($user) {
             // Authenticated user - set username AND user_token for RLS
             // Fetch user_token via admin connection (not exposed via SQL functions)
-            // This protects user_token from SQL injection attacks
-            $userToken = DB::connection('pgsql_admin')
-                ->table('users')
-                ->where('id', $user->id)
-                ->value('user_token') ?? '';
+            // This protects user_token from SQL injection attacks.
+            // user_token column may not exist in all environments (e.g. if RLS migration
+            // hasn't run locally), so fall back to empty string gracefully.
+            try {
+                $userToken = DB::connection('pgsql_admin')
+                    ->table('users')
+                    ->where('id', $user->id)
+                    ->value('user_token') ?? '';
+            } catch (\Exception $e) {
+                $userToken = '';
+            }
             $this->setSessionVariables($user->name, $userToken, $sessionId);
         } elseif ($anonymousToken) {
             // Anonymous user with token - set token, clear username

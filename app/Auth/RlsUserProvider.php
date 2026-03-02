@@ -25,17 +25,20 @@ class RlsUserProvider extends EloquentUserProvider
      * Retrieve a user by their unique identifier (ID).
      *
      * This is called on every request to load the authenticated user from session.
-     * Must use bypass function because RLS requires knowing the user first.
+     * Uses pgsql_admin to bypass RLS (auth_lookup_user_by_id SECURITY DEFINER function
+     * may not exist in all environments).
      */
     public function retrieveById($identifier): ?Authenticatable
     {
-        $result = DB::selectOne('SELECT * FROM auth_lookup_user_by_id(?)', [$identifier]);
+        $result = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('id', $identifier)
+            ->first();
 
         if (!$result) {
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
         $user = new User();
         $user->forceFill((array) $result);
         $user->exists = true;
@@ -46,17 +49,19 @@ class RlsUserProvider extends EloquentUserProvider
     /**
      * Retrieve a user by their unique identifier and "remember me" token.
      *
-     * Uses the bypass function since user may not be authenticated yet.
+     * Uses pgsql_admin to bypass RLS since user may not be authenticated yet.
      */
     public function retrieveByToken($identifier, $token): ?Authenticatable
     {
-        $result = DB::selectOne('SELECT * FROM auth_lookup_user_by_id(?)', [$identifier]);
+        $result = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('id', $identifier)
+            ->first();
 
         if (!$result || !hash_equals($result->remember_token ?? '', $token ?? '')) {
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
         $user = new User();
         $user->forceFill((array) $result);
         $user->exists = true;
@@ -67,7 +72,8 @@ class RlsUserProvider extends EloquentUserProvider
     /**
      * Retrieve a user by the given credentials.
      *
-     * This is called during login - uses bypass function to avoid RLS.
+     * This is called during login. Uses pgsql_admin to bypass RLS
+     * (auth_lookup_user SECURITY DEFINER function may not exist in all environments).
      */
     public function retrieveByCredentials(array $credentials): ?Authenticatable
     {
@@ -82,35 +88,26 @@ class RlsUserProvider extends EloquentUserProvider
             return null;
         }
 
-        // Get email from credentials
         $email = $credentials['email'] ?? null;
 
         if (!$email) {
             return null;
         }
 
-        // Use the SECURITY DEFINER function to bypass RLS
-        $result = DB::selectOne('SELECT * FROM auth_lookup_user(?)', [$email]);
-
-        if (!$result) {
-            return null;
-        }
-
-        // Fetch full user data using bypass function
-        $fullUser = DB::selectOne('SELECT * FROM auth_lookup_user_by_id(?)', [$result->id]);
+        $fullUser = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('email', $email)
+            ->first();
 
         if (!$fullUser) {
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
-        // Note: forceFill triggers the 'hashed' cast, so if the DB has a plaintext
-        // password, $user->password will be a proper bcrypt hash in memory — but
-        // the DB still holds plaintext. Detect and fix that here via the admin connection.
         $user = new User();
         $user->forceFill((array) $fullUser);
         $user->exists = true;
 
+        // Fix plaintext passwords stored before hashing was enforced
         if (!Hash::isHashed($fullUser->password)) {
             DB::connection('pgsql_admin')
                 ->table('users')
