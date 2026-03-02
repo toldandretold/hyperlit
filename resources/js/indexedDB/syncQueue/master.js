@@ -357,11 +357,11 @@ async function syncItemsForBook(bookId, bookItems) {
 
       // Re-read ALL nodes fresh from IndexedDB (prevents stale queue references)
       if (allNodeIdsToSync.size > 0) {
-        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-        const freshNodes = await getNodesByUUIDs([...allNodeIdsToSync]);
+        const { getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
+        const freshNodes = await getNodesByDataNodeIDs([...allNodeIdsToSync]);
 
         // Only substitute fresh data when it belongs to the correct book.
-        // getNodesByUUIDs may return a different book's record (alphabetically first)
+        // getNodesByDataNodeIDs may return a different book's record (alphabetically first)
         // when the same node_id exists across books (sub-book nodes share a node_id
         // prefix with the parent book because setElementIds uses the global `book`).
         const correctFreshNodes = freshNodes.filter(n => n.book === bookId);
@@ -373,8 +373,8 @@ async function syncItemsForBook(bookId, bookItems) {
 
       // Add deletions (verify node still doesn't exist in IndexedDB)
       if (deletionsToRecover.length > 0) {
-        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-        const existCheck = await getNodesByUUIDs(deletionsToRecover.map(n => n.node_id));
+        const { getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
+        const existCheck = await getNodesByDataNodeIDs(deletionsToRecover.map(n => n.node_id));
         const stillExistIds = new Set(existCheck.map(n => n.node_id));
         for (const node of deletionsToRecover) {
           if (!stillExistIds.has(node.node_id)) {

@@ -81,15 +81,15 @@ export class SaveQueue {
 
   /**
    * Add node to pending deletions queue
-   * Captures UUID and bookId from DOM before element is removed
+   * Captures data-node-id and bookId from DOM before element is removed
    * @param {string} IDnumerical - The numeric DOM id="" value
    * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
    * @param {string} [explicitBookId] - Optional: explicit bookId (for sub-books where element is detached from DOM)
    */
    queueDeletion(IDnumerical, nodeElement = null, explicitBookId = null) {
-    // ✅ FIX: Capture UUID - prefer passed element, fallback to DOM lookup
+    // ✅ FIX: Capture data-node-id - prefer passed element, fallback to DOM lookup
     const element = nodeElement || document.getElementById(IDnumerical);
-    const nodeUUID = element?.getAttribute('data-node-id');
+    const dataNodeID = element?.getAttribute('data-node-id');
 
     // ✅ FIX: Determine bookId - use explicit if provided, else find from context
     let finalBookId = explicitBookId;
@@ -108,11 +108,11 @@ export class SaveQueue {
       }
     }
 
-    // Store both IDnumerical and {uuid, bookId} in a Map instead of Set
+    // Store both IDnumerical and {dataNodeId, bookId} in a Map instead of Set
     if (!this.pendingSaves.deletionMap) {
       this.pendingSaves.deletionMap = new Map();
     }
-    this.pendingSaves.deletionMap.set(IDnumerical, { uuid: nodeUUID, bookId: finalBookId });
+    this.pendingSaves.deletionMap.set(IDnumerical, { dataNodeId: dataNodeID, bookId: finalBookId });
 
     // Keep deletions Set for backward compatibility
     this.pendingSaves.deletions.add(IDnumerical);
@@ -127,7 +127,7 @@ export class SaveQueue {
       });
     }
 
-    verbose.content(`Queued node ${IDnumerical} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
+    verbose.content(`Queued node ${IDnumerical} for deletion (data-node-id: ${dataNodeID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
     this.debouncedBatchDelete();
   }
 
@@ -215,7 +215,7 @@ export class SaveQueue {
       });
     }
 
-    // ✅ FIX: Get deletion data map with UUID and bookId for deleted nodes
+    // ✅ FIX: Get deletion data map with data-node-id and bookId for deleted nodes
     const deletionDataMap = this.pendingSaves.deletionMap || new Map();
 
     // ✅ FIX: Group node IDs by bookId for correct deletion
@@ -229,19 +229,19 @@ export class SaveQueue {
       nodesByBookId.get(bookId).push(nodeId);
     });
 
-    // ✅ FIX: Create deletionMap for each book group (containing only UUIDs)
+    // ✅ FIX: Create deletionMap for each book group (containing only data-node-ids)
     const buildDeletionMapForBook = (nodeIds, bookId) => {
       const map = new Map();
       nodeIds.forEach(nodeId => {
         const data = deletionDataMap.get(nodeId);
-        map.set(nodeId, data?.uuid || null);
+        map.set(nodeId, data?.dataNodeId || null);
       });
       return map;
     };
 
-    // ✅ OPTIMIZATION: Log UUID capture rate (verbose mode)
-    const uuidsCount = Array.from(deletionDataMap.values()).filter(v => v?.uuid).length;
-    verbose.content(`UUID CAPTURE: ${uuidsCount}/${nodeIdsToDelete.length} nodes have UUIDs (${((uuidsCount/nodeIdsToDelete.length)*100).toFixed(1)}%)`, 'divEditor/saveQueue.js');
+    // ✅ OPTIMIZATION: Log data-node-id capture rate (verbose mode)
+    const dataNodeIDCount = Array.from(deletionDataMap.values()).filter(v => v?.dataNodeId).length;
+    verbose.content(`DATA-NODE-ID CAPTURE: ${dataNodeIDCount}/${nodeIdsToDelete.length} nodes have data-node-ids (${((dataNodeIDCount/nodeIdsToDelete.length)*100).toFixed(1)}%)`, 'divEditor/saveQueue.js');
     verbose.content(`BOOK GROUPS: ${nodesByBookId.size} books with nodes to delete`, 'divEditor/saveQueue.js');
 
     this.pendingSaves.deletions.clear();

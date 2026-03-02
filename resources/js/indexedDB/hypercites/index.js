@@ -359,19 +359,19 @@ export function updateCitationForExistingHypercite(
     console.log(`✅ NEW SYSTEM: Updated hypercite ${hyperciteIDa} in normalized table with status: ${updatedRelationshipStatus}`);
 
     // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-    const affectedNodeUUIDs = existingHypercite.node_id || [];
-    if (affectedNodeUUIDs.length > 0) {
-      const { getNodesByUUIDs, rebuildNodeArrays } = await import('../hydration/rebuild.js');
-      const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+    const affectedDataNodeIDs = existingHypercite.node_id || [];
+    if (affectedDataNodeIDs.length > 0) {
+      const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../hydration/rebuild.js');
+      const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
       await rebuildNodeArrays(affectedNodes);
       console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
     }
 
     // Determine startLine for broadcasting (use first affected node)
     let affectedStartLine = null;
-    if (affectedNodeUUIDs.length > 0) {
+    if (affectedDataNodeIDs.length > 0) {
       const nodes = await getNodeChunksFromIndexedDB(booka);
-      const affectedNode = nodes.find(n => affectedNodeUUIDs.includes(n.node_id));
+      const affectedNode = nodes.find(n => affectedDataNodeIDs.includes(n.node_id));
       affectedStartLine = affectedNode?.startLine || null;
     }
 

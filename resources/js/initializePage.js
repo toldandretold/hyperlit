@@ -681,20 +681,20 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
 
       if (visibleNodeIds.length > 0) {
         // 3. Rebuild node arrays from the new standalone tables
-        const { rebuildNodeArrays, getNodesByUUIDs } = await import('./indexedDB/hydration/rebuild.js');
+        const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('./indexedDB/hydration/rebuild.js');
         const { getNodeChunksFromIndexedDB } = await import('./indexedDB/index.js');
 
         // Get node chunks to find node_ids for visible startLines
         const allNodes = await getNodeChunksFromIndexedDB(bookId);
-        const visibleNodeUUIDs = allNodes
+        const visibleDataNodeIDs = allNodes
           .filter(n => visibleNodeIds.includes(String(n.startLine)))
           .map(n => n.node_id)
           .filter(Boolean);
 
-        console.log(`🔄 Rebuilding arrays for ${visibleNodeUUIDs.length} nodes...`);
+        console.log(`🔄 Rebuilding arrays for ${visibleDataNodeIDs.length} nodes...`);
 
-        if (visibleNodeUUIDs.length > 0) {
-          const nodesToRebuild = await getNodesByUUIDs(visibleNodeUUIDs);
+        if (visibleDataNodeIDs.length > 0) {
+          const nodesToRebuild = await getNodesByDataNodeIDs(visibleDataNodeIDs);
           await rebuildNodeArrays(nodesToRebuild);
           console.log(`✅ Rebuilt node arrays with new annotations`);
         }

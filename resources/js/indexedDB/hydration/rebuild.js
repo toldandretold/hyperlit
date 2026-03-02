@@ -31,19 +31,19 @@ export async function rebuildNodeArrays(nodes) {
   }
 
   const db = await openDatabase();
-  const nodeUUIDs = nodes.map(n => n.node_id).filter(Boolean);
+  const dataNodeIDs = nodes.map(n => n.node_id).filter(Boolean);
 
-  if (nodeUUIDs.length === 0) {
-    console.warn('⚠️ rebuildNodeArrays: No valid node UUIDs found', nodes);
+  if (dataNodeIDs.length === 0) {
+    console.warn('⚠️ rebuildNodeArrays: No valid data-node-ids found', nodes);
     return;
   }
 
-  verbose.content(`NEW SYSTEM: Rebuilding arrays for ${nodeUUIDs.length} nodes`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`NEW SYSTEM: Rebuilding arrays for ${dataNodeIDs.length} nodes`, 'indexedDB/hydration/rebuild.js');
 
   try {
     // Query normalized tables for all relevant hyperlights/hypercites
-    const hyperlights = await queryHyperlightsByNodes(db, nodeUUIDs);
-    const hypercites = await queryHypercitesByNodes(db, nodeUUIDs);
+    const hyperlights = await queryHyperlightsByNodes(db, dataNodeIDs);
+    const hypercites = await queryHypercitesByNodes(db, dataNodeIDs);
 
     verbose.content(`NEW SYSTEM: Found ${hyperlights.length} hyperlights, ${hypercites.length} hypercites for these nodes`, 'indexedDB/hydration/rebuild.js');
 
@@ -80,10 +80,10 @@ export async function rebuildNodeArrays(nodes) {
  * Uses node_id multi-entry index for fast O(k) lookups instead of O(N) full scan
  *
  * @param {IDBDatabase} db - IndexedDB database
- * @param {Array<string>} nodeUUIDs - Node UUIDs to query
+ * @param {Array<string>} dataNodeIDs - data-node-id values to query
  * @returns {Promise<Array>} - Hyperlights affecting these nodes
  */
-async function queryHyperlightsByNodes(db, nodeUUIDs) {
+async function queryHyperlightsByNodes(db, dataNodeIDs) {
   const tx = db.transaction('hyperlights', 'readonly');
   const store = tx.objectStore('hyperlights');
 
@@ -108,18 +108,18 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
     allRequest.onerror = () => reject(allRequest.error);
   });
   verbose.content(`DEBUG: Total hyperlights in store: ${allHyperlights.length}`, 'indexedDB/hydration/rebuild.js');
-  verbose.content(`DEBUG: Looking for nodeUUIDs: ${nodeUUIDs.join(', ')}`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`DEBUG: Looking for dataNodeIDs: ${dataNodeIDs.join(', ')}`, 'indexedDB/hydration/rebuild.js');
   verbose.content(`DEBUG: Hyperlights node_id fields checked (${allHyperlights.length} items)`, 'indexedDB/hydration/rebuild.js');
 
-  // Query each UUID using the index - each query is O(1) with the index
-  for (const uuid of nodeUUIDs) {
-    verbose.content(`DEBUG: Querying index for UUID: ${uuid}`, 'indexedDB/hydration/rebuild.js');
-    const req = index.getAll(uuid);
+  // Query each data-node-id using the index - each query is O(1) with the index
+  for (const dataNodeID of dataNodeIDs) {
+    verbose.content(`DEBUG: Querying index for data-node-id: ${dataNodeID}`, 'indexedDB/hydration/rebuild.js');
+    const req = index.getAll(dataNodeID);
     const matches = await new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-    verbose.content(`DEBUG: Found ${matches.length} matches for UUID ${uuid}`, 'indexedDB/hydration/rebuild.js');
+    verbose.content(`DEBUG: Found ${matches.length} matches for data-node-id ${dataNodeID}`, 'indexedDB/hydration/rebuild.js');
 
     // Add to map, keyed by hyperlight_id to avoid duplicates
     matches.forEach(hl => {
@@ -134,7 +134,7 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
     verbose.content('DEBUG: Index returned no results, falling back to manual filtering', 'indexedDB/hydration/rebuild.js');
     allHyperlights.forEach(hl => {
       if (hl && hl.node_id && Array.isArray(hl.node_id)) {
-        const hasMatch = hl.node_id.some(id => nodeUUIDs.includes(id));
+        const hasMatch = hl.node_id.some(id => dataNodeIDs.includes(id));
         if (hasMatch) {
           verbose.content(`DEBUG: Manual filter found match: ${hl.hyperlight_id}`, 'indexedDB/hydration/rebuild.js');
           resultsMap.set(hl.hyperlight_id, hl);
@@ -144,7 +144,7 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
   }
 
   const results = Array.from(resultsMap.values());
-  verbose.content(`NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`NEW SYSTEM: Queried hyperlights index for ${dataNodeIDs.length} nodes, found ${results.length} hyperlights`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }
@@ -154,10 +154,10 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
  * Uses node_id multi-entry index for fast O(k) lookups instead of O(N) full scan
  *
  * @param {IDBDatabase} db - IndexedDB database
- * @param {Array<string>} nodeUUIDs - Node UUIDs to query
+ * @param {Array<string>} dataNodeIDs - data-node-id values to query
  * @returns {Promise<Array>} - Hypercites affecting these nodes
  */
-async function queryHypercitesByNodes(db, nodeUUIDs) {
+async function queryHypercitesByNodes(db, dataNodeIDs) {
   const tx = db.transaction('hypercites', 'readonly');
   const store = tx.objectStore('hypercites');
   const index = store.index('node_id'); // Multi-entry index on node_id array
@@ -165,9 +165,9 @@ async function queryHypercitesByNodes(db, nodeUUIDs) {
   // Use a Map to deduplicate (a hypercite spanning multiple nodes will be found multiple times)
   const resultsMap = new Map(); // Use Map to deduplicate by hyperciteId
 
-  // Query each UUID using the index - each query is O(1) with the index
-  for (const uuid of nodeUUIDs) {
-    const req = index.getAll(uuid);
+  // Query each data-node-id using the index - each query is O(1) with the index
+  for (const dataNodeID of dataNodeIDs) {
+    const req = index.getAll(dataNodeID);
     const matches = await new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
@@ -182,7 +182,7 @@ async function queryHypercitesByNodes(db, nodeUUIDs) {
   }
 
   const results = Array.from(resultsMap.values());
-  verbose.content(`NEW SYSTEM: Queried hypercites index for ${nodeUUIDs.length} nodes, found ${results.length} hypercites`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`NEW SYSTEM: Queried hypercites index for ${dataNodeIDs.length} nodes, found ${results.length} hypercites`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }
@@ -302,15 +302,15 @@ async function updateNodesInDB(db, nodes) {
 }
 
 /**
- * Get nodes from IndexedDB by their UUIDs
+ * Get nodes from IndexedDB by their data-node-ids
  * Uses node_id index for fast O(k) lookups instead of O(N) full scan
  *
- * @param {Array<string>} nodeUUIDs - Node UUIDs to fetch
+ * @param {Array<string>} dataNodeIDs - data-node-id values to fetch
  * @returns {Promise<Array>} - Array of node objects
  */
-export async function getNodesByUUIDs(nodeUUIDs) {
-  if (!nodeUUIDs || nodeUUIDs.length === 0) {
-    console.warn('⚠️ NEW SYSTEM: No node UUIDs provided to getNodesByUUIDs');
+export async function getNodesByDataNodeIDs(dataNodeIDs) {
+  if (!dataNodeIDs || dataNodeIDs.length === 0) {
+    console.warn('⚠️ NEW SYSTEM: No data-node-ids provided to getNodesByDataNodeIDs');
     return [];
   }
 
@@ -321,9 +321,9 @@ export async function getNodesByUUIDs(nodeUUIDs) {
 
   const results = [];
 
-  // Query each UUID using the index - O(1) per lookup
-  for (const uuid of nodeUUIDs) {
-    const req = index.get(uuid);
+  // Query each data-node-id using the index - O(1) per lookup
+  for (const dataNodeID of dataNodeIDs) {
+    const req = index.get(dataNodeID);
     const node = await new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -334,7 +334,7 @@ export async function getNodesByUUIDs(nodeUUIDs) {
     }
   }
 
-  verbose.content(`NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${nodeUUIDs.length} UUIDs)`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${dataNodeIDs.length} data-node-ids)`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }

@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs, updateBookTimestamp } from '../indexedDB/index.js';
+import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs, updateBookTimestamp } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -517,8 +517,8 @@ export async function createHighlightHandler(event, bookId) {
       console.log('✅ NEW SYSTEM: Hyperlight saved to normalized table');
 
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-      const affectedNodeUUIDs = Object.keys(charDataByNode);
-      const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+      const affectedDataNodeIDs = Object.keys(charDataByNode);
+      const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
       await rebuildNodeArrays(affectedNodes);
 
       console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);

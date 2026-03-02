@@ -101,7 +101,7 @@ export {
 // Node Hydration (NEW SYSTEM)
 export {
   rebuildNodeArrays,
-  getNodesByUUIDs,
+  getNodesByDataNodeIDs,
 } from './hydration/rebuild.js';
 
 // Node PostgreSQL Sync

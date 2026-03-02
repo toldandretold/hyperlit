@@ -39,7 +39,7 @@ function determineChunkIdFromDOM(IDnumerical) {
  * @param {string|number} startLine - Starting line/node ID
  * @param {string} content - HTML content
  * @param {number} chunkId - Chunk identifier for lazy loading
- * @param {string} nodeId - Node UUID
+ * @param {string} nodeId - Node data-node-id
  * @param {IDBTransaction} transaction - Optional existing transaction
  * @returns {Promise<boolean>} Success status
  */

@@ -297,7 +297,7 @@ export async function handleHypercitePaste(event) {
     } else {
       // MULTIPLE HYPERCITES: Batch all updates into ONE request
       const updatedHypercites = [];
-      const affectedNodeUUIDs = new Set(); // Track affected nodes for rebuild
+      const affectedDataNodeIDs = new Set(); // Track affected nodes for rebuild
       const domUpdates = []; // Store DOM updates to apply after successful sync
 
       // Process all hypercites and collect updates
@@ -347,7 +347,7 @@ export async function handleHypercitePaste(event) {
 
           // Track affected node UUIDs for rebuild
           if (existingHypercite.node_id && Array.isArray(existingHypercite.node_id)) {
-            existingHypercite.node_id.forEach(uuid => affectedNodeUUIDs.add(uuid));
+            existingHypercite.node_id.forEach(dataNodeID => affectedDataNodeIDs.add(dataNodeID));
           }
 
           // Get final hypercite record for sync
@@ -383,10 +383,10 @@ export async function handleHypercitePaste(event) {
       }
 
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-      if (affectedNodeUUIDs.size > 0) {
+      if (affectedDataNodeIDs.size > 0) {
         try {
-          const { getNodesByUUIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
-          const affectedNodes = await getNodesByUUIDs(Array.from(affectedNodeUUIDs));
+          const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
+          const affectedNodes = await getNodesByDataNodeIDs(Array.from(affectedDataNodeIDs));
           await rebuildNodeArrays(affectedNodes);
           console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
         } catch (error) {
