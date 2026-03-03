@@ -108,6 +108,9 @@ function setAttackerSession(string $username = '', string $token = ''): void
  */
 function cleanupWarGameData(): void
 {
+    // Disconnect default pgsql to release any locks/transactions before admin cleanup
+    DB::disconnect('pgsql');
+
     DB::connection('pgsql_admin')->table('nodes')->where('book', 'like', 'wartest-%')->delete();
     DB::connection('pgsql_admin')->table('hyperlights')->where('book', 'like', 'wartest-%')->delete();
     DB::connection('pgsql_admin')->table('hypercites')->where('book', 'like', 'wartest-%')->delete();
@@ -743,27 +746,57 @@ test('WAR GAME E4: attacker cannot access nodes of private book via direct query
 // SECTION F: SECURITY DEFINER FUNCTION ABUSE
 // ==========================================
 
-test('WAR GAME F1: auth_lookup_user returns only safe columns', function () {
+test('WAR GAME F1: legacy auth_lookup_user has been dropped', function () {
+    setAttackerSession('', '');
+
+    // auth_lookup_user used to return (id, password, remember_token) — a direct
+    // email→password-hash lookup. It must no longer exist.
+    $errorThrown = false;
+    try {
+        DB::select("SELECT * FROM auth_lookup_user(?)", ['anything@example.com']);
+    } catch (\Exception $e) {
+        $errorThrown = true;
+        expect($e->getMessage())->toContain('auth_lookup_user');
+    }
+
+    expect($errorThrown)->toBeTrue('SECURITY BREACH: auth_lookup_user still exists — leaks password hashes!');
+});
+
+test('WAR GAME F1b: auth_lookup_user_by_email returns only id and email', function () {
     $victim = createWarGameUser([
-        'name' => 'victim_f1',
-        'email' => 'secret_f1@wartest.com',
+        'name' => 'victim_f1b',
+        'email' => 'secret_f1b@wartest.com',
     ]);
 
     setAttackerSession('', '');
 
-    // Call auth_lookup_user (used for login)
-    $result = DB::select("SELECT * FROM auth_lookup_user(?)", ['secret_f1@wartest.com']);
+    $result = DB::select("SELECT * FROM auth_lookup_user_by_email(?)", ['secret_f1b@wartest.com']);
 
     expect($result)->toHaveCount(1);
 
     $columns = array_keys((array) $result[0]);
 
-    // Should only have: id, password, remember_token
     expect($columns)->toContain('id');
-    expect($columns)->toContain('password');
-    expect($columns)->toContain('remember_token');
-    expect($columns)->not->toContain('email', 'auth_lookup_user should not return email');
-    expect($columns)->not->toContain('user_token', 'auth_lookup_user should not return user_token');
+    expect($columns)->toContain('email');
+    expect($columns)->not->toContain('password', 'auth_lookup_user_by_email should not return password');
+    expect($columns)->not->toContain('user_token', 'auth_lookup_user_by_email should not return user_token');
+    expect($columns)->not->toContain('remember_token', 'auth_lookup_user_by_email should not return remember_token');
+});
+
+test('WAR GAME F1c: auth_update_password has been dropped', function () {
+    setAttackerSession('', '');
+
+    // auth_update_password allowed changing ANY user's password with no authorization.
+    // It must no longer exist.
+    $errorThrown = false;
+    try {
+        DB::select("SELECT auth_update_password(1, 'hacked', 'x')");
+    } catch (\Exception $e) {
+        $errorThrown = true;
+        expect($e->getMessage())->toContain('auth_update_password');
+    }
+
+    expect($errorThrown)->toBeTrue('SECURITY BREACH: auth_update_password still exists — allows account takeover!');
 });
 
 test('WAR GAME F2: lookup_user_by_name returns only public info', function () {
@@ -790,7 +823,7 @@ test('WAR GAME F2: lookup_user_by_name returns only public info', function () {
     expect($columns)->not->toContain('password', 'lookup_user_by_name should not return password');
 });
 
-test('WAR GAME F3: SQL injection in auth_lookup_user email parameter does not work', function () {
+test('WAR GAME F3: SQL injection in auth_lookup_user_by_email parameter does not work', function () {
     $victim = createWarGameUser([
         'name' => 'victim_f3',
         'email' => 'safe_f3@wartest.com',
@@ -800,10 +833,10 @@ test('WAR GAME F3: SQL injection in auth_lookup_user email parameter does not wo
 
     // Attempt SQL injection in email parameter
     $maliciousEmail = "' OR '1'='1";
-    $result = DB::select("SELECT * FROM auth_lookup_user(?)", [$maliciousEmail]);
+    $result = DB::select("SELECT * FROM auth_lookup_user_by_email(?)", [$maliciousEmail]);
 
     // Should return nothing - injection should not work
-    expect($result)->toBeEmpty('Potential SQL injection vulnerability in auth_lookup_user!');
+    expect($result)->toBeEmpty('Potential SQL injection vulnerability in auth_lookup_user_by_email!');
 });
 
 test('WAR GAME F4: SECURITY DEFINER functions do not allow table drops', function () {
@@ -816,7 +849,7 @@ test('WAR GAME F4: SECURITY DEFINER functions do not allow table drops', functio
     try {
         // Attempt to call a function with SQL injection that tries to drop tables
         // This should fail at multiple levels
-        DB::select("SELECT * FROM auth_lookup_user(?)", ["'; DROP TABLE users; --"]);
+        DB::select("SELECT * FROM auth_lookup_user_by_email(?)", ["'; DROP TABLE users; --"]);
     } catch (\Exception $e) {
         $errorOccurred = true;
     }
@@ -912,12 +945,11 @@ test('WAR GAME G3: unicode/multibyte characters do not bypass RLS', function () 
 // SECTION H: CONTENT THEFT PREVENTION
 // ==========================================
 
-test('WAR GAME H1: attacker cannot steal anonymous content via transfer function', function () {
-    // This tests the fix for the content theft vulnerability:
+test('WAR GAME H1: check_book_visibility no longer leaks creator_token', function () {
     // Previously, attacker could:
     // 1. Get creator_token via check_book_visibility
-    // 2. Call transfer_anonymous_library to steal content
-    // Now: Transfer functions require session token to match
+    // 2. Call set_config('app.current_token', stolen_token) to impersonate
+    // Now: Function returns is_owner boolean instead of creator_token
 
     $anonToken = Str::uuid()->toString();
 
@@ -933,28 +965,21 @@ test('WAR GAME H1: attacker cannot steal anonymous content via transfer function
         'updated_at' => now(),
     ]);
 
-    // Attacker has no valid session (or wrong token)
+    // Attacker has no valid session
     setAttackerSession('', '');
 
-    // Attacker gets the token via check_book_visibility
     $visibility = DB::selectOne('SELECT * FROM check_book_visibility(?)', ['wartest-h1-anon']);
-    $stolenToken = $visibility->creator_token;
 
-    // Attacker tries to transfer using stolen token - should be blocked!
-    $exceptionThrown = false;
-    try {
-        DB::select('SELECT transfer_anonymous_library(?, ?)', [$stolenToken, 'attacker']);
-    } catch (\Exception $e) {
-        $exceptionThrown = true;
-        expect($e->getMessage())->toContain('Unauthorized');
-    }
+    $columns = array_keys((array) $visibility);
 
-    expect($exceptionThrown)->toBeTrue('SECURITY BREACH: Transfer function accepted stolen token!');
+    // Must NOT contain creator_token
+    expect($columns)->not->toContain('creator_token', 'SECURITY BREACH: check_book_visibility still leaks creator_token!');
 
-    // Verify content was not stolen
-    $book = DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h1-anon')->first();
-    expect($book->creator)->toBeNull('SECURITY BREACH: Content owner was changed!');
-    expect($book->creator_token)->toBe($anonToken, 'SECURITY BREACH: Content token was modified!');
+    // Must contain is_owner instead
+    expect($columns)->toContain('is_owner');
+
+    // Attacker should NOT be owner
+    expect($visibility->is_owner)->toBeFalse('SECURITY BREACH: Attacker shown as owner!');
 
     // Cleanup
     DB::connection('pgsql_admin')->table('library')->where('book', 'wartest-h1-anon')->delete();

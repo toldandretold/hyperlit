@@ -18,7 +18,7 @@ return new class extends Migration
 
         // Create the versioning trigger function (version 1.2.1)
         // Uses SECURITY DEFINER to bypass RLS for history table inserts
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION versioning()
             RETURNS TRIGGER AS \$\$
             DECLARE
@@ -225,12 +225,12 @@ return new class extends Migration
         ");
 
         // Grant execute permission to app user
-        DB::statement("REVOKE EXECUTE ON FUNCTION versioning() FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION versioning() TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION versioning() FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION versioning() TO {$appUser}");
     }
 
     public function down(): void
     {
-        DB::statement("DROP FUNCTION IF EXISTS versioning() CASCADE");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS versioning() CASCADE");
     }
 };

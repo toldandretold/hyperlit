@@ -15,7 +15,7 @@ return new class extends Migration
     public function up(): void
     {
         // Add sys_period column with default value for existing rows
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             ALTER TABLE nodes
             ADD COLUMN IF NOT EXISTS sys_period tstzrange
             NOT NULL DEFAULT tstzrange(current_timestamp, null, '[)')
@@ -23,7 +23,7 @@ return new class extends Migration
 
         // Set sys_period for existing rows based on their created_at timestamp
         // This gives them a valid starting point in history
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE nodes
             SET sys_period = tstzrange(
                 COALESCE(created_at, current_timestamp),
@@ -34,7 +34,7 @@ return new class extends Migration
         ");
 
         // Create GIST index for efficient temporal queries (containment, overlap)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE INDEX IF NOT EXISTS nodes_sys_period_idx
             ON nodes USING GIST (sys_period)
         ");
@@ -42,7 +42,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS nodes_sys_period_idx');
-        DB::statement('ALTER TABLE nodes DROP COLUMN IF EXISTS sys_period');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS nodes_sys_period_idx');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE nodes DROP COLUMN IF EXISTS sys_period');
     }
 };

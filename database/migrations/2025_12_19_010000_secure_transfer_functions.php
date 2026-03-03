@@ -21,7 +21,7 @@ return new class extends Migration
         $appUser = env('DB_USERNAME', 'hyperlit_app');
 
         // Secure library transfer function
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_library(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -53,7 +53,7 @@ return new class extends Migration
         ");
 
         // Secure hyperlights transfer function
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_hyperlights(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -83,7 +83,7 @@ return new class extends Migration
         ");
 
         // Secure hypercites transfer function
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_hypercites(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -113,14 +113,14 @@ return new class extends Migration
         ");
 
         // Re-apply grants
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_library(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_library(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_library(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_library(text, text) TO {$appUser}");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) TO {$appUser}");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) TO {$appUser}");
     }
 
     public function down(): void
@@ -128,7 +128,7 @@ return new class extends Migration
         $appUser = env('DB_USERNAME', 'hyperlit_app');
 
         // Restore original (insecure) versions
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_library(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -148,7 +148,7 @@ return new class extends Migration
             \$\$ LANGUAGE plpgsql;
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_hyperlights(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -168,7 +168,7 @@ return new class extends Migration
             \$\$ LANGUAGE plpgsql;
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION transfer_anonymous_hypercites(p_token text, p_username text)
             RETURNS integer
             SECURITY DEFINER
@@ -188,13 +188,13 @@ return new class extends Migration
             \$\$ LANGUAGE plpgsql;
         ");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_library(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_library(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_library(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_library(text, text) TO {$appUser}");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hyperlights(text, text) TO {$appUser}");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION transfer_anonymous_hypercites(text, text) TO {$appUser}");
     }
 };

@@ -45,6 +45,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
 });
 
+// Password reset routes (throttled to prevent abuse)
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:5,1');
+Route::post('/password/reset', [AuthController::class, 'resetPassword'])
+    ->middleware('throttle:5,1');
+
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
 Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);

@@ -20,7 +20,7 @@ return new class extends Migration
     public function up(): void
     {
         // Backfill library records
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE library
             SET creator_token = users.user_token
             FROM users
@@ -29,7 +29,7 @@ return new class extends Migration
         ");
 
         // Backfill hyperlights records
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE hyperlights
             SET creator_token = users.user_token
             FROM users
@@ -38,7 +38,7 @@ return new class extends Migration
         ");
 
         // Backfill hypercites records
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE hypercites
             SET creator_token = users.user_token
             FROM users
@@ -51,7 +51,7 @@ return new class extends Migration
     {
         // Revert: Set creator_token back to NULL for logged-in user content
         // Only affects records where creator matches a user (not anonymous content)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE library
             SET creator_token = NULL
             FROM users
@@ -59,7 +59,7 @@ return new class extends Migration
               AND library.creator_token = users.user_token
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE hyperlights
             SET creator_token = NULL
             FROM users
@@ -67,7 +67,7 @@ return new class extends Migration
               AND hyperlights.creator_token = users.user_token
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE hypercites
             SET creator_token = NULL
             FROM users

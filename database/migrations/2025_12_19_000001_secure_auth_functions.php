@@ -16,9 +16,9 @@ return new class extends Migration
     public function up(): void
     {
         // Drop and recreate with reduced return columns
-        DB::statement('DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)');
+        DB::connection('pgsql_admin')->statement('DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)');
         
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE FUNCTION auth_lookup_user_by_id(p_id bigint)
             RETURNS TABLE(id bigint, name character varying, password character varying, remember_token character varying, created_at timestamp without time zone, updated_at timestamp without time zone)
             LANGUAGE sql
@@ -32,15 +32,15 @@ return new class extends Migration
             \$\$
         ");
         
-        DB::statement('GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO hyperlit_app');
+        DB::connection('pgsql_admin')->statement('GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO hyperlit_app');
     }
 
     public function down(): void
     {
         // Restore original function with all columns
-        DB::statement('DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)');
+        DB::connection('pgsql_admin')->statement('DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)');
         
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE FUNCTION auth_lookup_user_by_id(p_id bigint)
             RETURNS TABLE(id bigint, name character varying, email character varying, email_verified_at timestamp without time zone, password character varying, remember_token character varying, user_token uuid, created_at timestamp without time zone, updated_at timestamp without time zone)
             LANGUAGE sql
@@ -54,6 +54,6 @@ return new class extends Migration
             \$\$
         ");
         
-        DB::statement('GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO hyperlit_app');
+        DB::connection('pgsql_admin')->statement('GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO hyperlit_app');
     }
 };

@@ -122,7 +122,16 @@ You need the following installed on your system:
    php artisan migrate
    ```
 
-8. **Start the development servers**
+8. **Set up local email (for password reset, etc.)**
+
+   Install [Mailpit](https://github.com/axllent/mailpit) to catch outbound emails locally:
+   ```sh
+   brew install mailpit
+   ```
+
+   Then run `mailpit` in a separate terminal. The web UI is at http://localhost:8025. The `.env.example` is already configured to use it (SMTP on port 1025).
+
+9. **Start the development servers**
    ```sh
    npm run dev:all
    ```

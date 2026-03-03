@@ -15,12 +15,12 @@ return new class extends Migration
     public function up(): void
     {
         // Drop the existing generated column and index
-        DB::statement('DROP INDEX IF EXISTS library_search_vector_idx');
-        DB::statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS library_search_vector_idx');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
 
         // Recreate with 'simple' configuration for both title and author
         // 'simple' preserves all words without stop word removal or stemming
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             ALTER TABLE library
             ADD COLUMN search_vector tsvector
             GENERATED ALWAYS AS (
@@ -30,7 +30,7 @@ return new class extends Migration
         ");
 
         // Recreate the GIN index
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE INDEX library_search_vector_idx
             ON library USING GIN(search_vector)
         ");
@@ -41,11 +41,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS library_search_vector_idx');
-        DB::statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS library_search_vector_idx');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
 
         // Restore original 'english' configuration
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             ALTER TABLE library
             ADD COLUMN search_vector tsvector
             GENERATED ALWAYS AS (
@@ -54,7 +54,7 @@ return new class extends Migration
             ) STORED
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE INDEX library_search_vector_idx
             ON library USING GIN(search_vector)
         ");

@@ -21,7 +21,7 @@ return new class extends Migration
     public function up(): void
     {
         // Create the trigger on the nodes table
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE TRIGGER nodes_versioning_trigger
             BEFORE INSERT OR UPDATE OR DELETE ON nodes
             FOR EACH ROW EXECUTE FUNCTION versioning(
@@ -34,6 +34,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement('DROP TRIGGER IF EXISTS nodes_versioning_trigger ON nodes');
+        DB::connection('pgsql_admin')->statement('DROP TRIGGER IF EXISTS nodes_versioning_trigger ON nodes');
     }
 };

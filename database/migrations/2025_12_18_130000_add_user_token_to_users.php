@@ -21,23 +21,23 @@ return new class extends Migration
     public function up(): void
     {
         // Step 1: Add nullable user_token column
-        DB::statement("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_token UUID");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_token UUID");
 
         // Step 2: Backfill existing users with UUIDs
-        DB::statement("UPDATE users SET user_token = gen_random_uuid() WHERE user_token IS NULL");
+        DB::connection('pgsql_admin')->statement("UPDATE users SET user_token = gen_random_uuid() WHERE user_token IS NULL");
 
         // Step 3: Make column NOT NULL and add unique constraint
-        DB::statement("ALTER TABLE users ALTER COLUMN user_token SET NOT NULL");
-        DB::statement("ALTER TABLE users ADD CONSTRAINT users_user_token_unique UNIQUE (user_token)");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users ALTER COLUMN user_token SET NOT NULL");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users ADD CONSTRAINT users_user_token_unique UNIQUE (user_token)");
 
         // Step 4: Create index for fast lookups
-        DB::statement("CREATE INDEX IF NOT EXISTS users_user_token_idx ON users (user_token)");
+        DB::connection('pgsql_admin')->statement("CREATE INDEX IF NOT EXISTS users_user_token_idx ON users (user_token)");
     }
 
     public function down(): void
     {
-        DB::statement("DROP INDEX IF EXISTS users_user_token_idx");
-        DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_token_unique");
-        DB::statement("ALTER TABLE users DROP COLUMN IF EXISTS user_token");
+        DB::connection('pgsql_admin')->statement("DROP INDEX IF EXISTS users_user_token_idx");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_token_unique");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users DROP COLUMN IF EXISTS user_token");
     }
 };

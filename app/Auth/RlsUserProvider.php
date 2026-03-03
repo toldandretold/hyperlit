@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\Hash;
  * This bypasses Row Level Security during login lookups while maintaining
  * RLS protection for all other user table operations.
  *
- * The auth_lookup_user() function only returns: id, password, remember_token
+ * Uses auth_lookup_user_by_email() to get the user id from their email,
+ * then auth_lookup_user_by_id() to fetch the full user record for password validation.
  * - Cannot enumerate users (must know email)
- * - Cannot access other user data (email, name, etc. not returned)
+ * - auth_lookup_user_by_email returns only (id, email) — no password hash
  * - Read-only (cannot modify users)
  */
 class RlsUserProvider extends EloquentUserProvider
@@ -89,8 +90,8 @@ class RlsUserProvider extends EloquentUserProvider
             return null;
         }
 
-        // Use the SECURITY DEFINER function to bypass RLS
-        $result = DB::selectOne('SELECT * FROM auth_lookup_user(?)', [$email]);
+        // Use the SECURITY DEFINER function to bypass RLS (returns only id + email)
+        $result = DB::selectOne('SELECT * FROM auth_lookup_user_by_email(?)', [$email]);
 
         if (!$result) {
             return null;

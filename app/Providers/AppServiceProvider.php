@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use App\Services\DocumentImport\ValidationService;
 use App\Services\DocumentImport\SanitizationService;
 use App\Services\DocumentImport\FileHelpers;
@@ -58,6 +59,16 @@ class AppServiceProvider extends ServiceProvider
         // This uses a SECURITY DEFINER function to bypass RLS during login
         Auth::provider('rls-eloquent', function ($app, array $config) {
             return new RlsUserProvider($app['hash'], $config['model']);
+        });
+
+        // Register custom session handler that bypasses RLS for session reads.
+        // StartSession reads the session BEFORE SetDatabaseSessionContext sets
+        // app.session_id, so a SECURITY DEFINER function is needed for the read.
+        Session::extend('rls-database', function ($app) {
+            $connection = $app['db']->connection(config('session.connection'));
+            $table = config('session.table', 'sessions');
+            $lifetime = config('session.lifetime');
+            return new \App\Extensions\RlsSessionHandler($connection, $table, $lifetime, $app);
         });
     }
 }

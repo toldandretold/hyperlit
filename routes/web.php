@@ -193,6 +193,14 @@ Route::get('/{book}/media/{filename}', function (Request $request, $book, $filen
     'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
 ]);
 
+// Password reset page
+Route::get('/reset-password/{token}', function (Request $request, $token) {
+    return view('reset-password', [
+        'token' => $token,
+        'email' => $request->query('email', ''),
+    ]);
+})->name('password.reset');
+
 // Book edit route
 Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')

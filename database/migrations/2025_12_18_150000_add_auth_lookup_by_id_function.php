@@ -20,11 +20,11 @@ return new class extends Migration
         $appUser = env('DB_USERNAME', 'hyperlit_app');
 
         // Drop existing function first - PostgreSQL can't change return type with CREATE OR REPLACE
-        DB::statement("DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)");
 
         // Create auth_lookup_user_by_id for session restoration
         // Returns all user fields including user_token for RLS context
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE FUNCTION auth_lookup_user_by_id(p_id bigint)
             RETURNS TABLE(
                 id bigint,
@@ -49,12 +49,12 @@ return new class extends Migration
         ");
 
         // Restrict who can call the function
-        DB::statement("REVOKE EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION auth_lookup_user_by_id(bigint) TO {$appUser}");
 
         // Create lookup_user_by_name for public profile lookups
         // Only returns public fields - NOT sensitive data like email, password, or user_token
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION lookup_user_by_name(p_name text)
             RETURNS TABLE(
                 id bigint,
@@ -73,13 +73,13 @@ return new class extends Migration
         ");
 
         // This function can be called by the app user
-        DB::statement("REVOKE EXECUTE ON FUNCTION lookup_user_by_name(text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION lookup_user_by_name(text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION lookup_user_by_name(text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION lookup_user_by_name(text) TO {$appUser}");
     }
 
     public function down(): void
     {
-        DB::statement("DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)");
-        DB::statement("DROP FUNCTION IF EXISTS lookup_user_by_name(text)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS auth_lookup_user_by_id(bigint)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS lookup_user_by_name(text)");
     }
 };
