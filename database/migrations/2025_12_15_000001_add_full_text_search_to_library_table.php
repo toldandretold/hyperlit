@@ -16,7 +16,7 @@ return new class extends Migration
     {
         // Add tsvector column for full-text search on title + author
         // Using GENERATED ALWAYS AS STORED so it auto-updates when title/author change
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             ALTER TABLE library
             ADD COLUMN IF NOT EXISTS search_vector tsvector
             GENERATED ALWAYS AS (
@@ -26,7 +26,7 @@ return new class extends Migration
         ");
 
         // Create GIN index for fast full-text search
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE INDEX IF NOT EXISTS library_search_vector_idx
             ON library USING GIN(search_vector)
         ");
@@ -37,7 +37,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS library_search_vector_idx');
-        DB::statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS library_search_vector_idx');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE library DROP COLUMN IF EXISTS search_vector');
     }
 };

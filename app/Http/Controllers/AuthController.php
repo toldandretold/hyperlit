@@ -436,6 +436,76 @@ class AuthController extends Controller
         }
     }
 
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $email = $request->input('email');
+
+        // Use SECURITY DEFINER function to look up user by email (bypasses RLS)
+        $user = DB::selectOne('SELECT * FROM auth_lookup_user_by_email(?)', [$email]);
+
+        if ($user) {
+            // Generate a plain token for the URL and a SHA-256 hash for storage
+            $token = hash_hmac('sha256', Str::random(40), config('app.key'));
+            $hash = hash('sha256', $token);
+
+            // Insert via SECURITY DEFINER function (password_reset_tokens has RLS, deny-all)
+            DB::selectOne('SELECT auth_create_password_reset_token(?, ?)', [$email, $hash]);
+
+            $resetUrl = url("/reset-password/{$token}?email=" . urlencode($email));
+
+            // Send the reset email
+            \Illuminate\Support\Facades\Mail::send('emails.password-reset', [
+                'resetUrl' => $resetUrl,
+                'logoUrl'  => url('/images/logoc.png'),
+            ], function ($message) use ($email) {
+                $message->to($email)->subject('Reset Your Password');
+            });
+        }
+
+        // Always return success to prevent email enumeration
+        return response()->json([
+            'success' => true,
+            'message' => 'If that email is registered, a reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $email = $request->input('email');
+        $token = $request->input('token');
+
+        // Atomic reset: verify token + update password + delete token in one SECURITY DEFINER call.
+        // The function checks expiry (60 min) and verifies SHA-256(plain_token) against the stored hash.
+        $result = DB::selectOne('SELECT auth_execute_password_reset(?, ?, ?, ?) as success', [
+            $email,
+            $token,
+            Hash::make($request->input('password')),
+            Str::random(60),
+        ]);
+
+        if (!$result || !$result->success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This reset link is invalid or has expired.',
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password has been reset successfully.',
+        ]);
+    }
+
     private function checkAnonymousContent(Request $request)
     {
         // Get the anonymous token from cookie

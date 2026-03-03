@@ -33,6 +33,6 @@ return new class extends Migration
         });
 
         // Copy book values to citationID for rollback
-        DB::statement('UPDATE library SET "citationID" = book WHERE "citationID" IS NULL');
+        DB::connection('pgsql_admin')->statement('UPDATE library SET "citationID" = book WHERE "citationID" IS NULL');
     }
 };

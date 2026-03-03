@@ -54,6 +54,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/register',
             'api/auth-check',
             'api/anonymous-session',
+            'api/password/forgot',
+            'api/password/reset',
             'api/search/*',            // Public search endpoints
             'api/database-to-indexeddb/*',  // Public read-only data endpoints
         ]);

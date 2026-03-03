@@ -23,7 +23,7 @@ return new class extends Migration
         $database = env('DB_DATABASE', 'hyperlit');
 
         // Create the application role if it doesn't exist
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             DO \$\$
             BEGIN
                 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{$appUser}') THEN
@@ -34,10 +34,10 @@ return new class extends Migration
         ");
 
         // Grant connection privilege
-        DB::statement("GRANT CONNECT ON DATABASE \"{$database}\" TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("GRANT CONNECT ON DATABASE \"{$database}\" TO {$appUser}");
 
         // Grant usage on schema
-        DB::statement("GRANT USAGE ON SCHEMA public TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("GRANT USAGE ON SCHEMA public TO {$appUser}");
 
         // Data tables - full CRUD access (subject to RLS)
         $dataTables = [
@@ -54,7 +54,7 @@ return new class extends Migration
         ];
 
         foreach ($dataTables as $table) {
-            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON public.{$table} TO {$appUser}");
+            DB::connection('pgsql_admin')->statement("GRANT SELECT, INSERT, UPDATE, DELETE ON public.{$table} TO {$appUser}");
         }
 
         // System tables - read-only or limited access
@@ -69,15 +69,15 @@ return new class extends Migration
         ];
 
         foreach ($systemTables as $table => $permissions) {
-            DB::statement("GRANT {$permissions} ON public.{$table} TO {$appUser}");
+            DB::connection('pgsql_admin')->statement("GRANT {$permissions} ON public.{$table} TO {$appUser}");
         }
 
         // Grant usage on all sequences (for auto-increment/serial columns)
-        DB::statement("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {$appUser}");
 
         // Set default privileges for future tables created by admin
-        DB::statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {$appUser}");
-        DB::statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {$appUser}");
     }
 
     public function down(): void
@@ -85,13 +85,13 @@ return new class extends Migration
         $appUser = env('DB_USERNAME', 'hyperlit_app');
 
         // Revoke all privileges
-        DB::statement("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {$appUser}");
-        DB::statement("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {$appUser}");
-        DB::statement("REVOKE USAGE ON SCHEMA public FROM {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE USAGE ON SCHEMA public FROM {$appUser}");
 
         // Remove default privileges
-        DB::statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM {$appUser}");
-        DB::statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM {$appUser}");
+        DB::connection('pgsql_admin')->statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM {$appUser}");
+        DB::connection('pgsql_admin')->statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM {$appUser}");
 
         // Note: We don't DROP the role automatically - manual cleanup if needed:
         // DROP ROLE IF EXISTS hyperlit_app;

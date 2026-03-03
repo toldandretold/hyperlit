@@ -19,7 +19,7 @@ return new class extends Migration
         });
 
         // Add GIN index for array containment queries (PostgreSQL specific)
-        DB::statement('CREATE INDEX idx_hyperlights_node_id ON hyperlights USING GIN (node_id)');
+        DB::connection('pgsql_admin')->statement('CREATE INDEX idx_hyperlights_node_id ON hyperlights USING GIN (node_id)');
 
         // Add node_id column to hypercites table
         Schema::table('hypercites', function (Blueprint $table) {
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->index('book');
         });
 
-        DB::statement('CREATE INDEX idx_hypercites_node_id ON hypercites USING GIN (node_id)');
+        DB::connection('pgsql_admin')->statement('CREATE INDEX idx_hypercites_node_id ON hypercites USING GIN (node_id)');
     }
 
     /**
@@ -35,8 +35,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS idx_hyperlights_node_id');
-        DB::statement('DROP INDEX IF EXISTS idx_hypercites_node_id');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS idx_hyperlights_node_id');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS idx_hypercites_node_id');
 
         Schema::table('hyperlights', function (Blueprint $table) {
             $table->dropColumn('node_id');

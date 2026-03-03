@@ -24,11 +24,11 @@ return new class extends Migration
         // LIBRARY TABLE POLICIES
         // ==========================================
 
-        DB::statement("ALTER TABLE library ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE library FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE library ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE library FORCE ROW LEVEL SECURITY");
 
         // SELECT: Public books visible to all, private books only to owner
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_select_policy ON library
             FOR SELECT
             USING (
@@ -39,7 +39,7 @@ return new class extends Migration
         ");
 
         // INSERT: Must have valid session (creator info set by application)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_insert_policy ON library
             FOR INSERT
             WITH CHECK (
@@ -49,7 +49,7 @@ return new class extends Migration
         ");
 
         // UPDATE: Only owners can update
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_update_policy ON library
             FOR UPDATE
             USING (
@@ -59,7 +59,7 @@ return new class extends Migration
         ");
 
         // DELETE: Only authenticated owners can delete (not anonymous)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_delete_policy ON library
             FOR DELETE
             USING (
@@ -74,11 +74,11 @@ return new class extends Migration
         // HYPERLIGHTS TABLE POLICIES
         // ==========================================
 
-        DB::statement("ALTER TABLE hyperlights ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE hyperlights FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE hyperlights ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE hyperlights FORCE ROW LEVEL SECURITY");
 
         // SELECT: Can see highlights on public books or own highlights
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_select_policy ON hyperlights
             FOR SELECT
             USING (
@@ -93,7 +93,7 @@ return new class extends Migration
         ");
 
         // INSERT: Must have valid session
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_insert_policy ON hyperlights
             FOR INSERT
             WITH CHECK (
@@ -103,7 +103,7 @@ return new class extends Migration
         ");
 
         // UPDATE: Only own highlights
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_update_policy ON hyperlights
             FOR UPDATE
             USING (
@@ -113,7 +113,7 @@ return new class extends Migration
         ");
 
         // DELETE: Only own highlights
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_delete_policy ON hyperlights
             FOR DELETE
             USING (
@@ -126,10 +126,10 @@ return new class extends Migration
         // HYPERCITES TABLE POLICIES (same pattern)
         // ==========================================
 
-        DB::statement("ALTER TABLE hypercites ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE hypercites FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE hypercites ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE hypercites FORCE ROW LEVEL SECURITY");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_select_policy ON hypercites
             FOR SELECT
             USING (
@@ -143,7 +143,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_insert_policy ON hypercites
             FOR INSERT
             WITH CHECK (
@@ -152,7 +152,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_update_policy ON hypercites
             FOR UPDATE
             USING (
@@ -161,7 +161,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_delete_policy ON hypercites
             FOR DELETE
             USING (
@@ -175,11 +175,11 @@ return new class extends Migration
         // Nodes inherit access from their parent book
         // ==========================================
 
-        DB::statement("ALTER TABLE nodes ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE nodes FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE nodes ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE nodes FORCE ROW LEVEL SECURITY");
 
         // SELECT: Can see nodes from public books or books you own
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_select_policy ON nodes
             FOR SELECT
             USING (
@@ -196,7 +196,7 @@ return new class extends Migration
         ");
 
         // INSERT/UPDATE/DELETE: Only book owners can modify nodes
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_insert_policy ON nodes
             FOR INSERT
             WITH CHECK (
@@ -211,7 +211,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_update_policy ON nodes
             FOR UPDATE
             USING (
@@ -226,7 +226,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_delete_policy ON nodes
             FOR DELETE
             USING (
@@ -246,10 +246,10 @@ return new class extends Migration
         // ==========================================
 
         foreach (['footnotes', 'bibliography'] as $table) {
-            DB::statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
-            DB::statement("ALTER TABLE {$table} FORCE ROW LEVEL SECURITY");
+            DB::connection('pgsql_admin')->statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
+            DB::connection('pgsql_admin')->statement("ALTER TABLE {$table} FORCE ROW LEVEL SECURITY");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_select_policy ON {$table}
                 FOR SELECT
                 USING (
@@ -265,7 +265,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_insert_policy ON {$table}
                 FOR INSERT
                 WITH CHECK (
@@ -280,7 +280,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_update_policy ON {$table}
                 FOR UPDATE
                 USING (
@@ -295,7 +295,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_delete_policy ON {$table}
                 FOR DELETE
                 USING (
@@ -316,11 +316,11 @@ return new class extends Migration
         // Users can only see/modify their own session
         // ==========================================
 
-        DB::statement("ALTER TABLE anonymous_sessions ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE anonymous_sessions FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE anonymous_sessions ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE anonymous_sessions FORCE ROW LEVEL SECURITY");
 
         // SELECT: Only your own session
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY anonymous_sessions_select_policy ON anonymous_sessions
             FOR SELECT
             USING (
@@ -329,14 +329,14 @@ return new class extends Migration
         ");
 
         // INSERT: Allow creating new sessions (rate limiting done via cache)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY anonymous_sessions_insert_policy ON anonymous_sessions
             FOR INSERT
             WITH CHECK (true)
         ");
 
         // UPDATE: Only your own session
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY anonymous_sessions_update_policy ON anonymous_sessions
             FOR UPDATE
             USING (
@@ -350,11 +350,11 @@ return new class extends Migration
         // USERS TABLE - Restricted with auth bypass
         // ==========================================
 
-        DB::statement("ALTER TABLE users ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE users FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE users FORCE ROW LEVEL SECURITY");
 
         // SELECT: Only your own record
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY users_select_policy ON users
             FOR SELECT
             USING (
@@ -363,14 +363,14 @@ return new class extends Migration
         ");
 
         // INSERT: Allow registration (user doesn't exist yet)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY users_insert_policy ON users
             FOR INSERT
             WITH CHECK (true)
         ");
 
         // UPDATE: Only your own record
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY users_update_policy ON users
             FOR UPDATE
             USING (
@@ -379,7 +379,7 @@ return new class extends Migration
         ");
 
         // DELETE: Only your own record
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY users_delete_policy ON users
             FOR DELETE
             USING (
@@ -389,7 +389,7 @@ return new class extends Migration
 
         // Create SECURITY DEFINER function for authentication
         // This bypasses RLS to allow login lookups
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION auth_lookup_user(p_email text)
             RETURNS TABLE(id bigint, password varchar, remember_token varchar)
             SECURITY DEFINER
@@ -404,18 +404,18 @@ return new class extends Migration
         ");
 
         // Restrict who can call the auth function
-        DB::statement("REVOKE EXECUTE ON FUNCTION auth_lookup_user(text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION auth_lookup_user(text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION auth_lookup_user(text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION auth_lookup_user(text) TO {$appUser}");
 
         // ==========================================
         // SESSIONS TABLE - Prevent session hijacking
         // ==========================================
 
-        DB::statement("ALTER TABLE sessions ENABLE ROW LEVEL SECURITY");
-        DB::statement("ALTER TABLE sessions FORCE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE sessions ENABLE ROW LEVEL SECURITY");
+        DB::connection('pgsql_admin')->statement("ALTER TABLE sessions FORCE ROW LEVEL SECURITY");
 
         // All operations restricted to your own session
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY sessions_select_policy ON sessions
             FOR SELECT
             USING (
@@ -423,13 +423,13 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY sessions_insert_policy ON sessions
             FOR INSERT
             WITH CHECK (true)
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY sessions_update_policy ON sessions
             FOR UPDATE
             USING (
@@ -437,7 +437,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY sessions_delete_policy ON sessions
             FOR DELETE
             USING (
@@ -466,12 +466,12 @@ return new class extends Migration
 
         foreach ($tables as $table) {
             foreach ($policySuffixes as $suffix) {
-                DB::statement("DROP POLICY IF EXISTS {$table}_{$suffix}_policy ON {$table}");
+                DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_{$suffix}_policy ON {$table}");
             }
-            DB::statement("ALTER TABLE {$table} DISABLE ROW LEVEL SECURITY");
+            DB::connection('pgsql_admin')->statement("ALTER TABLE {$table} DISABLE ROW LEVEL SECURITY");
         }
 
         // Drop the auth function
-        DB::statement("DROP FUNCTION IF EXISTS auth_lookup_user(text)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS auth_lookup_user(text)");
     }
 };

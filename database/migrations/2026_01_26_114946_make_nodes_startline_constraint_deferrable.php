@@ -14,11 +14,11 @@ return new class extends Migration
     public function up(): void
     {
         // Drop the existing unique index
-        DB::statement('DROP INDEX IF EXISTS nodes_book_startline_unique');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS nodes_book_startline_unique');
 
         // Recreate as a deferrable unique constraint
         // DEFERRABLE INITIALLY DEFERRED = check at transaction commit, not per-statement
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             ALTER TABLE nodes
             ADD CONSTRAINT nodes_book_startline_unique
             UNIQUE (book, "startLine")
@@ -32,10 +32,10 @@ return new class extends Migration
     public function down(): void
     {
         // Drop the deferrable constraint
-        DB::statement('ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_book_startline_unique');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_book_startline_unique');
 
         // Recreate as a regular unique index
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             CREATE UNIQUE INDEX nodes_book_startline_unique
             ON nodes (book, "startLine")
         ');

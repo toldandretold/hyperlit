@@ -24,8 +24,12 @@ export function getLoginFormHTML() {
           Login
         </button>
         <button type="button" id="showRegister"
-                style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
+                style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
           Switch to Register
+        </button>
+        <button type="button" id="showForgotPassword"
+                style="width: 100%; padding: 6px; background: transparent; color: var(--color-text); opacity: 0.6; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          Forgot password?
         </button>
       </form>
     </div>
@@ -135,6 +139,68 @@ export function getTransferConfirmationHTML(message) {
           Transfer Books
         </button>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/**
+ * Generates forgot password form HTML
+ * @returns {string} HTML string
+ */
+export function getForgotPasswordFormHTML() {
+  return `
+    <div class="user-form">
+      <h3 style="color: var(--color-secondary); margin-bottom: 10px;">Reset Password</h3>
+      <p style="font-size: 12px; color: var(--color-text); opacity: 0.7; margin-bottom: 16px; line-height: 1.4;">
+        Enter your email and we'll send you a reset link.
+      </p>
+      <form id="forgot-password-form" autocomplete="on">
+        <div style="margin-bottom: 15px;">
+          <input type="email" id="forgotEmail" name="email" placeholder="Email" required autocomplete="email"
+                 style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <div id="forgotEmailError" style="font-size: 11px; color: var(--color-primary); margin-top: 4px; display: none;"></div>
+        </div>
+        <button type="submit" id="forgotPasswordSubmit"
+                style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+          Send Reset Link
+        </button>
+        <button type="button" id="backToLogin"
+                style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
+          Back to Login
+        </button>
+      </form>
+    </div>
+  `;
+}
+
+/**
+ * Generates forgot password success HTML
+ * @param {string} email - The email that was submitted (escaped to prevent XSS)
+ * @returns {string} HTML string
+ */
+export function getForgotPasswordSentHTML(email) {
+  const safeEmail = escapeHtml(email);
+  return `
+    <div class="user-form">
+      <h3 style="color: var(--color-secondary); margin-bottom: 10px;">Check your email</h3>
+      <p style="font-size: 13px; color: var(--color-text); line-height: 1.5; margin-bottom: 20px;">
+        If <strong>${safeEmail}</strong> is registered, you'll receive a reset link shortly. Check your spam folder too.
+      </p>
+      <button type="button" id="backToLogin"
+              style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
+        Back to Login
+      </button>
     </div>
   `;
 }

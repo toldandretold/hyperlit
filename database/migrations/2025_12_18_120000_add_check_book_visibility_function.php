@@ -23,7 +23,7 @@ return new class extends Migration
 
         // Create SECURITY DEFINER function to check book visibility
         // This bypasses RLS to allow checking if a book exists and its visibility
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION check_book_visibility(p_book_id text)
             RETURNS TABLE(book_exists boolean, visibility varchar, creator varchar, creator_token uuid)
             SECURITY DEFINER
@@ -42,12 +42,12 @@ return new class extends Migration
         ");
 
         // Restrict who can call this function
-        DB::statement("REVOKE EXECUTE ON FUNCTION check_book_visibility(text) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION check_book_visibility(text) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION check_book_visibility(text) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION check_book_visibility(text) TO {$appUser}");
     }
 
     public function down(): void
     {
-        DB::statement("DROP FUNCTION IF EXISTS check_book_visibility(text)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS check_book_visibility(text)");
     }
 };

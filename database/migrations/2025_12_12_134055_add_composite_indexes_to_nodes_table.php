@@ -17,11 +17,11 @@ return new class extends Migration
     {
         // Drop existing single-column unique constraint if it exists
         // (It's a constraint, not just an index)
-        DB::statement('ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_node_id_unique');
+        DB::connection('pgsql_admin')->statement('ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_node_id_unique');
 
         // Clean up duplicate (book, startLine) combinations before creating unique index
         // Keep the record with the latest updated_at, delete older duplicates
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             DELETE FROM nodes
             WHERE id IN (
                 SELECT id FROM (
@@ -37,14 +37,14 @@ return new class extends Migration
 
         // Create composite unique index for (book, node_id) - PRIMARY lookup
         // Partial index allows multiple NULL values for node_id
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             CREATE UNIQUE INDEX nodes_book_node_id_unique
             ON nodes (book, node_id)
             WHERE node_id IS NOT NULL
         ');
 
         // Create composite unique index for (book, startLine) - FALLBACK lookup
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             CREATE UNIQUE INDEX nodes_book_startline_unique
             ON nodes (book, "startLine")
         ');
@@ -55,7 +55,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS nodes_book_startline_unique');
-        DB::statement('DROP INDEX IF EXISTS nodes_book_node_id_unique');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS nodes_book_startline_unique');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS nodes_book_node_id_unique');
     }
 };

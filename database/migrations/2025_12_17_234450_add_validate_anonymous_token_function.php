@@ -16,7 +16,7 @@ return new class extends Migration
     {
         $appUser = env('DB_USERNAME', 'hyperlit_app');
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION validate_anonymous_token(p_token text, p_expiry_days integer DEFAULT 90)
             RETURNS boolean
             SECURITY DEFINER
@@ -32,12 +32,12 @@ return new class extends Migration
             \$\$ LANGUAGE plpgsql;
         ");
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION validate_anonymous_token(text, integer) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION validate_anonymous_token(text, integer) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION validate_anonymous_token(text, integer) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION validate_anonymous_token(text, integer) TO {$appUser}");
     }
 
     public function down(): void
     {
-        DB::statement("DROP FUNCTION IF EXISTS validate_anonymous_token(text, integer)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS validate_anonymous_token(text, integer)");
     }
 };

@@ -18,7 +18,7 @@ return new class extends Migration
 
         // Create function to update annotations_updated_at timestamp
         // Only works on public books (security check built-in)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE OR REPLACE FUNCTION update_annotations_timestamp(p_book text, p_timestamp bigint)
             RETURNS boolean
             SECURITY DEFINER
@@ -62,12 +62,12 @@ return new class extends Migration
         ");
 
         // Restrict who can call the function
-        DB::statement("REVOKE EXECUTE ON FUNCTION update_annotations_timestamp(text, bigint) FROM PUBLIC");
-        DB::statement("GRANT EXECUTE ON FUNCTION update_annotations_timestamp(text, bigint) TO {$appUser}");
+        DB::connection('pgsql_admin')->statement("REVOKE EXECUTE ON FUNCTION update_annotations_timestamp(text, bigint) FROM PUBLIC");
+        DB::connection('pgsql_admin')->statement("GRANT EXECUTE ON FUNCTION update_annotations_timestamp(text, bigint) TO {$appUser}");
     }
 
     public function down(): void
     {
-        DB::statement("DROP FUNCTION IF EXISTS update_annotations_timestamp(text, bigint)");
+        DB::connection('pgsql_admin')->statement("DROP FUNCTION IF EXISTS update_annotations_timestamp(text, bigint)");
     }
 };

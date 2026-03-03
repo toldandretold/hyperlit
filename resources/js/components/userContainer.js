@@ -19,6 +19,8 @@ import {
   getProfileHTML,
   getTransferPromptHTML,
   getErrorHTML,
+  getForgotPasswordFormHTML,
+  getForgotPasswordSentHTML,
 } from './userContainer/formTemplates.js';
 import {
   validateUsername,
@@ -112,6 +114,9 @@ export class UserContainerManager extends ContainerManager {
       '#registerSubmit': () => this.handleRegister(),
       '#showRegister': () => this.showRegisterForm(),
       '#showLogin': () => this.showLoginForm(),
+      '#showForgotPassword': () => this.showForgotPasswordForm(),
+      '#forgotPasswordSubmit': () => this.handleForgotPassword(),
+      '#backToLogin': () => this.showLoginForm(),
       '#logout': () => this.handleLogout(),
       '#myBooksBtn': () => this.handleMyBooksClick(),
     };
@@ -163,6 +168,55 @@ export class UserContainerManager extends ContainerManager {
 
     if (!this.isOpen && container === this.container) {
       this.openContainer("register");
+    }
+  }
+
+  showForgotPasswordForm() {
+    const container = document.querySelector(".custom-alert") || this.container;
+    container.innerHTML = getForgotPasswordFormHTML();
+
+    if (!this.isOpen && container === this.container) {
+      this.openContainer("forgot-password");
+    }
+  }
+
+  async handleForgotPassword() {
+    const emailInput = document.getElementById('forgotEmail');
+    const email = emailInput?.value?.trim();
+    const errorEl = document.getElementById('forgotEmailError');
+    const btn = document.getElementById('forgotPasswordSubmit');
+
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    if (!email) {
+      if (errorEl) { errorEl.textContent = 'Email is required.'; errorEl.style.display = 'block'; }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+
+    try {
+      await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+      const csrfToken = this.getCsrfTokenFromCookie();
+
+      await fetch('/api/password/forgot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      });
+
+      // Always show success (prevents email enumeration)
+      const container = document.querySelector('.custom-alert') || this.container;
+      container.innerHTML = getForgotPasswordSentHTML(email);
+    } catch (error) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+      if (errorEl) { errorEl.textContent = 'Network error. Please try again.'; errorEl.style.display = 'block'; }
     }
   }
 
@@ -474,6 +528,7 @@ export class UserContainerManager extends ContainerManager {
     const dimensions = {
       login: { width: "280px", height: "auto" },
       register: { width: "280px", height: "auto" },
+      "forgot-password": { width: "280px", height: "auto" },
       profile: { width: "160px", height: "auto" },
       "transfer-prompt": { width: "320px", height: "auto" },
     };

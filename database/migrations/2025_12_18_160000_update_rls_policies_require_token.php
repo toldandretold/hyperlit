@@ -29,13 +29,13 @@ return new class extends Migration
         // ==========================================
 
         // Drop existing policies
-        DB::statement("DROP POLICY IF EXISTS library_select_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_insert_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_update_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_delete_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_select_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_insert_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_update_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_delete_policy ON library");
 
         // SELECT: Public books visible to all, private books only to token owner
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_select_policy ON library
             FOR SELECT
             USING (
@@ -45,7 +45,7 @@ return new class extends Migration
         ");
 
         // INSERT: Must have valid token
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_insert_policy ON library
             FOR INSERT
             WITH CHECK (
@@ -55,7 +55,7 @@ return new class extends Migration
         ");
 
         // UPDATE: Only token owners can update
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_update_policy ON library
             FOR UPDATE
             USING (
@@ -65,7 +65,7 @@ return new class extends Migration
         ");
 
         // DELETE: Only authenticated token owners can delete (check for non-empty username)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_delete_policy ON library
             FOR DELETE
             USING (
@@ -81,13 +81,13 @@ return new class extends Migration
         // HYPERLIGHTS TABLE - Updated policies
         // ==========================================
 
-        DB::statement("DROP POLICY IF EXISTS hyperlights_select_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_insert_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_update_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_delete_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_select_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_insert_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_update_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_delete_policy ON hyperlights");
 
         // SELECT: Can see highlights on public books or own highlights (by token)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_select_policy ON hyperlights
             FOR SELECT
             USING (
@@ -101,7 +101,7 @@ return new class extends Migration
         ");
 
         // INSERT: Must have valid token
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_insert_policy ON hyperlights
             FOR INSERT
             WITH CHECK (
@@ -111,7 +111,7 @@ return new class extends Migration
         ");
 
         // UPDATE: Only own highlights (by token)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_update_policy ON hyperlights
             FOR UPDATE
             USING (
@@ -121,7 +121,7 @@ return new class extends Migration
         ");
 
         // DELETE: Only own highlights (by token)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_delete_policy ON hyperlights
             FOR DELETE
             USING (
@@ -134,12 +134,12 @@ return new class extends Migration
         // HYPERCITES TABLE - Updated policies
         // ==========================================
 
-        DB::statement("DROP POLICY IF EXISTS hypercites_select_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_insert_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_update_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_delete_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_select_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_insert_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_update_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_delete_policy ON hypercites");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_select_policy ON hypercites
             FOR SELECT
             USING (
@@ -152,7 +152,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_insert_policy ON hypercites
             FOR INSERT
             WITH CHECK (
@@ -161,7 +161,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_update_policy ON hypercites
             FOR UPDATE
             USING (
@@ -170,7 +170,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_delete_policy ON hypercites
             FOR DELETE
             USING (
@@ -183,13 +183,13 @@ return new class extends Migration
         // NODES TABLE - Updated policies (inherit from book)
         // ==========================================
 
-        DB::statement("DROP POLICY IF EXISTS nodes_select_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_insert_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_update_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_delete_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_select_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_insert_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_update_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_delete_policy ON nodes");
 
         // SELECT: Can see nodes from public books or books you own (by token)
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_select_policy ON nodes
             FOR SELECT
             USING (
@@ -205,7 +205,7 @@ return new class extends Migration
         ");
 
         // INSERT/UPDATE/DELETE: Only book owners (by token) can modify nodes
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_insert_policy ON nodes
             FOR INSERT
             WITH CHECK (
@@ -218,7 +218,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_update_policy ON nodes
             FOR UPDATE
             USING (
@@ -231,7 +231,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_delete_policy ON nodes
             FOR DELETE
             USING (
@@ -249,12 +249,12 @@ return new class extends Migration
         // ==========================================
 
         foreach (['footnotes', 'bibliography'] as $table) {
-            DB::statement("DROP POLICY IF EXISTS {$table}_select_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_insert_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_update_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_delete_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_select_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_insert_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_update_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_delete_policy ON {$table}");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_select_policy ON {$table}
                 FOR SELECT
                 USING (
@@ -269,7 +269,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_insert_policy ON {$table}
                 FOR INSERT
                 WITH CHECK (
@@ -282,7 +282,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_update_policy ON {$table}
                 FOR UPDATE
                 USING (
@@ -295,7 +295,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_delete_policy ON {$table}
                 FOR DELETE
                 USING (
@@ -316,12 +316,12 @@ return new class extends Migration
         // This is the less secure version - only for rollback purposes
 
         // LIBRARY
-        DB::statement("DROP POLICY IF EXISTS library_select_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_insert_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_update_policy ON library");
-        DB::statement("DROP POLICY IF EXISTS library_delete_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_select_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_insert_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_update_policy ON library");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS library_delete_policy ON library");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_select_policy ON library
             FOR SELECT
             USING (
@@ -331,7 +331,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_insert_policy ON library
             FOR INSERT
             WITH CHECK (
@@ -340,7 +340,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_update_policy ON library
             FOR UPDATE
             USING (
@@ -349,7 +349,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY library_delete_policy ON library
             FOR DELETE
             USING (
@@ -361,12 +361,12 @@ return new class extends Migration
         ");
 
         // HYPERLIGHTS
-        DB::statement("DROP POLICY IF EXISTS hyperlights_select_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_insert_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_update_policy ON hyperlights");
-        DB::statement("DROP POLICY IF EXISTS hyperlights_delete_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_select_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_insert_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_update_policy ON hyperlights");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hyperlights_delete_policy ON hyperlights");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_select_policy ON hyperlights
             FOR SELECT
             USING (
@@ -380,7 +380,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_insert_policy ON hyperlights
             FOR INSERT
             WITH CHECK (
@@ -389,7 +389,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_update_policy ON hyperlights
             FOR UPDATE
             USING (
@@ -398,7 +398,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hyperlights_delete_policy ON hyperlights
             FOR DELETE
             USING (
@@ -408,12 +408,12 @@ return new class extends Migration
         ");
 
         // HYPERCITES
-        DB::statement("DROP POLICY IF EXISTS hypercites_select_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_insert_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_update_policy ON hypercites");
-        DB::statement("DROP POLICY IF EXISTS hypercites_delete_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_select_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_insert_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_update_policy ON hypercites");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS hypercites_delete_policy ON hypercites");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_select_policy ON hypercites
             FOR SELECT
             USING (
@@ -427,7 +427,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_insert_policy ON hypercites
             FOR INSERT
             WITH CHECK (
@@ -436,7 +436,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_update_policy ON hypercites
             FOR UPDATE
             USING (
@@ -445,7 +445,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY hypercites_delete_policy ON hypercites
             FOR DELETE
             USING (
@@ -455,12 +455,12 @@ return new class extends Migration
         ");
 
         // NODES - revert to old policies
-        DB::statement("DROP POLICY IF EXISTS nodes_select_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_insert_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_update_policy ON nodes");
-        DB::statement("DROP POLICY IF EXISTS nodes_delete_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_select_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_insert_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_update_policy ON nodes");
+        DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS nodes_delete_policy ON nodes");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_select_policy ON nodes
             FOR SELECT
             USING (
@@ -476,7 +476,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_insert_policy ON nodes
             FOR INSERT
             WITH CHECK (
@@ -491,7 +491,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_update_policy ON nodes
             FOR UPDATE
             USING (
@@ -506,7 +506,7 @@ return new class extends Migration
             )
         ");
 
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             CREATE POLICY nodes_delete_policy ON nodes
             FOR DELETE
             USING (
@@ -523,12 +523,12 @@ return new class extends Migration
 
         // FOOTNOTES & BIBLIOGRAPHY - revert
         foreach (['footnotes', 'bibliography'] as $table) {
-            DB::statement("DROP POLICY IF EXISTS {$table}_select_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_insert_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_update_policy ON {$table}");
-            DB::statement("DROP POLICY IF EXISTS {$table}_delete_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_select_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_insert_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_update_policy ON {$table}");
+            DB::connection('pgsql_admin')->statement("DROP POLICY IF EXISTS {$table}_delete_policy ON {$table}");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_select_policy ON {$table}
                 FOR SELECT
                 USING (
@@ -544,7 +544,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_insert_policy ON {$table}
                 FOR INSERT
                 WITH CHECK (
@@ -559,7 +559,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_update_policy ON {$table}
                 FOR UPDATE
                 USING (
@@ -574,7 +574,7 @@ return new class extends Migration
                 )
             ");
 
-            DB::statement("
+            DB::connection('pgsql_admin')->statement("
                 CREATE POLICY {$table}_delete_policy ON {$table}
                 FOR DELETE
                 USING (

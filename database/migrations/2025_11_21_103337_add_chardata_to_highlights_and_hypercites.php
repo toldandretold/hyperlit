@@ -23,8 +23,8 @@ return new class extends Migration
         });
 
         // Create GIN indexes for efficient charData queries
-        DB::statement('CREATE INDEX idx_hyperlights_chardata ON hyperlights USING GIN ("charData")');
-        DB::statement('CREATE INDEX idx_hypercites_chardata ON hypercites USING GIN ("charData")');
+        DB::connection('pgsql_admin')->statement('CREATE INDEX idx_hyperlights_chardata ON hyperlights USING GIN ("charData")');
+        DB::connection('pgsql_admin')->statement('CREATE INDEX idx_hypercites_chardata ON hypercites USING GIN ("charData")');
     }
 
     /**
@@ -33,8 +33,8 @@ return new class extends Migration
     public function down(): void
     {
         // Drop indexes
-        DB::statement('DROP INDEX IF EXISTS idx_hyperlights_chardata');
-        DB::statement('DROP INDEX IF EXISTS idx_hypercites_chardata');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS idx_hyperlights_chardata');
+        DB::connection('pgsql_admin')->statement('DROP INDEX IF EXISTS idx_hypercites_chardata');
 
         // Drop charData columns
         Schema::table('hyperlights', function (Blueprint $table) {
