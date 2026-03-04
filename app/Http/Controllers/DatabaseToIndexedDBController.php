@@ -63,12 +63,36 @@ class DatabaseToIndexedDBController extends Controller
                 'user' => $user ? $user->name : 'anonymous',
             ]);
 
-            return response()->json([
-                'error' => 'access_denied',
-                'message' => 'You do not have permission to access this private book',
-                'is_private' => true,
-                'book_id' => $bookId
-            ], 403);
+            // Check creator (username-based auth)
+            if ($user && $bookInfo->creator === $user->name) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via username', [
+                    'book_id' => $bookId,
+                    'user' => $user->name
+                ]);
+            }
+            // Check creator_token (anonymous token-based auth)
+            elseif (!$user && $anonymousToken && ($bookInfo->creator_token ?? null) === $anonymousToken) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via anonymous token', [
+                    'book_id' => $bookId
+                ]);
+            }
+
+            if (!$authorized) {
+                Log::warning('🔒 Private book access denied', [
+                    'book_id' => $bookId,
+                    'user' => $user ? $user->name : 'anonymous',
+                    'has_token' => !empty($anonymousToken)
+                ]);
+
+                return response()->json([
+                    'error' => 'access_denied',
+                    'message' => 'You do not have permission to access this private book',
+                    'is_private' => true,
+                    'book_id' => $bookId
+                ], 403);
+            }
         }
 
         // Authorized - no error response needed

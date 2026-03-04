@@ -578,19 +578,27 @@ function waitForElement(itemId, container, timeout = 8000) {
  * (which auto-detects the container context and calls pushStackedLayer).
  */
 async function openContainerChain(chain, lazyLoader) {
-  if (chain.length === 0) return;
+  if (!chain || chain.length === 0) return;
 
-  const firstItem = chain[0];
-  const remainingChain = chain.slice(1);
+  // Support both old string[] format and new {itemId, subBookId}[] format
+  const normalized = chain.map(item =>
+    typeof item === 'string' ? { itemId: item, subBookId: null } : item
+  );
 
-  // Step 1: Navigate to first item (scrolling.js auto-opens the container)
-  navigateToInternalId(firstItem, lazyLoader, false);
+  // Pre-sync ALL sub-book data in parallel so containers open instantly
+  const subBookIds = normalized.map(i => i.subBookId).filter(Boolean);
+  if (subBookIds.length > 0) {
+    console.log(`Pre-syncing ${subBookIds.length} sub-books...`);
+    await Promise.allSettled(
+      subBookIds.map(id => syncBookDataFromDatabase(id))
+    );
+  }
 
-  // Step 2: Continue with remaining items after first container opens
-  if (remainingChain.length > 0) {
-    // Wait for the first container to load its content before continuing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    await continueChainOpening(remainingChain);
+  // Navigate to first item (scrolling.js auto-opens the container)
+  navigateToInternalId(normalized[0].itemId, lazyLoader, false);
+
+  if (normalized.length > 1) {
+    await continueChainOpening(normalized.slice(1));
   }
 }
 
@@ -600,25 +608,43 @@ async function openContainerChain(chain, lazyLoader) {
  * scroller, then triggers handleUnifiedContentClick which auto-stacks.
  */
 async function continueChainOpening(chain) {
-  for (const itemId of chain) {
-    // Find the element in the most recently opened container
-    const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
-    const scroller = getCurrentScroller()
-      || document.querySelector('#hyperlit-container .scroller');
+  for (const chainItem of chain) {
+    const itemId = typeof chainItem === 'string' ? chainItem : chainItem.itemId;
 
-    const element = await waitForElement(itemId, scroller);
+    // Search document.body — stacked containers are appended to body
+    let element = await waitForElement(itemId, document.body, 8000);
+
+    // If not found, the item may be beyond the 5-node preview.
+    // Try expanding the sub-book via the "[read more]" button.
     if (!element) {
-      console.warn(`Chain item ${itemId} not found, stopping chain`);
+      const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
+      const scroller = getCurrentScroller();
+      const readMoreBtn = scroller?.querySelector('.expand-sub-book');
+      if (readMoreBtn) {
+        console.log(`Expanding sub-book to find chain item ${itemId}...`);
+        readMoreBtn.click();
+        await new Promise(r => setTimeout(r, 2000));
+        element = await waitForElement(itemId, document.body, 5000);
+      }
+    }
+
+    if (!element) {
+      console.warn(`Chain item ${itemId} not found, stopping chain.`);
       break;
     }
 
-    // handleUnifiedContentClick detects the element is inside a container
-    // and auto-calls pushStackedLayer
-    const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
+    // Wait for any in-flight click processing to finish before opening next layer
+    const { handleUnifiedContentClick, isClickProcessing } = await import('./hyperlitContainer/index.js');
+    let waitAttempts = 0;
+    while (isClickProcessing() && waitAttempts < 50) {
+      await new Promise(r => setTimeout(r, 100));
+      waitAttempts++;
+    }
+
     await handleUnifiedContentClick(element);
 
-    // Brief pause for the stacked layer to render and load its content
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Brief pause for stacked layer DOM render
+    await new Promise(r => setTimeout(r, 500));
   }
 }
 

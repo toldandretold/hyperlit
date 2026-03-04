@@ -86,6 +86,7 @@ import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
+export function isClickProcessing() { return isProcessingClick; }
 
 // Track whether the main editor was active before the sub-book editor took over.
 // Restored when the hyperlit container closes.
