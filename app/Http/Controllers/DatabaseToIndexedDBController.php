@@ -56,6 +56,8 @@ class DatabaseToIndexedDBController extends Controller
 
         // Book is private - check authorization (is_owner computed inside SECURITY DEFINER function)
         if ($bookInfo->visibility === 'private' && !$bookInfo->is_owner) {
+            $authorized = false;
+            $anonymousToken = $request->cookie('anon_token');
             $user = Auth::user();
 
             Log::warning('🔒 Private book access denied', [
