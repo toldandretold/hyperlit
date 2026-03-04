@@ -103,7 +103,7 @@ export function saveCurrentParagraph() {
  * @param {ClipboardEvent} event - Paste event
  * @returns {Promise<boolean>} true if handled as hypercite, false otherwise
  */
-export async function handleHypercitePaste(event) {
+export async function handleHypercitePaste(event, targetBookId) {
   const clipboardHtml = event.clipboardData.getData("text/html");
   if (!clipboardHtml) return false;
 
@@ -152,7 +152,7 @@ export async function handleHypercitePaste(event) {
   console.log(`Detected ${citeLinks.length} hypercite(s) in pasted content`);
 
   // Get current book (where paste is happening)
-  const bookb = getActiveBook();
+  const bookb = targetBookId || getActiveBook();
 
   // Process all hypercite links and build combined HTML
   let combinedHtml = '';

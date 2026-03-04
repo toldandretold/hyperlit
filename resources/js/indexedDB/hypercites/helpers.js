@@ -17,15 +17,22 @@ import { getHyperciteFromIndexedDB } from './index.js';
 export async function resolveHypercite(bookId, hyperciteId) {
   // Path 1: Check local IndexedDB first
   const localHypercite = await getHyperciteFromIndexedDB(bookId, hyperciteId);
-  if (localHypercite) {
-    console.log("✅ Resolved hypercite from local IndexedDB.");
-    return localHypercite;
-  }
 
-  // Path 2: If not found locally, check the server
-  console.log(
-    "🤔 Hypercite not in local DB. Fetching hypercite and its entire parent book...",
-  );
+  if (localHypercite) {
+    // Also verify nodes are cached for this book
+    const { getNodeChunksFromIndexedDB } = await import('../nodes/read.js');
+    const localNodes = await getNodeChunksFromIndexedDB(bookId);
+    if (localNodes.length > 0) {
+      console.log("✅ Resolved hypercite from local IndexedDB.");
+      return localHypercite;
+    }
+    // Nodes not cached — fall through to server fetch
+    console.log("⚠️ Hypercite in local IndexedDB but nodes not cached. Fetching from server...");
+  } else {
+    console.log(
+      "🤔 Hypercite not in local DB. Fetching hypercite and its entire parent book...",
+    );
+  }
   try {
     const response = await fetch(
       `/api/db/hypercites/find/${bookId}/${hyperciteId}`,
@@ -42,7 +49,7 @@ export async function resolveHypercite(bookId, hyperciteId) {
 
     if (!response.ok) {
       console.error(`❌ Server error: ${response.status} ${response.statusText}`);
-      return null;
+      return localHypercite || null;
     }
 
     const data = await response.json();
@@ -51,7 +58,7 @@ export async function resolveHypercite(bookId, hyperciteId) {
 
     if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
       console.error("❌ Server response was missing hypercite or nodes data from PostgreSQL.");
-      return null;
+      return localHypercite || null;
     }
 
     console.log(`✅ Resolved hypercite and ${serverNodeChunks.length} nodes from node_chunks table in PostgreSQL. Caching all to IndexedDB...`);
@@ -82,6 +89,6 @@ export async function resolveHypercite(bookId, hyperciteId) {
 
   } catch (error) {
     console.error("❌ Network error while fetching hypercite and book content:", error);
-    return null;
+    return localHypercite || null;
   }
 }

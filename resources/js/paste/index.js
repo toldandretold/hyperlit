@@ -432,7 +432,7 @@ async function handlePaste(event) {
     }
 
     // 4) Perform routing checks for special paste types.
-    if (await handleHypercitePaste(event)) return;
+    if (await handleHypercitePaste(event, targetBookId)) return;
     const chunk = getCurrentChunk();
     const chunkElement = chunk
       ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
