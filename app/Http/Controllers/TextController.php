@@ -13,24 +13,9 @@ class TextController extends Controller
 {
     public function show(Request $request, $book, $hl = null, $fn = null)
     {
-        // Check if the second path segment identifies a sub-book.
-        // $hl comes from /{book}/{hl?} routes, $fn from /{book}/{fn} routes.
-        $subId = $hl ?? $fn;
-        if ($subId) {
-            $subBookId = $book . '/' . $subId;
-            if (DB::table('nodes')->where('book', $subBookId)->exists()) {
-                $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
-                return view('reader', [
-                    'html'       => '',
-                    'book'       => $subBookId,
-                    'editMode'   => $editMode,
-                    'dataSource' => 'database',
-                    'pageType'   => 'reader',
-                ]);
-            }
-            // No sub-book nodes found — fall through to normal behavior
-            // (load main book; JS handles scroll to the highlight/footnote)
-        }
+        // Sub-book interception removed — level-1 sub-book URLs (e.g. /book/Fn123)
+        // now load the parent book and JS auto-opens the item in HyperlitContainer.
+        // For standalone sub-book loading, use /based/{subBookId}.
 
         // If the path matches a username (allow basic slug variants),
         // (re)generate a user-home pseudo-book in DB and point $book to that.
@@ -126,6 +111,48 @@ class TextController extends Controller
         ]);
     }
 
+
+    /**
+     * Standalone mode: load a sub-book as a full-screen book.
+     * URL: /based/{subBookId}
+     */
+    public function showStandalone(Request $request, $subBookId)
+    {
+        if (!DB::table('nodes')->where('book', $subBookId)->exists()) {
+            abort(404, 'Sub-book not found.');
+        }
+
+        return view('reader', [
+            'html'       => '',
+            'book'       => $subBookId,
+            'editMode'   => $request->boolean('edit'),
+            'dataSource' => 'database',
+            'pageType'   => 'reader',
+        ]);
+    }
+
+    /**
+     * Nested mode: load parent book with an auto-open chain for sequential container opening.
+     * URL: /{book}/{rest}  where rest = "2/Fn.../HL_..."
+     */
+    public function showNested(Request $request, $book, $rest)
+    {
+        // Parse rest: "2/Fn.../HL_..." → chain = ['Fn...', 'HL_...']
+        $parts = explode('/', $rest);
+        // $parts[0] is the level number, remaining parts are the chain items
+        $chain = array_slice($parts, 1);
+
+        $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
+
+        return view('reader', [
+            'html'           => '',
+            'book'           => $book,
+            'editMode'       => $editMode,
+            'dataSource'     => 'database',
+            'pageType'       => 'reader',
+            'autoOpenChain'  => $chain,
+        ]);
+    }
 
     // Preprocess the markdown to handle soft line breaks
     private function normalizeMarkdown($markdown)

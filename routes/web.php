@@ -26,6 +26,11 @@ Route::get('/home', [HomeController::class, 'index']);
 
 // Offline fallback page - now served as static /public/offline.html by Service Worker
 
+// Standalone sub-book route: /based/{subBookId} loads sub-book as full-screen
+Route::get('/based/{subBookId}', [TextController::class, 'showStandalone'])
+     ->where('subBookId', '.+')
+     ->name('book.standalone');
+
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
@@ -239,6 +244,14 @@ Route::get('/{identifier}', function(Request $request, $identifier) {
     // Otherwise it's a regular book - show reader.blade.php
     return app(TextController::class)->show($request, $identifier);
 })->where('identifier', '[A-Za-z0-9_-]+');
+
+// Deep nesting route: /book/2/Fn.../HL_... loads parent book with auto-open chain
+Route::get('/{book}/{rest}', [TextController::class, 'showNested'])
+     ->where([
+       'book' => '[A-Za-z0-9_-]+',
+       'rest' => '[0-9]+/.+',
+     ])
+     ->name('book.nested');
 
 // Book with hyperlight route
 Route::get('/{book}/{hl?}', [TextController::class, 'show'])

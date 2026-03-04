@@ -355,6 +355,7 @@
 
 <script>
     window.editMode = @json($editMode);
+    window.autoOpenChain = @json($autoOpenChain ?? null);
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
