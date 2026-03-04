@@ -1795,6 +1795,7 @@ body.hyperlit-container-open .reader-content-wrapper {
   .hyperlit-container-stacked {
     max-width: 75vw;
     width: 75vw !important; /* override inline per-layer width */
+    right: .75em !important; /* disable cascade offset on mobile */
   }
 }
 

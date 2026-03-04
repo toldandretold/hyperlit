@@ -25,6 +25,67 @@
 
 const layers = [];
 
+const SHRINK_FACTOR = 0.98;    // each level is 98% of previous width
+const LEVELS_PER_FLIP = 5;     // alternates gap side every 5 levels
+let cachedBaseWidthPx = null;
+let cachedBaseRightPx = null;
+
+// ============================================================================
+// CASCADE POSITIONING
+// ============================================================================
+
+/**
+ * Read the base #hyperlit-container computed dimensions once and cache them.
+ */
+function getBaseContainerMetrics() {
+  if (cachedBaseWidthPx !== null && cachedBaseRightPx !== null) {
+    return { baseWidthPx: cachedBaseWidthPx, baseRightPx: cachedBaseRightPx };
+  }
+
+  const base = document.getElementById('hyperlit-container');
+  if (base) {
+    const rect = base.getBoundingClientRect();
+    cachedBaseWidthPx = rect.width;
+    cachedBaseRightPx = window.innerWidth - rect.right;
+  } else {
+    cachedBaseWidthPx = window.innerWidth * 0.6;
+    cachedBaseRightPx = 12;
+  }
+
+  return { baseWidthPx: cachedBaseWidthPx, baseRightPx: cachedBaseRightPx };
+}
+
+/**
+ * Calculate pixel-based cascade position for a given depth.
+ *
+ * Width resets every LEVELS_PER_FLIP levels — each group starts at 98% of
+ * base and shrinks to 98^5 of base, then the next group resets to 98% again
+ * but from the opposite side:
+ *   - Even groups (0, 2, 4…): right edges aligned, gap grows on LEFT
+ *   - Odd groups  (1, 3, 5…): left edges aligned, gap grows on RIGHT
+ *
+ * @param {number} depth
+ * @returns {{ widthPx: number, rightPx: number }}
+ */
+function calculateCascadePosition(depth) {
+  const { baseWidthPx, baseRightPx } = getBaseContainerMetrics();
+
+  const group = Math.floor((depth - 1) / LEVELS_PER_FLIP);
+  const localDepth = ((depth - 1) % LEVELS_PER_FLIP) + 1;
+  const widthPx = baseWidthPx * Math.pow(SHRINK_FACTOR, localDepth);
+
+  let rightPx;
+  if (group % 2 === 0) {
+    // Even group: right edge aligned with base, gap on LEFT
+    rightPx = baseRightPx;
+  } else {
+    // Odd group: left edge aligned with base, gap on RIGHT
+    rightPx = baseRightPx + baseWidthPx - widthPx;
+  }
+
+  return { widthPx, rightPx };
+}
+
 // ============================================================================
 // STACK ACCESSORS
 // ============================================================================
@@ -80,6 +141,8 @@ export function popLayer() {
 
 export function clear() {
   layers.length = 0;
+  cachedBaseWidthPx = null;
+  cachedBaseRightPx = null;
   console.log('📚 Stack cleared');
 }
 
@@ -114,12 +177,10 @@ export function createStackedContainerDOM(depth) {
   // Layer 1 container: 1004 (above overlay 1003)
   container.style.zIndex = 1002 + (depth * 2);
 
-  // Width shrinks by 2% per layer relative to the base 60%
-  const widthPercent = 60 * Math.pow(0.98, depth);
-  container.style.width = `${widthPercent}%`;
-
-  // Copy max-width from base container
-  container.style.maxWidth = '30ch';
+  // Pixel-based cascade: each level is 2% narrower, gap side alternates
+  const { widthPx, rightPx } = calculateCascadePosition(depth);
+  container.style.width = `${widthPx}px`;
+  container.style.right = `${rightPx}px`;
 
   // Build inner structure matching #hyperlit-container
   container.innerHTML = `
