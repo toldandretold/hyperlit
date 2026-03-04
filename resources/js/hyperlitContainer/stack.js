@@ -83,7 +83,7 @@ function calculateCascadePosition(depth) {
     rightPx = baseRightPx + baseWidthPx - widthPx;
   }
 
-  return { widthPx, rightPx };
+  return { widthPx, rightPx, group };
 }
 
 // ============================================================================
@@ -164,10 +164,10 @@ export function createStackedContainerDOM(depth) {
   // Interleaved z-index: overlays sit between containers
   // Layer 1 overlay: 1003 (between base container 1002 and stacked container 1004)
   overlay.style.zIndex = 1001 + (depth * 2);
-  // Progressive darkening: each layer adds more darkness
-  // Depth 1: 0.15, Depth 2: 0.23, Depth 3: 0.31, etc.
-  const opacity = 0.15 + ((depth - 1) * 0.08);
-  overlay.style.backgroundColor = `rgba(0, 0, 0, ${Math.min(opacity, 0.5)})`;
+  // First 2 overlays dim noticeably; deeper ones stay subtle
+  // so page edges remain visible without compounding darkness
+  const opacity = depth <= 2 ? 0.15 : 0.06;
+  overlay.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
 
   // --- Container ---
   const container = document.createElement('div');
@@ -178,9 +178,12 @@ export function createStackedContainerDOM(depth) {
   container.style.zIndex = 1002 + (depth * 2);
 
   // Pixel-based cascade: each level is 2% narrower, gap side alternates
-  const { widthPx, rightPx } = calculateCascadePosition(depth);
+  const { widthPx, rightPx, group } = calculateCascadePosition(depth);
   container.style.width = `${widthPx}px`;
   container.style.right = `${rightPx}px`;
+  // Shadow on the gap side: even groups gap left, odd groups gap right
+  const shadowX = group % 2 === 0 ? -4 : 4;
+  container.style.boxShadow = `${shadowX}px 0 12px rgba(0, 0, 0, 0.3)`;
 
   // Build inner structure matching #hyperlit-container
   container.innerHTML = `

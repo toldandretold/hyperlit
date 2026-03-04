@@ -1605,6 +1605,7 @@ body.hyperlit-container-open .reader-content-wrapper {
   overflow-wrap: break-word;
   display: flex;
   flex-direction: column;
+  /* box-shadow set inline per layer (flips with cascade direction) */
 }
 
 .hyperlit-container-stacked.open {
