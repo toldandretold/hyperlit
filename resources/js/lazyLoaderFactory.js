@@ -247,7 +247,7 @@ export function createLazyLoader(config) {
       // Check if link is inside the hyperlit-container
       const isInsideContainer = link.closest('#hyperlit-container');
 
-      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer) {
+      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer && !link.closest('.hypercites-section')) {
         // Prevent default navigation immediately
         event.preventDefault();
         event.stopPropagation();

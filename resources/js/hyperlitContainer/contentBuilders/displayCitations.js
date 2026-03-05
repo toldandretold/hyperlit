@@ -174,6 +174,29 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       statusIcon = '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     }
 
+    // Build descriptive label for sub-book locations
+    let locationLabel = '';
+    if (contentType.isHyperlightURL && contentType.hlDepth > 0) {
+      if (contentType.isFootnoteURL) {
+        // HL inside a Fn: "a Hyperlight in a Footnote within:" or "a Highlight in a Highlight in a Footnote within:"
+        if (contentType.hlDepth === 1) {
+          locationLabel = 'a <span class="citedInHyperlight">Hyperlight</span> in a <span class="citedInFootnote">Footnote</span> within:';
+        } else {
+          const hlChain = Array(contentType.hlDepth).fill('a Highlight').join(' in ');
+          locationLabel = `${hlChain} in a <span class="citedInFootnote">Footnote</span> within:`;
+        }
+      } else {
+        if (contentType.hlDepth === 1) {
+          locationLabel = 'a <span class="citedInHyperlight">Hyperlight</span> in:';
+        } else {
+          const chain = Array(contentType.hlDepth).fill('a Highlight').join(' in ');
+          locationLabel = `${chain} within:`;
+        }
+      }
+    } else if (contentType.isFootnoteURL) {
+      locationLabel = 'a <span class="citedInFootnote">Footnote</span> in:';
+    }
+
     // Configure button based on access
     let buttonText = 'See in source text';
     let buttonStyle = 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
@@ -193,7 +216,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
         <h3>Reference</h3>
         <div class="citation-text">
-          ${statusIcon}${formattedCitation}
+          ${statusIcon}${locationLabel ? `${locationLabel}<p style="margin-top: 0.5em; margin-bottom: 0;">${formattedCitation}</p>` : formattedCitation}
         </div>
         <div style="margin-top: 1em;">
           <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
