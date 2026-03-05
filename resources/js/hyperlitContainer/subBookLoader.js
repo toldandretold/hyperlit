@@ -6,6 +6,7 @@
 
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoaderFactory.js';
 import { attachMarkListeners } from '../hyperlights/index.js';
+import { attachUnderlineClickListeners } from '../hypercites/index.js';
 import { getNodeChunksFromIndexedDB, addNodeChunkToIndexedDB } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
@@ -192,7 +193,8 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
       
       // Re-attach listeners to the updated content
       attachMarkListeners(chunkEl);
-      
+      attachUnderlineClickListeners(chunkEl);
+
       // Release height constraints after DOM settles
       requestAnimationFrame(() => {
         chunkEl.style.height = '';
@@ -477,7 +479,8 @@ export async function loadSubBook(
           
           chunkEl.innerHTML = newChunkEl.innerHTML;
           attachMarkListeners(chunkEl);
-          
+          attachUnderlineClickListeners(chunkEl);
+
           // Release height constraints
           requestAnimationFrame(() => {
             chunkEl.style.height = '';
