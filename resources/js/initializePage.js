@@ -32,6 +32,7 @@ import { checkForDuplicateTabs, registerBookOpen } from "./utilities/BroadcastLi
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
+import { parseSubBookId, buildSubBookId } from './utilities/subBookIdHelper.js';
 
 let isRetrying = false; // Prevents multiple retries at once
 
@@ -571,14 +572,126 @@ function waitForElement(itemId, container, timeout = 8000) {
 }
 
 /**
- * Open a chain of containers sequentially.
- * The first item is navigated to using navigateToInternalId (which auto-opens
- * the container via scrolling.js). Subsequent items are opened by finding
- * their element inside the current container and calling handleUnifiedContentClick
- * (which auto-detects the container context and calls pushStackedLayer).
+ * Frontend equivalent of TextController::walkChainToRoot.
+ * Given a leaf sub-book ID, walk backwards to the root book,
+ * building the full chain of {itemId, subBookId} pairs.
  */
-async function openContainerChain(chain, lazyLoader) {
+async function walkChainToRoot(rootBook, leafSubBookId) {
+  const chain = [];
+  let currentSubBookId = leafSubBookId;
+
+  for (let i = 0; i < 20; i++) {
+    const parsed = parseSubBookId(currentSubBookId);
+    if (!parsed.itemId) return null;
+
+    chain.unshift({ itemId: parsed.itemId, subBookId: currentSubBookId });
+
+    const parentBook = await findParentBook(currentSubBookId, parsed.itemId);
+    if (!parentBook) return null;
+
+    // Root reached when parentBook has no slashes
+    if (!parentBook.includes('/')) {
+      return (parentBook === rootBook) ? chain : null;
+    }
+
+    currentSubBookId = parentBook;
+  }
+
+  return null; // Safety limit
+}
+
+/**
+ * Find the parent book of a sub-book by querying IndexedDB.
+ * Mirrors TextController::findParentBook — checks footnotes then hyperlights.
+ */
+async function findParentBook(subBookId, itemId) {
+  const db = await openDatabase();
+
+  // Try footnotes
+  if (itemId.includes('_Fn') || /^Fn\d/.test(itemId)) {
+    const tx = db.transaction('footnotes', 'readonly');
+    const index = tx.objectStore('footnotes').index('footnoteId');
+    const results = await new Promise((resolve, reject) => {
+      const req = index.getAll(itemId);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    for (const fn of results) {
+      if (buildSubBookId(fn.book, itemId) === subBookId) {
+        return fn.book;
+      }
+    }
+  }
+
+  // Try hyperlights
+  if (itemId.startsWith('HL_')) {
+    const tx = db.transaction('hyperlights', 'readonly');
+    const index = tx.objectStore('hyperlights').index('hyperlight_id');
+    const results = await new Promise((resolve, reject) => {
+      const req = index.getAll(itemId);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    for (const hl of results) {
+      if (buildSubBookId(hl.book, itemId) === subBookId) {
+        return hl.book;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Build the full container chain from URL path segments.
+ * For level 1-2, all items are in the URL.
+ * For level 3+, walks up via IndexedDB to find missing intermediate items.
+ */
+export async function buildChainFromUrl(bookId, pathSegments) {
+  const afterBook = pathSegments.slice(1); // Everything after book ID
+  if (afterBook.length === 0) return [];
+
+  const firstAfterBook = afterBook[0];
+  const isNested = /^\d+$/.test(firstAfterBook); // Level number present?
+  const level = isNested ? parseInt(firstAfterBook, 10) : 1;
+
+  // Extract visible Fn/HL segments from URL
+  const visibleItems = afterBook.filter(seg =>
+    seg.startsWith('HL_') || seg.includes('_Fn') || /^Fn\d/.test(seg)
+  );
+
+  if (visibleItems.length === 0) return [];
+
+  // Level 1-2: all chain items are in the URL
+  if (level <= visibleItems.length) {
+    return visibleItems.map(seg => ({ itemId: seg, subBookId: null }));
+  }
+
+  // Level 3+: missing intermediate items, resolve via IndexedDB
+  const rest = afterBook.join('/');
+  const leafSubBookId = `${bookId}/${rest}`;
+  const resolvedChain = await walkChainToRoot(bookId, leafSubBookId);
+
+  if (resolvedChain) return resolvedChain;
+
+  // Fallback: use what we have from URL
+  console.warn(`Could not resolve full chain for ${leafSubBookId}, using partial chain`);
+  return visibleItems.map(seg => ({ itemId: seg, subBookId: null }));
+}
+
+/**
+ * Open a chain of containers sequentially.
+ * Closes any existing containers first, then opens each chain item
+ * by finding its element and calling handleUnifiedContentClick.
+ */
+export async function openContainerChain(chain, lazyLoader, finalHash = null) {
   if (!chain || chain.length === 0) return;
+
+  // Close any existing containers to start from clean state
+  try {
+    const { closeHyperlitContainer } = await import('./hyperlitContainer/index.js');
+    await closeHyperlitContainer(true);
+  } catch (e) { /* ignore */ }
 
   // Support both old string[] format and new {itemId, subBookId}[] format
   const normalized = chain.map(item =>
@@ -594,37 +707,57 @@ async function openContainerChain(chain, lazyLoader) {
     );
   }
 
-  // Navigate to first item (scrolling.js auto-opens the container)
+  // Scroll first item into view
   navigateToInternalId(normalized[0].itemId, lazyLoader, false);
 
+  // Open remaining containers in the chain (first item is auto-opened by navigateToInternalId)
   if (normalized.length > 1) {
     await continueChainOpening(normalized.slice(1));
+  }
+
+  // After chain is fully opened, scroll to final hash target (e.g. hypercite)
+  if (finalHash) {
+    await new Promise(r => setTimeout(r, 500));
+    const { getCurrentContainer } = await import('./hyperlitContainer/stack.js');
+    const container = getCurrentContainer();
+    if (container) {
+      const target = container.querySelector(`#${CSS.escape(finalHash)}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const { highlightTargetHypercite } = await import('./hypercites/animations.js');
+        highlightTargetHypercite(finalHash, 500);
+      }
+    }
   }
 }
 
 /**
- * Continue opening stacked layers for each remaining chain item.
- * Each iteration waits for the element to appear in the current container's
- * scroller, then triggers handleUnifiedContentClick which auto-stacks.
+ * Continue opening stacked layers for each chain item.
+ * Each iteration searches inside the current container's scroller
+ * (or document.body if no container is open yet), then triggers
+ * handleUnifiedContentClick which auto-stacks.
  */
 async function continueChainOpening(chain) {
   for (const chainItem of chain) {
     const itemId = typeof chainItem === 'string' ? chainItem : chainItem.itemId;
 
-    // Search document.body — stacked containers are appended to body
-    let element = await waitForElement(itemId, document.body, 8000);
+    // Search inside the current container scroller if one is open,
+    // otherwise search document.body (for the first chain item)
+    const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
+    const isContainerOpen = document.body.classList.contains('hyperlit-container-open');
+    const scroller = isContainerOpen ? getCurrentScroller() : null;
+
+    let element = await waitForElement(itemId, scroller || document.body, 8000);
 
     // If not found, the item may be beyond the 5-node preview.
     // Try expanding the sub-book via the "[read more]" button.
-    if (!element) {
-      const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
-      const scroller = getCurrentScroller();
-      const readMoreBtn = scroller?.querySelector('.expand-sub-book');
+    if (!element && scroller) {
+      const readMoreBtn = scroller.querySelector('.expand-sub-book');
       if (readMoreBtn) {
         console.log(`Expanding sub-book to find chain item ${itemId}...`);
         readMoreBtn.click();
         await new Promise(r => setTimeout(r, 2000));
-        element = await waitForElement(itemId, document.body, 5000);
+        element = await waitForElement(itemId, scroller, 5000);
       }
     }
 
@@ -640,6 +773,17 @@ async function continueChainOpening(chain) {
       await new Promise(r => setTimeout(r, 100));
       waitAttempts++;
     }
+
+    // Re-query element in current scope — the original reference may be stale
+    // if the sub-book DOM was rebuilt during hydration
+    const { getCurrentScroller: getLatestScroller } = await import('./hyperlitContainer/stack.js');
+    const containerNowOpen = document.body.classList.contains('hyperlit-container-open');
+    const latestScroller = containerNowOpen ? getLatestScroller() : null;
+    const selector = itemId.startsWith('HL_')
+      ? `mark.${CSS.escape(itemId)}`
+      : `#${CSS.escape(itemId)}`;
+    const freshElement = (latestScroller || document.body).querySelector(selector);
+    if (freshElement) element = freshElement;
 
     await handleUnifiedContentClick(element);
 

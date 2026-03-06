@@ -10,7 +10,7 @@ import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } fro
 import { book } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
-import { currentLazyLoader } from '../initializePage.js';
+import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
 import { getLocalStorageKey } from '../indexedDB/index.js';
 import { closeHyperlitContainer } from '../hyperlitContainer/index.js';
 
@@ -258,25 +258,46 @@ export class LinkNavigationHandler {
     verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
 
     try {
+      // Close any open container when navigating from a link inside it
+      if (link.closest('#hyperlit-container') || link.closest('.hyperlit-container-stacked')) {
+        try {
+          await closeHyperlitContainer(true);
+        } catch (e) { /* ignore */ }
+      }
       // Check if this is a hyperlight URL pattern
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
-      const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
-      // Check if this is a footnote URL pattern (format: /book/bookId_Fn...)
-      const isFootnoteURL = pathSegments.length > 1 && (pathSegments[1].includes('_Fn') || pathSegments[1].startsWith('Fn'));
 
-      if (isHyperlightURL) {
-        const hyperlightId = pathSegments[1];
+      // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
+      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const isHyperlightURL = !!hlSegment;
+      const isFootnoteURL = !!fnSegment;
+
+      // Build full chain from URL (handles level 3+ via IndexedDB lookup)
+      const chain = await buildChainFromUrl(pathSegments[0], pathSegments);
+
+      if (chain.length >= 2) {
+        // Multi-level sub-book: use chain system (handles any depth)
         const hyperciteId = linkUrl.hash.substring(1);
 
-        verbose.nav(`Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
-
-        // navigateToHyperciteTarget already imported statically
-        // currentLazyLoader already imported statically
+        verbose.nav(`Same-book multi-level cascade: ${chain.map(c => c.itemId).join(' -> ')} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
+          const currentUrl = window.location.pathname + window.location.hash;
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
+            window.history.pushState(null, '', url.href);
+          }
+          await openContainerChain(chain, currentLazyLoader, hyperciteId || null);
+        }
+      } else if (isHyperlightURL) {
+        const hyperciteId = linkUrl.hash.substring(1);
 
-          // Only update URL if we're not already there
+        verbose.nav(`Same-book hyperlight navigation: ${hlSegment} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
+
+        if (currentLazyLoader) {
+          const url = new URL(link.href);
           const currentUrl = window.location.pathname + window.location.hash;
           const targetUrl = url.pathname + url.hash;
           if (currentUrl !== targetUrl) {
@@ -284,32 +305,25 @@ export class LinkNavigationHandler {
             window.history.pushState(null, '', url.href);
           }
           if (hyperciteId) {
-            navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader);
+            navigateToHyperciteTarget(hlSegment, hyperciteId, currentLazyLoader);
           } else {
-            // navigateToInternalId already imported statically
-            navigateToInternalId(hyperlightId, currentLazyLoader, false);
+            navigateToInternalId(hlSegment, currentLazyLoader, false);
           }
         }
       } else if (isFootnoteURL) {
-        // Handle footnote navigation (format: /book/bookId_Fn1234#hypercite_abc)
-        const footnoteId = pathSegments[1];
         const hyperciteId = linkUrl.hash.substring(1);
 
-        verbose.nav(`Same-book footnote navigation: ${footnoteId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
+        verbose.nav(`Same-book footnote navigation: ${fnSegment} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
-
-          // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
           const targetUrl = url.pathname + url.hash;
           if (currentUrl !== targetUrl) {
             verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', url.href);
             window.history.pushState(null, '', url.href);
           }
-
-          // Navigate to the footnote and open it in the container
-          await navigateToFootnoteTarget(footnoteId, hyperciteId, currentLazyLoader);
+          await navigateToFootnoteTarget(fnSegment, hyperciteId, currentLazyLoader);
         }
       } else {
         // Regular same-book navigation
@@ -362,40 +376,53 @@ export class LinkNavigationHandler {
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const targetHash = linkUrl.hash;
 
-      // Check if this is a hyperlight URL
-      const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
+      // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
+      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const isHyperlightURL = !!hlSegment;
+      const isFootnoteURL = !!fnSegment;
 
-      if (isHyperlightURL) {
-        const hyperlightId = pathSegments[1];
+      if (isFootnoteURL && isHyperlightURL) {
         const hyperciteId = targetHash.substring(1);
 
-        verbose.nav(`Cross-book hyperlight navigation: ${targetBookId}/${hyperlightId}${targetHash}`, '/navigation/LinkNavigationHandler.js');
-
-        // Use structure-aware navigation for hyperlight URLs
-        await NavigationManager.navigateByStructure({
-          toBook: targetBookId,
-          targetUrl: linkUrl.href,
-          hash: targetHash,
-          hyperlightId,
-          hyperciteId: hyperciteId || null
-        });
-        return;
-      }
-
-      // Check if this is a footnote URL (e.g., /book/Fn123_abc#hypercite_xyz or /book/bookId_Fn123#...)
-      const isFootnoteURL = pathSegments.length > 1 && (pathSegments[1].includes('_Fn') || pathSegments[1].startsWith('Fn'));
-
-      if (isFootnoteURL) {
-        const footnoteId = pathSegments[1];
-
-        verbose.nav(`Cross-book footnote navigation: ${targetBookId}/${footnoteId}${targetHash}`, '/navigation/LinkNavigationHandler.js');
+        verbose.nav(`Cross-book footnote+highlight cascade: ${targetBookId}/${fnSegment}/${hlSegment}${targetHash}`, '/navigation/LinkNavigationHandler.js');
 
         await NavigationManager.navigateByStructure({
           fromBook: currentBookId,
           toBook: targetBookId,
           targetUrl: linkUrl.href,
           hash: targetHash,
-          footnoteId,
+          footnoteId: fnSegment,
+          hyperlightId: hlSegment,
+          hyperciteId: hyperciteId || null
+        });
+        return;
+      }
+
+      if (isHyperlightURL) {
+        const hyperciteId = targetHash.substring(1);
+
+        verbose.nav(`Cross-book hyperlight navigation: ${targetBookId}/${hlSegment}${targetHash}`, '/navigation/LinkNavigationHandler.js');
+
+        await NavigationManager.navigateByStructure({
+          toBook: targetBookId,
+          targetUrl: linkUrl.href,
+          hash: targetHash,
+          hyperlightId: hlSegment,
+          hyperciteId: hyperciteId || null
+        });
+        return;
+      }
+
+      if (isFootnoteURL) {
+        verbose.nav(`Cross-book footnote navigation: ${targetBookId}/${fnSegment}${targetHash}`, '/navigation/LinkNavigationHandler.js');
+
+        await NavigationManager.navigateByStructure({
+          fromBook: currentBookId,
+          toBook: targetBookId,
+          targetUrl: linkUrl.href,
+          hash: targetHash,
+          footnoteId: fnSegment,
         });
         return;
       }

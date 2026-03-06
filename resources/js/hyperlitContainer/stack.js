@@ -45,8 +45,15 @@ function getBaseContainerMetrics() {
   const base = document.getElementById('hyperlit-container');
   if (base) {
     const rect = base.getBoundingClientRect();
-    cachedBaseWidthPx = rect.width;
-    cachedBaseRightPx = window.innerWidth - rect.right;
+    cachedBaseWidthPx = rect.width;  // width is NOT affected by translateX
+
+    // Use getComputedStyle for right — getBoundingClientRect().right is
+    // displaced by CSS transform transitions and returns wrong values mid-animation.
+    // getComputedStyle().right returns the CSS layout value, unaffected by transform.
+    const computedRight = parseFloat(getComputedStyle(base).right);
+    cachedBaseRightPx = (!isNaN(computedRight) && computedRight >= 0)
+      ? computedRight
+      : (window.innerWidth - rect.right);
   } else {
     cachedBaseWidthPx = window.innerWidth * 0.6;
     cachedBaseRightPx = 12;
@@ -179,6 +186,8 @@ export function createStackedContainerDOM(depth) {
 
   // Pixel-based cascade: each level is 2% narrower, gap side alternates
   const { widthPx, rightPx, group } = calculateCascadePosition(depth);
+  const { baseWidthPx, baseRightPx } = getBaseContainerMetrics();
+  console.log(`📐 Cascade position for depth ${depth}: width=${widthPx}px, right=${rightPx}px (base: ${baseWidthPx}x${baseRightPx})`);
   container.style.width = `${widthPx}px`;
   container.style.right = `${rightPx}px`;
   // Shadow on the gap side: even groups gap left, odd groups gap right
