@@ -346,6 +346,10 @@ body[data-page="user"] #userLibraryContainer {
   margin-right: 0;
 }
 
+.hypercite-citation-section .location-label {
+  font-size: 0.85em;
+}
+
 /* Make tables in hyperlit-container horizontally scrollable */
 #hyperlit-container table {
   display: block;

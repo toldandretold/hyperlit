@@ -305,9 +305,20 @@ export function createLazyLoader(config) {
           // Continue anyway - let the container handle it
         }
 
+        // Check if hypercite link is inside a highlight mark
+        let parentMark = link.closest('mark') || event.target.closest('mark');
+        if (!parentMark && link.previousElementSibling?.tagName === 'MARK') {
+          parentMark = link.previousElementSibling;
+        }
+        let highlightIds = null;
+        if (parentMark) {
+          const hlClasses = Array.from(parentMark.classList).filter(cls => cls.startsWith('HL_'));
+          if (hlClasses.length > 0) highlightIds = hlClasses;
+        }
+
         // Import and call unified container handler
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
-        await handleUnifiedContentClick(link);
+        await handleUnifiedContentClick(link, highlightIds);
         return;
       }
     } catch (error) {

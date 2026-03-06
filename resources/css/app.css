@@ -684,7 +684,9 @@ div::-webkit-scrollbar {
     }
 
 #citedInHyperlight,
-#citedInFootnote {
+#citedInFootnote,
+.citedInHyperlight,
+.citedInFootnote {
     color: var(--color-primary);
 }
 

@@ -294,11 +294,11 @@ export async function buildHyperciteContent(contentType, db = null) {
               : '';
 
             const citationText = (isHyperlightURL && isFootnoteURL)
-              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> in a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
+              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> within a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
               : isHyperlightURL
-              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
+              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> within ${formattedCitation}`
               : isFootnoteURL
-              ? `${lockIcon}a <span id="citedInFootnote">Footnote</span> in ${formattedCitation}`
+              ? `${lockIcon}a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
               : `${lockIcon}${formattedCitation}`;
 
             // Add data attributes for private books to enable deferred auth checking
@@ -314,9 +314,9 @@ export async function buildHyperciteContent(contentType, db = null) {
             const safeHref = sanitizeUrl(citationID);
             // Graceful fallback: show location description + bookID instead of raw URL
             const locationText = (isHyperlightURL && isFootnoteURL)
-              ? 'a Hyperlight in a Footnote within'
-              : isHyperlightURL ? 'a Hyperlight in'
-              : isFootnoteURL ? 'a Footnote in'
+              ? 'a Hyperlight within a Footnote within'
+              : isHyperlightURL ? 'a Hyperlight within'
+              : isFootnoteURL ? 'a Footnote within'
               : '';
             const displayBookID = DOMPurify.sanitize(bookID, { ALLOWED_TAGS: [] });
             const linkText = locationText
