@@ -166,13 +166,13 @@ let enterKeyHandler = null;
 // Most functionality is delegated to specialized modules.
 // ================================================================
 
-export function queueNodeForSave(IDnumerical, action = 'update') {
-  console.log(`🎯 queueNodeForSave called: ${IDnumerical}, action: ${action}, saveQueue exists: ${!!saveQueue}`);
+export function queueNodeForSave(IDnumerical, action = 'update', bookId = null) {
+  console.log(`🎯 queueNodeForSave called: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, saveQueue exists: ${!!saveQueue}`);
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
     return;
   }
-  saveQueue.queueNode(IDnumerical, action);
+  saveQueue.queueNode(IDnumerical, action, bookId);
   console.log(`🎯 queueNodeForSave: queued ${IDnumerical}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
 }
 

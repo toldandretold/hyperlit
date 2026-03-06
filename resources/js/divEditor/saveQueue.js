@@ -68,9 +68,9 @@ export class SaveQueue {
   /**
    * Add node to pending saves queue
    */
-  queueNode(IDnumerical, action = 'update') {
-    console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, current pending: ${this.pendingSaves.nodes.size}`);
-    this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action });
+  queueNode(IDnumerical, action = 'update', bookId = null) {
+    console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, current pending: ${this.pendingSaves.nodes.size}`);
+    this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
 
     verbose.content(`Queued node ${IDnumerical} for ${action}`, 'divEditor/saveQueue.js');
@@ -165,7 +165,21 @@ export class SaveQueue {
 
         if (recordsToUpdate.length > 0) {
           console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
-          await batchUpdateIndexedDBRecords(recordsToUpdate, this.bookId ? { bookId: this.bookId } : {});
+
+          // Group records by bookId for correct sub-book saves
+          const recordsByBookId = new Map();
+          for (const record of recordsToUpdate) {
+            const effectiveBookId = record.bookId || this.bookId || null;
+            if (!recordsByBookId.has(effectiveBookId)) {
+              recordsByBookId.set(effectiveBookId, []);
+            }
+            recordsByBookId.get(effectiveBookId).push(record);
+          }
+
+          for (const [bookId, records] of recordsByBookId) {
+            await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
+          }
+
           console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
           // ✅ Mark cache dirty after successful saves
           markCacheDirty();

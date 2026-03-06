@@ -438,7 +438,7 @@ async function handlePaste(event) {
       ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
       : null;
     
-    if (handleCodeBlockPaste(event, chunkElement)) return;
+    if (handleCodeBlockPaste(event, chunkElement, targetBookId)) return;
 
     // 5) Route to the correct handler (small vs. large paste).
     if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, targetBookId)) {

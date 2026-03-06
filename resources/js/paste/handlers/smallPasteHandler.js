@@ -186,7 +186,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   console.log("Fix-up phase: Scanning for new nodes to assign IDs.");
 
   // The original block was modified, so save it.
-  queueNodeForSave(currentBlock.id, "update");
+  queueNodeForSave(currentBlock.id, "update", book);
 
   // Re-query currentBlock by ID (execCommand may have replaced it in DOM)
   const liveCurrentBlock = savedBlockId ? document.getElementById(savedBlockId) : null;
@@ -243,7 +243,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
             // Assign ID to this first pasted element
             setElementIds(currentBlock, prevId, nextId, book);
             console.log(`Assigned ID ${currentBlock.id} to first pasted element`);
-            queueNodeForSave(currentBlock.id, "add");
+            queueNodeForSave(currentBlock.id, "add", book);
           }
         }
       }
@@ -254,7 +254,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   if (currentBlock && currentBlock.id && /^\d+(\.\d+)*$/.test(currentBlock.id)) {
     // Only queue if it's a new element (doesn't have saved node-id from before paste)
     if (!savedNodeId || currentBlock.getAttribute('data-node-id') !== savedNodeId) {
-      queueNodeForSave(currentBlock.id, "add");
+      queueNodeForSave(currentBlock.id, "add", book);
       console.log(`Queued currentBlock ${currentBlock.id} for save`);
     }
   }
@@ -304,7 +304,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     if (!element.id || !/^\d+(\.\d+)*$/.test(element.id)) {
       setElementIds(element, lastAssignedId, currentBlock.id, book);
       console.log(`Assigned ID ${element.id} to earlier pasted element`);
-      queueNodeForSave(element.id, "add");
+      queueNodeForSave(element.id, "add", book);
       lastAssignedId = element.id;
     }
   });
@@ -323,13 +323,13 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
         // Element needs a new numerical ID (and data-node-id)
         const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
         console.log(`Assigned new ID ${newId} to pasted element.`);
-        queueNodeForSave(newId, "add");
+        queueNodeForSave(newId, "add", book);
         lastKnownId = newId;
       } else if (!hasNodeId) {
         // Element has valid numerical ID but missing data-node-id
         elementToProcess.setAttribute('data-node-id', generateNodeId(book));
         console.log(`Added data-node-id to pasted element with existing ID ${elementToProcess.id}`);
-        queueNodeForSave(elementToProcess.id, "add");
+        queueNodeForSave(elementToProcess.id, "add", book);
         lastKnownId = elementToProcess.id;
       } else {
         // Element has both IDs - CHECK if the ID is valid for this position
@@ -348,7 +348,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
           const newId = generateIdBetween(lastKnownId, nextStableNodeId);
           elementToProcess.id = newId;
           console.log(`Updated pasted element ID: ${elementToProcess.id} → ${newId} (preserved data-node-id: ${existingNodeId})`);
-          queueNodeForSave(newId, 'update'); // Update since it has existing node_id
+          queueNodeForSave(newId, 'update', book); // Update since it has existing node_id
           lastKnownId = newId;
         } else {
           // ID is already correct for this position
