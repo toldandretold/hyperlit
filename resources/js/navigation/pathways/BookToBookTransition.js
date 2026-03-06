@@ -16,7 +16,7 @@ import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { pendingFirstChunkLoadedPromise, currentLazyLoader } from '../../initializePage.js';
+import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index.js';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
 import { navigateToInternalId } from '../../scrolling.js';
@@ -53,6 +53,7 @@ export class BookToBookTransition {
       hyperlightId = null,
       hyperciteId = null,
       footnoteId = null,
+      targetUrl = null,
       progressCallback
     } = options;
 
@@ -114,7 +115,7 @@ export class BookToBookTransition {
         this.updateUrlWithStatePreservation(toBook, hash);
         
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
-        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress);
+        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl);
 
         progress(100, 'Complete!');
 
@@ -315,7 +316,7 @@ export class BookToBookTransition {
    * Handle hash-based navigation (hyperlights, hypercites, footnotes, internal links)
    * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress) {
+  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress, targetUrl = null) {
     if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
       console.log('📖 BookToBookTransition: No hash navigation needed');
       return false;
@@ -331,6 +332,26 @@ export class BookToBookTransition {
         console.log('⏳ BookToBookTransition: Waiting for content to load before navigation');
         await pendingFirstChunkLoadedPromise;
         console.log('✅ BookToBookTransition: Content loaded, proceeding with navigation');
+      }
+
+      // Multi-level cascade: footnote + hyperlight/hypercite → nested containers
+      if (footnoteId && (hyperlightId || hyperciteId) && targetUrl) {
+        console.log('🔗 BookToBookTransition: Detected multi-level cascade, using chain system');
+        try {
+          const urlObj = new URL(targetUrl, window.location.origin);
+          const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+          const chain = await buildChainFromUrl(bookId, pathSegments);
+
+          if (chain && chain.length > 0) {
+            const finalHash = hyperciteId || null;
+            console.log(`🔗 BookToBookTransition: Opening chain: ${chain.map(c => c.itemId).join(' -> ')} -> ${finalHash}`);
+            await openContainerChain(chain, currentLazyLoader, finalHash);
+            return true;
+          }
+          console.warn('🔗 BookToBookTransition: Chain resolution returned empty, falling through');
+        } catch (chainError) {
+          console.error('🔗 BookToBookTransition: Chain navigation failed, falling through:', chainError);
+        }
       }
 
       // Handle different types of navigation

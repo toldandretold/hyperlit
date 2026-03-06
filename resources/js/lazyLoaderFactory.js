@@ -238,16 +238,13 @@ export function createLazyLoader(config) {
     // 🔗 CHECK FOR HYPERCITE CITATION LINKS (links pointing TO hypercites)
     // These should open the unified container instead of navigating
     // UNLESS they are:
-    // 1. Inside the hyperlit-container (already in a container, should navigate directly)
+    // 1. Inside the .hypercites-section ("Cited By" — should navigate directly)
     // 2. Have the "see-in-source-btn" class (action button from container)
     try {
       const url = new URL(link.href, window.location.origin);
       const hash = url.hash;
 
-      // Check if link is inside the hyperlit-container
-      const isInsideContainer = link.closest('#hyperlit-container');
-
-      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer && !link.closest('.hypercites-section')) {
+      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !link.closest('.hypercites-section')) {
         // Prevent default navigation immediately
         event.preventDefault();
         event.stopPropagation();

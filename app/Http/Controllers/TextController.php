@@ -172,6 +172,35 @@ class TextController extends Controller
         ]);
     }
 
+    /**
+     * API endpoint: resolve a sub-book chain server-side.
+     * Reuses walkChainToRoot + findParentBook against PostgreSQL.
+     */
+    public function resolveChainApi(Request $request, string $book, string $rest): \Illuminate\Http\JsonResponse
+    {
+        $parts = explode('/', $rest);
+        $level = (int) $parts[0];
+        $urlItems = array_slice($parts, 1);
+
+        if (count($urlItems) < 1) {
+            return response()->json(['success' => false, 'message' => 'Invalid path'], 400);
+        }
+
+        if ($level <= 1 && count($urlItems) === 1) {
+            $finalSubBookId = $book . '/' . $urlItems[0];
+        } else {
+            $finalSubBookId = $book . '/' . $rest;
+        }
+
+        $chain = $this->walkChainToRoot($book, $finalSubBookId);
+
+        if ($chain === null) {
+            return response()->json(['success' => false, 'message' => 'Chain not found'], 404);
+        }
+
+        return response()->json(['success' => true, 'chain' => $chain]);
+    }
+
     private function walkChainToRoot(string $rootBook, string $leafSubBookId): ?array
     {
         $chain = [];

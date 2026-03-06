@@ -674,6 +674,21 @@ export async function buildChainFromUrl(bookId, pathSegments) {
 
   if (resolvedChain) return resolvedChain;
 
+  // Server-side fallback when IndexedDB doesn't have intermediate sub-book data
+  try {
+    console.log(`🔗 buildChainFromUrl: IndexedDB resolution failed, trying server...`);
+    const response = await fetch(`/api/resolve-chain/${bookId}/${rest}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.chain?.length > 0) {
+        console.log(`🔗 buildChainFromUrl: Server resolved chain with ${data.chain.length} items`);
+        return data.chain;
+      }
+    }
+  } catch (err) {
+    console.warn(`🔗 buildChainFromUrl: Server resolution failed:`, err);
+  }
+
   // Fallback: use what we have from URL
   console.warn(`Could not resolve full chain for ${leafSubBookId}, using partial chain`);
   return visibleItems.map(seg => ({ itemId: seg, subBookId: null }));

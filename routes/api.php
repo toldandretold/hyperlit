@@ -215,6 +215,11 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     );
 });
 
+// Chain resolution for SPA cross-book navigation (level 3+ sub-books)
+Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController::class, 'resolveChainApi'])
+    ->where(['book' => '[A-Za-z0-9_-]+', 'rest' => '[0-9]+/.+'])
+    ->name('api.resolve-chain');
+
 // API routes for transferring data from database to IndexedDB
 Route::prefix('database-to-indexeddb')->group(function () {
     // Get list of available books
