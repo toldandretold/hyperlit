@@ -6,6 +6,7 @@
 import { ContainerManager } from '../containerManager.js';
 import { log, verbose } from '../utilities/logger.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { clearCascadeOriginId } from '../scrolling.js';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
 
@@ -398,6 +399,13 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     // ALWAYS deactivate overlay + unlock scroll, even if cleanup threw or hyperlitManager was null
     console.log('[closeHyperlitContainer] FINALLY — calling closeContainer()');
     document.body.classList.remove('hyperlit-container-open');
+
+    // Remove cascade-origin glow from base mark element
+    const cascadeOrigin = document.querySelector('.cascade-origin');
+    if (cascadeOrigin) {
+      cascadeOrigin.classList.remove('cascade-origin');
+    }
+    clearCascadeOriginId();
     if (hyperlitManager?.closeContainer) {
       hyperlitManager.closeContainer();
     }

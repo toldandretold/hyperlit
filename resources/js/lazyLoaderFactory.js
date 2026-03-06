@@ -16,7 +16,7 @@ import {
   isChunkLoadingInProgress,
   scheduleAutoClear
 } from "./utilities/chunkLoadingState.js";
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState } from './scrolling.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
@@ -1760,6 +1760,15 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   // ✅ Attach listeners only to this chunk
   attachMarkListeners(chunkElement);
   attachUnderlineClickListeners(chunkElement);
+
+  // Re-apply cascade-origin glow if this chunk contains the target highlight
+  const cascadeId = getCascadeOriginId();
+  if (cascadeId) {
+    const markEl = chunkElement.querySelector(`mark.${CSS.escape(cascadeId)}`);
+    if (markEl) {
+      markEl.classList.add('cascade-origin');
+    }
+  }
 
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);

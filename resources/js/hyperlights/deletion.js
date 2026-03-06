@@ -6,6 +6,7 @@ import { openDatabase, updateBookTimestamp, queueForSync, getNodeChunksFromIndex
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { attachMarkListeners } from './listeners.js';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
+import { getCascadeOriginId } from '../scrolling.js';
 
 /**
  * Unwrap a mark element, preserving its content
@@ -326,6 +327,15 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals) 
       // innerHTML replacement destroys and recreates DOM elements, losing their event listeners
       const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
       attachUnderlineClickListeners();
+
+      // Re-apply cascade-origin glow if the target mark was recreated
+      const cascadeId = getCascadeOriginId();
+      if (cascadeId) {
+        const cascadeMark = document.querySelector(`mark.${CSS.escape(cascadeId)}`);
+        if (cascadeMark) {
+          cascadeMark.classList.add('cascade-origin');
+        }
+      }
     } finally {
       requestAnimationFrame(() => {
         setProgrammaticUpdateInProgress(false);

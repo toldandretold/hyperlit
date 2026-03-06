@@ -695,6 +695,16 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
+    // Apply cascade-origin glow to the source mark element (persists while container is open)
+    if (element && element.tagName === 'MARK') {
+      document.querySelectorAll('.cascade-origin').forEach(el => el.classList.remove('cascade-origin'));
+      element.classList.add('cascade-origin');
+      // Persist so chunk re-renders preserve the class
+      const { setCascadeOriginId } = await import('../scrolling.js');
+      const hlId = Array.from(element.classList).find(c => c.startsWith('HL_'));
+      if (hlId) setCascadeOriginId(hlId);
+    }
+
     // Open the unified container
     openHyperlitContainer(unifiedContent, isBackNavigation);
 

@@ -179,6 +179,30 @@ let userScrollState = {
 // Store pending navigation cleanup timer so it can be cancelled
 let pendingNavigationCleanupTimer = null;
 
+// Persist the cascade-origin highlight ID so it survives chunk re-renders
+let cascadeOriginTargetId = null;
+
+/**
+ * Get the current cascade-origin highlight ID (for re-applying after chunk loads)
+ */
+export function getCascadeOriginId() {
+  return cascadeOriginTargetId;
+}
+
+/**
+ * Set the cascade-origin highlight ID (for persisting across chunk re-renders)
+ */
+export function setCascadeOriginId(id) {
+  cascadeOriginTargetId = id;
+}
+
+/**
+ * Clear the cascade-origin state (called when container closes)
+ */
+export function clearCascadeOriginId() {
+  cascadeOriginTargetId = null;
+}
+
 function detectUserScrollStart(event) {
   // Don't treat navigation scrolls as user scrolls
   if (userScrollState.isNavigating) {
@@ -1209,7 +1233,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       console.log(`✅ Element already visible and well-positioned - skipping scroll`);
     }
     
-    // For highlights, open them after scrolling starts
+    // For highlights, open the container (cascade-origin is applied there)
     if (targetId.startsWith('HL_')) {
       setTimeout(() => {
         console.log(`Opening highlight after navigation: ${targetId}`);
@@ -1217,8 +1241,19 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }, 200);
     }
 
-    // For footnotes, open them after scrolling starts (same as highlights)
+    // For footnotes, play arrow-pulse animation for navigation emphasis
     if (targetId.includes('_Fn') || targetId.startsWith('Fn')) {
+      const fnEl = document.getElementById(targetId);
+      if (fnEl) {
+        fnEl.classList.add('arrow-target');
+        const handleEnd = (e) => {
+          if (e.target === fnEl) {
+            fnEl.classList.remove('arrow-target');
+            fnEl.removeEventListener('animationend', handleEnd);
+          }
+        };
+        fnEl.addEventListener('animationend', handleEnd);
+      }
       setTimeout(async () => {
         console.log(`Opening footnote after navigation: ${targetId}`);
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');

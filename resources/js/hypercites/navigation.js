@@ -347,6 +347,16 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
       return;
     }
 
+    // Play arrow-pulse animation on footnote for navigation emphasis
+    footnoteElement.classList.add('arrow-target');
+    const handleEnd = (e) => {
+      if (e.target === footnoteElement) {
+        footnoteElement.classList.remove('arrow-target');
+        footnoteElement.removeEventListener('animationend', handleEnd);
+      }
+    };
+    footnoteElement.addEventListener('animationend', handleEnd);
+
     // Scroll to the footnote marker in the document
     console.log(`📍 Scrolling to footnote element: ${footnoteId}`);
     footnoteElement.scrollIntoView({ behavior: 'smooth', block: 'center' });

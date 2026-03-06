@@ -132,7 +132,8 @@ u.single, u.couple, u.poly {
 /* Arrow icon navigation target state */
 .open-icon.arrow-target,
 sup.open-icon.arrow-target,
-span.open-icon.arrow-target {
+span.open-icon.arrow-target,
+sup.arrow-target {
     display: inline-block;
     animation: arrow-pulse 2000ms ease-in-out forwards;
 }
@@ -564,7 +565,13 @@ mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
     filter: brightness(0.75);
 }
 
-
+/* Sustained glow on the base mark element when navigating to a hyperlight */
+mark.cascade-origin,
+mark.cascade-origin:hover {
+    --highlight-intensity: 0.55 !important;
+    filter: brightness(1.4) !important;
+    transition: filter var(--transition-fast);
+}
 
 
 
