@@ -171,11 +171,23 @@ export class ChunkMutationHandler {
               const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
               totalNodes += numericalIdNodes.length;
 
+              // ✅ FIX: Get bookId from observedChunks using composite key lookup
+              let chunkBookId = null;
+              if (chunkId) {
+                // Find the matching composite key in observedChunks
+                for (const [key, data] of this.observedChunks) {
+                  if (key.endsWith(`:${chunkId}`)) {
+                    chunkBookId = data.bookId;
+                    break;
+                  }
+                }
+              }
+
               if (numericalIdNodes.length > 0) {
                 numericalIdNodes.forEach(node => {
                   if (this.saveQueue) {
-                    // ✅ OPTIMIZATION: Pass node element to capture UUID before DOM removal
-                    this.saveQueue.queueDeletion(node.id, node);
+                    // ✅ FIX: Pass chunk bookId for sub-book support
+                    this.saveQueue.queueDeletion(node.id, node, chunkBookId);
                   }
                 });
               }
@@ -230,7 +242,7 @@ export class ChunkMutationHandler {
     const mutationsByChunk = new Map();
     const newChunksFound = new Set();
 
-    // Group mutations by chunk
+    // Group mutations by chunk and track container context
     for (const mutation of mutations) {
       const chunk = this.findContainingChunk(mutation.target);
 
@@ -242,16 +254,21 @@ export class ChunkMutationHandler {
           continue;
         }
 
+        // ✅ FIX: Determine container context from mutation target
+        const subBookContainer = mutation.target.closest('.sub-book-content');
+        const containerId = subBookContainer?.dataset?.bookId || 'main';
+        const compositeKey = `${containerId}:${chunkId}`;
+
         // Handle new chunks being added via lazy loading
-        if (!this.observedChunks.has(chunkId)) {
-          this.handleNewChunk(chunk);
+        if (!this.observedChunks.has(compositeKey)) {
+          this.handleNewChunk(chunk, subBookContainer);
           newChunksFound.add(chunkId);
         }
 
-        if (!mutationsByChunk.has(chunkId)) {
-          mutationsByChunk.set(chunkId, []);
+        if (!mutationsByChunk.has(compositeKey)) {
+          mutationsByChunk.set(compositeKey, { mutations: [], container: subBookContainer, chunkId });
         }
-        mutationsByChunk.get(chunkId).push(mutation);
+        mutationsByChunk.get(compositeKey).mutations.push(mutation);
       }
     }
 
@@ -260,22 +277,35 @@ export class ChunkMutationHandler {
     }
 
     // Process mutations for each chunk
-    for (const [chunkId, chunkMutations] of mutationsByChunk) {
+    for (const [compositeKey, { mutations: chunkMutations, container, chunkId }] of mutationsByChunk) {
       // 🚀 PERFORMANCE: Trust cached chunk reference (100x faster than querySelector)
-      let liveChunk = this.observedChunks.get(chunkId);
+      const chunkData = this.observedChunks.get(compositeKey);
+      let liveChunk = chunkData?.chunk;
+      let bookId = chunkData?.bookId;
 
       // Only query DOM if cache miss (chunk was just added)
       if (!liveChunk) {
-        liveChunk = document.querySelector(`[data-chunk-id="${chunkId}"]`);
+        // ✅ FIX: Search within the correct container scope
+        if (container) {
+          // Sub-book context: search within the sub-book container
+          liveChunk = container.querySelector(`[data-chunk-id="${chunkId}"]`);
+          bookId = container.dataset?.bookId;
+        } else {
+          // Main book context: search within main-content only
+          const mainContent = document.querySelector('.main-content');
+          liveChunk = mainContent?.querySelector(`[data-chunk-id="${chunkId}"]`);
+          bookId = mainContent?.id || 'latest';
+        }
+        
         if (liveChunk) {
-          this.observedChunks.set(chunkId, liveChunk);
+          this.observedChunks.set(compositeKey, { chunk: liveChunk, bookId });
         }
       }
 
       if (liveChunk) {
         // 🚀 PERFORMANCE: Process immediately within RAF callback
         // setTimeout(, 0) adds unnecessary latency
-        await this.processChunkMutations(liveChunk, chunkMutations);
+        await this.processChunkMutations(liveChunk, chunkMutations, bookId);
       } else if (!window.isEditing) {
         console.log(`🗑️ Chunk ${chunkId} actually removed from DOM`);
 
@@ -292,8 +322,10 @@ export class ChunkMutationHandler {
 
   /**
    * Handle a new chunk being discovered
+   * @param {HTMLElement} chunk - The chunk element
+   * @param {HTMLElement} [container] - Optional: the sub-book container if in sub-book context
    */
-  handleNewChunk(chunk) {
+  handleNewChunk(chunk, container = null) {
     const chunkId = chunk.getAttribute('data-chunk-id');
 
     if (!chunkId) {
@@ -301,9 +333,24 @@ export class ChunkMutationHandler {
       return;
     }
 
-    verbose.content(`New chunk loaded: ${chunkId}`, 'divEditor/chunkMutationHandler.js');
+    // ✅ FIX: Determine bookId from container context
+    let bookId;
+    let compositeKey;
+    
+    if (container) {
+      // Sub-book context
+      bookId = container.dataset?.bookId;
+      compositeKey = `${bookId}:${chunkId}`;
+    } else {
+      // Main book context
+      bookId = document.querySelector('.main-content')?.id || 'latest';
+      compositeKey = `main:${chunkId}`;
+    }
 
-    this.observedChunks.set(chunkId, chunk);
+    verbose.content(`New chunk loaded: ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
+
+    // Store both chunk and bookId for later use during deletions
+    this.observedChunks.set(compositeKey, { chunk, bookId });
     trackChunkNodeCount(chunk);
 
     // 🚀 PERFORMANCE: Clear chunk cache when structure changes
@@ -313,10 +360,15 @@ export class ChunkMutationHandler {
   /**
    * Process mutations for a specific chunk
    */
-  async processChunkMutations(chunk, mutations) {
+  async processChunkMutations(chunk, mutations, bookId = null) {
     const chunkId = chunk.getAttribute('data-chunk-id');
+    
+    // ✅ FIX: Store bookId on chunk for access during deletions
+    if (bookId) {
+      chunk._bookId = bookId;
+    }
 
-    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId}`, 'divEditor/chunkMutationHandler.js');
+    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
 
     // Skip during renumbering
     if (window.renumberingInProgress) {
@@ -421,7 +473,8 @@ export class ChunkMutationHandler {
 
                   // Now proceed with normal deletion
                   if (this.saveQueue) {
-                    this.saveQueue.queueDeletion(node.id, node);
+                    // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
+                    this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
                   }
                   this.removedNodeIds.add(node.id);
 
@@ -465,7 +518,8 @@ export class ChunkMutationHandler {
                   if (foundNodeInOtherChunk) {
                     // Can safely delete this node now
                     if (this.saveQueue) {
-                      this.saveQueue.queueDeletion(node.id, node);
+                      // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
+                      this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
                     }
                     this.removedNodeIds.add(node.id);
                   } else {
@@ -485,8 +539,8 @@ export class ChunkMutationHandler {
               } else {
                 // Normal deletion - no marker on this node
                 if (this.saveQueue) {
-                  // ✅ Pass the node element itself so UUID can be read from it
-                  this.saveQueue.queueDeletion(node.id, node);
+                  // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
+                  this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
                 }
                 this.removedNodeIds.add(node.id);
               }
@@ -778,8 +832,8 @@ export class ChunkMutationHandler {
       return false;
     }
 
-    const nodeId = removedNode.id;
-    if (!nodeId || !isNumericalId(nodeId)) {
+    const IDnumerical = removedNode.id;
+    if (!IDnumerical || !isNumericalId(IDnumerical)) {
       return false;
     }
 

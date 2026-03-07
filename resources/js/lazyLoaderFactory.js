@@ -16,7 +16,7 @@ import {
   isChunkLoadingInProgress,
   scheduleAutoClear
 } from "./utilities/chunkLoadingState.js";
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState } from './scrolling.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
@@ -155,6 +155,8 @@ export function createLazyLoader(config) {
     isUpdatingJsonContent = false,
     bookId = "latest",
     onFirstChunkLoaded,
+    containerElement,                           // NEW: skip getElementById (for sub-books)
+    scrollableParent: scrollableParentOverride, // NEW: bypass auto-detection (for sub-books)
   } = config;
 
   if (!nodes || nodes.length === 0) {
@@ -163,7 +165,7 @@ export function createLazyLoader(config) {
   }
 
   // --- MOVE THIS BLOCK UP! ---
-  const container = document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
+  const container = containerElement || document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
   if (!container) {
     log.error(`Container element with id "${bookId}" not found in the DOM`, 'lazyLoaderFactory.js');
     return null;
@@ -172,19 +174,23 @@ export function createLazyLoader(config) {
 
   // Now, container is defined, so you can safely use it:
   let scrollableParent;
-  const readerWrapper = container.closest(".reader-content-wrapper");
-  const homeWrapper = container.closest(".home-content-wrapper");
-  const userWrapper = container.closest(".user-content-wrapper");
-
-  if (readerWrapper) {
-      scrollableParent = readerWrapper;
-  } else if (homeWrapper) {
-      scrollableParent = homeWrapper;
-  } else if (userWrapper) {
-      scrollableParent = userWrapper;
+  if (scrollableParentOverride) {
+    scrollableParent = scrollableParentOverride;
   } else {
-      scrollableParent = window;
-      verbose.init('Using window as scrollable parent', 'lazyLoaderFactory.js');
+    const readerWrapper = container.closest(".reader-content-wrapper");
+    const homeWrapper = container.closest(".home-content-wrapper");
+    const userWrapper = container.closest(".user-content-wrapper");
+
+    if (readerWrapper) {
+        scrollableParent = readerWrapper;
+    } else if (homeWrapper) {
+        scrollableParent = homeWrapper;
+    } else if (userWrapper) {
+        scrollableParent = userWrapper;
+    } else {
+        scrollableParent = window;
+        verbose.init('Using window as scrollable parent', 'lazyLoaderFactory.js');
+    }
   }
   
   // Create the instance to track lazy-loader state.
@@ -232,16 +238,13 @@ export function createLazyLoader(config) {
     // 🔗 CHECK FOR HYPERCITE CITATION LINKS (links pointing TO hypercites)
     // These should open the unified container instead of navigating
     // UNLESS they are:
-    // 1. Inside the hyperlit-container (already in a container, should navigate directly)
+    // 1. Inside the .hypercites-section ("Cited By" — should navigate directly)
     // 2. Have the "see-in-source-btn" class (action button from container)
     try {
       const url = new URL(link.href, window.location.origin);
       const hash = url.hash;
 
-      // Check if link is inside the hyperlit-container
-      const isInsideContainer = link.closest('#hyperlit-container');
-
-      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer) {
+      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !link.closest('.hypercites-section')) {
         // Prevent default navigation immediately
         event.preventDefault();
         event.stopPropagation();
@@ -302,9 +305,20 @@ export function createLazyLoader(config) {
           // Continue anyway - let the container handle it
         }
 
+        // Check if hypercite link is inside a highlight mark
+        let parentMark = link.closest('mark') || event.target.closest('mark');
+        if (!parentMark && link.previousElementSibling?.tagName === 'MARK') {
+          parentMark = link.previousElementSibling;
+        }
+        let highlightIds = null;
+        if (parentMark) {
+          const hlClasses = Array.from(parentMark.classList).filter(cls => cls.startsWith('HL_'));
+          if (hlClasses.length > 0) highlightIds = hlClasses;
+        }
+
         // Import and call unified container handler
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
-        await handleUnifiedContentClick(link);
+        await handleUnifiedContentClick(link, highlightIds);
         return;
       }
     } catch (error) {
@@ -620,30 +634,40 @@ export function createLazyLoader(config) {
 
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
+    console.log('🔍 OBSERVER TRIGGERED with', entries.length, 'entries for book:', instance.bookId);
     verbose.content(`Observer triggered (${entries.length} entries)`, 'lazyLoaderFactory.js');
 
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      console.log('🔒 Observer BLOCKED - scrollLocked:', instance.scrollLocked, 'isNavigating:', instance.isNavigatingToInternalId);
       verbose.debug(`Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`, 'lazyLoaderFactory.js');
       return;
     }
 
     // ✅ Don't load chunks if deletions are in progress
     if (isChunkLoadingInProgress()) {
+      console.log('🚫 Observer BLOCKED - chunk deletion in progress');
       verbose.debug('Skipping lazy load - chunk deletion in progress', 'lazyLoaderFactory.js');
       return;
     }
 
     entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
+      console.log('📍 Entry:', entry.target.id, 'isIntersecting:', entry.isIntersecting, 'ratio:', entry.intersectionRatio);
+      
+      if (!entry.isIntersecting) {
+        console.log('  ↳ Not intersecting, skipping');
+        return;
+      }
 
-      if (entry.target.id === topSentinel.id) {
+      if (entry.target.id === instance.topSentinel?.id) {
+        console.log('⬆️ TOP sentinel intersecting!');
         verbose.debug('TOP sentinel intersecting - attempting to load previous chunk', 'lazyLoaderFactory.js');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
           verbose.debug(`First chunk in DOM: ${firstChunkId}, checking if can load previous...`, 'lazyLoaderFactory.js');
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
+            console.log('⬆️ Loading previous chunk:', firstChunkId - 1);
             verbose.debug(`Loading previous chunk: ${firstChunkId - 1}`, 'lazyLoaderFactory.js');
             loadPreviousChunkFixed(firstChunkId, instance);
           } else {
@@ -653,11 +677,13 @@ export function createLazyLoader(config) {
           verbose.debug('Top sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
-      if (entry.target.id === bottomSentinel.id) {
+      if (entry.target.id === instance.bottomSentinel?.id) {
+        console.log('⬇️ BOTTOM sentinel intersecting!');
         verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
+          console.log('⬇️ Last chunk is', lastChunkId, '- attempting to load next');
           verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
           loadNextChunkFixed(lastChunkId, instance);
         } else {
@@ -669,6 +695,11 @@ export function createLazyLoader(config) {
 
   observer.observe(topSentinel);
   observer.observe(bottomSentinel);
+  console.log('👁️ Observer attached to sentinels for book:', instance.bookId);
+  console.log('   Root element:', observerOptions.root?.id || observerOptions.root?.className || observerOptions.root || 'viewport (null)');
+  console.log('   Top sentinel:', topSentinel.id);
+  console.log('   Bottom sentinel:', bottomSentinel.id);
+  console.log('   Container:', container.className, container.getAttribute('data-book-id') || container.id);
   verbose.init("Observer attached to sentinels", 'lazyLoaderFactory.js');
 
   attachMarkers(container);
@@ -1014,6 +1045,9 @@ export function createChunkElement(nodes, instance) {
       // ✅ data-node-id should already be in HTML from server
       // But ensure numerical id is set
       firstElement.setAttribute('id', node.startLine);
+      if (node.node_id && !firstElement.getAttribute('data-node-id')) {
+        firstElement.setAttribute('data-node-id', node.node_id);
+      }
       chunkWrapper.appendChild(firstElement);
     } else {
       console.error(`⚠️ Node ${nodeIndex + 1} (line ${node.startLine}) produced no Element content. HTML: ${html.substring(0, 100)}`);
@@ -1540,7 +1574,10 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for next chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
@@ -1607,7 +1644,10 @@ export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for previous chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
@@ -1679,7 +1719,10 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   // ✅ Check if cache is dirty and refresh if needed
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before loading chunk...', 'lazyLoaderFactory.js');
-    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    if (freshNodes?.length) {
+      instance.nodes = freshNodes;
+    }
     clearCacheDirtyFlag();
   }
 
@@ -1718,6 +1761,15 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   attachMarkListeners(chunkElement);
   attachUnderlineClickListeners(chunkElement);
 
+  // Re-apply cascade-origin glow if this chunk contains the target highlight
+  const cascadeId = getCascadeOriginId();
+  if (cascadeId) {
+    const markEl = chunkElement.querySelector(`mark.${CSS.escape(cascadeId)}`);
+    if (markEl) {
+      markEl.classList.add('cascade-origin');
+    }
+  }
+
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   }
@@ -1747,10 +1799,13 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
  * Repositions the sentinels around loaded chunks.
  */
 function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
+  console.log('🔄 REPOSITIONING sentinels for book:', instance.bookId);
   verbose.content("Repositioning sentinels", 'lazyLoaderFactory.js');
   const container = instance.container;
   const allChunks = Array.from(container.querySelectorAll("[data-chunk-id]"));
+  console.log('   Found chunks:', allChunks.length);
   if (allChunks.length === 0) {
+    console.log('   No chunks, aborting reposition');
     return;
   }
   allChunks.sort(
@@ -1758,9 +1813,19 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
     parseFloat(a.getAttribute("data-chunk-id")) -
     parseFloat(b.getAttribute("data-chunk-id"))
 );
-  if (instance.observer) instance.observer.disconnect();
-  if (instance.topSentinel) instance.topSentinel.remove();
-  if (instance.bottomSentinel) instance.bottomSentinel.remove();
+  console.log('   Sorted chunk IDs:', allChunks.map(c => c.getAttribute('data-chunk-id')));
+  if (instance.observer) {
+    console.log('   Disconnecting existing observer');
+    instance.observer.disconnect();
+  }
+  if (instance.topSentinel) {
+    console.log('   Removing old top sentinel:', instance.topSentinel.id);
+    instance.topSentinel.remove();
+  }
+  if (instance.bottomSentinel) {
+    console.log('   Removing old bottom sentinel:', instance.bottomSentinel.id);
+    instance.bottomSentinel.remove();
+  }
   const uniqueId = container.id || Math.random().toString(36).substr(2, 5);
   const topSentinel = document.createElement("div");
   topSentinel.id = `${uniqueId}-top-sentinel`;
@@ -1776,7 +1841,9 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
   allChunks[allChunks.length - 1].after(bottomSentinel);
   instance.topSentinel = topSentinel;
   instance.bottomSentinel = bottomSentinel;
+  console.log('   New sentinels - top:', topSentinel.id, 'bottom:', bottomSentinel.id);
   if (instance.observer) {
+    console.log('   Re-attaching observer to new sentinels');
     instance.observer.observe(topSentinel);
     instance.observer.observe(bottomSentinel);
     verbose.content("Sentinels repositioned and observer reattached", 'lazyLoaderFactory.js');

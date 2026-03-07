@@ -39,13 +39,17 @@ const DEBOUNCE_DELAYS = {
 // ================================================================
 
 export class SaveQueue {
-  constructor() {
+  constructor(bookId = null) {
+    this.bookId = bookId;
     // Track what needs to be saved
     this.pendingSaves = {
       nodes: new Map(),
       deletions: new Set(),
       lastActivity: null
     };
+
+    // 🔑 CRITICAL: Track save completion for proper close handling
+    this.currentSavePromise = null;
 
     // ✅ REMOVED: ensureMinimumStructure callback - no longer needed with no-delete-id marker system
 
@@ -64,33 +68,54 @@ export class SaveQueue {
   /**
    * Add node to pending saves queue
    */
-  queueNode(nodeId, action = 'update') {
-    this.pendingSaves.nodes.set(nodeId, { id: nodeId, action });
+  queueNode(IDnumerical, action = 'update', bookId = null) {
+    console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, current pending: ${this.pendingSaves.nodes.size}`);
+    this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
 
-    verbose.content(`Queued node ${nodeId} for ${action}`, 'divEditor/saveQueue.js');
+    verbose.content(`Queued node ${IDnumerical} for ${action}`, 'divEditor/saveQueue.js');
+    console.log(`🎯 SaveQueue: calling debouncedSaveNode`);
     this.debouncedSaveNode();
+    console.log(`🎯 SaveQueue: debouncedSaveNode called, timer started`);
   }
 
   /**
    * Add node to pending deletions queue
-   * Captures UUID from DOM before element is removed
-   * @param {string} nodeId - The node ID
+   * Captures data-node-id and bookId from DOM before element is removed
+   * @param {string} IDnumerical - The numeric DOM id="" value
    * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
+   * @param {string} [explicitBookId] - Optional: explicit bookId (for sub-books where element is detached from DOM)
    */
-  queueDeletion(nodeId, nodeElement = null) {
-    // ✅ NEW: Capture UUID - prefer passed element, fallback to DOM lookup
-    const element = nodeElement || document.getElementById(nodeId);
-    const nodeUUID = element?.getAttribute('data-node-id');
+   queueDeletion(IDnumerical, nodeElement = null, explicitBookId = null) {
+    // ✅ FIX: Capture data-node-id - prefer passed element, fallback to DOM lookup
+    const element = nodeElement || document.getElementById(IDnumerical);
+    const dataNodeID = element?.getAttribute('data-node-id');
 
-    // Store both nodeId and UUID in a Map instead of Set
+    // ✅ FIX: Determine bookId - use explicit if provided, else find from context
+    let finalBookId = explicitBookId;
+    if (!finalBookId) {
+      if (element) {
+        // Check element's closest sub-book container
+        const subBookEl = element.closest('[data-book-id]');
+        if (subBookEl) {
+          finalBookId = subBookEl.dataset.bookId;
+        }
+      }
+      // Fallback to main content if not found
+      if (!finalBookId) {
+        const mainContent = document.querySelector('.main-content');
+        finalBookId = mainContent?.id || this.bookId || 'latest';
+      }
+    }
+
+    // Store both IDnumerical and {dataNodeId, bookId} in a Map instead of Set
     if (!this.pendingSaves.deletionMap) {
       this.pendingSaves.deletionMap = new Map();
     }
-    this.pendingSaves.deletionMap.set(nodeId, nodeUUID);
+    this.pendingSaves.deletionMap.set(IDnumerical, { dataNodeId: dataNodeID, bookId: finalBookId });
 
     // Keep deletions Set for backward compatibility
-    this.pendingSaves.deletions.add(nodeId);
+    this.pendingSaves.deletions.add(IDnumerical);
     this.pendingSaves.lastActivity = Date.now();
 
     // ⚠️ DIAGNOSTIC: Log stack trace when deletion queue grows large
@@ -102,7 +127,7 @@ export class SaveQueue {
       });
     }
 
-    verbose.content(`Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
+    verbose.content(`Queued node ${IDnumerical} for deletion (data-node-id: ${dataNodeID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
     this.debouncedBatchDelete();
   }
 
@@ -110,9 +135,14 @@ export class SaveQueue {
    * Save queued nodes to database
    */
   async saveNodeToDatabase() {
-    if (this.pendingSaves.nodes.size === 0) return;
+    console.log(`🎯 saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`);
+    if (this.pendingSaves.nodes.size === 0) {
+      console.log('🎯 saveNodeToDatabase: no pending nodes, returning');
+      return;
+    }
 
     const nodesToSave = Array.from(this.pendingSaves.nodes.values());
+    console.log(`🎯 saveNodeToDatabase: processing ${nodesToSave.length} nodes`);
     this.pendingSaves.nodes.clear();
 
     verbose.content(`Processing ${nodesToSave.length} pending node saves`, 'divEditor/saveQueue.js');
@@ -121,39 +151,65 @@ export class SaveQueue {
     const additions = nodesToSave.filter(n => n.action === 'add');
     const deletions = nodesToSave.filter(n => n.action === 'delete');
 
-    try {
-      const recordsToUpdate = [...updates, ...additions].filter(node => {
-        const element = document.getElementById(node.id);
-        if (!element) {
-          console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
-          return false;
+    // 🔑 CRITICAL: Create save operation promise for completion tracking
+    this.currentSavePromise = (async () => {
+      try {
+        const recordsToUpdate = [...updates, ...additions].filter(node => {
+          const element = document.getElementById(node.id);
+          if (!element) {
+            console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
+            return false;
+          }
+          return true;
+        });
+
+        if (recordsToUpdate.length > 0) {
+          console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
+
+          // Group records by bookId for correct sub-book saves
+          const recordsByBookId = new Map();
+          for (const record of recordsToUpdate) {
+            const effectiveBookId = record.bookId || this.bookId || null;
+            if (!recordsByBookId.has(effectiveBookId)) {
+              recordsByBookId.set(effectiveBookId, []);
+            }
+            recordsByBookId.get(effectiveBookId).push(record);
+          }
+
+          for (const [bookId, records] of recordsByBookId) {
+            await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
+          }
+
+          console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
+          // ✅ Mark cache dirty after successful saves
+          markCacheDirty();
+          // ✅ Invalidate search index so next search reflects edits
+          invalidateSearchIndex();
+        } else {
+          console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
         }
-        return true;
-      });
 
-      if (recordsToUpdate.length > 0) {
-        await batchUpdateIndexedDBRecords(recordsToUpdate);
-        // ✅ Mark cache dirty after successful saves
-        markCacheDirty();
-        // ✅ Invalidate search index so next search reflects edits
-        invalidateSearchIndex();
+        if (deletions.length > 0) {
+          await Promise.all(deletions.map(node =>
+            deleteIndexedDBRecordWithRetry(node.id)
+          ));
+          // ✅ Mark cache dirty after successful deletions
+          markCacheDirty();
+          // ✅ Invalidate search index so next search reflects edits
+          invalidateSearchIndex();
+        }
+
+      } catch (error) {
+        console.error('❌ Error in batch save:', error);
+        // Re-queue failed saves
+        nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
+      } finally {
+        this.currentSavePromise = null;
       }
-
-      if (deletions.length > 0) {
-        await Promise.all(deletions.map(node =>
-          deleteIndexedDBRecordWithRetry(node.id)
-        ));
-        // ✅ Mark cache dirty after successful deletions
-        markCacheDirty();
-        // ✅ Invalidate search index so next search reflects edits
-        invalidateSearchIndex();
-      }
-
-    } catch (error) {
-      console.error('❌ Error in batch save:', error);
-      // Re-queue failed saves
-      nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
-    }
+    })();
+    
+    // Wait for this save to complete
+    await this.currentSavePromise;
   }
 
   /**
@@ -173,12 +229,34 @@ export class SaveQueue {
       });
     }
 
-    // ✅ NEW: Get UUID map for deleted nodes
-    const deletionMap = this.pendingSaves.deletionMap || new Map();
+    // ✅ FIX: Get deletion data map with data-node-id and bookId for deleted nodes
+    const deletionDataMap = this.pendingSaves.deletionMap || new Map();
 
-    // ✅ OPTIMIZATION: Log UUID capture rate (verbose mode)
-    const uuidsCount = Array.from(deletionMap.values()).filter(Boolean).length;
-    verbose.content(`UUID CAPTURE: ${uuidsCount}/${nodeIdsToDelete.length} nodes have UUIDs (${((uuidsCount/nodeIdsToDelete.length)*100).toFixed(1)}%)`, 'divEditor/saveQueue.js');
+    // ✅ FIX: Group node IDs by bookId for correct deletion
+    const nodesByBookId = new Map();
+    nodeIdsToDelete.forEach(nodeId => {
+      const deletionData = deletionDataMap.get(nodeId);
+      const bookId = deletionData?.bookId || this.bookId || 'latest';
+      if (!nodesByBookId.has(bookId)) {
+        nodesByBookId.set(bookId, []);
+      }
+      nodesByBookId.get(bookId).push(nodeId);
+    });
+
+    // ✅ FIX: Create deletionMap for each book group (containing only data-node-ids)
+    const buildDeletionMapForBook = (nodeIds, bookId) => {
+      const map = new Map();
+      nodeIds.forEach(nodeId => {
+        const data = deletionDataMap.get(nodeId);
+        map.set(nodeId, data?.dataNodeId || null);
+      });
+      return map;
+    };
+
+    // ✅ OPTIMIZATION: Log data-node-id capture rate (verbose mode)
+    const dataNodeIDCount = Array.from(deletionDataMap.values()).filter(v => v?.dataNodeId).length;
+    verbose.content(`DATA-NODE-ID CAPTURE: ${dataNodeIDCount}/${nodeIdsToDelete.length} nodes have data-node-ids (${((dataNodeIDCount/nodeIdsToDelete.length)*100).toFixed(1)}%)`, 'divEditor/saveQueue.js');
+    verbose.content(`BOOK GROUPS: ${nodesByBookId.size} books with nodes to delete`, 'divEditor/saveQueue.js');
 
     this.pendingSaves.deletions.clear();
     this.pendingSaves.deletionMap = new Map(); // Clear the map
@@ -186,8 +264,12 @@ export class SaveQueue {
     verbose.content(`Batch deleting ${nodeIdsToDelete.length} nodes`, 'divEditor/saveQueue.js');
 
     try {
-      await batchDeleteIndexedDBRecords(nodeIdsToDelete, deletionMap);
-      verbose.content(`Batch deleted ${nodeIdsToDelete.length} nodes`, 'divEditor/saveQueue.js');
+      // ✅ FIX: Process deletions grouped by bookId
+      for (const [bookId, nodeIds] of nodesByBookId) {
+        const bookDeletionMap = buildDeletionMapForBook(nodeIds, bookId);
+        await batchDeleteIndexedDBRecords(nodeIds, bookDeletionMap, bookId);
+        verbose.content(`Batch deleted ${nodeIds.length} nodes from book ${bookId}`, 'divEditor/saveQueue.js');
+      }
 
       // ✅ REMOVED: Legacy ensureMinimumDocumentStructure() call from old node-counting system
       // The no-delete-id marker system prevents document from becoming empty, so this is unnecessary
@@ -195,6 +277,13 @@ export class SaveQueue {
       console.error('❌ Error in batch deletion:', error);
       // Re-queue failed deletions
       nodeIdsToDelete.forEach(id => this.pendingSaves.deletions.add(id));
+      // Re-populate the deletionMap with bookIds
+      nodeIdsToDelete.forEach(id => {
+        const data = deletionDataMap.get(id);
+        if (data) {
+          this.pendingSaves.deletionMap.set(id, data);
+        }
+      });
     } finally {
       // ✅ Clear chunk loading flags to re-enable lazy loading
       clearChunkLoadingInProgress();
@@ -210,20 +299,37 @@ export class SaveQueue {
   /**
    * Force save all pending changes immediately
    */
-  flush() {
+  async flush() {
     console.log('🚨 Flushing all pending saves...');
 
     // Clear debounce timers and execute immediately
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
 
+    // 🔑 CRITICAL: Wait for any ongoing save to complete first
+    if (this.currentSavePromise) {
+      console.log('[SaveQueue] Waiting for ongoing save to complete...');
+      await this.currentSavePromise;
+      console.log('[SaveQueue] Ongoing save completed');
+    }
+
+    // Await the async save operations to ensure they complete
     if (this.pendingSaves.nodes.size > 0) {
-      this.saveNodeToDatabase();
+      await this.saveNodeToDatabase();
     }
 
     if (this.pendingSaves.deletions.size > 0) {
-      this.processBatchDeletions();
+      await this.processBatchDeletions();
     }
+    
+    // 🔑 CRITICAL: Wait for any save that started during this flush
+    if (this.currentSavePromise) {
+      console.log('[SaveQueue] Waiting for final save to complete...');
+      await this.currentSavePromise;
+      console.log('[SaveQueue] Final save completed');
+    }
+    
+    console.log('✅ SaveQueue flush complete');
   }
 
   /**

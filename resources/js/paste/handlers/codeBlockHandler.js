@@ -27,7 +27,7 @@ function isCompleteHTML(text) {
  * @param {HTMLElement} chunk - Current chunk element
  * @returns {boolean} - True if handled as code block paste
  */
-export function handleCodeBlockPaste(event, chunk) {
+export function handleCodeBlockPaste(event, chunk, book = null) {
   const plainText = event.clipboardData.getData("text/plain");
   const htmlContent = event.clipboardData.getData("text/html");
 
@@ -55,7 +55,7 @@ export function handleCodeBlockPaste(event, chunk) {
     range.insertNode(textNode);
 
     // Update the code block in IndexedDB
-    queueNodeForSave(codeBlock.id, 'update');
+    queueNodeForSave(codeBlock.id, 'update', book);
 
     return true;
   }

@@ -360,6 +360,11 @@ class EditToolbar {
           }
         );
 
+        // Desktop: prevent focus moving to button on mousedown (preserves selection)
+        element.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+        });
+
         // Keep desktop click handler
         element.addEventListener("click", (e) => {
           e.preventDefault();
@@ -472,16 +477,21 @@ class EditToolbar {
       return;
     }
 
-    // Get book ID from DOM at insertion time
-    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    // Resolve bookId from the selection's DOM position (sub-book aware)
+    const rangeEl = range?.commonAncestorContainer;
+    const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
+    const subBookEl = containerEl?.closest('[data-book-id]');
+    const bookId = subBookEl?.dataset?.bookId
+      || this.currentBookId
+      || document.querySelector('.main-content')?.id;
 
     if (!bookId) {
       console.warn("EditToolbar: Cannot open citation search: no book ID found.");
       return;
     }
-
-    // Get current selection using SelectionManager
-    const { selection, range } = this.selectionManager.getWorkingSelection();
 
     if (!range) {
       console.warn("EditToolbar: Cannot insert citation: no cursor position.");
@@ -500,16 +510,22 @@ class EditToolbar {
    * Insert a footnote at the current cursor position
    */
   async insertFootnote() {
-    // Get book ID from DOM at insertion time (more reliable than cached value)
-    const bookId = document.querySelector('.main-content')?.id || this.currentBookId;
+    // Get current selection using SelectionManager
+    const { selection, range } = this.selectionManager.getWorkingSelection();
+
+    // Walk up from selection to find sub-book container, fall back to main-content
+    const anchorEl = selection?.anchorNode?.nodeType === Node.TEXT_NODE
+      ? selection.anchorNode.parentElement
+      : selection?.anchorNode;
+    const subBookEl = anchorEl?.closest('[data-book-id][contenteditable="true"]');
+    const bookId = subBookEl?.dataset?.bookId
+      || document.querySelector('.main-content')?.id
+      || this.currentBookId;
 
     if (!bookId) {
       console.warn("EditToolbar: Cannot insert footnote: no book ID found.");
       return;
     }
-
-    // Get current selection using SelectionManager
-    const { selection, range } = this.selectionManager.getWorkingSelection();
 
     if (!range) {
       console.warn("EditToolbar: Cannot insert footnote: no cursor position.");
@@ -545,10 +561,17 @@ class EditToolbar {
   async saveToIndexedDB(id, html, options = {}) {
     // `id` here is the string ID from the DOM
     console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
-    if (!this.currentBookId) {
-      console.warn(
-        "EditToolbar: Cannot save to IndexedDB: currentBookId is not set."
-      );
+
+    // Derive the correct book from where the element actually lives in the DOM.
+    // When editing a sub-book the element is inside [data-book-id][contenteditable],
+    // so we use that book ID rather than this.currentBookId (which may still point
+    // to the main book if setBookId(subBookId) hasn't been called yet).
+    const element = document.getElementById(id);
+    const subBookEl = element?.closest('[data-book-id][contenteditable="true"]');
+    const bookId = subBookEl?.dataset?.bookId || this.currentBookId;
+
+    if (!bookId) {
+      console.warn("EditToolbar: Cannot save to IndexedDB: book ID not found.");
       return;
     }
 
@@ -558,7 +581,7 @@ class EditToolbar {
       id: id,
       html: html,
       action: "update", // This action type is used internally by updateSingleIndexedDBRecord
-      book: this.currentBookId,
+      book: bookId,
     }, options);
 
     console.log(

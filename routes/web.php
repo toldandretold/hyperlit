@@ -26,6 +26,11 @@ Route::get('/home', [HomeController::class, 'index']);
 
 // Offline fallback page - now served as static /public/offline.html by Service Worker
 
+// Standalone sub-book route: /based/{subBookId} loads sub-book as full-screen
+Route::get('/based/{subBookId}', [TextController::class, 'showStandalone'])
+     ->where('subBookId', '.+')
+     ->name('book.standalone');
+
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
@@ -240,6 +245,14 @@ Route::get('/{identifier}', function(Request $request, $identifier) {
     return app(TextController::class)->show($request, $identifier);
 })->where('identifier', '[A-Za-z0-9_-]+');
 
+// Deep nesting route: /book/2/Fn.../HL_... loads parent book with auto-open chain
+Route::get('/{book}/{rest}', [TextController::class, 'showNested'])
+     ->where([
+       'book' => '[A-Za-z0-9_-]+',
+       'rest' => '[0-9]+/.+',
+     ])
+     ->name('book.nested');
+
 // Book with hyperlight route
 Route::get('/{book}/{hl?}', [TextController::class, 'show'])
      ->where([
@@ -248,10 +261,15 @@ Route::get('/{book}/{hl?}', [TextController::class, 'show'])
      ])
      ->name('book.show');
 
-// Book with footnote route (footnote IDs contain _Fn or start with Fn)
+// Book with footnote route
+// Matches all known footnote ID formats:
+//   Fn1766534896037_2ksr                        (starts with Fn)
+//   asdf324_Fn1766385828280_2zhg                (_Fn in middle)
+//   ahumada2025_section_1_Fn1766534896037_2ksr  (_Fn in middle)
+//   book_1757846828811Fn175784683098524         (Fn in middle, no preceding _)
 Route::get('/{book}/{fn}', [TextController::class, 'show'])
      ->where([
        'book' => '[A-Za-z0-9_-]+',
-       'fn'   => '(?:Fn\d|[A-Za-z0-9_-]+_Fn)[A-Za-z0-9_-]+'
+       'fn'   => '[A-Za-z0-9_-]*Fn[A-Za-z0-9_-]+'
      ])
      ->name('book.footnote');

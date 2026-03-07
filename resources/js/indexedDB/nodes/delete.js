@@ -32,9 +32,11 @@ export async function deleteIndexedDBRecord(id) {
       return false;
     }
 
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
+    // ✅ FIX: Get book ID from DOM — check sub-book container first
     const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    const element = document.getElementById(id);
+    const subBookFromDom = element?.closest('[data-book-id]');
+    const bookId = subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest";
     const numericId = parseNodeId(id);
 
     const db = await openDatabase();
@@ -68,9 +70,9 @@ export async function deleteIndexedDBRecord(id) {
           chunksStore.delete(key);
 
           try {
-            // ✅ NEW: Get node_id (UUID) from DOM before deletion
+            // ✅ NEW: Get data-node-id from DOM before deletion
             const deletedElement = document.getElementById(numericId);
-            const deletedNodeUUID = deletedElement?.getAttribute('data-node-id');
+            const deletedDataNodeID = deletedElement?.getAttribute('data-node-id');
 
             // ✅ NEW: Update hyperlights - remove this node from multi-node highlights
             // We need to scan ALL highlights for this book to find ones affecting this node
@@ -89,7 +91,7 @@ export async function deleteIndexedDBRecord(id) {
                 const affectsDeletedNode =
                   highlight.startLine === numericId || // OLD schema check
                   (highlight.node_id && Array.isArray(highlight.node_id) &&
-                   deletedNodeUUID && highlight.node_id.includes(deletedNodeUUID)); // NEW schema check
+                   deletedDataNodeID && highlight.node_id.includes(deletedDataNodeID)); // NEW schema check
 
                 if (affectsDeletedNode) {
                   affectedHighlights++;
@@ -101,8 +103,8 @@ export async function deleteIndexedDBRecord(id) {
                     if (!highlight._deleted_nodes) {
                       highlight._deleted_nodes = [];
                     }
-                    if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
-                      highlight._deleted_nodes.push(deletedNodeUUID);
+                    if (deletedDataNodeID && !highlight._deleted_nodes.includes(deletedDataNodeID)) {
+                      highlight._deleted_nodes.push(deletedDataNodeID);
                     }
 
                     // DON'T remove from node_id or charData yet - cleanup happens during update
@@ -113,14 +115,14 @@ export async function deleteIndexedDBRecord(id) {
                   } else {
                     // Single-node highlight - mark as orphaned (might migrate to another node)
                     highlight._orphaned_at = Date.now();
-                    highlight._orphaned_from_node = deletedNodeUUID || numericId.toString();
+                    highlight._orphaned_from_node = deletedDataNodeID || numericId.toString();
 
                     // ✅ Track deleted node for cleanup during next save
                     if (!highlight._deleted_nodes) {
                       highlight._deleted_nodes = [];
                     }
-                    if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
-                      highlight._deleted_nodes.push(deletedNodeUUID);
+                    if (deletedDataNodeID && !highlight._deleted_nodes.includes(deletedDataNodeID)) {
+                      highlight._deleted_nodes.push(deletedDataNodeID);
                     }
 
                     // ✅ KEEP node_id and charData for now - needed for rendering during migration window
@@ -150,7 +152,7 @@ export async function deleteIndexedDBRecord(id) {
                 // Check if this hypercite affects the deleted node
                 const affectsDeletedNode =
                   (hypercite.node_id && Array.isArray(hypercite.node_id) &&
-                   deletedNodeUUID && hypercite.node_id.includes(deletedNodeUUID));
+                   deletedDataNodeID && hypercite.node_id.includes(deletedDataNodeID));
 
                 if (affectsDeletedNode) {
                   affectedHypercites++;
@@ -162,8 +164,8 @@ export async function deleteIndexedDBRecord(id) {
                     if (!hypercite._deleted_nodes) {
                       hypercite._deleted_nodes = [];
                     }
-                    if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
-                      hypercite._deleted_nodes.push(deletedNodeUUID);
+                    if (deletedDataNodeID && !hypercite._deleted_nodes.includes(deletedDataNodeID)) {
+                      hypercite._deleted_nodes.push(deletedDataNodeID);
                     }
 
                     // DON'T remove from node_id or charData yet - cleanup happens during update
@@ -174,14 +176,14 @@ export async function deleteIndexedDBRecord(id) {
                   } else {
                     // Single-node hypercite - mark as orphaned (might migrate to another node)
                     hypercite._orphaned_at = Date.now();
-                    hypercite._orphaned_from_node = deletedNodeUUID || numericId.toString();
+                    hypercite._orphaned_from_node = deletedDataNodeID || numericId.toString();
 
                     // ✅ Track deleted node for cleanup during next save
                     if (!hypercite._deleted_nodes) {
                       hypercite._deleted_nodes = [];
                     }
-                    if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
-                      hypercite._deleted_nodes.push(deletedNodeUUID);
+                    if (deletedDataNodeID && !hypercite._deleted_nodes.includes(deletedDataNodeID)) {
+                      hypercite._deleted_nodes.push(deletedDataNodeID);
                     }
 
                     // ✅ KEEP node_id and charData for now - needed for rendering during migration window

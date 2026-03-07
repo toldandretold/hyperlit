@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs, updateBookTimestamp } from '../indexedDB/index.js';
+import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs, updateBookTimestamp } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -12,6 +12,8 @@ import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
 import { withPending } from '../utilities/operationState.js';
+import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
+import { isStackPopping } from '../hyperlitContainer/stack.js';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;
@@ -133,6 +135,9 @@ function cleanupEmptyElements() {
  * Handle text selection and show/hide highlight buttons
  */
 export function handleSelection() {
+  // Suppress during stack pop — DOM is being torn down, layout reflows freeze the UI
+  if (isStackPopping()) return;
+
   // If the source container is open, don't do anything here.
   if (window.activeContainer === "source-container") {
     console.log("Source container is active; skipping hyperlight button toggling.");
@@ -155,6 +160,14 @@ export function handleSelection() {
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const selectionRange = selection.getRangeAt(0);
+
+    // Suppress buttons when selecting inside citation/reference containers
+    const anchor = selectionRange.commonAncestorContainer;
+    const anchorEl = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+    if (anchorEl?.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) {
+      document.getElementById("hyperlight-buttons").style.display = "none";
+      return;
+    }
 
     highlights.forEach(function (highlight) {
       // Check if the selection intersects with this highlight element
@@ -184,6 +197,21 @@ export function handleSelection() {
         }
       }
     });
+  }
+
+  // Detect whether the selection lives inside a sub-book and update active context
+  if (selection.rangeCount > 0) {
+    const anchor = selection.getRangeAt(0).commonAncestorContainer;
+    const subBookEl = (anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement
+      : anchor
+    ).closest('[data-book-id]');
+
+    if (subBookEl) {
+      setActiveBook(subBookEl.getAttribute('data-book-id'));
+    } else {
+      clearActiveBook();
+    }
   }
 
   if (selectedText.length > 0) {
@@ -268,12 +296,12 @@ export function initializeHighlightingControls(currentBookId) {
   }
 
   // --- Attach Listeners for the Action Buttons ---
-  // We pass the currentBookId into the handlers to avoid stale state.
+  // Call getActiveBook() at click time so sub-book context is always current.
   addTouchAndClickListener(copyButton, (event) =>
-    createHighlightHandler(event, currentBookId)
+    createHighlightHandler(event, getActiveBook())
   );
   addTouchAndClickListener(deleteButton, (event) =>
-    deleteHighlightHandler(event, currentBookId)
+    deleteHighlightHandler(event, getActiveBook())
   );
 
   // Prevent iOS from cancelling selection
@@ -374,25 +402,43 @@ export async function createHighlightHandler(event, bookId) {
   fixInvalidMarks();
 
   const newMarks = document.querySelectorAll('mark.highlight');
-  console.log("🎨 After rangy - created marks:", newMarks.length, Array.from(newMarks).map(m => ({
-    text: m.textContent,
-    parent: m.parentElement.tagName,
-    parentId: m.parentElement.id
-  })));
+  console.log("🎨 After rangy - created marks:", newMarks.length);
+  
+  // 🔍 DETAILED LOGGING: Show each mark's context
+  Array.from(newMarks).forEach((mark, idx) => {
+    const parent = mark.parentElement;
+    const dataNodeId = parent?.getAttribute('data-node-id') || 'NO data-node-id';
+    const parentId = parent?.id || 'NO id';
+    const subBook = mark.closest('[data-book-id]');
+    const subBookId = subBook?.getAttribute('data-book-id') || 'NO sub-book';
+    const containerType = parent?.tagName || 'UNKNOWN';
+    
+    console.log(`🔍 Mark ${idx}: text="${mark.textContent.substring(0,30)}" | data-node-id="${dataNodeId}" | parent.id="${parentId}" | sub-book="${subBookId}" | type=${containerType}`);
+  });
 
   modifyNewMarks(highlightId);
 
   // Find all affected nodes
   const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
+  console.log(`🔍 After modifyNewMarks: found ${affectedMarks.length} marks with class ${highlightId}`);
+  
   const affectedIds = new Set();
+  const affectedElements = new Map();
   const updatedNodeChunks = [];
 
-  affectedMarks.forEach((mark) => {
+  affectedMarks.forEach((mark, idx) => {
     const container = mark.closest(
       "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
     );
     if (container && container.id) {
+      const dataNodeId = container.getAttribute('data-node-id') || 'NO data-node-id';
+      const subBook = container.closest('[data-book-id]');
+      const subBookId = subBook?.getAttribute('data-book-id') || 'main-content';
+      
+      console.log(`🔍 Affected mark ${idx}: container.id="${container.id}" | data-node-id="${dataNodeId}" | sub-book="${subBookId}"`);
+      
       affectedIds.add(container.id);
+      affectedElements.set(container.id, container);
     }
   });
 
@@ -406,7 +452,7 @@ export async function createHighlightHandler(event, bookId) {
     const isEnd = chunkId === endContainer.id;
 
     const cleanLength = (() => {
-      const textElem = document.getElementById(chunkId);
+      const textElem = affectedElements.get(chunkId);
       const cleanElem = textElem.cloneNode(true);
 
       // Remove ALL HTML elements to get clean text length (consistent with calculateCleanTextOffset)
@@ -441,7 +487,7 @@ export async function createHighlightHandler(event, bookId) {
     const endOffset = isEnd ? cleanEndOffset : cleanLength;
 
     // ✅ NEW: Store per-node positions for new charData structure
-    const element = document.getElementById(chunkId);
+    const element = affectedElements.get(chunkId);
     const nodeId = element?.getAttribute('data-node-id') || chunkId;  // Fallback to startLine if no data-node-id
 
     nodeIdMap[chunkId] = nodeId;
@@ -483,8 +529,8 @@ export async function createHighlightHandler(event, bookId) {
       console.log('✅ NEW SYSTEM: Hyperlight saved to normalized table');
 
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-      const affectedNodeUUIDs = Object.keys(charDataByNode);
-      const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+      const affectedDataNodeIDs = Object.keys(charDataByNode);
+      const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
       await rebuildNodeArrays(affectedNodes);
 
       console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);

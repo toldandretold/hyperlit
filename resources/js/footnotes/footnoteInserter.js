@@ -93,6 +93,11 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
         supElement.setAttribute('fn-count-id', displayNumber.toString());
         supElement.textContent = displayNumber.toString();
         console.log(`Footnote ${footnoteId} assigned display number: ${displayNumber}`);
+        // Also update the sup inside the hyperlit container if it's currently open for this footnote
+        const containerSup = document.querySelector(`#hyperlit-container .footnotes-section[data-footnote-id="${footnoteId}"] .footnote-number`);
+        if (containerSup) {
+          containerSup.textContent = displayNumber.toString();
+        }
       }
     });
   });

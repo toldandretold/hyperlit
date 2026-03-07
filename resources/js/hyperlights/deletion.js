@@ -5,6 +5,8 @@
 import { openDatabase, updateBookTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { attachMarkListeners } from './listeners.js';
+import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
+import { getCascadeOriginId } from '../scrolling.js';
 
 /**
  * Unwrap a mark element, preserving its content
@@ -54,7 +56,7 @@ export async function deleteHighlightById(highlightId) {
 
     // Remove the highlight class from DOM marks, but preserve other classes
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
-    const affectedNodeIds = new Set();
+    const affectedIDnumericals = new Set();
 
     markElements.forEach(mark => {
       // Remove just this highlight's class
@@ -83,7 +85,7 @@ export async function deleteHighlightById(highlightId) {
       // Track which nodes were affected for re-applying highlights
       const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
       if (container && container.id) {
-        affectedNodeIds.add(container.id);
+        affectedIDnumericals.add(container.id);
       }
     });
 
@@ -109,11 +111,11 @@ export async function deleteHighlightById(highlightId) {
     */
 
     console.log(`✅ Successfully deleted highlight: ${highlightId}`);
-    console.log(`📝 Affected nodes: ${Array.from(affectedNodeIds).join(', ')}`);
+    console.log(`📝 Affected nodes: ${Array.from(affectedIDnumericals).join(', ')}`);
 
     return {
       success: true,
-      affectedNodes: Array.from(affectedNodeIds),
+      affectedNodes: Array.from(affectedIDnumericals),
       deletedHighlight: deletedHyperlight
     };
 
@@ -158,7 +160,7 @@ export async function hideHighlightById(highlightId) {
 
     // Remove the highlight class from DOM marks, but preserve other classes (same as delete)
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
-    const affectedNodeIds = new Set();
+    const affectedIDnumericals = new Set();
 
     markElements.forEach(mark => {
       // Remove just this highlight's class
@@ -189,7 +191,7 @@ export async function hideHighlightById(highlightId) {
       // Track which nodes were affected for re-applying highlights
       const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
       if (container && container.id) {
-        affectedNodeIds.add(container.id);
+        affectedIDnumericals.add(container.id);
       }
     });
 
@@ -212,11 +214,11 @@ export async function hideHighlightById(highlightId) {
     // DON'T queue nodeChunk updates - PostgreSQL nodes should keep the highlight data
 
     console.log(`✅ Successfully hidden highlight: ${highlightId}`);
-    console.log(`📝 Affected nodes: ${Array.from(affectedNodeIds).join(', ')}`);
+    console.log(`📝 Affected nodes: ${Array.from(affectedIDnumericals).join(', ')}`);
 
     return {
       success: true,
-      affectedNodes: Array.from(affectedNodeIds),
+      affectedNodes: Array.from(affectedIDnumericals),
       hiddenHighlight: hiddenHyperlight
     };
 
@@ -232,8 +234,8 @@ export async function hideHighlightById(highlightId) {
  * @param {string} bookId - The book ID
  * @param {Array<string>} affectedNodeIds - Array of node IDs to reprocess
  */
-export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
-  console.log(`🔄 Reprocessing highlights for nodes:`, affectedNodeIds);
+export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals) {
+  console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
 
   try {
     const { applyHighlights } = await import('../lazyLoaderFactory.js');
@@ -241,83 +243,106 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
     // Get the updated node chunks which should have the correct hyperlights after deletion
     const nodes = await getNodeChunksFromIndexedDB(bookId);
 
-    // Process each affected node
-    for (const nodeId of affectedNodeIds) {
-      const nodeElement = document.getElementById(nodeId);
-      if (!nodeElement) {
-        console.warn(`Node ${nodeId} not found in DOM`);
-        continue;
-      }
-
-      // Find the node data with its current highlights
-      const nodeData = nodes.find(chunk => chunk.startLine == nodeId);
-      if (!nodeData) {
-        console.warn(`Node data not found for ${nodeId}`);
-        continue;
-      }
-
-      // Get highlights that apply to this node from the node data
-      const nodeHighlights = nodeData.hyperlights || [];
-
-      if (nodeHighlights.length === 0) {
-        // No highlights left - just remove all marks (silently)
-        const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
-        if (existingMarks.length > 0) {
-          existingMarks.forEach(mark => {
-            const parent = mark.parentNode;
-            parent.replaceChild(document.createTextNode(mark.textContent), mark);
-            parent.normalize();
-          });
+    // Flag programmatic update to suppress false isolation breach warnings from MutationObserver
+    setProgrammaticUpdateInProgress(true);
+    try {
+      // Process each affected node
+      for (const IDnumerical of affectedIDnumericals) {
+        // Scope to sub-book container to avoid cross-book ID collisions
+        // (numeric IDs like "1" exist in every sub-book)
+        const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+          || document.getElementById(bookId);
+        const nodeElement = bookContainer
+          ? bookContainer.querySelector(`[id="${IDnumerical}"]`)
+          : document.getElementById(IDnumerical);
+        if (!nodeElement) {
+          console.warn(`Node ${IDnumerical} not found in DOM`);
+          continue;
         }
-        continue;
+
+        // Find the node data with its current highlights
+        const nodeData = nodes.find(chunk => chunk.startLine == IDnumerical);
+        if (!nodeData) {
+          console.warn(`Node data not found for ${IDnumerical}`);
+          continue;
+        }
+
+        // Get highlights that apply to this node from the node data
+        const nodeHighlights = nodeData.hyperlights || [];
+
+        if (nodeHighlights.length === 0) {
+          // No highlights left - just remove all marks (silently)
+          const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
+          if (existingMarks.length > 0) {
+            existingMarks.forEach(mark => {
+              const parent = mark.parentNode;
+              parent.replaceChild(document.createTextNode(mark.textContent), mark);
+              parent.normalize();
+            });
+          }
+          continue;
+        }
+
+        console.log(`Node ${IDnumerical} has ${nodeHighlights.length} highlights to apply`);
+
+        // Get the plain text content by removing existing marks
+        let plainText = nodeElement.textContent || '';
+
+        // Remove all existing marks from this node
+        const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
+        existingMarks.forEach(mark => {
+          unwrapMark(mark);
+          mark.parentNode?.normalize();
+        });
+
+        // Get the clean HTML and re-apply highlights with correct segmentation
+        const cleanHtml = nodeElement.innerHTML;
+        console.log(`Applying highlights to clean HTML for node ${IDnumerical}:`, nodeHighlights.map(h => h.highlightID));
+        let newHtml = applyHighlights(cleanHtml, nodeHighlights, bookId);
+
+        // ✅ CRITICAL: Also re-apply hypercites (same order as lazy loader)
+        // Without this, hypercite <u> tags are stripped when innerHTML is replaced
+        const nodeHypercites = nodeData.hypercites || [];
+        if (nodeHypercites.length > 0) {
+          console.log(`Also applying ${nodeHypercites.length} hypercites to node ${IDnumerical}`);
+          const { applyHypercites } = await import('../lazyLoaderFactory.js');
+          newHtml = applyHypercites(newHtml, nodeHypercites);
+        }
+
+        console.log(`Original HTML length: ${cleanHtml.length}, New HTML length: ${newHtml.length}`);
+        console.log(`Clean HTML: ${cleanHtml.substring(0, 100)}...`);
+        console.log(`New HTML: ${newHtml.substring(0, 100)}...`);
+
+        nodeElement.innerHTML = newHtml;
+
+        // Verify the highlights were applied
+        const appliedMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
+        console.log(`✅ Reprocessed highlights for node ${IDnumerical}: ${nodeHighlights.length} highlights, ${appliedMarks.length} marks applied`);
       }
 
-      console.log(`Node ${nodeId} has ${nodeHighlights.length} highlights to apply`);
+      // Re-attach mark listeners to the new elements
+      attachMarkListeners();
 
-      // Get the plain text content by removing existing marks
-      let plainText = nodeElement.textContent || '';
+      // ✅ Re-attach hypercite listeners to the new elements
+      // innerHTML replacement destroys and recreates DOM elements, losing their event listeners
+      const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+      attachUnderlineClickListeners();
 
-      // Remove all existing marks from this node
-      const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
-      existingMarks.forEach(mark => {
-        unwrapMark(mark);
-        mark.parentNode?.normalize();
+      // Re-apply cascade-origin glow if the target mark was recreated
+      const cascadeId = getCascadeOriginId();
+      if (cascadeId) {
+        const cascadeMark = document.querySelector(`mark.${CSS.escape(cascadeId)}`);
+        if (cascadeMark) {
+          cascadeMark.classList.add('cascade-origin');
+        }
+      }
+    } finally {
+      requestAnimationFrame(() => {
+        setProgrammaticUpdateInProgress(false);
       });
-
-      // Get the clean HTML and re-apply highlights with correct segmentation
-      const cleanHtml = nodeElement.innerHTML;
-      console.log(`Applying highlights to clean HTML for node ${nodeId}:`, nodeHighlights.map(h => h.highlightID));
-      let newHtml = applyHighlights(cleanHtml, nodeHighlights, bookId);
-
-      // ✅ CRITICAL: Also re-apply hypercites (same order as lazy loader)
-      // Without this, hypercite <u> tags are stripped when innerHTML is replaced
-      const nodeHypercites = nodeData.hypercites || [];
-      if (nodeHypercites.length > 0) {
-        console.log(`Also applying ${nodeHypercites.length} hypercites to node ${nodeId}`);
-        const { applyHypercites } = await import('../lazyLoaderFactory.js');
-        newHtml = applyHypercites(newHtml, nodeHypercites);
-      }
-
-      console.log(`Original HTML length: ${cleanHtml.length}, New HTML length: ${newHtml.length}`);
-      console.log(`Clean HTML: ${cleanHtml.substring(0, 100)}...`);
-      console.log(`New HTML: ${newHtml.substring(0, 100)}...`);
-
-      nodeElement.innerHTML = newHtml;
-
-      // Verify the highlights were applied
-      const appliedMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
-      console.log(`✅ Reprocessed highlights for node ${nodeId}: ${nodeHighlights.length} highlights, ${appliedMarks.length} marks applied`);
     }
 
-    // Re-attach mark listeners to the new elements
-    attachMarkListeners();
-
-    // ✅ Re-attach hypercite listeners to the new elements
-    // innerHTML replacement destroys and recreates DOM elements, losing their event listeners
-    const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
-    attachUnderlineClickListeners();
-
-    console.log(`✅ Completed reprocessing highlights for ${affectedNodeIds.length} nodes`);
+    console.log(`✅ Completed reprocessing highlights for ${affectedIDnumericals.length} nodes`);
 
   } catch (error) {
     console.error(`❌ Error reprocessing highlights:`, error);

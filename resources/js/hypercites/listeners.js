@@ -9,6 +9,7 @@ import { handleCopyEvent } from './copy.js';
 import { handleUnderlineClick } from './navigation.js';
 import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
 import { log, verbose } from '../utilities/logger.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 
 // Module-level variable to track active listeners
 let activeHyperciteListeners = null;
@@ -129,7 +130,7 @@ export function initializeHypercitingControls(currentBookId) {
   };
 
   const eventHandler = (event) => {
-    handleCopyEvent(event, currentBookId);
+    handleCopyEvent(event, getActiveBook());
   };
 
   // 3. Store the new listeners so we can remove them later

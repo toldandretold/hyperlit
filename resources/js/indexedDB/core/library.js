@@ -6,6 +6,7 @@
 import { openDatabase } from './connection.js';
 import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 import { buildBibtexEntry } from '../../utilities/bibtexProcessor.js';
+import { parseSubBookId } from '../../utilities/subBookIdHelper.js';
 
 // Dependencies
 let book, queueForSync;
@@ -137,6 +138,20 @@ export async function updateBookTimestamp(bookId = book || "latest") {
         putRequest.onsuccess = () => {
           // Library timestamp updates are always side-effects, never clear redo history
           queueForSync("library", bookId, "update", recordToSave, originalRecord, true);
+
+          // Sub-book → also update parent book
+          // Footnote edits touch parent's content timestamp;
+          // highlight annotation edits touch parent's annotations_updated_at
+          if (bookId.includes('/')) {
+            const { foundation, itemId } = parseSubBookId(bookId);
+            if (itemId?.startsWith('HL_')) {
+              updateAnnotationsTimestamp(foundation).catch(() => {});
+            } else {
+              // Footnotes (Fn*) and any other sub-book types → parent timestamp
+              updateBookTimestamp(foundation).catch(() => {});
+            }
+          }
+
           resolve(true);
         };
       };
@@ -323,6 +338,29 @@ export async function updateLocalAnnotationsTimestamp(bookId, timestamp) {
   } catch (error) {
     console.error("❌ Failed to update annotations timestamp:", error);
     return false;
+  }
+}
+
+/**
+ * Fetch library record from server API.
+ * Works for both regular books and sub-books (server has route for both).
+ * @param {string} bookId - Book or sub-book identifier (e.g. "myBook" or "myBook/Fn123")
+ * @returns {Promise<Object|null>} Library record or null
+ */
+export async function getLibraryRecordFromServer(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.success ? data.library : null;
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch library record for ${bookId}:`, err);
+    return null;
   }
 }
 

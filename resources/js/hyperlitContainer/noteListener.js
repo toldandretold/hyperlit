@@ -11,6 +11,7 @@ import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from '../utilities/BroadcastListener.js';
+import { getCurrentContainer } from './stack.js';
 
 // Track debounce timers by ID
 const debounceTimers = new Map();
@@ -78,7 +79,7 @@ function handleSupEscape(e) {
  * Uses event delegation - one set of listeners handles all editables
  */
 export function attachNoteListeners() {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container || isAttached) return;
 
   inputHandler = handleInput;
@@ -109,7 +110,7 @@ export function attachNoteListeners() {
  * Flushes any pending saves before detaching listeners
  */
 export function detachNoteListeners() {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container || !isAttached) return;
 
   container.removeEventListener('input', inputHandler);
@@ -393,7 +394,7 @@ async function processHypercitePaste(clipboardHtml, contentId) {
  * Call after content is loaded
  */
 export function initializePlaceholders() {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return;
 
   // Check all annotations

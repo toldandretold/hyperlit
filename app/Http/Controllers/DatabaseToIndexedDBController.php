@@ -56,6 +56,8 @@ class DatabaseToIndexedDBController extends Controller
 
         // Book is private - check authorization (is_owner computed inside SECURITY DEFINER function)
         if ($bookInfo->visibility === 'private' && !$bookInfo->is_owner) {
+            $authorized = false;
+            $anonymousToken = $request->cookie('anon_token');
             $user = Auth::user();
 
             Log::warning('🔒 Private book access denied', [
@@ -63,12 +65,36 @@ class DatabaseToIndexedDBController extends Controller
                 'user' => $user ? $user->name : 'anonymous',
             ]);
 
-            return response()->json([
-                'error' => 'access_denied',
-                'message' => 'You do not have permission to access this private book',
-                'is_private' => true,
-                'book_id' => $bookId
-            ], 403);
+            // Check creator (username-based auth)
+            if ($user && $bookInfo->creator === $user->name) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via username', [
+                    'book_id' => $bookId,
+                    'user' => $user->name
+                ]);
+            }
+            // Check creator_token (anonymous token-based auth)
+            elseif (!$user && $anonymousToken && ($bookInfo->creator_token ?? null) === $anonymousToken) {
+                $authorized = true;
+                Log::info('📗 Private book access granted via anonymous token', [
+                    'book_id' => $bookId
+                ]);
+            }
+
+            if (!$authorized) {
+                Log::warning('🔒 Private book access denied', [
+                    'book_id' => $bookId,
+                    'user' => $user ? $user->name : 'anonymous',
+                    'has_token' => !empty($anonymousToken)
+                ]);
+
+                return response()->json([
+                    'error' => 'access_denied',
+                    'message' => 'You do not have permission to access this private book',
+                    'is_private' => true,
+                    'book_id' => $bookId
+                ], 403);
+            }
         }
 
         // Authorized - no error response needed
@@ -280,6 +306,9 @@ class DatabaseToIndexedDBController extends Controller
                     'charStart' => $nodeCharData['charStart'],
                     'charEnd' => $nodeCharData['charEnd'],
                     'annotation' => $hl->annotation,
+                    'preview_nodes' => $hl->preview_nodes
+                        ? json_decode($hl->preview_nodes, true)
+                        : null,
                     'time_since' => $hl->time_since,
                     'hidden' => $hl->hidden ?? false,
                     'is_user_highlight' => $lookup[$hl->hyperlight_id]['is_user_highlight'] ?? false
@@ -345,10 +374,14 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // Convert to the format expected by the frontend
         $footnotesData = [];
         foreach ($footnotes as $footnote) {
-            $footnotesData[$footnote->footnoteId] = $footnote->content;
+            $footnotesData[$footnote->footnoteId] = [
+                'content'       => $footnote->content,
+                'preview_nodes' => $footnote->preview_nodes
+                    ? json_decode($footnote->preview_nodes, true)
+                    : null,
+            ];
         }
 
         return [
@@ -462,6 +495,9 @@ class DatabaseToIndexedDBController extends Controller
                     'node_id' => json_decode($hyperlight->node_id ?? '[]', true),
                     'charData' => json_decode($hyperlight->charData ?? '{}', true),
                     'annotation' => $hyperlight->annotation,
+                    'preview_nodes' => $hyperlight->preview_nodes
+                        ? json_decode($hyperlight->preview_nodes, true)
+                        : null,
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
                     'startLine' => $hyperlight->startLine,
@@ -683,6 +719,32 @@ class DatabaseToIndexedDBController extends Controller
                 'error' => 'Internal server error'
             ], 500);
         }
+    }
+
+    /**
+     * Get full sub-book data for IndexedDB import.
+     * Sub-book IDs are two segments: {parentBook}/{subId} (e.g. TheBible/HL_12345).
+     * Delegates to getBookData() with the reconstructed full ID.
+     */
+    public function getSubBookData(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookData($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get sub-book metadata for cache validation.
+     */
+    public function getSubBookMetadata(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookMetadata($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get sub-book library record.
+     */
+    public function getSubBookLibrary(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getBookLibrary($request, $parentBook . '/' . $subId);
     }
 
     /**

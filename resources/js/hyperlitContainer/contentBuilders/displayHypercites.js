@@ -170,12 +170,18 @@ export async function buildHyperciteContent(contentType, db = null) {
           const pathParts = urlPart.split("/");
           for (let i = 0; i < pathParts.length; i++) {
             if (pathParts[i].startsWith("HL_") && i > 0) {
-              bookID = pathParts[i-1];
+              // Walk backwards, skipping Fn* segments and numeric-only segments (page numbers)
+              for (let j = i - 1; j >= 0; j--) {
+                if (pathParts[j] && !(/^Fn\d/.test(pathParts[j])) && !(/^\d+$/.test(pathParts[j]))) {
+                  bookID = pathParts[j];
+                  break;
+                }
+              }
               break;
             }
           }
           if (!bookID) {
-            bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
+            bookID = pathParts.filter(part => part && !part.startsWith("HL_") && !(/^Fn\d/.test(part)) && !(/^\d+$/.test(part)))[0] || "";
           }
         } else if (isFootnoteURL) {
           // Old format: "/bookId_Fn..." or "/book/bookId_Fn..."
@@ -268,10 +274,12 @@ export async function buildHyperciteContent(contentType, db = null) {
 
           // Get library data from cached map
           let libraryData = libraryDataMap.get(bookID);
+          console.log(`📚 Library lookup for bookID: "${bookID}", IndexedDB hit: ${!!libraryData}, has bibtex: ${!!libraryData?.bibtex}`);
 
           // Fallback to server if not in IndexedDB
           if (!libraryData || !libraryData.bibtex) {
             libraryData = await fetchLibraryFromServer(bookID);
+            console.log(`📡 Server fetch result for "${bookID}": ${libraryData ? 'found' : 'null'}, bibtex: ${!!libraryData?.bibtex}`);
           }
 
           if (libraryData && libraryData.bibtex) {
@@ -285,10 +293,12 @@ export async function buildHyperciteContent(contentType, db = null) {
               ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-left: -20px; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
               : '';
 
-            const citationText = isHyperlightURL
-              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
+            const citationText = (isHyperlightURL && isFootnoteURL)
+              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> within a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
+              : isHyperlightURL
+              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> within ${formattedCitation}`
               : isFootnoteURL
-              ? `${lockIcon}a <span id="citedInFootnote">Footnote</span> in ${formattedCitation}`
+              ? `${lockIcon}a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
               : `${lockIcon}${formattedCitation}`;
 
             // Add data attributes for private books to enable deferred auth checking
@@ -302,8 +312,17 @@ export async function buildHyperciteContent(contentType, db = null) {
           } else {
             // Sanitize URL to prevent javascript: protocol XSS
             const safeHref = sanitizeUrl(citationID);
-            const displayUrl = DOMPurify.sanitize(citationID, { ALLOWED_TAGS: [] });
-            return `<a href="${safeHref}" class="citation-link" data-content-id="${hyperciteId}">${displayUrl}${managementButtonsHtml}</a>`;
+            // Graceful fallback: show location description + bookID instead of raw URL
+            const locationText = (isHyperlightURL && isFootnoteURL)
+              ? 'a Hyperlight within a Footnote within'
+              : isHyperlightURL ? 'a Hyperlight within'
+              : isFootnoteURL ? 'a Footnote within'
+              : '';
+            const displayBookID = DOMPurify.sanitize(bookID, { ALLOWED_TAGS: [] });
+            const linkText = locationText
+              ? `${locationText} ${displayBookID}`
+              : displayBookID;
+            return `<blockquote>${linkText} <a href="${safeHref}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
           }
         })
       );
@@ -914,7 +933,7 @@ export async function handleHyperciteDelete(event) {
     const { closeHyperlitContainer } = await import('../core.js');
 
     // Close container and reload to show updated state
-    closeHyperlitContainer();
+    await closeHyperlitContainer();
     console.log('✅ Removed citation successfully');
     return;
   } catch (error) {

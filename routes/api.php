@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\DbNodeChunkController;
+use App\Http\Controllers\SubBookController;
 use App\Http\Controllers\DbHyperlightController;
 use App\Http\Controllers\DbHyperciteController;
 use App\Http\Controllers\DbLibraryController;
@@ -172,6 +173,10 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
 
+    /* ----------------  Sub-Books  ---------------- */
+    Route::post('/db/sub-books/create', [SubBookController::class, 'create']);
+    Route::post('/db/sub-books/migrate-existing', [SubBookController::class, 'migrateExisting']);
+
     /* ----------------  Node History / Version Control  ---------------- */
     // Get all versions of a specific node
     Route::get(
@@ -210,20 +215,37 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     );
 });
 
+// Chain resolution for SPA cross-book navigation (level 3+ sub-books)
+Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController::class, 'resolveChainApi'])
+    ->where(['book' => '[A-Za-z0-9_-]+', 'rest' => '[0-9]+/.+'])
+    ->name('api.resolve-chain');
+
 // API routes for transferring data from database to IndexedDB
 Route::prefix('database-to-indexeddb')->group(function () {
     // Get list of available books
     Route::get('books', [DatabaseToIndexedDBController::class, 'getAvailableBooks'])
         ->name('api.database-to-indexeddb.books');
-    
+
+    // Sub-book routes ({subId} allows slashes for nested IDs like "2/HL_123/HL_456")
+    // Must be defined before the single-segment routes to avoid {bookId} swallowing the slash.
+    Route::get('books/{parentBook}/{subId}/data', [DatabaseToIndexedDBController::class, 'getSubBookData'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-data');
+    Route::get('books/{parentBook}/{subId}/metadata', [DatabaseToIndexedDBController::class, 'getSubBookMetadata'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-metadata');
+    Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-library');
+
     // Get full book data for IndexedDB import
     Route::get('books/{bookId}/data', [DatabaseToIndexedDBController::class, 'getBookData'])
         ->name('api.database-to-indexeddb.book-data');
-    
+
     // Get just metadata (for checking if update needed)
     Route::get('books/{bookId}/metadata', [DatabaseToIndexedDBController::class, 'getBookMetadata'])
         ->name('api.database-to-indexeddb.book-metadata');
-    
+
     // Get just library data for a specific book
     Route::get('books/{bookId}/library', [DatabaseToIndexedDBController::class, 'getBookLibrary'])
         ->name('api.database-to-indexeddb.book-library');

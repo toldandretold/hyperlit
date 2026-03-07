@@ -5,7 +5,7 @@
  * Handles creation, retrieval, and updates of hypercite records.
  */
 
-import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
+import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByDataNodeIDs } from '../indexedDB/index.js';
 import { findParentWithNumericalId } from './utils.js';
 
 /**
@@ -195,16 +195,19 @@ export function collectHyperciteData(hyperciteId, wrapper) {
 
   console.log(`📍 Calculated positions for ${hyperciteId}: charStart=${charStart}, charEnd=${charEnd}`);
 
-  // Don't store the entire outerHTML, just the necessary information
+  // Get correct book + dataNodeId from the DOM element we already found
+  const dataNodeId = parentElement.getAttribute('data-node-id');
+  const nodeBook = parentElement.closest('[data-book-id]')?.getAttribute('data-book-id') || null;
+
   return [
     {
       startLine: parentId,
+      dataNodeId,    // correct node ID from correct element (avoids getElementById collision)
+      nodeBook,      // the node's actual book from DOM context
       charStart: charStart,
       charEnd: charEnd,
-      // Don't include the full HTML, just the ID and type
       elementType: parentElement.tagName.toLowerCase(),
       hyperciteId: hyperciteId,
-      id: parentElement.id,
     },
   ];
 }
@@ -260,13 +263,12 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const charDataByNode = {};
 
     for (const block of blocks) {
-      // Get the DOM element for this block
-      const blockElement = document.getElementById(block.startLine);
-      const nodeUUID = blockElement?.getAttribute('data-node-id');
+      // Use dataNodeId directly from block — avoids getElementById collision across sub-books
+      const dataNodeID = block.dataNodeId;
 
-      if (nodeUUID) {
-        nodeIdArray.push(nodeUUID);
-        charDataByNode[nodeUUID] = {
+      if (dataNodeID) {
+        nodeIdArray.push(dataNodeID);
+        charDataByNode[dataNodeID] = {
           charStart: block.charStart,
           charEnd: block.charEnd
         };
@@ -373,6 +375,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           numericStartLine,
         );
 
+        // NOTE: block.nodeId is a numeric startLine (id=""), NOT a data-node-id
         const blockElement = document.getElementById(block.nodeId);
         const nodeIdFromDOM = blockElement?.getAttribute('data-node-id');
 
@@ -440,7 +443,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     console.log("✅ NEW SYSTEM: Hypercite saved to normalized table");
 
     // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-    const affectedNodes = await getNodesByUUIDs(nodeIdArray);
+    const affectedNodes = await getNodesByDataNodeIDs(nodeIdArray);
     await rebuildNodeArrays(affectedNodes);
 
     console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);

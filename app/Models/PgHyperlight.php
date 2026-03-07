@@ -16,10 +16,12 @@ class PgHyperlight extends Model
 
     protected $fillable = [
         'book',
+        'sub_book_id',
         'hyperlight_id',
         'node_id',
         'charData',
         'annotation',
+        'preview_nodes',
         'highlightedHTML',
         'highlightedText',
         'startLine',
@@ -33,6 +35,7 @@ class PgHyperlight extends Model
     protected $casts = [
         'node_id' => 'array',
         'charData' => 'array',
+        'preview_nodes' => 'array',
         'hidden' => 'boolean'
     ];
 

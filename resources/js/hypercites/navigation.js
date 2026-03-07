@@ -5,14 +5,15 @@
  * Manages navigation between books, highlights, and internal IDs.
  */
 
-import { book } from '../app.js';
+import { getActiveBook } from '../utilities/activeContext.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
 import { getHyperciteData, getHyperciteById } from './database.js';
 import { highlightTargetHypercite } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';
-import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
+import { handleUnifiedContentClick, closeHyperlitContainer } from '../hyperlitContainer/index.js';
+import { getCurrentContainer } from '../hyperlitContainer/stack.js';
 import { currentLazyLoader } from '../initializePage.js';
 
 /**
@@ -30,7 +31,7 @@ export async function CoupleClick(uElement) {
   console.log("Parent element found:", parent);
 
   const startLine = parent.id;
-  const bookId = book || "latest";
+  const bookId = getActiveBook() || "latest";
 
   try {
     const nodeChunk = await getHyperciteData(bookId, startLine);
@@ -266,12 +267,12 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Check if hypercite exists inside the opened hyperlit container
-      const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+      const currentContainer = getCurrentContainer();
+      const hyperciteInContainer = currentContainer?.querySelector(`#${internalId}`);
       if (hyperciteInContainer) {
         console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
         // Scroll within the hyperlit container
-        const container = document.getElementById('hyperlit-container');
-        const scroller = container.querySelector('.scroller');
+        const scroller = currentContainer.querySelector('.scroller');
         if (scroller) {
           hyperciteInContainer.scrollIntoView({
             behavior: 'smooth',
@@ -346,6 +347,16 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
       return;
     }
 
+    // Play arrow-pulse animation on footnote for navigation emphasis
+    footnoteElement.classList.add('arrow-target');
+    const handleEnd = (e) => {
+      if (e.target === footnoteElement) {
+        footnoteElement.classList.remove('arrow-target');
+        footnoteElement.removeEventListener('animationend', handleEnd);
+      }
+    };
+    footnoteElement.addEventListener('animationend', handleEnd);
+
     // Scroll to the footnote marker in the document
     console.log(`📍 Scrolling to footnote element: ${footnoteId}`);
     footnoteElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -361,7 +372,8 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
     if (internalId) {
       // Wait for the container to render
       setTimeout(() => {
-        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+        const fnContainer = getCurrentContainer();
+        const hyperciteInContainer = fnContainer?.querySelector(`#${internalId}`);
         if (hyperciteInContainer) {
           console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
           hyperciteInContainer.scrollIntoView({
@@ -401,32 +413,46 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
   // Check if this is a same-book highlight link
   const url = new URL(link, window.location.origin);
   if (url.origin === window.location.origin) {
-    const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
-    const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
-    const hlMatch = hlSegment && hlSegment.match(/^HL_(.+)$/);
+    // Close any open container before navigating to a same-book target
+    if (document.body.classList.contains('hyperlit-container-open')) {
+      try {
+        await closeHyperlitContainer(true);
+      } catch (e) { /* ignore */ }
+    }
 
-    if (bookSegment === currentBook && hlMatch) {
+    const allSegments = url.pathname.split("/").filter(Boolean);
+    const bookSegment = allSegments[0];
+    const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
+
+    // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
+    const hlSegment = allSegments.find(p => p.startsWith('HL_'));
+    const fnSegment = allSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+    const internalId = url.hash ? url.hash.slice(1) : null;
+
+    if (bookSegment === currentBook && fnSegment && hlSegment) {
+      console.log("✅ Same-book multi-level cascade detected in hypercite");
+      const { openContainerChain, buildChainFromUrl } = await import('../initializePage.js');
+      const chain = await buildChainFromUrl(bookSegment, allSegments);
+      if (chain.length > 0) {
+        await openContainerChain(chain, currentLazyLoader, internalId || null);
+        return; // Don't do normal navigation
+      }
+    }
+
+    if (bookSegment === currentBook && hlSegment) {
       console.log("✅ Same-book highlight link detected in hypercite");
 
-      const highlightId = hlMatch[0]; // "HL_1749896203081"
-      const internalId = url.hash ? url.hash.slice(1) : null;
-
       // Use proper sequential navigation with DOM readiness
-      await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
+      await navigateToHyperciteTarget(hlSegment, internalId, currentLazyLoader);
 
       return; // Don't do normal navigation
     }
 
-    // Check for footnote links (format: /book/bookId_Fn1234#hypercite_abc)
-    const fnMatch = hlSegment && (hlSegment.includes("_Fn") || hlSegment.startsWith("Fn"));
-    if (bookSegment === currentBook && fnMatch) {
+    if (bookSegment === currentBook && fnSegment) {
       console.log("✅ Same-book footnote link detected in hypercite");
 
-      const footnoteId = hlSegment; // e.g., "bookId_Fn1234"
-      const internalId = url.hash ? url.hash.slice(1) : null;
-
       // Navigate to footnote and open in container
-      await navigateToFootnoteTarget(footnoteId, internalId, currentLazyLoader);
+      await navigateToFootnoteTarget(fnSegment, internalId, currentLazyLoader);
 
       return; // Don't do normal navigation
     }

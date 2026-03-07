@@ -4,7 +4,8 @@
  */
 
 import { openDatabase } from '../../indexedDB/index.js';
-import { getCurrentUserId } from "../../utilities/auth.js";
+import { getCurrentUserId, getCurrentUser } from "../../utilities/auth.js";
+import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
 import DOMPurify from 'dompurify';
 
 /**
@@ -21,6 +22,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     console.log(`🎨 Building highlight content for IDs:`, highlightIds);
 
     const currentUserId = await getCurrentUserId();
+    const currentUser = await getCurrentUser();
     console.log(`👤 Current user ID:`, currentUserId);
 
     const database = db || await openDatabase();
@@ -42,6 +44,24 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
     const validResults = results.filter((r) => r);
     console.log(`✅ Valid highlight results:`, validResults);
+
+    // Check which highlights have sub-book nodes in IndexedDB (handles same-session re-open)
+    const highlightsWithNodes = new Set();
+    try {
+      const nodesTx = database.transaction("nodes", "readonly");
+      const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
+      for (const h of validResults) {
+        const subBookId = buildSubBookId(h.book, h.hyperlight_id);
+        const count = await new Promise(res => {
+          const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => res(0);
+        });
+        if (count > 0) highlightsWithNodes.add(h.hyperlight_id);
+      }
+    } catch (e) {
+      console.warn('Failed to check sub-book nodes:', e);
+    }
 
     if (validResults.length === 0) {
       console.warn("⚠️ No valid highlight results found");
@@ -77,9 +97,13 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     validResults.forEach((h, index) => {
       // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
       // Fall back to local comparison only for locally-created highlights not yet synced
-      const isUserHighlight = h.is_user_highlight !== undefined
-        ? h.is_user_highlight
-        : (h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId));
+      const isUserHighlight = h.is_user_highlight === true
+        || (currentUser && h.creator && (
+             h.creator === currentUser.name     ||
+             h.creator === currentUser.username  ||
+             h.creator === currentUser.email
+           ))
+        || (!h.creator && h.creator_token === currentUserId);
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
       // User has permission if it's their highlight or newly created
       const hasPermission = isUserHighlight || isNewlyCreated;
@@ -146,18 +170,16 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 `;
       html += `  </blockquote>
 `;
-      html += `  <div class="annotation" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
-      html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
+
+      // Add annotation target container for highlights that have annotations
+      // This gives loadSubBook() a target element (same pattern as .footnotes-section)
+      if (h.annotation || h.preview_nodes || highlightsWithNodes.has(h.hyperlight_id) || newHighlightIds.includes(h.hyperlight_id)) {
+        html += `  <div class="highlight-annotation" data-highlight-id="${h.hyperlight_id}">
 `;
-      // Sanitize annotation to prevent XSS (allow formatting tags + hypercite links + line breaks)
-      const sanitizedAnnotation = DOMPurify.sanitize(h.annotation || "", {
-        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'sup', 'span', 'div', 'br'],
-        ALLOWED_ATTR: ['href', 'id', 'class']
-      });
-      html += `    ${sanitizedAnnotation}
+        html += `  </div>
 `;
-      html += `  </div>
-`;
+      }
+
       html += `  <br>
 `;
 

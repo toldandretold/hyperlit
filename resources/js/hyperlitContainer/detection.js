@@ -70,7 +70,8 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: element,
       fnCountId: element.getAttribute('fn-count-id'),
-      footnoteId: footnoteId
+      footnoteId: footnoteId,
+      parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -84,7 +85,8 @@ export function detectFootnote(element) {
         type: 'footnote',
         element: supElement,
         fnCountId: supElement.getAttribute('fn-count-id'),
-        footnoteId: footnoteId
+        footnoteId: footnoteId,
+        parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -98,7 +100,8 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: supElement,
       fnCountId: supElement.getAttribute('fn-count-id'),
-      footnoteId: footnoteId
+      footnoteId: footnoteId,
+      parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -122,7 +125,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: element,
-        referenceId: href.substring(1)
+        referenceId: href.substring(1),
+        parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -132,7 +136,8 @@ export function detectCitation(element) {
     return {
       type: 'citation',
       element: element,
-      referenceId: element.id
+      referenceId: element.id,
+      parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -143,7 +148,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: element,
-        referenceId: referenceId
+        referenceId: referenceId,
+        parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -156,7 +162,8 @@ export function detectCitation(element) {
       return {
         type: 'citation',
         element: parentCitation,
-        referenceId: href.substring(1)
+        referenceId: href.substring(1),
+        parentBookId: parentCitation.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
   }
@@ -167,7 +174,8 @@ export function detectCitation(element) {
     return {
       type: 'citation',
       element: parentRefCitation,
-      referenceId: parentRefCitation.id
+      referenceId: parentRefCitation.id,
+      parentBookId: parentRefCitation.closest('[data-book-id]')?.dataset?.bookId || null
     };
   }
 
@@ -218,6 +226,60 @@ export async function detectHighlights(element, providedHighlightIds = null, db 
 }
 
 /**
+ * Extract the actual book ID and URL structure info from a hypercite citation URL.
+ * Handles paths like /book_xxx/2/HL_aaa/HL_bbb#hypercite_yyy where the book ID
+ * is before the HL_/Fn segments, not the last path segment.
+ * @param {URL} url - Parsed URL object
+ * @returns {Object} { targetBook, isHyperlightURL, isFootnoteURL, hlDepth }
+ */
+function extractBookAndStructure(url) {
+  const pathParts = url.pathname.split('/').filter(p => p);
+  const hlSegments = pathParts.filter(p => p.startsWith('HL_'));
+  const isHyperlightURL = hlSegments.length > 0;
+  const isFootnoteURL = pathParts.some(p => p.includes('_Fn') || /^Fn\d/.test(p));
+
+  let bookID;
+  // Helper: check if a segment is a Fn segment (e.g. "Fn1772693037349_rc76")
+  const isFnSegment = (p) => /^Fn\d/.test(p) || p.includes('_Fn');
+
+  if (isHyperlightURL) {
+    // Book ID is the segment before the first HL_, skipping page numbers and Fn segments
+    for (let i = 0; i < pathParts.length; i++) {
+      if (pathParts[i].startsWith('HL_') && i > 0) {
+        for (let j = i - 1; j >= 0; j--) {
+          if (!/^\d+$/.test(pathParts[j]) && !isFnSegment(pathParts[j])) {
+            bookID = pathParts[j];
+            break;
+          }
+        }
+        break;
+      }
+    }
+    if (!bookID) {
+      bookID = pathParts.filter(p => !p.startsWith('HL_') && !/^\d+$/.test(p) && !isFnSegment(p))[0] || '';
+    }
+  } else if (isFootnoteURL) {
+    const fnMatch = url.pathname.match(/\/([^\/]+)_Fn/);
+    if (fnMatch) {
+      bookID = fnMatch[1];
+    } else {
+      const fnIndex = pathParts.findIndex(p => /^Fn\d/.test(p));
+      bookID = fnIndex > 0 ? pathParts[fnIndex - 1] : pathParts[0] || '';
+    }
+  } else {
+    // Regular book URL — use first non-numeric segment
+    bookID = pathParts.filter(p => !/^\d+$/.test(p))[0] || pathParts[0] || '';
+  }
+
+  return {
+    targetBook: bookID,
+    isHyperlightURL,
+    isFootnoteURL,
+    hlDepth: hlSegments.length
+  };
+}
+
+/**
  * Detect hypercite citation links (links pointing TO hypercites in other documents)
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Hypercite citation data or null
@@ -230,15 +292,17 @@ export function detectHyperciteCitation(element) {
 
     if (hash && hash.startsWith('#hypercite_')) {
       const hyperciteId = hash.substring(1); // Remove #
-      const targetBookPath = url.pathname;
-      const targetBook = targetBookPath.split('/').filter(p => p).pop(); // Get last path segment
+      const { targetBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
 
       return {
         type: 'hypercite-citation',
         element: element,
-        targetBook: targetBook,
+        targetBook,
         targetHyperciteId: hyperciteId,
-        targetUrl: element.href
+        targetUrl: element.href,
+        isHyperlightURL,
+        isFootnoteURL,
+        hlDepth
       };
     }
   }
@@ -251,15 +315,17 @@ export function detectHyperciteCitation(element) {
 
     if (hash && hash.startsWith('#hypercite_')) {
       const hyperciteId = hash.substring(1);
-      const targetBookPath = url.pathname;
-      const targetBook = targetBookPath.split('/').filter(p => p).pop();
+      const { targetBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
 
       return {
         type: 'hypercite-citation',
         element: parentLink,
-        targetBook: targetBook,
+        targetBook,
         targetHyperciteId: hyperciteId,
-        targetUrl: parentLink.href
+        targetUrl: parentLink.href,
+        isHyperlightURL,
+        isFootnoteURL,
+        hlDepth
       };
     }
   }

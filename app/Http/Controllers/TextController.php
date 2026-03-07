@@ -11,8 +11,12 @@ use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
 {
-    public function show(Request $request, $book)
+    public function show(Request $request, $book, $hl = null, $fn = null)
     {
+        // Sub-book interception removed — level-1 sub-book URLs (e.g. /book/Fn123)
+        // now load the parent book and JS auto-opens the item in HyperlitContainer.
+        // For standalone sub-book loading, use /based/{subBookId}.
+
         // If the path matches a username (allow basic slug variants),
         // (re)generate a user-home pseudo-book in DB and point $book to that.
         $possible = urldecode($book);
@@ -107,6 +111,137 @@ class TextController extends Controller
         ]);
     }
 
+
+    /**
+     * Standalone mode: load a sub-book as a full-screen book.
+     * URL: /based/{subBookId}
+     */
+    public function showStandalone(Request $request, $subBookId)
+    {
+        if (!DB::table('nodes')->where('book', $subBookId)->exists()) {
+            abort(404, 'Sub-book not found.');
+        }
+
+        return view('reader', [
+            'html'       => '',
+            'book'       => $subBookId,
+            'editMode'   => $request->boolean('edit'),
+            'dataSource' => 'database',
+            'pageType'   => 'reader',
+        ]);
+    }
+
+    /**
+     * Nested mode: load parent book with an auto-open chain for sequential container opening.
+     * URL: /{book}/{rest}  where rest = "2/Fn.../HL_..."
+     */
+    public function showNested(Request $request, $book, $rest)
+    {
+        $parts = explode('/', $rest);
+        $level = (int) $parts[0];
+        $urlItems = array_slice($parts, 1);
+
+        if (count($urlItems) < 1) {
+            abort(404, 'Invalid nested URL.');
+        }
+
+        // Construct the final sub_book_id from URL components
+        // Level 1 format: "book/itemId"  |  Level 2+ format: "book/level/parentItem/itemId"
+        if ($level <= 1 && count($urlItems) === 1) {
+            $finalSubBookId = $book . '/' . $urlItems[0];
+        } else {
+            $finalSubBookId = $book . '/' . $rest;
+        }
+
+        // Walk backwards from leaf to root to discover full chain
+        $chain = $this->walkChainToRoot($book, $finalSubBookId);
+
+        if ($chain === null) {
+            abort(404, 'Sub-book chain not found.');
+        }
+
+        $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
+
+        return view('reader', [
+            'html'           => '',
+            'book'           => $book,
+            'editMode'       => $editMode,
+            'dataSource'     => 'database',
+            'pageType'       => 'reader',
+            'autoOpenChain'  => $chain,
+        ]);
+    }
+
+    /**
+     * API endpoint: resolve a sub-book chain server-side.
+     * Reuses walkChainToRoot + findParentBook against PostgreSQL.
+     */
+    public function resolveChainApi(Request $request, string $book, string $rest): \Illuminate\Http\JsonResponse
+    {
+        $parts = explode('/', $rest);
+        $level = (int) $parts[0];
+        $urlItems = array_slice($parts, 1);
+
+        if (count($urlItems) < 1) {
+            return response()->json(['success' => false, 'message' => 'Invalid path'], 400);
+        }
+
+        if ($level <= 1 && count($urlItems) === 1) {
+            $finalSubBookId = $book . '/' . $urlItems[0];
+        } else {
+            $finalSubBookId = $book . '/' . $rest;
+        }
+
+        $chain = $this->walkChainToRoot($book, $finalSubBookId);
+
+        if ($chain === null) {
+            return response()->json(['success' => false, 'message' => 'Chain not found'], 404);
+        }
+
+        return response()->json(['success' => true, 'chain' => $chain]);
+    }
+
+    private function walkChainToRoot(string $rootBook, string $leafSubBookId): ?array
+    {
+        $chain = [];
+        $currentSubBookId = $leafSubBookId;
+        $maxIterations = 20;
+
+        for ($i = 0; $i < $maxIterations; $i++) {
+            $parsed = \App\Helpers\SubBookIdHelper::parse($currentSubBookId);
+            if (!$parsed['itemId']) return null;
+
+            array_unshift($chain, [
+                'itemId'    => $parsed['itemId'],
+                'subBookId' => $currentSubBookId,
+            ]);
+
+            $parentBook = $this->findParentBook($currentSubBookId);
+            if ($parentBook === null) return null;
+
+            // Root reached when parentBook has no slashes
+            if (!str_contains($parentBook, '/')) {
+                return ($parentBook === $rootBook) ? $chain : null;
+            }
+
+            $currentSubBookId = $parentBook;
+        }
+
+        return null; // Safety limit hit
+    }
+
+    private function findParentBook(string $subBookId): ?string
+    {
+        $book = DB::table('footnotes')
+            ->where('sub_book_id', $subBookId)
+            ->value('book');
+
+        if ($book !== null) return $book;
+
+        return DB::table('hyperlights')
+            ->where('sub_book_id', $subBookId)
+            ->value('book');
+    }
 
     // Preprocess the markdown to handle soft line breaks
     private function normalizeMarkdown($markdown)

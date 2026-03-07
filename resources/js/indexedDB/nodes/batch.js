@@ -32,8 +32,8 @@ const debouncedTitleSync = debounce((bookId, nodeContent) => {
  * Helper function to determine chunk_id from the DOM
  * Looks for parent chunk div since data-chunk-id is on the chunk, not individual nodes
  */
-function determineChunkIdFromDOM(nodeId) {
-  const node = document.getElementById(nodeId);
+function determineChunkIdFromDOM(IDnumerical) {
+  const node = document.getElementById(IDnumerical);
   if (node) {
     // Look for parent chunk div (data-chunk-id is on the chunk, not the node)
     const chunkDiv = node.closest('.chunk[data-chunk-id]');
@@ -281,8 +281,8 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
       const highlightedText = markElement ? markElement.textContent : "";
       const highlightedHTML = markElement ? markElement.outerHTML : "";
 
-      // ✅ NEW: Extract node_id (UUID) from DOM for new schema
-      const nodeUUID = node.getAttribute('data-node-id');
+      // ✅ NEW: Extract data-node-id from DOM for new schema
+      const dataNodeID = node.getAttribute('data-node-id');
 
       if (existingRecord) {
         // ✅ NEW: Check if this was orphaned and now recovered
@@ -296,20 +296,20 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
         if (existingRecord._deleted_nodes && existingRecord._deleted_nodes.length > 0) {
           console.log(`🧹 Cleaning up ${existingRecord._deleted_nodes.length} deleted nodes from highlight ${hyperlight.highlightID}`);
 
-          existingRecord._deleted_nodes.forEach(deletedUUID => {
+          existingRecord._deleted_nodes.forEach(deletedDataNodeID => {
             // Remove from node_id array
             if (existingRecord.node_id && Array.isArray(existingRecord.node_id)) {
               const beforeLength = existingRecord.node_id.length;
-              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedUUID);
+              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedDataNodeID);
               if (existingRecord.node_id.length < beforeLength) {
-                console.log(`  🗑️ Removed ${deletedUUID} from node_id array`);
+                console.log(`  🗑️ Removed ${deletedDataNodeID} from node_id array`);
               }
             }
 
             // Remove from charData object
-            if (existingRecord.charData && existingRecord.charData[deletedUUID]) {
-              delete existingRecord.charData[deletedUUID];
-              console.log(`  🗑️ Removed ${deletedUUID} from charData`);
+            if (existingRecord.charData && existingRecord.charData[deletedDataNodeID]) {
+              delete existingRecord.charData[deletedDataNodeID];
+              console.log(`  🗑️ Removed ${deletedDataNodeID} from charData`);
             }
           });
 
@@ -326,7 +326,7 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
         existingRecord.highlightedHTML = highlightedHTML;
 
         // ✅ NEW: Update NEW schema (node_id array + charData object)
-        if (nodeUUID) {
+        if (dataNodeID) {
           // Initialize if needed
           if (!existingRecord.node_id || !Array.isArray(existingRecord.node_id)) {
             existingRecord.node_id = [];
@@ -336,18 +336,18 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
           }
 
           // Add this node to node_id array if not present
-          if (!existingRecord.node_id.includes(nodeUUID)) {
-            existingRecord.node_id.push(nodeUUID);
-            console.log(`➕ Added node ${nodeUUID} to highlight ${hyperlight.highlightID}`);
+          if (!existingRecord.node_id.includes(dataNodeID)) {
+            existingRecord.node_id.push(dataNodeID);
+            console.log(`➕ Added node ${dataNodeID} to highlight ${hyperlight.highlightID}`);
           }
 
           // Update charData for this specific node
-          existingRecord.charData[nodeUUID] = {
+          existingRecord.charData[dataNodeID] = {
             charStart: hyperlight.charStart,
             charEnd: hyperlight.charEnd
           };
 
-          console.log(`✅ Updated NEW schema for ${hyperlight.highlightID}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${nodeUUID}`);
+          console.log(`✅ Updated NEW schema for ${hyperlight.highlightID}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${dataNodeID}`);
         }
 
         store.put(existingRecord);
@@ -355,33 +355,45 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
 
         console.log(`Updated hyperlight ${hyperlight.highlightID} positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
       } else {
-        // Create new record
-        const newRecord = {
-          book: bookId,
-          hyperlight_id: hyperlight.highlightID,
-          startChar: hyperlight.charStart,
-          endChar: hyperlight.charEnd,
-          startLine: numericNodeId,
-          highlightedText: highlightedText,
-          highlightedHTML: highlightedHTML,
-          annotation: "",
-          // ✅ NEW: Initialize NEW schema fields
-          node_id: nodeUUID ? [nodeUUID] : [],
-          charData: nodeUUID ? {
-            [nodeUUID]: {
-              charStart: hyperlight.charStart,
-              charEnd: hyperlight.charEnd
-            }
-          } : {}
+        // SAFETY: Check if this highlight already exists under a different book
+        // (prevents duplicates when cross-book ID collisions cause marks to
+        // appear in the wrong sub-book's DOM)
+        const hlIndex = store.index('hyperlight_id');
+        const existCheck = hlIndex.get(hyperlight.highlightID);
+        existCheck.onsuccess = () => {
+          if (existCheck.result) {
+            console.warn(`⚠️ Skipping duplicate: ${hyperlight.highlightID} already exists under book ${existCheck.result.book}`);
+            return; // Don't create duplicate
+          }
+
+          // Create new record
+          const newRecord = {
+            book: bookId,
+            hyperlight_id: hyperlight.highlightID,
+            startChar: hyperlight.charStart,
+            endChar: hyperlight.charEnd,
+            startLine: numericNodeId,
+            highlightedText: highlightedText,
+            highlightedHTML: highlightedHTML,
+            annotation: "",
+            // ✅ NEW: Initialize NEW schema fields
+            node_id: dataNodeID ? [dataNodeID] : [],
+            charData: dataNodeID ? {
+              [dataNodeID]: {
+                charStart: hyperlight.charStart,
+                charEnd: hyperlight.charEnd
+              }
+            } : {}
+          };
+
+          store.put(newRecord);
+          syncArray.push(newRecord);
+
+          console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
+          if (dataNodeID) {
+            console.log(`✅ Initialized NEW schema: node_id=[${dataNodeID}], charData set`);
+          }
         };
-
-        store.put(newRecord);
-        syncArray.push(newRecord);
-
-        console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
-        if (nodeUUID) {
-          console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
-        }
       }
     };
   });
@@ -404,8 +416,8 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
       const hypercitedText = uElement ? uElement.textContent : "";
       const hypercitedHTML = uElement ? uElement.outerHTML : "";
 
-      // ✅ NEW: Extract node_id (UUID) from DOM for new schema
-      const nodeUUID = node.getAttribute('data-node-id');
+      // ✅ NEW: Extract data-node-id from DOM for new schema
+      const dataNodeID = node.getAttribute('data-node-id');
 
       if (existingRecord) {
         // ✅ NEW: Check if this was orphaned and now recovered
@@ -419,20 +431,20 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
         if (existingRecord._deleted_nodes && existingRecord._deleted_nodes.length > 0) {
           console.log(`🧹 Cleaning up ${existingRecord._deleted_nodes.length} deleted nodes from hypercite ${hypercite.hyperciteId}`);
 
-          existingRecord._deleted_nodes.forEach(deletedUUID => {
+          existingRecord._deleted_nodes.forEach(deletedDataNodeID => {
             // Remove from node_id array
             if (existingRecord.node_id && Array.isArray(existingRecord.node_id)) {
               const beforeLength = existingRecord.node_id.length;
-              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedUUID);
+              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedDataNodeID);
               if (existingRecord.node_id.length < beforeLength) {
-                console.log(`  🗑️ Removed ${deletedUUID} from node_id array`);
+                console.log(`  🗑️ Removed ${deletedDataNodeID} from node_id array`);
               }
             }
 
             // Remove from charData object
-            if (existingRecord.charData && existingRecord.charData[deletedUUID]) {
-              delete existingRecord.charData[deletedUUID];
-              console.log(`  🗑️ Removed ${deletedUUID} from charData`);
+            if (existingRecord.charData && existingRecord.charData[deletedDataNodeID]) {
+              delete existingRecord.charData[deletedDataNodeID];
+              console.log(`  🗑️ Removed ${deletedDataNodeID} from charData`);
             }
           });
 
@@ -448,7 +460,7 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
         existingRecord.hypercitedHTML = hypercitedHTML;
 
         // ✅ NEW: Update NEW schema (node_id array + charData object)
-        if (nodeUUID) {
+        if (dataNodeID) {
           // Initialize if needed
           if (!existingRecord.node_id || !Array.isArray(existingRecord.node_id)) {
             existingRecord.node_id = [];
@@ -458,18 +470,18 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
           }
 
           // Add this node to node_id array if not present
-          if (!existingRecord.node_id.includes(nodeUUID)) {
-            existingRecord.node_id.push(nodeUUID);
-            console.log(`➕ Added node ${nodeUUID} to hypercite ${hypercite.hyperciteId}`);
+          if (!existingRecord.node_id.includes(dataNodeID)) {
+            existingRecord.node_id.push(dataNodeID);
+            console.log(`➕ Added node ${dataNodeID} to hypercite ${hypercite.hyperciteId}`);
           }
 
           // Update charData for this specific node
-          existingRecord.charData[nodeUUID] = {
+          existingRecord.charData[dataNodeID] = {
             charStart: hypercite.charStart,
             charEnd: hypercite.charEnd
           };
 
-          console.log(`✅ Updated NEW schema for ${hypercite.hyperciteId}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${nodeUUID}`);
+          console.log(`✅ Updated NEW schema for ${hypercite.hyperciteId}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${dataNodeID}`);
         }
 
         store.put(existingRecord);
@@ -489,9 +501,9 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
           relationshipStatus: "single",
           time_since: hypercite.time_since || Math.floor(Date.now() / 1000),
           // ✅ NEW: Initialize NEW schema fields
-          node_id: nodeUUID ? [nodeUUID] : [],
-          charData: nodeUUID ? {
-            [nodeUUID]: {
+          node_id: dataNodeID ? [dataNodeID] : [],
+          charData: dataNodeID ? {
+            [dataNodeID]: {
               charStart: hypercite.charStart,
               charEnd: hypercite.charEnd
             }
@@ -502,8 +514,8 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
         syncArray.push(newRecord);
 
         console.log(`Created new hypercite ${hypercite.hyperciteId} with positions: ${hypercite.charStart}-${hypercite.charEnd}`);
-        if (nodeUUID) {
-          console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
+        if (dataNodeID) {
+          console.log(`✅ Initialized NEW schema: node_id=[${dataNodeID}], charData set`);
         }
       }
     };
@@ -540,7 +552,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
     // ✅ FIX: Get book ID from DOM instead of stale global variable
     // During new book creation, global variable may not be updated yet
     const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    const firstRecordEl = document.getElementById(recordsToProcess[0]?.id);
+    const subBookFromDom = firstRecordEl?.closest('[data-book-id]');
+    const bookId = options?.bookId
+      || subBookFromDom?.dataset?.bookId
+      || mainContent?.id
+      || book
+      || "latest";
     console.log(
       `🔄 Batch updating ${recordsToProcess.length} IndexedDB records`,
     );
@@ -610,21 +628,41 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         return;
       }
 
-      let nodeId = record.id;
-      let node = document.getElementById(nodeId);
-      while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
-        node = node.parentElement;
-        if (node?.id) nodeId = node.id;
+      let IDnumerical = record.id;
+      let node = null;
+
+      // Use node_id (data-node-id) for DOM lookup — unique across all books
+      const existingForLookup = originalNodeChunkStates.get(numericNodeId);
+      if (existingForLookup?.node_id) {
+        node = document.querySelector(`[data-node-id="${existingForLookup.node_id}"]`);
       }
 
-      if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+      // Fallback for new nodes (no existing record): scope to book container
+      if (!node && bookId) {
+        const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+          || document.getElementById(bookId);
+        if (bookContainer) {
+          node = bookContainer.querySelector(`[id="${IDnumerical}"]`);
+        }
+      }
+
+      // Final fallback: global lookup (main content, no collision risk)
+      if (!node) {
+        node = document.getElementById(IDnumerical);
+      }
+      while (node && !/^\d+(\.\d+)?$/.test(IDnumerical)) {
+        node = node.parentElement;
+        if (node?.id) IDnumerical = node.id;
+      }
+
+      if (!/^\d+(\.\d+)?$/.test(IDnumerical)) {
         console.log(
           `Skipping batch update – no valid parent for ${record.id}`,
         );
         return;
       }
 
-      const finalNumericNodeId = parseNodeId(nodeId); // Use the final valid ID
+      const finalNumericNodeId = parseNodeId(IDnumerical); // Use the final valid ID
       const existing = originalNodeChunkStates.get(finalNumericNodeId);
       const existingHypercites = existing?.hypercites || [];
       const processedData = node
@@ -635,7 +673,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
 
       // 🔍 DEBUG: Log node_id extraction
-      verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${nodeId}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch.js');
+      verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${IDnumerical}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch.js');
       if (node && !nodeIdFromDOM) {
         console.warn(`⚠️ Node found but no data-node-id attribute! Element:`, node.outerHTML.substring(0, 200));
       }
@@ -666,7 +704,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         if (record.chunk_id !== undefined) {
           toSave.chunk_id = record.chunk_id;
         } else {
-          toSave.chunk_id = determineChunkIdFromDOM(nodeId);
+          toSave.chunk_id = determineChunkIdFromDOM(IDnumerical);
         }
         // ✅ UPDATE node_id from DOM if available
         if (nodeIdFromDOM) {
@@ -676,7 +714,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         toSave = {
           book: bookId,
           startLine: finalNumericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId),
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(IDnumerical),
           node_id: nodeIdFromDOM || null,
           content: processedData ? processedData.content : record.html || "",
           footnotes: processedData ? processedData.footnotes : [],
@@ -733,7 +771,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         // (for automatic operations like marker restoration during page load)
         // This prevents spurious syncs that could trigger 409 stale data errors
         if (!options.skipHistory) {
-          await updateBookTimestamp(book || "latest");
+          await updateBookTimestamp(bookId);
           allSavedNodeChunks.forEach((chunk) => {
             const originalChunk = originalNodeChunkStates.get(chunk.startLine);
             queueForSync(
@@ -763,14 +801,14 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         }
 
         // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables for all affected nodes
-        const affectedNodeUUIDs = allSavedNodeChunks
+        const affectedDataNodeIDs = allSavedNodeChunks
           .map(chunk => chunk.node_id)
           .filter(Boolean);
 
-        if (affectedNodeUUIDs.length > 0) {
+        if (affectedDataNodeIDs.length > 0) {
           try {
-            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../hydration/rebuild.js');
-            const nodes = await getNodesByUUIDs(affectedNodeUUIDs);
+            const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
+            const nodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
             if (nodes.length > 0) {
               await rebuildNodeArrays(nodes);
               console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${nodes.length} nodes after batch update`);
@@ -798,7 +836,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
             return changed;
           });
 
-          if (nodesWithFootnoteChanges.length > 0 || affectedNodeUUIDs.length > 0) {
+          if (nodesWithFootnoteChanges.length > 0 || affectedDataNodeIDs.length > 0) {
             console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
             try {
               const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
@@ -827,21 +865,26 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
 /**
  * Batch delete multiple IndexedDB records
  *
- * @param {Array} nodeIds - Array of node IDs to delete
+ * @param {Array} IDnumericals - Array of node IDs to delete
+ * @param {Map} deletionMap - Map of IDnumerical -> data-node-id for deleted nodes
+ * @param {string} bookId - Book ID to delete from (required for sub-book support)
  * @returns {Promise<void>}
  */
-export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map()) {
+export async function batchDeleteIndexedDBRecords(IDnumericals, deletionMap = new Map(), bookId = null) {
   return withPending(async () => {
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
-    const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    // ✅ FIX: Accept bookId as parameter for sub-book support
+    // Fallback to DOM lookup only if not provided (backwards compatibility)
+    if (!bookId) {
+      const mainContent = document.querySelector('.main-content');
+      bookId = mainContent?.id || book || "latest";
+    }
 
     // ✅ OPTIMIZATION: Remove duplicates using Set
-    const uniqueNodeIds = [...new Set(nodeIds)];
-    const duplicatesSkipped = nodeIds.length - uniqueNodeIds.length;
+    const uniqueIDnumericals = [...new Set(IDnumericals)];
+    const duplicatesSkipped = IDnumericals.length - uniqueIDnumericals.length;
 
     const startTime = Date.now();
-    console.log(`🗑️ BATCH DELETE START: ${nodeIds.length} nodes queued (${uniqueNodeIds.length} unique${duplicatesSkipped > 0 ? `, ${duplicatesSkipped} duplicates skipped` : ''})`);
+    console.log(`🗑️ BATCH DELETE START: ${IDnumericals.length} nodes queued (${uniqueIDnumericals.length} unique${duplicatesSkipped > 0 ? `, ${duplicatesSkipped} duplicates skipped` : ''})`);
 
     try {
       const db = await openDatabase();
@@ -866,24 +909,24 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
       let errorCount = 0;
 
       // ✅ OPTIMIZATION: Build lookup sets ONCE for O(1) checks in cursor scans
-      const deletedNodeIds = new Set(uniqueNodeIds.map(id => parseNodeId(id)).filter(id => !isNaN(id)));
-      const deletedUUIDs = new Set(Array.from(deletionMap.values()).filter(Boolean));
+      const deletedIDnumericals = new Set(uniqueIDnumericals.map(id => parseNodeId(id)).filter(id => !isNaN(id)));
+      const deletedDataNodeIDs = new Set(Array.from(deletionMap.values()).filter(Boolean));
 
-      verbose.content(`OPTIMIZATION: Will scan highlights/hypercites once for ${deletedNodeIds.size} deleted nodes (${deletedUUIDs.size} UUIDs)`, 'indexedDB/nodes/batch.js');
+      verbose.content(`OPTIMIZATION: Will scan highlights/hypercites once for ${deletedIDnumericals.size} deleted nodes (${deletedDataNodeIDs.size} data-node-ids)`, 'indexedDB/nodes/batch.js');
 
       // Track which highlights/hypercites we've already processed (avoid N cursor scans)
       let highlightsProcessed = 0;
       let hypercitesProcessed = 0;
 
       // Process each node ID for deletion
-      const deletePromises = uniqueNodeIds.map(async (nodeId, index) => {
-        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-          console.warn(`❌ Skipping deletion – invalid node ID: ${nodeId}`);
+      const deletePromises = uniqueIDnumericals.map(async (IDnumerical, index) => {
+        if (!/^\d+(\.\d+)?$/.test(IDnumerical)) {
+          console.warn(`❌ Skipping deletion – invalid node ID: ${IDnumerical}`);
           errorCount++;
           return;
         }
 
-        const numericNodeId = parseNodeId(nodeId);
+        const numericNodeId = parseNodeId(IDnumerical);
         const compositeKey = [bookId, numericNodeId];
 
         return new Promise((resolve, reject) => {
@@ -904,7 +947,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
               };
               deleteReq.onerror = (e) => {
                 errorCount++;
-                console.error(`❌ Failed to delete ${nodeId}:`, e.target.error);
+                console.error(`❌ Failed to delete ${IDnumerical}:`, e.target.error);
                 reject(e.target.error);
               };
 
@@ -924,15 +967,15 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
                       // ✅ OPTIMIZATION: O(1) Set lookup instead of iterating through each deleted node
                       const affectsDeletedNode =
-                        deletedNodeIds.has(highlight.startLine) || // OLD schema check
+                        deletedIDnumericals.has(highlight.startLine) || // OLD schema check
                         (highlight.node_id && Array.isArray(highlight.node_id) &&
-                         highlight.node_id.some(uuid => deletedUUIDs.has(uuid))); // NEW schema check
+                         highlight.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
                       if (affectsDeletedNode) {
                         highlightsProcessed++;
 
-                        // Find which deleted UUID this affects (for tracking)
-                        const affectedUUID = highlight.node_id?.find(uuid => deletedUUIDs.has(uuid));
+                        // Find which deleted data-node-id this affects (for tracking)
+                        const affectedDataNodeID = highlight.node_id?.find(dataNodeID => deletedDataNodeIDs.has(dataNodeID));
 
                         // Check if multi-node highlight
                         if (highlight.node_id && highlight.node_id.length > 1) {
@@ -940,28 +983,28 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
                           if (!highlight._deleted_nodes) {
                             highlight._deleted_nodes = [];
                           }
-                          if (affectedUUID && !highlight._deleted_nodes.includes(affectedUUID)) {
-                            highlight._deleted_nodes.push(affectedUUID);
+                          if (affectedDataNodeID && !highlight._deleted_nodes.includes(affectedDataNodeID)) {
+                            highlight._deleted_nodes.push(affectedDataNodeID);
                           }
 
                           // Save updated highlight (don't delete it!)
                           cursor.update(highlight);
                         } else {
                           // Single-node highlight - OLD SYSTEM behavior (delete from OLD schema stores)
-                          if (deletedNodeIds.has(highlight.startLine)) {
+                          if (deletedIDnumericals.has(highlight.startLine)) {
                             deletedData.hyperlights.push(cursor.value); // Record for undo
                             cursor.delete();
                           } else {
                             // Single-node in NEW schema - mark as orphaned
                             highlight._orphaned_at = Date.now();
-                            highlight._orphaned_from_node = affectedUUID || highlight.startLine.toString();
+                            highlight._orphaned_from_node = affectedDataNodeID || highlight.startLine.toString();
 
                             // Track deleted node for cleanup
                             if (!highlight._deleted_nodes) {
                               highlight._deleted_nodes = [];
                             }
-                            if (affectedUUID && !highlight._deleted_nodes.includes(affectedUUID)) {
-                              highlight._deleted_nodes.push(affectedUUID);
+                            if (affectedDataNodeID && !highlight._deleted_nodes.includes(affectedDataNodeID)) {
+                              highlight._deleted_nodes.push(affectedDataNodeID);
                             }
 
                             cursor.update(highlight);
@@ -994,15 +1037,15 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
                       // ✅ OPTIMIZATION: O(1) Set lookup
                       const affectsDeletedNode =
-                        deletedNodeIds.has(hypercite.startLine) || // OLD schema check
+                        deletedIDnumericals.has(hypercite.startLine) || // OLD schema check
                         (hypercite.node_id && Array.isArray(hypercite.node_id) &&
-                         hypercite.node_id.some(uuid => deletedUUIDs.has(uuid))); // NEW schema check
+                         hypercite.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
                       if (affectsDeletedNode) {
                         hypercitesProcessed++;
 
-                        // Find which deleted UUID this affects
-                        const affectedUUID = hypercite.node_id?.find(uuid => deletedUUIDs.has(uuid));
+                        // Find which deleted data-node-id this affects
+                        const affectedDataNodeID = hypercite.node_id?.find(dataNodeID => deletedDataNodeIDs.has(dataNodeID));
 
                         // Check if multi-node hypercite
                         if (hypercite.node_id && hypercite.node_id.length > 1) {
@@ -1010,27 +1053,27 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
                           if (!hypercite._deleted_nodes) {
                             hypercite._deleted_nodes = [];
                           }
-                          if (affectedUUID && !hypercite._deleted_nodes.includes(affectedUUID)) {
-                            hypercite._deleted_nodes.push(affectedUUID);
+                          if (affectedDataNodeID && !hypercite._deleted_nodes.includes(affectedDataNodeID)) {
+                            hypercite._deleted_nodes.push(affectedDataNodeID);
                           }
 
                           // Save updated hypercite (don't delete it!)
                           cursor.update(hypercite);
-                        } else if (deletedNodeIds.has(hypercite.startLine)) {
+                        } else if (deletedIDnumericals.has(hypercite.startLine)) {
                           // OLD SYSTEM - hypercite only in old schema
                           deletedData.hypercites.push(cursor.value); // Record for undo
                           cursor.delete();
                         } else {
                           // Single-node hypercite in NEW schema - mark as orphaned
                           hypercite._orphaned_at = Date.now();
-                          hypercite._orphaned_from_node = affectedUUID || hypercite.startLine.toString();
+                          hypercite._orphaned_from_node = affectedDataNodeID || hypercite.startLine.toString();
 
                           // Track deleted node for cleanup
                           if (!hypercite._deleted_nodes) {
                             hypercite._deleted_nodes = [];
                           }
-                          if (affectedUUID && !hypercite._deleted_nodes.includes(affectedUUID)) {
-                            hypercite._deleted_nodes.push(affectedUUID);
+                          if (affectedDataNodeID && !hypercite._deleted_nodes.includes(affectedDataNodeID)) {
+                            hypercite._deleted_nodes.push(affectedDataNodeID);
                           }
 
                           cursor.update(hypercite);
@@ -1088,13 +1131,13 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
 
           // ✅ NEW SYSTEM: Rebuild arrays for remaining nodes affected by multi-node highlights/hypercites
           try {
-            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../index.js');
+            const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../index.js');
 
-            // Collect all remaining node UUIDs from deletionMap that weren't deleted
-            const deletedUUIDs = Array.from(deletionMap.values()).filter(Boolean);
-            console.log(`🔄 NEW SYSTEM: Deleted node UUIDs:`, deletedUUIDs);
+            // Collect all remaining data-node-ids from deletionMap that weren't deleted
+            const deletedDataNodeIDs = Array.from(deletionMap.values()).filter(Boolean);
+            console.log(`🔄 NEW SYSTEM: Deleted data-node-ids:`, deletedDataNodeIDs);
 
-            if (deletedUUIDs.length > 0) {
+            if (deletedDataNodeIDs.length > 0) {
               // Get all nodes for this book to find remaining nodes
               const db = await openDatabase();
               const nodeTx = db.transaction('nodes', 'readonly');
@@ -1105,12 +1148,12 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
                 req.onerror = () => reject(req.error);
               });
 
-              // Filter to nodes with UUIDs (not deleted)
-              const remainingNodes = allNodes.filter(node => node.node_id && !deletedUUIDs.includes(node.node_id));
+              // Filter to nodes with data-node-ids (not deleted)
+              const remainingNodes = allNodes.filter(node => node.node_id && !deletedDataNodeIDs.includes(node.node_id));
 
               // Find nodes that might have been affected by the deleted nodes
               // (nodes that share highlights/hypercites with deleted nodes)
-              const affectedNodeUUIDs = new Set();
+              const affectedDataNodeIDs = new Set();
 
               // Query hyperlights to find which nodes are affected
               const lightTx = db.transaction('hyperlights', 'readonly');
@@ -1122,11 +1165,11 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
               });
 
               allLights.forEach(light => {
-                if (light._deleted_nodes && light._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                if (light._deleted_nodes && light._deleted_nodes.some(dataNodeID => deletedDataNodeIDs.includes(dataNodeID))) {
                   // This highlight was affected - rebuild its remaining nodes
-                  light.node_id.forEach(uuid => {
-                    if (!deletedUUIDs.includes(uuid)) {
-                      affectedNodeUUIDs.add(uuid);
+                  light.node_id.forEach(dataNodeID => {
+                    if (!deletedDataNodeIDs.includes(dataNodeID)) {
+                      affectedDataNodeIDs.add(dataNodeID);
                     }
                   });
                 }
@@ -1142,19 +1185,19 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
               });
 
               allCites.forEach(cite => {
-                if (cite._deleted_nodes && cite._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                if (cite._deleted_nodes && cite._deleted_nodes.some(dataNodeID => deletedDataNodeIDs.includes(dataNodeID))) {
                   // This hypercite was affected - rebuild its remaining nodes
-                  cite.node_id.forEach(uuid => {
-                    if (!deletedUUIDs.includes(uuid)) {
-                      affectedNodeUUIDs.add(uuid);
+                  cite.node_id.forEach(dataNodeID => {
+                    if (!deletedDataNodeIDs.includes(dataNodeID)) {
+                      affectedDataNodeIDs.add(dataNodeID);
                     }
                   });
                 }
               });
 
-              if (affectedNodeUUIDs.size > 0) {
-                console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${affectedNodeUUIDs.size} affected nodes`);
-                const affectedNodes = await getNodesByUUIDs([...affectedNodeUUIDs]);
+              if (affectedDataNodeIDs.size > 0) {
+                console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${affectedDataNodeIDs.size} affected nodes`);
+                const affectedNodes = await getNodesByDataNodeIDs([...affectedDataNodeIDs]);
                 await rebuildNodeArrays(affectedNodes);
                 console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} nodes after deletion`);
               } else {

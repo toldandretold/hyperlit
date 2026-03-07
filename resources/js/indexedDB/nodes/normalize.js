@@ -36,9 +36,11 @@ export async function updateIndexedDBRecordForNormalization(
     // Only numeric IDs allowed
     const numericOldId = parseNodeId(oldId);
     const numericNewId = parseNodeId(newId);
-    // ✅ FIX: Get book ID from DOM instead of stale global variable
+    // ✅ FIX: Get book ID from DOM — check sub-book container first
     const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || book || "latest";
+    const element = document.getElementById(oldId);
+    const subBookFromDom = element?.closest('[data-book-id]');
+    const bookId = subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest";
 
     const db = await openDatabase();
     const tx = db.transaction("nodes", "readwrite");

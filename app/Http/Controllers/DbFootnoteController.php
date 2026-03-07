@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SubBookIdHelper;
 use App\Models\PgFootnote;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
@@ -69,15 +70,30 @@ class DbFootnoteController extends Controller
                     ->where('footnoteId', $item['footnoteId'])
                     ->first();
 
+                $previewNodes = isset($item['preview_nodes'])
+                    ? json_encode($item['preview_nodes'])
+                    : null;
+
+                $subBookId = SubBookIdHelper::build($book, $item['footnoteId']);
+
                 if ($existing) {
+                    $updates = [
+                        'content'     => $item['content'] ?? '',
+                        'sub_book_id' => $subBookId,
+                    ];
+                    if ($previewNodes !== null) {
+                        $updates['preview_nodes'] = $previewNodes;
+                    }
                     PgFootnote::where('book', $book)
                         ->where('footnoteId', $item['footnoteId'])
-                        ->update(['content' => $item['content'] ?? '']);
+                        ->update($updates);
                 } else {
                     PgFootnote::create([
-                        'book' => $book,
-                        'footnoteId' => $item['footnoteId'],
-                        'content' => $item['content'] ?? '',
+                        'book'          => $book,
+                        'sub_book_id'   => $subBookId,
+                        'footnoteId'    => $item['footnoteId'],
+                        'content'       => $item['content'] ?? '',
+                        'preview_nodes' => $previewNodes,
                     ]);
                 }
                 $upsertedCount++;

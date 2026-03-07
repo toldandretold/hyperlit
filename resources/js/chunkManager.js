@@ -444,8 +444,8 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         // Also update the observer to watch the new chunk
         if (currentObservedChunk !== targetChunk) {
           setChunkOverflowInProgress(true);
-          stopObserving();
-          startObserving(targetChunk);
+          await stopObserving();
+          await startObserving(targetChunk);
           setChunkOverflowInProgress(false);
         }
       }
@@ -477,15 +477,15 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         
         // Also update the observer to watch the new chunk
         if (currentObservedChunk !== targetChunk) {
-          stopObserving();
-          startObserving(targetChunk);
+          await stopObserving();
+          await startObserving(targetChunk);
         }
       }
     } else {
       // If nothing relevant moved, make sure we're still observing the right chunk
       if (currentObservedChunk !== targetChunk && (activeNodeWillMove || nextSiblingWillMove)) {
-        stopObserving();
-        startObserving(targetChunk);
+        await stopObserving();
+        await startObserving(targetChunk);
       }
     }
     

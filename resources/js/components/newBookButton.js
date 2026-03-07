@@ -978,7 +978,7 @@ export function initializeNewBookContainer() {
     if (!newBookManager) {
       newBookManager = new NewBookContainerManager(
         "newbook-container",
-        "ref-overlay",
+        "source-overlay",
         "newBook",
         ["main-content"]
       );

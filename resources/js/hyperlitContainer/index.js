@@ -66,8 +66,9 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
+import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index.js';
-import { getCurrentUserId, canUserEditBook } from "../utilities/auth.js";
+import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
 import { openHyperlitContainer, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
@@ -76,6 +77,8 @@ import { buildCitationContent, buildHyperciteCitationContent } from './contentBu
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
+import { getCurrentContainer } from './stack.js';
+import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -83,6 +86,15 @@ import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
+export function isClickProcessing() { return isProcessingClick; }
+
+// Track whether the main editor was active before the sub-book editor took over.
+// Restored when the hyperlit container closes.
+let mainEditorWasActive = false;
+let previousIsEditing = false;
+
+// Prevents duplicate focusin listeners from attachSubBookFocusSwitcher
+let focusSwitcherAttached = false;
 
 // ============================================================================
 // LISTENER CLEANUP INFRASTRUCTURE
@@ -106,9 +118,10 @@ function registerListener(element, event, handler, options = {}) {
 
 /**
  * Clean up all registered listeners
- * Called when the container closes to prevent listener accumulation
+ * Called when the container closes to prevent listener accumulation.
+ * Also stops any active sub-book editor and restores the main editor if it was running.
  */
-export function cleanupContainerListeners() {
+export async function cleanupContainerListeners({ stackPop = false } = {}) {
   for (const { element, event, handler, options } of activeListeners) {
     try {
       element.removeEventListener(event, handler, options);
@@ -117,6 +130,44 @@ export function cleanupContainerListeners() {
     }
   }
   activeListeners.length = 0;
+  focusSwitcherAttached = false;
+
+  // Always stop sub-book observer if one is active (even if main editor wasn't active)
+  const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+  const activeSession = getActiveEditSession();
+  if (activeSession && activeSession.containerId !== 'main-content') {
+    const { stopObserving } = await import('../divEditor/index.js');
+    await stopObserving();
+  }
+
+  // Skip editor/toolbar restoration when popping a stacked layer
+  // (the layer below will restore its own state)
+  if (stackPop) return;
+
+  // Restore main editor if it was active before the sub-book editor took over
+  if (mainEditorWasActive) {
+    const { startObserving } = await import('../divEditor/index.js');
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      await startObserving(mainContent); // internally calls stopObserving() first
+      console.log('✏️ Sub-book editor stopped, main editor restored');
+    }
+    mainEditorWasActive = false;
+  }
+
+  // Restore window.isEditing to its pre-container value
+  window.isEditing = previousIsEditing;
+  previousIsEditing = false;
+
+  // Clear sub-book context and restore the toolbar to the main book
+  clearActiveBook();
+  const { getEditToolbar } = await import('../editToolbar/index.js');
+  getEditToolbar()?.setBookId(book);
+
+  // Hide toolbar if main book was in read mode (we showed it for hyperlit edit)
+  if (!window.isEditing) {
+    getEditToolbar()?.setEditMode(false);
+  }
 }
 
 // ============================================================================
@@ -149,6 +200,7 @@ function buildEditButtonHtml(isActive) {
  */
 export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds = [], db = null) {
   const currentUserId = await getCurrentUserId();
+  const currentUser = await getCurrentUser();
 
   // Check footnotes and citations (book-level permission)
   const hasFootnoteOrCitation = contentTypes.some(ct => ct.type === 'footnote' || ct.type === 'citation');
@@ -180,9 +232,13 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
       });
 
       if (result) {
-        const isUserHighlight = result.is_user_highlight !== undefined
-          ? result.is_user_highlight
-          : (result.creator ? result.creator === currentUserId : result.creator_token === currentUserId);
+        const isUserHighlight = result.is_user_highlight === true
+          || (currentUser && result.creator && (
+               result.creator === currentUser.name     ||
+               result.creator === currentUser.username  ||
+               result.creator === currentUser.email
+             ))
+          || (!result.creator && result.creator_token === currentUserId);
 
         if (isUserHighlight) {
           return true;
@@ -206,7 +262,7 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
 async function handleEditButtonClick() {
   const newState = toggleHyperlitEditMode();
   const editBtn = document.getElementById('hyperlit-edit-btn');
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   const scroller = container?.querySelector('.scroller');
 
   // Save scroll position BEFORE any DOM changes
@@ -231,9 +287,46 @@ async function handleEditButtonClick() {
     const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
     attachNoteListeners();
     initializePlaceholders();
+
+    // Set up focus-based observer switching for sub-books
+    attachSubBookFocusSwitcher();
+
+    // Attach observer to the first editable sub-book
+    const firstEditable = container.querySelector('.sub-book-content[data-user-can-edit="true"]');
+    if (firstEditable) {
+      const subBookId = firstEditable.getAttribute('data-book-id');
+      const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+      mainEditorWasActive = isEditorObserving();
+      previousIsEditing = window.isEditing;
+      if (!window.isEditing) window.isEditing = true;
+      firstEditable.contentEditable = 'true';
+      await startObserving(firstEditable, subBookId);
+      if (!firstEditable.dataset.pasteAttached) {
+        const { addPasteListener } = await import('../paste/index.js');
+        addPasteListener(firstEditable);
+        firstEditable.dataset.pasteAttached = 'true';
+      }
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      getToolbar()?.setBookId(subBookId);
+      getToolbar()?.setEditMode(true);
+    }
   } else {
     const { detachNoteListeners } = await import('./noteListener.js');
     detachNoteListeners();
+
+    // Stop any active sub-book observer
+    const { stopObserving } = await import('../divEditor/index.js');
+    await stopObserving();
+
+    // Hide toolbar if main book was in read mode
+    if (!previousIsEditing) {
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      getToolbar()?.setEditMode(false);
+    }
+
+    // Reset so the next toggle cycle starts clean
+    window.isEditing = previousIsEditing;
+    previousIsEditing = false;
   }
 
   // Restore scroll position
@@ -253,10 +346,22 @@ async function handleEditButtonClick() {
  * @param {boolean} preventScroll - If true, prevents scrolling when focusing
  */
 function focusTopmostEditableElement(preventScroll = false) {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return;
 
-  // First try to find an editable footnote (always at the top when present)
+  // First try to find an editable sub-book (lazy-loaded content with divEditor)
+  const editableSubBook = container.querySelector('.sub-book-content[contenteditable="true"]');
+  if (editableSubBook) {
+    const firstNode = editableSubBook.querySelector('.chunk p, .chunk [id]');
+    if (firstNode) {
+      firstNode.focus({ preventScroll: true });
+      placeCursorAtEnd(firstNode);
+      console.log('✏️ Focused topmost editable sub-book');
+      return;
+    }
+  }
+
+  // Then try to find an editable footnote (always at the top when present)
   const editableFootnote = container.querySelector('.footnote-text[contenteditable="true"]');
   if (editableFootnote) {
     editableFootnote.focus({ preventScroll: true });
@@ -285,7 +390,7 @@ function focusTopmostEditableElement(preventScroll = false) {
  * @param {boolean} enabled - Whether edit mode is enabled
  */
 function toggleContentEditableInPlace(enabled) {
-  const container = document.getElementById('hyperlit-container');
+  const container = getCurrentContainer();
   if (!container) return;
 
   // Toggle footnotes (user must have permission - check data attribute)
@@ -303,6 +408,11 @@ function toggleContentEditableInPlace(enabled) {
     el.contentEditable = enabled ? 'true' : 'false';
   });
 
+  // Toggle sub-book content (lazy-loaded footnotes and highlight annotations)
+  container.querySelectorAll('.sub-book-content[data-user-can-edit="true"]').forEach(el => {
+    el.contentEditable = enabled ? 'true' : 'false';
+  });
+
   console.log(`✏️ Toggled contenteditable=${enabled} on editable elements`);
 }
 
@@ -317,6 +427,59 @@ function placeCursorAtEnd(element) {
   range.collapse(false); // false = collapse to end
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+// ============================================================================
+// SUB-BOOK FOCUS SWITCHING
+// ============================================================================
+
+/**
+ * Attach a focusin listener on the container that switches the divEditor
+ * MutationObserver when focus enters a different sub-book.
+ * Uses registerListener() so it's cleaned up on container close.
+ */
+function attachSubBookFocusSwitcher() {
+  if (focusSwitcherAttached) return;
+  focusSwitcherAttached = true;
+
+  const container = getCurrentContainer();
+  if (!container) { focusSwitcherAttached = false; return; }
+
+  const handler = async (e) => {
+    if (!getHyperlitEditMode()) return;
+
+    const subBookEl = e.target.closest('.sub-book-content[data-user-can-edit="true"]');
+    if (!subBookEl) return;
+
+    const subBookId = subBookEl.getAttribute('data-book-id');
+    if (!subBookId) return;
+
+    // Skip if already observing this sub-book
+    const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+    const activeSession = getActiveEditSession();
+    if (activeSession && activeSession.containerId === subBookId) return;
+
+    // Switch observer to the newly focused sub-book
+    const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+    if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+    if (!window.isEditing) window.isEditing = true;
+
+    await startObserving(subBookEl, subBookId); // auto-stops + flushes previous
+
+    // Guard against duplicate paste listeners
+    if (!subBookEl.dataset.pasteAttached) {
+      const { addPasteListener } = await import('../paste/index.js');
+      addPasteListener(subBookEl);
+      subBookEl.dataset.pasteAttached = 'true';
+    }
+
+    const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+    getToolbar()?.setBookId(subBookId);
+
+    console.log(`✏️ Focus switched to sub-book: ${subBookId}`);
+  };
+
+  registerListener(container, 'focusin', handler);
 }
 
 // ============================================================================
@@ -374,6 +537,22 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   isProcessingClick = true;
 
   try {
+    // =========================================================================
+    // STACK DETECTION: If click originates from inside an existing container,
+    // push a new stacked layer instead of replacing the current one.
+    // =========================================================================
+    if (element && !isBackNavigation) {
+      const { isStacked, getDepth, getCurrentContainer: getContainer } = await import('./stack.js');
+      const sourceContainer = element.closest('.hyperlit-container-stacked, #hyperlit-container');
+      if (sourceContainer) {
+        console.log(`📚 Click from inside container at depth ${getDepth()}, pushing stacked layer`);
+        if (focusPreserver) focusPreserver.remove();
+        await pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote);
+        isProcessingClick = false;
+        return;
+      }
+    }
+
     // 🚀 PERFORMANCE: Open DB once and reuse throughout
     const db = await openDatabase();
     let contentTypes = [];
@@ -515,6 +694,18 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
+
+    // Apply cascade-origin glow to the source mark element (persists while container is open)
+    if (element && element.tagName === 'MARK') {
+      document.querySelectorAll('.cascade-origin').forEach(el => el.classList.remove('cascade-origin'));
+      element.classList.add('cascade-origin');
+      // Fire-and-forget: persist cascade-origin ID for chunk re-renders
+      // (dynamic import avoids circular dependency with scrolling.js)
+      const hlId = Array.from(element.classList).find(c => c.startsWith('HL_'));
+      if (hlId) {
+        import('../scrolling.js').then(({ setCascadeOriginId }) => setCascadeOriginId(hlId));
+      }
+    }
 
     // Open the unified container
     openHyperlitContainer(unifiedContent, isBackNavigation);
@@ -693,11 +884,6 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
     contentHtml = '<div class="error">No content available</div>';
   }
 
-  // Append edit button if user has edit permission
-  if (hasAnyEditPermission) {
-    contentHtml += buildEditButtonHtml(editModeEnabled);
-  }
-
   console.log(`📦 Final content HTML (${contentHtml.length} chars):`, contentHtml);
 
   // Return just the content, not the full structure
@@ -722,7 +908,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   if (editModeEnabled) {
     attachNoteListeners();
     initializePlaceholders();
+    attachSubBookFocusSwitcher();
   }
+
+  // Track whether any sub-book editor has been attached (shared across highlight + footnote sections)
+  let subBookEditorAttached = false;
 
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
@@ -730,6 +920,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     try {
       const { highlightIds } = highlightType;
       const currentUserId = await getCurrentUserId();
+      const currentUser = await getCurrentUser();
 
       // Get highlight data to determine which are editable
       const db = await openDatabase();
@@ -753,9 +944,13 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         if (highlight) {
           // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
           // Fall back to local comparison only for locally-created highlights not yet synced
-          const isUserHighlight = highlight.is_user_highlight !== undefined
-            ? highlight.is_user_highlight
-            : (highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId));
+          const isUserHighlight = highlight.is_user_highlight === true
+            || (currentUser && highlight.creator && (
+                 highlight.creator === currentUser.name     ||
+                 highlight.creator === currentUser.username  ||
+                 highlight.creator === currentUser.email
+               ))
+            || (!highlight.creator && highlight.creator_token === currentUserId);
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
           const isEditable = isUserHighlight || isNewlyCreated;
 
@@ -794,11 +989,114 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         }, 150);
       }
 
+      // Check which highlights have sub-book nodes in IndexedDB (handles same-session re-open)
+      const highlightsWithNodes = new Set();
+      try {
+        const nodesTx = db.transaction("nodes", "readonly");
+        const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
+        for (const highlight of results) {
+          if (!highlight) continue;
+          const subBookId = buildSubBookId(highlight.book, highlight.hyperlight_id);
+          const count = await new Promise(res => {
+            const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => res(0);
+          });
+          if (count > 0) highlightsWithNodes.add(highlight.hyperlight_id);
+        }
+      } catch (e) {
+        console.warn('Failed to check sub-book nodes:', e);
+      }
+
+      // Auto-load sub-book content for ALL highlights with annotations
+      const scroller = getCurrentContainer()?.querySelector('.scroller');
+      if (scroller) {
+        const { loadSubBook } = await import('./subBookLoader.js');
+        for (const highlight of results) {
+          if (!highlight) continue;
+
+          const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
+
+          // Skip highlights without annotations — no sub-book to load
+          // (but allow newly created highlights through so we can create their sub-book)
+          if (!highlight.annotation && !highlight.preview_nodes && !highlightsWithNodes.has(highlight.hyperlight_id) && !isNewlyCreated) continue;
+
+          const isUserHighlight = highlight.is_user_highlight === true
+            || (currentUser && highlight.creator && (
+                 highlight.creator === currentUser.name     ||
+                 highlight.creator === currentUser.username  ||
+                 highlight.creator === currentUser.email
+               ))
+            || (!highlight.creator && highlight.creator_token === currentUserId);
+          const isOwnerOrNew = isUserHighlight || isNewlyCreated;
+
+          const subBookId = buildSubBookId(highlight.book, highlight.hyperlight_id);
+
+          // Find the target container rendered by displayHyperlights.js
+          const targetEl = scroller.querySelector(
+            `.highlight-annotation[data-highlight-id="${highlight.hyperlight_id}"]`
+          );
+
+          // Determine if we need to attach the editor (only for user-owned highlights)
+          const needsEditor = isOwnerOrNew && editModeEnabled && !subBookEditorAttached;
+
+          const loaderOpts = {
+            annotationHtml: highlight.annotation || '',
+            previewNodes: highlight.preview_nodes || null,
+            targetElement: targetEl || null,
+            mode: isNewlyCreated ? 'create' : 'read',
+          };
+
+          const loader = await loadSubBook(subBookId, highlight.book, highlight.hyperlight_id, 'hyperlight', scroller, loaderOpts);
+
+          // Mark user-owned sub-books and set contentEditable on all of them
+          const subBookEl = scroller.querySelector(`.sub-book-content[data-book-id="${subBookId}"]`);
+          if (subBookEl && isOwnerOrNew) {
+            subBookEl.setAttribute('data-user-can-edit', 'true');
+            if (editModeEnabled) {
+              subBookEl.contentEditable = 'true';
+            }
+          }
+
+          // Attach editor observer only to the first user-owned sub-book
+          if (needsEditor && loader) {
+            if (subBookEl) {
+              const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+              mainEditorWasActive = isEditorObserving();
+              previousIsEditing = window.isEditing;
+              if (!window.isEditing) window.isEditing = true;
+              await startObserving(subBookEl, subBookId);
+              if (!subBookEl.dataset.pasteAttached) {
+                const { addPasteListener } = await import('../paste/index.js');
+                addPasteListener(subBookEl);
+                subBookEl.dataset.pasteAttached = 'true';
+              }
+              subBookEditorAttached = true;
+              console.log(`✏️ Sub-book editor activated for highlight: ${subBookId}`);
+              const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+              getToolbar()?.setBookId(subBookId);
+              getToolbar()?.setEditMode(true);
+
+              const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
+              if (firstNode) {
+                firstNode.focus({ preventScroll: true });
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.setStart(firstNode, 0);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            }
+          }
+        }
+      }
+
       // Attach delete/hide button listeners using event delegation on container
       // This prevents listener accumulation - one listener handles all buttons
       setTimeout(async () => {
         const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
-        const container = document.getElementById('hyperlit-container');
+        const container = getCurrentContainer();
         if (container) {
           const handler = async (e) => {
             const button = e.target.closest('.delete-highlight-btn');
@@ -828,41 +1126,79 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   const footnoteType = contentTypes.find(ct => ct.type === 'footnote');
   if (footnoteType) {
     try {
-      // Get the footnote ID from the content type (already extracted by detection)
       const footnoteId = footnoteType.footnoteId;
 
       if (footnoteId) {
-        // Content is now inserted synchronously, so element should exist immediately
-        const footnoteEl = document.querySelector(
-          `.footnote-text[data-footnote-id="${footnoteId}"]`
-        );
+        // Resolve parent book ID: prefer contentType, then DOM walk, then global
+        const parentBookId = footnoteType.parentBookId
+          || footnoteType.element?.closest('[data-book-id]')?.dataset?.bookId
+          || book;
 
-        // Only focus and place cursor if edit mode is enabled
-        // Skip if skipAutoFocus is true (edit button handles focus separately)
-        if (footnoteEl && editModeEnabled && !skipAutoFocus) {
-          const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-          if (!isMobile) {
-            // Focus the footnote element and place cursor at end
-            footnoteEl.focus();
+        // Auto-load footnote content via lazy loader
+        const scroller = getCurrentContainer()?.querySelector('.scroller');
+        if (scroller) {
+          const db = await openDatabase();
+          const tx = db.transaction('footnotes', 'readonly');
+          const store = tx.objectStore('footnotes');
+          const fnRecord = await new Promise(resolve => {
+            const req = store.get([parentBookId, footnoteId]);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+          });
+          const subBookId = buildSubBookId(parentBookId, footnoteId);
+          const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);
+          const { loadSubBook } = await import('./subBookLoader.js');
+          // Determine mode: 'create' for new footnotes, 'read' for existing
+          const mode = isNewFootnote ? 'create' : 'read';
+          console.log(`📂 Loading footnote "${subBookId}" in ${mode} mode (parent: ${parentBookId})`);
+          // Await so we can attach the sub-book editor immediately after the first chunk renders
+          const loader = await loadSubBook(subBookId, parentBookId, footnoteId, 'footnote', scroller, {
+            annotationHtml: fnRecord?.content || '',
+            previewNodes: fnRecord?.preview_nodes || null,
+            targetElement: footnotesSection,
+            mode,
+          });
 
-            try {
-              const selection = window.getSelection();
-              const range = document.createRange();
-              range.selectNodeContents(footnoteEl);
-              range.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            } catch (e) {
-              // Ignore selection errors
+          // Mark footnote sub-book as user-editable
+          const subBookEl = scroller.querySelector(`.sub-book-content[data-book-id="${subBookId}"]`);
+          if (subBookEl) {
+            subBookEl.setAttribute('data-user-can-edit', 'true');
+            if (editModeEnabled) {
+              subBookEl.contentEditable = 'true';
             }
           }
 
-          // Clean up the focus preserver
-          if (focusPreserver && focusPreserver.parentNode) {
-            focusPreserver.remove();
+          // Swap divEditor onto the sub-book when edit mode is active (only if no editor attached yet)
+          if (editModeEnabled && !subBookEditorAttached && loader) {
+            if (subBookEl) {
+              const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+              mainEditorWasActive = isEditorObserving();
+              previousIsEditing = window.isEditing;
+              if (!window.isEditing) window.isEditing = true;
+              await startObserving(subBookEl, subBookId);
+              if (!subBookEl.dataset.pasteAttached) {
+                const { addPasteListener } = await import('../paste/index.js');
+                addPasteListener(subBookEl);
+                subBookEl.dataset.pasteAttached = 'true';
+              }
+              subBookEditorAttached = true;
+              console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);
+              const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+              getToolbar()?.setBookId(subBookId);
+              getToolbar()?.setEditMode(true);
+
+              const firstNode = subBookEl.querySelector('.chunk p, .chunk [id]');
+              if (firstNode) {
+                firstNode.focus({ preventScroll: true });
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.setStart(firstNode, 0);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            }
           }
-        } else if (!footnoteEl) {
-          console.error(`❌ Footnote element not found: ${footnoteId}`);
         }
       }
     } catch (error) {
@@ -895,18 +1231,230 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
     }
 
-    // Attach edit button click handler if user has edit permission
+    // Insert edit button as direct child of container (NOT inside scroller)
+    // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch
     if (hasAnyEditPermission) {
-      const editBtn = document.getElementById('hyperlit-edit-btn');
-      if (editBtn) {
-        registerListener(editBtn, 'click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleEditButtonClick();
-        });
+      const existing = document.getElementById('hyperlit-edit-btn');
+      if (existing) existing.remove();
+
+      const container = getCurrentContainer();
+      if (container) {
+        container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
+        const editBtn = document.getElementById('hyperlit-edit-btn');
+        if (editBtn) {
+          registerListener(editBtn, 'click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleEditButtonClick();
+          });
+        }
       }
     }
   }, 100);
+}
+
+// ============================================================================
+// STATE SAVE / RESTORE (for stack support)
+// ============================================================================
+
+/**
+ * Snapshot module-level state so it can be restored when a stacked layer is popped.
+ */
+export function saveModuleState() {
+  return {
+    listeners: [...activeListeners],
+    focusSwitcherAttached,
+    mainEditorWasActive,
+    previousIsEditing,
+  };
+}
+
+/**
+ * Restore module-level state from a snapshot.
+ */
+export function restoreModuleState(state) {
+  if (!state) return;
+  activeListeners.length = 0;
+  activeListeners.push(...state.listeners);
+  focusSwitcherAttached = state.focusSwitcherAttached;
+  mainEditorWasActive = state.mainEditorWasActive;
+  previousIsEditing = state.previousIsEditing;
+}
+
+/**
+ * Reset module-level state for a fresh layer.
+ */
+export function resetModuleState() {
+  activeListeners.length = 0;
+  focusSwitcherAttached = false;
+  mainEditorWasActive = false;
+  previousIsEditing = false;
+}
+
+// ============================================================================
+// STACKED LAYER PUSH
+// ============================================================================
+
+/**
+ * Push a new stacked container layer when a click originates from inside
+ * an existing hyperlit container.
+ */
+async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote) {
+  const {
+    pushLayer, getDepth, getTopLayer, createStackedContainerDOM,
+    getCurrentContainer: getContainer, getCurrentScroller: getScroller,
+  } = await import('./stack.js');
+  const { getHyperlitEditMode, setHyperlitEditMode } = await import('./core.js');
+  const { saveSubBookState, resetSubBookState } = await import('./subBookLoader.js');
+  const { detachNoteListeners } = await import('./noteListener.js');
+
+  const currentDepth = getDepth();
+
+  // --- 1. Pause current layer: flush saves, stop editor, detach listeners ---
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  flushInputDebounce();
+  await flushAllPendingSaves();
+
+  const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+  const activeSession = getActiveEditSession();
+  if (activeSession && activeSession.containerId !== 'main-content') {
+    const { stopObserving } = await import('../divEditor/index.js');
+    await stopObserving();
+  }
+
+  detachNoteListeners();
+
+  // --- 2. Snapshot module state ---
+  const savedModuleState = saveModuleState();
+  const savedSubBookState = saveSubBookState();
+  const savedEditMode = getHyperlitEditMode();
+
+  // Clear sub-book state for the fresh layer — Level 1's entries are saved above
+  resetSubBookState();
+
+  // --- 3. Push/update saved state on the stack ---
+  const currentContainer = getContainer();
+  const currentScroller = getScroller();
+
+  let updatedExistingEntry = false;
+  const topLayer = getTopLayer();
+
+  if (topLayer && topLayer.savedModuleState === null) {
+    // Active layer already has a stack entry — update its saved state
+    topLayer.savedModuleState = savedModuleState;
+    topLayer.savedSubBookState = savedSubBookState;
+    topLayer.savedEditMode = savedEditMode;
+    updatedExistingEntry = true;
+  } else {
+    // First stacked open — push base layer entry
+    const currentOverlay = currentDepth === 0
+      ? document.getElementById('ref-overlay')
+      : currentContainer?.previousElementSibling;
+
+    pushLayer({
+      depth: currentDepth,
+      container: currentContainer,
+      overlay: currentOverlay,
+      scroller: currentScroller,
+      isDynamic: currentDepth > 0,
+      savedModuleState,
+      savedSubBookState,
+      savedEditMode,
+    });
+  }
+
+  // Disable pointer events on the now-lower layer
+  if (currentContainer) {
+    currentContainer.style.pointerEvents = 'none';
+  }
+
+  // --- 4. Reset module state for the new layer ---
+  resetModuleState();
+
+  // Reset edit mode for fresh layer (inherits from parent)
+  setHyperlitEditMode(savedEditMode);
+
+  // --- 5. Create new DOM elements ---
+  const newDepth = getDepth();
+  const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
+
+  // Attach overlay click handler to pop this layer
+  newOverlay.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const { popTopLayer } = await import('./stack.js');
+    await popTopLayer();
+  });
+
+  // Push the new layer entry (representing the active layer)
+  // We don't push it yet — it's the "current" layer, stored implicitly.
+  // The stack stores paused layers below. But we need an entry so
+  // getCurrentContainer() returns the new container.
+  pushLayer({
+    depth: newDepth,
+    container: newContainer,
+    overlay: newOverlay,
+    scroller: newScroller,
+    isDynamic: true,
+    savedModuleState: null, // will be filled when this layer is paused
+    savedSubBookState: null,
+    savedEditMode: savedEditMode,
+  });
+
+  // --- 6. Run normal content pipeline into the new container ---
+  const db = await openDatabase();
+  const contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
+
+  if (contentTypes.length === 0) {
+    console.warn('📚 No content detected for stacked layer, aborting');
+    const { popLayer: popRaw, removeStackedContainerDOM } = await import('./stack.js');
+    popRaw(); // remove the new active layer
+
+    if (updatedExistingEntry) {
+      // Undo the in-place update — restore the entry to its "active" null state
+      topLayer.savedModuleState = null;
+      topLayer.savedSubBookState = null;
+    } else {
+      popRaw(); // remove the pushed paused entry
+    }
+
+    removeStackedContainerDOM(newContainer, newOverlay);
+    restoreModuleState(savedModuleState);
+    const { restoreSubBookState } = await import('./subBookLoader.js');
+    restoreSubBookState(savedSubBookState);
+    if (currentContainer) currentContainer.style.pointerEvents = '';
+    return;
+  }
+
+  // Check edit permissions
+  const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+  const editModeEnabled = getHyperlitEditMode();
+
+  // Build content HTML
+  const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
+
+  // Set content into the new container's scroller
+  newScroller.innerHTML = unifiedContent;
+
+  // Set max-height dynamically
+  const viewportHeight = window.innerHeight;
+  newContainer.style.maxHeight = `${viewportHeight - 16 - 4}px`;
+
+  // Lock body scroll (should already be locked from base layer, but ensure)
+  document.body.classList.add('hyperlit-container-open');
+
+  // Animate the container open
+  // Use rAF to ensure the transform is set before adding .open
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      newContainer.classList.add('open');
+    });
+  });
+
+  // Handle post-open actions (listeners, sub-book loading, edit button, etc.)
+  await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+
+  console.log(`📚 Stacked layer ${newDepth} opened successfully`);
 }
 
 /**

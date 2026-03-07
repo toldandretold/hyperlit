@@ -92,12 +92,6 @@ window.addEventListener("pageshow", async (event) => {
           await buttonRegistry.reinitializeAll(pageType);
 
           // Rebind container managers that live outside ButtonRegistry
-          // These mirror the existing pattern in universalPageInitializer (lines 319-337)
-          const { refManager } = await import('./footnotesCitations.js');
-          if (refManager?.rebindElements) {
-            refManager.rebindElements();
-          }
-
           const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
           if (hyperlitManager?.rebindElements) {
             hyperlitManager.rebindElements();
@@ -119,7 +113,7 @@ export async function cleanupReaderView() {
   verbose.init('Cleaning up previous reader view', 'viewManager.js');
 
   // Close any open containers before destroying the view
-  closeHyperlitContainer();
+  await closeHyperlitContainer();
 
   // SPA TRANSITION FIX: Do not remove the navigation overlay here.
   // It is shown just before the transition and must persist.
@@ -147,7 +141,7 @@ export async function cleanupReaderView() {
 
   try {
     const { stopObserving } = await import('./divEditor/index.js');
-    stopObserving();
+    await stopObserving();
   } catch (e) {
     // Module not loaded yet, nothing to stop
   }
@@ -331,14 +325,6 @@ export async function universalPageInitializer(progressCallback = null) {
   // 🔥 Rebind container managers AFTER content loads
   // Note: footnoteCitationListeners now handled by ButtonRegistry
   setTimeout(async () => {
-    // 🔥 CRITICAL: Rebind the reference container manager after SPA transitions
-    // The ContainerManager needs fresh DOM references after HTML replacement
-    const { refManager } = await import('./footnotesCitations.js');
-    if (refManager && refManager.rebindElements) {
-      refManager.rebindElements();
-      verbose.init('Reference container manager rebound after content load', 'viewManager.js');
-    }
-
     const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();

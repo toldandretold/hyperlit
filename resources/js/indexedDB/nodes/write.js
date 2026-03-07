@@ -21,8 +21,8 @@ export function initNodeWriteDependencies(deps) {
 /**
  * Helper function to determine chunk_id from the DOM
  */
-function determineChunkIdFromDOM(nodeId) {
-  const node = document.getElementById(nodeId);
+function determineChunkIdFromDOM(IDnumerical) {
+  const node = document.getElementById(IDnumerical);
   if (node) {
     const chunkIdAttr = node.getAttribute('data-chunk-id');
     if (chunkIdAttr) {
@@ -39,7 +39,7 @@ function determineChunkIdFromDOM(nodeId) {
  * @param {string|number} startLine - Starting line/node ID
  * @param {string} content - HTML content
  * @param {number} chunkId - Chunk identifier for lazy loading
- * @param {string} nodeId - Node UUID
+ * @param {string} nodeId - Node data-node-id
  * @param {IDBTransaction} transaction - Optional existing transaction
  * @returns {Promise<boolean>} Success status
  */

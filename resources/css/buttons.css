@@ -359,14 +359,16 @@ black #221F20;
   stroke: var(--color-background) !important;
 }
 
-/* Hover states */
-#hyperlit-edit-btn:hover:not(.inverted) {
-  background-color: var(--icon-hover-background);
-  border-radius: 4px;
-}
+/* Hover states — only on devices that support hover (not touch) */
+@media (hover: hover) {
+  #hyperlit-edit-btn:hover:not(.inverted) {
+    background-color: var(--icon-hover-background);
+    border-radius: 4px;
+  }
 
-#hyperlit-edit-btn:hover:not(.inverted) svg path {
-  stroke: var(--icon-hover-stroke) !important;
+  #hyperlit-edit-btn:hover:not(.inverted) svg path {
+    stroke: var(--icon-hover-stroke) !important;
+  }
 }
 
 .open {

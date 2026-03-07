@@ -357,18 +357,24 @@ async function syncItemsForBook(bookId, bookItems) {
 
       // Re-read ALL nodes fresh from IndexedDB (prevents stale queue references)
       if (allNodeIdsToSync.size > 0) {
-        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-        const freshNodes = await getNodesByUUIDs([...allNodeIdsToSync]);
+        const { getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
+        const freshNodes = await getNodesByDataNodeIDs([...allNodeIdsToSync]);
 
-        // Replace sync payload nodes with fresh data
-        syncPayload.updates.nodes = freshNodes;
-        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync`);
+        // Only substitute fresh data when it belongs to the correct book.
+        // getNodesByDataNodeIDs may return a different book's record (alphabetically first)
+        // when the same node_id exists across books (sub-book nodes share a node_id
+        // prefix with the parent book because setElementIds uses the global `book`).
+        const correctFreshNodes = freshNodes.filter(n => n.book === bookId);
+        syncPayload.updates.nodes = correctFreshNodes.length > 0
+          ? correctFreshNodes
+          : syncPayload.updates.nodes;
+        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync (${correctFreshNodes.length} matched book ${bookId})`);
       }
 
       // Add deletions (verify node still doesn't exist in IndexedDB)
       if (deletionsToRecover.length > 0) {
-        const { getNodesByUUIDs } = await import('../hydration/rebuild.js');
-        const existCheck = await getNodesByUUIDs(deletionsToRecover.map(n => n.node_id));
+        const { getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
+        const existCheck = await getNodesByDataNodeIDs(deletionsToRecover.map(n => n.node_id));
         const stillExistIds = new Set(existCheck.map(n => n.node_id));
         for (const node of deletionsToRecover) {
           if (!stillExistIds.has(node.node_id)) {
@@ -453,21 +459,23 @@ export const debouncedMasterSync = debounce(async () => {
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
-  // Determine the book ID from queued data
+  // Group items by book so each sub-book syncs independently
+  const itemsByBook = new Map();
   const mainContent = document.querySelector('.main-content');
-  let syncBookId = null;
-  for (const item of itemsToSync.values()) {
-    const itemBook = item.data?.book;
-    if (itemBook && !syntheticBooks.includes(itemBook)) {
-      syncBookId = itemBook;
-      break;
+  const fallbackBookId = mainContent?.id || book || "latest";
+
+  for (const [key, item] of itemsToSync) {
+    const itemBook = item.data?.book || fallbackBookId;
+    if (!itemsByBook.has(itemBook)) {
+      itemsByBook.set(itemBook, new Map());
     }
-  }
-  if (!syncBookId) {
-    syncBookId = mainContent?.id || book || "latest";
+    itemsByBook.get(itemBook).set(key, item);
   }
 
-  await syncItemsForBook(syncBookId, itemsToSync);
+  // Sync each book's items separately
+  for (const [bookId, bookItems] of itemsByBook) {
+    await syncItemsForBook(bookId, bookItems);
+  }
 
   // ✅ Dynamically import toolbar (only exists when editing)
   try {

@@ -67,7 +67,12 @@ export async function addToHighlightsTable(bookId, highlightData) {
       is_user_highlight: true  // Always true for locally-created highlights
     };
 
-    console.log("💾 Final highlight entry for IndexedDB:", highlightEntry);
+    console.log(`💾 Saving highlight to IndexedDB:`);
+    console.log(`   book: ${bookId}`);
+    console.log(`   hyperlight_id: ${highlightData.highlightId}`);
+    console.log(`   node_ids: ${JSON.stringify(highlightEntry.node_id)}`);
+    console.log(`   startLine: ${highlightData.startLine}`);
+    console.log(`   text: "${highlightData.text?.substring(0,40)}..."`);
 
     const addRequest = store.put(highlightEntry);
 

@@ -34,7 +34,10 @@ let _footnoteId = null;
 
 // 3) If exactly two segments and second starts with "HL_", that's our OpenHyperlightID
 //    If it contains "_Fn", that's a footnote ID
-if (pathSegments.length === 2) {
+//    Skip detection for /based/ standalone URLs — the DOM id provides the book ID
+const isStandaloneMode = pathSegments[0] === 'based';
+
+if (!isStandaloneMode && pathSegments.length === 2) {
   if (pathSegments[1].startsWith("HL_")) {
     _hyperlightId = pathSegments[1];
   } else if (pathSegments[1].includes("_Fn") || pathSegments[1].startsWith("Fn")) {
