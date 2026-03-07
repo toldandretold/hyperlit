@@ -357,6 +357,17 @@ body[data-page="user"] #userLibraryContainer {
   max-width: 100%;
 }
 
+/* Larger touch targets for footnotes inside containers —
+   nested scrollable divs need bigger invisible tap zones on mobile */
+#hyperlit-container sup[fn-count-id]::before,
+.hyperlit-container-stacked sup[fn-count-id]::before {
+    top: -16px;
+    left: -16px;
+    right: -16px;
+    bottom: -16px;
+    z-index: 1;
+}
+
 #toc-container .scroller {
   position: absolute;
   top: 0;
