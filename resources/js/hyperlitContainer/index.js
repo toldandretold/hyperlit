@@ -699,10 +699,12 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     if (element && element.tagName === 'MARK') {
       document.querySelectorAll('.cascade-origin').forEach(el => el.classList.remove('cascade-origin'));
       element.classList.add('cascade-origin');
-      // Persist so chunk re-renders preserve the class
-      const { setCascadeOriginId } = await import('../scrolling.js');
+      // Fire-and-forget: persist cascade-origin ID for chunk re-renders
+      // (dynamic import avoids circular dependency with scrolling.js)
       const hlId = Array.from(element.classList).find(c => c.startsWith('HL_'));
-      if (hlId) setCascadeOriginId(hlId);
+      if (hlId) {
+        import('../scrolling.js').then(({ setCascadeOriginId }) => setCascadeOriginId(hlId));
+      }
     }
 
     // Open the unified container
