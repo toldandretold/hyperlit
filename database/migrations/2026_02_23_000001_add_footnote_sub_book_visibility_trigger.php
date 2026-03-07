@@ -17,7 +17,7 @@ return new class extends Migration
                     SET    visibility = NEW.visibility
                     WHERE  book LIKE NEW.book || '/%'
                       AND  type = 'sub_book'
-                      AND  split_part(book, '/', 2) LIKE 'Fn%';
+                      AND  (split_part(book, '/', 2) LIKE 'Fn%' OR split_part(book, '/', 2) LIKE '%\_Fn%');
                 END IF;
                 RETURN NEW;
             END;
@@ -38,7 +38,7 @@ return new class extends Migration
             FROM   library parent
             WHERE  split_part(sub.book, '/', 1) = parent.book
               AND  sub.type = 'sub_book'
-              AND  split_part(sub.book, '/', 2) LIKE 'Fn%';
+              AND  (split_part(sub.book, '/', 2) LIKE 'Fn%' OR split_part(sub.book, '/', 2) LIKE '%\_Fn%');
         SQL);
     }
 

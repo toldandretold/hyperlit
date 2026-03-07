@@ -241,7 +241,7 @@ async function prepareContainerClose() {
       if (!itemId) continue;
       const db = await openDatabase();
 
-      if (itemId.startsWith('Fn')) {
+      if (itemId.includes('_Fn') || /^Fn\d/.test(itemId)) {
         const tx = db.transaction('footnotes', 'readwrite');
         const store = tx.objectStore('footnotes');
         const existing = await new Promise(r => {

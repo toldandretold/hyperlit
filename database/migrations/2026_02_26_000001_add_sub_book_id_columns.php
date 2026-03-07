@@ -20,7 +20,7 @@ return new class extends Migration
         });
 
         // Backfill existing data
-        DB::statement("
+        DB::connection('pgsql_admin')->statement("
             UPDATE hyperlights SET sub_book_id =
               CASE
                 WHEN book NOT LIKE '%/%'
@@ -29,7 +29,7 @@ return new class extends Migration
               END
             WHERE sub_book_id IS NULL
         ");
-        DB::statement('
+        DB::connection('pgsql_admin')->statement('
             UPDATE footnotes SET sub_book_id =
               CASE
                 WHEN book NOT LIKE \'%/%\'
