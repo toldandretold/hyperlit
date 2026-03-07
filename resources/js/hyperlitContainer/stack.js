@@ -25,6 +25,12 @@
 
 const layers = [];
 
+let isPopping = false;
+
+export function isStackPopping() {
+  return isPopping;
+}
+
 const SHRINK_FACTOR = 0.98;    // each level is 98% of previous width
 const LEVELS_PER_FLIP = 5;     // alternates gap side every 5 levels
 let cachedBaseWidthPx = null;
@@ -251,6 +257,17 @@ async function _popTopLayerImpl() {
 
   console.log(`📚 Popping layer ${top.depth}...`);
 
+  // Clear selection + hide buttons before any cleanup to prevent
+  // handleSelection() from firing on dying DOM (causes layout reflow freeze)
+  isPopping = true;
+  try {
+    window.getSelection().removeAllRanges();
+  } catch (_) {}
+  const btns = document.getElementById('hyperlight-buttons');
+  if (btns) btns.style.display = 'none';
+
+  try {
+
   // 1. Flush saves + cleanup on current layer (skip editor restore — layer below handles it)
   const { cleanupContainerListeners } = await import('./index.js');
   await cleanupContainerListeners({ stackPop: true });
@@ -322,4 +339,8 @@ async function _popTopLayerImpl() {
   }
 
   console.log(`📚 Layer ${newTop.depth} restored`);
+
+  } finally {
+    isPopping = false;
+  }
 }

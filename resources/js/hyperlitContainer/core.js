@@ -224,6 +224,8 @@ async function prepareContainerClose() {
     const { subBookLoaders } = await import('./subBookLoader.js');
     const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index.js');
 
+    const { parseSubBookId } = await import('../utilities/subBookIdHelper.js');
+
     for (const [subBookId] of subBookLoaders) {
       const nodes = await getNodeChunksFromIndexedDB(subBookId);
       if (!nodes?.length) continue;
@@ -235,7 +237,8 @@ async function prepareContainerClose() {
         hypercites: n.hypercites || [],
       }));
 
-      const [parentBook, itemId] = subBookId.split('/');
+      const { foundation: parentBook, itemId } = parseSubBookId(subBookId);
+      if (!itemId) continue;
       const db = await openDatabase();
 
       if (itemId.startsWith('Fn')) {

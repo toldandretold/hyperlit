@@ -13,6 +13,7 @@ import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
 import { withPending } from '../utilities/operationState.js';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
+import { isStackPopping } from '../hyperlitContainer/stack.js';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;
@@ -134,6 +135,9 @@ function cleanupEmptyElements() {
  * Handle text selection and show/hide highlight buttons
  */
 export function handleSelection() {
+  // Suppress during stack pop — DOM is being torn down, layout reflows freeze the UI
+  if (isStackPopping()) return;
+
   // If the source container is open, don't do anything here.
   if (window.activeContainer === "source-container") {
     console.log("Source container is active; skipping hyperlight button toggling.");
@@ -156,6 +160,14 @@ export function handleSelection() {
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const selectionRange = selection.getRangeAt(0);
+
+    // Suppress buttons when selecting inside citation/reference containers
+    const anchor = selectionRange.commonAncestorContainer;
+    const anchorEl = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+    if (anchorEl?.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) {
+      document.getElementById("hyperlight-buttons").style.display = "none";
+      return;
+    }
 
     highlights.forEach(function (highlight) {
       // Check if the selection intersects with this highlight element

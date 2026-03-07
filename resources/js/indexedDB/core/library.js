@@ -6,6 +6,7 @@
 import { openDatabase } from './connection.js';
 import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 import { buildBibtexEntry } from '../../utilities/bibtexProcessor.js';
+import { parseSubBookId } from '../../utilities/subBookIdHelper.js';
 
 // Dependencies
 let book, queueForSync;
@@ -142,13 +143,12 @@ export async function updateBookTimestamp(bookId = book || "latest") {
           // Footnote edits touch parent's content timestamp;
           // highlight annotation edits touch parent's annotations_updated_at
           if (bookId.includes('/')) {
-            const parentBook = bookId.split('/')[0];
-            const itemId = bookId.split('/')[1];
-            if (itemId.startsWith('HL_')) {
-              updateAnnotationsTimestamp(parentBook).catch(() => {});
+            const { foundation, itemId } = parseSubBookId(bookId);
+            if (itemId?.startsWith('HL_')) {
+              updateAnnotationsTimestamp(foundation).catch(() => {});
             } else {
               // Footnotes (Fn*) and any other sub-book types → parent timestamp
-              updateBookTimestamp(parentBook).catch(() => {});
+              updateBookTimestamp(foundation).catch(() => {});
             }
           }
 

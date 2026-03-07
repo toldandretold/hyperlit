@@ -217,7 +217,6 @@ const enrichedSubBooks = new Set();
 
 async function enrichSubBookFromDB(subBookId, subBookState) {
   if (enrichedSubBooks.has(subBookId)) return;
-  enrichedSubBooks.add(subBookId);
 
   try {
     // ── Timestamp guard (same pattern as checkAndUpdateIfNeeded in initializePage.js) ──
@@ -236,14 +235,34 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       serverNewer: serverTimestamp > localTimestamp
     });
 
-    // If no server record, or local is same/newer → skip destructive sync
-    if (!serverRecord || serverTimestamp <= localTimestamp) {
-      console.log(`⏳ Sub-book "${subBookId}": local is up-to-date, skipping server sync`);
+    // Check whether we have more than just preview data in IndexedDB
+    const localNodes = await getNodeChunksFromIndexedDB(subBookId);
+    const previewNodeIds = subBookState.previewNodeIds || [];
+    const hasFullData = localNodes?.length > 0 && localNodes.length > previewNodeIds.length;
+
+    // Only skip sync when we already have more than just preview data
+    // AND server is not newer (or no server record).
+    // When localNodes.length == previewNodeIds.length, we only have the preview
+    // slice — must sync to get the rest (even if timestamps match / server is 0).
+    if (hasFullData && (!serverRecord || serverTimestamp <= localTimestamp)) {
+      console.log(`⏳ Sub-book "${subBookId}": has full data and local is up-to-date, skipping server sync`);
+
+      // Even without sync, check if local nodes support a [read more] button
+      // (handles reopens where IndexedDB has full data but initial load used preview_nodes)
+      if (localNodes?.length && subBookLoaders.has(subBookId)) {
+        if (localNodes.length > previewNodeIds.length && !subBookState.hasMoreContent) {
+          console.log(`📊 Local data has more content: ${localNodes.length} > ${previewNodeIds.length}`);
+          subBookState.hasMoreContent = true;
+          addReadMoreButton(subBookId, subBookState.containerDiv, previewNodeIds, subBookState.scrollerDiv, localNodes.length);
+        }
+      }
+
+      enrichedSubBooks.add(subBookId);
       return;
     }
 
-    // Server is newer → proceed with destructive sync
-    console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
+    // Either we only have preview data, or server is newer → proceed with sync
+    console.log(`🔥 Sub-book "${subBookId}": ${!hasFullData ? 'only has preview data' : 'server is newer'}, syncing...`);
     const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
     const result = await syncBookDataFromDatabase(subBookId);
 
@@ -251,8 +270,6 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
     if (result.success && subBookLoaders.has(subBookId)) {
       // Get fresh data from IndexedDB (includes hyperlights/hypercites)
       const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
-      const previewNodeIds = subBookState.previewNodeIds || [];
-
       console.log(`📚 Enrichment complete: ${freshNodes.length} total nodes, ${previewNodeIds.length} were previewed`);
 
       // Hydrate preview nodes with fresh hyperlights/hypercites data
@@ -272,9 +289,11 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
 
       console.log(`✅ subBookLoader: Enriched and hydrated "${subBookId}" with ${freshNodes.length} nodes`);
     }
+
+    enrichedSubBooks.add(subBookId);
   } catch (err) {
     console.warn(`⚠️ subBookLoader: Async enrichment failed for "${subBookId}":`, err);
-    enrichedSubBooks.delete(subBookId); // allow retry on next open
+    // Don't add to enrichedSubBooks — allow retry on next open
   }
 }
 
