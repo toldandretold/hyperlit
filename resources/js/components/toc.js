@@ -26,10 +26,6 @@ class TocContainerManager extends ContainerManager {
     // Now render TOC into the restored structure.
     await generateTableOfContents();
     
-    // DEBUG: Log what initialContent contains
-    console.log('🚨 INITIAL CONTENT:', this.initialContent);
-    console.log('🚨 CONTAINER BEFORE OPEN:', this.container.innerHTML.substring(0, 300));
-    
     // Masks are now fully styled in HTML - no JavaScript manipulation needed
     
     // Prepare container for opening but keep it hidden until fully ready
@@ -98,14 +94,6 @@ function isTocCacheValid() {
     tocCache.bookId === currentBook &&
     Date.now() - tocCache.lastScanTime < 30000 // 30 second cache
   );
-  
-  console.log(`📋 TOC Cache check:`, {
-    hasData: tocCache.data !== null,
-    correctBook: tocCache.bookId === currentBook,
-    timeValid: Date.now() - tocCache.lastScanTime < 30000,
-    lastScan: new Date(tocCache.lastScanTime).toLocaleTimeString(),
-    isValid
-  });
   
   return isValid;
 }
@@ -251,9 +239,6 @@ export function renderTOC(container, tocData) {
     return;
   }
 
-  console.log('🎯 Using pre-rendered scroller - zero DOM manipulation needed');
-
-
   // Clear existing content and repopulate (no DOM structure changes)
   scroller.innerHTML = '';
 
@@ -273,19 +258,6 @@ export function renderTOC(container, tocData) {
     anchor.appendChild(heading);
     scroller.appendChild(anchor);
   });
-  
-  console.log('🚨 FINAL CONTAINER (truncated):', container.innerHTML.substring(0, 200));
-  
-  // Let's check the masks are actually visible
-  const finalMaskTop = container.querySelector('.mask-top');
-  const finalMaskBottom = container.querySelector('.mask-bottom');
-  if (finalMaskTop && finalMaskBottom) {
-    console.log('🚨 FINAL MASK STYLES:');
-    console.log('Top mask opacity:', finalMaskTop.style.opacity, 'visibility:', finalMaskTop.style.visibility);
-    console.log('Bottom mask opacity:', finalMaskBottom.style.opacity, 'visibility:', finalMaskBottom.style.visibility);
-    console.log('Top mask computed:', window.getComputedStyle(finalMaskTop).opacity, window.getComputedStyle(finalMaskTop).visibility);
-    console.log('Bottom mask computed:', window.getComputedStyle(finalMaskBottom).opacity, window.getComputedStyle(finalMaskBottom).visibility);
-  }
   
   // Masks are now fully styled in HTML - no JavaScript manipulation needed
 }

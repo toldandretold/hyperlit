@@ -17,8 +17,8 @@ registerAllComponents();
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index.js";
-import { initializeHighlightingControls } from "./hyperlights/selection.js";
-import { initializeHypercitingControls } from "./hypercites/index.js";
+import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selection.js";
+import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index.js";
 import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
 import { setupUnloadSync } from "./indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
@@ -100,6 +100,14 @@ window.addEventListener("pageshow", async (event) => {
           }
 
           await checkEditPermissionsAndUpdateUI();
+
+          // Reinitialize highlighting/selection controls (not in ButtonRegistry)
+          cleanupHighlightingControls();
+          initializeHighlightingControls(book);
+          cleanupHypercitingControls();
+          initializeHypercitingControls(book);
+          destroySelectionHandler();
+          initializeSelectionHandler();
 
         } catch (error) {
           log.error('Error reinitializing after bfcache restore', 'viewManager.js', error);
