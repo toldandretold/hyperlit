@@ -3,7 +3,7 @@ import { log, verbose } from "../utilities/logger.js";
 import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB/index.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
-import { canUserEditBook } from "../utilities/auth.js";
+import { canUserEditBook, clearEditPermissionCache } from "../utilities/auth.js";
 
 // SVG icons for privacy toggle
 const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -361,13 +361,7 @@ export class SourceContainerManager extends ContainerManager {
     // but no longer sets inline styles
   }
 
-  async openContainer() {
-    if (this.isAnimating || !this.container) return;
-    this.isAnimating = true;
-
-    const html = await buildSourceHtml(book);
-    this.container.innerHTML = html;
-
+  attachInternalListeners() {
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
@@ -385,6 +379,16 @@ export class SourceContainerManager extends ContainerManager {
     });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
+  }
+
+  async openContainer() {
+    if (this.isAnimating || !this.container) return;
+    this.isAnimating = true;
+
+    const html = await buildSourceHtml(book);
+    this.container.innerHTML = html;
+
+    this.attachInternalListeners();
 
     // CSS handles all positioning and animation
     this.container.classList.remove("hidden");
@@ -451,6 +455,11 @@ export class SourceContainerManager extends ContainerManager {
       const newVisibility = isCurrentlyPrivate ? 'public' : 'private';
       record.visibility = newVisibility;
 
+      // Keep raw_json in sync with top-level visibility
+      if (record.raw_json && typeof record.raw_json === 'object') {
+        record.raw_json.visibility = newVisibility;
+      }
+
       // Save to IndexedDB - properly wait for the transaction to complete
       const tx = db.transaction("library", "readwrite");
       const store = tx.objectStore("library");
@@ -472,6 +481,8 @@ export class SourceContainerManager extends ContainerManager {
         : 'Book is Public - Click to make private';
 
       console.log(`✅ Book privacy updated to: ${newVisibility}`);
+
+      clearEditPermissionCache(book);
 
     } catch (error) {
       console.error("Error updating privacy status:", error);
@@ -915,13 +926,7 @@ export class SourceContainerManager extends ContainerManager {
       this.container.style.height = "";
       
       // RE-ATTACH EVENT LISTENERS: Make sure buttons work after returning from edit form
-      const mdBtn = this.container.querySelector("#download-md");
-      const docxBtn = this.container.querySelector("#download-docx");
-      const editBtn = this.container.querySelector("#edit-source");
-      
-      if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
-      if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
-      if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
+      this.attachInternalListeners();
     }
   }
 
@@ -1050,23 +1055,9 @@ export class SourceContainerManager extends ContainerManager {
     // Rebuild the HTML with updated citation
     const html = await buildSourceHtml(book);
     this.container.innerHTML = html;
-    
-    // Re-attach event listeners
-    const mdBtn = this.container.querySelector("#download-md");
-    const docxBtn = this.container.querySelector("#download-docx");
-    const editBtn = this.container.querySelector("#edit-source");
-    
-    if (mdBtn) mdBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exportBookAsMarkdown(book);
-    });
-    if (docxBtn) docxBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exportBookAsDocxStyled(book);
-    });
-    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
+
+    // Re-attach all internal listeners (download, edit, privacy toggle)
+    this.attachInternalListeners();
   }
 }
 
@@ -1454,12 +1445,24 @@ export function initializeSourceButtonListener() {
  * Properly removes event listener to prevent accumulation
  */
 export function destroySourceButtonListener() {
-  if (sourceManager && sourceManager.button) {
-    // ✅ CRITICAL FIX: Remove actual listener
-    if (sourceClickHandler) {
+  if (sourceManager) {
+    // Close container if open and reset animation state
+    if (sourceManager.isOpen && sourceManager.container) {
+      sourceManager.container.classList.add("hidden");
+      sourceManager.container.classList.remove("open");
+      sourceManager.isOpen = false;
+      sourceManager.isInEditMode = false;
+      window.activeContainer = "main-content";
+    }
+    sourceManager.isAnimating = false;
+
+    // Remove cloudRef click handler
+    if (sourceManager.button && sourceClickHandler) {
       sourceManager.button.removeEventListener("click", sourceClickHandler);
       sourceClickHandler = null;
     }
-    delete sourceManager.button.dataset.sourceListenerAttached;
+    if (sourceManager.button) {
+      delete sourceManager.button.dataset.sourceListenerAttached;
+    }
   }
 }

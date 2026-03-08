@@ -324,6 +324,11 @@ export function cleanupHighlightingControls() {
     // Note: Cannot remove the touchend listener since it was added as an anonymous function
     documentListenersAttached = false;
   }
+  // Reset button listener guards so reinit can re-attach
+  const copyButton = document.getElementById("copy-hyperlight");
+  const deleteButton = document.getElementById("delete-hyperlight");
+  if (copyButton) copyButton._listenersAttached = false;
+  if (deleteButton) deleteButton._listenersAttached = false;
 }
 
 /**

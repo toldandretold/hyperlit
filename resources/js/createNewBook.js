@@ -64,7 +64,11 @@ export async function fireAndForgetSync(
           const store = tx.objectStore("library");
           
           // Get current local record to check for modifications
-          const currentLocal = await store.get(bookId);
+          const currentLocal = await new Promise((resolve, reject) => {
+            const req = store.get(bookId);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
           
           // Don't overwrite changes made after sync started
           if (currentLocal && currentLocal.timestamp > syncStartTime) {
@@ -83,7 +87,7 @@ export async function fireAndForgetSync(
             const mergedRecord = {
               ...currentLocal, // Keep local changes (title, timestamp, etc.) including creator_token
               creator: syncResult.library.creator, // Update server ownership fields
-              is_owner: syncResult.library.is_owner, // Server-calculated ownership flag
+              is_owner: syncResult.library.is_owner ?? currentLocal.is_owner, // Preserve local if server doesn't include it
               updated_at: syncResult.library.updated_at,
               created_at: syncResult.library.created_at
             };
@@ -95,7 +99,8 @@ export async function fireAndForgetSync(
             // 🔒 SECURITY: Preserve local creator_token since server no longer returns it
             const serverData = {
               ...syncResult.library,
-              creator_token: currentLocal?.creator_token || syncResult.library.creator_token
+              creator_token: currentLocal?.creator_token || syncResult.library.creator_token,
+              is_owner: syncResult.library.is_owner ?? currentLocal?.is_owner,
             };
             console.log("✅ No local changes detected - using server data");
             await store.put(serverData);
@@ -142,19 +147,32 @@ export async function fireAndForgetSync(
 
 async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
   try {
-    let libraryRecord = libraryData;
+    let libraryRecord;
 
-    if (!libraryRecord) {
-      console.log("No payload for library, reading from IndexedDB...");
+    // Prefer fresh data from IndexedDB over stale sessionStorage snapshot
+    try {
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
-      libraryRecord = await tx.objectStore("library").get(bookId);
-
-      // Wait for transaction to complete using proper IndexedDB API
+      const store = tx.objectStore("library");
+      const freshRecord = await new Promise((resolve, reject) => {
+        const req = store.get(bookId);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
       await new Promise((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
+      if (freshRecord) {
+        libraryRecord = freshRecord;
+      }
+    } catch (e) {
+      console.warn("Failed to read fresh library from IndexedDB, using snapshot:", e);
+    }
+
+    // Fall back to sessionStorage snapshot if IndexedDB doesn't have the record
+    if (!libraryRecord) {
+      libraryRecord = libraryData;
     }
 
     if (!libraryRecord) {
@@ -405,7 +423,11 @@ async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime
       console.log("🔍 Checking library timestamp to detect if content was modified after sync started...");
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
-      const libraryRecord = await tx.objectStore("library").get(bookId);
+      const libraryRecord = await new Promise((resolve, reject) => {
+        const req = tx.objectStore("library").get(bookId);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
 
       // Wait for transaction to complete using proper IndexedDB API
       await new Promise((resolve, reject) => {

@@ -310,6 +310,29 @@ async function syncItemsForBook(bookId, bookItems) {
       }
     }
 
+    // --- Re-read library record from IndexedDB to ensure fresh data ---
+    // Mirrors the node re-read pattern: prevents stale queued data
+    // (e.g. visibility changes from privacy toggle) from overwriting
+    // the correct state on the backend.
+    if (syncPayload.updates.library) {
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction("library", "readonly");
+        const store = tx.objectStore("library");
+        const freshLibrary = await new Promise((resolve, reject) => {
+          const req = store.get(bookId);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        if (freshLibrary) {
+          syncPayload.updates.library = freshLibrary;
+          console.log(`🔄 Re-read library record fresh from IndexedDB for sync`);
+        }
+      } catch (libError) {
+        console.warn("Failed to re-read library from IndexedDB, using queued data:", libError);
+      }
+    }
+
     // --- Re-read ALL nodes from IndexedDB to ensure fresh data ---
     // This prevents stale data issues where queue references become outdated
     let failedBatches = [];

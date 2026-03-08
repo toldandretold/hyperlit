@@ -192,8 +192,11 @@ public function upsert(Request $request)
                 
                 // Preserve newer timestamps - never downgrade
                 $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
+                $visibility = $data['visibility'] ?? $libraryRecord->visibility;
                 if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
                     $newTimestamp = $libraryRecord->timestamp;
+                    $title = $libraryRecord->title;
+                    $visibility = $libraryRecord->visibility;
                     Log::info('Preserving existing newer timestamp in upsert', [
                         'book' => $bookId,
                         'existing_timestamp' => $libraryRecord->timestamp,
@@ -201,7 +204,7 @@ public function upsert(Request $request)
                     ]);
 
                 }
-                
+
                 $updateData = [
                     'title' => $title,
                     'author' => $data['author'] ?? $libraryRecord->author,
@@ -220,7 +223,7 @@ public function upsert(Request $request)
                     'booktitle' => $data['booktitle'] ?? $libraryRecord->booktitle,
                     'chapter' => $data['chapter'] ?? $libraryRecord->chapter,
                     'editor' => $data['editor'] ?? $libraryRecord->editor,
-                    'visibility' => $data['visibility'] ?? $libraryRecord->visibility,
+                    'visibility' => $visibility,
                     'listed' => $data['listed'] ?? $libraryRecord->listed,
                     'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
@@ -358,27 +361,24 @@ public function bulkCreate(Request $request)
                     'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
                 ]);
                 
-                // Use updateOrCreate to be more robust, but preserve newer timestamps
+                // Check if server already has a newer record — if so, skip the write entirely
                 $existingRecord = PgLibrary::where('book', $record['book'])->first();
-                
-                if ($existingRecord && $existingRecord->timestamp && $record['timestamp']) {
-                    // If both have timestamps, preserve the newer one AND its related data
-                    if ($existingRecord->timestamp > $record['timestamp']) {
-                        $record['timestamp'] = $existingRecord->timestamp;
-                        $record['title'] = $existingRecord->title;
-                        $record['bibtex'] = $existingRecord->bibtex;
-                        // Also preserve the raw_json to maintain consistency
-                        $record['raw_json'] = $existingRecord->raw_json;
-                        
-                        Log::info('Preserving existing newer timestamp and content', [
-                            'book' => $record['book'],
-                            'existing_timestamp' => $existingRecord->timestamp,
-                            'client_timestamp' => $item['timestamp'],
-                            'preserved_title' => $existingRecord->title
-                        ]);
-                    }
+
+                if ($existingRecord && $existingRecord->timestamp && $record['timestamp']
+                    && $existingRecord->timestamp > $record['timestamp']) {
+                    Log::info('Existing record is newer, skipping bulkCreate update', [
+                        'book' => $record['book'],
+                        'existing_timestamp' => $existingRecord->timestamp,
+                        'client_timestamp' => $record['timestamp'],
+                        'preserved_visibility' => $existingRecord->visibility,
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Library record preserved (existing data is newer).',
+                        'library' => $existingRecord,
+                    ]);
                 }
-                
+
                 $createdRecord = PgLibrary::updateOrCreate(
                     ['book' => $record['book']], // The unique key to find the record
                     $record                     // The data to insert or update with
