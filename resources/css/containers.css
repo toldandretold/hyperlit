@@ -1810,8 +1810,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 @media (max-width: 480px) {
   .hyperlit-container-stacked {
     max-width: 75vw;
-    width: 75vw !important; /* override inline per-layer width */
-    right: .75em !important; /* disable cascade offset on mobile */
+    /* width and right are set by JS cascade in stack.js — don't override */
   }
 }
 
