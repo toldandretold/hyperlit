@@ -64,8 +64,6 @@ class BackfillHyperlightSubBooks extends Command
         // Read via admin so RLS does not hide any rows.
         $hyperlights = $this->admin
             ->table('hyperlights')
-            ->whereNotNull('annotation')
-            ->where('annotation', '!=', '')
             ->whereNull('preview_nodes')
             ->get();
 
@@ -85,7 +83,7 @@ class BackfillHyperlightSubBooks extends Command
                 $hyperlights->take(10)->map(fn($hl) => [
                     $hl->book,
                     $hl->hyperlight_id,
-                    substr(strip_tags($hl->annotation), 0, 60),
+                    substr(strip_tags($hl->annotation ?? ''), 0, 60),
                 ])->toArray()
             );
             if ($total > 10) {
@@ -148,7 +146,7 @@ class BackfillHyperlightSubBooks extends Command
 
                 // Create initial node (strip HTML tags, wrap in standard format).
                 $uuid      = (string) Str::uuid();
-                $plainText = strip_tags($hyperlight->annotation);
+                $plainText = strip_tags($hyperlight->annotation ?? '');
                 $content   = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
                            . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
 

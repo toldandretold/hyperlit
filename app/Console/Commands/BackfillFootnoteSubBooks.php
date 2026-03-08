@@ -64,8 +64,6 @@ class BackfillFootnoteSubBooks extends Command
         // Read via admin so RLS does not hide any rows.
         $footnotes = $this->admin
             ->table('footnotes')
-            ->whereNotNull('content')
-            ->where('content', '!=', '')
             ->whereNull('preview_nodes')
             ->get();
 
@@ -85,7 +83,7 @@ class BackfillFootnoteSubBooks extends Command
                 $footnotes->take(10)->map(fn($f) => [
                     $f->book,
                     $f->footnoteId,
-                    substr(strip_tags($f->content), 0, 60),
+                    substr(strip_tags($f->content ?? ''), 0, 60),
                 ])->toArray()
             );
             if ($total > 10) {
@@ -150,7 +148,7 @@ class BackfillFootnoteSubBooks extends Command
 
                 // Create initial node (strip HTML tags, wrap in standard format).
                 $uuid      = (string) Str::uuid();
-                $plainText = strip_tags($footnote->content);
+                $plainText = strip_tags($footnote->content ?? '');
                 $content   = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
                            . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
 
