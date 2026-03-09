@@ -519,6 +519,12 @@ scrollCaretIntoView(element) {
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
         this.adjustHyperlitContainerHeight(hyperlitContainer, vv);
       }
+
+      // Adjust stacked containers height when keyboard opens
+      document.querySelectorAll('.hyperlit-container-stacked.open').forEach(c => {
+        const maxH = vv.offsetTop + vv.height - 16 - 4;
+        c.style.maxHeight = `${maxH}px`;
+      });
     } else {
       console.log("🔧 KeyboardManager: KEYBOARD CLOSING - will reset inline styles");
       if (editToolbar) {
@@ -554,6 +560,11 @@ scrollCaretIntoView(element) {
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
         this.adjustHyperlitContainerHeight(hyperlitContainer, window.visualViewport);
       }
+
+      // Reset stacked containers to full height
+      document.querySelectorAll('.hyperlit-container-stacked').forEach(c => {
+        c.style.maxHeight = `${window.innerHeight - 16 - 4}px`;
+      });
 
       console.log("🔧 KeyboardManager: Inline styles reset on all elements including #bottom-right-buttons");
       this.state.keyboardTop = null;
