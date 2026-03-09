@@ -68,6 +68,7 @@ class RegenerateUserHomePages extends Command
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', 'NOT LIKE', '%/%')
             ->where('visibility', 'public')
             ->orderByDesc('created_at')
             ->get();
