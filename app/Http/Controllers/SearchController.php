@@ -88,6 +88,7 @@ class SearchController extends Controller
             $libraryResults = $libraryCollection->map(function ($row) {
                 $arr = (array) $row;
                 $arr['source'] = 'library';
+                $arr['has_nodes'] = (bool) ($arr['has_nodes'] ?? true);
                 return $arr;
             })->values()->all();
 

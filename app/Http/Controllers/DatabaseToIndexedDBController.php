@@ -411,7 +411,9 @@ class DatabaseToIndexedDBController extends Controller
             $bibliographyData[$reference->referenceId] = [
                 'content' => $reference->content,
                 'source_id' => $reference->source_id ?? null,
-                'source_has_nodes' => $reference->source_has_nodes, // null → treated as true (backward compat)
+                'source_has_nodes' => isset($reference->source_has_nodes)
+                    ? (bool) $reference->source_has_nodes
+                    : null, // null → treated as true (backward compat)
             ];
         }
 
