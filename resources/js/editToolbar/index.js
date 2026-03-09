@@ -66,6 +66,7 @@ class EditToolbar {
       blockquoteButton: this.blockquoteButton,
       codeButton: this.codeButton,
       citationButton: this.citationButton,
+      footnoteButton: this.footnoteButton,
       headingSubmenu: this.headingSubmenu,
       selectionManager: this.selectionManager
     });

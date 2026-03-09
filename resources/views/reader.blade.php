@@ -146,6 +146,73 @@
           </svg>
       </button>
   </div>
+
+
+  <!-- toggle hidden containers -->
+  <div id="toc-container" class="hidden">
+    <div class="scroller"></div>
+    <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
+    <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 20px !important; pointer-events: none !important; z-index: 10 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
+    <div class="container-controls">
+      <div class="resize-handle resize-right" title="Resize width (drag left/right)"></div>
+    </div>
+  </div>
+  <div id="hyperlit-container" class="container-panel hidden">
+    <div class="scroller"></div>
+    <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
+    <div class="container-controls">
+      <div class="resize-handle resize-left" title="Resize width"></div>
+      <div class="drag-handle" title="Drag to move container"></div>
+      <div class="resize-handle resize-right" title="Resize width"></div>
+    </div>
+  </div>
+ 
+  <div id="source-container" class="hidden"></div>
+  <div id="source-overlay"></div>
+
+
+  <div id="toc-overlay"></div>
+  <div id="ref-overlay"></div>
+  
+
+  <div id="user-overlay"></div>
+  <div id="user-container" class="hidden" style="visibility: hidden;"></div>
+
+  <!-- Settings container - slides up from bottom -->
+  <div id="bottom-up-container" class="hidden">
+    <!-- Dark Mode Button (active by default) -->
+    <button type="button" id="darkModeButton" class="settings-button active">
+      Dark Mode
+    </button>
+
+    <!-- Light Mode Button -->
+    <button type="button" id="lightModeButton" class="settings-button">
+      Light Mode
+    </button>
+
+    <!-- Sepia Mode Button -->
+    <button type="button" id="sepiaModeButton" class="settings-button">
+      Sepia Mode
+    </button>
+
+    <!-- Search Button -->
+    <button type="button" id="searchButton" class="settings-button">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M221.09,64A157.09,157.09,0,1,0,378.18,221.09,157.1,157.1,0,0,0,221.09,64Z" />
+        <line x1="338.29" y1="338.29" x2="448" y2="448" />
+      </svg>
+    </button>
+
+    <!-- Latency Monitor Button -->
+    <button type="button" id="latencyMonitorButton" class="settings-button">
+      ⚡ Latency
+    </button>
+  </div>
+  <div id="settings-overlay"></div>
+
+</div><!-- Close app-container -->
+
   <!-- Add the new edit-toolbar div -->
   <div id="edit-toolbar">
     <button type="button" id="boldButton">
@@ -276,72 +343,6 @@
     <div id="citation-toolbar-results"></div>
   </div>
   -->
-
-
-  <!-- toggle hidden containers -->
-  <div id="toc-container" class="hidden">
-    <div class="scroller"></div>
-    <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
-    <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 20px !important; pointer-events: none !important; z-index: 10 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
-    <div class="container-controls">
-      <div class="resize-handle resize-right" title="Resize width (drag left/right)"></div>
-    </div>
-  </div>
-  <div id="hyperlit-container" class="container-panel hidden">
-    <div class="scroller"></div>
-    <div class="mask-top"></div>
-    <div class="mask-bottom"></div>
-    <div class="container-controls">
-      <div class="resize-handle resize-left" title="Resize width"></div>
-      <div class="drag-handle" title="Drag to move container"></div>
-      <div class="resize-handle resize-right" title="Resize width"></div>
-    </div>
-  </div>
- 
-  <div id="source-container" class="hidden"></div>
-  <div id="source-overlay"></div>
-
-
-  <div id="toc-overlay"></div>
-  <div id="ref-overlay"></div>
-  
-
-  <div id="user-overlay"></div>
-  <div id="user-container" class="hidden" style="visibility: hidden;"></div>
-
-  <!-- Settings container - slides up from bottom -->
-  <div id="bottom-up-container" class="hidden">
-    <!-- Dark Mode Button (active by default) -->
-    <button type="button" id="darkModeButton" class="settings-button active">
-      Dark Mode
-    </button>
-
-    <!-- Light Mode Button -->
-    <button type="button" id="lightModeButton" class="settings-button">
-      Light Mode
-    </button>
-
-    <!-- Sepia Mode Button -->
-    <button type="button" id="sepiaModeButton" class="settings-button">
-      Sepia Mode
-    </button>
-
-    <!-- Search Button -->
-    <button type="button" id="searchButton" class="settings-button">
-      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <path d="M221.09,64A157.09,157.09,0,1,0,378.18,221.09,157.1,157.1,0,0,0,221.09,64Z" />
-        <line x1="338.29" y1="338.29" x2="448" y2="448" />
-      </svg>
-    </button>
-
-    <!-- Latency Monitor Button -->
-    <button type="button" id="latencyMonitorButton" class="settings-button">
-      ⚡ Latency
-    </button>
-  </div>
-  <div id="settings-overlay"></div>
-
-</div><!-- Close app-container -->
 
 @endsection
 

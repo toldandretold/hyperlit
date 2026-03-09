@@ -220,6 +220,56 @@ class OpenAlexController extends Controller
     }
 
     /**
+     * Fetch works by author name from OpenAlex (two-step: resolve author → fetch works).
+     * OpenAlex's `search` param only searches title/abstract, not author names.
+     *
+     * @return array<int, array>
+     */
+    public function fetchFromOpenAlexByAuthor(string $query, int $limit = 10): array
+    {
+        // Step 1: Resolve author name to an OpenAlex author ID
+        $authorResponse = Http::withHeaders([
+            'User-Agent' => self::USER_AGENT,
+        ])->get(self::BASE_URL . '/authors', [
+            'search'   => $query,
+            'per_page' => 1,
+            'select'   => 'id',
+        ]);
+
+        if (!$authorResponse->successful()) {
+            return [];
+        }
+
+        $authors = $authorResponse->json('results') ?? [];
+        if (empty($authors)) {
+            return [];
+        }
+
+        $authorId = $authors[0]['id'] ?? null;
+        if (!$authorId) {
+            return [];
+        }
+
+        // Step 2: Fetch that author's works sorted by citation count
+        $worksResponse = Http::withHeaders([
+            'User-Agent' => self::USER_AGENT,
+        ])->get(self::BASE_URL . '/works', [
+            'filter'   => 'authorships.author.id:' . $authorId,
+            'per_page' => $limit,
+            'sort'     => 'cited_by_count:desc',
+            'select'   => self::SELECT_FIELDS,
+        ]);
+
+        if (!$worksResponse->successful()) {
+            return [];
+        }
+
+        $works = $worksResponse->json('results') ?? [];
+
+        return array_map(fn(array $work) => $this->normaliseWork($work), $works);
+    }
+
+    /**
      * Normalise a raw OpenAlex work object into the shared citation shape.
      * Includes generated bibtex and all fields needed for library stub creation.
      */

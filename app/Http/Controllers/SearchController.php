@@ -97,8 +97,26 @@ class SearchController extends Controller
             if (count($libraryResults) < 10) {
                 $openAlexLimit = max(10 - count($libraryResults), 5);
                 $openAlexController = new OpenAlexController();
-                $candidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit, $openAlexPage);
-                $openAlexFull = count($candidates) >= $openAlexLimit;
+
+                // Fetch title-based and author-based results in parallel
+                $titleCandidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit, $openAlexPage);
+                $authorCandidates = $openAlexController->fetchFromOpenAlexByAuthor($query, $openAlexLimit);
+
+                // Merge: author results first, dedup by openalex_id
+                $seenIds = [];
+                $merged = [];
+                foreach (array_merge($authorCandidates, $titleCandidates) as $candidate) {
+                    $oaId = $candidate['openalex_id'] ?? null;
+                    if ($oaId && isset($seenIds[$oaId])) {
+                        continue;
+                    }
+                    if ($oaId) {
+                        $seenIds[$oaId] = true;
+                    }
+                    $merged[] = $candidate;
+                }
+
+                $openAlexFull = count($titleCandidates) >= $openAlexLimit;
 
                 // Deduplicate against library results by normalised title
                 $libraryTitles = array_map(
@@ -107,7 +125,7 @@ class SearchController extends Controller
                 );
 
                 $deduplicated = [];
-                foreach ($candidates as $candidate) {
+                foreach ($merged as $candidate) {
                     $t = strtolower(trim($candidate['title'] ?? ''));
                     if ($t !== '' && !in_array($t, $libraryTitles, true)) {
                         $deduplicated[] = $candidate;
@@ -117,9 +135,7 @@ class SearchController extends Controller
                 // Upsert deduplicated results as library stubs so they're immediately insertable
                 if (!empty($deduplicated)) {
                     $openAlexResults = $openAlexController->upsertLibraryStubs(
-                        $deduplicated,
-                        Auth::id(),
-                        $request->cookie('anon_token')
+                        $deduplicated
                     );
                 }
             }
@@ -148,6 +164,7 @@ class SearchController extends Controller
 
     /**
      * Execute the library full-text search and return the raw collection (or null on empty tsquery).
+     * Falls back to OR matching when AND returns 0 results for multi-term queries (first page only).
      */
     private function runLibrarySearch(Request $request, string $query, int $limit, int $offset = 0): ?\Illuminate\Support\Collection
     {
@@ -157,6 +174,22 @@ class SearchController extends Controller
             return null;
         }
 
+        $results = $this->executeLibraryQuery($request, $tsQuery, $limit, $offset);
+
+        // OR fallback: when AND returns 0 results, has multiple terms, and is first page
+        if ($results->isEmpty() && $offset === 0 && str_contains($tsQuery, ' & ')) {
+            $orQuery = str_replace(' & ', ' | ', $tsQuery);
+            $results = $this->executeLibraryQuery($request, $orQuery, $limit, $offset);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Build and execute the library full-text query for a given tsquery string.
+     */
+    private function executeLibraryQuery(Request $request, string $tsQuery, int $limit, int $offset): \Illuminate\Support\Collection
+    {
         // Using 'simple' config to match the search_vector (preserves stop words)
         $dbQuery = DB::table('library')
             ->selectRaw("
@@ -165,10 +198,11 @@ class SearchController extends Controller
                 author,
                 bibtex,
                 has_nodes,
-                ts_rank(search_vector, to_tsquery('simple', ?)) as relevance,
+                ts_rank('{0.05, 0.1, 0.3, 1.0}', search_vector, to_tsquery('simple', ?)) as relevance,
                 ts_headline('simple',
                     COALESCE(title, '') || ' ' || COALESCE(author, '') || ' ' ||
-                    COALESCE(booktitle, '') || ' ' || COALESCE(chapter, '') || ' ' || COALESCE(editor, ''),
+                    COALESCE(booktitle, '') || ' ' || COALESCE(chapter, '') || ' ' ||
+                    COALESCE(editor, '') || ' ' || COALESCE(year, ''),
                     to_tsquery('simple', ?),
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
                 ) as headline

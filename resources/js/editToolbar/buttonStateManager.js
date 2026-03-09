@@ -24,6 +24,7 @@ export class ButtonStateManager {
     this.blockquoteButton = options.blockquoteButton || null;
     this.codeButton = options.codeButton || null;
     this.citationButton = options.citationButton || null;
+    this.footnoteButton = options.footnoteButton || null;
 
     // Submenu reference
     this.headingSubmenu = options.headingSubmenu || null;
@@ -132,6 +133,12 @@ export class ButtonStateManager {
       this.codeButton.disabled = shouldDisable;
     }
 
+    // Update footnote button state
+    if (this.footnoteButton) {
+      this.footnoteButton.classList.toggle("disabled", isTextSelected);
+      this.footnoteButton.disabled = isTextSelected;
+    }
+
     // Update citation button state
     if (this.citationButton) {
       // Check if we have a valid range in editable content
@@ -147,8 +154,8 @@ export class ButtonStateManager {
       const isRangeValid = hasValidRange &&
         (editableContent?.contains(rangeContainer) || inSubBook);
 
-      // Disable if no valid range in editable content
-      const shouldDisable = !isRangeValid;
+      // Disable if no valid range in editable content or text is selected
+      const shouldDisable = !isRangeValid || isTextSelected;
       this.citationButton.classList.toggle("disabled", shouldDisable);
       this.citationButton.disabled = shouldDisable;
     }

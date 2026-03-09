@@ -1806,15 +1806,6 @@ body.hyperlit-container-open .reader-content-wrapper {
   display: none !important;
 }
 
-/* Very small screens */
-@media (max-width: 480px) {
-  .hyperlit-container-stacked {
-    max-width: 75vw;
-    width: 75vw !important; /* override inline per-layer width */
-    right: .75em !important; /* disable cascade offset on mobile */
-  }
-}
-
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
   font-size: 12px;
