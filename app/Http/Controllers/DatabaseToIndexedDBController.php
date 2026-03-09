@@ -411,7 +411,9 @@ class DatabaseToIndexedDBController extends Controller
             $bibliographyData[$reference->referenceId] = [
                 'content' => $reference->content,
                 'source_id' => $reference->source_id ?? null,
-                'source_has_nodes' => $reference->source_has_nodes, // null → treated as true (backward compat)
+                'source_has_nodes' => isset($reference->source_has_nodes)
+                    ? (bool) $reference->source_has_nodes
+                    : null, // null → treated as true (backward compat)
             ];
         }
 
@@ -550,9 +552,10 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get library data for a book
      */
-   private function getLibrary(string $bookId): ?array
+   private function getLibrary(string $bookId, bool $bypassRls = false): ?array
     {
-        $library = DB::table('library')
+        $connection = $bypassRls ? 'pgsql_admin' : config('database.default');
+        $library = DB::connection($connection)->table('library')
             ->where('book', $bookId)
             ->first();
 
@@ -632,7 +635,7 @@ class DatabaseToIndexedDBController extends Controller
             // Library records (bibliographic metadata) are publicly accessible
             // even for private books, as they may be cited in public documents.
             // The privacy restriction applies to nodes (actual content), not citations.
-            $libraryRecord = DB::table('library')->where('book', $bookId)->first();
+            $libraryRecord = DB::connection('pgsql_admin')->table('library')->where('book', $bookId)->first();
 
             if (!$libraryRecord) {
                 return response()->json([
@@ -641,7 +644,7 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            $library = $this->getLibrary($bookId);
+            $library = $this->getLibrary($bookId, true);
             
             if (!$library) {
                 return response()->json([

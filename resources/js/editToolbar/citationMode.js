@@ -410,7 +410,7 @@ export class CitationMode {
       button.innerHTML = sanitized;
       button.dataset.bookId = result.book || result.id || ''; // Try both book and id
       button.dataset.bibtex = result.bibtex || '';
-      button.dataset.hasNodes = (result.has_nodes !== false) ? '1' : '0';
+      button.dataset.hasNodes = (result.has_nodes == null || !!result.has_nodes) ? '1' : '0';
 
       return button;
     }));
