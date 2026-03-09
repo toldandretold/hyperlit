@@ -707,6 +707,13 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
       }
     }
 
+    // Capture main edit state BEFORE opening container.
+    // Needed for ALL content types (including read-only citations)
+    // so cleanupContainerListeners() correctly restores the toolbar.
+    const { isEditorObserving } = await import('../divEditor/index.js');
+    if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+    previousIsEditing = window.isEditing;
+
     // Open the unified container
     openHyperlitContainer(unifiedContent, isBackNavigation);
 
