@@ -895,7 +895,8 @@ async function loadBibliographyToIndexedDB(db, bibliography) {
       book: bibliography.book,
       referenceId: referenceId,
       content: isNewFormat ? refData.content : refData,
-      source_id: isNewFormat ? (refData.source_id || null) : null
+      source_id: isNewFormat ? (refData.source_id || null) : null,
+      source_has_nodes: isNewFormat ? (refData.source_has_nodes ?? null) : null,
     };
 
     promises.push(new Promise((resolve, reject) => {
