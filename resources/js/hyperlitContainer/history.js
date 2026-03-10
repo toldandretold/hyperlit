@@ -9,6 +9,42 @@ import { openHyperlitContainer, hyperlitManager, getHyperlitEditMode } from './c
 import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentContainer } from './stack.js';
 
+// ============================================================================
+// MULTI-CONTENT SESSION STORAGE
+// ============================================================================
+// When multiple content types overlap (e.g. highlight + footnote), the URL
+// can't encode all IDs cleanly. Instead we store the full containerState in
+// sessionStorage and mark the URL with a ?hm=1 query parameter.
+
+const MC_SESSION_KEY = 'hyperlit_mc';
+
+/** Save multi-content state to sessionStorage */
+export function saveMultiContentToSession(containerState) {
+  try {
+    sessionStorage.setItem(MC_SESSION_KEY, JSON.stringify(containerState));
+  } catch (e) {
+    console.warn('Failed to save multi-content state to sessionStorage:', e);
+  }
+}
+
+/** Load multi-content state from sessionStorage */
+export function loadMultiContentFromSession() {
+  try {
+    const data = sessionStorage.getItem(MC_SESSION_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    console.warn('Failed to load multi-content state from sessionStorage:', e);
+    return null;
+  }
+}
+
+/** Clear multi-content state from sessionStorage */
+export function clearMultiContentSession() {
+  try {
+    sessionStorage.removeItem(MC_SESSION_KEY);
+  } catch (e) { /* ignore */ }
+}
+
 /**
  * Determine URL update for single content types
  * Returns null for multiple content types (overlapping content)

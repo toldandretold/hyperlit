@@ -247,3 +247,14 @@ export function setPerimeterButtonsHidden(value) {
 export function getPerimeterButtonsHidden() {
   return arePerimeterButtonsHidden;
 }
+
+// Track whether BookToBookTransition should skip multi-content restore in initializeLazyLoader
+let skipMultiContentRestore = false;
+
+export function setSkipMultiContentRestore(value) {
+  skipMultiContentRestore = value;
+}
+
+export function shouldSkipMultiContentRestore() {
+  return skipMultiContentRestore;
+}

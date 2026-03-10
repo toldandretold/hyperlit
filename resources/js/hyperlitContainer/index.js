@@ -51,7 +51,10 @@ export {
 export {
   determineSingleContentHash,
   restoreHyperlitContainerFromHistory,
-  getCurrentContainerState
+  getCurrentContainerState,
+  saveMultiContentToSession,
+  loadMultiContentFromSession,
+  clearMultiContentSession
 } from './history.js';
 
 // Utilities
@@ -71,7 +74,7 @@ import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
 import { openHyperlitContainer, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
 import { detectContentTypes } from './detection.js';
-import { determineSingleContentHash } from './history.js';
+import { determineSingleContentHash, saveMultiContentToSession } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
 import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
@@ -667,9 +670,14 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           history.replaceState(newState, '', newUrl);
         }
       } else {
-        // Multiple content types or no hash needed - keep current URL
-        console.log('📊 Multiple content types detected - keeping current URL');
-        history.replaceState(newState, '');
+        // Multi-content — save to sessionStorage and mark URL with ?hm=1
+        saveMultiContentToSession(containerState);
+        const hmUrl = new URL(window.location.href);
+        hmUrl.searchParams.set('hm', '1');
+        hmUrl.hash = '';
+        const newUrl = hmUrl.pathname + hmUrl.search;
+        console.log(`📊 Updating URL for multi-content: ${newUrl}`);
+        history.replaceState(newState, '', newUrl);
       }
     }
 
@@ -1471,7 +1479,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
       const { getLayerBelow } = await import('./stack.js');
       const layerBelow = getLayerBelow();
       if (layerBelow) {
-        layerBelow.savedUrl = window.location.pathname + window.location.hash;
+        layerBelow.savedUrl = window.location.pathname + window.location.search + window.location.hash;
       }
 
       // Find parent book from the source element's closest sub-book container
@@ -1482,9 +1490,40 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
 
       const subBookId = buildSubBookId(parentBook, urlUpdate.value);
 
-      // URL = /{sub_book_id}  (e.g., /book_123/2/HL_xxx/Fn_yyy)
+      // Single-content stacked layer — drop ?hm=1 (multi-content belongs to the layer below, not this one)
       const newUrl = '/' + subBookId;
       console.log(`📚 URL update (sub_book_id): ${newUrl}`);
+      history.replaceState(history.state, '', newUrl);
+    } else {
+      // Multi-content in stacked layer: save to sessionStorage + add ?hm=1
+      const { getLayerBelow } = await import('./stack.js');
+      const layerBelow = getLayerBelow();
+      if (layerBelow) {
+        layerBelow.savedUrl = window.location.pathname + window.location.search + window.location.hash;
+      }
+
+      const containerState = {
+        contentTypes: contentTypes.map(ct => ({
+          type: ct.type,
+          hyperciteId: ct.hyperciteId,
+          highlightIds: ct.highlightIds,
+          fnCountId: ct.fnCountId,
+          elementId: ct.elementId,
+          footnoteId: ct.footnoteId,
+          referenceId: ct.referenceId,
+          relationshipStatus: ct.relationshipStatus
+        })),
+        newHighlightIds,
+        timestamp: Date.now()
+      };
+
+      const { saveMultiContentToSession } = await import('./history.js');
+      saveMultiContentToSession(containerState);
+      const hmUrl = new URL(window.location.href);
+      hmUrl.searchParams.set('hm', '1');
+      hmUrl.hash = '';
+      const newUrl = hmUrl.pathname + hmUrl.search;
+      console.log(`📚 Updating URL for multi-content in stacked layer: ${newUrl}`);
       history.replaceState(history.state, '', newUrl);
     }
   }

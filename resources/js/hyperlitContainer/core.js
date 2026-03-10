@@ -378,23 +378,33 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
             seg.startsWith('HL_') || seg.includes('_Fn') || /^Fn\d/.test(seg)
           );
 
-          // Check for hyperlit-related hash
+          // Check for hyperlit-related hash or multi-content query param
           const hasHyperlitHash = currentUrl.hash && (
             currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_')
           );
+          const hasHmParam = new URLSearchParams(currentUrl.search).has('hm');
 
-          if (hasCascadeSegments || hasHyperlitHash) {
+          // Always clear container state from history
+          const currentState = history.state || {};
+          const newState = { ...currentState, hyperlitContainer: null };
+
+          // Clear multi-content session data
+          const { clearMultiContentSession } = await import('./history.js');
+          clearMultiContentSession();
+
+          if (hasCascadeSegments || hasHyperlitHash || hasHmParam) {
             // Strip all cascade segments from path, keeping only /book
-            const cleanUrl = `/${bookSlug}${currentUrl.search}`;
-            console.log('🔗 Cleaning up cascade/hash from URL:', currentUrl.pathname + currentUrl.hash, '→', cleanUrl);
-
-            const currentState = history.state || {};
-            const newState = {
-              ...currentState,
-              hyperlitContainer: null
-            };
+            // Also strip ?hm= param if present
+            const cleanParams = new URLSearchParams(currentUrl.search);
+            cleanParams.delete('hm');
+            const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
+            const cleanUrl = `/${bookSlug}${cleanSearch}`;
+            console.log('🔗 Cleaning up cascade/hash from URL:', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
             history.replaceState(newState, '', cleanUrl);
+          } else {
+            // URL already clean — just clear the stale history state
+            history.replaceState(newState, '');
           }
         }
 

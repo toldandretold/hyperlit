@@ -559,6 +559,21 @@ export class LinkNavigationHandler {
       }
     }
 
+    // Multi-content query param — restore from sessionStorage
+    if (new URLSearchParams(window.location.search).has('hm')) {
+      try {
+        const { loadMultiContentFromSession } = await import('../hyperlitContainer/history.js');
+        const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
+        const containerState = loadMultiContentFromSession();
+        if (containerState) {
+          await restoreHyperlitContainerFromHistory(containerState);
+          return;
+        }
+      } catch (error) {
+        console.warn('Failed to restore multi-content from session:', error);
+      }
+    }
+
     // Fall back to simple hash scroll on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
@@ -580,9 +595,9 @@ export class LinkNavigationHandler {
     if (!hash) return false;
     
     // Check for hyperlit content patterns
-    return hash.startsWith('hypercite_') || 
-           hash.startsWith('HL_') || 
-           hash.startsWith('footnote_') || 
+    return hash.startsWith('hypercite_') ||
+           hash.startsWith('HL_') ||
+           hash.startsWith('footnote_') ||
            hash.startsWith('citation_');
   }
 
