@@ -73,7 +73,13 @@ export class BookToBookTransition {
         
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
-        
+
+        // Clear stale hyperlit-container state before new book initializes
+        const currentState = history.state || {};
+        if (currentState.hyperlitContainer) {
+          history.replaceState({ ...currentState, hyperlitContainer: null }, '');
+        }
+
         progress(20, 'Fetching book content...');
         
         // Fetch the target book's HTML
@@ -471,6 +477,7 @@ export class BookToBookTransition {
         // Add book transition metadata while preserving container state
         const newState = {
           ...currentState,
+          hyperlitContainer: null,
           bookTransition: {
             fromBook: this.getCurrentBookId(),
             toBook: bookId,

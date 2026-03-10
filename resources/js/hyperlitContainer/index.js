@@ -1467,38 +1467,25 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   if (!skipUrlUpdate) {
     const urlUpdate = determineSingleContentHash(contentTypes);
     if (urlUpdate) {
-      const currentPath = window.location.pathname;
-      const currentHash = window.location.hash;
-
-      // Promote any HL_ hash to a path segment first, so chains build correctly
-      // e.g., /book#HL_1 → basePath=/book/HL_1 (hash cleared)
-      let basePath = currentPath;
-      let preserveHash = currentHash;
-      if (currentHash) {
-        const hashVal = currentHash.substring(1);
-        if (hashVal.startsWith('HL_')) {
-          basePath = `${currentPath}/${hashVal}`;
-          preserveHash = ''; // hash has been promoted to path
-        }
+      // Save current URL on the layer below so popTopLayer can restore it
+      const { getLayerBelow } = await import('./stack.js');
+      const layerBelow = getLayerBelow();
+      if (layerBelow) {
+        layerBelow.savedUrl = window.location.pathname + window.location.hash;
       }
 
-      if (urlUpdate.type === 'hash' && urlUpdate.value.startsWith('HL_')) {
-        // Highlights in stacked layers become path segments (not hashes)
-        // so chain URLs like /book/HL_1/Fn2/HL_3 work correctly
-        const newUrl = `${basePath}/${urlUpdate.value}`;
-        console.log(`📚 URL update (stacked HL path): ${newUrl}`);
-        history.replaceState(history.state, '', newUrl);
-      } else if (urlUpdate.type === 'hash') {
-        // Hypercite: set as hash on current path
-        const newUrl = `${basePath}#${urlUpdate.value}`;
-        console.log(`📚 URL update (stacked hash): ${newUrl}`);
-        history.replaceState(history.state, '', newUrl);
-      } else if (urlUpdate.type === 'path') {
-        // Footnote path segment: append to pathname
-        const newUrl = `${basePath}/${urlUpdate.value}`;
-        console.log(`📚 URL update (stacked path): ${newUrl}`);
-        history.replaceState(history.state, '', newUrl);
-      }
+      // Find parent book from the source element's closest sub-book container
+      const parentBookEl = element?.closest('[data-book-id]');
+      const parentBook = parentBookEl
+        ? parentBookEl.getAttribute('data-book-id')
+        : (document.querySelector('.main-content')?.id || window.location.pathname.split('/').filter(Boolean)[0]);
+
+      const subBookId = buildSubBookId(parentBook, urlUpdate.value);
+
+      // URL = /{sub_book_id}  (e.g., /book_123/2/HL_xxx/Fn_yyy)
+      const newUrl = '/' + subBookId;
+      console.log(`📚 URL update (sub_book_id): ${newUrl}`);
+      history.replaceState(history.state, '', newUrl);
     }
   }
 }

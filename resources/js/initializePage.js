@@ -538,6 +538,13 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
       openContainerChain(window.autoOpenChain, currentLazyLoader);
       window.autoOpenChain = null; // Prevent re-triggering
     }
+
+    // Restore container from history.state (handles multi-content / overlapping highlights)
+    else if (history.state?.hyperlitContainer) {
+      import('./hyperlitContainer/index.js').then(({ restoreHyperlitContainerFromHistory }) => {
+        restoreHyperlitContainerFromHistory();
+      });
+    }
   }
 }
 

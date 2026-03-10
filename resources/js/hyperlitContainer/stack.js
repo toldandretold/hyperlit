@@ -111,6 +111,10 @@ export function getTopLayer() {
   return layers.length > 0 ? layers[layers.length - 1] : null;
 }
 
+export function getLayerBelow() {
+  return layers.length >= 2 ? layers[layers.length - 2] : null;
+}
+
 export function isEmpty() {
   return layers.length === 0;
 }
@@ -340,35 +344,18 @@ async function _popTopLayerImpl() {
 
   console.log(`📚 Layer ${newTop.depth} restored`);
 
-  // Trim the last chain segment from the URL so it stays in sync with the visible stack
+  // Restore URL from the now-visible layer's saved state
   // Skip when closeHyperlitContainer is bulk-unwinding — it handles URL cleanup itself
   try {
     const { isContainerClosing } = await import('./core.js');
     if (isContainerClosing()) {
-      console.log('📚 URL trim skipped — container is closing (bulk unwind)');
-    } else {
-      const currentPath = window.location.pathname;
-      const pathSegments = currentPath.split('/').filter(Boolean);
-      if (pathSegments.length >= 2) {
-        const lastSeg = pathSegments[pathSegments.length - 1];
-        const isCascadeSeg = lastSeg.startsWith('HL_') || lastSeg.includes('_Fn') || /^Fn\d/.test(lastSeg);
-        if (isCascadeSeg) {
-          const trimmedPath = '/' + pathSegments.slice(0, -1).join('/');
-          console.log(`📚 URL trim on pop: ${currentPath} → ${trimmedPath}`);
-          history.replaceState(history.state, '', trimmedPath);
-        } else if (window.location.hash) {
-          // If the last segment was a hash (e.g., hypercite), just remove the hash
-          const hashVal = window.location.hash.substring(1);
-          if (hashVal.startsWith('HL_') || hashVal.startsWith('hypercite_')) {
-            const cleanUrl = `${currentPath}${window.location.search}`;
-            console.log(`📚 URL trim hash on pop: ${currentPath}${window.location.hash} → ${cleanUrl}`);
-            history.replaceState(history.state, '', cleanUrl);
-          }
-        }
-      }
+      console.log('📚 URL restore skipped — container is closing (bulk unwind)');
+    } else if (newTop.savedUrl) {
+      console.log(`📚 URL restore on pop: ${window.location.pathname} → ${newTop.savedUrl}`);
+      history.replaceState(history.state, '', newTop.savedUrl);
     }
   } catch (err) {
-    console.warn('URL trim on pop failed (non-fatal):', err);
+    console.warn('URL restore on pop failed (non-fatal):', err);
   }
 
   } finally {
