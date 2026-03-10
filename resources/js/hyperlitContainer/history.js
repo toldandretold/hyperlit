@@ -38,10 +38,11 @@ export function determineSingleContentHash(contentTypes) {
       break;
 
     case 'footnote':
-      if (contentType.elementId) {
+      if (contentType.elementId || contentType.footnoteId) {
         // Footnotes use path-based URLs: /book/footnoteID
         // Hash portion is reserved for hypercite within footnote: /book/footnoteID#hyperciteID
-        return { type: 'path', value: contentType.elementId };
+        // detectFootnote() returns footnoteId; direct-ID detection uses elementId — support both
+        return { type: 'path', value: contentType.elementId || contentType.footnoteId };
       }
       break;
 

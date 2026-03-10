@@ -1462,6 +1462,45 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
 
   console.log(`📚 Stacked layer ${newDepth} opened successfully`);
+
+  // --- 7. Update URL to reflect the new chain segment ---
+  if (!skipUrlUpdate) {
+    const urlUpdate = determineSingleContentHash(contentTypes);
+    if (urlUpdate) {
+      const currentPath = window.location.pathname;
+      const currentHash = window.location.hash;
+
+      // Promote any HL_ hash to a path segment first, so chains build correctly
+      // e.g., /book#HL_1 → basePath=/book/HL_1 (hash cleared)
+      let basePath = currentPath;
+      let preserveHash = currentHash;
+      if (currentHash) {
+        const hashVal = currentHash.substring(1);
+        if (hashVal.startsWith('HL_')) {
+          basePath = `${currentPath}/${hashVal}`;
+          preserveHash = ''; // hash has been promoted to path
+        }
+      }
+
+      if (urlUpdate.type === 'hash' && urlUpdate.value.startsWith('HL_')) {
+        // Highlights in stacked layers become path segments (not hashes)
+        // so chain URLs like /book/HL_1/Fn2/HL_3 work correctly
+        const newUrl = `${basePath}/${urlUpdate.value}`;
+        console.log(`📚 URL update (stacked HL path): ${newUrl}`);
+        history.replaceState(history.state, '', newUrl);
+      } else if (urlUpdate.type === 'hash') {
+        // Hypercite: set as hash on current path
+        const newUrl = `${basePath}#${urlUpdate.value}`;
+        console.log(`📚 URL update (stacked hash): ${newUrl}`);
+        history.replaceState(history.state, '', newUrl);
+      } else if (urlUpdate.type === 'path') {
+        // Footnote path segment: append to pathname
+        const newUrl = `${basePath}/${urlUpdate.value}`;
+        console.log(`📚 URL update (stacked path): ${newUrl}`);
+        history.replaceState(history.state, '', newUrl);
+      }
+    }
+  }
 }
 
 /**

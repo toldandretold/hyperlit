@@ -340,6 +340,37 @@ async function _popTopLayerImpl() {
 
   console.log(`📚 Layer ${newTop.depth} restored`);
 
+  // Trim the last chain segment from the URL so it stays in sync with the visible stack
+  // Skip when closeHyperlitContainer is bulk-unwinding — it handles URL cleanup itself
+  try {
+    const { isContainerClosing } = await import('./core.js');
+    if (isContainerClosing()) {
+      console.log('📚 URL trim skipped — container is closing (bulk unwind)');
+    } else {
+      const currentPath = window.location.pathname;
+      const pathSegments = currentPath.split('/').filter(Boolean);
+      if (pathSegments.length >= 2) {
+        const lastSeg = pathSegments[pathSegments.length - 1];
+        const isCascadeSeg = lastSeg.startsWith('HL_') || lastSeg.includes('_Fn') || /^Fn\d/.test(lastSeg);
+        if (isCascadeSeg) {
+          const trimmedPath = '/' + pathSegments.slice(0, -1).join('/');
+          console.log(`📚 URL trim on pop: ${currentPath} → ${trimmedPath}`);
+          history.replaceState(history.state, '', trimmedPath);
+        } else if (window.location.hash) {
+          // If the last segment was a hash (e.g., hypercite), just remove the hash
+          const hashVal = window.location.hash.substring(1);
+          if (hashVal.startsWith('HL_') || hashVal.startsWith('hypercite_')) {
+            const cleanUrl = `${currentPath}${window.location.search}`;
+            console.log(`📚 URL trim hash on pop: ${currentPath}${window.location.hash} → ${cleanUrl}`);
+            history.replaceState(history.state, '', cleanUrl);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('URL trim on pop failed (non-fatal):', err);
+  }
+
   } finally {
     isPopping = false;
   }

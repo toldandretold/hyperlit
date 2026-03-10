@@ -19,6 +19,15 @@ let isClosing = false;
 // Re-entrancy guard for closeHyperlitContainer (prevents concurrent close calls)
 let isClosingContainer = false;
 
+/**
+ * Check if closeHyperlitContainer is currently unwinding the stack.
+ * Used by stack.js to skip URL trimming during bulk close.
+ * @returns {boolean}
+ */
+export function isContainerClosing() {
+  return isClosingContainer;
+}
+
 // ============================================================================
 // EDIT MODE STATE MANAGEMENT
 // ============================================================================
@@ -362,25 +371,23 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
         if (!silent) {
           const currentUrl = window.location;
           const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
-          const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
+          const bookSlug = pathSegments[0] || '';
 
-          if (isFootnotePath) {
-            // Remove footnote ID from path: /book/footnoteID -> /book
-            const bookSlug = pathSegments[0] || '';
+          // Check if any path segments after the book slug are cascade segments (HL_ or Fn)
+          const hasCascadeSegments = pathSegments.slice(1).some(seg =>
+            seg.startsWith('HL_') || seg.includes('_Fn') || /^Fn\d/.test(seg)
+          );
+
+          // Check for hyperlit-related hash
+          const hasHyperlitHash = currentUrl.hash && (
+            currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
+            currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_')
+          );
+
+          if (hasCascadeSegments || hasHyperlitHash) {
+            // Strip all cascade segments from path, keeping only /book
             const cleanUrl = `/${bookSlug}${currentUrl.search}`;
-            console.log('🔗 Cleaning up footnote path from URL:', currentUrl.pathname, '→', cleanUrl);
-
-            const currentState = history.state || {};
-            const newState = {
-              ...currentState,
-              hyperlitContainer: null
-            };
-            history.replaceState(newState, '', cleanUrl);
-          } else if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
-                                 currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
-            // Remove hyperlit-related hash from URL
-            const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
-            console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+            console.log('🔗 Cleaning up cascade/hash from URL:', currentUrl.pathname + currentUrl.hash, '→', cleanUrl);
 
             const currentState = history.state || {};
             const newState = {
