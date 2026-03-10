@@ -11,7 +11,7 @@ import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFr
 import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
-import { withPending } from '../utilities/operationState.js';
+import { withPending, setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
 import { isStackPopping } from '../hyperlitContainer/stack.js';
 
@@ -643,20 +643,28 @@ export async function deleteHighlightHandler(event, bookId) {
   });
 
   // Second pass: remove ALL marks with the highlight class (not by ID, by class)
-  highlightIdsToRemove.forEach(highlightId => {
-    const allMarksWithClass = document.querySelectorAll(`mark.${highlightId}`);
-    console.log(`Removing ${allMarksWithClass.length} marks with class ${highlightId}`);
+  // Wrap in programmatic flag so the MutationObserver doesn't treat
+  // these DOM changes as user edits (the mark element gets detached,
+  // which would otherwise trigger an ISOLATION BREACH error).
+  setProgrammaticUpdateInProgress(true);
+  try {
+    highlightIdsToRemove.forEach(highlightId => {
+      const allMarksWithClass = document.querySelectorAll(`mark.${highlightId}`);
+      console.log(`Removing ${allMarksWithClass.length} marks with class ${highlightId}`);
 
-    allMarksWithClass.forEach(mark => {
-      const container = mark.closest(
-        "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
-      );
-      if (container && container.id) {
-        affectedNodeChunks.add(container.id);
-      }
-      unwrapMark(mark);
+      allMarksWithClass.forEach(mark => {
+        const container = mark.closest(
+          "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+        );
+        if (container && container.id) {
+          affectedNodeChunks.add(container.id);
+        }
+        unwrapMark(mark);
+      });
     });
-  });
+  } finally {
+    setProgrammaticUpdateInProgress(false);
+  }
 
   const updatedNodeChunks = [];
   const deletedHyperlights = [];
