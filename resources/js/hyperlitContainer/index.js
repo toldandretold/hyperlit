@@ -202,9 +202,9 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
   const currentUserId = await getCurrentUserId();
   const currentUser = await getCurrentUser();
 
-  // Check footnotes and citations (book-level permission)
-  const hasFootnoteOrCitation = contentTypes.some(ct => ct.type === 'footnote' || ct.type === 'citation');
-  if (hasFootnoteOrCitation) {
+  // Check footnotes (book-level permission)
+  const hasFootnote = contentTypes.some(ct => ct.type === 'footnote');
+  if (hasFootnote) {
     if (await canUserEditBook(book)) {
       return true;
     }

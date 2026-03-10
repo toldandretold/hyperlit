@@ -36,11 +36,13 @@ import {
  * Queries IndexedDB for all nodes and returns the one with lowest startLine
  * @returns {Promise<string|null>} - The startLine of the first node, or null
  */
-async function getFirstNodeIdForBook() {
+async function getFirstNodeIdForBook(bookId = null) {
   try {
-    // Get current book ID from DOM
-    const mainContent = document.querySelector('.main-content');
-    const bookId = mainContent?.id || 'latest';
+    // Use provided bookId, or fall back to main content
+    if (!bookId) {
+      const mainContent = document.querySelector('.main-content');
+      bookId = mainContent?.id || 'latest';
+    }
 
     // Get all nodes for this book from IndexedDB
     const nodes = await getNodeChunksFromIndexedDB(bookId);
@@ -456,13 +458,14 @@ export class ChunkMutationHandler {
 
                 if (otherNodes.length > 0) {
                   // SCENARIO 1: Other nodes exist - transfer marker and proceed with deletion
-                  // Get the first node in the book from IndexedDB
-                  const firstNodeId = await getFirstNodeIdForBook();
+                  // Get the first node in the book from IndexedDB (sub-book aware)
+                  const firstNodeId = await getFirstNodeIdForBook(chunk._bookId);
 
                   if (firstNodeId) {
 
-                    // If the first node is loaded in DOM, transfer marker there
-                    const firstNodeInDom = document.getElementById(firstNodeId);
+                    // If the first node is loaded in DOM, transfer marker there (scoped to correct container)
+                    const scopeContainer = chunk.closest('[data-book-id]') || document.querySelector('.main-content');
+                    const firstNodeInDom = scopeContainer?.querySelector(`[id="${firstNodeId}"]`);
                     if (firstNodeInDom) {
                       transferNoDeleteMarker(node, firstNodeInDom);
                     }
@@ -495,13 +498,14 @@ export class ChunkMutationHandler {
                       !n.id.includes('-sentinel')
                     );
                     if (validNodes.length > 0) {
-                      // Get the first node in the book from IndexedDB
-                      const firstNodeId = await getFirstNodeIdForBook();
+                      // Get the first node in the book from IndexedDB (sub-book aware)
+                      const firstNodeId = await getFirstNodeIdForBook(chunk._bookId);
 
                       if (firstNodeId) {
 
-                        // If the first node is loaded in DOM, transfer marker there
-                        const firstNodeInDom = document.getElementById(firstNodeId);
+                        // If the first node is loaded in DOM, transfer marker there (scoped to correct container)
+                        const scopeContainer = chunk.closest('[data-book-id]') || document.querySelector('.main-content');
+                        const firstNodeInDom = scopeContainer?.querySelector(`[id="${firstNodeId}"]`);
                         if (firstNodeInDom) {
                           transferNoDeleteMarker(node, firstNodeInDom);
                         }

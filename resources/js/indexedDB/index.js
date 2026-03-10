@@ -224,9 +224,9 @@ export async function initializeDatabaseModules(dependencies) {
   // All functions already statically imported at top of file - no need for dynamic imports here
 
   // Initialize all modules
-  initLibraryDependencies({ book, queueForSync });
+  initLibraryDependencies({ book });
   initNodeWriteDependencies({ withPending, book, updateBookTimestamp, queueForSync });
-  initNodeBatchDependencies({ withPending, book, updateBookTimestamp, queueForSync });
+  initNodeBatchDependencies({ book });
   initNodeDeleteDependencies({ withPending, book, updateBookTimestamp, queueForSync });
   initNodeNormalizeDependencies({ withPending, book, updateBookTimestamp, queueForSync });
   initHypercitesDependencies({ updateBookTimestamp, queueForSync, withPending, getNodeChunksFromIndexedDB });
@@ -254,9 +254,9 @@ export function updateDatabaseBookId(newBookId) {
   const { withPending, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave } = _storedDeps;
 
   // Re-initialize modules that depend on book
-  initLibraryDependencies({ book: newBookId, queueForSync });
+  initLibraryDependencies({ book: newBookId });
   initNodeWriteDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
-  initNodeBatchDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
+  initNodeBatchDependencies({ book: newBookId });
   initNodeDeleteDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
   initNodeNormalizeDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
   initMasterSyncDependencies({ book: newBookId, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
