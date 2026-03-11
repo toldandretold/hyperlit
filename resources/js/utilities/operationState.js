@@ -247,3 +247,4 @@ export function setPerimeterButtonsHidden(value) {
 export function getPerimeterButtonsHidden() {
   return arePerimeterButtonsHidden;
 }
+

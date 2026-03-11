@@ -121,7 +121,7 @@ export async function cleanupReaderView() {
   verbose.init('Cleaning up previous reader view', 'viewManager.js');
 
   // Close any open containers before destroying the view
-  await closeHyperlitContainer();
+  await closeHyperlitContainer(true); // silent=true: URL will be replaced by the calling navigation's pushState
 
   // SPA TRANSITION FIX: Do not remove the navigation overlay here.
   // It is shown just before the transition and must persist.

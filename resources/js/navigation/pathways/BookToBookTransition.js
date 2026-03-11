@@ -73,7 +73,7 @@ export class BookToBookTransition {
         
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
-        
+
         progress(20, 'Fetching book content...');
         
         // Fetch the target book's HTML
@@ -110,12 +110,19 @@ export class BookToBookTransition {
         await this.ensureInitialContentLoaded(toBook);
         
         progress(80, 'Finalizing navigation...');
-        
+
         // Update URL early to keep browser history in sync
         this.updateUrlWithStatePreservation(toBook, hash);
-        
+
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
-        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl);
+        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl);
+
+        // Wait for any container restoration triggered by initializeLazyLoader
+        // (happens on back-nav when the restored entry has a matching containerStack)
+        const { pendingContainerRestorePromise } = await import('../../initializePage.js');
+        if (pendingContainerRestorePromise) {
+          await pendingContainerRestorePromise;
+        }
 
         progress(100, 'Complete!');
 
@@ -471,6 +478,8 @@ export class BookToBookTransition {
         // Add book transition metadata while preserving container state
         const newState = {
           ...currentState,
+          hyperlitContainer: null,
+          containerStack: null,
           bookTransition: {
             fromBook: this.getCurrentBookId(),
             toBook: bookId,

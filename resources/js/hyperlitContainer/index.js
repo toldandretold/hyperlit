@@ -51,7 +51,10 @@ export {
 export {
   determineSingleContentHash,
   restoreHyperlitContainerFromHistory,
-  getCurrentContainerState
+  getCurrentContainerState,
+  buildContentFromMetadata,
+  restoreStackedLayer,
+  restoreContainerStack
 } from './history.js';
 
 // Utilities
@@ -202,9 +205,9 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
   const currentUserId = await getCurrentUserId();
   const currentUser = await getCurrentUser();
 
-  // Check footnotes and citations (book-level permission)
-  const hasFootnoteOrCitation = contentTypes.some(ct => ct.type === 'footnote' || ct.type === 'citation');
-  if (hasFootnoteOrCitation) {
+  // Check footnotes (book-level permission)
+  const hasFootnote = contentTypes.some(ct => ct.type === 'footnote');
+  if (hasFootnote) {
     if (await canUserEditBook(book)) {
       return true;
     }
@@ -620,9 +623,10 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           highlightIds: ct.highlightIds,
           fnCountId: ct.fnCountId,
           elementId: ct.elementId,
-          footnoteId: ct.footnoteId,  // Also store footnoteId for footnotes
+          footnoteId: ct.footnoteId,
           referenceId: ct.referenceId,
-          relationshipStatus: ct.relationshipStatus
+          relationshipStatus: ct.relationshipStatus,
+          parentBookId: ct.parentBookId || null,
         })),
         newHighlightIds,
         timestamp: Date.now()
@@ -667,8 +671,8 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           history.replaceState(newState, '', newUrl);
         }
       } else {
-        // Multiple content types or no hash needed - keep current URL
-        console.log('📊 Multiple content types detected - keeping current URL');
+        // Multi-content — just store in history state (containerStack handles restoration)
+        console.log(`📊 Multi-content: storing state in history (no URL change needed)`);
         history.replaceState(newState, '');
       }
     }
@@ -722,6 +726,52 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
     // Pass hasAnyEditPermission so we can attach edit button listener
     await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission);
+
+    // --- Push layer 0 into the stack so layers[] always tracks all open containers ---
+    {
+      const { pushLayer, syncStackToHistoryState, isEmpty: isStackEmpty } = await import('./stack.js');
+
+      // Build containerState for serialization (reuse the one we already built for history.state,
+      // or build a fresh one if skipUrlUpdate skipped that block)
+      const layerContainerState = {
+        contentTypes: contentTypes.map(ct => ({
+          type: ct.type,
+          hyperciteId: ct.hyperciteId,
+          highlightIds: ct.highlightIds,
+          fnCountId: ct.fnCountId,
+          elementId: ct.elementId,
+          footnoteId: ct.footnoteId,
+          referenceId: ct.referenceId,
+          relationshipStatus: ct.relationshipStatus,
+          parentBookId: ct.parentBookId || null,
+          // hypercite-citation fields
+          targetBook: ct.targetBook || null,
+          targetHyperciteId: ct.targetHyperciteId || null,
+          targetUrl: ct.targetUrl || null,
+          isHyperlightURL: ct.isHyperlightURL || false,
+          isFootnoteURL: ct.isFootnoteURL || false,
+          hlDepth: ct.hlDepth || 0,
+        })),
+        newHighlightIds,
+        timestamp: Date.now()
+      };
+
+      // Only push if stack is empty (avoid double-push on back navigation restores)
+      if (isStackEmpty()) {
+        pushLayer({
+          depth: 0,
+          container: document.getElementById('hyperlit-container'),
+          overlay: document.getElementById('ref-overlay'),
+          scroller: document.querySelector('#hyperlit-container .scroller'),
+          isDynamic: false,
+          savedModuleState: null,   // filled when stacking happens
+          savedSubBookState: null,
+          savedEditMode: getHyperlitEditMode(),
+          contentMetadata: layerContainerState,
+        });
+        syncStackToHistoryState();
+      }
+    }
 
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
@@ -1367,6 +1417,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
       savedModuleState,
       savedSubBookState,
       savedEditMode,
+      contentMetadata: history.state?.hyperlitContainer || null,
     });
   }
 
@@ -1461,7 +1512,71 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   // Handle post-open actions (listeners, sub-book loading, edit button, etc.)
   await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
 
+  // Set contentMetadata on the new stacked layer for serialization
+  const stackedContainerState = {
+    contentTypes: contentTypes.map(ct => ({
+      type: ct.type,
+      hyperciteId: ct.hyperciteId,
+      highlightIds: ct.highlightIds,
+      fnCountId: ct.fnCountId,
+      elementId: ct.elementId,
+      footnoteId: ct.footnoteId,
+      referenceId: ct.referenceId,
+      relationshipStatus: ct.relationshipStatus,
+      parentBookId: ct.parentBookId || null,
+      // hypercite-citation fields
+      targetBook: ct.targetBook || null,
+      targetHyperciteId: ct.targetHyperciteId || null,
+      targetUrl: ct.targetUrl || null,
+      isHyperlightURL: ct.isHyperlightURL || false,
+      isFootnoteURL: ct.isFootnoteURL || false,
+      hlDepth: ct.hlDepth || 0,
+    })),
+    newHighlightIds,
+    timestamp: Date.now()
+  };
+  const topNow = getTopLayer();
+  if (topNow) topNow.contentMetadata = stackedContainerState;
+
   console.log(`📚 Stacked layer ${newDepth} opened successfully`);
+
+  // --- 7. Update URL to reflect the new chain segment ---
+  if (!skipUrlUpdate) {
+    const urlUpdate = determineSingleContentHash(contentTypes);
+    if (urlUpdate) {
+      // Save current URL on the layer below so popTopLayer can restore it
+      const { getLayerBelow } = await import('./stack.js');
+      const layerBelow = getLayerBelow();
+      if (layerBelow) {
+        layerBelow.savedUrl = window.location.pathname + window.location.search + window.location.hash;
+      }
+
+      // Find parent book from the source element's closest sub-book container
+      const parentBookEl = element?.closest('[data-book-id]');
+      const parentBook = parentBookEl
+        ? parentBookEl.getAttribute('data-book-id')
+        : (document.querySelector('.main-content')?.id || window.location.pathname.split('/').filter(Boolean)[0]);
+
+      const subBookId = buildSubBookId(parentBook, urlUpdate.value);
+
+      // Single-content stacked layer — URL is the sub-book path
+      const newUrl = '/' + subBookId;
+      console.log(`📚 URL update (sub_book_id): ${newUrl}`);
+      history.replaceState(history.state, '', newUrl);
+    } else {
+      // Multi-content in stacked layer — save URL on layer below (containerStack handles restoration)
+      const { getLayerBelow } = await import('./stack.js');
+      const layerBelow = getLayerBelow();
+      if (layerBelow) {
+        layerBelow.savedUrl = window.location.pathname + window.location.search + window.location.hash;
+      }
+      console.log(`📚 Multi-content in stacked layer: stored in containerStack`);
+    }
+  }
+
+  // Sync the full stack to history.state
+  const { syncStackToHistoryState } = await import('./stack.js');
+  syncStackToHistoryState();
 }
 
 /**

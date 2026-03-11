@@ -508,23 +508,72 @@ export class LinkNavigationHandler {
     if (urlBookId !== currentBookVariable) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
-      // Use NEW structure-aware navigation system
-      // NavigationManager already imported statically
-      await NavigationManager.navigateByStructure({
+      // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
+      const pathSegments = window.location.pathname.split('/').filter(Boolean);
+      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const hyperciteId = window.location.hash ? window.location.hash.substring(1) : null;
+
+      const navOptions = {
         fromBook: currentBookVariable,
         toBook: urlBookId,
-        targetUrl: window.location.pathname,
+        targetUrl: window.location.href,
         hash: window.location.hash
-      });
+      };
+
+      // Pass cascade segments so BookToBookTransition can rebuild nested containers
+      if (fnSegment) navOptions.footnoteId = fnSegment;
+      if (hlSegment) navOptions.hyperlightId = hlSegment;
+      if (hyperciteId && hyperciteId.startsWith('hypercite_')) navOptions.hyperciteId = hyperciteId;
+
+      // Use NEW structure-aware navigation system
+      // NavigationManager already imported statically
+      await NavigationManager.navigateByStructure(navOptions);
       return;
     }
     
+    // Capture containerStack BEFORE close (closeHyperlitContainer clears it from history.state)
+    const capturedStack = history.state?.containerStack || null;
+
     // Close any open container silently — the browser has already restored the URL via popstate
     try {
       await closeHyperlitContainer(true);
     } catch (e) { /* ignore */ }
 
-    // Always attempt to scroll to the hash on the main page if one exists.
+    // Container stack restoration — if we captured a serialized stack, restore it
+    if (capturedStack?.length > 0) {
+      try {
+        const { restoreContainerStack } = await import('../hyperlitContainer/history.js');
+        await restoreContainerStack(capturedStack);
+        return;
+      } catch (error) {
+        console.warn('Failed to restore container stack from history.state:', error);
+      }
+    }
+
+    // Check URL path for cascade segments (HL_ / Fn patterns)
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
+    const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+    const hasCascade = !!(hlSegment || fnSegment);
+
+    if (hasCascade && currentLazyLoader) {
+      // Rebuild nested container chain from URL
+      verbose.nav(`Popstate: rebuilding cascade from URL segments`, '/navigation/LinkNavigationHandler.js', { hlSegment, fnSegment });
+      try {
+        const chain = await buildChainFromUrl(pathSegments[0], pathSegments);
+        if (chain && chain.length > 0) {
+          const hyperciteHash = window.location.hash ? window.location.hash.substring(1) : null;
+          const finalHash = (hyperciteHash && hyperciteHash.startsWith('hypercite_')) ? hyperciteHash : null;
+          await openContainerChain(chain, currentLazyLoader, finalHash);
+          return;
+        }
+      } catch (error) {
+        console.warn('Failed to rebuild cascade from URL:', error);
+      }
+    }
+
+    // Fall back to simple hash scroll on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
       verbose.nav(`Popstate: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
@@ -545,9 +594,9 @@ export class LinkNavigationHandler {
     if (!hash) return false;
     
     // Check for hyperlit content patterns
-    return hash.startsWith('hypercite_') || 
-           hash.startsWith('HL_') || 
-           hash.startsWith('footnote_') || 
+    return hash.startsWith('hypercite_') ||
+           hash.startsWith('HL_') ||
+           hash.startsWith('footnote_') ||
            hash.startsWith('citation_');
   }
 

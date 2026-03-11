@@ -8,13 +8,14 @@ import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 import { buildBibtexEntry } from '../../utilities/bibtexProcessor.js';
 import { parseSubBookId } from '../../utilities/subBookIdHelper.js';
 
-// Dependencies
-let book, queueForSync;
+import { queueForSync } from '../syncQueue/queue.js';
+
+// Dependencies that change per-book
+let book;
 
 // Initialization function to inject dependencies
 export function initLibraryDependencies(deps) {
   book = deps.book;
-  queueForSync = deps.queueForSync;
 }
 
 /**

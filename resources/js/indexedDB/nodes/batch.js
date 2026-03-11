@@ -6,19 +6,18 @@
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId } from '../core/utilities.js';
 import { verbose } from '../../utilities/logger.js';
-import { syncFirstNodeToTitle } from '../core/library.js';
+import { syncFirstNodeToTitle, updateBookTimestamp } from '../core/library.js';
 import { debounce } from '../../divEditor/saveQueue.js';
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds.js';
+import { withPending } from '../../utilities/operationState.js';
+import { queueForSync } from '../syncQueue/queue.js';
 
-// Import from the main indexedDB file (temporary until fully refactored)
-let withPending, book, updateBookTimestamp, queueForSync;
+// Dependencies that change per-book
+let book;
 
 // Initialization function to inject dependencies
 export function initNodeBatchDependencies(deps) {
-  withPending = deps.withPending;
   book = deps.book;
-  updateBookTimestamp = deps.updateBookTimestamp;
-  queueForSync = deps.queueForSync;
 }
 
 // Debounced title sync - only runs 500ms after user stops typing

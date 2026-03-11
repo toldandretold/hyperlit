@@ -10,6 +10,7 @@ import { attachUnderlineClickListeners } from '../hypercites/index.js';
 import { getNodeChunksFromIndexedDB, addNodeChunkToIndexedDB } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
+import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 
 /**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
@@ -187,10 +188,13 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
       const originalHeight = chunkEl.offsetHeight;
       chunkEl.style.height = originalHeight + 'px';
       chunkEl.style.minHeight = originalHeight + 'px';
-      
+
+      // Suppress MutationObserver processing during innerHTML swap
+      setChunkLoadingInProgress(chunkId);
+
       // Replace content in-place (preserving the chunk wrapper)
       chunkEl.innerHTML = newChunkEl.innerHTML;
-      
+
       // Re-attach listeners to the updated content
       attachMarkListeners(chunkEl);
       attachUnderlineClickListeners(chunkEl);
@@ -200,7 +204,10 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
         chunkEl.style.height = '';
         chunkEl.style.minHeight = '';
       });
-      
+
+      // Clear after mutation processing (same 100ms pattern as lazyLoaderFactory)
+      setTimeout(() => clearChunkLoadingInProgress(chunkId), 100);
+
       console.log(`✅ Hydrated chunk ${chunkId} with ${chunkNodes.length} preview nodes (with hyperlights)`);
     }
   }
@@ -495,7 +502,10 @@ export async function loadSubBook(
           const originalHeight = chunkEl.offsetHeight;
           chunkEl.style.height = originalHeight + 'px';
           chunkEl.style.minHeight = originalHeight + 'px';
-          
+
+          // Suppress MutationObserver processing during innerHTML swap
+          setChunkLoadingInProgress(chunkId);
+
           chunkEl.innerHTML = newChunkEl.innerHTML;
           attachMarkListeners(chunkEl);
           attachUnderlineClickListeners(chunkEl);
@@ -505,6 +515,9 @@ export async function loadSubBook(
             chunkEl.style.height = '';
             chunkEl.style.minHeight = '';
           });
+
+          // Clear after mutation processing (same 100ms pattern as lazyLoaderFactory)
+          setTimeout(() => clearChunkLoadingInProgress(chunkId), 100);
         }
       }
     }

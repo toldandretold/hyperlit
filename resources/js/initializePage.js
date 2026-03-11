@@ -38,6 +38,7 @@ let isRetrying = false; // Prevents multiple retries at once
 
 
 export let pendingFirstChunkLoadedPromise;
+export let pendingContainerRestorePromise = null;
 let firstChunkLoadedResolver;
 
 export function resolveFirstChunkPromise() {
@@ -538,6 +539,42 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
       openContainerChain(window.autoOpenChain, currentLazyLoader);
       window.autoOpenChain = null; // Prevent re-triggering
     }
+
+    // Container stack restoration — if history.state has a serialized stack,
+    // restore all layers from it (handles back-nav, refresh, and SPA transitions).
+    // Only restore if the stack belongs to the current book — prevents stale
+    // state from book A leaking into book B during SPA transitions.
+    else if (history.state?.containerStack?.length > 0
+             && (!history.state.containerStackBookId || history.state.containerStackBookId === book)) {
+      pendingContainerRestorePromise = import('./hyperlitContainer/history.js').then(({ restoreContainerStack }) => {
+        return restoreContainerStack(history.state.containerStack);
+      });
+    }
+
+    // Legacy fallback: restore container from history.state.hyperlitContainer
+    // Only if URL confirms something should be open (prevents stale state from reopening).
+    else if (history.state?.hyperlitContainer) {
+      const loc = window.location;
+      const segs = loc.pathname.split('/').filter(Boolean);
+      const urlHasCascade = segs.slice(1).some(s =>
+        s.startsWith('HL_') || s.includes('_Fn') || /^Fn\d/.test(s)
+      );
+      const urlHasHash = loc.hash && (
+        loc.hash.startsWith('#HL_') || loc.hash.startsWith('#hypercite_') ||
+        loc.hash.startsWith('#footnote_') || loc.hash.startsWith('#citation_')
+      );
+      const urlHasCs = new URLSearchParams(loc.search).has('cs');
+
+      if (urlHasCascade || urlHasHash || urlHasCs) {
+        import('./hyperlitContainer/index.js').then(({ restoreHyperlitContainerFromHistory }) => {
+          restoreHyperlitContainerFromHistory();
+        });
+      } else {
+        // URL is clean — clear stale history state
+        const s = history.state || {};
+        history.replaceState({ ...s, hyperlitContainer: null }, '');
+      }
+    }
   }
 }
 
@@ -703,10 +740,13 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null) {
   if (!chain || chain.length === 0) return;
 
   // Close any existing containers to start from clean state
-  try {
-    const { closeHyperlitContainer } = await import('./hyperlitContainer/index.js');
-    await closeHyperlitContainer(true);
-  } catch (e) { /* ignore */ }
+  const isContainerCurrentlyOpen = document.body.classList.contains('hyperlit-container-open');
+  if (isContainerCurrentlyOpen) {
+    try {
+      const { closeHyperlitContainer } = await import('./hyperlitContainer/index.js');
+      await closeHyperlitContainer(true);
+    } catch (e) { /* ignore */ }
+  }
 
   // Support both old string[] format and new {itemId, subBookId}[] format
   const normalized = chain.map(item =>
@@ -722,13 +762,10 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null) {
     );
   }
 
-  // Scroll first item into view
-  navigateToInternalId(normalized[0].itemId, lazyLoader, false);
-
-  // Open remaining containers in the chain (first item is auto-opened by navigateToInternalId)
-  if (normalized.length > 1) {
-    await continueChainOpening(normalized.slice(1));
-  }
+  // Open all containers in the chain — continueChainOpening handles both the
+  // first item (searching document.body) and subsequent items (searching inside
+  // the current container scroller), using the correct selector for HL_ marks.
+  await continueChainOpening(normalized);
 
   // After chain is fully opened, scroll to final hash target (e.g. hypercite)
   if (finalHash) {
