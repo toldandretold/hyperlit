@@ -119,10 +119,6 @@ body.theme-sepia #edit-source-form select {
   padding: 8px;
 }
 
-/* Fix privacy toggle icon */
-body.theme-sepia #privacy-toggle svg {
-  stroke: #3A2F1F !important;
-}
 
 /* Fix form header to use pink instead of orange */
 body.theme-sepia #edit-source-form .form-header h2 {

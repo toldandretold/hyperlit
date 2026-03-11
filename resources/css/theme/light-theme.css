@@ -119,10 +119,6 @@ body.theme-light #edit-source-form select {
   padding: 8px;
 }
 
-/* Fix privacy toggle icon */
-body.theme-light #privacy-toggle svg {
-  stroke: #2C2C2C !important;
-}
 
 /* Fix form header to use pink instead of orange */
 body.theme-light #edit-source-form .form-header h2 {
