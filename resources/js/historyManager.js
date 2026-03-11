@@ -1,4 +1,17 @@
-// In historyManager.js
+// historyManager.js
+//
+// This file handles undo/redo history for *content edits* (nodes,
+// hyperlights, hypercites, library entries) via IndexedDB's
+// historyLog / redoLog stores. It is NOT related to browser
+// back/forward navigation or hyperlit container state.
+//
+// For browser navigation and hyperlit container history, see:
+//   - navigation/LinkNavigationHandler.js — popstate listener,
+//       cross-book transitions, container close on back-nav
+//   - hyperlitContainer/history.js  — container restore from history.state
+//   - hyperlitContainer/stack.js    — layers[] array tracking open containers
+//   - hyperlitContainer/core.js     — open/close, writes containerStack
+//       and hyperlitContainer into history.state
 
 import { openDatabase } from "./indexedDB/index.js";
 import { currentLazyLoader } from "./initializePage.js";

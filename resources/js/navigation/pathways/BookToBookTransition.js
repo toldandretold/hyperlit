@@ -13,14 +13,13 @@ import { resetEditModeState, enforceEditableState } from '../../components/editB
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { setCurrentBook } from '../../app.js';
 import { updateDatabaseBookId } from '../../indexedDB/index.js';
-import { setSkipScrollRestoration, setSkipMultiContentRestore } from '../../utilities/operationState.js';
+import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index.js';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
 import { navigateToInternalId } from '../../scrolling.js';
-import { clearMultiContentSession } from '../../hyperlitContainer/history.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -75,17 +74,6 @@ export class BookToBookTransition {
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
 
-        // Clear stale hyperlit-container state before new book initializes
-        const currentState = history.state || {};
-        if (currentState.hyperlitContainer) {
-          history.replaceState({ ...currentState, hyperlitContainer: null }, '');
-        }
-
-        // Clear multi-content sessionStorage to prevent initializeLazyLoader
-        // from restoring stale container state. Keep ?hm in the URL so the
-        // back button history entry preserves it for chain restoration.
-        clearMultiContentSession();
-
         progress(20, 'Fetching book content...');
         
         // Fetch the target book's HTML
@@ -102,10 +90,6 @@ export class BookToBookTransition {
         await waitForLayoutStabilization();
         
         progress(60, 'Initializing reader...');
-
-        // Prevent initializeLazyLoader from processing ?hm=1 — BookToBookTransition
-        // will pass hadMultiContent through openContainerChain instead.
-        setSkipMultiContentRestore(true);
 
         // Initialize the new reader view
         // Pass hash navigation flag to prevent scroll position interference
@@ -127,15 +111,18 @@ export class BookToBookTransition {
         
         progress(80, 'Finalizing navigation...');
 
-        // Capture ?hm=1 from the current (old) URL before pushState overwrites it.
-        // On back-nav the old URL still has ?hm=1; on forward-nav it won't.
-        const hadMultiContent = new URLSearchParams(window.location.search).has('hm');
-
         // Update URL early to keep browser history in sync
         this.updateUrlWithStatePreservation(toBook, hash);
 
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
-        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl, hadMultiContent);
+        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl);
+
+        // Wait for any container restoration triggered by initializeLazyLoader
+        // (happens on back-nav when the restored entry has a matching containerStack)
+        const { pendingContainerRestorePromise } = await import('../../initializePage.js');
+        if (pendingContainerRestorePromise) {
+          await pendingContainerRestorePromise;
+        }
 
         progress(100, 'Complete!');
 
@@ -336,7 +323,7 @@ export class BookToBookTransition {
    * Handle hash-based navigation (hyperlights, hypercites, footnotes, internal links)
    * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress, targetUrl = null, hadMultiContent = false) {
+  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress, targetUrl = null) {
     if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
       console.log('📖 BookToBookTransition: No hash navigation needed');
       return false;
@@ -364,8 +351,8 @@ export class BookToBookTransition {
 
           if (chain && chain.length > 0) {
             const finalHash = hyperciteId || null;
-            console.log(`🔗 BookToBookTransition: Opening chain: ${chain.map(c => c.itemId).join(' -> ')} -> ${finalHash}, hadMultiContent: ${hadMultiContent}`);
-            await openContainerChain(chain, currentLazyLoader, finalHash, hadMultiContent);
+            console.log(`🔗 BookToBookTransition: Opening chain: ${chain.map(c => c.itemId).join(' -> ')} -> ${finalHash}`);
+            await openContainerChain(chain, currentLazyLoader, finalHash);
             return true;
           }
           console.warn('🔗 BookToBookTransition: Chain resolution returned empty, falling through');
@@ -492,6 +479,7 @@ export class BookToBookTransition {
         const newState = {
           ...currentState,
           hyperlitContainer: null,
+          containerStack: null,
           bookTransition: {
             fromBook: this.getCurrentBookId(),
             toBook: bookId,

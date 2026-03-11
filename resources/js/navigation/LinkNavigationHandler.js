@@ -532,10 +532,24 @@ export class LinkNavigationHandler {
       return;
     }
     
+    // Capture containerStack BEFORE close (closeHyperlitContainer clears it from history.state)
+    const capturedStack = history.state?.containerStack || null;
+
     // Close any open container silently — the browser has already restored the URL via popstate
     try {
       await closeHyperlitContainer(true);
     } catch (e) { /* ignore */ }
+
+    // Container stack restoration — if we captured a serialized stack, restore it
+    if (capturedStack?.length > 0) {
+      try {
+        const { restoreContainerStack } = await import('../hyperlitContainer/history.js');
+        await restoreContainerStack(capturedStack);
+        return;
+      } catch (error) {
+        console.warn('Failed to restore container stack from history.state:', error);
+      }
+    }
 
     // Check URL path for cascade segments (HL_ / Fn patterns)
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
@@ -556,21 +570,6 @@ export class LinkNavigationHandler {
         }
       } catch (error) {
         console.warn('Failed to rebuild cascade from URL:', error);
-      }
-    }
-
-    // Multi-content query param — restore from sessionStorage
-    if (new URLSearchParams(window.location.search).has('hm')) {
-      try {
-        const { loadMultiContentFromSession } = await import('../hyperlitContainer/history.js');
-        const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
-        const containerState = loadMultiContentFromSession();
-        if (containerState) {
-          await restoreHyperlitContainerFromHistory(containerState);
-          return;
-        }
-      } catch (error) {
-        console.warn('Failed to restore multi-content from session:', error);
       }
     }
 

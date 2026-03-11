@@ -316,6 +316,34 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
       }
       // Clear the base layer entry from the stack (if any)
       clearStack();
+
+      // Clear legacy hyperlitContainer state and strip ?cs= URL param.
+      // Must run in both silent and non-silent modes — otherwise stale state
+      // survives into cross-book transitions and triggers false restores.
+      // NOTE: containerStack is intentionally PRESERVED — it's needed for
+      // back-nav restoration. The cross-book popstate handler reads it
+      // from the restored entry before delegating to BookToBookTransition.
+      const currentState = history.state || {};
+      const hasCsParam = new URLSearchParams(window.location.search).has('cs');
+      if (currentState.hyperlitContainer || hasCsParam || (!silent && currentState.containerStack)) {
+        const cleanState = {
+          ...currentState,
+          hyperlitContainer: null,
+          // Normal close: user dismissed the container — clear stale stack so
+          // refresh doesn't re-open.  Silent close (cross-book nav): preserve
+          // for back-nav restoration.
+          ...(silent ? {} : { containerStack: null, containerStackBookId: null }),
+        };
+        if (hasCsParam) {
+          const cleanParams = new URLSearchParams(window.location.search);
+          cleanParams.delete('cs');
+          const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
+          const cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
+          history.replaceState(cleanState, '', cleanUrl);
+        } else {
+          history.replaceState(cleanState, '');
+        }
+      }
     } catch (err) {
       console.warn('Stack unwind error (non-fatal):', err);
     }
@@ -378,29 +406,26 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
             seg.startsWith('HL_') || seg.includes('_Fn') || /^Fn\d/.test(seg)
           );
 
-          // Check for hyperlit-related hash or multi-content query param
+          // Check for hyperlit-related hash or container-stack query param
           const hasHyperlitHash = currentUrl.hash && (
             currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_')
           );
-          const hasHmParam = new URLSearchParams(currentUrl.search).has('hm');
+          const hasCsParam = new URLSearchParams(currentUrl.search).has('cs');
 
           // Always clear container state from history
           const currentState = history.state || {};
           const newState = { ...currentState, hyperlitContainer: null };
 
-          // Clear multi-content session data
-          const { clearMultiContentSession } = await import('./history.js');
-          clearMultiContentSession();
-
-          if (hasCascadeSegments || hasHyperlitHash || hasHmParam) {
-            // Strip all cascade segments from path, keeping only /book
-            // Also strip ?hm= param if present
+          if (hasCascadeSegments || hasHyperlitHash || hasCsParam) {
+            // Strip cascade segments from path + remove ?cs param
             const cleanParams = new URLSearchParams(currentUrl.search);
-            cleanParams.delete('hm');
+            cleanParams.delete('cs');
             const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
-            const cleanUrl = `/${bookSlug}${cleanSearch}`;
-            console.log('🔗 Cleaning up cascade/hash from URL:', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
+            const cleanUrl = hasCascadeSegments
+              ? `/${bookSlug}${cleanSearch}`
+              : `${currentUrl.pathname}${cleanSearch}`;
+            console.log('🔗 Cleaning up URL:', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
             history.replaceState(newState, '', cleanUrl);
           } else {
             // URL already clean — just clear the stale history state

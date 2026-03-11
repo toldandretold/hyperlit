@@ -6,6 +6,8 @@
  * pushes a new layer on top instead of replacing it.
  */
 
+import { book } from '../app.js';
+
 // ============================================================================
 // STACK DATA STRUCTURE
 // ============================================================================
@@ -240,6 +242,55 @@ export function removeStackedContainerDOM(container, overlay) {
 }
 
 // ============================================================================
+// STACK SERIALIZATION
+// ============================================================================
+
+/**
+ * Serialize the stack to a plain array suitable for history.state.
+ * Only stores metadata needed to rebuild layers — no DOM references.
+ */
+export function serializeStack() {
+  if (layers.length === 0) return null;
+  return layers.map(layer => ({
+    depth: layer.depth,
+    contentMetadata: layer.contentMetadata || null,
+    savedUrl: layer.savedUrl || null,
+    savedEditMode: layer.savedEditMode ?? false,
+  }));
+}
+
+/**
+ * Write the current stack state into history.state.
+ * Also updates the URL with a ?cs=<depth> param so refresh/back-nav
+ * know containers are open even if the URL path didn't change.
+ * Called after every push/pop.
+ */
+export function syncStackToHistoryState() {
+  const serialized = serializeStack();
+  const depth = serialized?.length ?? 0;
+
+  // Update URL with ?cs=<depth> marker (or strip it when stack is empty)
+  const url = new URL(window.location.href);
+  if (depth > 0) {
+    url.searchParams.set('cs', String(depth));
+  } else {
+    url.searchParams.delete('cs');
+  }
+  const newUrl = url.pathname + url.search + url.hash;
+
+  history.replaceState({
+    ...history.state,
+    containerStack: serialized,
+    containerStackBookId: depth > 0 ? book : null,
+    // Keep legacy field for backward compat
+    hyperlitContainer: serialized?.length > 0
+      ? serialized[serialized.length - 1].contentMetadata
+      : null,
+  }, '', newUrl);
+  console.log(`📚 Stack synced to history.state (${depth} layers), URL: ${newUrl}`);
+}
+
+// ============================================================================
 // POP TOP LAYER (full lifecycle)
 // ============================================================================
 
@@ -349,13 +400,18 @@ async function _popTopLayerImpl() {
   try {
     const { isContainerClosing } = await import('./core.js');
     if (isContainerClosing()) {
-      console.log('📚 URL restore skipped — container is closing (bulk unwind)');
-    } else if (newTop.savedUrl) {
-      console.log(`📚 URL restore on pop: ${window.location.pathname} → ${newTop.savedUrl}`);
-      history.replaceState(history.state, '', newTop.savedUrl);
+      console.log('📚 URL restore + state sync skipped — container is closing (bulk unwind)');
+    } else {
+      if (newTop.savedUrl) {
+        console.log(`📚 URL restore on pop: ${window.location.pathname} → ${newTop.savedUrl}`);
+        history.replaceState(history.state, '', newTop.savedUrl);
+      }
+      // Sync stack to history.state after pop
+      syncStackToHistoryState();
     }
   } catch (err) {
     console.warn('URL restore on pop failed (non-fatal):', err);
+    syncStackToHistoryState(); // fallback: sync anyway if import failed
   }
 
   } finally {

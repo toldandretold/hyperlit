@@ -33,12 +33,12 @@ import { checkForDuplicateTabs, registerBookOpen } from "./utilities/BroadcastLi
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
 import { parseSubBookId, buildSubBookId } from './utilities/subBookIdHelper.js';
-import { shouldSkipMultiContentRestore, setSkipMultiContentRestore } from './utilities/operationState.js';
 
 let isRetrying = false; // Prevents multiple retries at once
 
 
 export let pendingFirstChunkLoadedPromise;
+export let pendingContainerRestorePromise = null;
 let firstChunkLoadedResolver;
 
 export function resolveFirstChunkPromise() {
@@ -540,32 +540,19 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
       window.autoOpenChain = null; // Prevent re-triggering
     }
 
-    // BookToBookTransition sets this flag so we don't restore stale multi-content
-    // state here — it passes hadMultiContent through openContainerChain instead.
-    else if (shouldSkipMultiContentRestore()) {
-      setSkipMultiContentRestore(false);
-    }
-
-    // Multi-content query param — restore from sessionStorage
-    else if (new URLSearchParams(window.location.search).has('hm')) {
-      import('./hyperlitContainer/history.js').then(({ loadMultiContentFromSession }) => {
-        const containerState = loadMultiContentFromSession();
-        if (containerState) {
-          import('./hyperlitContainer/index.js').then(({ restoreHyperlitContainerFromHistory }) => {
-            restoreHyperlitContainerFromHistory(containerState);
-          });
-        } else {
-          // sessionStorage empty (e.g. new tab) — clean the stale ?hm param
-          const cleanParams = new URLSearchParams(window.location.search);
-          cleanParams.delete('hm');
-          const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
-          history.replaceState(history.state, '', window.location.pathname + cleanSearch);
-        }
+    // Container stack restoration — if history.state has a serialized stack,
+    // restore all layers from it (handles back-nav, refresh, and SPA transitions).
+    // Only restore if the stack belongs to the current book — prevents stale
+    // state from book A leaking into book B during SPA transitions.
+    else if (history.state?.containerStack?.length > 0
+             && (!history.state.containerStackBookId || history.state.containerStackBookId === book)) {
+      pendingContainerRestorePromise = import('./hyperlitContainer/history.js').then(({ restoreContainerStack }) => {
+        return restoreContainerStack(history.state.containerStack);
       });
     }
 
-    // Restore container from history.state — but only if URL confirms something should be open.
-    // This prevents stale history.state from reopening a container the user already closed.
+    // Legacy fallback: restore container from history.state.hyperlitContainer
+    // Only if URL confirms something should be open (prevents stale state from reopening).
     else if (history.state?.hyperlitContainer) {
       const loc = window.location;
       const segs = loc.pathname.split('/').filter(Boolean);
@@ -576,9 +563,9 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
         loc.hash.startsWith('#HL_') || loc.hash.startsWith('#hypercite_') ||
         loc.hash.startsWith('#footnote_') || loc.hash.startsWith('#citation_')
       );
-      const urlHasHm = new URLSearchParams(loc.search).has('hm');
+      const urlHasCs = new URLSearchParams(loc.search).has('cs');
 
-      if (urlHasCascade || urlHasHash || urlHasHm) {
+      if (urlHasCascade || urlHasHash || urlHasCs) {
         import('./hyperlitContainer/index.js').then(({ restoreHyperlitContainerFromHistory }) => {
           restoreHyperlitContainerFromHistory();
         });
@@ -749,14 +736,8 @@ export async function buildChainFromUrl(bookId, pathSegments) {
  * Closes any existing containers first, then opens each chain item
  * by finding its element and calling handleUnifiedContentClick.
  */
-export async function openContainerChain(chain, lazyLoader, finalHash = null, forceMultiContent = null) {
+export async function openContainerChain(chain, lazyLoader, finalHash = null) {
   if (!chain || chain.length === 0) return;
-
-  // Use forceMultiContent if explicitly passed (from BookToBookTransition),
-  // otherwise fall back to checking the current URL.
-  const hadMultiContent = forceMultiContent !== null
-    ? forceMultiContent
-    : new URLSearchParams(window.location.search).has('hm');
 
   // Close any existing containers to start from clean state
   const isContainerCurrentlyOpen = document.body.classList.contains('hyperlit-container-open');
@@ -785,34 +766,6 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null, fo
   // first item (searching document.body) and subsequent items (searching inside
   // the current container scroller), using the correct selector for HL_ marks.
   await continueChainOpening(normalized);
-
-  // After chain is fully opened, if ?hm=1 was present, find overlapping
-  // highlights in the current top layer and open multi-content view
-  if (hadMultiContent) {
-    await new Promise(r => setTimeout(r, 500));
-    const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
-    const { handleUnifiedContentClick, isClickProcessing } = await import('./hyperlitContainer/index.js');
-
-    // Wait for any in-flight click to finish
-    let waitAttempts = 0;
-    while (isClickProcessing() && waitAttempts < 50) {
-      await new Promise(r => setTimeout(r, 100));
-      waitAttempts++;
-    }
-
-    const scroller = getCurrentScroller();
-    if (scroller) {
-      const marks = scroller.querySelectorAll('mark');
-      for (const mark of marks) {
-        const hlIds = Array.from(mark.classList).filter(c => c.startsWith('HL_'));
-        if (hlIds.length >= 2) {
-          console.log(`📚 Chain restore: opening overlapping highlights in top layer: ${hlIds.join(', ')}`);
-          await handleUnifiedContentClick(mark, hlIds);
-          break;
-        }
-      }
-    }
-  }
 
   // After chain is fully opened, scroll to final hash target (e.g. hypercite)
   if (finalHash) {
