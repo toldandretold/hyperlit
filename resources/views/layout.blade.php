@@ -46,8 +46,8 @@
     <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000; pointer-events: none; display: block;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: transparent; padding: 2em; width: 400px; max-width: 70vw;">
             <p class="progress-text" id="page-load-progress-text" style="color: #CBCCCC; text-align: center; margin: 0 0 1em 0; font-size: 16px;">Loading...</p>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="page-load-progress-bar" style="width: 5%;"></div>
+            <div class="progress-bar-container" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 1em 0;">
+                <div class="progress-bar" id="page-load-progress-bar" style="width: 5%; height: 100%; background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95); transition: width 0.3s;"></div>
             </div>
             <p class="progress-details" id="page-load-progress-details" style="color: #888; text-align: center; margin: 0.5em 0 0 0; font-size: 12px;">Initializing...</p>
         </div>
