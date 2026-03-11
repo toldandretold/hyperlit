@@ -1284,6 +1284,39 @@ black #221F20;
   font-style: italic;
 }
 
+/* Sepia/light citation text — flip to light only when dark overlays are active */
+body.theme-sepia.hyperlit-container-open .citation-result-item,
+body.theme-sepia.hyperlit-container-open .citation-search-empty,
+body.theme-sepia.hyperlit-container-open .citation-search-loading {
+  color: #E8D7B8;
+}
+
+body.theme-sepia .citation-result-item i,
+body.theme-sepia .citation-result-item em {
+  color: #C25E10;
+}
+
+body.theme-sepia.hyperlit-container-open .citation-result-item i,
+body.theme-sepia.hyperlit-container-open .citation-result-item em {
+  color: #4EACAE;
+}
+
+body.theme-light.hyperlit-container-open .citation-result-item,
+body.theme-light.hyperlit-container-open .citation-search-empty,
+body.theme-light.hyperlit-container-open .citation-search-loading {
+  color: #F4ECD8;
+}
+
+body.theme-light .citation-result-item i,
+body.theme-light .citation-result-item em {
+  color: #D47020;
+}
+
+body.theme-light.hyperlit-container-open .citation-result-item i,
+body.theme-light.hyperlit-container-open .citation-result-item em {
+  color: #4EACAE;
+}
+
 /* Fade buttons out smoothly instead of instant hide */
 #edit-toolbar > button {
   transition: opacity 0.2s ease;
