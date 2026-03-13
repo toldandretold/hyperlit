@@ -349,6 +349,23 @@ export class ImportBookTransition {
         throw new Error('No bookId returned from backend');
       }
 
+      // Check for footnote audit issues before proceeding
+      if (result.hasFootnoteIssues && result.footnoteAudit) {
+        const userChoice = await this.showFootnoteAuditModal(result.footnoteAudit, result.bookId);
+
+        if (userChoice === 'resubmit') {
+          // Delete the book and reset for re-upload
+          await this.deleteImportedBook(result.bookId);
+
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit';
+          }
+          return null; // Signal that user chose to re-submit
+        }
+        // 'proceed' falls through to normal flow
+      }
+
       // Save the authoritative library record from server
       if (result.library) {
         const db = await openDatabase();
@@ -416,6 +433,141 @@ export class ImportBookTransition {
       console.log('🧹 ImportBookTransition: Cleared saved form data');
     } catch (e) {
       console.warn('Unable to clear saved form data:', e);
+    }
+  }
+
+  /**
+   * Show footnote audit modal when issues are detected
+   * @returns {Promise<'proceed'|'resubmit'>}
+   */
+  static showFootnoteAuditModal(audit, bookId) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-alert-overlay';
+
+      const alertBox = document.createElement('div');
+      alertBox.className = 'custom-alert';
+      alertBox.style.width = '580px';
+      alertBox.style.maxHeight = '80vh';
+      alertBox.style.overflowY = 'auto';
+
+      const issueCount = (audit.gaps?.length || 0) +
+        (audit.unmatched_refs?.length || 0) +
+        (audit.unmatched_defs?.length || 0) +
+        (audit.duplicates?.length || 0);
+
+      let detailsHtml = '';
+
+      if (audit.gaps?.length) {
+        detailsHtml += `<div style="margin-bottom:10px"><strong>Gaps (${audit.gaps.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        for (const gap of audit.gaps.slice(0, 10)) {
+          const afterHeading = gap.after_ref_heading ? ` in "${gap.after_ref_heading}"` : '';
+          const beforeHeading = gap.before_ref_heading ? ` in "${gap.before_ref_heading}"` : '';
+          const afterCtx = gap.after_ref_context ? `"${gap.after_ref_context.substring(0, 80)}..."` : '';
+          const beforeCtx = gap.before_ref_context ? `"${gap.before_ref_context.substring(0, 80)}..."` : '';
+          const crossSection = gap.after_ref_section_id && gap.before_ref_section_id && gap.after_ref_section_id !== gap.before_ref_section_id
+            ? '<br><em style="color:#b58900">(likely cross-section — different chapters)</em>' : '';
+          detailsHtml += `<li style="margin-bottom:8px">Missing [^${gap.missing}]:` +
+            `<br>&nbsp;&nbsp;[^${gap.after_ref}]${afterHeading} — ${afterCtx}` +
+            `<br>&nbsp;&nbsp;[^${gap.before_ref}]${beforeHeading} — ${beforeCtx}` +
+            `${crossSection}</li>`;
+        }
+        if (audit.gaps.length > 10) detailsHtml += `<li>...and ${audit.gaps.length - 10} more</li>`;
+        detailsHtml += '</ul></div>';
+      }
+
+      if (audit.duplicates?.length) {
+        detailsHtml += `<div style="margin-bottom:10px"><strong>Duplicates (${audit.duplicates.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        for (const dup of audit.duplicates.slice(0, 10)) {
+          detailsHtml += `<li>[^${dup.number}] appears ${dup.count} times in section ${dup.section}</li>`;
+        }
+        if (audit.duplicates.length > 10) detailsHtml += `<li>...and ${audit.duplicates.length - 10} more</li>`;
+        detailsHtml += '</ul></div>';
+      }
+
+      if (audit.unmatched_refs?.length) {
+        detailsHtml += `<div style="margin-bottom:10px"><strong>Unmatched references (${audit.unmatched_refs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        for (const ref of audit.unmatched_refs.slice(0, 5)) {
+          detailsHtml += `<li>[^${ref.number}] has no definition</li>`;
+        }
+        if (audit.unmatched_refs.length > 5) detailsHtml += `<li>...and ${audit.unmatched_refs.length - 5} more</li>`;
+        detailsHtml += '</ul></div>';
+      }
+
+      if (audit.unmatched_defs?.length) {
+        detailsHtml += `<div style="margin-bottom:10px"><strong>Unmatched definitions (${audit.unmatched_defs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        for (const def of audit.unmatched_defs.slice(0, 5)) {
+          const numLabel = def.number ? `[^${def.number}]` : def.footnote_id;
+          const secLabel = def.section ? ` (section ${def.section})` : '';
+          const preview = def.definition_preview?.substring(0, 200) || '';
+          detailsHtml += `<li>${numLabel}${secLabel}: ${preview}</li>`;
+        }
+        if (audit.unmatched_defs.length > 5) detailsHtml += `<li>...and ${audit.unmatched_defs.length - 5} more</li>`;
+        detailsHtml += '</ul></div>';
+      }
+
+      alertBox.innerHTML = `
+        <h3>Footnote Audit</h3>
+        <p style="margin-bottom:8px">${audit.total_refs} references, ${audit.total_defs} definitions</p>
+        <p style="margin-bottom:12px">Detected <strong>${issueCount} issue${issueCount !== 1 ? 's' : ''}</strong> in your document.</p>
+        ${detailsHtml}
+        <div class="alert-buttons" style="margin-top:16px">
+          <button class="alert-button secondary" data-action="resubmit">Re-submit</button>
+          <button class="alert-button primary" data-action="proceed">Proceed anyway</button>
+        </div>
+      `;
+
+      const cleanup = (action) => {
+        overlay.remove();
+        alertBox.remove();
+        resolve(action);
+      };
+
+      alertBox.addEventListener('click', (e) => {
+        const action = e.target.dataset?.action;
+        if (action === 'proceed' || action === 'resubmit') {
+          cleanup(action);
+        }
+      });
+
+      // Escape key dismisses as "proceed"
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', keyHandler);
+          cleanup('proceed');
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+
+      document.body.appendChild(overlay);
+      document.body.appendChild(alertBox);
+    });
+  }
+
+  /**
+   * Delete an imported book (for re-submit flow)
+   */
+  static async deleteImportedBook(bookId) {
+    try {
+      // Delete from IndexedDB
+      const { deleteBookFromIndexedDB } = await import('../../indexedDB/index.js');
+      await deleteBookFromIndexedDB(bookId);
+
+      // Delete from server
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+      });
+
+      console.log(`🗑️ ImportBookTransition: Deleted book ${bookId} for re-submit`);
+    } catch (e) {
+      console.warn('Failed to delete imported book for re-submit:', e);
     }
   }
 }

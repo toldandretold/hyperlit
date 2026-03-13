@@ -69,11 +69,6 @@ class ImportController extends Controller
     public function store(Request $request)
     {
         $startTime = microtime(true);
-        Log::info('File upload started', [
-            'book' => $request->input('book'),
-            'has_file' => $request->hasFile('markdown_file'),
-            'start_time' => $startTime,
-        ]);
 
         // Validation
         $request->validate([
@@ -115,6 +110,16 @@ class ImportController extends Controller
 
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
+        }
+
+        // Clean stale output files from any previous import to this book ID.
+        // process_document.py caches footnotes.json — a leftover from a prior run
+        // would cause it to skip footnote linking on the fresh HTML.
+        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
+            $staleFilePath = "{$path}/{$staleFile}";
+            if (File::exists($staleFilePath)) {
+                File::delete($staleFilePath);
+            }
         }
 
         $isDocxProcessing = false;
@@ -168,11 +173,6 @@ class ImportController extends Controller
                 $originalFilePath = "{$path}/{$originalFilename}";
                 $file->move($path, $originalFilename);
                 chmod($originalFilePath, 0644);
-
-                Log::info('File upload completed', [
-                    'book' => $bookId,
-                    'extension' => $extension
-                ]);
 
                 $isDocxProcessing = $this->processFile($originalFilePath, $path, $bookId, $extension);
             }
@@ -236,17 +236,23 @@ class ImportController extends Controller
             }
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
-            Log::info('Complete processing finished successfully', [
-                'book' => $bookId,
-                'total_processing_duration_ms' => $totalProcessingTime
-            ]);
 
             if ($request->expectsJson()) {
+                $auditPath = "{$path}/audit.json";
+                $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
+                $hasIssues = $auditData && (
+                    count($auditData['gaps'] ?? []) > 0 ||
+                    count($auditData['unmatched_refs'] ?? []) > 0 ||
+                    count($auditData['unmatched_defs'] ?? []) > 0
+                );
+
                 return response()->json([
                     'success' => true,
                     'bookId' => $bookId,
                     'library' => $createdRecord,
-                    'processing_time_ms' => $totalProcessingTime
+                    'processing_time_ms' => $totalProcessingTime,
+                    'footnoteAudit' => $auditData,
+                    'hasFootnoteIssues' => $hasIssues,
                 ]);
             }
 
@@ -313,11 +319,6 @@ class ImportController extends Controller
      */
     private function processFile(string $filePath, string $outputPath, string $bookId, string $extension): bool
     {
-        Log::info('Processing file', [
-            'book' => $bookId,
-            'extension' => $extension
-        ]);
-
         switch ($extension) {
             case 'md':
                 $this->markdownProcessor->process($filePath, $outputPath, $bookId);
@@ -355,8 +356,6 @@ class ImportController extends Controller
      */
     private function saveNodeChunksToDatabase(string $path, string $bookId): void
     {
-        $dbSaveStart = microtime(true);
-
         try {
             $nodesPath = "{$path}/nodes.json";
 
@@ -368,11 +367,7 @@ class ImportController extends Controller
             $nodesData = json_decode(File::get($nodesPath), true);
 
             // Delete existing chunks
-            $deletedCount = PgNodeChunk::where('book', $bookId)->delete();
-            Log::info('Existing chunks deleted', [
-                'book' => $bookId,
-                'deleted_count' => $deletedCount
-            ]);
+            PgNodeChunk::where('book', $bookId)->delete();
 
             // Prepare data for bulk insert with proper numbering
             $insertData = [];
@@ -417,13 +412,6 @@ class ImportController extends Controller
                 $totalInserted += count($batch);
             }
 
-            Log::info('All nodeChunks saved to database', [
-                'book' => $bookId,
-                'chunks_saved' => $totalInserted,
-                'total_batches' => count($batches),
-                'db_save_duration_ms' => round((microtime(true) - $dbSaveStart) * 1000, 2)
-            ]);
-
             // Update JSON file with renumbered values
             $renumberedJson = [];
             foreach ($insertData as $record) {
@@ -431,15 +419,11 @@ class ImportController extends Controller
             }
             File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-            Log::info('JSON file updated with renumbered values', [
-                'book' => $bookId,
-                'records_written' => count($renumberedJson)
-            ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to save nodeChunks to database', [
                 'book' => $bookId,
-                'error' => $e->getMessage()
+                'error' => substr($e->getMessage(), 0, 500),
+                'chunks_attempted' => count($insertData ?? [])
             ]);
         }
     }

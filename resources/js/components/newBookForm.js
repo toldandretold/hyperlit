@@ -6,6 +6,11 @@ import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
+// When the user clicks "Re-submit" from the footnote audit modal, the book ID
+// from the cancelled import is stored here so that both the submit-time and
+// real-time validators skip the server uniqueness check for that specific ID.
+let allowedResubmitBookId = null;
+
 // Add the helper functions from createNewBook.js
 function generateUUID() {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
@@ -429,6 +434,10 @@ function setupFormSubmission() {
             errors.push({ field: 'Book ID', message: 'Book ID must be at least 3 characters' });
             const el = document.getElementById('book-validation');
             if (el) { el.textContent = 'Book ID must be at least 3 characters'; el.className = 'validation-message error'; }
+        } else if (idVal === allowedResubmitBookId) {
+            // Re-submitting to the same book ID after footnote audit — skip uniqueness check
+            const el = document.getElementById('book-validation');
+            if (el) { el.textContent = 'Re-submitting to same book ID'; el.className = 'validation-message success'; }
         } else {
             // Server availability check
             try {
@@ -667,6 +676,13 @@ async function submitToLaravelAndLoad(formData, submitButton) {
     const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
     
     const result = await ImportBookTransition.handleFormSubmissionAndTransition(formData, submitButton);
+    if (!result) {
+      // User chose re-submit from footnote audit — form already reset by ImportBookTransition.
+      // Store the book ID so validators skip the "already taken" check on re-submit.
+      const bookInput = document.getElementById('book');
+      allowedResubmitBookId = bookInput?.value?.trim() || null;
+      return;
+    }
     console.log(`🔥 DEBUG: ImportBookTransition completed for ${result.bookId}`);
     
   } catch (error) {
@@ -733,6 +749,9 @@ function setupClearButton() {
             // Clear any persisted form data (both keys used across modules)
             localStorage.removeItem('formData');
             localStorage.removeItem('newbook-form-data');
+
+            // Reset re-submit bypass so normal validation applies again
+            allowedResubmitBookId = null;
         }, { passive: false });
     }
 }
@@ -753,7 +772,12 @@ function setupRealTimeValidation() {
             if (!value) return { valid: false, message: 'Book ID is required' };
             if (!/^[a-zA-Z0-9_-]+$/.test(value)) return { valid: false, message: 'Only letters, numbers, underscores, and hyphens allowed' };
             if (value.length < 3) return { valid: false, message: 'Book ID must be at least 3 characters' };
-            
+
+            // Re-submitting to same book ID after footnote audit — skip server check
+            if (value === allowedResubmitBookId) {
+                return { valid: true, message: 'Re-submitting to same book ID' };
+            }
+
             // Check database for existing book ID
             try {
                 const response = await fetch('/api/validate-book-id', {

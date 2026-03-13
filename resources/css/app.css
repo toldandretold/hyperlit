@@ -9,6 +9,7 @@ black #221F20;
 @import url('./theme/light-theme.css') layer(light-theme);
 @import url('./theme/sepia-theme.css') layer(sepia-theme);
 @import url('/public/fonts/inter/inter.css');
+@import 'katex/dist/katex.min.css';
 
 body {
     font-size: var(--font-size-base);

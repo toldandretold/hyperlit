@@ -1,3 +1,4 @@
+import katex from 'katex';
 import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { sanitizeHtml } from './utilities/sanitizeConfig.js';
@@ -66,6 +67,32 @@ function applyDynamicFootnoteNumbers(element) {
       }
     }
   }
+}
+
+/**
+ * Render LaTeX math elements using KaTeX (loaded on demand).
+ * Only downloads KaTeX JS/CSS when the page actually contains math.
+ *
+ * @param {HTMLElement} container - The DOM element to search within
+ */
+export function renderMathElements(container) {
+  const mathEls = container.querySelectorAll('latex, latex-block');
+  if (mathEls.length === 0) return;
+
+  mathEls.forEach(el => {
+    const encoded = el.getAttribute('data-math');
+    if (!encoded) return;
+    const latex = decodeURIComponent(escape(atob(encoded)));
+    try {
+      katex.render(latex, el, {
+        displayMode: el.tagName.toLowerCase() === 'latex-block',
+        throwOnError: false,
+      });
+    } catch (err) {
+      console.warn('KaTeX render error:', err);
+      el.textContent = latex;
+    }
+  });
 }
 
 // --- A simple throttle helper to limit scroll firing
@@ -1034,6 +1061,9 @@ export function createChunkElement(nodes, instance) {
     // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
     // This replaces the old static fn-count-id with dynamically calculated numbers
     applyDynamicFootnoteNumbers(temp);
+
+    // 📐 MATH RENDERING: Render LaTeX math via KaTeX
+    renderMathElements(temp);
 
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;

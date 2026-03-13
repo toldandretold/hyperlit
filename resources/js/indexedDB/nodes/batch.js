@@ -253,6 +253,12 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     }
   });
 
+  // Clean KaTeX-rendered HTML before saving — re-renders from data-math attribute
+  const mathElements = contentClone.querySelectorAll('latex, latex-block');
+  mathElements.forEach(el => {
+    el.textContent = '';
+  });
+
   const result = {
     content: contentClone.outerHTML,
     hyperlights,
