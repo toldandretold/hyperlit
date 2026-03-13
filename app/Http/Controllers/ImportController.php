@@ -242,11 +242,21 @@ class ImportController extends Controller
             ]);
 
             if ($request->expectsJson()) {
+                $auditPath = "{$path}/audit.json";
+                $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
+                $hasIssues = $auditData && (
+                    count($auditData['gaps'] ?? []) > 0 ||
+                    count($auditData['unmatched_refs'] ?? []) > 0 ||
+                    count($auditData['unmatched_defs'] ?? []) > 0
+                );
+
                 return response()->json([
                     'success' => true,
                     'bookId' => $bookId,
                     'library' => $createdRecord,
-                    'processing_time_ms' => $totalProcessingTime
+                    'processing_time_ms' => $totalProcessingTime,
+                    'footnoteAudit' => $auditData,
+                    'hasFootnoteIssues' => $hasIssues,
                 ]);
             }
 

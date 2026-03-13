@@ -141,6 +141,12 @@ def convert_markdown_to_html(markdown_content):
     in_code_block = False
     code_block_lang = ''
 
+    # Track footnote section restarts for sequential strategy
+    ref_section_counter = 0
+    def_section_counter = 0
+    last_ref_number = None   # Track the last ref number seen
+    last_def_number = None   # Track the last def number seen
+
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -217,6 +223,35 @@ def convert_markdown_to_html(markdown_content):
                 html_lines.append(table_html)
                 i = new_index
                 continue
+
+        # Detect footnote section boundaries for sequential strategy
+        # Check for footnote definition: line starts with [^N]: pattern
+        def_match = re.match(r'^\s*\[\^(\d+)\]\s*:', stripped)
+        if def_match:
+            def_number = int(def_match.group(1))
+            # A restart (back to 1, or a number <= last) means new definition section
+            if last_def_number is not None and def_number <= last_def_number:
+                def_section_counter += 1
+                html_lines.append(f'<a class="footnoteDefinitionsStart" id="fnDefSection_{def_section_counter}"></a>')
+            elif last_def_number is None:
+                # First definition ever seen
+                def_section_counter += 1
+                html_lines.append(f'<a class="footnoteDefinitionsStart" id="fnDefSection_{def_section_counter}"></a>')
+            last_def_number = def_number
+        else:
+            # Check for footnote reference: [^N] NOT followed by : (i.e. inline ref)
+            ref_matches = re.findall(r'\[\^(\d+)\]', stripped)
+            if ref_matches:
+                # Use the first ref number on this line to detect restarts
+                ref_number = int(ref_matches[0])
+                if last_ref_number is not None and ref_number <= last_ref_number:
+                    ref_section_counter += 1
+                    html_lines.append(f'<a class="footnoteSectionStart" id="fnRefSection_{ref_section_counter}"></a>')
+                elif last_ref_number is None:
+                    # First reference ever seen
+                    ref_section_counter += 1
+                    html_lines.append(f'<a class="footnoteSectionStart" id="fnRefSection_{ref_section_counter}"></a>')
+                last_ref_number = ref_number
 
         # Everything else as paragraph (including footnote patterns)
         # Process inline formatting
