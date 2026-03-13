@@ -1110,32 +1110,6 @@ def main(html_file_path, output_dir, book_id):
         # Sort by position ascending
         ref_section_positions.sort(key=lambda x: x[0])
 
-    # ── SECTION MAP SUMMARY (printed once before linking) ──
-    print(f"\n{'='*60}")
-    print(f"📋 FOOTNOTE LINKING — Strategy: {strategy}")
-    print(f"   Total elements in document: {len(all_elements)}")
-    if strategy == 'sectioned' or strategy == 'sequential':
-        print(f"   Sections ({len(footnote_sections)}):")
-        for s in footnote_sections:
-            sid = s['id']
-            start = s.get('text_start_idx', '?')
-            end = s.get('text_end_idx', '?')
-            keys = sorted(sectioned_footnote_map.get(sid, {}).keys(), key=lambda x: int(x) if x.isdigit() else 0)
-            key_range = f"{keys[0]}..{keys[-1]}" if keys else "(empty)"
-            print(f"     {sid}: range [{start},{end}), {len(keys)} defs ({key_range})")
-        # Check for gaps between section ranges
-        sorted_sections = sorted(footnote_sections, key=lambda s: s.get('text_start_idx', 0))
-        for i in range(len(sorted_sections) - 1):
-            end_of_current = sorted_sections[i].get('text_end_idx', 0)
-            start_of_next = sorted_sections[i + 1].get('text_start_idx', 0)
-            if start_of_next > end_of_current:
-                print(f"   ⚠️ GAP between sections: {sorted_sections[i]['id']} ends at {end_of_current}, "
-                      f"{sorted_sections[i+1]['id']} starts at {start_of_next} ({start_of_next - end_of_current} elements uncovered)")
-            elif start_of_next < end_of_current:
-                print(f"   ⚠️ OVERLAP between sections: {sorted_sections[i]['id']} ends at {end_of_current}, "
-                      f"{sorted_sections[i+1]['id']} starts at {start_of_next}")
-    print(f"{'='*60}\n")
-
     def find_footnote_data(identifier, current_element=None):
         """Find footnote data using the appropriate strategy"""
         if strategy == 'whole_document':
@@ -1193,66 +1167,31 @@ def main(html_file_path, output_dir, book_id):
     def find_footnote_in_sections(identifier, current_element):
         """Find footnote data by determining which section's text area this element is in"""
         # Get position of current element in document
-        resolved_via = 'direct'
         try:
             current_pos = all_elements.index(current_element)
         except ValueError:
             # If element not found, find closest parent that is
             parent = current_element.parent
-            resolved_via = 'parent_walk'
             while parent:
                 try:
                     current_pos = all_elements.index(parent)
-                    resolved_via = f'parent_walk({parent.name})'
                     break
                 except ValueError:
                     parent = parent.parent
             else:
                 current_pos = 0
-                resolved_via = 'fallback_to_0'
 
-        # Look up which section this element falls in
-        matched_section = None
+        # Find which section this element belongs to by checking explicit text ranges
         for section in footnote_sections:
-            start = section.get('text_start_idx', 0)
-            end = section.get('text_end_idx', len(all_elements))
-            in_range = current_pos >= start and current_pos < end
-
-            if in_range:
-                matched_section = section['id']
+            if (current_pos >= section.get('text_start_idx', 0) and
+                current_pos < section.get('text_end_idx', len(all_elements))):
                 if identifier in sectioned_footnote_map.get(section['id'], {}):
                     return sectioned_footnote_map[section['id']][identifier]
-                else:
-                    # IN RANGE but identifier NOT in this section's map — this is the bug case
-                    available = sorted(sectioned_footnote_map.get(section['id'], {}).keys(), key=lambda x: int(x) if x.isdigit() else 0)
-                    nearby = [k for k in available if k.isdigit() and abs(int(k) - int(identifier)) <= 3] if identifier.isdigit() else available[:10]
-                    sections_with_id = [sid for sid, smap in sectioned_footnote_map.items() if identifier in smap]
-                    print(f"⚠️ SECTION MISMATCH for footnote {identifier}:")
-                    print(f"   Element at pos {current_pos} → matched section '{section['id']}' (range [{start},{end}))")
-                    print(f"   But identifier '{identifier}' is NOT in that section's map.")
-                    print(f"   Nearby keys in '{section['id']}': {nearby} ({len(available)} total)")
-                    print(f"   Identifier '{identifier}' EXISTS in these sections: {sections_with_id}")
-                    print(f"   resolved_via={resolved_via}, parent=<{current_element.name if hasattr(current_element, 'name') else '?'}>")
-
-        if matched_section is None:
-            # Element falls outside ALL section ranges
-            section_ranges = [(s['id'], s.get('text_start_idx', 0), s.get('text_end_idx', '?')) for s in footnote_sections]
-            sections_with_id = [sid for sid, smap in sectioned_footnote_map.items() if identifier in smap]
-            print(f"❌ NO SECTION MATCH for footnote {identifier}:")
-            print(f"   Element at pos {current_pos} falls OUTSIDE all section ranges!")
-            print(f"   Section ranges: {section_ranges}")
-            print(f"   Identifier '{identifier}' EXISTS in these sections: {sections_with_id}")
-            print(f"   resolved_via={resolved_via}")
 
         # Try traditional footnotes as final fallback
         if 'traditional' in sectioned_footnote_map and identifier in sectioned_footnote_map['traditional']:
-            print(f"🔄 Fallback: found footnote {identifier} in traditional map")
             return sectioned_footnote_map['traditional'][identifier]
 
-        # Log which sections DO have this identifier (helps diagnose section mismatch)
-        sections_with_id = [sid for sid, smap in sectioned_footnote_map.items() if identifier in smap]
-        print(f"❌ Could not find footnote {identifier} in any section (pos {current_pos}, matched_section={matched_section}, "
-              f"resolved_via={resolved_via}). Identifier exists in sections: {sections_with_id}")
         return None
     
     # Handle existing <a> tags with #fn pattern
@@ -1323,13 +1262,6 @@ def main(html_file_path, output_dir, book_id):
                         last_index = match.end()
                     else:
                         # If no footnote found, leave the text as-is
-                        parent_tag = text_node.parent.name if hasattr(text_node.parent, 'name') else '?'
-                        parent_id = text_node.parent.get('id', '') if hasattr(text_node.parent, 'get') else ''
-                        all_ids_in_node = [m.group(1) for m in matches]
-                        print(f"🚨 FAILED footnote [{identifier}] — left as plain text. "
-                              f"All refs in this text node: {all_ids_in_node}, "
-                              f"parent: <{parent_tag} id='{parent_id}'>, "
-                              f"text snippet: ...{text[max(0,match.start()-40):match.end()+40]}...")
                         continue
                 if new_content:  # Only replace if we found matches
                     new_content.append(NavigableString(text[last_index:]))
