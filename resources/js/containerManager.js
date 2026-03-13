@@ -280,9 +280,11 @@ export class ContainerManager {
     }
   }
 
-  openContainer(content = null, highlightId = null) {
-    if (content && this.container) this.container.innerHTML = content;
-    else if (this.initialContent && this.container) this.container.innerHTML = this.initialContent;
+  openContainer(content = null, highlightId = null, { skipContentReset = false } = {}) {
+    if (!skipContentReset) {
+      if (content && this.container) this.container.innerHTML = content;
+      else if (this.initialContent && this.container) this.container.innerHTML = this.initialContent;
+    }
 
     if (highlightId) this.highlightId = highlightId;
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();

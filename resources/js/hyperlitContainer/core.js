@@ -201,6 +201,93 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
 }
 
 /**
+ * Prepare the hyperlit container with content but keep it off-screen.
+ * The container is laid out (so content has real height) but not yet visible.
+ * Call animateHyperlitContainerOpen() after async content loads to trigger the slide-in.
+ *
+ * Used for footnotes to avoid the "open empty then expand" jank — content loads
+ * while the container is off-screen, then it slides in at full height.
+ *
+ * @param {string} content - HTML content to display
+ * @param {boolean} isBackNavigation - Whether this is a back navigation
+ */
+export function prepareHyperlitContainer(content, isBackNavigation = false) {
+  if (!hyperlitManager) {
+    initializeHyperlitManager();
+  }
+
+  const container = document.getElementById("hyperlit-container");
+  if (!container) {
+    console.error("❌ hyperlit-container not found after initialization!");
+    return;
+  }
+
+  // 🔒 SAVE scroll position FIRST, before any DOM changes
+  const scrollContainer = document.querySelector('.reader-content-wrapper')
+    || document.querySelector('.main-content')
+    || document.querySelector('main');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+  // Lock body scroll BEFORE opening container to prevent scroll during animation
+  document.body.classList.add('hyperlit-container-open');
+  console.log('🔒 Body scroll locked (prepare phase)');
+
+  // Set initial max-height
+  const viewportHeight = window.innerHeight;
+  const topMargin = 16;
+  const BOTTOM_GAP = 4;
+  const maxHeight = viewportHeight - topMargin - BOTTOM_GAP;
+
+  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px)`);
+  container.style.maxHeight = `${maxHeight}px`;
+
+  // Reset container to initial structure (ensures .scroller, masks, controls exist)
+  container.innerHTML = hyperlitManager.initialContent;
+
+  // Make container participate in layout but keep off-screen.
+  container.classList.remove('hidden');
+  container.style.visibility = '';
+  container.style.transform = '';
+
+  hyperlitManager.isBackNavigation = isBackNavigation;
+
+  // Set content inside the scroller (guaranteed to exist after initialContent reset)
+  const scroller = container.querySelector('.scroller');
+  if (scroller) {
+    console.log(`📝 Setting content in scroller (off-screen prepare) (${content.length} chars)`);
+    scroller.innerHTML = content;
+    void scroller.offsetHeight; // Force layout flush
+    console.log(`✅ Content set off-screen. Scroller innerHTML length: ${scroller.innerHTML.length}`);
+    attachScrollContainment(scroller);
+  }
+
+  // Restore scroll position in case it shifted during setup
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedScrollTop;
+  }
+}
+
+/**
+ * Trigger the slide-in animation for a container that was set up with prepareHyperlitContainer().
+ * This adds the .open class, which starts the CSS transform transition.
+ */
+export function animateHyperlitContainerOpen() {
+  if (!hyperlitManager) return;
+
+  const scrollContainer = document.querySelector('.reader-content-wrapper')
+    || document.querySelector('.main-content')
+    || document.querySelector('main');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+  console.log("📂 Animating container open (deferred)...");
+  hyperlitManager.openContainer(null, null, { skipContentReset: true });
+
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedScrollTop;
+  }
+}
+
+/**
  * Prepare container for closing - saves data if in edit mode with pending changes
  * Similar to disableEditMode() behavior
  */
