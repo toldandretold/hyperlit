@@ -1,7 +1,5 @@
 ![hyperlit](/public/images/titleLogo.png)
 
-# Hyperlit
-
 Read and self-publish hypertext literature. 
 
 [https://hyperlit.io](https://hyperlit.io)
