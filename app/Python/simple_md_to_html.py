@@ -7,6 +7,7 @@ No external dependencies - just basic regex-based conversion.
 import sys
 import re
 import html
+import base64
 
 def escape_html_no_double(text):
     """
@@ -36,8 +37,33 @@ def escape_html_no_double(text):
 
     return escaped
 
+def encode_math(latex_content):
+    """Base64-encode LaTeX for safe embedding in data-math attribute.
+    Avoids double-encoding issues when bleach/BeautifulSoup re-encodes HTML entities."""
+    return base64.b64encode(latex_content.encode('utf-8')).decode('ascii')
+
 def process_inline_formatting(text):
     """Process inline markdown formatting"""
+    # Extract inline math ($...$) BEFORE any other processing to protect LaTeX from
+    # being mangled by bold/italic/underscore rules.
+    # The no-space rule ((?! ) and (?<! )) prevents "$5 to $10" from matching.
+    # [^$] instead of . prevents matching across currency dollar signs (e.g. "$68 billion...$97 billion").
+    math_placeholders = {}
+    math_counter = [0]
+
+    def replace_inline_math(m):
+        latex = html.unescape(m.group(1))
+        key = f'\x00MATH{math_counter[0]}\x00'
+        math_placeholders[key] = f'<latex data-math="{encode_math(latex)}"></latex>'
+        math_counter[0] += 1
+        return key
+
+    text = re.sub(
+        r'(?<!\$)(?<!\\)\$(?!\$)(?! )(\S[^$]*\S|\S)(?<! )(?<!\\)\$(?!\$)(?!\d)',
+        replace_inline_math,
+        text
+    )
+
     # Preserve <br>, <br/>, <br /> tags by replacing with placeholder
     br_placeholder = '\x00BR_TAG\x00'
     text = re.sub(r'<br\s*/?>', br_placeholder, text, flags=re.IGNORECASE)
@@ -68,6 +94,14 @@ def process_inline_formatting(text):
 
     # Process strikethrough ~~text~~
     text = re.sub(r'~~([^~]+)~~', r'<del>\1</del>', text)
+
+    # Restore math placeholders (check both raw and HTML-escaped versions of the key)
+    for key, replacement in math_placeholders.items():
+        text = text.replace(key, replacement)
+        text = text.replace(html.escape(key), replacement)
+
+    # Convert escaped dollar signs to literal dollars
+    text = text.replace(r'\$', '$')
 
     return text
 
@@ -147,6 +181,9 @@ def convert_markdown_to_html(markdown_content):
     last_ref_number = None   # Track the last ref number seen
     last_def_number = None   # Track the last def number seen
 
+    in_math_block = False
+    math_block_lines = []
+
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -173,6 +210,34 @@ def convert_markdown_to_html(markdown_content):
             continue
 
         stripped = line.strip()
+
+        # Handle block math ($$...$$)
+        if in_math_block:
+            if stripped == '$$':
+                # Close multi-line math block
+                latex_content = html.unescape('\n'.join(math_block_lines))
+                html_lines.append(f'<p><latex-block data-math="{encode_math(latex_content)}"></latex-block></p>')
+                in_math_block = False
+                math_block_lines = []
+            else:
+                math_block_lines.append(line)
+            i += 1
+            continue
+
+        # Single-line block math: $$...$$
+        block_math_match = re.match(r'^\$\$(.+)\$\$$', stripped)
+        if block_math_match:
+            latex_content = html.unescape(block_math_match.group(1))
+            html_lines.append(f'<p><latex-block data-math="{encode_math(latex_content)}"></latex-block></p>')
+            i += 1
+            continue
+
+        # Multi-line block math opening: lone $$
+        if stripped == '$$':
+            in_math_block = True
+            math_block_lines = []
+            i += 1
+            continue
 
         # Empty lines
         if not stripped:

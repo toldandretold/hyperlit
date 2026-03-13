@@ -19,6 +19,9 @@ const ADD_ATTR = [
   'no-delete-id',  // Protects last node from deletion (empty document prevention)
 ];
 
+// Custom tags that DOMPurify should allow (it strips unknown tags by default)
+const ADD_TAGS = ['latex', 'latex-block'];
+
 // Forbidden tags (dangerous elements) - blocklist approach
 const FORBID_TAGS = [
   'script', 'iframe', 'object', 'embed', 'applet',
@@ -66,6 +69,7 @@ export function sanitizeHtml(html) {
   const result = DOMPurify.sanitize(html, {
     FORBID_TAGS,
     FORBID_ATTR,
+    ADD_TAGS,               // Allow custom latex/latex-block elements
     ADD_ATTR,               // Allow publisher-specific non-data attributes
     ALLOW_DATA_ATTR: true,  // Let data-* attributes through for journal formats
     KEEP_CONTENT: true,     // Keep text content of removed tags
@@ -118,6 +122,7 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
 export const SANITIZE_CONFIG = {
   FORBID_TAGS,
   FORBID_ATTR,
+  ADD_TAGS,
   ADD_ATTR,
   ALLOW_DATA_ATTR: true,
   KEEP_CONTENT: true,

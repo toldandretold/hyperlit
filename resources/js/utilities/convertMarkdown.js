@@ -123,11 +123,40 @@ export function parseMarkdownIntoChunksInitial(markdown) {
 export function convertMarkdownToHtml(markdown) {
   const lines = markdown.split("\n");
   let htmlOutput = "";
+  let inMathBlock = false;
+  let mathBlockLines = [];
 
   lines.forEach((line, index) => {
     const originalLineNumber = index + 1;
     const lineNumberAttr = `data-original-line="${originalLineNumber}"`;
     const trimmedLine = line.trim();
+
+    // Handle multi-line block math ($$...$$)
+    if (inMathBlock) {
+      if (trimmedLine === '$$') {
+        const latexContent = mathBlockLines.join('\n');
+        htmlOutput += `<p><latex-block data-math="${encodeMath(latexContent)}"></latex-block></p>`;
+        inMathBlock = false;
+        mathBlockLines = [];
+      } else {
+        mathBlockLines.push(line);
+      }
+      return;
+    }
+
+    // Single-line block math: $$...$$
+    const blockMathMatch = trimmedLine.match(/^\$\$(.+)\$\$$/);
+    if (blockMathMatch) {
+      htmlOutput += `<p><latex-block data-math="${encodeMath(blockMathMatch[1])}"></latex-block></p>`;
+      return;
+    }
+
+    // Multi-line block math opening: lone $$
+    if (trimmedLine === '$$') {
+      inMathBlock = true;
+      mathBlockLines = [];
+      return;
+    }
 
     // Process footnote definition lines differently.
     if (trimmedLine.match(/^\[\^(\w+)\]\:(.*)/)) {
@@ -175,8 +204,31 @@ export function convertMarkdownToHtml(markdown) {
 /**
  * Enhanced version of parseInlineMarkdown that handles footnote references
  */
+/**
+ * Base64-encode LaTeX content for safe embedding in data-math attribute.
+ * Avoids double-encoding issues from sanitizer pipelines.
+ */
+function encodeMath(latex) {
+  return btoa(unescape(encodeURIComponent(latex)));
+}
+
 export function parseInlineMarkdown(text) {
   if (!text) return "";
+
+  // Extract inline math ($...$) BEFORE escape-character removal and bold/italic processing.
+  // The no-space rule prevents "$5 to $10" from matching.
+  const mathPlaceholders = {};
+  let mathCounter = 0;
+  text = text.replace(
+    /(?<!\$)(?<!\\)\$(?!\$)(?! )(\S.*?\S|\S)(?<! )(?<!\\)\$(?!\$)(?!\d)/g,
+    (_, latex) => {
+      const key = `\x00MATH${mathCounter}\x00`;
+      mathPlaceholders[key] = `<latex data-math="${encodeMath(latex)}"></latex>`;
+      mathCounter++;
+      return key;
+    }
+  );
+
   // Remove escape characters.
   text = text.replace(/\\([`*_{}\\[\\]()#+.!-])/g, "$1");
   // Bold: **text** -> <strong>text</strong>
@@ -187,7 +239,15 @@ export function parseInlineMarkdown(text) {
   text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
   // Links: [text](url) -> <a href="url">text</a>
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
+
+  // Restore math placeholders
+  for (const [key, replacement] of Object.entries(mathPlaceholders)) {
+    text = text.replace(key, replacement);
+  }
+
+  // Convert escaped dollar signs to literal dollars
+  text = text.replace(/\\\$/g, '$');
+
   return text;
 }
 

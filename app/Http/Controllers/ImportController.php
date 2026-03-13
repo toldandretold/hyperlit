@@ -449,7 +449,8 @@ class ImportController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to save nodeChunks to database', [
                 'book' => $bookId,
-                'error' => $e->getMessage()
+                'error' => substr($e->getMessage(), 0, 500),
+                'chunks_attempted' => count($insertData ?? [])
             ]);
         }
     }
