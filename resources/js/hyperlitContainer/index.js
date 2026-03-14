@@ -74,7 +74,8 @@ import { book } from '../app.js';
 import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
-import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
+import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core.js';
+import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
@@ -97,6 +98,9 @@ export function isClickProcessing() { return isProcessingClick; }
 // Restored when the hyperlit container closes.
 let mainEditorWasActive = false;
 let previousIsEditing = false;
+
+// Re-entrancy guard for edit button save ceremony (prevents race with concurrent close)
+let isSavingEditToggle = false;
 
 // Prevents duplicate focusin listeners from attachSubBookFocusSwitcher
 let focusSwitcherAttached = false;
@@ -316,22 +320,42 @@ async function handleEditButtonClick() {
       getToolbar()?.setEditMode(true);
     }
   } else {
-    const { detachNoteListeners } = await import('./noteListener.js');
-    detachNoteListeners();
+    // Re-entrancy guard: prevent race with concurrent close
+    if (isSavingEditToggle) return;
+    isSavingEditToggle = true;
 
-    // Stop any active sub-book observer
-    const { stopObserving } = await import('../divEditor/index.js');
-    await stopObserving();
+    try {
+      // Same save ceremony as saveAndCloseHyperlitContainer
+      ProgressOverlayConductor.showSPATransition(50, 'Saving your changes...', true);
+      try {
+        // Flush input debounce + SaveQueue + save preview_nodes
+        await prepareContainerClose();
 
-    // Hide toolbar if main book was in read mode
-    if (!previousIsEditing) {
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
-      getToolbar()?.setEditMode(false);
+        ProgressOverlayConductor.updateProgress(100, 'Save complete');
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } finally {
+        await ProgressOverlayConductor.hide();
+      }
+
+      const { detachNoteListeners } = await import('./noteListener.js');
+      detachNoteListeners();
+
+      // Tear down observer (already flushed by prepareContainerClose)
+      const { stopObserving } = await import('../divEditor/index.js');
+      await stopObserving();
+
+      // Hide toolbar if main book was in read mode
+      if (!previousIsEditing) {
+        const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+        getToolbar()?.setEditMode(false);
+      }
+
+      // Reset so the next toggle cycle starts clean
+      window.isEditing = previousIsEditing;
+      previousIsEditing = false;
+    } finally {
+      isSavingEditToggle = false;
     }
-
-    // Reset so the next toggle cycle starts clean
-    window.isEditing = previousIsEditing;
-    previousIsEditing = false;
   }
 
   // Restore scroll position
