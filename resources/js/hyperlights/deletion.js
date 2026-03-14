@@ -58,36 +58,41 @@ export async function deleteHighlightById(highlightId) {
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
     const affectedIDnumericals = new Set();
 
-    markElements.forEach(mark => {
-      // Remove just this highlight's class
-      mark.classList.remove(highlightId);
+    setProgrammaticUpdateInProgress(true);
+    try {
+      markElements.forEach(mark => {
+        // Remove just this highlight's class
+        mark.classList.remove(highlightId);
 
-      // If this was the main mark (with id), remove the id too
-      if (mark.id === highlightId) {
-        mark.removeAttribute('id');
-      }
+        // If this was the main mark (with id), remove the id too
+        if (mark.id === highlightId) {
+          mark.removeAttribute('id');
+        }
 
-      // If no more highlight classes remain, remove the mark entirely
-      const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
+        // If no more highlight classes remain, remove the mark entirely
+        const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
 
-        if (remainingHighlights.length === 0) {
-          unwrapMark(mark);
-        } else {
-        // Still has other highlights - just update the styling
-        console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
-        // Update highlight count and intensity if needed
-        const highlightCount = remainingHighlights.length;
-        mark.setAttribute('data-highlight-count', highlightCount);
-        const intensity = Math.min(highlightCount / 5, 1);
-        mark.style.setProperty('--highlight-intensity', intensity);
-      }
+          if (remainingHighlights.length === 0) {
+            unwrapMark(mark);
+          } else {
+          // Still has other highlights - just update the styling
+          console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
+          // Update highlight count and intensity if needed
+          const highlightCount = remainingHighlights.length;
+          mark.setAttribute('data-highlight-count', highlightCount);
+          const intensity = Math.min(highlightCount / 5, 1);
+          mark.style.setProperty('--highlight-intensity', intensity);
+        }
 
-      // Track which nodes were affected for re-applying highlights
-      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
-      if (container && container.id) {
-        affectedIDnumericals.add(container.id);
-      }
-    });
+        // Track which nodes were affected for re-applying highlights
+        const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
+        if (container && container.id) {
+          affectedIDnumericals.add(container.id);
+        }
+      });
+    } finally {
+      setProgrammaticUpdateInProgress(false);
+    }
 
     // Remove from IndexedDB
     const deletedHyperlight = await removeHighlightFromHyperlights(highlightId);
@@ -162,38 +167,43 @@ export async function hideHighlightById(highlightId) {
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
     const affectedIDnumericals = new Set();
 
-    markElements.forEach(mark => {
-      // Remove just this highlight's class
-      mark.classList.remove(highlightId);
+    setProgrammaticUpdateInProgress(true);
+    try {
+      markElements.forEach(mark => {
+        // Remove just this highlight's class
+        mark.classList.remove(highlightId);
 
-      // If this was the main mark (with id), remove the id too
-      if (mark.id === highlightId) {
-        mark.removeAttribute('id');
-      }
+        // If this was the main mark (with id), remove the id too
+        if (mark.id === highlightId) {
+          mark.removeAttribute('id');
+        }
 
-      // If no more highlight classes remain, remove the mark entirely
-      const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
+        // If no more highlight classes remain, remove the mark entirely
+        const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
 
-      if (remainingHighlights.length === 0) {
-        const parentNode = mark.parentNode;
-        unwrapMark(mark);
-        if (parentNode) parentNode.normalize();
-      } else {
-        // Still has other highlights - just update the styling
-        console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
-        // Update highlight count and intensity if needed
-        const highlightCount = remainingHighlights.length;
-        mark.setAttribute('data-highlight-count', highlightCount);
-        const intensity = Math.min(highlightCount / 5, 1);
-        mark.style.setProperty('--highlight-intensity', intensity);
-      }
+        if (remainingHighlights.length === 0) {
+          const parentNode = mark.parentNode;
+          unwrapMark(mark);
+          if (parentNode) parentNode.normalize();
+        } else {
+          // Still has other highlights - just update the styling
+          console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
+          // Update highlight count and intensity if needed
+          const highlightCount = remainingHighlights.length;
+          mark.setAttribute('data-highlight-count', highlightCount);
+          const intensity = Math.min(highlightCount / 5, 1);
+          mark.style.setProperty('--highlight-intensity', intensity);
+        }
 
-      // Track which nodes were affected for re-applying highlights
-      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
-      if (container && container.id) {
-        affectedIDnumericals.add(container.id);
-      }
-    });
+        // Track which nodes were affected for re-applying highlights
+        const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
+        if (container && container.id) {
+          affectedIDnumericals.add(container.id);
+        }
+      });
+    } finally {
+      setProgrammaticUpdateInProgress(false);
+    }
 
     // For hide: Only remove from IndexedDB locally, DON'T touch PostgreSQL nodes
     // Remove from local IndexedDB hyperlights table
@@ -233,15 +243,17 @@ export async function hideHighlightById(highlightId) {
  * This ensures overlapping highlights are correctly recalculated and displayed
  * @param {string} bookId - The book ID
  * @param {Array<string>} affectedNodeIds - Array of node IDs to reprocess
+ * @param {Array|null} preloadedNodes - Optional pre-fetched nodes to avoid reading all book nodes
  */
-export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals) {
+export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, preloadedNodes = null) {
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
 
   try {
     const { applyHighlights } = await import('../lazyLoaderFactory.js');
 
     // Get the updated node chunks which should have the correct hyperlights after deletion
-    const nodes = await getNodeChunksFromIndexedDB(bookId);
+    // Use preloaded nodes when available (e.g. after highlight creation) to avoid full-book scan
+    const nodes = preloadedNodes || await getNodeChunksFromIndexedDB(bookId);
 
     // Flag programmatic update to suppress false isolation breach warnings from MutationObserver
     setProgrammaticUpdateInProgress(true);

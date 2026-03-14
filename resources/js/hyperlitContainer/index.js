@@ -227,30 +227,37 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
       return true;
     }
 
-    // Check if user owns any of the highlights
-    const database = db || await openDatabase();
-    const tx = database.transaction("hyperlights", "readonly");
-    const store = tx.objectStore("hyperlights");
-    const idx = store.index("hyperlight_id");
+    // 🚀 PERFORMANCE: Use cached ownership from buildHighlightContent when available
+    if (highlightType.highlightOwnership) {
+      for (const [, isOwner] of highlightType.highlightOwnership) {
+        if (isOwner) return true;
+      }
+    } else {
+      // Cold path: no cache, read from IDB
+      const database = db || await openDatabase();
+      const tx = database.transaction("hyperlights", "readonly");
+      const store = tx.objectStore("hyperlights");
+      const idx = store.index("hyperlight_id");
 
-    for (const id of highlightType.highlightIds) {
-      const result = await new Promise((res) => {
-        const req = idx.get(id);
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => res(null);
-      });
+      for (const id of highlightType.highlightIds) {
+        const result = await new Promise((res) => {
+          const req = idx.get(id);
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => res(null);
+        });
 
-      if (result) {
-        const isUserHighlight = result.is_user_highlight === true
-          || (currentUser && result.creator && (
-               result.creator === currentUser.name     ||
-               result.creator === currentUser.username  ||
-               result.creator === currentUser.email
-             ))
-          || (!result.creator && result.creator_token === currentUserId);
+        if (result) {
+          const isUserHighlight = result.is_user_highlight === true
+            || (currentUser && result.creator && (
+                 result.creator === currentUser.name     ||
+                 result.creator === currentUser.username  ||
+                 result.creator === currentUser.email
+               ))
+            || (!result.creator && result.creator_token === currentUserId);
 
-        if (isUserHighlight) {
-          return true;
+          if (isUserHighlight) {
+            return true;
+          }
         }
       }
     }
@@ -712,16 +719,17 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
       setHyperlitEditMode(true);
     }
 
-    // Check if user has permission to edit ANY item (determines if edit button shows)
-    const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
-    console.log(`✏️ User has edit permission: ${hasAnyEditPermission}`);
-
     // Get current edit mode state
     const editModeEnabled = getHyperlitEditMode();
     console.log(`✏️ Edit mode enabled: ${editModeEnabled}`);
 
-    // Build unified content (pass db for reuse and edit mode state)
-    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
+    // 🚀 PERFORMANCE: Build content FIRST so highlight caches are warm for permission check
+    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled);
+
+    // Check if user has permission to edit ANY item (determines if edit button shows)
+    // Uses cached highlightOwnership from buildHighlightContent when available
+    const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+    console.log(`✏️ User has edit permission: ${hasAnyEditPermission}`);
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
@@ -748,7 +756,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // This avoids the "open empty then expand" jank since content may be a
     // skeleton until the async sub-book loads.
     prepareHyperlitContainer(unifiedContent, isBackNavigation);
-    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission);
+    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db);
     animateHyperlitContainerOpen();
 
     // --- Push layer 0 into the stack so layers[] always tracks all open containers ---
@@ -816,10 +824,9 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  * @param {Array} newHighlightIds - Array of new highlight IDs
  * @param {IDBDatabase} db - Reused database connection
  * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
- * @param {boolean} hasAnyEditPermission - Whether user has permission to edit any item
  * @returns {Promise<string>} HTML content string
  */
-export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db = null, editModeEnabled = true, hasAnyEditPermission = false) {
+export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db = null, editModeEnabled = true) {
   console.log("🔨 Building unified content for types:", contentTypes.map(ct => ct.type));
 
   let contentTypesWithTimestamps;
@@ -980,8 +987,9 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
  * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  * @param {boolean} hasAnyEditPermission - Whether user has permission to edit any item
  * @param {boolean} skipAutoFocus - Skip auto-focus (used when edit button handles focus separately)
+ * @param {IDBDatabase|null} db - Optional reused database connection
  */
-export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false, hasAnyEditPermission = false, skipAutoFocus = false) {
+export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false, hasAnyEditPermission = false, skipAutoFocus = false, db = null) {
   const editModeEnabled = getHyperlitEditMode();
 
   // Only attach note listeners if edit mode is enabled
@@ -1003,21 +1011,27 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       const auth = getAuthContextSync() || await getAuthContext();
       const { user: currentUser, userId: currentUserId } = auth;
 
-      // Get highlight data to determine which are editable
-      const db = await openDatabase();
-      const tx = db.transaction("hyperlights", "readonly");
-      const store = tx.objectStore("hyperlights");
-      const idx = store.index("hyperlight_id");
+      // 🚀 PERFORMANCE: Use cached records from buildHighlightContent when available
+      let results;
+      if (highlightType.cachedHighlightRecords) {
+        results = highlightType.cachedHighlightRecords;
+      } else {
+        // Cold path: no cache, read from IDB
+        const database = db || await openDatabase();
+        const tx = database.transaction("hyperlights", "readonly");
+        const store = tx.objectStore("hyperlights");
+        const idx = store.index("hyperlight_id");
 
-      const reads = highlightIds.map((id) =>
-        new Promise((res, rej) => {
-          const req = idx.get(id);
-          req.onsuccess = () => res(req.result);
-          req.onerror = () => rej(req.error);
-        })
-      );
+        const reads = highlightIds.map((id) =>
+          new Promise((res, rej) => {
+            const req = idx.get(id);
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+          })
+        );
 
-      const results = await Promise.all(reads);
+        results = await Promise.all(reads);
+      }
       let firstUserAnnotation = null;
 
       // Find first editable highlight for cursor placement
@@ -1202,8 +1216,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         // Auto-load footnote content via lazy loader
         const scroller = getCurrentContainer()?.querySelector('.scroller');
         if (scroller) {
-          const db = await openDatabase();
-          const tx = db.transaction('footnotes', 'readonly');
+          const database = db || await openDatabase();
+          const tx = database.transaction('footnotes', 'readonly');
           const store = tx.objectStore('footnotes');
           const fnRecord = await new Promise(resolve => {
             const req = store.get([parentBookId, footnoteId]);
@@ -1497,7 +1511,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const editModeEnabled = getHyperlitEditMode();
 
   // Build content HTML
-  const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
+  const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled);
 
   // Set content into the new container's scroller
   newScroller.innerHTML = unifiedContent;

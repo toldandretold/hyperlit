@@ -320,6 +320,11 @@ export class UserContainerManager extends ContainerManager {
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
           await clearAllCachedData();
+          const pageType = document.body.getAttribute('data-page');
+          if (pageType === 'reader' || pageType === 'user') {
+            window.location.reload();
+            return;
+          }
           this.proceedAfterLogin();
         }
       } else {
@@ -372,6 +377,11 @@ export class UserContainerManager extends ContainerManager {
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
           await clearAllCachedData();
+          const pageType = document.body.getAttribute('data-page');
+          if (pageType === 'reader' || pageType === 'user') {
+            window.location.reload();
+            return;
+          }
           this.showUserProfile();
         }
       } else {
@@ -602,6 +612,11 @@ export class UserContainerManager extends ContainerManager {
       confirmButton.onclick = async () => {
         await transferAnonymousContent(anonymousContent.token);
         await clearAllCachedData();
+        const pageType = document.body.getAttribute('data-page');
+        if (pageType === 'reader' || pageType === 'user') {
+          window.location.reload();
+          return;
+        }
         setTimeout(() => this.showUserProfile(), 500);
       };
     }
@@ -610,6 +625,11 @@ export class UserContainerManager extends ContainerManager {
       skipButton.onclick = async () => {
         try {
           await clearAllCachedData();
+          const pageType = document.body.getAttribute('data-page');
+          if (pageType === 'reader' || pageType === 'user') {
+            window.location.reload();
+            return;
+          }
           this.showUserProfile();
         } catch (error) {
           console.error("❌ Error during cache clearing:", error);

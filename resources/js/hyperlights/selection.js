@@ -11,7 +11,7 @@ import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFr
 import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
-import { withPending, setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
+import { withPending, setProgrammaticUpdateInProgress, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState.js';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
 import { isStackPopping } from '../hyperlitContainer/stack.js';
 
@@ -556,8 +556,9 @@ export async function createHighlightHandler(event, bookId) {
     });
 
     // 🎨 Reprocess highlights to render overlapping segments correctly (outside withPending - DOM only)
-    const { reprocessHighlightsForNodes } = await import('./deletion.js');
-    await reprocessHighlightsForNodes(bookId, Array.from(affectedIds));
+    const affectedDataNodeIDs = Object.keys(charDataByNode);
+    const freshNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+    await reprocessHighlightsForNodes(bookId, Array.from(affectedIds), freshNodes);
     console.log(`✅ Reprocessed highlights for ${affectedIds.size} nodes to render overlaps`);
 
   } catch (error) {
@@ -575,19 +576,12 @@ export async function createHighlightHandler(event, bookId) {
   }
 
   // Mark highlight as newly created for proper CSS styling in container
-  try {
-    const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('../utilities/operationState.js');
+  addNewlyCreatedHighlight(highlightId);
 
-    // Mark this highlight as a newly created user highlight for proper CSS application
-    addNewlyCreatedHighlight(highlightId);
-
-    // Clean up the newly created flag after a delay (backend should have processed by then)
-    setTimeout(() => {
-      removeNewlyCreatedHighlight(highlightId);
-    }, 10000); // 10 seconds should be enough for backend processing
-  } catch (error) {
-    console.warn('⚠️ Failed to mark highlight as newly created:', error);
-  }
+  // Clean up the newly created flag after a delay (backend should have processed by then)
+  setTimeout(() => {
+    removeNewlyCreatedHighlight(highlightId);
+  }, 10000); // 10 seconds should be enough for backend processing
 
   await openHighlightById(highlightId, true, [highlightId]);
 }

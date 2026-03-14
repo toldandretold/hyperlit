@@ -66,6 +66,20 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     // Attach to contentType for reuse in handlePostOpenActions (avoids duplicate IDB query)
     contentType.highlightsWithNodes = highlightsWithNodes;
 
+    // Cache highlight records and ownership for reuse by checkIfUserHasAnyEditPermission and handlePostOpenActions
+    contentType.cachedHighlightRecords = validResults;
+    contentType.highlightOwnership = new Map(
+      validResults.map(h => [h.hyperlight_id,
+        h.is_user_highlight === true
+        || (currentUser && h.creator && (
+             h.creator === currentUser.name     ||
+             h.creator === currentUser.username  ||
+             h.creator === currentUser.email
+           ))
+        || (!h.creator && h.creator_token === currentUserId)
+      ])
+    );
+
     if (validResults.length === 0) {
       console.warn("⚠️ No valid highlight results found");
       return `
