@@ -63,6 +63,9 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       console.warn('Failed to check sub-book nodes:', e);
     }
 
+    // Attach to contentType for reuse in handlePostOpenActions (avoids duplicate IDB query)
+    contentType.highlightsWithNodes = highlightsWithNodes;
+
     if (validResults.length === 0) {
       console.warn("⚠️ No valid highlight results found");
       return `

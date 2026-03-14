@@ -356,18 +356,18 @@ export async function loadSubBook(
   let nodes = null;
   let isNewSubBook = false;
 
+  // Single IDB fetch — reused for both branch and [read more] check below
+  const existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
+
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
     nodes = previewNodes;
   } else {
-    // Check if full nodes exist in IndexedDB
-    const existingNodes = await getNodeChunksFromIndexedDB(subBookId);
-
-    if (existingNodes?.length) {
+    if (existingNodesFromIDB?.length) {
       // We have full nodes, but still need preview nodes for lazy loading
       // Extract first 5 nodes as preview
-      console.log(`📥 subBookLoader: Using first 5 nodes from ${existingNodes.length} existing nodes for "${subBookId}"`);
-      nodes = existingNodes.slice(0, 5);
+      console.log(`📥 subBookLoader: Using first 5 nodes from ${existingNodesFromIDB.length} existing nodes for "${subBookId}"`);
+      nodes = existingNodesFromIDB.slice(0, 5);
     } else {
       // Nothing exists anywhere — synthesise a local node and register on backend
       isNewSubBook = true;
@@ -535,25 +535,25 @@ export async function loadSubBook(
   subBookLoaders.set(subBookId, { loader, containerDiv });
   lazyLoaders[subBookId] = loader;
 
-  // Check if full nodes exist and add [read more] button
-  const existingNodes = await getNodeChunksFromIndexedDB(subBookId);
-  const totalAvailableNodes = existingNodes?.length || nodes.length;
+  // Check if full nodes exist and add [read more] button (reuses hoisted IDB fetch)
+  const totalAvailableNodes = existingNodesFromIDB?.length || nodes.length;
   const hasMoreContent = totalAvailableNodes > firstFiveNodes.length;
   
   if (hasMoreContent) {
     addReadMoreButton(subBookId, containerDiv, previewNodeIds, scrollerDiv, totalAvailableNodes);
   }
 
-  // If full nodes exist, hydrate with hyperlights immediately
-  if (existingNodes?.length > 0) {
-    console.log(`📚 Full data exists (${existingNodes.length} nodes) - hydrating preview with hyperlights`);
-    loader.nodes = existingNodes;
-    await hydratePreviewNodes({ loader, containerDiv, bookId: subBookId }, previewNodeIds, existingNodes);
+  // If full nodes exist, hydrate with hyperlights immediately (fire-and-forget)
+  if (existingNodesFromIDB?.length > 0) {
+    console.log(`📚 Full data exists (${existingNodesFromIDB.length} nodes) - hydrating preview with hyperlights`);
+    loader.nodes = existingNodesFromIDB;
+    hydratePreviewNodes({ loader, containerDiv, bookId: subBookId }, previewNodeIds, existingNodesFromIDB)
+      .catch(err => console.warn('⚠️ Preview hydration failed:', err));
   }
 
   // Async enrichment — fetch fresh data from backend
   if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodes || nodes, bookId: subBookId });
+    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId });
   }
 
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);

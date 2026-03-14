@@ -1070,24 +1070,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         }, 150);
       }
 
-      // Check which highlights have sub-book nodes in IndexedDB (handles same-session re-open)
-      const highlightsWithNodes = new Set();
-      try {
-        const nodesTx = db.transaction("nodes", "readonly");
-        const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
-        for (const highlight of results) {
-          if (!highlight) continue;
-          const subBookId = buildSubBookId(highlight.book, highlight.hyperlight_id);
-          const count = await new Promise(res => {
-            const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
-            req.onsuccess = () => res(req.result);
-            req.onerror = () => res(0);
-          });
-          if (count > 0) highlightsWithNodes.add(highlight.hyperlight_id);
-        }
-      } catch (e) {
-        console.warn('Failed to check sub-book nodes:', e);
-      }
+      // Reuse highlightsWithNodes computed during buildHighlightContent (avoids duplicate IDB query)
+      const highlightsWithNodes = highlightType.highlightsWithNodes || new Set();
 
       // Auto-load sub-book content for ALL highlights with annotations
       const scroller = getCurrentContainer()?.querySelector('.scroller');
