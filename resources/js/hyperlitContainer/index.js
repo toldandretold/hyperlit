@@ -728,7 +728,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
 
     // Check if user has permission to edit ANY item (determines if edit button shows)
     // Uses cached highlightOwnership from buildHighlightContent when available
-    const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+    const hasAnyEditPermission = isNewFootnote || await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
     console.log(`✏️ User has edit permission: ${hasAnyEditPermission}`);
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
@@ -1216,14 +1216,18 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
         // Auto-load footnote content via lazy loader
         const scroller = getCurrentContainer()?.querySelector('.scroller');
         if (scroller) {
-          const database = db || await openDatabase();
-          const tx = database.transaction('footnotes', 'readonly');
-          const store = tx.objectStore('footnotes');
-          const fnRecord = await new Promise(resolve => {
-            const req = store.get([parentBookId, footnoteId]);
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => resolve(null);
-          });
+          // Skip IDB read for brand-new footnotes (record has empty content)
+          let fnRecord = null;
+          if (!isNewFootnote) {
+            const database = db || await openDatabase();
+            const tx = database.transaction('footnotes', 'readonly');
+            const store = tx.objectStore('footnotes');
+            fnRecord = await new Promise(resolve => {
+              const req = store.get([parentBookId, footnoteId]);
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => resolve(null);
+            });
+          }
           const subBookId = buildSubBookId(parentBookId, footnoteId);
           const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);
           const { loadSubBook } = await import('./subBookLoader.js');

@@ -376,14 +376,20 @@ export async function loadSubBook(
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       await addNodeChunkToIndexedDB(subBookId, 1, initialHtml, 0, localNodeId);
       console.log(`📝 subBookLoader: Wrote initial node (${localNodeId}) to IndexedDB for "${subBookId}"`);
-      nodes = await getNodeChunksFromIndexedDB(subBookId);
+      nodes = [{
+        book: subBookId,
+        startLine: 1,
+        chunk_id: 0,
+        node_id: localNodeId,
+        content: initialHtml,
+      }];
     }
   }
 
-  // 2. Fire backend create ONLY for brand-new sub-books
+  // 2. Fire backend create ONLY for brand-new sub-books (fire-and-forget — don't block rendering)
   if (isNewSubBook) {
     const firstLocalNodeId = nodes[0]?.node_id ?? null;
-    await createSubBookOnBackend(subBookId, parentBook, itemId, type, annotationHtml, firstLocalNodeId);
+    createSubBookOnBackend(subBookId, parentBook, itemId, type, annotationHtml, firstLocalNodeId);
   }
 
   // 3. Create the container div (no id — avoids "/" in HTML id attributes)
