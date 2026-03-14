@@ -1436,12 +1436,12 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const newDepth = getDepth();
   const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
 
-  // Attach overlay click handler to pop this layer
+  // Attach overlay click handler to save-and-pop this layer
   newOverlay.addEventListener('click', async (e) => {
     e.stopPropagation();
     e.preventDefault();
-    const { popTopLayer } = await import('./stack.js');
-    await popTopLayer();
+    const { saveAndPopTopLayer } = await import('./stack.js');
+    await saveAndPopTopLayer();
   });
 
   // Push the new layer entry (representing the active layer)

@@ -33,6 +33,10 @@ export function isStackPopping() {
   return isPopping;
 }
 
+// Re-entrancy guard for saveAndPopTopLayer (prevents double-close)
+let isPopPending = false;
+export function isStackPopPending() { return isPopPending; }
+
 const SHRINK_FACTOR = 0.98;    // each level is 98% of previous width
 const LEVELS_PER_FLIP = 5;     // alternates gap side every 5 levels
 let cachedBaseWidthPx = null;
@@ -291,6 +295,62 @@ export function syncStackToHistoryState() {
 }
 
 // ============================================================================
+// SAVE-AND-POP (mirrors saveAndCloseHyperlitContainer for stacked layers)
+// ============================================================================
+
+/**
+ * Close the topmost stacked layer with proper save semantics.
+ * Mirrors saveAndCloseHyperlitContainer(): shows progress overlay, flushes
+ * input debounce + save queue, saves preview_nodes, then pops the layer.
+ *
+ * In read mode, skips the save and pops immediately.
+ */
+export async function saveAndPopTopLayer() {
+  if (isPopPending) {
+    console.warn('saveAndPopTopLayer BLOCKED — already in flight');
+    return;
+  }
+  isPopPending = true;
+
+  try {
+    const { getHyperlitEditMode } = await import('./core.js');
+
+    if (!getHyperlitEditMode()) {
+      // Read mode — just pop, no save needed
+      return popTopLayer();
+    }
+
+    // Show progress overlay (same as saveAndCloseHyperlitContainer)
+    const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
+    ProgressOverlayConductor.showSPATransition(50, 'Saving your changes...', true);
+
+    try {
+      // prepareContainerClose equivalent: flush + save preview_nodes
+      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+      flushInputDebounce();
+      await flushAllPendingSaves();
+
+      // Save preview_nodes for active sub-books (same as prepareContainerClose)
+      const { savePreviewNodes } = await import('./core.js');
+      await savePreviewNodes();
+
+      ProgressOverlayConductor.updateProgress(100, 'Save complete');
+      await new Promise(resolve => setTimeout(resolve, 150));
+      await ProgressOverlayConductor.hide();
+
+      // Now pop the layer (saves already flushed — popTopLayer's internal flush is a no-op)
+      await popTopLayer();
+    } catch (error) {
+      console.error('Error during save-and-pop:', error);
+      await ProgressOverlayConductor.hide();
+      await popTopLayer(); // still try to pop even if save failed
+    }
+  } finally {
+    isPopPending = false;
+  }
+}
+
+// ============================================================================
 // POP TOP LAYER (full lifecycle)
 // ============================================================================
 
@@ -312,36 +372,46 @@ async function _popTopLayerImpl() {
 
   console.log(`📚 Popping layer ${top.depth}...`);
 
-  // Clear selection + hide buttons before any cleanup to prevent
-  // handleSelection() from firing on dying DOM (causes layout reflow freeze)
+  // Set flag FIRST to prevent handleSelection() from firing during flush
   isPopping = true;
+
+  try {
+
+  // Flush pending saves BEFORE clearing selection.
+  // The debounced input handler uses window.getSelection() to locate the
+  // target node — clearing ranges first makes the flush silently skip the save.
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  flushInputDebounce();
+  await flushAllPendingSaves();
+
+  // NOW safe to clear selection (saves already captured)
   try {
     window.getSelection().removeAllRanges();
   } catch (_) {}
   const btns = document.getElementById('hyperlight-buttons');
   if (btns) btns.style.display = 'none';
 
-  try {
-
-  // 1. Flush saves + cleanup on current layer (skip editor restore — layer below handles it)
-  const { cleanupContainerListeners } = await import('./index.js');
-  await cleanupContainerListeners({ stackPop: true });
-
-  const { destroyAllSubBooks } = await import('./subBookLoader.js');
-  await destroyAllSubBooks();
-
+  // 1. Detach noteListeners FIRST while DOM is still intact (flushes pending saves)
   const { detachNoteListeners } = await import('./noteListener.js');
   detachNoteListeners();
 
-  // 2. Remove DOM elements for dynamic layers
+  // 2. Flush saves + cleanup on current layer (skip editor restore — layer below handles it)
+  const { cleanupContainerListeners } = await import('./index.js');
+  await cleanupContainerListeners({ stackPop: true });
+
+  // 3. Now safe to destroy sub-books (saves already flushed)
+  const { destroyAllSubBooks } = await import('./subBookLoader.js');
+  await destroyAllSubBooks();
+
+  // 4. Remove DOM elements for dynamic layers
   if (top.isDynamic) {
     removeStackedContainerDOM(top.container, top.overlay);
   }
 
-  // 3. Pop from stack
+  // 5. Pop from stack
   popLayer();
 
-  // 4. If stack is now empty, do full close
+  // 6. If stack is now empty, do full close
   if (isEmpty()) {
     try {
       // Restore edit mode from popped layer
@@ -364,7 +434,7 @@ async function _popTopLayerImpl() {
     return;
   }
 
-  // 5. Restore the layer below (now the new top)
+  // 7. Restore the layer below (now the new top)
   const newTop = getTopLayer();
   if (!newTop) return;
 

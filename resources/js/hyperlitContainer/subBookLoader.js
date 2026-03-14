@@ -242,17 +242,13 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       serverNewer: serverTimestamp > localTimestamp
     });
 
-    // Check whether we have more than just preview data in IndexedDB
     const localNodes = await getNodeChunksFromIndexedDB(subBookId);
     const previewNodeIds = subBookState.previewNodeIds || [];
-    const hasFullData = localNodes?.length > 0 && localNodes.length > previewNodeIds.length;
 
-    // Only skip sync when we already have more than just preview data
-    // AND server is not newer (or no server record).
-    // When localNodes.length == previewNodeIds.length, we only have the preview
-    // slice — must sync to get the rest (even if timestamps match / server is 0).
-    if (hasFullData && (!serverRecord || serverTimestamp <= localTimestamp)) {
-      console.log(`⏳ Sub-book "${subBookId}": has full data and local is up-to-date, skipping server sync`);
+    // Skip destructive sync whenever local is up-to-date.
+    // Server sync only needed when server actually has newer data.
+    if (!serverRecord || serverTimestamp <= localTimestamp) {
+      console.log(`⏳ Sub-book "${subBookId}": local is up-to-date, skipping server sync`);
 
       // Even without sync, check if local nodes support a [read more] button
       // (handles reopens where IndexedDB has full data but initial load used preview_nodes)
@@ -268,8 +264,8 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       return;
     }
 
-    // Either we only have preview data, or server is newer → proceed with sync
-    console.log(`🔥 Sub-book "${subBookId}": ${!hasFullData ? 'only has preview data' : 'server is newer'}, syncing...`);
+    // Server is newer → proceed with sync
+    console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
     const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
     const result = await syncBookDataFromDatabase(subBookId);
 
@@ -366,7 +362,7 @@ export async function loadSubBook(
   } else {
     // Check if full nodes exist in IndexedDB
     const existingNodes = await getNodeChunksFromIndexedDB(subBookId);
-    
+
     if (existingNodes?.length) {
       // We have full nodes, but still need preview nodes for lazy loading
       // Extract first 5 nodes as preview

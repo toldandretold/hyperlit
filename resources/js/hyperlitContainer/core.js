@@ -314,8 +314,16 @@ async function prepareContainerClose() {
   
   console.log('[HyperlitContainer] Save complete');
 
-  // Save preview_nodes locally for each active sub-book
-  // This provides fast initial render on reopen without needing server data
+  // Save preview_nodes for all active sub-books
+  await savePreviewNodes();
+}
+
+/**
+ * Save preview_nodes locally for each active sub-book.
+ * Provides fast initial render on reopen without needing server data.
+ * Extracted so both prepareContainerClose() and saveAndPopTopLayer() can reuse it.
+ */
+export async function savePreviewNodes() {
   try {
     const { subBookLoaders } = await import('./subBookLoader.js');
     const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index.js');
