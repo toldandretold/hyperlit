@@ -291,7 +291,7 @@ export function animateHyperlitContainerOpen() {
  * Prepare container for closing - saves data if in edit mode with pending changes
  * Similar to disableEditMode() behavior
  */
-async function prepareContainerClose() {
+export async function prepareContainerClose() {
   // Check if we're in edit mode
   if (!window.isEditing) {
     console.log('[HyperlitContainer] Reader mode - no save needed');
