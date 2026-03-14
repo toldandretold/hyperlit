@@ -41,7 +41,7 @@ export class ProgressOverlayEnactor {
    * Called lazily on first use
    */
   static init() {
-    if (this.overlay) return; // Already initialized
+    if (this.overlay && this.overlay.isConnected) return; // Already initialized and still in DOM
 
     this._bindElements();
   }
@@ -57,8 +57,43 @@ export class ProgressOverlayEnactor {
     this.progressDetails = document.getElementById('page-load-progress-details');
 
     if (!this.overlay) {
-      console.warn('⚠️ ProgressOverlayEnactor: initial-navigation-overlay element not found in DOM');
-      return;
+      console.warn('⚠️ ProgressOverlayEnactor: overlay not found in DOM, recreating');
+      this.overlay = document.createElement('div');
+      this.overlay.id = 'initial-navigation-overlay';
+      this.overlay.className = 'navigation-overlay';
+      this.overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:10000;pointer-events:none;display:none;';
+
+      const wrapper = document.createElement('div');
+      wrapper.id = 'progress-overlay-wrapper';
+      wrapper.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:transparent;padding:2em;width:400px;max-width:70vw;';
+
+      this.progressText = document.createElement('p');
+      this.progressText.className = 'progress-text';
+      this.progressText.id = 'page-load-progress-text';
+      this.progressText.style.cssText = 'color:#CBCCCC;text-align:center;margin:0 0 1em 0;font-size:16px;';
+      this.progressText.textContent = 'Loading...';
+
+      const barContainer = document.createElement('div');
+      barContainer.className = 'progress-bar-container';
+      barContainer.style.cssText = 'width:100%;height:20px;background:#ddd;border-radius:10px;overflow:hidden;margin:1em 0;';
+
+      this.progressBar = document.createElement('div');
+      this.progressBar.className = 'progress-bar';
+      this.progressBar.id = 'page-load-progress-bar';
+      this.progressBar.style.cssText = 'width:5%;height:100%;background:linear-gradient(to right,#EE4A95,#EF8D34,#4EACAE,#EE4A95);transition:width 0.3s;';
+
+      this.progressDetails = document.createElement('p');
+      this.progressDetails.className = 'progress-details';
+      this.progressDetails.id = 'page-load-progress-details';
+      this.progressDetails.style.cssText = 'color:#888;text-align:center;margin:0.5em 0 0 0;font-size:12px;';
+      this.progressDetails.textContent = 'Initializing...';
+
+      barContainer.appendChild(this.progressBar);
+      wrapper.appendChild(this.progressText);
+      wrapper.appendChild(barContainer);
+      wrapper.appendChild(this.progressDetails);
+      this.overlay.appendChild(wrapper);
+      document.body.appendChild(this.overlay);
     }
 
     // 🔥 CRITICAL FIX: Use getComputedStyle to detect actual visibility

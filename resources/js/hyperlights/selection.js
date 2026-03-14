@@ -116,8 +116,11 @@ function wrapTextInElement(element, tagName, classes) {
 function cleanupEmptyElements() {
   const blockElements = ['LI', 'P', 'DIV', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
 
+  const editableRoot = document.querySelector('.main-content');
+  if (!editableRoot) return;
+
   blockElements.forEach(tag => {
-    document.querySelectorAll(tag).forEach(el => {
+    editableRoot.querySelectorAll(tag).forEach(el => {
       // Check if element is effectively empty (only whitespace or empty children)
       const hasContent = el.textContent.trim().length > 0 ||
                          el.querySelector('img, video, iframe, br');

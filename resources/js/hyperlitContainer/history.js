@@ -5,7 +5,7 @@
 
 import { detectHypercites, detectHighlights } from './detection.js';
 import { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission } from './index.js';
-import { openHyperlitContainer, hyperlitManager, getHyperlitEditMode } from './core.js';
+import { prepareHyperlitContainer, animateHyperlitContainerOpen, hyperlitManager, getHyperlitEditMode } from './core.js';
 import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentContainer } from './stack.js';
 
@@ -133,11 +133,10 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
 
     const { html, contentTypes, newHighlightIds, hasAnyEditPermission } = result;
 
-    // Open the container with built content
-    openHyperlitContainer(html, true); // isBackNavigation = true
-
-    // Handle post-open actions with edit permission info
+    // Two-phase open: prepare off-screen → load content → animate in
+    prepareHyperlitContainer(html, true); // isBackNavigation = true
     await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, skipAutoFocus);
+    animateHyperlitContainerOpen();
 
     // Push layer 0 into the stack
     const { pushLayer, syncStackToHistoryState, isEmpty: isStackEmpty } = await import('./stack.js');

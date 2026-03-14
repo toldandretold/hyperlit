@@ -125,10 +125,15 @@ export class ContainerManager {
         try {
           // Use specialized close function for hyperlit-container to unlock body scroll
           if (this.containerId === 'hyperlit-container') {
+            // Guard: if a pop is already in flight, don't start another
+            const { isStackPopPending, isStacked, saveAndPopTopLayer } = await import('./hyperlitContainer/stack.js');
+            if (isStackPopPending()) {
+              console.warn('Overlay click BLOCKED — saveAndPopTopLayer already in flight');
+              return;
+            }
             // Check if we have stacked layers — if so, peel off only the top
-            const { isStacked, popTopLayer } = await import('./hyperlitContainer/stack.js');
             if (isStacked()) {
-              await popTopLayer();
+              await saveAndPopTopLayer();
             } else {
               // 🔑 CRITICAL: Check if we need to save before closing
               const { saveAndCloseHyperlitContainer } = await import('./hyperlitContainer/core.js');
@@ -280,9 +285,11 @@ export class ContainerManager {
     }
   }
 
-  openContainer(content = null, highlightId = null) {
-    if (content && this.container) this.container.innerHTML = content;
-    else if (this.initialContent && this.container) this.container.innerHTML = this.initialContent;
+  openContainer(content = null, highlightId = null, { skipContentReset = false } = {}) {
+    if (!skipContentReset) {
+      if (content && this.container) this.container.innerHTML = content;
+      else if (this.initialContent && this.container) this.container.innerHTML = this.initialContent;
+    }
 
     if (highlightId) this.highlightId = highlightId;
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();

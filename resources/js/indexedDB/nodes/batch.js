@@ -744,7 +744,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
 
       // 🔍 DEBUG: Log what's being saved
       verbose.content(`Saving to IndexedDB: startLine=${toSave.startLine}, node_id=${toSave.node_id}, hasContent=${!!toSave.content}`, 'indexedDB/nodes/batch.js');
-
       chunksStore.put(toSave);
       allSavedNodeChunks.push(toSave);
 

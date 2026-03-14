@@ -124,6 +124,10 @@ let isComposing = false; // Track mobile IME composition state
 // 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
 const elementToNumericalParent = new WeakMap();
 
+// 🛡️ SAFETY NET: Track last input node ID so flush can save even when selection moves
+// (e.g., user clicks overlay to close within 200ms debounce window)
+let lastInputNodeId = null;
+
 // 🚀 PERFORMANCE: Helper to clear input handler cache during idle time
 function clearInputHandlerCache() {
   // WeakMaps can't be cleared directly, but we can invalidate by creating new one
@@ -355,7 +359,13 @@ export async function startObserving(editableDiv, bookId = null) {
     const selection = window.getSelection();
     console.log('🎯 SELECTION:', selection ? 'exists' : 'null', 'rangeCount:', selection?.rangeCount);
     if (!selection || !selection.rangeCount) {
-      console.log('🚫 INPUT HANDLER: No selection');
+      // 🛡️ Selection gone (e.g., user clicked overlay during debounce) — use cached node ID
+      if (lastInputNodeId) {
+        console.log(`🎯 FALLBACK: No selection, using lastInputNodeId: ${lastInputNodeId}`);
+        queueNodeForSave(lastInputNodeId, 'update');
+      } else {
+        console.log('🚫 INPUT HANDLER: No selection and no lastInputNodeId');
+      }
       return;
     }
 
@@ -393,16 +403,46 @@ export async function startObserving(editableDiv, bookId = null) {
     }
 
     if (parentWithId?.id) {
+      lastInputNodeId = parentWithId.id;
       console.log(`🎯 QUEUEING NODE: ${parentWithId.id}`);
       verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
       queueNodeForSave(parentWithId.id, 'update');
       checkAndInvalidateTocCache(parentWithId.id, parentWithId);
     } else {
-      console.log('🚫 INPUT HANDLER: No parent with valid ID found');
+      // 🛡️ Selection moved away from contenteditable (e.g., to overlay) — use cached node ID
+      if (lastInputNodeId) {
+        console.log(`🎯 FALLBACK: No numerical parent found, using lastInputNodeId: ${lastInputNodeId}`);
+        queueNodeForSave(lastInputNodeId, 'update');
+        checkAndInvalidateTocCache(lastInputNodeId, document.getElementById(lastInputNodeId));
+      } else {
+        console.log('🚫 INPUT HANDLER: No parent with valid ID found');
+      }
     }
   }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel
 
-  inputEventHandler = debouncedInputHandlerRef;
+  // 🛡️ Wrap input event to eagerly capture node ID before debounce
+  // Selection may move by the time the 200ms debounce fires (e.g., overlay click)
+  inputEventHandler = (e) => {
+    if (window.isEditing && !isComposing) {
+      const sel = window.getSelection();
+      if (sel?.rangeCount) {
+        let el = sel.getRangeAt(0).startContainer;
+        if (el.nodeType === Node.TEXT_NODE) el = el.parentElement;
+        if (el) {
+          let parent = elementToNumericalParent.get(el);
+          if (!parent) {
+            parent = el.closest('[id]');
+            while (parent && !NUMERICAL_ID_PATTERN.test(parent.id)) {
+              parent = parent.parentElement?.closest('[id]');
+            }
+            if (parent) elementToNumericalParent.set(el, parent);
+          }
+          if (parent?.id) lastInputNodeId = parent.id;
+        }
+      }
+    }
+    debouncedInputHandlerRef(e);
+  };
   editableDiv.addEventListener('input', inputEventHandler);
 
   // 🚀 MOBILE: Handle IME composition events (autocorrect, predictive text)
@@ -576,11 +616,12 @@ export async function stopObserving() {
     enterKeyHandler = null;
   }
 
-  // 🚀 Cleanup MutationProcessor
+  // 🚀 Cleanup MutationProcessor — flush pending structural mutations before destroying
   if (mutationProcessor) {
+    mutationProcessor.flush();
     mutationProcessor.destroy();
     mutationProcessor = null;
-    verbose.content("MutationProcessor destroyed", 'divEditor/index.js');
+    verbose.content("MutationProcessor flushed and destroyed", 'divEditor/index.js');
   }
 
   // 🔑 CRITICAL: Flush input debounce BEFORE SaveQueue cleanup
@@ -636,6 +677,7 @@ export async function stopObserving() {
   addedNodes.clear();
   removedNodeIds.clear();
   documentChanged = false;
+  lastInputNodeId = null;
   
   // Reset current observed chunk
   setCurrentObservedChunk(null);

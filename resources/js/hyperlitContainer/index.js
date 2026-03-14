@@ -17,6 +17,8 @@
 export {
   initializeHyperlitManager,
   openHyperlitContainer,
+  prepareHyperlitContainer,
+  animateHyperlitContainerOpen,
   closeHyperlitContainer,
   destroyHyperlitManager,
   hyperlitManager,
@@ -72,7 +74,7 @@ import { book } from '../app.js';
 import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
-import { openHyperlitContainer, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
+import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode } from './core.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
@@ -718,14 +720,12 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
     previousIsEditing = window.isEditing;
 
-    // Open the unified container
-    openHyperlitContainer(unifiedContent, isBackNavigation);
-
-    // Handle any post-open actions (like cursor placement for editable content)
-    // Pass focusPreserver so footnote focus can transfer from it (preserves keyboard on iOS)
-    // Pass isNewFootnote so we only auto-focus for newly inserted footnotes
-    // Pass hasAnyEditPermission so we can attach edit button listener
+    // All content types: prepare off-screen → load → animate in.
+    // This avoids the "open empty then expand" jank since content may be a
+    // skeleton until the async sub-book loads.
+    prepareHyperlitContainer(unifiedContent, isBackNavigation);
     await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission);
+    animateHyperlitContainerOpen();
 
     // --- Push layer 0 into the stack so layers[] always tracks all open containers ---
     {
@@ -1436,12 +1436,12 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const newDepth = getDepth();
   const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
 
-  // Attach overlay click handler to pop this layer
+  // Attach overlay click handler to save-and-pop this layer
   newOverlay.addEventListener('click', async (e) => {
     e.stopPropagation();
     e.preventDefault();
-    const { popTopLayer } = await import('./stack.js');
-    await popTopLayer();
+    const { saveAndPopTopLayer } = await import('./stack.js');
+    await saveAndPopTopLayer();
   });
 
   // Push the new layer entry (representing the active layer)
@@ -1501,16 +1501,30 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   // Lock body scroll (should already be locked from base layer, but ensure)
   document.body.classList.add('hyperlit-container-open');
 
-  // Animate the container open
-  // Use rAF to ensure the transform is set before adding .open
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      newContainer.classList.add('open');
-    });
-  });
+  // Footnotes use deferred animation: load sub-book content first, then animate in.
+  // This avoids the "open empty then expand" jank.
+  const isFootnoteStacked = contentTypes.some(ct => ct.type === 'footnote');
 
-  // Handle post-open actions (listeners, sub-book loading, edit button, etc.)
-  await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+  if (isFootnoteStacked) {
+    // Load content while container is off-screen
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+
+    // Now animate the container in at full height
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        newContainer.classList.add('open');
+      });
+    });
+  } else {
+    // Non-footnote: animate immediately, then load content
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        newContainer.classList.add('open');
+      });
+    });
+
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+  }
 
   // Set contentMetadata on the new stacked layer for serialization
   const stackedContainerState = {
