@@ -7,6 +7,7 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { destroyNewBookContainer } from '../../components/newBookButton.js';
@@ -169,6 +170,10 @@ export class ImportBookTransition {
       document.body.insertBefore(existingOverlay, document.body.firstChild);
       console.log('🎯 ImportBookTransition: Preserved navigation overlay across body replacement');
     }
+
+    // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
+    // After body replacement, ProgressOverlayEnactor's references are stale
+    ProgressOverlayEnactor.rebind();
     
     // Sync all body attributes
     for (const { name, value } of newDoc.body.attributes) {
@@ -226,8 +231,7 @@ export class ImportBookTransition {
       if (overlay) {
         overlay.style.display = 'none';
         overlay.style.visibility = 'hidden';
-        overlay.remove();
-        console.log('🎯 ImportBookTransition: Overlay removed for imported book');
+        console.log('🎯 ImportBookTransition: Overlay hidden for imported book');
       }
 
       // Resolve the first chunk promise since content is already in DOM

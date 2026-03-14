@@ -64,6 +64,7 @@ export class ProgressOverlayEnactor {
       this.overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:10000;pointer-events:none;display:none;';
 
       const wrapper = document.createElement('div');
+      wrapper.id = 'progress-overlay-wrapper';
       wrapper.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:transparent;padding:2em;width:400px;max-width:70vw;';
 
       this.progressText = document.createElement('p');
