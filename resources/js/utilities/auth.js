@@ -15,6 +15,41 @@ export function getCurrentUserInfo() {
   return currentUserInfo;
 }
 
+/**
+ * Synchronous auth context getter — returns cached auth state without any
+ * async/microtask overhead.  Auth is always initialized by page load
+ * (initializePage.js), so this will return a valid object on every hot path.
+ * Returns null only if auth hasn't been initialized yet.
+ */
+export function getAuthContextSync() {
+  if (!authInitialized) return null;
+  return {
+    user: currentUserInfo,
+    userId: currentUserInfo
+      ? (currentUserInfo.name || currentUserInfo.username || currentUserInfo.email)
+      : anonymousToken,
+    anonymousToken,
+    isLoggedIn: currentUserInfo !== null,
+  };
+}
+
+/**
+ * Async auth context getter — ensures auth is initialized first, then returns
+ * the same shape as getAuthContextSync().  Use as fallback for the rare case
+ * where auth isn't warm yet.
+ */
+export async function getAuthContext() {
+  await ensureAuthInitialized();
+  return {
+    user: currentUserInfo,
+    userId: currentUserInfo
+      ? (currentUserInfo.name || currentUserInfo.username || currentUserInfo.email)
+      : anonymousToken,
+    anonymousToken,
+    isLoggedIn: currentUserInfo !== null,
+  };
+}
+
 export async function ensureAuthInitialized() {
   // If initializeAuth has already been called, return the existing promise.
   // This prevents multiple network requests.
@@ -218,18 +253,10 @@ export function getAuthorId() {
 }
 
 export async function getCurrentUserId() {
-  // Ensure auth is initialized
-  if (!authInitialized) {
-    await initializeAuth();
-  }
-  
-  // First try to get logged-in user
   const user = await getCurrentUser();
   if (user) {
     return user.name || user.username || user.email;
   }
-  
-  // Fall back to anonymous token
   return anonymousToken;
 }
 

@@ -539,11 +539,13 @@ export async function createHighlightHandler(event, bookId) {
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
       const affectedDataNodeIDs = Object.keys(charDataByNode);
       const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
-      await rebuildNodeArrays(affectedNodes);
+
+      await Promise.all([
+        rebuildNodeArrays(affectedNodes),
+        updateAnnotationsTimestamp(bookId),
+      ]);
 
       console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
-
-      await updateAnnotationsTimestamp(bookId);
 
       // Queue hyperlight for PostgreSQL sync
       queueForSync("hyperlights", highlightId, "update", savedHighlightEntry);

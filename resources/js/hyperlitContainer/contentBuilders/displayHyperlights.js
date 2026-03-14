@@ -4,7 +4,7 @@
  */
 
 import { openDatabase } from '../../indexedDB/index.js';
-import { getCurrentUserId, getCurrentUser } from "../../utilities/auth.js";
+import { getAuthContextSync, getAuthContext } from "../../utilities/auth.js";
 import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
 import DOMPurify from 'dompurify';
 
@@ -21,8 +21,8 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     const { highlightIds } = contentType;
     console.log(`🎨 Building highlight content for IDs:`, highlightIds);
 
-    const currentUserId = await getCurrentUserId();
-    const currentUser = await getCurrentUser();
+    const auth = getAuthContextSync() || await getAuthContext();
+    const { user: currentUser, userId: currentUserId } = auth;
     console.log(`👤 Current user ID:`, currentUserId);
 
     const database = db || await openDatabase();
@@ -80,12 +80,12 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     const { canUserEditBook } = await import('../../utilities/auth.js');
     const bookPermissions = new Map();
 
-    // Get unique book IDs and check permissions
+    // Get unique book IDs and check permissions (parallel)
     const uniqueBooks = [...new Set(validResults.map(h => h.book))];
-    for (const bookId of uniqueBooks) {
+    await Promise.all(uniqueBooks.map(async (bookId) => {
       const canEdit = await canUserEditBook(bookId);
       bookPermissions.set(bookId, canEdit);
-    }
+    }));
 
     // Import formatRelativeTime from utils
     const { formatRelativeTime } = await import('../utils.js');

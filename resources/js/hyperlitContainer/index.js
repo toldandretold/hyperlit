@@ -73,7 +73,7 @@ export {
 import { book } from '../app.js';
 import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index.js';
-import { getCurrentUserId, canUserEditBook, getCurrentUser } from "../utilities/auth.js";
+import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth.js";
 import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
 import { detectContentTypes } from './detection.js';
@@ -208,8 +208,8 @@ function buildEditButtonHtml(isActive) {
  * @returns {Promise<boolean>} Whether user can edit at least one item
  */
 export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds = [], db = null) {
-  const currentUserId = await getCurrentUserId();
-  const currentUser = await getCurrentUser();
+  const auth = getAuthContextSync() || await getAuthContext();
+  const { user: currentUser, userId: currentUserId } = auth;
 
   // Check footnotes (book-level permission)
   const hasFootnote = contentTypes.some(ct => ct.type === 'footnote');
@@ -1000,8 +1000,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   if (highlightType) {
     try {
       const { highlightIds } = highlightType;
-      const currentUserId = await getCurrentUserId();
-      const currentUser = await getCurrentUser();
+      const auth = getAuthContextSync() || await getAuthContext();
+      const { user: currentUser, userId: currentUserId } = auth;
 
       // Get highlight data to determine which are editable
       const db = await openDatabase();

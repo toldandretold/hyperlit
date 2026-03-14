@@ -4,7 +4,7 @@
 
 import { book } from '../app.js';
 import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index.js';
-import { getCurrentUser, getCurrentUserId } from "../utilities/auth.js";
+import { getAuthContextSync, getAuthContext } from "../utilities/auth.js";
 
 /**
  * Add a new highlight to the hyperlights table
@@ -19,9 +19,9 @@ export async function addToHighlightsTable(bookId, highlightData) {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
 
-    // ✅ FIXED: Get current user info for IndexedDB storage
-    const user = await getCurrentUser();
-    const currentUserId = await getCurrentUserId();
+    // ✅ PERF: Single sync auth lookup (no microtask hops)
+    const auth = getAuthContextSync() || await getAuthContext();
+    const { user, userId: currentUserId } = auth;
 
     const creator = user ? (user.name || user.username || user.email) : null;
     const creator_token = user ? null : currentUserId; // For anon users, currentUserId IS the token
