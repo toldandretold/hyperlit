@@ -414,10 +414,6 @@ async function _popTopLayerImpl() {
   // 6. If stack is now empty, do full close
   if (isEmpty()) {
     try {
-      // Restore edit mode from popped layer
-      const { setHyperlitEditMode } = await import('./core.js');
-      setHyperlitEditMode(top.savedEditMode);
-
       // Restore module state before full close
       const { restoreModuleState } = await import('./index.js');
       restoreModuleState(top.savedModuleState);
@@ -438,10 +434,7 @@ async function _popTopLayerImpl() {
   const newTop = getTopLayer();
   if (!newTop) return;
 
-  // The paused layer below stored its own state when it was pushed
-  const { setHyperlitEditMode } = await import('./core.js');
-  setHyperlitEditMode(newTop.savedEditMode);
-
+  // Restore module state + sub-book state (always needed, even during bulk close)
   const { restoreModuleState } = await import('./index.js');
   restoreModuleState(newTop.savedModuleState);
 
@@ -455,12 +448,14 @@ async function _popTopLayerImpl() {
     if (newTop.container) newTop.container.style.pointerEvents = '';
   });
 
-  // Re-attach note listeners if edit mode was on
-  const { getHyperlitEditMode } = await import('./core.js');
-  if (getHyperlitEditMode()) {
-    const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
-    attachNoteListeners();
-    initializePlaceholders();
+  // Apply the current global edit mode to the restored layer's DOM.
+  // Skip during bulk close (closeHyperlitContainer unwinds the stack —
+  // no need for heavyweight observer/toolbar work on each intermediate layer).
+  const { isContainerClosing } = await import('./core.js');
+  const closingNow = isContainerClosing();
+  if (!closingNow) {
+    const { applyCurrentEditModeToLayer } = await import('./index.js');
+    await applyCurrentEditModeToLayer();
   }
 
   console.log(`📚 Layer ${newTop.depth} restored`);
@@ -468,8 +463,7 @@ async function _popTopLayerImpl() {
   // Restore URL from the now-visible layer's saved state
   // Skip when closeHyperlitContainer is bulk-unwinding — it handles URL cleanup itself
   try {
-    const { isContainerClosing } = await import('./core.js');
-    if (isContainerClosing()) {
+    if (closingNow) {
       console.log('📚 URL restore + state sync skipped — container is closing (bulk unwind)');
     } else {
       if (newTop.savedUrl) {

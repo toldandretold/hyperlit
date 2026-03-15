@@ -1,5 +1,31 @@
 <?php
 
+/**
+ * Footnote sub-book visibility trigger
+ * =====================================
+ *
+ * WHY THIS EXISTS:
+ * Footnote sub-books are child library records whose content lives inside a
+ * parent book. When the parent's visibility changes (e.g. private → public),
+ * every footnote sub-book underneath it must follow suit — otherwise readers
+ * who can see the parent book will get 403s when they try to open a footnote.
+ *
+ * This PostgreSQL trigger fires AFTER UPDATE on the library table and
+ * automatically propagates the parent's new visibility to all its footnote
+ * sub-books in a single UPDATE, regardless of nesting depth.
+ *
+ * WHY ONLY FOOTNOTES (not hyperlights):
+ * Footnotes are integral parts of the book's text — if you can read the book,
+ * you should be able to read its footnotes. Hyperlights (annotations) are
+ * user-created and may have independent visibility in the future (e.g. a
+ * private annotation on a public book). The trigger filters by checking that
+ * the last path segment starts with "Fn" to target only footnote sub-books.
+ *
+ * NOTE: The filter logic in this migration was superseded by
+ * 2026_03_15_000001_fix_sub_book_visibility_trigger_depth.php which fixes
+ * matching for nested (depth 2+) footnotes.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 

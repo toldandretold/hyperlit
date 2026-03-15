@@ -7,6 +7,14 @@
  * - History management and navigation
  *
  * Replaces the monolithic unifiedContainer.js (2733 lines → modular structure)
+ *
+ * EDIT MODE DESIGN:
+ * - Main edit button controls main content ONLY — container edit state never leaks back.
+ * - Container edit button is a SHARED GLOBAL toggle (isHyperlitEditMode).
+ *   Toggle OFF in ANY container → all containers enter read mode.
+ *   Toggle ON → all containers enter edit mode.
+ * - Popping a stacked layer applies the CURRENT isHyperlitEditMode,
+ *   NOT a per-layer saved value. See applyCurrentEditModeToLayer().
  */
 
 // ============================================================================
@@ -177,6 +185,19 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
   if (!window.isEditing) {
     getEditToolbar()?.setEditMode(false);
   }
+
+  // Defensive: ensure main content and edit button match restored state
+  const { enforceEditableState } = await import('../components/editButton.js');
+  enforceEditableState();
+
+  const mainEditBtn = document.getElementById('editButton');
+  if (mainEditBtn) {
+    if (window.isEditing) {
+      mainEditBtn.classList.add('inverted');
+    } else {
+      mainEditBtn.classList.remove('inverted');
+    }
+  }
 }
 
 // ============================================================================
@@ -277,8 +298,8 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
  */
 async function handleEditButtonClick() {
   const newState = toggleHyperlitEditMode();
-  const editBtn = document.getElementById('hyperlit-edit-btn');
   const container = getCurrentContainer();
+  const editBtn = container?.querySelector('#hyperlit-edit-btn');
   const scroller = container?.querySelector('.scroller');
 
   // Save scroll position BEFORE any DOM changes
@@ -312,8 +333,8 @@ async function handleEditButtonClick() {
     if (firstEditable) {
       const subBookId = firstEditable.getAttribute('data-book-id');
       const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
-      mainEditorWasActive = isEditorObserving();
-      previousIsEditing = window.isEditing;
+      if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+      if (!previousIsEditing) previousIsEditing = window.isEditing;
       if (!window.isEditing) window.isEditing = true;
       firstEditable.contentEditable = 'true';
       await startObserving(firstEditable, subBookId);
@@ -357,9 +378,10 @@ async function handleEditButtonClick() {
         getToolbar()?.setEditMode(false);
       }
 
-      // Reset so the next toggle cycle starts clean
+      // Restore window.isEditing to pre-container value
+      // (previousIsEditing is NOT cleared here — cleanupContainerListeners()
+      // handles the final reset when the container actually closes)
       window.isEditing = previousIsEditing;
-      previousIsEditing = false;
     } finally {
       isSavingEditToggle = false;
     }
@@ -450,6 +472,68 @@ function toggleContentEditableInPlace(enabled) {
   });
 
   console.log(`✏️ Toggled contenteditable=${enabled} on editable elements`);
+}
+
+/**
+ * Apply the current global isHyperlitEditMode to the restored (now-top) layer.
+ * Called by stack.js after popping a stacked layer to sync the DOM with the
+ * shared edit toggle — instead of restoring a per-layer saved value.
+ */
+export async function applyCurrentEditModeToLayer() {
+  const isEdit = getHyperlitEditMode();
+  const container = getCurrentContainer();
+  if (!container) return;
+
+  // Toggle contenteditable on all editable elements
+  toggleContentEditableInPlace(isEdit);
+
+  // Update the edit button visual in this container
+  const editBtn = container.querySelector('#hyperlit-edit-btn');
+  if (editBtn) {
+    if (isEdit) {
+      editBtn.classList.add('inverted');
+      editBtn.title = 'Exit edit mode';
+    } else {
+      editBtn.classList.remove('inverted');
+      editBtn.title = 'Enter edit mode';
+    }
+  }
+
+  if (isEdit) {
+    // Edit ON: set window.isEditing, attach listeners, start observer
+    if (!window.isEditing) window.isEditing = true;
+
+    const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
+    attachNoteListeners();
+    initializePlaceholders();
+    attachSubBookFocusSwitcher();
+
+    // Attach observer to first editable sub-book
+    const firstEditable = container.querySelector('.sub-book-content[data-user-can-edit="true"]');
+    if (firstEditable) {
+      const subBookId = firstEditable.getAttribute('data-book-id');
+      const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+      if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+      firstEditable.contentEditable = 'true';
+      await startObserving(firstEditable, subBookId);
+      if (!firstEditable.dataset.pasteAttached) {
+        const { addPasteListener } = await import('../paste/index.js');
+        addPasteListener(firstEditable);
+        firstEditable.dataset.pasteAttached = 'true';
+      }
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      getToolbar()?.setBookId(subBookId);
+      getToolbar()?.setEditMode(true);
+    }
+  } else {
+    // Edit OFF: restore window.isEditing, hide toolbar if main was in read mode
+    window.isEditing = previousIsEditing;
+
+    if (!previousIsEditing) {
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      getToolbar()?.setEditMode(false);
+    }
+  }
 }
 
 /**
@@ -1141,8 +1225,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           if (needsEditor && loader) {
             if (subBookEl) {
               const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
-              mainEditorWasActive = isEditorObserving();
-              previousIsEditing = window.isEditing;
+              if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+              if (!previousIsEditing) previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
               await startObserving(subBookEl, subBookId);
               if (!subBookEl.dataset.pasteAttached) {
@@ -1255,8 +1339,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           if (editModeEnabled && !subBookEditorAttached && loader) {
             if (subBookEl) {
               const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
-              mainEditorWasActive = isEditorObserving();
-              previousIsEditing = window.isEditing;
+              if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
+              if (!previousIsEditing) previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
               await startObserving(subBookEl, subBookId);
               if (!subBookEl.dataset.pasteAttached) {
@@ -1317,13 +1401,13 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     // Insert edit button as direct child of container (NOT inside scroller)
     // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch
     if (hasAnyEditPermission) {
-      const existing = document.getElementById('hyperlit-edit-btn');
-      if (existing) existing.remove();
-
       const container = getCurrentContainer();
       if (container) {
+        const existing = container.querySelector('#hyperlit-edit-btn');
+        if (existing) existing.remove();
+
         container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
-        const editBtn = document.getElementById('hyperlit-edit-btn');
+        const editBtn = container.querySelector('#hyperlit-edit-btn');
         if (editBtn) {
           registerListener(editBtn, 'click', (e) => {
             e.preventDefault();
