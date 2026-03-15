@@ -368,6 +368,13 @@ body[data-page="user"] #userLibraryContainer {
     z-index: 1;
 }
 
+@media (hover: none) and (pointer: coarse) {
+    #hyperlit-container sup[fn-count-id]::before,
+    .hyperlit-container-stacked sup[fn-count-id]::before {
+        pointer-events: none;
+    }
+}
+
 #toc-container .scroller {
   position: absolute;
   top: 0;

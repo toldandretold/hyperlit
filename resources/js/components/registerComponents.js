@@ -64,6 +64,8 @@ import {
   destroyFootnoteCitationListeners
 } from '../footnotesCitations.js';
 
+import { initFootnoteTapExtender } from '../footnoteTapExtender.js';
+
 // ⚠️ DEPRECATED - Citation search is now integrated into edit toolbar
 // See: resources/js/editToolbar/citationMode.js
 // import {
@@ -198,6 +200,24 @@ export function registerAllComponents() {
     name: 'footnoteCitationListeners',
     initFn: initializeFootnoteCitationListeners,
     destroyFn: destroyFootnoteCitationListeners,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  let footnoteTapExtenderHandle = null;
+
+  buttonRegistry.register({
+    name: 'footnoteTapExtender',
+    initFn: () => {
+      footnoteTapExtenderHandle = initFootnoteTapExtender();
+    },
+    destroyFn: () => {
+      if (footnoteTapExtenderHandle) {
+        footnoteTapExtenderHandle.destroy();
+        footnoteTapExtenderHandle = null;
+      }
+    },
     pages: ['reader'],
     dependencies: [],
     required: false
