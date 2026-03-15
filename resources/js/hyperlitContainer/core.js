@@ -672,6 +672,12 @@ function attachScrollContainment(scroller) {
       return;
     }
 
+    // Don't block touchmove when user is dragging a selection handle
+    const sel = window.getSelection();
+    if (sel && sel.type === 'Range') {
+      return;
+    }
+
     const scrollTop = scroller.scrollTop;
     const scrollHeight = scroller.scrollHeight;
     const clientHeight = scroller.clientHeight;
