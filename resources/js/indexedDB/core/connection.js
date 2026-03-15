@@ -15,6 +15,10 @@
  */
 export const DB_VERSION = 26;
 
+// Exponential backoff delays for IDB connection retries (ms).
+// Covers iOS bfcache recovery which can take 1-5 seconds.
+const RETRY_DELAYS = [200, 400, 800, 1500, 2500];
+
 /**
  * Opens (or creates) the IndexedDB database.
  * This function implements proper schema migration using `event.oldVersion`.
@@ -286,9 +290,10 @@ export async function openDatabase(retryCount = 0) {
         error?.name === 'UnknownError' &&
         error?.message?.includes('Connection to Indexed Database server lost');
 
-      if (isConnectionLost && retryCount < 3) {
-        console.warn(`⚠️ IDB connection lost after bfcache restore, retrying (${retryCount + 1}/3)...`);
-        await new Promise(r => setTimeout(r, 300));
+      if (isConnectionLost && retryCount < RETRY_DELAYS.length) {
+        const delay = RETRY_DELAYS[retryCount];
+        console.warn(`⚠️ IDB connection lost, retrying in ${delay}ms (${retryCount + 1}/${RETRY_DELAYS.length})...`);
+        await new Promise(r => setTimeout(r, delay));
         try {
           resolve(await openDatabase(retryCount + 1));
         } catch (e) {

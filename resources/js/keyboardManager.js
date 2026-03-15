@@ -222,6 +222,11 @@ class KeyboardManager {
       return; // Don't prevent - allow input interaction
     }
 
+    // Allow interaction with search input (paste context menu on iOS)
+    if (e.target.closest('#search-input')) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     return false;

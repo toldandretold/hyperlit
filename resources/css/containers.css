@@ -368,6 +368,13 @@ body[data-page="user"] #userLibraryContainer {
     z-index: 1;
 }
 
+@media (hover: none) and (pointer: coarse) {
+    #hyperlit-container sup[fn-count-id]::before,
+    .hyperlit-container-stacked sup[fn-count-id]::before {
+        pointer-events: none;
+    }
+}
+
 #toc-container .scroller {
   position: absolute;
   top: 0;
@@ -426,8 +433,6 @@ body[data-page="user"] #userLibraryContainer {
   pointer-events: none;
   background: linear-gradient(to bottom, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  overscroll-behavior: none; /* Prevent scroll chaining */
-  touch-action: none; /* Prevent touch scrolling */
 }
 
 #toc-container .mask-bottom,
@@ -452,8 +457,6 @@ body[data-page="user"] #userLibraryContainer {
   pointer-events: none;
   background: linear-gradient(to top, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  overscroll-behavior: none; /* Prevent scroll chaining */
-  touch-action: none; /* Prevent touch scrolling */
 }
 
 
@@ -1666,8 +1669,6 @@ body.hyperlit-container-open .reader-content-wrapper {
   pointer-events: none;
   background: linear-gradient(to bottom, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  overscroll-behavior: none;
-  touch-action: none;
 }
 
 .hyperlit-container-stacked .mask-bottom {
@@ -1679,8 +1680,6 @@ body.hyperlit-container-open .reader-content-wrapper {
   pointer-events: none;
   background: linear-gradient(to top, var(--container-glass-bg) 0%, transparent 100%);
   z-index: 10;
-  overscroll-behavior: none;
-  touch-action: none;
 }
 
 /* Stacked overlay */

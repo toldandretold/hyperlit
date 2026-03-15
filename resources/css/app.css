@@ -323,6 +323,13 @@ sup.open-icon {
     z-index: 2; /* Ensure it's above other elements */
 }
 
+@media (hover: none) and (pointer: coarse) {
+    sup.open-icon {
+        padding: 0;
+        margin: 0;
+    }
+}
+
 
 .footnote-ref {
     color: var(--color-primary);
@@ -358,6 +365,14 @@ sup[fn-count-id]::before,
     /* This creates an invisible 16px padding around the element for easier clicking */
 }
 
+@media (hover: none) and (pointer: coarse) {
+    sup[fn-count-id]::before,
+    .in-text-citation::before,
+    .citation-ref::before {
+        pointer-events: none;
+    }
+}
+
 /* Visual feedback on touch/hover */
 sup[fn-count-id]:hover,
 .in-text-citation:hover,
@@ -372,6 +387,14 @@ sup[fn-count-id]:active,
 .citation-ref:active {
     background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
     transform: scale(1.05); /* Slight scale up when tapped */
+}
+
+@media (hover: none) and (pointer: coarse) {
+    sup[fn-count-id]:active,
+    .in-text-citation:active,
+    .citation-ref:active {
+        transform: none;
+    }
 }
 
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */

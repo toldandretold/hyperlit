@@ -176,6 +176,7 @@ export function queueNodeForSave(IDnumerical, action = 'update', bookId = null) 
     console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
     return;
   }
+  glowCloudOrange();
   saveQueue.queueNode(IDnumerical, action, bookId);
   console.log(`🎯 queueNodeForSave: queued ${IDnumerical}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
 }
@@ -185,6 +186,7 @@ export function queueNodeForDeletion(IDnumerical, nodeElement = null, bookId = n
     console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', IDnumerical);
     return;
   }
+  glowCloudOrange();
   saveQueue.queueDeletion(IDnumerical, nodeElement, bookId);
 }
 
