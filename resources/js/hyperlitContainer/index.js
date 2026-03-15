@@ -836,12 +836,27 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
     previousIsEditing = window.isEditing;
 
+    // Guard: suppress main observer during container open to prevent
+    // DOM side-effects (CSS class changes, layout reflows) from triggering
+    // false save signals on the main content.
+    const mainObserverWasActive = mainEditorWasActive;
+    if (mainObserverWasActive) {
+      const { setProgrammaticUpdateInProgress } = await import('../utilities/operationState.js');
+      setProgrammaticUpdateInProgress(true);
+    }
+
     // All content types: prepare off-screen → load → animate in.
     // This avoids the "open empty then expand" jank since content may be a
     // skeleton until the async sub-book loads.
     prepareHyperlitContainer(unifiedContent, isBackNavigation);
     await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db);
     animateHyperlitContainerOpen();
+
+    // Release the guard after container open is complete
+    if (mainObserverWasActive) {
+      const { setProgrammaticUpdateInProgress } = await import('../utilities/operationState.js');
+      setProgrammaticUpdateInProgress(false);
+    }
 
     // --- Push layer 0 into the stack so layers[] always tracks all open containers ---
     {

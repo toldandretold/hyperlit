@@ -824,23 +824,12 @@ black #221F20;
   display: none;
 }
 
-/* Desktop: vertical toolbar, submenu to the left */
-@media (min-width: 769px) {
-  .heading-submenu {
-    right: calc(100% + 8px);
-    top: 0;
-    flex-direction: column;
-  }
-}
-
-/* Mobile: horizontal toolbar, submenu above */
-@media (max-width: 768px) {
-  .heading-submenu {
-    bottom: calc(100% + 1px);
-    left: 50%;
-    transform: translateX(-50%);
-    flex-direction: row;
-  }
+/* Submenu positioned above the horizontal toolbar */
+.heading-submenu {
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
 }
 
 .heading-level-btn,
@@ -927,6 +916,9 @@ black #221F20;
   font-size: 14px;
   font-family: inherit;
   outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
 }
 
 #search-input:focus {
@@ -1107,6 +1099,8 @@ black #221F20;
   pointer-events: auto !important; /* Force clickable */
   touch-action: manipulation; /* Enable touch on iOS */
   position: relative; /* For pseudo-element positioning */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* MOBILE: Extend tap area for citation search input */

@@ -80,6 +80,22 @@ window.addEventListener("pageshow", async (event) => {
 
     syncHistoryStateAfterBfcache();
 
+    // Proactive IDB warm-up: iOS kills IDB connections during suspension.
+    // Show a toast while we attempt to reconnect, with a refresh escape hatch.
+    const { openDatabase } = await import('./indexedDB/core/connection.js');
+    const { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } = await import('./indexedDB/core/recoveryToast.js');
+
+    showIDBRecoveryToast();
+    try {
+      const db = await openDatabase();
+      db.close();
+      hideIDBRecoveryToast();
+      verbose.init('IDB connection verified after bfcache restore', 'viewManager.js');
+    } catch (e) {
+      console.error('IDB reconnect failed after bfcache restore:', e);
+      updateIDBRecoveryToast('Database unavailable — tap Refresh');
+    }
+
     const pageType = document.body.getAttribute("data-page");
     const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
 

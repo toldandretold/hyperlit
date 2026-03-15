@@ -10,6 +10,9 @@ import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
 export let isProcessing = false
 export let isComplete   = false
 
+// Safety timeout: auto-reset if stuck orange for too long
+let safetyTimer = null
+
 // Keep track of topRightContainer state
 let topRightContainer = null
 let topRightVisibilityBeforeEdit = null
@@ -30,6 +33,8 @@ function emitProcessingChange() {
 function resetIndicator() {
   isProcessing = false
   isComplete   = false
+  clearTimeout(safetyTimer)
+  safetyTimer = null
   emitProcessingChange()
 
   const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
@@ -78,6 +83,15 @@ export function glowCloudOrange() {
     verbose.init(`Saved topRight visibility before edit: ${topRightVisibilityBeforeEdit}`, 'editIndicator.js');
     verbose.init('Made topRightContainer visible for editing', 'editIndicator.js');
   }
+
+  // Safety timeout: auto-reset if green/red never fires (e.g., filtered mutations, errors)
+  clearTimeout(safetyTimer)
+  safetyTimer = setTimeout(() => {
+    if (isProcessing && !isComplete) {
+      console.warn('CloudRef safety reset — stuck orange for 30s')
+      resetIndicator()
+    }
+  }, 30000)
 
   console.log('CloudRef → orange (saving)')
 }

@@ -12,7 +12,6 @@
 import { chunkOverflowInProgress, userDeletionInProgress } from "../utilities/operationState.js";
 import { isNumericalId, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
 import { movedNodesByOverflow } from './index.js';
-import { glowCloudOrange, isProcessing } from '../components/editIndicator.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
 import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
@@ -386,11 +385,6 @@ export class ChunkMutationHandler {
         console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during chunk overflow (due to removal).`);
         return;
       }
-    }
-
-    // Glow cloud orange if not already processing
-    if (!isProcessing) {
-      glowCloudOrange();
     }
 
     // Track node count changes
