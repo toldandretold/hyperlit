@@ -1326,6 +1326,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               req.onsuccess = () => resolve(req.result);
               req.onerror = () => resolve(null);
             });
+            // DIAGNOSTIC — remove after debugging
+            console.log(`🔍 FN LOOKUP: key=[${parentBookId}, ${footnoteId}], found=${!!fnRecord}, has_preview=${fnRecord?.preview_nodes?.length ?? 'null'}, content_len=${fnRecord?.content?.length ?? 'null'}`);
           }
           const subBookId = buildSubBookId(parentBookId, footnoteId);
           const footnotesSection = scroller.querySelector(`.footnotes-section[data-footnote-id="${footnoteId}"]`);

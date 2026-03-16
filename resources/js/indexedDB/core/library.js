@@ -343,6 +343,31 @@ export async function updateLocalAnnotationsTimestamp(bookId, timestamp) {
 }
 
 /**
+ * Fetch library record from server, returning both the record and whether the server was reached.
+ * Lets callers distinguish "server confirmed no record" from "network failure".
+ *
+ * @param {string} bookId - Book or sub-book identifier
+ * @returns {Promise<{record: Object|null, serverReached: boolean}>}
+ */
+export async function fetchLibraryRecordWithStatus(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(bookId)}/library`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { record: data.success ? data.library : null, serverReached: true };
+    }
+    return { record: null, serverReached: true };   // 404, 403, etc. — server answered
+  } catch (err) {
+    return { record: null, serverReached: false };   // network error
+  }
+}
+
+/**
  * Fetch library record from server API.
  * Works for both regular books and sub-books (server has route for both).
  * @param {string} bookId - Book or sub-book identifier (e.g. "myBook" or "myBook/Fn123")

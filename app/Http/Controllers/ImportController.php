@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
 use App\Models\PgNodeChunk;
+use App\Models\PgFootnote;
+use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\DbLibraryController;
+use Illuminate\Support\Str;
 use App\Services\DocumentImport\ValidationService;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\MarkdownProcessor;
@@ -233,6 +236,7 @@ class ImportController extends Controller
             // (RLS policy checks for matching library.creator/creator_token)
             if ($isDocxProcessing) {
                 $this->saveNodeChunksToDatabase($path, $bookId);
+                $this->saveFootnotesToDatabase($path, $bookId);
             }
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -424,6 +428,125 @@ class ImportController extends Controller
                 'book' => $bookId,
                 'error' => substr($e->getMessage(), 0, 500),
                 'chunks_attempted' => count($insertData ?? [])
+            ]);
+        }
+    }
+
+    /**
+     * Save footnotes from JSON file to database with preview_nodes,
+     * sub-book library records, and initial sub-book nodes.
+     */
+    private function saveFootnotesToDatabase(string $path, string $bookId): void
+    {
+        try {
+            $footnotesPath = "{$path}/footnotes.json";
+            if (!File::exists($footnotesPath)) {
+                Log::info('No footnotes.json found — skipping footnote import', ['book' => $bookId]);
+                return;
+            }
+
+            $footnotesData = json_decode(File::get($footnotesPath), true);
+            if (empty($footnotesData)) return;
+
+            $library = PgLibrary::where('book', $bookId)->first();
+            if (!$library) {
+                Log::warning('Cannot save footnotes: parent library not found', ['book' => $bookId]);
+                return;
+            }
+
+            $upsertedCount = 0;
+            $enrichedForJson = [];
+            foreach ($footnotesData as $footnote) {
+                $footnoteId = $footnote['footnoteId'] ?? null;
+                $content    = $footnote['content'] ?? '';
+                if (!$footnoteId) continue;
+
+                $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
+                $uuid      = (string) Str::uuid();
+                $plainText = strip_tags($content);
+                $nodeHtml  = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
+                           . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
+
+                $previewNodes = [[
+                    'book'        => $subBookId,
+                    'chunk_id'    => 0,
+                    'startLine'   => 1.0,
+                    'node_id'     => $uuid,
+                    'content'     => $nodeHtml,
+                    'footnotes'   => [],
+                    'hyperlights' => [],
+                    'hypercites'  => [],
+                ]];
+
+                // 1. Upsert footnote record with preview_nodes
+                $existing = PgFootnote::where('book', $bookId)
+                    ->where('footnoteId', $footnoteId)
+                    ->first();
+
+                if ($existing) {
+                    PgFootnote::where('book', $bookId)
+                        ->where('footnoteId', $footnoteId)
+                        ->update([
+                            'content'       => $content,
+                            'sub_book_id'   => $subBookId,
+                            'preview_nodes' => json_encode($previewNodes),
+                        ]);
+                } else {
+                    PgFootnote::create([
+                        'book'          => $bookId,
+                        'footnoteId'    => $footnoteId,
+                        'content'       => $content,
+                        'sub_book_id'   => $subBookId,
+                        'preview_nodes' => $previewNodes,
+                    ]);
+                }
+
+                // 2. Upsert sub-book library record
+                PgLibrary::updateOrInsert(
+                    ['book' => $subBookId],
+                    [
+                        'creator'       => $library->creator,
+                        'creator_token' => $library->creator_token,
+                        'visibility'    => $library->visibility,
+                        'listed'        => false,
+                        'title'         => "Annotation: {$footnoteId}",
+                        'type'          => 'sub_book',
+                        'has_nodes'     => true,
+                        'raw_json'      => json_encode([]),
+                        'updated_at'    => now(),
+                        'created_at'    => now(),
+                    ]
+                );
+
+                // 3. Upsert initial sub-book node
+                PgNodeChunk::updateOrCreate(
+                    ['book' => $subBookId, 'node_id' => $uuid],
+                    [
+                        'chunk_id'   => 0,
+                        'startLine'  => 1,
+                        'content'    => $nodeHtml,
+                        'plainText'  => $plainText,
+                        'raw_json'   => json_encode([]),
+                    ]
+                );
+
+                $upsertedCount++;
+
+                $enrichedForJson[] = [
+                    'footnoteId'    => $footnoteId,
+                    'content'       => $content,
+                    'preview_nodes' => $previewNodes,
+                ];
+            }
+
+            // Write enriched footnotes back to JSON so frontend loadFromJSONFiles() includes preview_nodes
+            File::put($footnotesPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            Log::info("Saved {$upsertedCount} footnotes to database, wrote enriched footnotes.json", ['book' => $bookId]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to save footnotes to database', [
+                'book'  => $bookId,
+                'error' => substr($e->getMessage(), 0, 500),
             ]);
         }
     }

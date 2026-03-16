@@ -7,7 +7,7 @@
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoaderFactory.js';
 import { attachMarkListeners } from '../hyperlights/index.js';
 import { attachUnderlineClickListeners } from '../hypercites/index.js';
-import { getNodeChunksFromIndexedDB, addNodeChunkToIndexedDB } from '../indexedDB/index.js';
+import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
@@ -227,12 +227,15 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
 
   try {
     // ── Timestamp guard (same pattern as checkAndUpdateIfNeeded in initializePage.js) ──
-    const { getLibraryRecordFromServer, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+    const { fetchLibraryRecordWithStatus, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
 
-    const [serverRecord, localRecord] = await Promise.all([
-      getLibraryRecordFromServer(subBookId),
+    const [serverResult, localRecord] = await Promise.all([
+      fetchLibraryRecordWithStatus(subBookId),
       getLibraryObjectFromIndexedDB(subBookId),
     ]);
+
+    const serverRecord = serverResult.record;
+    const serverReached = serverResult.serverReached;
 
     const serverTimestamp = serverRecord?.timestamp || 0;
     const localTimestamp  = localRecord?.timestamp  || 0;
@@ -258,6 +261,20 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
           subBookState.hasMoreContent = true;
           addReadMoreButton(subBookId, subBookState.containerDiv, previewNodeIds, subBookState.scrollerDiv, localNodes.length);
         }
+      }
+
+      // Self-healing: server CONFIRMED no record (not a network failure),
+      // AND we have no local nodes, BUT we do have preview content to work with.
+      if (!serverRecord && serverReached && !localNodes?.length && subBookState.nodes?.length) {
+        console.log(`🔧 Self-healing "${subBookId}": server confirmed no record — writing preview nodes to IDB and creating backend`);
+        await writeNodeChunks(subBookState.nodes);
+        const firstNode = subBookState.nodes[0];
+        createSubBookOnBackend(
+          subBookId, subBookState.parentBook, subBookState.itemId, subBookState.type,
+          firstNode?.content || '', firstNode?.node_id
+        );
+        // Don't add to enrichedSubBooks — next open will re-enrich after backend has the record
+        return;
       }
 
       enrichedSubBooks.add(subBookId);
@@ -374,15 +391,13 @@ export async function loadSubBook(
       const localNodeId = generateNodeId(subBookId);
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
-      await addNodeChunkToIndexedDB(subBookId, 1, initialHtml, 0, localNodeId);
+      const synthesizedNode = {
+        book: subBookId, startLine: 1, chunk_id: 0, node_id: localNodeId,
+        content: initialHtml, hyperlights: [], hypercites: [],
+      };
+      await writeNodeChunks([synthesizedNode]);
       console.log(`📝 subBookLoader: Wrote initial node (${localNodeId}) to IndexedDB for "${subBookId}"`);
-      nodes = [{
-        book: subBookId,
-        startLine: 1,
-        chunk_id: 0,
-        node_id: localNodeId,
-        content: initialHtml,
-      }];
+      nodes = [synthesizedNode];
     }
   }
 
@@ -445,7 +460,7 @@ export async function loadSubBook(
 
     // Async enrichment for new sub-books
     if (!isNewSubBook && mode === 'edit') {
-      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId });
+      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type });
     }
 
     console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in ${mode} mode (${nodes.length} nodes)`);
@@ -559,7 +574,7 @@ export async function loadSubBook(
 
   // Async enrichment — fetch fresh data from backend
   if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId });
+    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type });
   }
 
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);
