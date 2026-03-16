@@ -256,6 +256,45 @@ export async function handleLargePaste(
     const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('../../indexedDB/index.js');
 
     if (extractedFootnotes.length > 0) {
+      // Generate preview_nodes + initial sub-book nodes so opening a footnote
+      // after paste doesn't hit the synthesize branch (which triggers stuck orange CloudRef).
+      const { generateNodeId } = await import('../../utilities/IDfunctions.js');
+      const { buildSubBookId } = await import('../../utilities/subBookIdHelper.js');
+
+      const subBookNodes = [];
+
+      for (const fn of extractedFootnotes) {
+        const subBookId = buildSubBookId(insertionPoint.book, fn.footnoteId);
+        const nodeId = generateNodeId(subBookId);
+        const strippedText = (fn.content || '').replace(/<[^>]+>/g, '');
+        const nodeContent = `<p data-node-id="${nodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
+
+        fn.preview_nodes = [{
+          book: subBookId,
+          chunk_id: 0,
+          startLine: 1,
+          node_id: nodeId,
+          content: nodeContent,
+          footnotes: [],
+          hyperlights: [],
+          hypercites: [],
+        }];
+
+        subBookNodes.push({
+          book: subBookId,
+          startLine: 1,
+          chunk_id: 0,
+          node_id: nodeId,
+          content: nodeContent,
+          hyperlights: [],
+          hypercites: [],
+        });
+      }
+
+      if (subBookNodes.length > 0) {
+        await writeNodeChunks(subBookNodes);
+      }
+
       console.log(`💾 Saving ${extractedFootnotes.length} footnotes to IndexedDB...`);
       await saveAllFootnotesToIndexedDB(extractedFootnotes, insertionPoint.book);
     }
