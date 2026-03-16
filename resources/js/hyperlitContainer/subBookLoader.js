@@ -250,7 +250,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
 
     // Skip destructive sync whenever local is up-to-date.
     // Server sync only needed when server actually has newer data.
-    if (!serverRecord || serverTimestamp <= localTimestamp) {
+    if (!serverRecord || (localRecord && serverTimestamp <= localTimestamp)) {
       console.log(`⏳ Sub-book "${subBookId}": local is up-to-date, skipping server sync`);
 
       // Even without sync, check if local nodes support a [read more] button
