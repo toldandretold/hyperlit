@@ -60,7 +60,7 @@ class LibraryService
                 'creator' => $creatorInfo['creator'],
                 'creator_token' => $creatorInfo['creator_token'],
                 'type' => $data['type'] ?? null,
-                'timestamp' => $data['timestamp'] ?? now()->timestamp,
+                'timestamp' => $data['timestamp'] ?? round(microtime(true) * 1000),
                 'bibtex' => $data['bibtex'] ?? null,
                 'visibility' => $data['visibility'] ?? 'private',
                 'listed' => $data['listed'] ?? false,

@@ -63,6 +63,11 @@ export function prepareLibraryForIndexedDB(libraryRecord) {
   // Set raw_json to the cleaned version (as object, not string - IndexedDB stores it parsed)
   cleaned.raw_json = { ...cleaned };
 
+  // Ensure timestamp is never null — assign now if missing
+  if (!cleaned.timestamp) {
+    cleaned.timestamp = Date.now();
+  }
+
   return cleaned;
 }
 
