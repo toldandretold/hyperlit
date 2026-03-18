@@ -281,7 +281,19 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       return;
     }
 
-    // Server is newer → proceed with sync
+    // Server is newer → proceed with sync, but guard against wiping local content
+    if (localNodes?.length > 0) {
+      const localHasContent = localNodes.some(n => {
+        const text = n.content?.replace(/<[^>]+>/g, '').trim();
+        return text && text.length > 0;
+      });
+      if (localHasContent) {
+        console.warn(`⚠️ Sub-book "${subBookId}": server is newer but local has unsynced content — skipping destructive sync`);
+        enrichedSubBooks.add(subBookId);
+        return;
+      }
+    }
+
     console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
     const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
     const result = await syncBookDataFromDatabase(subBookId);

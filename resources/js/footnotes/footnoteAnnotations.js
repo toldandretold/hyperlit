@@ -18,6 +18,10 @@ function getCurrentBookId() {
 // Track active listeners for cleanup when container closes
 const activeFootnoteListeners = [];
 
+// Track pending debounce timers so they can be flushed on cleanup
+// Map<footnoteId, { timer, save: () => Promise }>
+const pendingFootnoteTimers = new Map();
+
 /**
  * Save footnote content to IndexedDB
  * @param {string} footnoteId
@@ -76,17 +80,22 @@ export function attachFootnoteListener(footnoteId) {
     return;
   }
 
-  let debounceTimer = null;
-
   const handler = () => {
     const content = footnoteEl.innerHTML || "";
 
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      saveFootnoteToIndexedDB(footnoteId, content)
+    // Clear any existing timer for this footnote
+    const existing = pendingFootnoteTimers.get(footnoteId);
+    if (existing) clearTimeout(existing.timer);
+
+    const save = () => {
+      pendingFootnoteTimers.delete(footnoteId);
+      return saveFootnoteToIndexedDB(footnoteId, content)
         .then(() => console.log(`Footnote ${footnoteId} saved successfully`))
         .catch(console.error);
-    }, 1000);
+    };
+
+    const timer = setTimeout(save, 1000);
+    pendingFootnoteTimers.set(footnoteId, { timer, save });
   };
 
   footnoteEl.addEventListener("input", handler);
@@ -128,10 +137,27 @@ export function attachFootnotePlaceholderBehavior(footnoteId) {
 }
 
 /**
+ * Immediately fire all pending footnote annotation saves (clearing their timers).
+ * Call before cleanup or container close to prevent data loss.
+ */
+export function flushPendingFootnoteSaves() {
+  if (pendingFootnoteTimers.size === 0) return;
+  console.log(`Flushing ${pendingFootnoteTimers.size} pending footnote save(s)`);
+  for (const [footnoteId, { timer, save }] of pendingFootnoteTimers) {
+    clearTimeout(timer);
+    save(); // fire-and-forget — the save queues into IndexedDB + sync queue
+  }
+  pendingFootnoteTimers.clear();
+}
+
+/**
  * Clean up all footnote listeners
  * Called when the container closes to prevent listener accumulation
  */
 export function cleanupFootnoteListeners() {
+  // Flush any pending debounced saves before removing listeners
+  flushPendingFootnoteSaves();
+
   for (const { element, event, handler } of activeFootnoteListeners) {
     try {
       element.removeEventListener(event, handler);

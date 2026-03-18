@@ -324,7 +324,7 @@ class DbHyperlightController extends Controller
                                 'type'          => 'sub_book',
                                 'has_nodes'     => true,
                                 'raw_json'      => json_encode([]),
-                                'timestamp'     => round(microtime(true) * 1000),
+                                'timestamp'     => 0,
                             ]
                         );
 

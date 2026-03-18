@@ -300,18 +300,40 @@ export async function prepareContainerClose() {
   
   console.log('[HyperlitContainer] Edit mode - preparing to close...');
   
+  // Flush footnote annotation debounce timers first (independent of divEditor pipeline)
+  try {
+    const { flushPendingFootnoteSaves } = await import('../footnotes/footnoteAnnotations.js');
+    flushPendingFootnoteSaves();
+  } catch (e) {
+    // footnoteAnnotations not loaded — nothing to flush
+  }
+
   // Import divEditor functions
   const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
-  
+
   // 🔑 CRITICAL: First flush input debounce to capture any pending typing
   // This forces the 200ms debounced input handler to execute immediately
   flushInputDebounce();
-  
+
   // 🔑 CRITICAL: Then flush saveQueue BEFORE calling stopObserving()
   // stopObserving() sets saveQueue = null, so we must flush first!
   console.log('[HyperlitContainer] Flushing save queue...');
   await flushAllPendingSaves();
-  
+
+  // 🔑 CRITICAL: Flush debounced master sync so queued items reach the server
+  // before the container teardown. Race with a 5s timeout so a slow network
+  // doesn't block the close indefinitely.
+  console.log('[HyperlitContainer] Flushing master sync...');
+  try {
+    const { debouncedMasterSync } = await import('../indexedDB/syncQueue/master.js');
+    await Promise.race([
+      debouncedMasterSync.flush(),
+      new Promise(resolve => setTimeout(resolve, 5000)),
+    ]);
+  } catch (e) {
+    console.warn('[HyperlitContainer] Master sync flush failed (non-fatal):', e);
+  }
+
   console.log('[HyperlitContainer] Save complete');
 
   // Save preview_nodes for all active sub-books
