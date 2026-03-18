@@ -878,20 +878,29 @@ class CSSClassHeadingDetector(EpubTransform):
         'fmtitle': 'h1',   # Front matter titles (Figures, Acknowledgements)
         'bmtitle': 'h1',   # Back matter titles (Notes, Index)
         'half': 'h1',      # Half-title page
+        'half-title': 'h1',# Half title page (Verso)
         'title': 'h1',     # Main book title
         'title1': 'h1',    # Subtitle
         'con': 'h1',       # Contents heading
         'chapnum': 'h1',   # Chapter numbers (CHAPTER 1, CHAPTER 2, etc.)
         'chaptitle': 'h1', # Chapter titles (alternative naming)
+        'fm-title': 'h1',  # Front matter titles (Contents, Introduction, Index, etc.)
+        'note-sec': 'h3',  # Notes section chapter dividers (endnotes)
     }
 
     # Classes that need style-based auto-detection
     AUTO_DETECT_CLASSES = {'h'}
 
+    # Chapter number/title pair classes (Verso Books pattern)
+    # These get merged into a single <h1> before the main transform loop
+    CHAPTER_NUM_CLASSES = {'ch-num', 'ch-num1'}
+    CHAPTER_TITLE_CLASSES = {'ch-title', 'ch-title1'}
+
     def detect(self, soup) -> bool:
         body = soup.body if soup.body else soup
         # Check for any paragraph with heading-like classes
-        all_classes = set(self.EXPLICIT_CLASSES.keys()) | self.AUTO_DETECT_CLASSES
+        all_classes = (set(self.EXPLICIT_CLASSES.keys()) | self.AUTO_DETECT_CLASSES
+                       | self.CHAPTER_NUM_CLASSES | self.CHAPTER_TITLE_CLASSES)
         for p in body.find_all('p'):
             p_classes = set(p.get('class', []))
             if p_classes & all_classes:
@@ -901,6 +910,11 @@ class CSSClassHeadingDetector(EpubTransform):
     def transform(self, soup, log) -> dict:
         changes = 0
         body = soup.body if soup.body else soup
+
+        # First pass: merge ch-num + ch-title pairs into single <h1> elements
+        merged = self._merge_chapter_pairs(body, log)
+        changes += merged
+
         all_classes = set(self.EXPLICIT_CLASSES.keys()) | self.AUTO_DETECT_CLASSES
 
         for p in body.find_all('p'):
@@ -939,6 +953,62 @@ class CSSClassHeadingDetector(EpubTransform):
             log(f"  Converted {changes} paragraphs to headings")
 
         return {'headings_converted': changes}
+
+    def _merge_chapter_pairs(self, body, log):
+        """
+        Merge ch-num + ch-title paragraph pairs into single <h1> elements.
+
+        Verso Books pattern:
+          <p class="ch-num"><span id="page_274"></span>9</p>
+          <p class="ch-title">The Permanent Arms Economy</p>
+        becomes:
+          <h1><span id="page_274"></span>9. The Permanent Arms Economy</h1>
+        """
+        merged = 0
+
+        # Find only ch-num paragraphs (avoids iterating over decomposed ch-title elements)
+        ch_num_elements = []
+        for cls in self.CHAPTER_NUM_CLASSES:
+            ch_num_elements.extend(body.find_all('p', class_=cls))
+
+        for p in ch_num_elements:
+            # Collect span anchors (page markers) and the chapter number text
+            spans = [s for s in p.find_all('span') if s.get('id')]
+            num_text = p.get_text(strip=True)
+
+            # Check if next sibling element is a ch-title
+            next_el = p.find_next_sibling()
+            if (next_el and next_el.name == 'p'
+                    and set(next_el.get('class', [])) & self.CHAPTER_TITLE_CLASSES):
+                title_text = next_el.get_text(strip=True)
+                combined_text = f"{num_text}. {title_text}" if num_text else title_text
+
+                # Build the new <h1>
+                p.name = 'h1'
+                p.attrs = {}
+                p.clear()
+                for span in spans:
+                    p.append(span)
+                p.append(combined_text)
+
+                # Remove the now-merged title element
+                next_el.decompose()
+                merged += 1
+                log(f"    ch-num + ch-title -> h1: {combined_text[:50]}...")
+            else:
+                # Unpaired ch-num — convert to <h1> alone
+                preserved_id = p.get('id')
+                p.name = 'h1'
+                p.attrs = {}
+                if preserved_id:
+                    p['id'] = preserved_id
+                merged += 1
+                log(f"    ch-num -> h1 (unpaired): {num_text[:50]}...")
+
+        if merged > 0:
+            log(f"  Merged {merged} chapter number/title pairs into headings")
+
+        return merged
 
     def _detect_heading_level(self, elem):
         """
