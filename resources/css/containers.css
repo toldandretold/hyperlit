@@ -1805,6 +1805,91 @@ body.hyperlit-container-open .reader-content-wrapper {
   display: none !important;
 }
 
+/* ───────────────────────────────────────────
+   TIME MACHINE
+   ─────────────────────────────────────────── */
+
+#timemachine-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4EACAE, #3a8e90);
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.timemachine-restore-btn {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 5px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.timemachine-restore-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+.timemachine-back-link {
+  color: #fff;
+  text-decoration: underline;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.timemachine-back-link:hover {
+  opacity: 0.8;
+}
+
+/* Push content down so banner doesn't overlap the first node */
+body[data-page="timemachine"] .spacer:first-of-type {
+  margin-top: 50px;
+}
+
+body[data-page="timemachine"] main,
+body[data-page="timemachine"] #main-content {
+  padding-top: 50px;
+}
+
+/* ───── Version History items in source container ───── */
+
+.version-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  color: #bbb;
+  text-decoration: none;
+  transition: color 0.15s;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.version-history-item:hover {
+  color: #4EACAE;
+}
+
+.snapshot-time {
+  font-size: 13px;
+}
+
+.snapshot-detail {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
   font-size: 12px;

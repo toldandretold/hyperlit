@@ -458,7 +458,8 @@ export const debouncedMasterSync = debounce(async () => {
 
   // Filter out synthetic book items that can't be synced
   for (const [key, item] of pendingSyncs) {
-    if (syntheticBooks.includes(item?.data?.book)) {
+    const bookId = item?.data?.book;
+    if (syntheticBooks.includes(bookId) || bookId?.endsWith('/timemachine')) {
       pendingSyncs.delete(key);
     }
   }

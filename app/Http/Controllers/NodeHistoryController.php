@@ -39,6 +39,72 @@ class NodeHistoryController extends Controller
     }
 
     /**
+     * Get distinct save-point snapshots for a book's version history.
+     *
+     * GET /api/books/{book}/snapshots
+     */
+    public function getSnapshots(Request $request, string $book)
+    {
+        if (!$this->checkBookPermission($request, $book, false)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied'
+            ], 403);
+        }
+
+        $limit = min($request->input('limit', 20), 200);
+
+        try {
+            // Fetch current library timestamp so we can exclude the "now" snapshot
+            // (the restore/save creates history rows whose upper(sys_period) ≈ library timestamp)
+            $library = PgLibrary::where('book', $book)->first();
+            $libraryTimestamp = $library?->timestamp;
+
+            $excludeClause = '';
+            $params = [$book];
+
+            if ($libraryTimestamp) {
+                $excludeClause = "AND upper(sys_period) < to_timestamp(? / 1000.0) - interval '2 seconds'";
+                $params[] = $libraryTimestamp;
+            }
+
+            $params[] = $limit;
+
+            $snapshots = DB::select("
+                SELECT
+                    upper(sys_period) as changed_at,
+                    COUNT(*) as nodes_changed,
+                    array_agg(DISTINCT type) as types_changed
+                FROM nodes_history
+                WHERE book = ?
+                AND upper(sys_period) IS NOT NULL
+                {$excludeClause}
+                GROUP BY upper(sys_period)
+                ORDER BY upper(sys_period) DESC
+                LIMIT ?
+            ", $params);
+
+            return response()->json([
+                'success' => true,
+                'snapshots' => $snapshots,
+                'count' => count($snapshots)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get snapshots', [
+                'book' => $book,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve snapshots',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get all versions of a specific node
      *
      * GET /api/nodes/{book}/{nodeId}/history
@@ -459,6 +525,121 @@ class NodeHistoryController extends Controller
     }
 
     /**
+     * Get complete book data at a specific timestamp, formatted for IndexedDB loading.
+     * Returns the same shape as DatabaseToIndexedDBController::getBookData()
+     * but with the book field rewritten to a virtual timemachine ID.
+     *
+     * GET /api/books/{book}/timemachine-data?at={timestamp}
+     */
+    public function getTimeMachineData(Request $request, string $book)
+    {
+        if (!$this->checkBookPermission($request, $book, false)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied'
+            ], 403);
+        }
+
+        $timestamp = $request->query('at');
+        if (!$timestamp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing "at" query parameter'
+            ], 400);
+        }
+
+        $virtualBookId = $book . '/timemachine';
+
+        try {
+            // Get all nodes as they were at the timestamp (same query as getBookAtTimestamp)
+            $nodes = DB::select("
+                SELECT
+                    id, book, node_id, \"startLine\", chunk_id, content,
+                    \"plainText\", type, raw_json, footnotes, created_at, updated_at
+                FROM nodes
+                WHERE book = ?
+                AND sys_period @> ?::timestamptz
+
+                UNION ALL
+
+                SELECT
+                    id, book, node_id, \"startLine\", chunk_id, content,
+                    \"plainText\", type, raw_json, footnotes, created_at, updated_at
+                FROM nodes_history
+                WHERE book = ?
+                AND sys_period @> ?::timestamptz
+
+                ORDER BY \"startLine\"
+            ", [$book, $timestamp, $book, $timestamp]);
+
+            if (empty($nodes)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No nodes found at the specified timestamp'
+                ], 404);
+            }
+
+            // Rewrite each node's book field to the virtual book ID and add empty annotations
+            $processedNodes = array_map(function ($node) use ($virtualBookId) {
+                return [
+                    'book'      => $virtualBookId,
+                    'chunk_id'  => (int) $node->chunk_id,
+                    'startLine' => (int) $node->startLine,
+                    'node_id'   => $node->node_id,
+                    'content'   => $node->content,
+                    'plainText' => $node->plainText,
+                    'type'      => $node->type,
+                    'footnotes' => $node->footnotes,
+                    'hypercites'=> [],
+                    'hyperlights'=> [],
+                    'raw_json'  => $node->raw_json,
+                ];
+            }, $nodes);
+
+            // Get the parent book's library record for title
+            $parentLibrary = PgLibrary::where('book', $book)->first();
+            $title = $parentLibrary ? ($parentLibrary->title . ' (Version History)') : 'Version History';
+
+            // Build synthetic library record
+            $library = [
+                'book'       => $virtualBookId,
+                'title'      => $title,
+                'timestamp'  => time(),
+                'creator'    => $parentLibrary->creator ?? null,
+                'visibility' => 'private',
+                'is_owner'   => true,
+            ];
+
+            return response()->json([
+                'nodes'        => $processedNodes,
+                'footnotes'    => ['book' => $virtualBookId, 'data' => []],
+                'bibliography' => ['book' => $virtualBookId, 'data' => []],
+                'hyperlights'  => [],
+                'hypercites'   => [],
+                'library'      => $library,
+                'metadata'     => [
+                    'book_id'       => $virtualBookId,
+                    'total_chunks'  => count($processedNodes),
+                    'generated_at'  => now()->toIso8601String(),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get time machine data', [
+                'book' => $book,
+                'timestamp' => $timestamp,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve time machine data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Restore entire book to a specific point in time
      *
      * POST /api/books/{book}/restore
@@ -488,16 +669,18 @@ class NodeHistoryController extends Controller
             // Get all nodes as they were at the timestamp
             $historicalNodes = DB::select("
                 -- Current nodes that existed at that time
-                SELECT * FROM nodes
+                SELECT
+                    id, book, node_id, \"startLine\", chunk_id, content,
+                    \"plainText\", type, raw_json, footnotes
+                FROM nodes
                 WHERE book = ? AND sys_period @> ?::timestamptz
 
                 UNION ALL
 
                 -- Historical nodes that were active at that time
                 SELECT
-                    id, raw_json, book, chunk_id, \"startLine\", footnotes,
-                    content, \"plainText\", type, created_at, updated_at,
-                    node_id, sys_period
+                    id, book, node_id, \"startLine\", chunk_id, content,
+                    \"plainText\", type, raw_json, footnotes
                 FROM nodes_history
                 WHERE book = ? AND sys_period @> ?::timestamptz
             ", [$book, $timestamp, $book, $timestamp]);
@@ -533,6 +716,11 @@ class NodeHistoryController extends Controller
                 ]);
                 $restored++;
             }
+
+            // Update library timestamp so clients detect the change
+            PgLibrary::where('book', $book)->update([
+                'timestamp' => round(microtime(true) * 1000)
+            ]);
 
             DB::commit();
 

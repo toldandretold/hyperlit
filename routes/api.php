@@ -213,7 +213,16 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/books/{book}/restore',
         [NodeHistoryController::class, 'restoreBookToTimestamp']
     );
+
+    // Time machine: get full book data at a timestamp (for IndexedDB loading)
+    Route::get(
+        '/books/{book}/timemachine-data',
+        [NodeHistoryController::class, 'getTimeMachineData']
+    );
 });
+
+// Snapshots endpoint — outside author middleware so public book readers can see version history
+Route::get('/books/{book}/snapshots', [NodeHistoryController::class, 'getSnapshots']);
 
 // Chain resolution for SPA cross-book navigation (level 3+ sub-books)
 Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController::class, 'resolveChainApi'])

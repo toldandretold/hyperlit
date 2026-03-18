@@ -119,6 +119,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   log.init("Database modules initialized", "readerDOMContentLoaded.js");
 
+  // Time machine: fetch historical data and store in IndexedDB BEFORE NavigationManager
+  // runs loadHyperText, so it finds the data in cache and renders normally.
+  if (pageType === 'timemachine') {
+    const { initializeTimeMachine } = await import('./utilities/timeMachine.js');
+    await initializeTimeMachine();
+  }
+
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
   // NavigationManager handles ALL initialization including ButtonRegistry
   const { NavigationManager } = await import('./navigation/NavigationManager.js');

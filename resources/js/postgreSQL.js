@@ -701,7 +701,7 @@ async function updateEmbeddedAnnotationsInNodes(db, bookId, hyperlights, hyperci
 /**
  * Clear existing book data from IndexedDB
  */
-async function clearBookDataFromIndexedDB(db, bookId) {
+export async function clearBookDataFromIndexedDB(db, bookId) {
   verbose.content(`Clearing existing data for book: ${bookId}`, 'postgreSQL.js');
 
   // Clear stores that have book-based indices
@@ -766,7 +766,7 @@ async function clearBookDataFromIndexedDB(db, bookId) {
 /**
  * Load node chunks into IndexedDB
  */
-async function loadNodeChunksToIndexedDB(db, nodes) {
+export async function loadNodeChunksToIndexedDB(db, nodes) {
   if (!nodes || nodes.length === 0) {
     verbose.content('No nodes to load', 'postgreSQL.js');
     return;
@@ -991,7 +991,7 @@ async function loadHypercitesToIndexedDB(db, hypercites) {
 /**
  * Load library data into IndexedDB
  */
-async function loadLibraryToIndexedDB(db, library) {
+export async function loadLibraryToIndexedDB(db, library) {
   if (!library) {
     verbose.content('No library data to load', 'postgreSQL.js');
     return;

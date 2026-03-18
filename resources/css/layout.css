@@ -39,6 +39,11 @@ body[data-page="reader"] #app-container {
   flex-direction: column;
 }
 
+body[data-page="timemachine"] #app-container {
+  display: flex;
+  flex-direction: column;
+}
+
 /* 
    ==================================================
    3. Main Content Columns (Unified & Corrected) 
@@ -91,7 +96,8 @@ body[data-page="reader"] .reader-content-wrapper::before {
 }
 
 /* Alternative approach using clip-path on the wrapper itself */
-body[data-page="reader"] .reader-content-wrapper {
+body[data-page="reader"] .reader-content-wrapper,
+body[data-page="timemachine"] .reader-content-wrapper {
   clip-path: inset(15px 0 40px 0); /* Clip top (15px) and bottom (40px - aligns with buttons) */
 }
 
@@ -110,7 +116,8 @@ body[data-page="reader"] .reader-content-wrapper {
 }
 
 /* Reader page: adjust top padding so content starts at mask line (15px) */
-body[data-page="reader"] .main-content {
+body[data-page="reader"] .main-content,
+body[data-page="timemachine"] .main-content {
   padding-top: 15px; /* Match the mask height - content starts right at mask edge */
   min-height: 100%; /* Only reader needs min-height for short content */
 }

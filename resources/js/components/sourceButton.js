@@ -17,6 +17,22 @@ const PRIVATE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="
   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
 </svg>`;
 
+function formatRelativeTime(isoString) {
+  const now = Date.now();
+  const then = new Date(isoString).getTime();
+  const diff = now - then;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
 function getRecord(db, storeName, key) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
@@ -220,10 +236,15 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
-    ${privacyToggleHtml}
-    ${editButtonHtml}
+    ${canEdit ? `<div id="version-history-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Version History</h3>
+      <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
+    </div>` : ''}
 
     </div>
+
+    ${privacyToggleHtml}
+    ${editButtonHtml}
 
     <!-- Edit Form (initially hidden) -->
     <div id="edit-form-container" class="hidden" style="display: none;">
@@ -379,6 +400,53 @@ export class SourceContainerManager extends ContainerManager {
     });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
+
+    this.loadVersionHistory();
+  }
+
+  async loadVersionHistory() {
+    const listEl = this.container.querySelector("#version-history-list");
+    if (!listEl) return;
+
+    try {
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/snapshots?limit=20`, {
+        credentials: 'include'
+      });
+
+      if (!resp.ok) {
+        listEl.textContent = 'Could not load version history.';
+        return;
+      }
+
+      const data = await resp.json();
+
+      if (!data.success || !data.snapshots || data.snapshots.length === 0) {
+        listEl.textContent = 'No version history available yet.';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      for (const snap of data.snapshots) {
+        const a = document.createElement('a');
+        a.href = `/${encodeURIComponent(book)}/timemachine?at=${encodeURIComponent(snap.changed_at)}`;
+        a.className = 'version-history-item';
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'snapshot-time';
+        timeSpan.textContent = formatRelativeTime(snap.changed_at);
+
+        const detailSpan = document.createElement('span');
+        detailSpan.className = 'snapshot-detail';
+        detailSpan.textContent = `${snap.nodes_changed} node${snap.nodes_changed == 1 ? '' : 's'}`;
+
+        a.appendChild(timeSpan);
+        a.appendChild(detailSpan);
+        listEl.appendChild(a);
+      }
+    } catch (err) {
+      console.warn('Failed to load version history:', err);
+      listEl.textContent = 'Could not load version history.';
+    }
   }
 
   async openContainer() {

@@ -349,6 +349,12 @@ async function fetchLibraryFromServer(bookId) {
 
 export async function canUserEditBook(bookId) {
   try {
+    // Time machine virtual books are always read-only
+    if (bookId && bookId.endsWith('/timemachine')) {
+      editPermissionCache.set(bookId, false);
+      return false;
+    }
+
     // 🚀 PERFORMANCE: Check cache first for instant return
     if (editPermissionCache.has(bookId)) {
       return editPermissionCache.get(bookId);

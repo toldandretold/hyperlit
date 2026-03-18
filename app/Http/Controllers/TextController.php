@@ -113,6 +113,29 @@ class TextController extends Controller
 
 
     /**
+     * Time machine: read-only historical view of a book at a specific timestamp.
+     * URL: /{book}/timemachine?at={timestamp}
+     */
+    public function showTimeMachine(Request $request, $book)
+    {
+        $timestamp = $request->query('at');
+
+        if (!$timestamp) {
+            return redirect("/{$book}");
+        }
+
+        return view('reader', [
+            'html'                 => '',
+            'book'                 => $book . '/timemachine',
+            'realBook'             => $book,
+            'editMode'             => false,
+            'dataSource'           => 'database',
+            'pageType'             => 'timemachine',
+            'timeMachineTimestamp'  => $timestamp,
+        ]);
+    }
+
+    /**
      * Standalone mode: load a sub-book as a full-screen book.
      * URL: /based/{subBookId}
      */

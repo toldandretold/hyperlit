@@ -304,7 +304,11 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
       // Note: Interactive features initialization handled by viewManager.js
 
-      checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
+      // Skip server timestamp check for virtual book IDs (e.g. timemachine)
+      // — no server-side library record exists, so the fetch would 404
+      if (!currentBook.endsWith('/timemachine')) {
+        checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
+      }
       return;
     }
 

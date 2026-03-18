@@ -205,8 +205,10 @@ export async function universalPageInitializer(progressCallback = null) {
   const currentBookId = book;
   
   // Note: Cache invalidation checking removed for performance
-  
-  // Reset lazy loader to ensure we create a fresh one with the correct book ID
+
+  const currentPageType = document.body.getAttribute('data-page');
+  log.init(`Page type: ${currentPageType}`, 'viewManager.js');
+
   resetCurrentLazyLoader();
 
   // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
@@ -228,10 +230,6 @@ export async function universalPageInitializer(progressCallback = null) {
 
   // ✅ Check if this is an imported book
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');
-
-  // 🎯 CRITICAL: Detect page type BEFORE loading content to prevent race conditions
-  const currentPageType = document.body.getAttribute('data-page');
-  log.init(`Page type: ${currentPageType}`, 'viewManager.js');
 
   // Start loading content and wait for both content loading and DOM stabilization
   // ⚠️ IMPORTANT: Skip loadHyperText for home/user pages to prevent double-load race condition

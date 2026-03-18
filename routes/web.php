@@ -206,6 +206,11 @@ Route::get('/reset-password/{token}', function (Request $request, $token) {
     ]);
 })->name('password.reset');
 
+// Time machine route (must come before /{book}/edit catch)
+Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
+     ->where('book', '[A-Za-z0-9_-]+')
+     ->name('book.timemachine');
+
 // Book edit route
 Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')

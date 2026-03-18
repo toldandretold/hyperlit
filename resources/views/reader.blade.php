@@ -357,6 +357,8 @@
 <script>
     window.editMode = @json($editMode);
     window.autoOpenChain = @json($autoOpenChain ?? null);
+    window.timeMachineTimestamp = @json($timeMachineTimestamp ?? null);
+    window.realBook = @json($realBook ?? null);
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
