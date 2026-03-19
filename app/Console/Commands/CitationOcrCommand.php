@@ -10,28 +10,34 @@ use Illuminate\Support\Facades\Http;
 
 class CitationOcrCommand extends Command
 {
-    protected $signature = 'citation:ocr {bookId? : Single library record to OCR} {--survey : List all records with pdf_url but no content} {--limit=0 : Max records to process} {--dry-run : Download PDF but skip OCR}';
-    protected $description = 'Download PDFs and run Mistral OCR to import content into the library';
+    protected $signature = 'citation:ocr {bookId? : Single library record to OCR} {--survey : List all downloaded PDFs awaiting OCR} {--limit=0 : Max records to process} {--test : Download + OCR a single pdf_url end-to-end for pipeline testing}';
+    protected $description = 'Run Mistral OCR on already-downloaded PDFs (use citation:vacuum to download first)';
 
     public function handle(): int
     {
+        if ($this->option('test')) {
+            return $this->handleTest();
+        }
+
         if ($this->option('survey')) {
             return $this->handleSurvey();
         }
 
         $bookId = $this->argument('bookId');
         if (!$bookId) {
-            $this->error('bookId is required (or use --survey to scan the whole library)');
+            $this->error('bookId is required (or use --survey to list downloaded PDFs)');
             return 1;
         }
 
-        return $this->handleSingleFetch($bookId);
+        return $this->handleSingle($bookId);
     }
 
-    private function handleSingleFetch(string $bookId): int
+    /**
+     * OCR a single book's already-downloaded PDF.
+     */
+    private function handleSingle(string $bookId): int
     {
         $db = DB::connection('pgsql_admin');
-        $dryRun = $this->option('dry-run');
 
         $libraryRecord = $db->table('library')->where('book', $bookId)->first();
         if (!$libraryRecord) {
@@ -41,182 +47,235 @@ class CitationOcrCommand extends Command
 
         $this->info("Title: " . ($libraryRecord->title ?: '(untitled)'));
 
-        $pdfUrl = $libraryRecord->pdf_url ?? null;
-        if (!$pdfUrl) {
-            $this->error('No pdf_url on this library record.');
+        $status = $libraryRecord->pdf_url_status ?? null;
+        if ($status === 'imported') {
+            $this->warn('Already OCR-imported. Skipping.');
+            return 0;
+        }
+
+        $pdfPath = resource_path("markdown/{$bookId}/original.pdf");
+        if (!File::exists($pdfPath)) {
+            $this->error("No PDF on disk: {$pdfPath}");
+            $this->line('Run citation:vacuum first to download the PDF.');
             return 1;
         }
 
-        $this->line("PDF URL: {$pdfUrl}");
-        $mode = $dryRun ? 'DRY-RUN' : 'OCR';
-        $this->info("Mode: {$mode}");
+        $this->line("PDF: {$pdfPath}");
+        $this->line("Running OCR pipeline...");
         $this->newLine();
-
-        if ($dryRun) {
-            return $this->dryRunDownload($pdfUrl, $bookId);
-        }
 
         $startTime = microtime(true);
         $fetchService = app(ContentFetchService::class);
-        $result = $fetchService->fetchPdf($pdfUrl, $bookId);
+        $result = $fetchService->processLocalPdf($pdfPath, $bookId);
         $elapsed = round(microtime(true) - $startTime, 1);
 
-        $this->printFetchResult($result, $elapsed);
+        $this->printResult($result, $elapsed);
 
         return $result['status'] === 'failed' ? 1 : 0;
     }
 
-    private function dryRunDownload(string $pdfUrl, string $bookId): int
-    {
-        $this->line("Downloading PDF...");
-
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-            ])->timeout(60)->get($pdfUrl);
-
-            if (!$response->successful()) {
-                $this->error("HTTP {$response->status()} fetching {$pdfUrl}");
-                return 1;
-            }
-
-            $body = $response->body();
-            $path = resource_path("markdown/{$bookId}");
-
-            if (!File::exists($path)) {
-                File::makeDirectory($path, 0755, true);
-            }
-
-            $pdfPath = "{$path}/original.pdf";
-            File::put($pdfPath, $body);
-
-            $size = number_format(strlen($body));
-            $contentType = $response->header('Content-Type') ?? 'unknown';
-
-            $this->line("<fg=magenta>Status: dry_run</>");
-            $this->line("  PDF saved (dry-run, OCR skipped)");
-            $this->line("  File: {$pdfPath}");
-            $this->line("  Type: {$contentType} | Size: {$size} bytes");
-
-            return 0;
-
-        } catch (\Exception $e) {
-            $this->error("Download failed: {$e->getMessage()}");
-            return 1;
-        }
-    }
-
+    /**
+     * Survey: list and optionally process all downloaded PDFs awaiting OCR.
+     */
     private function handleSurvey(): int
     {
         $db = DB::connection('pgsql_admin');
-        $dryRun = $this->option('dry-run');
         $limit = (int) $this->option('limit');
 
-        $this->info('Library survey — records with pdf_url (no oa_url, no content)');
+        $this->info('OCR survey — downloaded PDFs awaiting processing');
         $this->newLine();
 
-        // Records with pdf_url set, no oa_url, and no content yet
         $records = $db->table('library')
             ->whereNotNull('pdf_url')
             ->where('pdf_url', '!=', '')
-            ->where(function ($q) {
-                $q->whereNull('oa_url')->orWhere('oa_url', '');
-            })
-            ->select(['book', 'title', 'pdf_url', 'has_nodes', 'type'])
+            ->select(['book', 'title', 'pdf_url', 'pdf_url_status', 'has_nodes', 'type'])
             ->orderBy('title')
             ->get();
 
         if ($records->isEmpty()) {
-            $this->warn('No library records have pdf_url set (without oa_url).');
+            $this->warn('No library records have pdf_url set.');
             return 0;
         }
 
-        $hasContent = $records->filter(fn($r) => $r->has_nodes);
-        $needsContent = $records->filter(fn($r) => !$r->has_nodes);
+        $imported = $records->filter(fn($r) => ($r->pdf_url_status ?? null) === 'imported');
+        $downloaded = $records->filter(fn($r) => ($r->pdf_url_status ?? null) === 'downloaded');
+        $failed = $records->filter(fn($r) => ($r->pdf_url_status ?? null) && !in_array($r->pdf_url_status, ['downloaded', 'imported']));
+        $untried = $records->filter(fn($r) => !($r->pdf_url_status ?? null));
 
         $this->info("Total with pdf_url: {$records->count()}");
-        $this->line("  <fg=green>Already have content:</>  {$hasContent->count()}");
-        $this->line("  <fg=yellow>Need OCR (no content):</> {$needsContent->count()}");
+        $this->line("  <fg=green>OCR imported:</>            {$imported->count()}");
+        $this->line("  <fg=blue>Downloaded (ready for OCR):</> {$downloaded->count()}");
+        $this->line("  <fg=red>Previously failed:</>        {$failed->count()}");
+        $this->line("  <fg=yellow>Not yet downloaded:</>       {$untried->count()}");
         $this->newLine();
 
-        // If --dry-run or --limit is set, process from survey results
-        $shouldProcess = $dryRun || $limit > 0;
-
-        if ($shouldProcess && $needsContent->isNotEmpty()) {
-            return $this->processFromSurvey($needsContent, $dryRun, $limit);
+        if ($downloaded->isEmpty()) {
+            $this->warn('No downloaded PDFs awaiting OCR. Run citation:vacuum first.');
+            return 0;
         }
 
-        // Otherwise just list
-        if ($needsContent->isNotEmpty()) {
-            $this->info('Records needing OCR:');
-            $this->newLine();
-
-            foreach ($needsContent as $r) {
-                $title = $r->title ?: '(untitled)';
-                $type = $r->type ?? '—';
-
-                $this->line("  <fg=yellow>{$title}</>");
-                $this->line("    Book: {$r->book}");
-                $this->line("    Type: {$type} | PDF: {$r->pdf_url}");
-                $this->newLine();
-            }
+        if ($limit > 0) {
+            return $this->processDownloaded($downloaded, $limit);
         }
 
-        if ($hasContent->isNotEmpty()) {
-            $this->info('Already have content:');
-            $this->newLine();
+        // List downloaded records
+        $this->info('Ready for OCR:');
+        $this->newLine();
 
-            foreach ($hasContent as $r) {
-                $title = $r->title ?: '(untitled)';
-                $this->line("  <fg=green>{$title}</> ({$r->book})");
-            }
+        foreach ($downloaded as $r) {
+            $title = $r->title ?: '(untitled)';
+            $type = $r->type ?? '—';
+            $this->line("  <fg=blue>{$title}</>");
+            $this->line("    Book: {$r->book}");
+            $this->line("    Type: {$type}");
+            $this->newLine();
         }
 
         return 0;
     }
 
-    private function processFromSurvey($needsContent, bool $dryRun, int $limit): int
+    /**
+     * Process downloaded PDFs through OCR pipeline.
+     */
+    private function processDownloaded($downloaded, int $limit): int
     {
         $fetchService = app(ContentFetchService::class);
         $processCount = 0;
-        $mode = $dryRun ? 'DRY-RUN' : 'OCR';
 
-        $this->info("Processing from survey results ({$mode})...");
+        $this->info("Running OCR on downloaded PDFs (limit: {$limit})...");
         $this->newLine();
 
-        foreach ($needsContent as $r) {
-            if ($limit > 0 && $processCount >= $limit) {
+        foreach ($downloaded as $r) {
+            if ($processCount >= $limit) {
                 break;
             }
 
             $title = $r->title ?: '(untitled)';
             $this->line("  <fg=cyan>[" . ($processCount + 1) . "] {$title}</>");
 
-            if ($dryRun) {
-                $this->dryRunDownload($r->pdf_url, $r->book);
-            } else {
-                $startTime = microtime(true);
-                $result = $fetchService->fetchPdf($r->pdf_url, $r->book);
-                $elapsed = round(microtime(true) - $startTime, 1);
-                $this->printFetchResult($result, $elapsed, '    ');
+            $pdfPath = resource_path("markdown/{$r->book}/original.pdf");
+            if (!File::exists($pdfPath)) {
+                $this->line("    <fg=red>PDF missing on disk — skipping</>");
+                $this->newLine();
+                continue;
             }
 
+            $startTime = microtime(true);
+            $result = $fetchService->processLocalPdf($pdfPath, $r->book);
+            $elapsed = round(microtime(true) - $startTime, 1);
+            $this->printResult($result, $elapsed, '    ');
             $this->newLine();
-            $processCount++;
 
-            // Rate limiting between fetches
-            sleep(1);
+            $processCount++;
         }
 
         $this->info("Processed {$processCount} record(s).");
         return 0;
     }
 
-    private function printFetchResult(array $result, float $elapsed, string $indent = ''): void
+    /**
+     * End-to-end test: download + OCR a single PDF to verify the pipeline works.
+     */
+    private function handleTest(): int
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $this->info('PDF pipeline test — trying pdf_urls until one works...');
+        $this->newLine();
+
+        $records = $db->table('library')
+            ->whereNotNull('pdf_url')
+            ->where('pdf_url', '!=', '')
+            ->whereNull('pdf_url_status')
+            ->select(['book', 'title', 'pdf_url'])
+            ->orderBy('title')
+            ->get();
+
+        if ($records->isEmpty()) {
+            $this->warn('No library records have untried pdf_url.');
+            return 1;
+        }
+
+        $tried = 0;
+        $fetchService = app(ContentFetchService::class);
+
+        foreach ($records as $r) {
+            $tried++;
+            $title = $r->title ?: '(untitled)';
+            $this->line("  <fg=cyan>[{$tried}] {$title}</>");
+            $this->line("    Trying: {$r->pdf_url}");
+
+            try {
+                $response = Http::withHeaders([
+                    'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
+                ])->timeout(30)->get($r->pdf_url);
+
+                if (!$response->successful()) {
+                    $this->line("    <fg=yellow>HTTP {$response->status()} — skipping</>");
+                    $this->newLine();
+                    continue;
+                }
+
+                $body = $response->body();
+                $size = strlen($body);
+
+                if ($size < 1000) {
+                    $this->line("    <fg=yellow>Too small ({$size} bytes) — skipping</>");
+                    $this->newLine();
+                    continue;
+                }
+
+                if (substr($body, 0, 5) !== '%PDF-') {
+                    $this->line("    <fg=yellow>Not a PDF (bad magic bytes) — skipping</>");
+                    $this->newLine();
+                    continue;
+                }
+
+                $sizeFormatted = number_format($size);
+                $this->line("    Downloaded ({$sizeFormatted} bytes) — PDF validated");
+                $this->line("    Running full OCR pipeline...");
+                $this->newLine();
+
+                // Save validated PDF to disk, then process locally
+                $pdfDir = resource_path("markdown/{$r->book}");
+                if (!File::exists($pdfDir)) {
+                    File::makeDirectory($pdfDir, 0755, true);
+                }
+                $pdfPath = "{$pdfDir}/original.pdf";
+                File::put($pdfPath, $body);
+
+                $startTime = microtime(true);
+                $result = $fetchService->processLocalPdf($pdfPath, $r->book);
+                $elapsed = round(microtime(true) - $startTime, 1);
+
+                $this->printResult($result, $elapsed, '    ');
+                $this->newLine();
+
+                if ($result['status'] === 'imported') {
+                    $this->info("Test passed — pipeline working end-to-end.");
+                    $this->line("  Tried: {$tried} URL(s)");
+                    return 0;
+                }
+
+                $this->error("Pipeline failed on a valid PDF: {$result['reason']}");
+                $this->line("  Tried: {$tried} URL(s)");
+                return 1;
+
+            } catch (\Exception $e) {
+                $this->line("    <fg=yellow>{$e->getMessage()} — skipping</>");
+                $this->newLine();
+                continue;
+            }
+        }
+
+        $this->error("No working pdf_url found after trying {$tried} record(s).");
+        return 1;
+    }
+
+    private function printResult(array $result, float $elapsed, string $indent = ''): void
     {
         $statusColor = match ($result['status']) {
             'imported' => 'green',
-            'dry_run'  => 'magenta',
             'skipped'  => 'yellow',
             'failed'   => 'red',
             default    => 'white',

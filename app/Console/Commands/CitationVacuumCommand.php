@@ -48,6 +48,12 @@ class CitationVacuumCommand extends Command
             return 1;
         }
 
+        // For PDF-only records, skip if already fetched/failed
+        if (!$libraryRecord->oa_url && ($libraryRecord->pdf_url_status ?? null)) {
+            $this->warn("Already processed (pdf_url_status: {$libraryRecord->pdf_url_status}). Skipping.");
+            return 0;
+        }
+
         $urlType = $libraryRecord->oa_url ? 'OA' : 'PDF';
         $this->line("{$urlType} URL: {$url}");
         $mode = $dryRun ? 'DRY-RUN' : 'FETCH';
@@ -82,12 +88,13 @@ class CitationVacuumCommand extends Command
         // Records with oa_url or pdf_url set
         $records = $db->table('library')
             ->where(function ($q) {
-                $q->whereNotNull('oa_url')->where('oa_url', '!=', '');
+                $q->where(function ($q2) {
+                    $q2->whereNotNull('oa_url')->where('oa_url', '!=', '');
+                })->orWhere(function ($q2) {
+                    $q2->whereNotNull('pdf_url')->where('pdf_url', '!=', '');
+                });
             })
-            ->orWhere(function ($q) {
-                $q->whereNotNull('pdf_url')->where('pdf_url', '!=', '');
-            })
-            ->select(['book', 'title', 'oa_url', 'pdf_url', 'has_nodes', 'is_oa', 'type'])
+            ->select(['book', 'title', 'oa_url', 'pdf_url', 'pdf_url_status', 'has_nodes', 'is_oa', 'type'])
             ->orderBy('title')
             ->get();
 
@@ -97,11 +104,15 @@ class CitationVacuumCommand extends Command
         }
 
         $hasContent = $records->filter(fn($r) => $r->has_nodes);
-        $needsContent = $records->filter(fn($r) => !$r->has_nodes);
+        $downloaded = $records->filter(fn($r) => ($r->pdf_url_status ?? null) === 'downloaded' && !$r->has_nodes);
+        $alreadyFailed = $records->filter(fn($r) => ($r->pdf_url_status ?? null) && ($r->pdf_url_status ?? null) !== 'downloaded' && ($r->pdf_url_status ?? null) !== 'imported');
+        $needsContent = $records->filter(fn($r) => !$r->has_nodes && !($r->pdf_url_status ?? null));
 
         $this->info("Total with URLs: {$records->count()}");
-        $this->line("  <fg=green>Already have content:</>  {$hasContent->count()}");
-        $this->line("  <fg=yellow>Fetchable (no content):</> {$needsContent->count()}");
+        $this->line("  <fg=green>Already have content:</>    {$hasContent->count()}");
+        $this->line("  <fg=blue>Downloaded (awaiting OCR):</> {$downloaded->count()}");
+        $this->line("  <fg=red>Previously failed:</>        {$alreadyFailed->count()}");
+        $this->line("  <fg=yellow>Fetchable (untried):</>     {$needsContent->count()}");
         $this->newLine();
 
         // If --dry-run or --limit is set, fetch from survey results
@@ -192,11 +203,12 @@ class CitationVacuumCommand extends Command
     private function printFetchResult(array $result, object $libraryRecord, string $indent = ''): void
     {
         $statusColor = match ($result['status']) {
-            'imported' => 'green',
-            'dry_run'  => 'magenta',
-            'skipped'  => 'yellow',
-            'failed'   => 'red',
-            default    => 'white',
+            'imported'    => 'green',
+            'downloaded'  => 'blue',
+            'dry_run'     => 'magenta',
+            'skipped'     => 'yellow',
+            'failed'      => 'red',
+            default       => 'white',
         };
 
         $this->line("{$indent}<fg={$statusColor}>Status: {$result['status']}</>");

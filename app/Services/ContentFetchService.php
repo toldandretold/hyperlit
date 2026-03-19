@@ -2,9 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\PgNodeChunk;
-use App\Models\PgFootnote;
-use App\Models\PgLibrary;
 use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
@@ -118,18 +115,78 @@ class ContentFetchService
             return $this->fetchHtml($oaUrl, $bookId);
         }
 
-        // Strategy 2: PDF (not yet implemented)
+        // Strategy 2: PDF download (OCR handled separately by citation:ocr)
         if ($pdfUrl) {
-            return [
-                'status' => 'skipped',
-                'reason' => 'PDF fetch not yet implemented',
-            ];
+            return $this->downloadPdf($pdfUrl, $bookId);
         }
 
         return [
             'status' => 'skipped',
             'reason' => 'No fetchable URL (no oa_url or pdf_url)',
         ];
+    }
+
+    /**
+     * Download a PDF and save to disk (no OCR). Sets pdf_url_status accordingly.
+     */
+    private function downloadPdf(string $pdfUrl, string $bookId): array
+    {
+        $path = resource_path("markdown/{$bookId}");
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
+            ])->timeout(60)->get($pdfUrl);
+
+            if (!$response->successful()) {
+                $reason = "HTTP {$response->status()} fetching {$pdfUrl}";
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            $body = $response->body();
+            if (strlen($body) < 1000) {
+                $reason = 'Fetched PDF too small (' . strlen($body) . ' bytes)';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            // Validate magic bytes
+            if (substr($body, 0, 5) !== '%PDF-') {
+                $reason = 'Not a PDF (bad magic bytes)';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+            }
+
+            $pdfPath = "{$path}/original.pdf";
+            File::put($pdfPath, $body);
+
+            $this->setPdfUrlStatus($bookId, 'downloaded');
+
+            $sizeFormatted = number_format(strlen($body));
+            return [
+                'status' => 'downloaded',
+                'reason' => "PDF saved ({$sizeFormatted} bytes) — ready for OCR",
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('ContentFetchService::downloadPdf failed', [
+                'book' => $bookId,
+                'url' => $pdfUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->setPdfUrlStatus($bookId, $e->getMessage());
+
+            return [
+                'status' => 'failed',
+                'reason' => $e->getMessage(),
+            ];
+        }
     }
 
     private function fetchHtml(string $url, string $bookId): array
@@ -238,18 +295,16 @@ class ContentFetchService
             ])->timeout(60)->get($pdfUrl);
 
             if (!$response->successful()) {
-                return [
-                    'status' => 'failed',
-                    'reason' => "HTTP {$response->status()} fetching {$pdfUrl}",
-                ];
+                $reason = "HTTP {$response->status()} fetching {$pdfUrl}";
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
             }
 
             $body = $response->body();
             if (strlen($body) < 1000) {
-                return [
-                    'status' => 'failed',
-                    'reason' => 'Fetched PDF too small (' . strlen($body) . ' bytes)',
-                ];
+                $reason = 'Fetched PDF too small (' . strlen($body) . ' bytes)';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
             }
 
             // 2. Save PDF to resources/markdown/{bookId}/original.pdf
@@ -260,52 +315,8 @@ class ContentFetchService
             $pdfPath = "{$path}/original.pdf";
             File::put($pdfPath, $body);
 
-            // 3. Clean stale output files
-            foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html', 'main-text.md'] as $staleFile) {
-                $staleFilePath = "{$path}/{$staleFile}";
-                if (File::exists($staleFilePath)) {
-                    File::delete($staleFilePath);
-                }
-            }
-
-            // 4. Process via PdfProcessor (OCR → markdown → nodes.json)
-            $this->pdfProcessor->process($pdfPath, $path, $bookId);
-
-            // 5. Wait for nodes.json (OCR is slower, allow up to 60s)
-            $nodesPath = "{$path}/nodes.json";
-            $attempts = 0;
-            while (!File::exists($nodesPath) && $attempts < 30) {
-                sleep(2);
-                $attempts++;
-            }
-
-            if (!File::exists($nodesPath)) {
-                return [
-                    'status' => 'failed',
-                    'reason' => 'Timed out waiting for nodes.json after PdfProcessor',
-                ];
-            }
-
-            // 6. Save nodes to DB
-            $this->saveNodeChunksToDatabase($path, $bookId);
-
-            // 7. Save footnotes to DB
-            $this->saveFootnotesToDatabase($path, $bookId);
-
-            // 8. Update library.has_nodes = true
-            DB::connection('pgsql_admin')->table('library')
-                ->where('book', $bookId)
-                ->update(['has_nodes' => true, 'updated_at' => now()]);
-
-            // Count nodes for reporting
-            $nodesData = json_decode(File::get($nodesPath), true);
-            $nodeCount = is_array($nodesData) ? count($nodesData) : 0;
-
-            return [
-                'status' => 'imported',
-                'reason' => 'PDF fetched, OCR processed, and imported successfully',
-                'node_count' => $nodeCount,
-            ];
+            // 3. Process the local file
+            return $this->processLocalPdf($pdfPath, $bookId);
 
         } catch (\Exception $e) {
             Log::error('ContentFetchService::fetchPdf failed', [
@@ -314,10 +325,105 @@ class ContentFetchService
                 'error' => $e->getMessage(),
             ]);
 
+            $this->setPdfUrlStatus($bookId, $e->getMessage());
+
             return [
                 'status' => 'failed',
                 'reason' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Process an already-downloaded PDF through the OCR → markdown → nodes pipeline.
+     * The PDF must already exist on disk at $pdfPath.
+     *
+     * @return array{status: string, reason: string, node_count?: int}
+     */
+    public function processLocalPdf(string $pdfPath, string $bookId): array
+    {
+        $path = dirname($pdfPath);
+
+        try {
+            // 1. Clean stale output files
+            foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html', 'main-text.md'] as $staleFile) {
+                $staleFilePath = "{$path}/{$staleFile}";
+                if (File::exists($staleFilePath)) {
+                    File::delete($staleFilePath);
+                }
+            }
+
+            // 2. Process via PdfProcessor (OCR → markdown → nodes.json)
+            $this->pdfProcessor->process($pdfPath, $path, $bookId);
+
+            // 3. Wait for nodes.json (OCR is slower, allow up to 60s)
+            $nodesPath = "{$path}/nodes.json";
+            $attempts = 0;
+            while (!File::exists($nodesPath) && $attempts < 30) {
+                sleep(2);
+                $attempts++;
+            }
+
+            if (!File::exists($nodesPath)) {
+                $reason = 'Timed out waiting for nodes.json after PdfProcessor';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            // 4. Save nodes to DB
+            $this->saveNodeChunksToDatabase($path, $bookId);
+
+            // 5. Save footnotes to DB
+            $this->saveFootnotesToDatabase($path, $bookId);
+
+            // 6. Update library record: has_nodes + pdf_url_status
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)
+                ->update([
+                    'has_nodes' => true,
+                    'pdf_url_status' => 'imported',
+                    'updated_at' => now(),
+                ]);
+
+            // Count nodes for reporting
+            $nodesData = json_decode(File::get($nodesPath), true);
+            $nodeCount = is_array($nodesData) ? count($nodesData) : 0;
+
+            return [
+                'status' => 'imported',
+                'reason' => 'PDF OCR processed and imported successfully',
+                'node_count' => $nodeCount,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('ContentFetchService::processLocalPdf failed', [
+                'book' => $bookId,
+                'path' => $pdfPath,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Truncate for storage and display — full error is in the log
+            $shortReason = Str::limit($e->getMessage(), 200);
+            $this->setPdfUrlStatus($bookId, $shortReason);
+
+            return [
+                'status' => 'failed',
+                'reason' => $shortReason,
+            ];
+        }
+    }
+
+    /**
+     * Record the outcome of a pdf_url fetch attempt on the library record.
+     */
+    private function setPdfUrlStatus(string $bookId, string $status): void
+    {
+        try {
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)
+                ->update(['pdf_url_status' => $status, 'updated_at' => now()]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to set pdf_url_status', ['book' => $bookId, 'error' => $e->getMessage()]);
         }
     }
 
@@ -335,8 +441,10 @@ class ContentFetchService
 
         $nodesData = json_decode(File::get($nodesPath), true);
 
+        $db = DB::connection('pgsql_admin');
+
         // Delete existing chunks
-        PgNodeChunk::where('book', $bookId)->delete();
+        $db->table('nodes')->where('book', $bookId)->delete();
 
         $insertData = [];
         $now = now();
@@ -372,7 +480,7 @@ class ContentFetchService
 
         $batchSize = 500;
         foreach (array_chunk($insertData, $batchSize) as $batch) {
-            PgNodeChunk::insert($batch);
+            $db->table('nodes')->insert($batch);
         }
 
         // Write renumbered JSON back
@@ -401,7 +509,9 @@ class ContentFetchService
             return;
         }
 
-        $library = PgLibrary::where('book', $bookId)->first();
+        $db = DB::connection('pgsql_admin');
+
+        $library = $db->table('library')->where('book', $bookId)->first();
         if (!$library) {
             Log::warning('Cannot save footnotes: parent library not found', ['book' => $bookId]);
             return;
@@ -432,12 +542,14 @@ class ContentFetchService
                 'hypercites'  => [],
             ]];
 
-            $existing = PgFootnote::where('book', $bookId)
+            $existing = $db->table('footnotes')
+                ->where('book', $bookId)
                 ->where('footnoteId', $footnoteId)
                 ->first();
 
             if ($existing) {
-                PgFootnote::where('book', $bookId)
+                $db->table('footnotes')
+                    ->where('book', $bookId)
                     ->where('footnoteId', $footnoteId)
                     ->update([
                         'content'       => $content,
@@ -445,16 +557,18 @@ class ContentFetchService
                         'preview_nodes' => json_encode($previewNodes),
                     ]);
             } else {
-                PgFootnote::create([
+                $db->table('footnotes')->insert([
                     'book'          => $bookId,
                     'footnoteId'    => $footnoteId,
                     'content'       => $content,
                     'sub_book_id'   => $subBookId,
-                    'preview_nodes' => $previewNodes,
+                    'preview_nodes' => json_encode($previewNodes),
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
                 ]);
             }
 
-            PgLibrary::updateOrInsert(
+            $db->table('library')->updateOrInsert(
                 ['book' => $subBookId],
                 [
                     'creator'       => $library->creator,
@@ -471,7 +585,7 @@ class ContentFetchService
                 ]
             );
 
-            PgNodeChunk::updateOrCreate(
+            $db->table('nodes')->updateOrInsert(
                 ['book' => $subBookId, 'node_id' => $uuid],
                 [
                     'chunk_id'   => 0,
@@ -479,6 +593,8 @@ class ContentFetchService
                     'content'    => $nodeHtml,
                     'plainText'  => $plainText,
                     'raw_json'   => json_encode([]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]
             );
 
