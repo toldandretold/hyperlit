@@ -41,4 +41,8 @@ return [
         'model'    => env('LLM_MODEL', 'accounts/fireworks/models/qwen3-8b'),
     ],
 
+    'mistral_ocr' => [
+        'api_key' => env('MISTRAL_OCR_API_KEY'),
+    ],
+
 ];

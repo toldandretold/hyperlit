@@ -18,6 +18,7 @@ use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\EpubProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
+use App\Services\DocumentImport\Processors\PdfProcessor;
 
 class ImportController extends Controller
 {
@@ -28,7 +29,8 @@ class ImportController extends Controller
         private HtmlProcessor $htmlProcessor,
         private EpubProcessor $epubProcessor,
         private ZipProcessor $zipProcessor,
-        private DocxProcessor $docxProcessor
+        private DocxProcessor $docxProcessor,
+        private PdfProcessor $pdfProcessor
     ) {}
 
     public function createMainTextMarkdown(Request $request)
@@ -89,10 +91,10 @@ class ImportController extends Controller
                     }
 
                     $extension = strtolower($value->getClientOriginalExtension());
-                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
 
                     if (!in_array($extension, $allowedExtensions)) {
-                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, or image file.');
+                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, .pdf, or image file.');
                         return;
                     }
 
@@ -339,6 +341,10 @@ class ImportController extends Controller
 
             case 'zip':
                 $this->zipProcessor->process($filePath, $outputPath, $bookId);
+                return true;
+
+            case 'pdf':
+                $this->pdfProcessor->process($filePath, $outputPath, $bookId);
                 return true;
 
             case 'doc':

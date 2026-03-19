@@ -8,6 +8,7 @@ use App\Models\PgLibrary;
 use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
+use App\Services\DocumentImport\Processors\PdfProcessor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -18,11 +19,13 @@ class ContentFetchService
 {
     private FileHelpers $fileHelpers;
     private HtmlProcessor $htmlProcessor;
+    private PdfProcessor $pdfProcessor;
 
-    public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor)
+    public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor)
     {
         $this->fileHelpers = $fileHelpers;
         $this->htmlProcessor = $htmlProcessor;
+        $this->pdfProcessor = $pdfProcessor;
     }
 
     /**
@@ -208,6 +211,106 @@ class ContentFetchService
             Log::error('ContentFetchService::fetchHtml failed', [
                 'book' => $bookId,
                 'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'status' => 'failed',
+                'reason' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Download a PDF and run it through the OCR → markdown → nodes pipeline.
+     * Called explicitly by citation:ocr command (not by fetch()).
+     *
+     * @return array{status: string, reason: string, node_count?: int}
+     */
+    public function fetchPdf(string $pdfUrl, string $bookId): array
+    {
+        $path = resource_path("markdown/{$bookId}");
+
+        try {
+            // 1. Download PDF
+            $response = Http::withHeaders([
+                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
+            ])->timeout(60)->get($pdfUrl);
+
+            if (!$response->successful()) {
+                return [
+                    'status' => 'failed',
+                    'reason' => "HTTP {$response->status()} fetching {$pdfUrl}",
+                ];
+            }
+
+            $body = $response->body();
+            if (strlen($body) < 1000) {
+                return [
+                    'status' => 'failed',
+                    'reason' => 'Fetched PDF too small (' . strlen($body) . ' bytes)',
+                ];
+            }
+
+            // 2. Save PDF to resources/markdown/{bookId}/original.pdf
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+            }
+
+            $pdfPath = "{$path}/original.pdf";
+            File::put($pdfPath, $body);
+
+            // 3. Clean stale output files
+            foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html', 'main-text.md'] as $staleFile) {
+                $staleFilePath = "{$path}/{$staleFile}";
+                if (File::exists($staleFilePath)) {
+                    File::delete($staleFilePath);
+                }
+            }
+
+            // 4. Process via PdfProcessor (OCR → markdown → nodes.json)
+            $this->pdfProcessor->process($pdfPath, $path, $bookId);
+
+            // 5. Wait for nodes.json (OCR is slower, allow up to 60s)
+            $nodesPath = "{$path}/nodes.json";
+            $attempts = 0;
+            while (!File::exists($nodesPath) && $attempts < 30) {
+                sleep(2);
+                $attempts++;
+            }
+
+            if (!File::exists($nodesPath)) {
+                return [
+                    'status' => 'failed',
+                    'reason' => 'Timed out waiting for nodes.json after PdfProcessor',
+                ];
+            }
+
+            // 6. Save nodes to DB
+            $this->saveNodeChunksToDatabase($path, $bookId);
+
+            // 7. Save footnotes to DB
+            $this->saveFootnotesToDatabase($path, $bookId);
+
+            // 8. Update library.has_nodes = true
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)
+                ->update(['has_nodes' => true, 'updated_at' => now()]);
+
+            // Count nodes for reporting
+            $nodesData = json_decode(File::get($nodesPath), true);
+            $nodeCount = is_array($nodesData) ? count($nodesData) : 0;
+
+            return [
+                'status' => 'imported',
+                'reason' => 'PDF fetched, OCR processed, and imported successfully',
+                'node_count' => $nodeCount,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('ContentFetchService::fetchPdf failed', [
+                'book' => $bookId,
+                'url' => $pdfUrl,
                 'error' => $e->getMessage(),
             ]);
 

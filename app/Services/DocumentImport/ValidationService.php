@@ -30,7 +30,8 @@ class ValidationService
             'application/epub+zip',
             'text/html',
             'application/zip',
-            'application/x-zip-compressed'
+            'application/x-zip-compressed',
+            'application/pdf'
         ];
 
         if (!in_array($file->getMimeType(), $allowedMimes)) {
@@ -56,6 +57,8 @@ class ValidationService
                 return $this->validateHtmlFile($file);
             case 'zip':
                 return $this->validateZipFile($file);
+            case 'pdf':
+                return $this->validatePdfUpload($file);
         }
 
         return true;
@@ -299,6 +302,51 @@ class ValidationService
         }
 
         return true;
+    }
+
+    /**
+     * Validate a PDF file from a file path (used by PdfProcessor before OCR)
+     */
+    public function validatePdfFile(string $filePath): bool
+    {
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            Log::warning('PDF file not readable', ['path' => basename($filePath)]);
+            return false;
+        }
+
+        // 50MB max
+        $fileSize = filesize($filePath);
+        if ($fileSize > 50 * 1024 * 1024) {
+            Log::warning('PDF file too large', ['path' => basename($filePath), 'size' => $fileSize]);
+            return false;
+        }
+
+        // Check magic bytes: PDF spec requires first 5 bytes to be %PDF-
+        $handle = fopen($filePath, 'rb');
+        $header = fread($handle, 5);
+        fclose($handle);
+
+        if ($header !== '%PDF-') {
+            Log::warning('PDF magic bytes check failed', ['path' => basename($filePath)]);
+            return false;
+        }
+
+        // MIME type check
+        $mimeType = mime_content_type($filePath);
+        if ($mimeType !== 'application/pdf') {
+            Log::warning('PDF MIME type check failed', ['path' => basename($filePath), 'mime' => $mimeType]);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate a PDF file from an upload (used by web upload path)
+     */
+    public function validatePdfUpload(UploadedFile $file): bool
+    {
+        return $this->validatePdfFile($file->getPathname());
     }
 
     /**
