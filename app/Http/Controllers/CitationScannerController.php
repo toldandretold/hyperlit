@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Jobs\CitationScanJob;
+use App\Jobs\CitationScanBibliographyJob;
 
 class CitationScannerController extends Controller
 {
@@ -61,7 +61,7 @@ class CitationScannerController extends Controller
         ]);
 
         // Dispatch the job
-        CitationScanJob::dispatch($scanId, $bookId);
+        CitationScanBibliographyJob::dispatch($scanId, $bookId);
 
         return response()->json([
             'success'       => true,

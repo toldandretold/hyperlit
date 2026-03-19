@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'llm' => [
+        'base_url' => env('LLM_BASE_URL', 'https://api.fireworks.ai/inference/v1'),
+        'api_key'  => env('LLM_API_KEY'),
+        'model'    => env('LLM_MODEL', 'accounts/fireworks/models/qwen3-8b'),
+    ],
+
 ];

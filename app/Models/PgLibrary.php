@@ -60,6 +60,7 @@ class PgLibrary extends Model
         'cited_by_count',
         'language',
         'foundation_source',
+        'abstract',
     ];
 
     protected $casts = [
