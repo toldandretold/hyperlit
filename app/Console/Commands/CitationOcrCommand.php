@@ -187,7 +187,7 @@ class CitationOcrCommand extends Command
             ->whereNotNull('pdf_url')
             ->where('pdf_url', '!=', '')
             ->whereNull('pdf_url_status')
-            ->select(['book', 'title', 'pdf_url'])
+            ->select(['book', 'title', 'pdf_url', 'doi'])
             ->orderBy('title')
             ->get();
 
@@ -206,12 +206,43 @@ class CitationOcrCommand extends Command
             $this->line("    Trying: {$r->pdf_url}");
 
             try {
-                $response = Http::withHeaders([
-                    'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-                ])->timeout(30)->get($r->pdf_url);
+                // DOI-first: resolve DOI to get a legitimate Referer
+                $referer = null;
+                $doi = $r->doi ?? null;
+                if ($doi) {
+                    $doiUrl = 'https://doi.org/' . $doi;
+                    $this->line("    Resolving DOI: {$doiUrl}");
+                    $doiResponse = Http::withHeaders(ContentFetchService::browserHeaders())
+                        ->withOptions(['allow_redirects' => ['max' => 5, 'track_redirects' => true]])
+                        ->timeout(15)
+                        ->get($doiUrl);
+
+                    if ($doiResponse->successful()) {
+                        $redirectHistory = $doiResponse->header('X-Guzzle-Redirect-History');
+                        $referer = $redirectHistory ? last(explode(', ', $redirectHistory)) : $doiUrl;
+                        $this->line("    Referer: {$referer}");
+                    }
+                }
+
+                // Download with browser-like headers
+                $headers = ContentFetchService::browserHeaders();
+                $headers['Accept'] = 'application/pdf, */*';
+                if ($referer) {
+                    $headers['Referer'] = $referer;
+                }
+
+                $response = Http::withHeaders($headers)->timeout(60)->get($r->pdf_url);
 
                 if (!$response->successful()) {
                     $this->line("    <fg=yellow>HTTP {$response->status()} — skipping</>");
+                    $this->newLine();
+                    continue;
+                }
+
+                // Content-Type check — reject HTML/text responses early
+                $contentType = $response->header('Content-Type') ?? '';
+                if ($contentType && !str_contains($contentType, 'pdf') && !str_contains($contentType, 'octet-stream')) {
+                    $this->line("    <fg=yellow>Not a PDF response (Content-Type: {$contentType}) — skipping</>");
                     $this->newLine();
                     continue;
                 }

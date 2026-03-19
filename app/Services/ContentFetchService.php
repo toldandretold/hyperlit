@@ -117,7 +117,8 @@ class ContentFetchService
 
         // Strategy 2: PDF download (OCR handled separately by citation:ocr)
         if ($pdfUrl) {
-            return $this->downloadPdf($pdfUrl, $bookId);
+            $doi = $libraryRecord->doi ?? null;
+            return $this->downloadPdf($pdfUrl, $bookId, $doi);
         }
 
         return [
@@ -128,18 +129,49 @@ class ContentFetchService
 
     /**
      * Download a PDF and save to disk (no OCR). Sets pdf_url_status accordingly.
+     * Uses browser-like headers and DOI-first referer to avoid publisher blocks.
      */
-    private function downloadPdf(string $pdfUrl, string $bookId): array
+    private function downloadPdf(string $pdfUrl, string $bookId, ?string $doi = null): array
     {
         $path = resource_path("markdown/{$bookId}");
 
         try {
-            $response = Http::withHeaders([
-                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-            ])->timeout(60)->get($pdfUrl);
+            // Step 1: If we have a DOI, resolve it first to get the landing page URL.
+            // This gives us a legitimate Referer and warms any session/cookie requirements.
+            $referer = null;
+            if ($doi) {
+                $doiUrl = 'https://doi.org/' . $doi;
+                $doiResponse = Http::withHeaders(self::browserHeaders())
+                    ->withOptions(['allow_redirects' => ['max' => 5, 'track_redirects' => true]])
+                    ->timeout(15)
+                    ->get($doiUrl);
+
+                if ($doiResponse->successful()) {
+                    // Use the final redirected URL as referer (the article landing page)
+                    $redirectHistory = $doiResponse->header('X-Guzzle-Redirect-History');
+                    $referer = $redirectHistory ? last(explode(', ', $redirectHistory)) : $doiUrl;
+                }
+            }
+
+            // Step 2: Download the PDF with browser-like headers
+            $headers = self::browserHeaders();
+            $headers['Accept'] = 'application/pdf, */*';
+            if ($referer) {
+                $headers['Referer'] = $referer;
+            }
+
+            $response = Http::withHeaders($headers)->timeout(60)->get($pdfUrl);
 
             if (!$response->successful()) {
                 $reason = "HTTP {$response->status()} fetching {$pdfUrl}";
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            // Step 3: Content-Type check — reject HTML/text responses early
+            $contentType = $response->header('Content-Type') ?? '';
+            if ($contentType && !str_contains($contentType, 'pdf') && !str_contains($contentType, 'octet-stream')) {
+                $reason = "Not a PDF response (Content-Type: {$contentType})";
                 $this->setPdfUrlStatus($bookId, $reason);
                 return ['status' => 'failed', 'reason' => $reason];
             }
@@ -151,7 +183,7 @@ class ContentFetchService
                 return ['status' => 'failed', 'reason' => $reason];
             }
 
-            // Validate magic bytes
+            // Step 4: Magic bytes check
             if (substr($body, 0, 5) !== '%PDF-') {
                 $reason = 'Not a PDF (bad magic bytes)';
                 $this->setPdfUrlStatus($bookId, $reason);
@@ -180,13 +212,30 @@ class ContentFetchService
                 'error' => $e->getMessage(),
             ]);
 
-            $this->setPdfUrlStatus($bookId, $e->getMessage());
+            $this->setPdfUrlStatus($bookId, Str::limit($e->getMessage(), 200));
 
             return [
                 'status' => 'failed',
-                'reason' => $e->getMessage(),
+                'reason' => Str::limit($e->getMessage(), 200),
             ];
         }
+    }
+
+    /**
+     * Browser-like HTTP headers to avoid publisher bot-detection.
+     */
+    public static function browserHeaders(): array
+    {
+        return [
+            'User-Agent'      => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language'  => 'en-US,en;q=0.9',
+            'Accept-Encoding' => 'gzip, deflate',
+            'Connection'      => 'keep-alive',
+            'Sec-Fetch-Dest'  => 'document',
+            'Sec-Fetch-Mode'  => 'navigate',
+            'Sec-Fetch-Site'  => 'cross-site',
+        ];
     }
 
     private function fetchHtml(string $url, string $bookId): array
