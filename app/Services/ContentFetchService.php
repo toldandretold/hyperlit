@@ -376,13 +376,14 @@ class ContentFetchService
             // 5. Save footnotes to DB
             $this->saveFootnotesToDatabase($path, $bookId);
 
-            // 6. Update library record: has_nodes + pdf_url_status
+            // 6. Update library record (don't touch creator — it's an auth field)
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookId)
                 ->update([
-                    'has_nodes' => true,
+                    'has_nodes'      => true,
+                    'listed'         => false,
                     'pdf_url_status' => 'imported',
-                    'updated_at' => now(),
+                    'updated_at'     => now(),
                 ]);
 
             // Count nodes for reporting
