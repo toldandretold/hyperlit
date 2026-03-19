@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\OpenAlexController;
+use App\Services\OpenAlexService;
 
 class SearchController extends Controller
 {
@@ -97,11 +97,11 @@ class SearchController extends Controller
             $openAlexFull = false;
             if (count($libraryResults) < 10) {
                 $openAlexLimit = max(10 - count($libraryResults), 5);
-                $openAlexController = new OpenAlexController();
+                $openAlexService = app(OpenAlexService::class);
 
                 // Fetch title-based and author-based results in parallel
-                $titleCandidates = $openAlexController->fetchFromOpenAlex($query, $openAlexLimit, $openAlexPage);
-                $authorCandidates = $openAlexController->fetchFromOpenAlexByAuthor($query, $openAlexLimit);
+                $titleCandidates = $openAlexService->fetchFromOpenAlex($query, $openAlexLimit, $openAlexPage);
+                $authorCandidates = $openAlexService->fetchFromOpenAlexByAuthor($query, $openAlexLimit);
 
                 // Merge: author results first, dedup by openalex_id
                 $seenIds = [];
@@ -135,7 +135,7 @@ class SearchController extends Controller
 
                 // Upsert deduplicated results as library stubs so they're immediately insertable
                 if (!empty($deduplicated)) {
-                    $openAlexResults = $openAlexController->upsertLibraryStubs(
+                    $openAlexResults = $openAlexService->upsertLibraryStubs(
                         $deduplicated
                     );
                 }
