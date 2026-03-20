@@ -13,4 +13,5 @@ export {
 export {
   clearDatabase,
   deleteBookFromIndexedDB,
+  clearBookContentFromIndexedDB,
 } from './cleanup.js';

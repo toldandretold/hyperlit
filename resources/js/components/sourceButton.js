@@ -241,6 +241,32 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
     </div>` : ''}
 
+    ${await (async () => {
+      if (!canEdit || accessDenied) return '';
+      try {
+        const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert-info`, { credentials: 'include' });
+        if (!resp.ok) return '';
+        const info = await resp.json();
+        if (!info.canReconvert) return '';
+        const label = info.hasOcrCache ? 'Reconvert from OCR cache' : 'Reconvert from source';
+        return `
+          <div id="reconvert-section" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+            <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <polyline points="23 20 23 14 17 14"></polyline>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+              </svg>
+              ${label}
+            </button>
+            <p style="font-size: 11px; color: #666; margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>
+          </div>`;
+      } catch (e) {
+        console.warn('Could not check reconvert availability:', e);
+        return '';
+      }
+    })()}
+
     </div>
 
     ${privacyToggleHtml}
@@ -401,6 +427,13 @@ export class SourceContainerManager extends ContainerManager {
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
 
+    const reconvertBtn = this.container.querySelector("#reconvert-btn");
+    if (reconvertBtn) reconvertBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleReconvert();
+    });
+
     this.loadVersionHistory();
   }
 
@@ -555,6 +588,42 @@ export class SourceContainerManager extends ContainerManager {
     } catch (error) {
       console.error("Error updating privacy status:", error);
       alert("Error updating privacy status: " + error.message);
+    }
+  }
+
+  async handleReconvert() {
+    if (!confirm(
+      'This will re-process the book from its source files.\n\n' +
+      'All existing content (nodes, footnotes, references) will be replaced.\n' +
+      'You can use Version History to go back if needed.\n\nContinue?'
+    )) return;
+
+    const btn = this.container.querySelector("#reconvert-btn");
+    if (btn) { btn.disabled = true; btn.textContent = 'Reconverting...'; }
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        credentials: 'include',
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `Failed: ${resp.status}`);
+      }
+
+      // Clear IndexedDB content (keeps library record)
+      const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
+      await clearBookContentFromIndexedDB(book);
+
+      // Reload page to show reconverted content
+      window.location.reload();
+    } catch (error) {
+      console.error('Reconvert failed:', error);
+      alert('Reconversion failed: ' + error.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
     }
   }
 

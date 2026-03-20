@@ -19,6 +19,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NodeHistoryController;
 use App\Http\Controllers\OpenAlexController;
 use App\Http\Controllers\CitationScannerController;
+use App\Http\Controllers\ImportController;
 
 
 
@@ -170,6 +171,9 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         );
 
     Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth:sanctum');
+
+    Route::get('/books/{book}/reconvert-info', [ImportController::class, 'reconvertInfo']);
+    Route::post('/books/{book}/reconvert', [ImportController::class, 'reconvert']);
 
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',

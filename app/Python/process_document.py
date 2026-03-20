@@ -824,6 +824,7 @@ def main(html_file_path, output_dir, book_id):
     print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
 
     seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
+    used_ids = set()      # all entry_ids actually assigned (including suffixed)
 
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
@@ -835,13 +836,25 @@ def main(html_file_path, output_dir, book_id):
         base_entry_id = keys[0]
 
         if base_entry_id not in seen_references:
-            # First time seeing this key — add normally
-            seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
-            entry_id = base_entry_id
+            # First time seeing this base key
+            if base_entry_id not in used_ids:
+                # ID is free — add normally
+                seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
+                entry_id = base_entry_id
+            else:
+                # ID was already taken by a collision suffix from a different base key
+                # Treat this as a new base that needs an immediate suffix
+                seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
+                suffix_num = 1
+                while base_entry_id + chr(ord('a') + suffix_num) in used_ids:
+                    suffix_num += 1
+                entry_id = base_entry_id + chr(ord('a') + suffix_num)
+                seen_references[base_entry_id]["suffix_count"] = suffix_num
+                print(f"  🔀 ID '{base_entry_id}' already taken by suffix — using {entry_id}")
         else:
             prev = seen_references[base_entry_id]
-            # Compare content (first 120 chars, normalized) to detect true dupes vs collisions
-            normalize = lambda t: re.sub(r'\s+', ' ', t[:120].lower().strip())
+            # Compare content (first 60 alphanum chars, normalized) to detect true dupes vs collisions
+            normalize = lambda t: re.sub(r'[^a-z0-9]', '', t.lower())[:60]
             if normalize(prev["text"]) == normalize(text):
                 # True duplicate — skip DOM/data, but still add keys
                 for key in keys:
@@ -853,26 +866,43 @@ def main(html_file_path, output_dir, book_id):
                 # Retroactively suffix the first entry if this is the first collision
                 if prev["suffix_count"] == 0:
                     old_id = base_entry_id
-                    new_first_id = base_entry_id + "a"
+                    # Find a free suffix for the first entry
+                    first_suffix = 0  # 'a'
+                    while base_entry_id + chr(ord('a') + first_suffix) in used_ids:
+                        first_suffix += 1
+                    new_first_id = base_entry_id + chr(ord('a') + first_suffix)
                     # Update the first entry's anchor and references_data
                     first_anchor = soup.find("a", {"id": old_id, "class": "bib-entry"})
                     if first_anchor:
                         first_anchor["id"] = new_first_id
+                        parent_p = first_anchor.find_parent('p')
+                    else:
+                        parent_p = None
                     for rd in references_data:
                         if rd["referenceId"] == old_id:
                             rd["referenceId"] = new_first_id
+                            if first_anchor and parent_p:
+                                rd["content"] = str(parent_p)
                             break
                     # Remap bibliography_map entries pointing to old_id
                     for k, v in list(bibliography_map.items()):
                         if v == old_id:
                             bibliography_map[k] = new_first_id
-                    seen_references[base_entry_id]["suffix_count"] = 1
+                    used_ids.discard(old_id)
+                    used_ids.add(new_first_id)
+                    seen_references[base_entry_id]["suffix_count"] = first_suffix
                     print(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
 
                 prev["suffix_count"] += 1
-                suffix = chr(ord('a') + prev["suffix_count"])  # b, c, d...
+                suffix = chr(ord('a') + prev["suffix_count"])
+                # Skip past any suffixes already taken
+                while base_entry_id + suffix in used_ids:
+                    prev["suffix_count"] += 1
+                    suffix = chr(ord('a') + prev["suffix_count"])
                 entry_id = base_entry_id + suffix
                 print(f"  🔀 Collision: assigned suffix → {entry_id}")
+
+        used_ids.add(entry_id)
 
         # Add keys to bibliography_map
         for key in keys:
