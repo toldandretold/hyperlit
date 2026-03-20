@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
@@ -172,6 +173,17 @@ class ImportController extends Controller
                     }
 
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
+                }
+
+                // PDF uploads require premium status
+                if ($extension === 'pdf' && Auth::user()?->status !== 'premium') {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'PDF import requires a premium account'
+                        ], 403);
+                    }
+                    return redirect()->back()->with('error', 'PDF import requires a premium account.');
                 }
 
                 $originalFilename = "original.{$extension}";

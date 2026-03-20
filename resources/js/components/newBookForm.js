@@ -1,7 +1,7 @@
 import { openDatabase } from '../indexedDB/index.js';
 import '../utilities/debugLog.js';
 import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
-import { getCurrentUser, getAnonymousToken } from "../utilities/auth.js";
+import { getCurrentUser, getAnonymousToken, getCurrentUserInfo } from "../utilities/auth.js";
 import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
@@ -184,14 +184,20 @@ function validateFileInput() {
         return true;
     }
     
-    // Handle single file upload  
+    // Handle single file upload
     const file = fileInput.files[0];
     const fileName = file.name.toLowerCase();
-    const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html'];
+    const isPremium = getCurrentUserInfo()?.status === 'premium';
+    const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', ...(isPremium ? ['.pdf'] : [])];
     const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
-    
+
     if (!isValidType) {
-        errorMsg.textContent = 'Please select a valid file (.md, .epub, .doc, .docx, .html)';
+        if (fileName.endsWith('.pdf') && !isPremium) {
+            errorMsg.textContent = 'PDF import requires a premium account';
+        } else {
+            const extList = validExtensions.join(', ');
+            errorMsg.textContent = `Please select a valid file (${extList})`;
+        }
         errorMsg.style.display = 'block';
         return false;
     }
@@ -833,14 +839,19 @@ function setupRealTimeValidation() {
             if (!fileInput.files || fileInput.files.length === 0) {
                 return { valid: false, message: 'Please select a file to upload' };
             }
-            
+
             const file = fileInput.files[0];
-            const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html'];
+            const isPremium = getCurrentUserInfo()?.status === 'premium';
+            const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', ...(isPremium ? ['.pdf'] : [])];
             const fileName = file.name.toLowerCase();
             const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
-            
+
             if (!isValidType) {
-                return { valid: false, message: 'Please select a .md, .epub, .doc, .docx, or .html file' };
+                if (fileName.endsWith('.pdf') && !isPremium) {
+                    return { valid: false, message: 'PDF import requires a premium account' };
+                }
+                const extList = validExtensions.join(', ');
+                return { valid: false, message: `Please select a valid file (${extList})` };
             }
             
             if (file.size > 50 * 1024 * 1024) { // 50MB

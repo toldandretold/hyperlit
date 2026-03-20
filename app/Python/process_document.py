@@ -804,8 +804,7 @@ def main(html_file_path, output_dir, book_id):
                     text_preview = next_sibling.get_text(" ", strip=True)[:80]
                     print(f"  ✓ Detected reference: {text_preview}...")
                 next_sibling = next_sibling.find_next_sibling()
-            if reference_p_tags:
-                break  # Found references, done
+            # Don't break — continue scanning for more reference sections (multi-chapter books)
 
     # FALLBACK: If no heading found, use reverse paragraph scan
     if not reference_p_tags:
@@ -824,20 +823,65 @@ def main(html_file_path, output_dir, book_id):
 
     print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
 
+    seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
+
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
         keys = generate_ref_keys(text)
-        if keys:
-            entry_id = keys[0]
-            # Create an anchor tag with the bib-entry class and reference ID
-            anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
-            # Insert the anchor at the beginning of the paragraph
-            p.insert(0, anchor_tag)
-            references_data.append({"referenceId": entry_id, "content": str(p)})
-            for key in keys: bibliography_map[key] = entry_id
-            print(f"  🔑 Generated keys for reference: {keys}")
-        else:
+        if not keys:
             print(f"  ⚠️ No keys generated for: {text[:60]}...")
+            continue
+
+        base_entry_id = keys[0]
+
+        if base_entry_id not in seen_references:
+            # First time seeing this key — add normally
+            seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
+            entry_id = base_entry_id
+        else:
+            prev = seen_references[base_entry_id]
+            # Compare content (first 120 chars, normalized) to detect true dupes vs collisions
+            normalize = lambda t: re.sub(r'\s+', ' ', t[:120].lower().strip())
+            if normalize(prev["text"]) == normalize(text):
+                # True duplicate — skip DOM/data, but still add keys
+                for key in keys:
+                    bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
+                print(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
+                continue
+            else:
+                # Collision — different paper, same author+year
+                # Retroactively suffix the first entry if this is the first collision
+                if prev["suffix_count"] == 0:
+                    old_id = base_entry_id
+                    new_first_id = base_entry_id + "a"
+                    # Update the first entry's anchor and references_data
+                    first_anchor = soup.find("a", {"id": old_id, "class": "bib-entry"})
+                    if first_anchor:
+                        first_anchor["id"] = new_first_id
+                    for rd in references_data:
+                        if rd["referenceId"] == old_id:
+                            rd["referenceId"] = new_first_id
+                            break
+                    # Remap bibliography_map entries pointing to old_id
+                    for k, v in list(bibliography_map.items()):
+                        if v == old_id:
+                            bibliography_map[k] = new_first_id
+                    seen_references[base_entry_id]["suffix_count"] = 1
+                    print(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
+
+                prev["suffix_count"] += 1
+                suffix = chr(ord('a') + prev["suffix_count"])  # b, c, d...
+                entry_id = base_entry_id + suffix
+                print(f"  🔀 Collision: assigned suffix → {entry_id}")
+
+        # Add keys to bibliography_map
+        for key in keys:
+            bibliography_map[key] = entry_id
+        # Add DOM anchor + references_data entry
+        anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
+        p.insert(0, anchor_tag)
+        references_data.append({"referenceId": entry_id, "content": str(p)})
+        print(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
 
     print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")

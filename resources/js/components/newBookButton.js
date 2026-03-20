@@ -1,7 +1,7 @@
 import { ContainerManager } from "../containerManager.js";
 import { openDatabase } from "../indexedDB/index.js";
 // Navigation imports moved to new system - see createBookHandler function
-import { ensureAuthInitialized } from "../utilities/auth.js";
+import { ensureAuthInitialized, getCurrentUserInfo } from "../utilities/auth.js";
 import { log, verbose } from "../utilities/logger.js";
 
 import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
@@ -247,6 +247,11 @@ export class NewBookContainerManager extends ContainerManager {
   // Detect mobile to conditionally enable folder upload (not supported on mobile)
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+  // Check if user is premium to allow PDF uploads
+  const userInfo = getCurrentUserInfo();
+  const isPremium = userInfo && userInfo.status === 'premium';
+  const pdfAccept = isPremium ? ',.pdf,application/pdf' : '';
+
   // The form HTML content:
   const formHTML = `
       <div class="scroller">
@@ -261,7 +266,7 @@ export class NewBookContainerManager extends ContainerManager {
         <!-- File Upload Section -->
         <div class="form-section">
           <label for="markdown_file" class="required">File <span class="required-indicator">*</span></label>
-          <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/*" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
+          <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/*${pdfAccept}" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
           <div class="field-hint">Upload a document file</div>
           <div id="file-validation" class="validation-message"></div>
         </div>
