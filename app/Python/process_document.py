@@ -114,7 +114,7 @@ def analyze_document_structure(soup):
         text = element.get_text().strip()
         
         # Check for footnote definitions
-        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
             footnote_definitions.append({
                 'element': element,
                 'index': i,
@@ -163,7 +163,7 @@ def analyze_document_structure(soup):
             for j in range(i + 1, min(i + 50, len(all_elements))):  # Look ahead 50 elements max
                 next_elem = all_elements[j]
                 next_text = next_elem.get_text().strip()
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', next_text):
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', next_text):
                     footnote_count += 1
                 elif next_elem.name == 'hr' and footnote_count > 0:
                     has_structured_sections = True
@@ -300,7 +300,7 @@ def detect_footnote_sections(soup):
                     break
                 element = all_elements[i]
                 text = element.get_text().strip()
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                     footnote_count += 1
             
             if footnote_count > 0:
@@ -347,7 +347,7 @@ def detect_footnote_sections(soup):
                 element = all_elements[i]
                 text = element.get_text().strip()
                 
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                     footnotes.append(element)
                     print(f"  Found footnote in section: {text[:50]}...")
             
@@ -368,7 +368,7 @@ def detect_footnote_sections(soup):
                             if j >= len(all_elements):
                                 break
                             elem_text = all_elements[j].get_text().strip()
-                            if not re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', elem_text):
+                            if not re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', elem_text):
                                 text_start_idx = j
                                 break
                 
@@ -406,7 +406,7 @@ def detect_footnote_sections(soup):
                 element = all_elements[i]
                 text = element.get_text().strip()
                 
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                     footnotes.append(element)
                     print(f"  Found footnote in notes section: {text[:50]}...")
             
@@ -460,7 +460,7 @@ def detect_footnote_sections(soup):
                     element = all_elements[j]
                     text = element.get_text().strip()
                     
-                    if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                    if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                         footnotes.append(element)
                         print(f"  Found footnote in HR section {i+1}: {text[:30]}...")
                 
@@ -483,7 +483,7 @@ def detect_footnote_sections(soup):
             footnotes = []
             for element in all_elements:
                 text = element.get_text().strip()
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                     footnotes.append(element)
             
             if footnotes:
@@ -577,7 +577,7 @@ def process_whole_document_footnotes(soup, book_id):
     for i, element in enumerate(all_elements):
         text = element.get_text().strip()
         # Check if this element starts a footnote definition
-        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
             footnote_starts.append(i)
 
     # Second pass: process each footnote with its continuation elements
@@ -674,7 +674,7 @@ def process_sequential_footnotes(soup, book_id):
             if element.name == 'a':
                 continue  # Skip anchor markers
             text = element.get_text().strip()
-            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                 footnote_starts.append(i)
 
         for j, start_idx in enumerate(footnote_starts):
@@ -1117,7 +1117,7 @@ def main(html_file_path, output_dir, book_id):
         footnote_starts = []
         for i, element in enumerate(section_elements):
             text = element.get_text().strip()
-            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
                 footnote_starts.append(i)
 
         # Process each footnote with its continuation elements

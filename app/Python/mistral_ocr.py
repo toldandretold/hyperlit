@@ -190,6 +190,9 @@ def assemble_markdown(response_dict):
 
     combined = "\n\n".join(md_parts)
     combined = convert_footnotes(combined)
+    # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
+    # Only at start of line (definitions), not inline references
+    combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', combined, flags=re.MULTILINE)
     combined = rejoin_page_breaks(combined)
     return combined
 

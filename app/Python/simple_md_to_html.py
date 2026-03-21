@@ -291,7 +291,7 @@ def convert_markdown_to_html(markdown_content):
 
         # Detect footnote section boundaries for sequential strategy
         # Check for footnote definition: line starts with [^N]: pattern
-        def_match = re.match(r'^\s*\[\^(\d+)\]\s*:', stripped)
+        def_match = re.match(r'^\s*\[\^(\d+)\]\s*[: ]', stripped)
         if def_match:
             def_number = int(def_match.group(1))
             # A restart (back to 1, or a number <= last) means new definition section
