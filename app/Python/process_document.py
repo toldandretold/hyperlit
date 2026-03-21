@@ -513,10 +513,13 @@ def normalize_unicode_name(name):
     # Keep only ASCII letters, removing diacritics
     ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
     # Remove hyphens for key generation (von Ingersleben-Seip → von IngerslebenSeip)
-    ascii_name = ascii_name.replace('-', '')
+    ascii_name = ascii_name.replace('-', '').replace("'", '')
     return ascii_name
 
 def generate_ref_keys(text, context_text=""):
+    # Normalize curly apostrophes to straight for consistent matching
+    text = text.replace('\u2019', "'").replace('\u2018', "'").replace('\u02BC', "'")
+    context_text = context_text.replace('\u2019', "'").replace('\u2018', "'").replace('\u02BC', "'")
     processed_text = re.sub(r'\[\d{4}\]\s*', '', text)
     year_match = re.search(r'(\d{4}[a-z]?)', processed_text)
     if not year_match: return []
@@ -529,16 +532,24 @@ def generate_ref_keys(text, context_text=""):
 
     if author_source:
         if not has_author:
-            # Match capitalized words including Unicode letters and hyphens
-            candidates = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
-            if candidates: author_source = candidates[-1]
+            # Try to extract full author group at end of context: "Name", "Name and Name", "Name, Name, and Name"
+            group_match = re.search(
+                r"([A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+(?:(?:\s+and\s+|\s*,\s*(?:and\s+)?)[A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+)*)\s*$",
+                author_source
+            )
+            if group_match:
+                author_source = group_match.group(1)
+            else:
+                # Fallback: last capitalized word
+                candidates = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
+                if candidates: author_source = candidates[-1]
 
         # Match capitalized words including Unicode letters and hyphens
         # This pattern matches: Capital letter (including accented) followed by letters/hyphens/apostrophes
         surnames = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
         excluded = {'And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'}
         # Normalize Unicode and remove apostrophe-s for key generation
-        surnames = [normalize_unicode_name(s).lower().replace("'s", "") for s in surnames if s not in excluded]
+        surnames = [normalize_unicode_name(s.replace("'s", "")).lower() for s in surnames if s not in excluded and len(s) > 1]
         if surnames:
             keys.add(surnames[0] + year)
             surnames.sort()
@@ -745,7 +756,11 @@ def is_likely_reference(p_tag):
     if re.match(r'^\s*(von|van|de|du|da|del|della|le|la|los|las|den|der|het|ten|ter)\s+[A-ZÀ-ÖØ-Þ]', text, re.IGNORECASE):
         return True
 
-    # 4. Standard author-first format: starts with capital letter (including Unicode like Ö, É, etc.)
+    # 4. Em-dash repeat-author format: —. Year. Title...
+    if re.match(r'^\s*[\u2014\u2013\u2012\u2015\u2E3A\u2E3B—–-]{1,3}[\.\,\s]', text):
+        return True
+
+    # 5. Standard author-first format: starts with capital letter (including Unicode like Ö, É, etc.)
     # Use Unicode property \p{Lu} for uppercase letters, or check first non-space char
     first_char = text.lstrip()[:1] if text.strip() else ''
     if first_char and first_char.isupper():
@@ -772,10 +787,44 @@ def main(html_file_path, output_dir, book_id):
         print(f"🔧 SAFARI FIX: Removed {len(rtl_spans)} RTL spans from document")
 
     # ========================================================================
+    # PRE-PROCESS: Split multi-entry bibliography paragraphs
+    # ========================================================================
+    # PDF conversion sometimes crams many reference entries into a single <p>,
+    # separated by newlines. Split these so each entry gets its own <p>.
+    split_count = 0
+    for p in list(soup.find_all('p')):
+        inner = p.decode_contents()
+        if '\n' not in inner:
+            continue
+        lines = [l.strip() for l in inner.split('\n') if l.strip()]
+        if len(lines) < 2:
+            continue
+        # Count lines that look like reference entries (start with uppercase + contain a year)
+        ref_lines = 0
+        for l in lines:
+            line_text = BeautifulSoup(l, 'html.parser').get_text()
+            if line_text and line_text[0].isupper() and re.search(r'\d{4}', line_text):
+                ref_lines += 1
+        if ref_lines >= 2:
+            new_elements = []
+            for line in lines:
+                new_p = soup.new_tag('p')
+                new_p.append(BeautifulSoup(line, 'html.parser'))
+                new_elements.append(new_p)
+            # Insert after original in reverse, then remove original
+            for new_p in reversed(new_elements):
+                p.insert_after(new_p)
+            p.decompose()
+            split_count += 1
+            print(f"  Split multi-entry <p> into {len(new_elements)} individual entries")
+    if split_count:
+        print(f"Pre-processed {split_count} multi-entry bibliography paragraphs")
+
+    # ========================================================================
     # PASS 1: EXTRACT ALL DEFINITIONS
     # ========================================================================
     print("--- PASS 1: Extracting All Definitions ---")
-    
+
     # --- 1A: Process Bibliography / References ---
     bibliography_map = {}
     references_data = []
@@ -793,12 +842,38 @@ def main(html_file_path, output_dir, book_id):
         header_text = heading.get_text(strip=True).lower()
         if header_text in REFERENCE_HEADERS:
             print(f"  📖 Found references heading: '{header_text}'")
-            # Collect ALL paragraphs until the next heading
+            bib_heading_level = int(heading.name[1])  # e.g. h2 → 2
+            # Collect ALL paragraphs until the next same-or-higher-level heading
             next_sibling = heading.find_next_sibling()
             while next_sibling:
                 if next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                    # Stop at next major section
-                    break
+                    sibling_level = int(next_sibling.name[1])
+                    if sibling_level <= bib_heading_level:
+                        # Peek ahead: are subsequent paragraphs reference-like?
+                        # Use strict check: year must appear near start of text (first 80 chars).
+                        # Body text has years scattered in citations far from the start;
+                        # bibliography entries always have Author. Year. near the beginning.
+                        peek = next_sibling.find_next_sibling()
+                        peek_refs = 0
+                        peek_total = 0
+                        while peek and peek_total < 3:
+                            if peek.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                                peek = peek.find_next_sibling()
+                                continue
+                            if peek.name == 'p':
+                                peek_total += 1
+                                peek_text = peek.get_text(" ", strip=True)
+                                # Strict: reference-like AND year within first 80 chars
+                                if is_likely_reference(peek) and re.search(r'\d{4}', peek_text[:80]):
+                                    peek_refs += 1
+                            peek = peek.find_next_sibling()
+                        if peek_total >= 2 and peek_refs >= 2:
+                            # Multiple reference-like paragraphs follow — heading is OCR artifact
+                            print(f"  ⚠️ Skipping embedded heading (OCR artifact): '{next_sibling.get_text(strip=True)[:60]}'")
+                            next_sibling = next_sibling.find_next_sibling()
+                            continue
+                        break  # Real section boundary
+                    # Lower level → alphabetical marker or sub-section within bibliography, skip it
                 if next_sibling.name == 'p' and is_likely_reference(next_sibling):
                     reference_p_tags.append(next_sibling)
                     text_preview = next_sibling.get_text(" ", strip=True)[:80]
@@ -825,10 +900,27 @@ def main(html_file_path, output_dir, book_id):
 
     seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
     used_ids = set()      # all entry_ids actually assigned (including suffixed)
+    last_bib_author = ""  # Track last author for em-dash (—) repeat-author entries
 
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
-        keys = generate_ref_keys(text)
+
+        # Handle em-dash repeat-author entries (e.g. "—. 2014. Title...")
+        # Common academic convention: — means "same author as previous entry"
+        dash_match = re.match(r'^[\u2014\u2013\u2012\u2015—–-]{1,3}[\.\,\s]', text)
+        if dash_match and last_bib_author:
+            # Replace the dash with the previous author name
+            text_with_author = last_bib_author + text[dash_match.end()-1:]
+            print(f"  ↩️ Dash-author entry, substituting '{last_bib_author}': {text[:60]}...")
+            keys = generate_ref_keys(text_with_author)
+        else:
+            keys = generate_ref_keys(text)
+            # Update last_bib_author from this entry (text before the year)
+            if keys and not dash_match:
+                year_match = re.search(r'\d{4}', text)
+                if year_match:
+                    last_bib_author = text[:year_match.start()].rstrip(' .,;:(')
+
         if not keys:
             print(f"  ⚠️ No keys generated for: {text[:60]}...")
             continue
@@ -1122,7 +1214,18 @@ def main(html_file_path, output_dir, book_id):
                         sub_cite = sub_cite_raw.strip()
                         if not sub_cite: continue
                         citations_found += 1
-                        keys = generate_ref_keys(sub_cite, context_text=preceding_text)
+                        context_for_keys = preceding_text
+                        if not re.search(r'[A-Z]', preceding_text):
+                            # Author name may be in a preceding sibling element (e.g. <em>Author</em> (Year))
+                            sibling_texts = []
+                            for sibling in text_node.previous_siblings:
+                                if hasattr(sibling, 'get_text'):
+                                    sibling_texts.append(sibling.get_text())
+                                elif isinstance(sibling, str):
+                                    sibling_texts.append(str(sibling))
+                            if sibling_texts:
+                                context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
+                        keys = generate_ref_keys(sub_cite, context_text=context_for_keys)
                         linked = False
                         for key in keys:
                             if key in bibliography_map:
@@ -1138,7 +1241,32 @@ def main(html_file_path, output_dir, book_id):
                                     a_tag.string = year_part
                                     new_content.append(a_tag)
                                     if trailing_part:
-                                        new_content.append(NavigableString(trailing_part))
+                                        # Check for comma-separated additional years e.g. "2010a, 2010b"
+                                        remaining = trailing_part
+                                        while remaining:
+                                            extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
+                                            if extra_year:
+                                                separator = extra_year.group(1)
+                                                extra_year_str = extra_year.group(2)
+                                                extra_keys = generate_ref_keys(author_part + extra_year_str, context_text=preceding_text)
+                                                extra_linked = False
+                                                for ek in extra_keys:
+                                                    if ek in bibliography_map:
+                                                        new_content.append(NavigableString(separator))
+                                                        ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
+                                                        ea_tag['class'] = 'in-text-citation'
+                                                        ea_tag.string = extra_year_str
+                                                        new_content.append(ea_tag)
+                                                        extra_linked = True
+                                                        citations_found += 1
+                                                        citations_linked += 1
+                                                        break
+                                                if not extra_linked:
+                                                    new_content.append(NavigableString(separator + extra_year_str))
+                                                remaining = remaining[extra_year.end(0):]
+                                            else:
+                                                new_content.append(NavigableString(remaining))
+                                                break
                                 else:
                                     a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
                                     a_tag['class'] = 'in-text-citation'
@@ -1150,8 +1278,7 @@ def main(html_file_path, output_dir, book_id):
                                 break
                         if not linked:
                             new_content.append(NavigableString(sub_cite))
-                            if len(citations_unlinked) < 10:  # Limit to first 10 for logging
-                                citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
+                            citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
                         if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
                     new_content.append(NavigableString(")"))
                     last_index = match.end()
@@ -1164,9 +1291,10 @@ def main(html_file_path, output_dir, book_id):
     print(f"  - Successfully linked: {citations_linked}")
     print(f"  - Unlinked: {citations_found - citations_linked}")
     if citations_unlinked:
-        print(f"  - First unlinked citations (up to 10):")
+        print(f"  - All unlinked citations ({len(citations_unlinked)}):")
         for item in citations_unlinked:
             print(f"    • '{item['citation']}' → keys tried: {item['generated_keys']}")
+    print(f"  - Bibliography map keys ({len(bibliography_map)}): {sorted(bibliography_map.keys())}")
 
     # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
 
