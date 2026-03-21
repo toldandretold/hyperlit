@@ -216,7 +216,7 @@ On the frontend:
 
 2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the mark (highlight) tags and underline (hypercite) tags to be loaded more seamlessly into the DOM.
 
-3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the <main> tag within the DOM using lazyLoaderFactory.js
+3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the ```<main>``` within the DOM using lazyLoaderFactory.js
 
 ```<main class="main-content" id="**book**">```
 
