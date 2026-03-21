@@ -241,10 +241,6 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 
 3. It then uses this to update hyperlights and hypercites for the effected nodes currently in the DOM.
 
- > **TO DO**: *The system currently updates according to a timestamp check of both text-node content, and hyperlights/hypercites. For example, if a user highlights text, it only updates the hyperlight meta-data. It doesn't unecessarily re-pull all the text nodes.
->
-> However, I will eventually update it so it only needs to update the specifcally changed nodes/highlights/hypercites. This will reduce the amound of data server has to send and receive.*
-
 ### From indxedDB to PostgresQL
 **Important**: no nodes.hyperlights nor nodes.hypercites are sent to backend, as there is no nodes.hyperlights or nodes.hypercites columns in postgreSQL. This is because users only update their own rows in the hypercites and hyperlights tables. The "hydration" of charData into nodes.hyperlights and nodes.hypercites is done purely for each user's own indexedDB nodes object store. This is because:
 
