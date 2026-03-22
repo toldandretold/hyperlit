@@ -262,7 +262,8 @@ class ImportController extends Controller
                 $hasIssues = $auditData && (
                     count($auditData['gaps'] ?? []) > 0 ||
                     count($auditData['unmatched_refs'] ?? []) > 0 ||
-                    count($auditData['unmatched_defs'] ?? []) > 0
+                    count($auditData['unmatched_defs'] ?? []) > 0 ||
+                    count($auditData['duplicates'] ?? []) > 0
                 );
 
                 return response()->json([

@@ -442,9 +442,14 @@ export class ImportBookTransition {
 
   /**
    * Show footnote audit modal when issues are detected
+   * @param {object} audit - footnote audit data
+   * @param {string} bookId
+   * @param {object} [options]
+   * @param {'import'|'reconvert'} [options.mode='import'] - 'reconvert' shows a single OK button
    * @returns {Promise<'proceed'|'resubmit'>}
    */
-  static showFootnoteAuditModal(audit, bookId) {
+  static showFootnoteAuditModal(audit, bookId, options = {}) {
+    const mode = options.mode || 'import';
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'custom-alert-overlay';
@@ -516,8 +521,11 @@ export class ImportBookTransition {
         <p style="margin-bottom:12px">Detected <strong>${issueCount} issue${issueCount !== 1 ? 's' : ''}</strong> in your document.</p>
         ${detailsHtml}
         <div class="alert-buttons" style="margin-top:16px">
-          <button class="alert-button secondary" data-action="resubmit">Re-submit</button>
-          <button class="alert-button primary" data-action="proceed">Proceed anyway</button>
+          ${mode === 'reconvert'
+            ? '<button class="alert-button primary" data-action="proceed">OK</button>'
+            : `<button class="alert-button secondary" data-action="resubmit">Re-submit</button>
+               <button class="alert-button primary" data-action="proceed">Proceed anyway</button>`
+          }
         </div>
       `;
 

@@ -510,7 +510,7 @@ function setupFormSubmission() {
             
             // Append all other form fields
             new FormData(form).forEach((value, key) => {
-                if (key !== 'markdown_file') {
+                if (key !== 'markdown_file' && key !== 'markdown_file[]') {
                     formData.append(key, value);
                 }
             });

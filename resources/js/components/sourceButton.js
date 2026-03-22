@@ -614,6 +614,23 @@ export class SourceContainerManager extends ContainerManager {
         throw new Error(err.message || `Failed: ${resp.status}`);
       }
 
+      const result = await resp.json();
+
+      // Show footnote audit if there are issues
+      if (result.footnoteAudit) {
+        const audit = result.footnoteAudit;
+        const hasIssues = (audit.gaps?.length || 0) +
+          (audit.unmatched_refs?.length || 0) +
+          (audit.unmatched_defs?.length || 0) +
+          (audit.duplicates?.length || 0) > 0;
+
+        if (hasIssues) {
+          const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
+          await ImportBookTransition.showFootnoteAuditModal(audit, book, { mode: 'reconvert' });
+          // User dismissed modal — continue with reload
+        }
+      }
+
       // Clear IndexedDB content (keeps library record)
       const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
       await clearBookContentFromIndexedDB(book);

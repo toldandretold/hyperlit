@@ -33,6 +33,67 @@ def convert_footnotes(text):
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
 
+def renumber_page_footnotes(page_md, global_counter):
+    """Renumber footnotes on a single page from local numbering to global sequential.
+
+    For "page_bottom" documents where each page restarts at [^1].
+    Converts superscripts first, then maps local numbers to global ones.
+
+    Returns (processed_md, new_global_counter).
+    """
+    # First convert any Unicode superscripts to [^N] format
+    page_md = convert_footnotes(page_md)
+
+    # Collect unique local footnote numbers in order of first appearance
+    seen = set()
+    local_numbers = []
+    for m in re.finditer(r'\[\^(\d+)\]', page_md):
+        num = m.group(1)
+        if num not in seen:
+            seen.add(num)
+            local_numbers.append(num)
+
+    if not local_numbers:
+        return page_md, global_counter
+
+    # Build mapping: local number → global sequential number
+    local_to_global = {}
+    for local_num in local_numbers:
+        local_to_global[local_num] = str(global_counter)
+        global_counter += 1
+
+    # Single-pass replacement using a callback
+    def replace_local(m):
+        local_num = m.group(1)
+        return f'[^{local_to_global[local_num]}]'
+
+    page_md = re.sub(r'\[\^(\d+)\]', replace_local, page_md)
+
+    return page_md, global_counter
+
+
+def split_body_and_footnotes(md):
+    """Split a page's markdown into body text and footnote definitions.
+
+    Footnote definitions start with [^N] at the beginning of a line.
+    Returns (body, footnotes) where footnotes may be empty string.
+    """
+    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Z\d"]', md, re.MULTILINE)
+    if not match:
+        return md, ""
+
+    body = md[:match.start()].rstrip()
+    footnotes = md[match.start():]
+
+    # Move any <a class="pageNumber"> anchor from footnotes back to body
+    page_anchor = re.search(r'\s*<a class="pageNumber"[^>]*></a>', footnotes)
+    if page_anchor:
+        body = body + page_anchor.group(0)
+        footnotes = footnotes[:page_anchor.start()] + footnotes[page_anchor.end():]
+
+    return body, footnotes
+
+
 def fetch_ocr(pdf_path, api_key):
     """Upload PDF to Mistral OCR and return raw response dict."""
     client = Mistral(api_key=api_key)
@@ -118,7 +179,9 @@ def rejoin_page_breaks(text):
 
             # Case 2: Paragraph continues — line doesn't end with sentence punct,
             # next starts lowercase
-            if (not stripped.endswith(('.', '!', '?', ':', ';', '"', ')', ']', '---'))
+            # Strip trailing footnote refs so [^N] isn't mistaken for sentence-ending ']'
+            stripped_for_check = re.sub(r'\[\^\d+\]\s*$', '', stripped).rstrip()
+            if (not stripped_for_check.endswith(('.', '!', '?', ':', ';', '"', ')', ']', '---'))
                     and next_nonempty[0].islower()
                     and not next_nonempty.startswith('#')
                     and len(stripped) > 20):
@@ -445,6 +508,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     threshold = max(3, len(pages) * 0.4)
     running_headers = {name for name, count in header_counts.items() if count >= threshold}
 
+    global_fn_counter = 1  # For page_bottom renumbering
+    fn_defs_parts = []  # Collected footnote definitions for page_bottom
+
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
         header = page.get("header") or ""
@@ -491,7 +557,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         if is_notes_page and classification != "wackSTEMbibliographyNotes":
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
 
-        if md_stripped:
+        # Renumber footnotes per-page for page_bottom classification
+        if classification == "page_bottom":
+            md, global_fn_counter = renumber_page_footnotes(md, global_fn_counter)
+            body, fn_text = split_body_and_footnotes(md)
+            if body.strip():
+                md_parts.append(body)
+            if fn_text.strip():
+                fn_defs_parts.append(fn_text)
+        elif md_stripped:
             md_parts.append(md)
 
     combined = "\n\n".join(md_parts)
@@ -499,6 +573,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     if classification == "wackSTEMbibliographyNotes":
         combined = wrap_stem_citations(combined)
         combined = wrap_stem_definitions(combined)
+    elif classification == "page_bottom":
+        # Rejoin body text only (footnotes were separated per-page)
+        combined = rejoin_page_breaks(combined)
+        # Format and append collected footnote definitions
+        fn_defs = "\n\n".join(fn_defs_parts)
+        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', fn_defs, flags=re.MULTILINE)
+        if fn_defs.strip():
+            combined = combined + "\n\n" + fn_defs
+        return combined
     else:
         combined = convert_footnotes(combined)
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
