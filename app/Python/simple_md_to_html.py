@@ -68,6 +68,16 @@ def process_inline_formatting(text):
     br_placeholder = '\x00BR_TAG\x00'
     text = re.sub(r'<br\s*/?>', br_placeholder, text, flags=re.IGNORECASE)
 
+    # Preserve <a class="wackSTEM*"> tags by replacing with placeholders
+    stem_placeholder_map = {}
+    stem_ctr = [0]
+    def save_stem(m):
+        key = f'\x00STEM{stem_ctr[0]}\x00'
+        stem_placeholder_map[key] = m.group(0)
+        stem_ctr[0] += 1
+        return key
+    text = re.sub(r'<a\s+class="wackSTEM[^"]*"[^>]*>.*?</a>', save_stem, text)
+
     # Escape HTML without double-encoding existing entities
     text = escape_html_no_double(text)
 
@@ -99,6 +109,11 @@ def process_inline_formatting(text):
     for key, replacement in math_placeholders.items():
         text = text.replace(key, replacement)
         text = text.replace(html.escape(key), replacement)
+
+    # Restore wackSTEM placeholders
+    for key, val in stem_placeholder_map.items():
+        text = text.replace(key, val)
+        text = text.replace(html.escape(key), val)
 
     # Convert escaped dollar signs to literal dollars
     text = text.replace(r'\$', '$')

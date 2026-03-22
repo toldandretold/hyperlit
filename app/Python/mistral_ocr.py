@@ -19,6 +19,7 @@ import re
 import argparse
 import base64
 from pathlib import Path
+from statistics import median
 from mistralai.client import Mistral
 
 SUPERSCRIPT_MAP = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079", "0123456789")
@@ -131,7 +132,297 @@ def rejoin_page_breaks(text):
     return '\n'.join(result)
 
 
-def assemble_markdown(response_dict):
+def classify_footnotes(response_dict):
+    """Classify footnote style from raw OCR JSON before assembly.
+
+    Returns a dict with classification, confidence, signals, and page_summary.
+    """
+    pages = response_dict["pages"]
+    total_pages = len(pages)
+
+    # --- Step 1: Per-page signal collection ---
+    page_data = []  # list of {refs, defs, trailing_number}
+    for page in pages:
+        md = page.get("markdown", "")
+        header = page.get("header") or ""
+        md = convert_footnotes(md)
+
+        # Inline refs: [^N] or [N] NOT at start of a line
+        # Filter out numbers > 500 to avoid matching years like [2015]
+        refs = set()
+        for m in re.finditer(r'\[\^?(\d+)\]', md):
+            num = int(m.group(1))
+            if num > 500:
+                continue
+            pos = m.start()
+            if pos == 0:
+                continue
+            if md[pos - 1] == '\n':
+                # start of a line — likely a definition, not an inline ref
+                continue
+            refs.add(num)
+
+        # Definitions: [^N] at start of line, or numbered list "1. Text" format
+        defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
+        defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
+
+        # Trailing standalone number (page number candidate)
+        trailing_num = None
+        last_line = md.rstrip().rsplit('\n', 1)[-1].strip()
+        if re.match(r'^\d{1,4}$', last_line):
+            trailing_num = int(last_line)
+
+        # Notes header detection
+        has_notes_header = bool(
+            re.search(r'\bNotes\b', header) or re.search(r'\bNOTES\b', header)
+        )
+
+        page_data.append({
+            "refs": refs,
+            "defs": defs,
+            "trailing_number": trailing_num,
+            "has_notes_header": has_notes_header,
+        })
+
+    # --- Step 2: Aggregate signals ---
+    pages_with_refs = sum(1 for p in page_data if p["refs"])
+    pages_with_defs = sum(1 for p in page_data if p["defs"])
+    pages_with_both = sum(
+        1 for p in page_data if p["refs"] & p["defs"]
+    )
+
+    co_location_ratio = (
+        pages_with_both / pages_with_refs if pages_with_refs > 0 else 0.0
+    )
+    def_clustering_ratio = pages_with_defs / total_pages if total_pages > 0 else 0.0
+
+    # Reset detection: when the lowest ref number on a page <= previous page's lowest ref
+    reset_count = 0
+    prev_min_ref = None
+    for p in page_data:
+        if p["refs"]:
+            cur_min = min(p["refs"])
+            if prev_min_ref is not None and cur_min <= prev_min_ref:
+                reset_count += 1
+            prev_min_ref = cur_min
+
+    reset_frequency = reset_count / pages_with_refs if pages_with_refs > 0 else 0.0
+
+    # Notes pages
+    notes_page_indices = [i for i, p in enumerate(page_data) if p["has_notes_header"]]
+    notes_page_count = len(notes_page_indices)
+
+    # Page number detection via trailing numbers
+    trailing_offsets = []
+    for i, p in enumerate(page_data):
+        if p["trailing_number"] is not None:
+            trailing_offsets.append(p["trailing_number"] - i)
+
+    if trailing_offsets:
+        trailing_page_number_offset = median(trailing_offsets)
+        matching = sum(
+            1 for off in trailing_offsets if off == trailing_page_number_offset
+        )
+        trailing_page_number_consistency = matching / len(trailing_offsets)
+    else:
+        trailing_page_number_offset = None
+        trailing_page_number_consistency = 0.0
+
+    # Bibliography signal: how many pages does each ref number appear on?
+    ref_page_spread = {}  # ref_number -> set of page indices
+    for i, p in enumerate(page_data):
+        for r in p["refs"]:
+            ref_page_spread.setdefault(r, set()).add(i)
+
+    ref_number_max_page_spread = (
+        max(len(pgs) for pgs in ref_page_spread.values()) if ref_page_spread else 0
+    )
+    numbers_on_multiple_pages = sum(
+        1 for pgs in ref_page_spread.values() if len(pgs) >= 2
+    )
+
+    all_refs = set()
+    for p in page_data:
+        all_refs |= p["refs"]
+    max_ref_number = max(all_refs) if all_refs else 0
+
+    signals = {
+        "total_pages": total_pages,
+        "pages_with_refs": pages_with_refs,
+        "pages_with_defs": pages_with_defs,
+        "pages_with_both": pages_with_both,
+        "co_location_ratio": round(co_location_ratio, 4),
+        "def_clustering_ratio": round(def_clustering_ratio, 4),
+        "reset_count": reset_count,
+        "reset_frequency": round(reset_frequency, 4),
+        "notes_page_count": notes_page_count,
+        "notes_page_indices": notes_page_indices,
+        "trailing_page_number_offset": trailing_page_number_offset,
+        "trailing_page_number_consistency": round(trailing_page_number_consistency, 4),
+        "ref_number_max_page_spread": ref_number_max_page_spread,
+        "numbers_on_multiple_pages": numbers_on_multiple_pages,
+        "max_ref_number": max_ref_number,
+    }
+
+    # --- Step 3: Classification decision tree ---
+    if pages_with_refs == 0:
+        classification = "none"
+
+    elif (ref_number_max_page_spread >= 3
+          and co_location_ratio < 0.2
+          and notes_page_count == 0
+          and (reset_frequency < 0.2 or max_ref_number > 50)):
+        classification = "wackSTEMbibliographyNotes"
+
+    elif (co_location_ratio > 0.5
+          and reset_frequency > 0.4):
+        classification = "page_bottom"
+
+    elif (notes_page_count > 0
+          and co_location_ratio < 0.3):
+        classification = "chapter_endnotes"
+
+    # Chapter endnotes without "Notes" header — detected via resets + separate def pages
+    elif (co_location_ratio < 0.3
+          and pages_with_defs > 0
+          and reset_frequency > 0.3):
+        classification = "chapter_endnotes"
+
+    elif (co_location_ratio < 0.15
+          and def_clustering_ratio < 0.1):
+        classification = "document_endnotes"
+
+    else:
+        classification = "unknown"
+
+    # --- Step 4: Confidence scoring ---
+    confidence = 0.0
+    if classification == "page_bottom":
+        if co_location_ratio > 0.8:
+            confidence += 0.3
+        if reset_frequency > 0.7:
+            confidence += 0.3
+        if notes_page_count == 0:
+            confidence += 0.2
+        if trailing_page_number_consistency > 0.5:
+            confidence += 0.2
+
+    elif classification == "chapter_endnotes":
+        if notes_page_count > 0:
+            confidence += 0.3
+        if co_location_ratio < 0.1:
+            confidence += 0.3
+        if reset_count > 0:
+            confidence += 0.2
+        if def_clustering_ratio < 0.2:
+            confidence += 0.2
+
+    elif classification == "document_endnotes":
+        if co_location_ratio < 0.05:
+            confidence += 0.3
+        if def_clustering_ratio < 0.05:
+            confidence += 0.3
+        if notes_page_count == 0:
+            confidence += 0.2
+        if reset_count == 0:
+            confidence += 0.2
+
+    elif classification == "wackSTEMbibliographyNotes":
+        if ref_number_max_page_spread >= 5:
+            confidence += 0.3
+        if numbers_on_multiple_pages > 10:
+            confidence += 0.3
+        if co_location_ratio < 0.1:
+            confidence += 0.2
+        if notes_page_count == 0:
+            confidence += 0.2
+
+    elif classification == "none":
+        confidence = 1.0
+
+    # --- Build page summary (only pages with refs or defs) ---
+    page_summary = []
+    for i, p in enumerate(page_data):
+        if p["refs"] or p["defs"]:
+            page_summary.append({
+                "index": i,
+                "refs": sorted(p["refs"]),
+                "defs": sorted(p["defs"]),
+                "trailing_number": p["trailing_number"],
+            })
+
+    return {
+        "version": 1,
+        "classification": classification,
+        "confidence": round(confidence, 2),
+        "signals": signals,
+        "page_summary": page_summary,
+    }
+
+
+def wrap_stem_citations(text):
+    """Wrap inline [N] citations with <a class="wackSTEMcite"> tags.
+
+    Handles single citations like [36], comma-separated multi-cites like [36, 72],
+    and range citations like [6-8] (meaning refs 6, 7, 8).
+    Only matches mid-line occurrences (not at start of line) with N <= 500.
+    """
+    def replace_range_cite(m):
+        start, end = int(m.group(1)), int(m.group(2))
+        if start >= end or end > 500:
+            return m.group(0)
+        refs = ','.join(f'stemref_{i}' for i in range(start, end + 1))
+        return f'<a class="wackSTEMcite" data-refs="{refs}">[{start}-{end}]</a>'
+
+    def replace_cite(m):
+        inner = m.group(1)
+        # Check if ALL numbers are <= 500
+        nums = re.findall(r'\d+', inner)
+        if not nums or any(int(n) > 500 for n in nums):
+            return m.group(0)
+        # Multi-cite: [36, 72] → separate tags joined by ", "
+        if ',' in inner:
+            parts = []
+            for n in nums:
+                parts.append(f'<a class="wackSTEMcite">[{n}]</a>')
+            return ', '.join(parts)
+        # Single cite
+        return f'<a class="wackSTEMcite">[{inner.strip()}]</a>'
+
+    # Range citations [N-M] first (before single/comma pattern consumes them)
+    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3})-(\d{1,3})\]', replace_range_cite, text, flags=re.MULTILINE)
+    # Match [N] or [N, N, ...] NOT at start of line
+    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\]', replace_cite, text, flags=re.MULTILINE)
+    return text
+
+
+def wrap_stem_definitions(text):
+    """Wrap bibliography definitions at start of line with <a class="wackSTEMdef"> tags.
+
+    Handles both formats:
+      N. Author text...   → <a class="wackSTEMdef" id="stemref_N">N. Author text...</a>
+      [N] Author text...  → <a class="wackSTEMdef" id="stemref_N">[N] Author text...</a>
+    """
+    def replace_numbered(m):
+        num = m.group(1)
+        if int(num) > 500:
+            return m.group(0)
+        return f'<a class="wackSTEMdef" id="stemref_{num}">{m.group(0)}</a>'
+
+    def replace_bracketed(m):
+        num = m.group(1)
+        if int(num) > 500:
+            return m.group(0)
+        return f'<a class="wackSTEMdef" id="stemref_{num}">{m.group(0)}</a>'
+
+    # Format 1: "N. text" at start of line (N <= 500)
+    text = re.sub(r'^(\d{1,3})\. (.+)', replace_numbered, text, flags=re.MULTILINE)
+    # Format 2: "[N] text" at start of line
+    text = re.sub(r'^\[(\d{1,3})\] (.+)', replace_bracketed, text, flags=re.MULTILINE)
+    return text
+
+
+def assemble_markdown(response_dict, classification="unknown"):
     """Assemble pages into markdown, injecting section headings from headers."""
     pages = response_dict["pages"]
     md_parts = []
@@ -182,17 +473,23 @@ def assemble_markdown(response_dict):
             seen_sections.add(heading_text)
 
         # Convert numbered notes to footnote definitions on Notes pages
-        if is_notes_page:
+        if is_notes_page and classification != "wackSTEMbibliographyNotes":
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
 
         if md_stripped:
             md_parts.append(md)
 
     combined = "\n\n".join(md_parts)
-    combined = convert_footnotes(combined)
-    # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
-    # Only at start of line (definitions), not inline references
-    combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', combined, flags=re.MULTILINE)
+
+    if classification == "wackSTEMbibliographyNotes":
+        combined = wrap_stem_citations(combined)
+        combined = wrap_stem_definitions(combined)
+    else:
+        combined = convert_footnotes(combined)
+        # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
+        # Only at start of line (definitions), not inline references
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', combined, flags=re.MULTILINE)
+
     combined = rejoin_page_breaks(combined)
     return combined
 
@@ -232,12 +529,12 @@ def main():
     pdf_path = Path(args.pdf_path)
     output_dir = Path(args.output_dir)
 
-    if not pdf_path.exists():
-        print(f"Error: PDF not found: {pdf_path}", file=sys.stderr)
-        sys.exit(1)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     json_cache = output_dir / "ocr_response.json"
+
+    if not pdf_path.exists() and not json_cache.exists():
+        print(f"Error: PDF not found: {pdf_path}", file=sys.stderr)
+        sys.exit(1)
     output_md = output_dir / "main-text.md"
     media_dir = output_dir / "media"
 
@@ -250,6 +547,13 @@ def main():
         json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
         print(f"Cached raw response to: {json_cache}")
 
+    # Classify footnote style
+    footnote_meta = classify_footnotes(response_dict)
+    meta_path = output_dir / "footnote_meta.json"
+    meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")
+    print(f"Footnote classification: {footnote_meta['classification']} "
+          f"(confidence: {footnote_meta['confidence']:.2f})")
+
     # Save images to media/ subdirectory
     img_count = save_images(response_dict, media_dir)
     if img_count:
@@ -257,7 +561,7 @@ def main():
 
     # Assemble markdown
     print("Assembling markdown...")
-    markdown = assemble_markdown(response_dict)
+    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'])
     output_md.write_text(markdown, encoding="utf-8")
 
     # Stats

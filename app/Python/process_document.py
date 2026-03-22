@@ -22,7 +22,7 @@ ALLOWED_TAGS = [
 ]
 
 ALLOWED_ATTRS = {
-    'a': ['href', 'title', 'id', 'class', 'fn-count-id'],
+    'a': ['href', 'title', 'id', 'class', 'fn-count-id', 'data-refs'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
@@ -774,6 +774,15 @@ def main(html_file_path, output_dir, book_id):
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
 
+    # Check if this is a STEM bibliography-style document
+    footnote_meta_path = os.path.join(output_dir, 'footnote_meta.json')
+    is_stem = False
+    if os.path.exists(footnote_meta_path):
+        with open(footnote_meta_path, 'r') as f:
+            is_stem = json.load(f).get('classification') == 'wackSTEMbibliographyNotes'
+    if is_stem:
+        print("📐 STEM bibliography mode detected — using wackSTEM marker conversion")
+
     # ========================================================================
     # SAFARI FIX: Remove RTL spans that cause findTextSamplesByVisualExamination lag
     # Pandoc generates <span dir="rtl">'</span> for smart quotes from DOCX
@@ -820,792 +829,846 @@ def main(html_file_path, output_dir, book_id):
     if split_count:
         print(f"Pre-processed {split_count} multi-entry bibliography paragraphs")
 
+
     # ========================================================================
-    # PASS 1: EXTRACT ALL DEFINITIONS
+    # STEM BIBLIOGRAPHY PROCESSING (wackSTEMbibliographyNotes)
     # ========================================================================
-    print("--- PASS 1: Extracting All Definitions ---")
+    if is_stem:
+        references_data = []
+        footnotes_data = []
+        all_footnotes_data = []
 
-    # --- 1A: Process Bibliography / References ---
-    bibliography_map = {}
-    references_data = []
-    all_paragraphs = soup.find_all('p')
-    reference_p_tags = []
+        # Convert wackSTEMdef → bib-entry and collect references
+        for a_tag in soup.find_all('a', class_='wackSTEMdef'):
+            ref_id = a_tag.get('id', '')
+            a_tag['class'] = 'bib-entry'
+            # Store just the text for popup display (not the <a>/<p> wrapper)
+            ref_text = a_tag.get_text()
+            if ref_text:
+                references_data.append({"referenceId": ref_id, "content": ref_text})
 
-    print(f"📚 Scanning {len(all_paragraphs)} paragraphs for reference section...")
+        # Convert wackSTEMcite → in-text-citation with href
+        for a_tag in soup.find_all('a', class_='wackSTEMcite'):
+            cite_text = a_tag.get_text()
+            data_refs = a_tag.get('data-refs')
+            if data_refs:
+                # Range citation: href points to first ref, data-refs preserved
+                first_ref = data_refs.split(',')[0]
+                a_tag['href'] = f'#{first_ref}'
+            else:
+                num_match = re.search(r'\d+', cite_text)
+                if num_match:
+                    a_tag['href'] = f'#stemref_{num_match.group()}'
+            a_tag['class'] = 'in-text-citation'
 
-    # Common reference section headers
-    REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+        stem_cites = len(soup.find_all('a', class_='in-text-citation'))
+        print(f"Converted {len(references_data)} STEM bibliography entries")
+        print(f"Converted {stem_cites} STEM in-text citations")
 
-    # PRIMARY: Find reference section by heading (more reliable for academic papers)
-    all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-    for heading in all_headings:  # Forward scan to find first matching heading
-        header_text = heading.get_text(strip=True).lower()
-        if header_text in REFERENCE_HEADERS:
-            print(f"  📖 Found references heading: '{header_text}'")
-            bib_heading_level = int(heading.name[1])  # e.g. h2 → 2
-            # Collect ALL paragraphs until the next same-or-higher-level heading
-            next_sibling = heading.find_next_sibling()
-            while next_sibling:
-                if next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                    sibling_level = int(next_sibling.name[1])
-                    if sibling_level <= bib_heading_level:
-                        # Peek ahead: are subsequent paragraphs reference-like?
-                        # Use strict check: year must appear near start of text (first 80 chars).
-                        # Body text has years scattered in citations far from the start;
-                        # bibliography entries always have Author. Year. near the beginning.
-                        peek = next_sibling.find_next_sibling()
-                        peek_refs = 0
-                        peek_total = 0
-                        while peek and peek_total < 3:
-                            if peek.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+        # Write audit.json
+        os.makedirs(output_dir, exist_ok=True)
+        audit_data = {
+            'stem_mode': True,
+            'total_refs': stem_cites,
+            'total_defs': len(references_data),
+            'gaps': [], 'duplicates': [],
+            'unmatched_refs': [], 'unmatched_defs': []
+        }
+        with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
+            json.dump(audit_data, f, ensure_ascii=False, indent=4)
+        print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
+
+    # ========================================================================
+    # STANDARD PROCESSING: PASS 1 + PASS 2 + AUDIT (skipped for STEM)
+    # ========================================================================
+    if not is_stem:
+
+        # ========================================================================
+        # PASS 1: EXTRACT ALL DEFINITIONS
+        # ========================================================================
+        print("--- PASS 1: Extracting All Definitions ---")
+
+        # --- 1A: Process Bibliography / References ---
+        bibliography_map = {}
+        references_data = []
+        all_paragraphs = soup.find_all('p')
+        reference_p_tags = []
+
+        print(f"📚 Scanning {len(all_paragraphs)} paragraphs for reference section...")
+
+        # Common reference section headers
+        REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+
+        # PRIMARY: Find reference section by heading (more reliable for academic papers)
+        all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        for heading in all_headings:  # Forward scan to find first matching heading
+            header_text = heading.get_text(strip=True).lower()
+            if header_text in REFERENCE_HEADERS:
+                print(f"  📖 Found references heading: '{header_text}'")
+                bib_heading_level = int(heading.name[1])  # e.g. h2 → 2
+                # Collect ALL paragraphs until the next same-or-higher-level heading
+                next_sibling = heading.find_next_sibling()
+                while next_sibling:
+                    if next_sibling.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                        sibling_level = int(next_sibling.name[1])
+                        if sibling_level <= bib_heading_level:
+                            # Peek ahead: are subsequent paragraphs reference-like?
+                            # Use strict check: year must appear near start of text (first 80 chars).
+                            # Body text has years scattered in citations far from the start;
+                            # bibliography entries always have Author. Year. near the beginning.
+                            peek = next_sibling.find_next_sibling()
+                            peek_refs = 0
+                            peek_total = 0
+                            while peek and peek_total < 3:
+                                if peek.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                                    peek = peek.find_next_sibling()
+                                    continue
+                                if peek.name == 'p':
+                                    peek_total += 1
+                                    peek_text = peek.get_text(" ", strip=True)
+                                    # Strict: reference-like AND year within first 80 chars
+                                    if is_likely_reference(peek) and re.search(r'\d{4}', peek_text[:80]):
+                                        peek_refs += 1
                                 peek = peek.find_next_sibling()
+                            if peek_total >= 2 and peek_refs >= 2:
+                                # Multiple reference-like paragraphs follow — heading is OCR artifact
+                                print(f"  ⚠️ Skipping embedded heading (OCR artifact): '{next_sibling.get_text(strip=True)[:60]}'")
+                                next_sibling = next_sibling.find_next_sibling()
                                 continue
-                            if peek.name == 'p':
-                                peek_total += 1
-                                peek_text = peek.get_text(" ", strip=True)
-                                # Strict: reference-like AND year within first 80 chars
-                                if is_likely_reference(peek) and re.search(r'\d{4}', peek_text[:80]):
-                                    peek_refs += 1
-                            peek = peek.find_next_sibling()
-                        if peek_total >= 2 and peek_refs >= 2:
-                            # Multiple reference-like paragraphs follow — heading is OCR artifact
-                            print(f"  ⚠️ Skipping embedded heading (OCR artifact): '{next_sibling.get_text(strip=True)[:60]}'")
-                            next_sibling = next_sibling.find_next_sibling()
-                            continue
-                        break  # Real section boundary
-                    # Lower level → alphabetical marker or sub-section within bibliography, skip it
-                if next_sibling.name == 'p' and is_likely_reference(next_sibling):
-                    reference_p_tags.append(next_sibling)
-                    text_preview = next_sibling.get_text(" ", strip=True)[:80]
-                    print(f"  ✓ Detected reference: {text_preview}...")
-                next_sibling = next_sibling.find_next_sibling()
-            # Don't break — continue scanning for more reference sections (multi-chapter books)
+                            break  # Real section boundary
+                        # Lower level → alphabetical marker or sub-section within bibliography, skip it
+                    if next_sibling.name == 'p' and is_likely_reference(next_sibling):
+                        reference_p_tags.append(next_sibling)
+                        text_preview = next_sibling.get_text(" ", strip=True)[:80]
+                        print(f"  ✓ Detected reference: {text_preview}...")
+                    next_sibling = next_sibling.find_next_sibling()
+                # Don't break — continue scanning for more reference sections (multi-chapter books)
 
-    # FALLBACK: If no heading found, use reverse paragraph scan
-    if not reference_p_tags:
-        print("  ⚠️ No references heading found, scanning paragraphs...")
-        for p in reversed(all_paragraphs):
-            text_preview = p.get_text(" ", strip=True)[:80]
-            if is_likely_reference(p):
-                reference_p_tags.insert(0, p)
-                print(f"  ✓ Detected reference: {text_preview}...")
-            elif reference_p_tags:
-                header_text = p.get_text(strip=True).lower()
-                if header_text in REFERENCE_HEADERS:
+        # FALLBACK: If no heading found, use reverse paragraph scan
+        if not reference_p_tags:
+            print("  ⚠️ No references heading found, scanning paragraphs...")
+            for p in reversed(all_paragraphs):
+                text_preview = p.get_text(" ", strip=True)[:80]
+                if is_likely_reference(p):
                     reference_p_tags.insert(0, p)
-                    print(f"  📖 Found references header: '{header_text}'")
-                break
+                    print(f"  ✓ Detected reference: {text_preview}...")
+                elif reference_p_tags:
+                    header_text = p.get_text(strip=True).lower()
+                    if header_text in REFERENCE_HEADERS:
+                        reference_p_tags.insert(0, p)
+                        print(f"  📖 Found references header: '{header_text}'")
+                    break
 
-    print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
+        print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
 
-    seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
-    used_ids = set()      # all entry_ids actually assigned (including suffixed)
-    last_bib_author = ""  # Track last author for em-dash (—) repeat-author entries
+        seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
+        used_ids = set()      # all entry_ids actually assigned (including suffixed)
+        last_bib_author = ""  # Track last author for em-dash (—) repeat-author entries
 
-    for p in reference_p_tags:
-        text = p.get_text(" ", strip=True)
+        for p in reference_p_tags:
+            text = p.get_text(" ", strip=True)
 
-        # Handle em-dash repeat-author entries (e.g. "—. 2014. Title...")
-        # Common academic convention: — means "same author as previous entry"
-        dash_match = re.match(r'^[\u2014\u2013\u2012\u2015—–-]{1,3}[\.\,\s]', text)
-        if dash_match and last_bib_author:
-            # Replace the dash with the previous author name
-            text_with_author = last_bib_author + text[dash_match.end()-1:]
-            print(f"  ↩️ Dash-author entry, substituting '{last_bib_author}': {text[:60]}...")
-            keys = generate_ref_keys(text_with_author)
-        else:
-            keys = generate_ref_keys(text)
-            # Update last_bib_author from this entry (text before the year)
-            if keys and not dash_match:
-                year_match = re.search(r'\d{4}', text)
-                if year_match:
-                    last_bib_author = text[:year_match.start()].rstrip(' .,;:(')
-
-        if not keys:
-            print(f"  ⚠️ No keys generated for: {text[:60]}...")
-            continue
-
-        base_entry_id = keys[0]
-
-        if base_entry_id not in seen_references:
-            # First time seeing this base key
-            if base_entry_id not in used_ids:
-                # ID is free — add normally
-                seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
-                entry_id = base_entry_id
+            # Handle em-dash repeat-author entries (e.g. "—. 2014. Title...")
+            # Common academic convention: — means "same author as previous entry"
+            dash_match = re.match(r'^[\u2014\u2013\u2012\u2015—–-]{1,3}[\.\,\s]', text)
+            if dash_match and last_bib_author:
+                # Replace the dash with the previous author name
+                text_with_author = last_bib_author + text[dash_match.end()-1:]
+                print(f"  ↩️ Dash-author entry, substituting '{last_bib_author}': {text[:60]}...")
+                keys = generate_ref_keys(text_with_author)
             else:
-                # ID was already taken by a collision suffix from a different base key
-                # Treat this as a new base that needs an immediate suffix
-                seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
-                suffix_num = 1
-                while base_entry_id + chr(ord('a') + suffix_num) in used_ids:
-                    suffix_num += 1
-                entry_id = base_entry_id + chr(ord('a') + suffix_num)
-                seen_references[base_entry_id]["suffix_count"] = suffix_num
-                print(f"  🔀 ID '{base_entry_id}' already taken by suffix — using {entry_id}")
-        else:
-            prev = seen_references[base_entry_id]
-            # Compare content (first 60 alphanum chars, normalized) to detect true dupes vs collisions
-            normalize = lambda t: re.sub(r'[^a-z0-9]', '', t.lower())[:60]
-            if normalize(prev["text"]) == normalize(text):
-                # True duplicate — skip DOM/data, but still add keys
-                for key in keys:
-                    bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
-                print(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
+                keys = generate_ref_keys(text)
+                # Update last_bib_author from this entry (text before the year)
+                if keys and not dash_match:
+                    year_match = re.search(r'\d{4}', text)
+                    if year_match:
+                        last_bib_author = text[:year_match.start()].rstrip(' .,;:(')
+
+            if not keys:
+                print(f"  ⚠️ No keys generated for: {text[:60]}...")
                 continue
-            else:
-                # Collision — different paper, same author+year
-                # Retroactively suffix the first entry if this is the first collision
-                if prev["suffix_count"] == 0:
-                    old_id = base_entry_id
-                    # Find a free suffix for the first entry
-                    first_suffix = 0  # 'a'
-                    while base_entry_id + chr(ord('a') + first_suffix) in used_ids:
-                        first_suffix += 1
-                    new_first_id = base_entry_id + chr(ord('a') + first_suffix)
-                    # Update the first entry's anchor and references_data
-                    first_anchor = soup.find("a", {"id": old_id, "class": "bib-entry"})
-                    if first_anchor:
-                        first_anchor["id"] = new_first_id
-                        parent_p = first_anchor.find_parent('p')
-                    else:
-                        parent_p = None
-                    for rd in references_data:
-                        if rd["referenceId"] == old_id:
-                            rd["referenceId"] = new_first_id
-                            if first_anchor and parent_p:
-                                rd["content"] = str(parent_p)
-                            break
-                    # Remap bibliography_map entries pointing to old_id
-                    for k, v in list(bibliography_map.items()):
-                        if v == old_id:
-                            bibliography_map[k] = new_first_id
-                    used_ids.discard(old_id)
-                    used_ids.add(new_first_id)
-                    seen_references[base_entry_id]["suffix_count"] = first_suffix
-                    print(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
 
-                prev["suffix_count"] += 1
-                suffix = chr(ord('a') + prev["suffix_count"])
-                # Skip past any suffixes already taken
-                while base_entry_id + suffix in used_ids:
+            base_entry_id = keys[0]
+
+            if base_entry_id not in seen_references:
+                # First time seeing this base key
+                if base_entry_id not in used_ids:
+                    # ID is free — add normally
+                    seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
+                    entry_id = base_entry_id
+                else:
+                    # ID was already taken by a collision suffix from a different base key
+                    # Treat this as a new base that needs an immediate suffix
+                    seen_references[base_entry_id] = {"text": text, "suffix_count": 0}
+                    suffix_num = 1
+                    while base_entry_id + chr(ord('a') + suffix_num) in used_ids:
+                        suffix_num += 1
+                    entry_id = base_entry_id + chr(ord('a') + suffix_num)
+                    seen_references[base_entry_id]["suffix_count"] = suffix_num
+                    print(f"  🔀 ID '{base_entry_id}' already taken by suffix — using {entry_id}")
+            else:
+                prev = seen_references[base_entry_id]
+                # Compare content (first 60 alphanum chars, normalized) to detect true dupes vs collisions
+                normalize = lambda t: re.sub(r'[^a-z0-9]', '', t.lower())[:60]
+                if normalize(prev["text"]) == normalize(text):
+                    # True duplicate — skip DOM/data, but still add keys
+                    for key in keys:
+                        bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
+                    print(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
+                    continue
+                else:
+                    # Collision — different paper, same author+year
+                    # Retroactively suffix the first entry if this is the first collision
+                    if prev["suffix_count"] == 0:
+                        old_id = base_entry_id
+                        # Find a free suffix for the first entry
+                        first_suffix = 0  # 'a'
+                        while base_entry_id + chr(ord('a') + first_suffix) in used_ids:
+                            first_suffix += 1
+                        new_first_id = base_entry_id + chr(ord('a') + first_suffix)
+                        # Update the first entry's anchor and references_data
+                        first_anchor = soup.find("a", {"id": old_id, "class": "bib-entry"})
+                        if first_anchor:
+                            first_anchor["id"] = new_first_id
+                            parent_p = first_anchor.find_parent('p')
+                        else:
+                            parent_p = None
+                        for rd in references_data:
+                            if rd["referenceId"] == old_id:
+                                rd["referenceId"] = new_first_id
+                                if first_anchor and parent_p:
+                                    rd["content"] = str(parent_p)
+                                break
+                        # Remap bibliography_map entries pointing to old_id
+                        for k, v in list(bibliography_map.items()):
+                            if v == old_id:
+                                bibliography_map[k] = new_first_id
+                        used_ids.discard(old_id)
+                        used_ids.add(new_first_id)
+                        seen_references[base_entry_id]["suffix_count"] = first_suffix
+                        print(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
+
                     prev["suffix_count"] += 1
                     suffix = chr(ord('a') + prev["suffix_count"])
-                entry_id = base_entry_id + suffix
-                print(f"  🔀 Collision: assigned suffix → {entry_id}")
+                    # Skip past any suffixes already taken
+                    while base_entry_id + suffix in used_ids:
+                        prev["suffix_count"] += 1
+                        suffix = chr(ord('a') + prev["suffix_count"])
+                    entry_id = base_entry_id + suffix
+                    print(f"  🔀 Collision: assigned suffix → {entry_id}")
 
-        used_ids.add(entry_id)
+            used_ids.add(entry_id)
 
-        # Add keys to bibliography_map
-        for key in keys:
-            bibliography_map[key] = entry_id
-        # Add DOM anchor + references_data entry
-        anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
-        p.insert(0, anchor_tag)
-        references_data.append({"referenceId": entry_id, "content": str(p)})
-        print(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
+            # Add keys to bibliography_map
+            for key in keys:
+                bibliography_map[key] = entry_id
+            # Add DOM anchor + references_data entry
+            anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
+            p.insert(0, anchor_tag)
+            references_data.append({"referenceId": entry_id, "content": str(p)})
+            print(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
 
-    print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
-    print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
+        print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
+        print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
-    # --- 1B: Process Footnotes (ROUTER-BASED) ---
-    # Check if footnotes.json already exists (e.g., from epub_normalizer.py)
-    # If so, use that instead of detecting footnotes ourselves
-    existing_footnotes_path = os.path.join(output_dir, 'footnotes.json')
-    if os.path.exists(existing_footnotes_path):
-        try:
-            with open(existing_footnotes_path, 'r', encoding='utf-8') as f:
-                existing_footnotes = json.load(f)
-            if existing_footnotes and len(existing_footnotes) > 0:
-                print(f"--- Using existing footnotes.json ({len(existing_footnotes)} footnotes) ---")
-                all_footnotes_data = existing_footnotes
-                footnote_sections = []
-                sectioned_footnote_map = {}
-                all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
-                # Skip to node chunking
-                strategy = 'pre_processed'
-            else:
-                strategy, strategy_info = analyze_document_structure(soup)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not read existing footnotes.json: {e}")
-            strategy, strategy_info = analyze_document_structure(soup)
-    else:
-        strategy, strategy_info = analyze_document_structure(soup)
-
-    if strategy == 'sequential':
-        # Use sequential footnote processing (ref/def sections restart numbering)
-        sequential_footnote_map, all_footnotes_data = process_sequential_footnotes(soup, book_id)
-        sectioned_footnote_map = sequential_footnote_map
-        footnotes_data = all_footnotes_data
-        footnote_sections = []
-        all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img', 'a'])
-    elif strategy == 'whole_document':
-        # Use simple whole-document footnote processing
-        global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
-        sectioned_footnote_map = {'whole_document': global_footnote_map}
-        all_footnotes_data = footnotes_data
-        footnote_sections = []
-        all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
-    elif strategy != 'pre_processed':
-        # Use section-aware footnote processing
-        footnote_sections, all_elements = detect_footnote_sections(soup)
-        sectioned_footnote_map = {}
-        all_footnotes_data = []
-    
-    # Process traditional footnotes container first (skip if pre-processed)
-    fn_container = soup.find('section', class_='footnotes')
-    if fn_container and strategy != 'pre_processed':
-        list_items = fn_container.find_all('li')
-        
-        for li in list_items:
-            back_link = li.find('a', class_='footnote-back')
-            if not back_link: continue
-
-            href = back_link.get('href', '')
-            id_match = re.search(r'#fnref(\d+)', href)
-            if not id_match: continue
-            
-            identifier = id_match.group(1)
-
-            # Generate unique footnote ID for traditional footnotes (shorter format without book prefix)
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
-
-            # Add anchor with unique ID and count attribute
-            anchor_tag = soup.new_tag('a', id=unique_fn_id)
-            anchor_tag['fn-count-id'] = identifier
-            li.insert(0, anchor_tag)
-
-            # Update the back-link to point to the unique in-text reference (same ID)
-            back_link['href'] = f"#{unique_fn_id}"
-
-            # Extract content for JSON
-            temp_li = BeautifulSoup(str(li), 'html.parser')
-            temp_back_link = temp_li.find('a', class_='footnote-back')
-            if temp_back_link:
-                temp_back_link.decompose()
-            content = temp_li.li.decode_contents().strip()
-
-            # Store in global section for traditional footnotes
-            if 'traditional' not in sectioned_footnote_map:
-                sectioned_footnote_map['traditional'] = {}
-            
-            sectioned_footnote_map['traditional'][identifier] = {
-                'unique_fn_id': unique_fn_id,
-                'content': content,
-                'section_id': 'traditional'
-            }
-            
-            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
-        
-        print(f"Unwrapping {len(list_items)} traditional footnote items to be processed as individual nodes.")
-        fn_container.replace_with(*list_items)
-    
-    # Process sectioned footnotes with multi-paragraph support
-    for section in footnote_sections:
-        section_id = section['id']
-        sectioned_footnote_map[section_id] = {}
-
-        # Get the range of elements in this section's footnotes area
-        fn_start_idx = section.get('footnotes_start_idx', 0)
-        fn_end_idx = section.get('footnotes_end_idx', len(all_elements))
-
-        # Get elements in the footnotes range
-        section_elements = all_elements[fn_start_idx:fn_end_idx]
-
-        # Find indices of footnote starts within this range
-        footnote_starts = []
-        for i, element in enumerate(section_elements):
-            text = element.get_text().strip()
-            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
-                footnote_starts.append(i)
-
-        # Process each footnote with its continuation elements
-        for j, start_idx in enumerate(footnote_starts):
-            # End index is either next footnote start or end of section
-            end_idx = footnote_starts[j + 1] if j + 1 < len(footnote_starts) else len(section_elements)
-
-            # Get the first element (contains the marker)
-            first_element = section_elements[start_idx]
-            first_text = first_element.get_text().strip()
-
-            # Extract footnote number from first element
-            number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', first_text, re.DOTALL)
-            if not number_match:
-                continue
-
-            # Extract the digit from either group 2 or group 3
-            identifier = number_match.group(2) or number_match.group(3)
-            first_content = number_match.group(4).strip()
-
-            # Collect content from all elements for this footnote
-            content_parts = [first_content] if first_content else []
-
-            # Add continuation elements (elements between this footnote and the next)
-            # Stop at headings or horizontal rules (section boundaries)
-            for elem in section_elements[start_idx + 1:end_idx]:
-                # Stop if we hit a heading or hr (section boundary)
-                if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
-                    break
-                elem_content = get_element_html_content(elem)
-                if elem_content and elem_content.strip():
-                    content_parts.append(elem_content.strip())
-
-            # Combine all content with HTML line breaks for multi-paragraph support
-            full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
-
-            print(f"Processing footnote {identifier} in section {section_id}: {full_content[:30]}... ({len(content_parts)} parts)")
-
-            # Generate unique footnote ID with section prefix (shorter format without book prefix)
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"s{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
-
-            # Add anchor with unique ID and section info to the first element
-            anchor_tag = soup.new_tag('a', id=unique_fn_id)
-            anchor_tag['fn-count-id'] = identifier
-            anchor_tag['fn-section-id'] = section_id
-            first_element.insert(0, anchor_tag)
-
-            sectioned_footnote_map[section_id][identifier] = {
-                'unique_fn_id': unique_fn_id,
-                'content': full_content,
-                'section_id': section_id,
-                'element': first_element
-            }
-
-            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
-    
-    # Create flattened map for backward compatibility
-    footnote_map = {}
-    for section_id, section_footnotes in sectioned_footnote_map.items():
-        for identifier, footnote_data in section_footnotes.items():
-            # Use section-prefixed key to avoid conflicts
-            map_key = f"{section_id}_{identifier}" if section_id != 'traditional' else identifier
-            footnote_map[map_key] = footnote_data
-    
-    footnotes_data = all_footnotes_data
-    total_footnotes = sum(len(section_footnotes) for section_footnotes in sectioned_footnote_map.values())
-    print(f"Found and extracted {total_footnotes} footnote definitions across {len(footnote_sections)} sections.")
-
-    # ========================================================================
-    # PASS 2: LINK ALL IN-TEXT MARKERS
-    # ========================================================================
-    print("\n--- PASS 2: Linking All In-Text Markers ---")
-
-    # --- 2A: Link References ---
-    citations_found = 0
-    citations_linked = 0
-    citations_unlinked = []
-
-    for text_node in soup.find_all(string=True):
-        if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
-            text = str(text_node)
-            matches = list(re.finditer(r"\(([^)]*?\d{4}[^)]*?)\)", text))
-            if matches:
-                new_content = []
-                last_index = 0
-                for match in matches:
-                    preceding_text = text[last_index : match.start()]
-                    new_content.append(NavigableString(preceding_text))
-                    citation_block = match.group(1)
-                    new_content.append(NavigableString("("))
-                    sub_citations = re.split(r";\s*", citation_block)
-                    for i, sub_cite_raw in enumerate(sub_citations):
-                        sub_cite = sub_cite_raw.strip()
-                        if not sub_cite: continue
-                        citations_found += 1
-                        context_for_keys = preceding_text
-                        if not re.search(r'[A-Z]', preceding_text):
-                            # Author name may be in a preceding sibling element (e.g. <em>Author</em> (Year))
-                            sibling_texts = []
-                            for sibling in text_node.previous_siblings:
-                                if hasattr(sibling, 'get_text'):
-                                    sibling_texts.append(sibling.get_text())
-                                elif isinstance(sibling, str):
-                                    sibling_texts.append(str(sibling))
-                            if sibling_texts:
-                                context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
-                        keys = generate_ref_keys(sub_cite, context_text=context_for_keys)
-                        linked = False
-                        for key in keys:
-                            if key in bibliography_map:
-                                year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
-                                if year_match:
-                                    author_part = sub_cite[:year_match.start(0)]
-                                    year_part = year_match.group(0)
-                                    trailing_part = sub_cite[year_match.end(0):]
-                                    if author_part:
-                                        new_content.append(NavigableString(author_part))
-                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
-                                    a_tag['class'] = 'in-text-citation'
-                                    a_tag.string = year_part
-                                    new_content.append(a_tag)
-                                    if trailing_part:
-                                        # Check for comma-separated additional years e.g. "2010a, 2010b"
-                                        remaining = trailing_part
-                                        while remaining:
-                                            extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
-                                            if extra_year:
-                                                separator = extra_year.group(1)
-                                                extra_year_str = extra_year.group(2)
-                                                extra_keys = generate_ref_keys(author_part + extra_year_str, context_text=preceding_text)
-                                                extra_linked = False
-                                                for ek in extra_keys:
-                                                    if ek in bibliography_map:
-                                                        new_content.append(NavigableString(separator))
-                                                        ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
-                                                        ea_tag['class'] = 'in-text-citation'
-                                                        ea_tag.string = extra_year_str
-                                                        new_content.append(ea_tag)
-                                                        extra_linked = True
-                                                        citations_found += 1
-                                                        citations_linked += 1
-                                                        break
-                                                if not extra_linked:
-                                                    new_content.append(NavigableString(separator + extra_year_str))
-                                                remaining = remaining[extra_year.end(0):]
-                                            else:
-                                                new_content.append(NavigableString(remaining))
-                                                break
-                                else:
-                                    a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
-                                    a_tag['class'] = 'in-text-citation'
-                                    a_tag.string = sub_cite
-                                    new_content.append(a_tag)
-
-                                linked = True
-                                citations_linked += 1
-                                break
-                        if not linked:
-                            new_content.append(NavigableString(sub_cite))
-                            citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
-                        if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
-                    new_content.append(NavigableString(")"))
-                    last_index = match.end()
-                new_content.append(NavigableString(text[last_index:]))
-                text_node.replace_with(*new_content)
-
-    # Citation linking summary
-    print(f"\n📖 Citation linking summary:")
-    print(f"  - Total in-text citations found: {citations_found}")
-    print(f"  - Successfully linked: {citations_linked}")
-    print(f"  - Unlinked: {citations_found - citations_linked}")
-    if citations_unlinked:
-        print(f"  - All unlinked citations ({len(citations_unlinked)}):")
-        for item in citations_unlinked:
-            print(f"    • '{item['citation']}' → keys tried: {item['generated_keys']}")
-    print(f"  - Bibliography map keys ({len(bibliography_map)}): {sorted(bibliography_map.keys())}")
-
-    # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
-
-    # Pre-build ref section positions for sequential strategy
-    if strategy == 'sequential':
-        ref_markers = soup.find_all('a', class_='footnoteSectionStart')
-        ref_section_positions = []
-        for marker in ref_markers:
-            section_num = marker.get('id', '').replace('fnRefSection_', '')
+        # --- 1B: Process Footnotes (ROUTER-BASED) ---
+        # Check if footnotes.json already exists (e.g., from epub_normalizer.py)
+        # If so, use that instead of detecting footnotes ourselves
+        existing_footnotes_path = os.path.join(output_dir, 'footnotes.json')
+        if os.path.exists(existing_footnotes_path):
             try:
-                pos = all_elements.index(marker)
-            except ValueError:
-                pos = 0
-            ref_section_positions.append((pos, section_num))
-        # Sort by position ascending
-        ref_section_positions.sort(key=lambda x: x[0])
-
-    def find_footnote_data(identifier, current_element=None):
-        """Find footnote data using the appropriate strategy"""
-        if strategy == 'whole_document':
-            # Simple lookup in whole-document map
-            if identifier in global_footnote_map:
-                print(f"Found footnote {identifier} in whole-document mode")
-                return global_footnote_map[identifier]
-            print(f"Could not find footnote {identifier} in whole-document mode (available: {list(global_footnote_map.keys())[:10]}...)")
-            return None
-        elif strategy == 'sequential':
-            return find_footnote_in_sequential(identifier, current_element)
+                with open(existing_footnotes_path, 'r', encoding='utf-8') as f:
+                    existing_footnotes = json.load(f)
+                if existing_footnotes and len(existing_footnotes) > 0:
+                    print(f"--- Using existing footnotes.json ({len(existing_footnotes)} footnotes) ---")
+                    all_footnotes_data = existing_footnotes
+                    footnote_sections = []
+                    sectioned_footnote_map = {}
+                    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
+                    # Skip to node chunking
+                    strategy = 'pre_processed'
+                else:
+                    strategy, strategy_info = analyze_document_structure(soup)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not read existing footnotes.json: {e}")
+                strategy, strategy_info = analyze_document_structure(soup)
         else:
-            # Section-aware lookup (original logic)
-            return find_footnote_in_sections(identifier, current_element)
+            strategy, strategy_info = analyze_document_structure(soup)
 
-    def find_footnote_in_sequential(identifier, current_element):
-        """Find footnote data by determining which ref section the element falls in,
-        then looking up the matching definition section."""
-        # Get position of current element
-        try:
-            current_pos = all_elements.index(current_element)
-        except ValueError:
-            parent = current_element.parent
-            while parent:
-                try:
-                    current_pos = all_elements.index(parent)
-                    break
-                except ValueError:
-                    parent = parent.parent
-            else:
-                current_pos = 0
-
-        # Find which ref section this element falls in (last marker before current_pos)
-        section_num = None
-        for pos, num in ref_section_positions:
-            if pos <= current_pos:
-                section_num = num
-            else:
-                break
-
-        if section_num and section_num in sequential_footnote_map:
-            if identifier in sequential_footnote_map[section_num]:
-                print(f"Found footnote {identifier} in sequential section {section_num} (pos {current_pos})")
-                return sequential_footnote_map[section_num][identifier]
-
-        # Fallback: try all sections for this identifier
-        for sec_id, sec_map in sequential_footnote_map.items():
-            if identifier in sec_map:
-                print(f"Fallback: found footnote {identifier} in section {sec_id}")
-                return sec_map[identifier]
-
-        print(f"Could not find footnote {identifier} in sequential mode (section {section_num})")
-        return None
+        if strategy == 'sequential':
+            # Use sequential footnote processing (ref/def sections restart numbering)
+            sequential_footnote_map, all_footnotes_data = process_sequential_footnotes(soup, book_id)
+            sectioned_footnote_map = sequential_footnote_map
+            footnotes_data = all_footnotes_data
+            footnote_sections = []
+            all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img', 'a'])
+        elif strategy == 'whole_document':
+            # Use simple whole-document footnote processing
+            global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
+            sectioned_footnote_map = {'whole_document': global_footnote_map}
+            all_footnotes_data = footnotes_data
+            footnote_sections = []
+            all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
+        elif strategy != 'pre_processed':
+            # Use section-aware footnote processing
+            footnote_sections, all_elements = detect_footnote_sections(soup)
+            sectioned_footnote_map = {}
+            all_footnotes_data = []
     
-    def find_footnote_in_sections(identifier, current_element):
-        """Find footnote data by determining which section's text area this element is in"""
-        # Get position of current element in document
-        try:
-            current_pos = all_elements.index(current_element)
-        except ValueError:
-            # If element not found, find closest parent that is
-            parent = current_element.parent
-            while parent:
-                try:
-                    current_pos = all_elements.index(parent)
-                    break
-                except ValueError:
-                    parent = parent.parent
-            else:
-                current_pos = 0
+        # Process traditional footnotes container first (skip if pre-processed)
+        fn_container = soup.find('section', class_='footnotes')
+        if fn_container and strategy != 'pre_processed':
+            list_items = fn_container.find_all('li')
+        
+            for li in list_items:
+                back_link = li.find('a', class_='footnote-back')
+                if not back_link: continue
 
-        # Find which section this element belongs to by checking explicit text ranges
+                href = back_link.get('href', '')
+                id_match = re.search(r'#fnref(\d+)', href)
+                if not id_match: continue
+            
+                identifier = id_match.group(1)
+
+                # Generate unique footnote ID for traditional footnotes (shorter format without book prefix)
+                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+                unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
+
+                # Add anchor with unique ID and count attribute
+                anchor_tag = soup.new_tag('a', id=unique_fn_id)
+                anchor_tag['fn-count-id'] = identifier
+                li.insert(0, anchor_tag)
+
+                # Update the back-link to point to the unique in-text reference (same ID)
+                back_link['href'] = f"#{unique_fn_id}"
+
+                # Extract content for JSON
+                temp_li = BeautifulSoup(str(li), 'html.parser')
+                temp_back_link = temp_li.find('a', class_='footnote-back')
+                if temp_back_link:
+                    temp_back_link.decompose()
+                content = temp_li.li.decode_contents().strip()
+
+                # Store in global section for traditional footnotes
+                if 'traditional' not in sectioned_footnote_map:
+                    sectioned_footnote_map['traditional'] = {}
+            
+                sectioned_footnote_map['traditional'][identifier] = {
+                    'unique_fn_id': unique_fn_id,
+                    'content': content,
+                    'section_id': 'traditional'
+                }
+            
+                all_footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
+        
+            print(f"Unwrapping {len(list_items)} traditional footnote items to be processed as individual nodes.")
+            fn_container.replace_with(*list_items)
+    
+        # Process sectioned footnotes with multi-paragraph support
         for section in footnote_sections:
-            if (current_pos >= section.get('text_start_idx', 0) and
-                current_pos < section.get('text_end_idx', len(all_elements))):
-                if identifier in sectioned_footnote_map.get(section['id'], {}):
-                    return sectioned_footnote_map[section['id']][identifier]
+            section_id = section['id']
+            sectioned_footnote_map[section_id] = {}
 
-        # Try traditional footnotes as final fallback
-        if 'traditional' in sectioned_footnote_map and identifier in sectioned_footnote_map['traditional']:
-            return sectioned_footnote_map['traditional'][identifier]
+            # Get the range of elements in this section's footnotes area
+            fn_start_idx = section.get('footnotes_start_idx', 0)
+            fn_end_idx = section.get('footnotes_end_idx', len(all_elements))
 
-        return None
+            # Get elements in the footnotes range
+            section_elements = all_elements[fn_start_idx:fn_end_idx]
+
+            # Find indices of footnote starts within this range
+            footnote_starts = []
+            for i, element in enumerate(section_elements):
+                text = element.get_text().strip()
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+                    footnote_starts.append(i)
+
+            # Process each footnote with its continuation elements
+            for j, start_idx in enumerate(footnote_starts):
+                # End index is either next footnote start or end of section
+                end_idx = footnote_starts[j + 1] if j + 1 < len(footnote_starts) else len(section_elements)
+
+                # Get the first element (contains the marker)
+                first_element = section_elements[start_idx]
+                first_text = first_element.get_text().strip()
+
+                # Extract footnote number from first element
+                number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', first_text, re.DOTALL)
+                if not number_match:
+                    continue
+
+                # Extract the digit from either group 2 or group 3
+                identifier = number_match.group(2) or number_match.group(3)
+                first_content = number_match.group(4).strip()
+
+                # Collect content from all elements for this footnote
+                content_parts = [first_content] if first_content else []
+
+                # Add continuation elements (elements between this footnote and the next)
+                # Stop at headings or horizontal rules (section boundaries)
+                for elem in section_elements[start_idx + 1:end_idx]:
+                    # Stop if we hit a heading or hr (section boundary)
+                    if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
+                        break
+                    elem_content = get_element_html_content(elem)
+                    if elem_content and elem_content.strip():
+                        content_parts.append(elem_content.strip())
+
+                # Combine all content with HTML line breaks for multi-paragraph support
+                full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
+
+                print(f"Processing footnote {identifier} in section {section_id}: {full_content[:30]}... ({len(content_parts)} parts)")
+
+                # Generate unique footnote ID with section prefix (shorter format without book prefix)
+                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+                unique_fn_id = f"s{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
+
+                # Add anchor with unique ID and section info to the first element
+                anchor_tag = soup.new_tag('a', id=unique_fn_id)
+                anchor_tag['fn-count-id'] = identifier
+                anchor_tag['fn-section-id'] = section_id
+                first_element.insert(0, anchor_tag)
+
+                sectioned_footnote_map[section_id][identifier] = {
+                    'unique_fn_id': unique_fn_id,
+                    'content': full_content,
+                    'section_id': section_id,
+                    'element': first_element
+                }
+
+                all_footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
     
-    # Handle existing <a> tags with #fn pattern
-    for a_tag in soup.find_all('a', href=re.compile(r'^#fn\d+')):
-        identifier_match = re.search(r'(\d+)', a_tag.get('href', ''))
-        if not identifier_match: continue
-        identifier = identifier_match.group(1)
-        text_content = a_tag.get_text(strip=True)
+        # Create flattened map for backward compatibility
+        footnote_map = {}
+        for section_id, section_footnotes in sectioned_footnote_map.items():
+            for identifier, footnote_data in section_footnotes.items():
+                # Use section-prefixed key to avoid conflicts
+                map_key = f"{section_id}_{identifier}" if section_id != 'traditional' else identifier
+                footnote_map[map_key] = footnote_data
+    
+        footnotes_data = all_footnotes_data
+        total_footnotes = sum(len(section_footnotes) for section_footnotes in sectioned_footnote_map.values())
+        print(f"Found and extracted {total_footnotes} footnote definitions across {len(footnote_sections)} sections.")
 
-        footnote_data = find_footnote_data(identifier, a_tag)
-        if footnote_data and text_content == identifier:
-            # New format: sup with class, no anchor inside
-            new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
-            new_sup['fn-count-id'] = identifier
-            new_sup['class'] = 'footnote-ref'
-            if 'section_id' in footnote_data:
-                new_sup['fn-section-id'] = footnote_data['section_id']
-            new_sup.string = text_content
-            a_tag.replace_with(new_sup)
+        # ========================================================================
+        # PASS 2: LINK ALL IN-TEXT MARKERS
+        # ========================================================================
+        print("\n--- PASS 2: Linking All In-Text Markers ---")
 
-    # Handle existing <sup> tags
-    for sup_tag in soup.find_all('sup'):
-        # Skip if already has new format (class on sup) or old format (anchor inside)
-        if 'footnote-ref' in sup_tag.get('class', []) or sup_tag.find('a', class_='footnote-ref'):
-            continue
-        identifier = sup_tag.get_text(strip=True)
-        footnote_data = find_footnote_data(identifier, sup_tag)
-        if footnote_data:
-            # New format: add attributes to sup, no anchor
-            sup_tag['id'] = footnote_data['unique_fn_id']
-            sup_tag['fn-count-id'] = identifier
-            sup_tag['class'] = sup_tag.get('class', []) + ['footnote-ref']
-            if 'section_id' in footnote_data:
-                sup_tag['fn-section-id'] = footnote_data['section_id']
-            # Keep text content as-is (already identifier)
+        # --- 2A: Link References ---
+        citations_found = 0
+        citations_linked = 0
+        citations_unlinked = []
 
-    # Handle [^identifier] patterns in text (but NOT footnote definitions)
-    for text_node in soup.find_all(string=True):
-        if not text_node.parent.name in ['style', 'script', 'a']:
-            text = str(text_node)
-            matches = list(re.finditer(r'\[\^?(\w+)\]', text))
-            if matches:
-                new_content = []
-                last_index = 0
-                for match in matches:
-                    identifier = match.group(1)
+        for text_node in soup.find_all(string=True):
+            if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
+                text = str(text_node)
+                matches = list(re.finditer(r"\(([^)]*?\d{4}[^)]*?)\)", text))
+                if matches:
+                    new_content = []
+                    last_index = 0
+                    for match in matches:
+                        preceding_text = text[last_index : match.start()]
+                        new_content.append(NavigableString(preceding_text))
+                        citation_block = match.group(1)
+                        new_content.append(NavigableString("("))
+                        sub_citations = re.split(r";\s*", citation_block)
+                        for i, sub_cite_raw in enumerate(sub_citations):
+                            sub_cite = sub_cite_raw.strip()
+                            if not sub_cite: continue
+                            citations_found += 1
+                            context_for_keys = preceding_text
+                            if not re.search(r'[A-Z]', preceding_text):
+                                # Author name may be in a preceding sibling element (e.g. <em>Author</em> (Year))
+                                sibling_texts = []
+                                for sibling in text_node.previous_siblings:
+                                    if hasattr(sibling, 'get_text'):
+                                        sibling_texts.append(sibling.get_text())
+                                    elif isinstance(sibling, str):
+                                        sibling_texts.append(str(sibling))
+                                if sibling_texts:
+                                    context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
+                            keys = generate_ref_keys(sub_cite, context_text=context_for_keys)
+                            linked = False
+                            for key in keys:
+                                if key in bibliography_map:
+                                    year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
+                                    if year_match:
+                                        author_part = sub_cite[:year_match.start(0)]
+                                        year_part = year_match.group(0)
+                                        trailing_part = sub_cite[year_match.end(0):]
+                                        if author_part:
+                                            new_content.append(NavigableString(author_part))
+                                        a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                        a_tag['class'] = 'in-text-citation'
+                                        a_tag.string = year_part
+                                        new_content.append(a_tag)
+                                        if trailing_part:
+                                            # Check for comma-separated additional years e.g. "2010a, 2010b"
+                                            remaining = trailing_part
+                                            while remaining:
+                                                extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
+                                                if extra_year:
+                                                    separator = extra_year.group(1)
+                                                    extra_year_str = extra_year.group(2)
+                                                    extra_keys = generate_ref_keys(author_part + extra_year_str, context_text=preceding_text)
+                                                    extra_linked = False
+                                                    for ek in extra_keys:
+                                                        if ek in bibliography_map:
+                                                            new_content.append(NavigableString(separator))
+                                                            ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
+                                                            ea_tag['class'] = 'in-text-citation'
+                                                            ea_tag.string = extra_year_str
+                                                            new_content.append(ea_tag)
+                                                            extra_linked = True
+                                                            citations_found += 1
+                                                            citations_linked += 1
+                                                            break
+                                                    if not extra_linked:
+                                                        new_content.append(NavigableString(separator + extra_year_str))
+                                                    remaining = remaining[extra_year.end(0):]
+                                                else:
+                                                    new_content.append(NavigableString(remaining))
+                                                    break
+                                    else:
+                                        a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                        a_tag['class'] = 'in-text-citation'
+                                        a_tag.string = sub_cite
+                                        new_content.append(a_tag)
 
-                    # Check if this is a footnote definition (followed by colon)
-                    # Skip processing if this looks like a definition
-                    match_end = match.end()
-                    following_text = text[match_end:match_end+5].strip()  # Look at next 5 chars
-                    if following_text.startswith(':'):
-                        # This is a footnote definition, skip it
-                        print(f"Skipping footnote definition pattern: {match.group(0)}:")
-                        continue
-
-                    footnote_data = find_footnote_data(identifier, text_node.parent)
-                    if footnote_data:
-                        new_content.append(NavigableString(text[last_index:match.start()]))
-                        # New format: sup with class, no anchor inside
-                        new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
-                        new_sup['fn-count-id'] = identifier
-                        new_sup['class'] = 'footnote-ref'
-                        if 'section_id' in footnote_data:
-                            new_sup['fn-section-id'] = footnote_data['section_id']
-                        new_sup.string = identifier
-                        new_content.append(new_sup)
+                                    linked = True
+                                    citations_linked += 1
+                                    break
+                            if not linked:
+                                new_content.append(NavigableString(sub_cite))
+                                citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
+                            if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
+                        new_content.append(NavigableString(")"))
                         last_index = match.end()
-                    else:
-                        # If no footnote found, leave the text as-is
-                        continue
-                if new_content:  # Only replace if we found matches
                     new_content.append(NavigableString(text[last_index:]))
                     text_node.replace_with(*new_content)
 
-    # ========================================================================
-    # AUDIT PASS: Validate footnote linking
-    # ========================================================================
-    print("\n--- AUDIT: Validating footnote linking ---")
-    audit_data = {
-        'total_refs': 0,
-        'total_defs': len(footnotes_data) if 'footnotes_data' in dir() else len(all_footnotes_data),
-        'gaps': [],
-        'duplicates': [],
-        'unmatched_refs': [],
-        'unmatched_defs': []
-    }
+        # Citation linking summary
+        print(f"\n📖 Citation linking summary:")
+        print(f"  - Total in-text citations found: {citations_found}")
+        print(f"  - Successfully linked: {citations_linked}")
+        print(f"  - Unlinked: {citations_found - citations_linked}")
+        if citations_unlinked:
+            print(f"  - All unlinked citations ({len(citations_unlinked)}):")
+            for item in citations_unlinked:
+                print(f"    • '{item['citation']}' → keys tried: {item['generated_keys']}")
+        print(f"  - Bibliography map keys ({len(bibliography_map)}): {sorted(bibliography_map.keys())}")
 
-    # Walk all footnote-ref sup elements in document order
-    all_ref_sups = soup.find_all('sup', class_='footnote-ref')
-    audit_data['total_refs'] = len(all_ref_sups)
+        # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
 
-    # Group into sequences (restart when fn-count-id goes back to lower number)
-    sequences = []
-    current_sequence = []
-    last_num = 0
+        # Pre-build ref section positions for sequential strategy
+        if strategy == 'sequential':
+            ref_markers = soup.find_all('a', class_='footnoteSectionStart')
+            ref_section_positions = []
+            for marker in ref_markers:
+                section_num = marker.get('id', '').replace('fnRefSection_', '')
+                try:
+                    pos = all_elements.index(marker)
+                except ValueError:
+                    pos = 0
+                ref_section_positions.append((pos, section_num))
+            # Sort by position ascending
+            ref_section_positions.sort(key=lambda x: x[0])
 
-    for sup in all_ref_sups:
-        fn_count = sup.get('fn-count-id', '0')
-        try:
-            num = int(fn_count)
-        except ValueError:
-            continue
-        if num <= last_num and current_sequence:
+        def find_footnote_data(identifier, current_element=None):
+            """Find footnote data using the appropriate strategy"""
+            if strategy == 'whole_document':
+                # Simple lookup in whole-document map
+                if identifier in global_footnote_map:
+                    print(f"Found footnote {identifier} in whole-document mode")
+                    return global_footnote_map[identifier]
+                print(f"Could not find footnote {identifier} in whole-document mode (available: {list(global_footnote_map.keys())[:10]}...)")
+                return None
+            elif strategy == 'sequential':
+                return find_footnote_in_sequential(identifier, current_element)
+            else:
+                # Section-aware lookup (original logic)
+                return find_footnote_in_sections(identifier, current_element)
+
+        def find_footnote_in_sequential(identifier, current_element):
+            """Find footnote data by determining which ref section the element falls in,
+            then looking up the matching definition section."""
+            # Get position of current element
+            try:
+                current_pos = all_elements.index(current_element)
+            except ValueError:
+                parent = current_element.parent
+                while parent:
+                    try:
+                        current_pos = all_elements.index(parent)
+                        break
+                    except ValueError:
+                        parent = parent.parent
+                else:
+                    current_pos = 0
+
+            # Find which ref section this element falls in (last marker before current_pos)
+            section_num = None
+            for pos, num in ref_section_positions:
+                if pos <= current_pos:
+                    section_num = num
+                else:
+                    break
+
+            if section_num and section_num in sequential_footnote_map:
+                if identifier in sequential_footnote_map[section_num]:
+                    print(f"Found footnote {identifier} in sequential section {section_num} (pos {current_pos})")
+                    return sequential_footnote_map[section_num][identifier]
+
+            # Fallback: try all sections for this identifier
+            for sec_id, sec_map in sequential_footnote_map.items():
+                if identifier in sec_map:
+                    print(f"Fallback: found footnote {identifier} in section {sec_id}")
+                    return sec_map[identifier]
+
+            print(f"Could not find footnote {identifier} in sequential mode (section {section_num})")
+            return None
+    
+        def find_footnote_in_sections(identifier, current_element):
+            """Find footnote data by determining which section's text area this element is in"""
+            # Get position of current element in document
+            try:
+                current_pos = all_elements.index(current_element)
+            except ValueError:
+                # If element not found, find closest parent that is
+                parent = current_element.parent
+                while parent:
+                    try:
+                        current_pos = all_elements.index(parent)
+                        break
+                    except ValueError:
+                        parent = parent.parent
+                else:
+                    current_pos = 0
+
+            # Find which section this element belongs to by checking explicit text ranges
+            for section in footnote_sections:
+                if (current_pos >= section.get('text_start_idx', 0) and
+                    current_pos < section.get('text_end_idx', len(all_elements))):
+                    if identifier in sectioned_footnote_map.get(section['id'], {}):
+                        return sectioned_footnote_map[section['id']][identifier]
+
+            # Try traditional footnotes as final fallback
+            if 'traditional' in sectioned_footnote_map and identifier in sectioned_footnote_map['traditional']:
+                return sectioned_footnote_map['traditional'][identifier]
+
+            return None
+    
+        # Handle existing <a> tags with #fn pattern
+        for a_tag in soup.find_all('a', href=re.compile(r'^#fn\d+')):
+            identifier_match = re.search(r'(\d+)', a_tag.get('href', ''))
+            if not identifier_match: continue
+            identifier = identifier_match.group(1)
+            text_content = a_tag.get_text(strip=True)
+
+            footnote_data = find_footnote_data(identifier, a_tag)
+            if footnote_data and text_content == identifier:
+                # New format: sup with class, no anchor inside
+                new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
+                new_sup['fn-count-id'] = identifier
+                new_sup['class'] = 'footnote-ref'
+                if 'section_id' in footnote_data:
+                    new_sup['fn-section-id'] = footnote_data['section_id']
+                new_sup.string = text_content
+                a_tag.replace_with(new_sup)
+
+        # Handle existing <sup> tags
+        for sup_tag in soup.find_all('sup'):
+            # Skip if already has new format (class on sup) or old format (anchor inside)
+            if 'footnote-ref' in sup_tag.get('class', []) or sup_tag.find('a', class_='footnote-ref'):
+                continue
+            identifier = sup_tag.get_text(strip=True)
+            footnote_data = find_footnote_data(identifier, sup_tag)
+            if footnote_data:
+                # New format: add attributes to sup, no anchor
+                sup_tag['id'] = footnote_data['unique_fn_id']
+                sup_tag['fn-count-id'] = identifier
+                sup_tag['class'] = sup_tag.get('class', []) + ['footnote-ref']
+                if 'section_id' in footnote_data:
+                    sup_tag['fn-section-id'] = footnote_data['section_id']
+                # Keep text content as-is (already identifier)
+
+        # Handle [^identifier] patterns in text (but NOT footnote definitions)
+        for text_node in soup.find_all(string=True):
+            if not text_node.parent.name in ['style', 'script', 'a']:
+                text = str(text_node)
+                matches = list(re.finditer(r'\[\^?(\w+)\]', text))
+                if matches:
+                    new_content = []
+                    last_index = 0
+                    for match in matches:
+                        identifier = match.group(1)
+
+                        # Check if this is a footnote definition (followed by colon)
+                        # Skip processing if this looks like a definition
+                        match_end = match.end()
+                        following_text = text[match_end:match_end+5].strip()  # Look at next 5 chars
+                        if following_text.startswith(':'):
+                            # This is a footnote definition, skip it
+                            print(f"Skipping footnote definition pattern: {match.group(0)}:")
+                            continue
+
+                        footnote_data = find_footnote_data(identifier, text_node.parent)
+                        if footnote_data:
+                            new_content.append(NavigableString(text[last_index:match.start()]))
+                            # New format: sup with class, no anchor inside
+                            new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
+                            new_sup['fn-count-id'] = identifier
+                            new_sup['class'] = 'footnote-ref'
+                            if 'section_id' in footnote_data:
+                                new_sup['fn-section-id'] = footnote_data['section_id']
+                            new_sup.string = identifier
+                            new_content.append(new_sup)
+                            last_index = match.end()
+                        else:
+                            # If no footnote found, leave the text as-is
+                            continue
+                    if new_content:  # Only replace if we found matches
+                        new_content.append(NavigableString(text[last_index:]))
+                        text_node.replace_with(*new_content)
+
+        # ========================================================================
+        # AUDIT PASS: Validate footnote linking
+        # ========================================================================
+        print("\n--- AUDIT: Validating footnote linking ---")
+        audit_data = {
+            'total_refs': 0,
+            'total_defs': len(footnotes_data) if 'footnotes_data' in dir() else len(all_footnotes_data),
+            'gaps': [],
+            'duplicates': [],
+            'unmatched_refs': [],
+            'unmatched_defs': []
+        }
+
+        # Walk all footnote-ref sup elements in document order
+        all_ref_sups = soup.find_all('sup', class_='footnote-ref')
+        audit_data['total_refs'] = len(all_ref_sups)
+
+        # Group into sequences (restart when fn-count-id goes back to lower number)
+        sequences = []
+        current_sequence = []
+        last_num = 0
+
+        for sup in all_ref_sups:
+            fn_count = sup.get('fn-count-id', '0')
+            try:
+                num = int(fn_count)
+            except ValueError:
+                continue
+            if num <= last_num and current_sequence:
+                sequences.append(current_sequence)
+                current_sequence = []
+            # Gather rich context for each ref
+            section_id = sup.get('fn-section-id', '')
+            prev_heading = sup.find_previous(['h1','h2','h3','h4','h5','h6'])
+            heading_text = prev_heading.get_text()[:60].strip() if prev_heading else ''
+            context_text = sup.parent.get_text()[:120].strip() if sup.parent else ''
+            current_sequence.append({
+                'num': num,
+                'id': sup.get('id', ''),
+                'context': context_text,
+                'section_id': section_id,
+                'heading': heading_text,
+            })
+            last_num = num
+
+        if current_sequence:
             sequences.append(current_sequence)
-            current_sequence = []
-        # Gather rich context for each ref
-        section_id = sup.get('fn-section-id', '')
-        prev_heading = sup.find_previous(['h1','h2','h3','h4','h5','h6'])
-        heading_text = prev_heading.get_text()[:60].strip() if prev_heading else ''
-        context_text = sup.parent.get_text()[:120].strip() if sup.parent else ''
-        current_sequence.append({
-            'num': num,
-            'id': sup.get('id', ''),
-            'context': context_text,
-            'section_id': section_id,
-            'heading': heading_text,
-        })
-        last_num = num
 
-    if current_sequence:
-        sequences.append(current_sequence)
+        # Check for gaps and duplicates within each sequence
+        for seq_idx, sequence in enumerate(sequences):
+            numbers_in_seq = [item['num'] for item in sequence]
 
-    # Check for gaps and duplicates within each sequence
-    for seq_idx, sequence in enumerate(sequences):
-        numbers_in_seq = [item['num'] for item in sequence]
+            # Check for gaps
+            if numbers_in_seq:
+                for i in range(len(numbers_in_seq) - 1):
+                    current = numbers_in_seq[i]
+                    next_num = numbers_in_seq[i + 1]
+                    if next_num - current > 1:
+                        for missing in range(current + 1, next_num):
+                            audit_data['gaps'].append({
+                                'missing': missing,
+                                'after_ref': current,
+                                'before_ref': next_num,
+                                'section': seq_idx + 1,
+                                'after_ref_context': sequence[i]['context'],
+                                'after_ref_section_id': sequence[i]['section_id'],
+                                'after_ref_heading': sequence[i]['heading'],
+                                'before_ref_context': sequence[i + 1]['context'],
+                                'before_ref_section_id': sequence[i + 1]['section_id'],
+                                'before_ref_heading': sequence[i + 1]['heading'],
+                            })
 
-        # Check for gaps
-        if numbers_in_seq:
-            for i in range(len(numbers_in_seq) - 1):
-                current = numbers_in_seq[i]
-                next_num = numbers_in_seq[i + 1]
-                if next_num - current > 1:
-                    for missing in range(current + 1, next_num):
-                        audit_data['gaps'].append({
-                            'missing': missing,
-                            'after_ref': current,
-                            'before_ref': next_num,
-                            'section': seq_idx + 1,
-                            'after_ref_context': sequence[i]['context'],
-                            'after_ref_section_id': sequence[i]['section_id'],
-                            'after_ref_heading': sequence[i]['heading'],
-                            'before_ref_context': sequence[i + 1]['context'],
-                            'before_ref_section_id': sequence[i + 1]['section_id'],
-                            'before_ref_heading': sequence[i + 1]['heading'],
-                        })
+            # Check for duplicates
+            num_counts = Counter(numbers_in_seq)
+            for num, count in num_counts.items():
+                if count > 1:
+                    dup_item = next((item for item in sequence if item['num'] == num), None)
+                    audit_data['duplicates'].append({
+                        'number': num,
+                        'section': seq_idx + 1,
+                        'count': count,
+                        'context': dup_item['context'] if dup_item else '',
+                        'heading': dup_item['heading'] if dup_item else '',
+                    })
 
-        # Check for duplicates
-        num_counts = Counter(numbers_in_seq)
-        for num, count in num_counts.items():
-            if count > 1:
-                dup_item = next((item for item in sequence if item['num'] == num), None)
-                audit_data['duplicates'].append({
-                    'number': num,
-                    'section': seq_idx + 1,
-                    'count': count,
-                    'context': dup_item['context'] if dup_item else '',
-                    'heading': dup_item['heading'] if dup_item else '',
+        # Check for unmatched refs (ref exists but no definition linked)
+        linked_fn_ids = set()
+        for sup in all_ref_sups:
+            fn_id = sup.get('id', '')
+            if fn_id:
+                linked_fn_ids.add(fn_id)
+
+        defined_fn_ids = set()
+        for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
+            defined_fn_ids.add(fn.get('footnoteId', ''))
+
+        # Refs whose IDs don't appear in definitions
+        for sup in all_ref_sups:
+            fn_id = sup.get('id', '')
+            if fn_id and fn_id not in defined_fn_ids:
+                audit_data['unmatched_refs'].append({
+                    'number': sup.get('fn-count-id', ''),
+                    'ref_id': fn_id,
+                    'context': sup.parent.get_text()[:80] if sup.parent else ''
                 })
 
-    # Check for unmatched refs (ref exists but no definition linked)
-    linked_fn_ids = set()
-    for sup in all_ref_sups:
-        fn_id = sup.get('id', '')
-        if fn_id:
-            linked_fn_ids.add(fn_id)
+        # Build lookup from definition anchors for number + section metadata
+        fn_id_to_metadata = {}
+        for a_tag in soup.find_all('a', attrs={'fn-count-id': True}):
+            fid = a_tag.get('id', '')
+            if fid:
+                fn_id_to_metadata[fid] = {
+                    'number': a_tag.get('fn-count-id', ''),
+                    'section_id': a_tag.get('fn-section-id', ''),
+                }
 
-    defined_fn_ids = set()
-    for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
-        defined_fn_ids.add(fn.get('footnoteId', ''))
+        # Defs whose IDs don't appear in any ref
+        for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
+            fn_id = fn.get('footnoteId', '')
+            if fn_id and fn_id not in linked_fn_ids:
+                meta = fn_id_to_metadata.get(fn_id, {})
+                audit_data['unmatched_defs'].append({
+                    'footnote_id': fn_id,
+                    'number': meta.get('number', ''),
+                    'section': meta.get('section_id', ''),
+                    'definition_preview': fn.get('content', '')[:200]
+                })
 
-    # Refs whose IDs don't appear in definitions
-    for sup in all_ref_sups:
-        fn_id = sup.get('id', '')
-        if fn_id and fn_id not in defined_fn_ids:
-            audit_data['unmatched_refs'].append({
-                'number': sup.get('fn-count-id', ''),
-                'ref_id': fn_id,
-                'context': sup.parent.get_text()[:80] if sup.parent else ''
-            })
+        print(f"📊 Audit: {audit_data['total_refs']} refs, {audit_data['total_defs']} defs, "
+              f"{len(audit_data['gaps'])} gaps, {len(audit_data['duplicates'])} duplicates, "
+              f"{len(audit_data['unmatched_refs'])} unmatched refs, {len(audit_data['unmatched_defs'])} unmatched defs")
 
-    # Build lookup from definition anchors for number + section metadata
-    fn_id_to_metadata = {}
-    for a_tag in soup.find_all('a', attrs={'fn-count-id': True}):
-        fid = a_tag.get('id', '')
-        if fid:
-            fn_id_to_metadata[fid] = {
-                'number': a_tag.get('fn-count-id', ''),
-                'section_id': a_tag.get('fn-section-id', ''),
-            }
-
-    # Defs whose IDs don't appear in any ref
-    for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
-        fn_id = fn.get('footnoteId', '')
-        if fn_id and fn_id not in linked_fn_ids:
-            meta = fn_id_to_metadata.get(fn_id, {})
-            audit_data['unmatched_defs'].append({
-                'footnote_id': fn_id,
-                'number': meta.get('number', ''),
-                'section': meta.get('section_id', ''),
-                'definition_preview': fn.get('content', '')[:200]
-            })
-
-    print(f"📊 Audit: {audit_data['total_refs']} refs, {audit_data['total_defs']} defs, "
-          f"{len(audit_data['gaps'])} gaps, {len(audit_data['duplicates'])} duplicates, "
-          f"{len(audit_data['unmatched_refs'])} unmatched refs, {len(audit_data['unmatched_defs'])} unmatched defs")
-
-    # Write audit.json
-    os.makedirs(output_dir, exist_ok=True)
-    with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
-        json.dump(audit_data, f, ensure_ascii=False, indent=4)
-    print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
+        # Write audit.json
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
+            json.dump(audit_data, f, ensure_ascii=False, indent=4)
+        print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
 
     # ========================================================================
     # PASS 3: GENERATE FINAL JSON OUTPUT
@@ -1616,6 +1679,12 @@ def main(html_file_path, output_dir, book_id):
     start_line_counter = 0
     CHUNK_SIZE = 50
     content_root = soup.body if soup.body else soup
+
+    # Rewrite bare image src to servable route path: img-1.jpeg → /{book_id}/media/img-1.jpeg
+    for img_tag in content_root.find_all('img'):
+        src = img_tag.get('src', '')
+        if src and not src.startswith('/') and not src.startswith('http'):
+            img_tag['src'] = f'/{book_id}/media/{src}'
 
     for node in content_root.find_all(recursive=False):
         if isinstance(node, NavigableString) and not node.strip(): continue
@@ -1660,7 +1729,13 @@ def main(html_file_path, output_dir, book_id):
                 original_anchor = soup.new_tag('a', id=original_id)
                 node.insert(0, original_anchor)
         
-        references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
+        references_in_node = []
+        for a in node.find_all('a', class_='in-text-citation'):
+            data_refs = a.get('data-refs')
+            if data_refs:
+                references_in_node.extend(data_refs.split(','))
+            else:
+                references_in_node.append(a['href'].lstrip('#'))
         # Extract footnote IDs and markers from sup elements
         # Store as objects {id, marker} to support non-numeric markers (*, 23a, etc.)
         # This enables dynamic renumbering for numeric footnotes while preserving symbolic markers
