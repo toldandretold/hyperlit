@@ -22,7 +22,7 @@ ALLOWED_TAGS = [
 ]
 
 ALLOWED_ATTRS = {
-    'a': ['href', 'title', 'id', 'class', 'fn-count-id', 'data-refs'],
+    'a': ['href', 'title', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
@@ -1700,7 +1700,7 @@ def main(html_file_path, output_dir, book_id):
             del node['class']
         
         # Also remove class attributes from all nested elements EXCEPT functional classes
-        preserved_classes = {'in-text-citation', 'footnote-ref', 'bib-entry'}
+        preserved_classes = {'in-text-citation', 'footnote-ref', 'bib-entry', 'pageNumber'}
         for nested_element in node.find_all():
             if nested_element.has_attr('class'):
                 # Keep only functional classes, remove styling classes

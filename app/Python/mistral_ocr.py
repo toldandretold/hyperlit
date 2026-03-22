@@ -422,9 +422,14 @@ def wrap_stem_definitions(text):
     return text
 
 
-def assemble_markdown(response_dict, classification="unknown"):
+def assemble_markdown(response_dict, classification="unknown", footnote_meta=None):
     """Assemble pages into markdown, injecting section headings from headers."""
     pages = response_dict["pages"]
+
+    # Extract page number offset for stripping trailing page numbers
+    page_number_offset = None
+    if footnote_meta and footnote_meta.get('signals', {}).get('trailing_page_number_consistency', 0) > 0.5:
+        page_number_offset = footnote_meta['signals'].get('trailing_page_number_offset')
     md_parts = []
     seen_sections = set()
     # Track repeated headers to identify running headers (book title etc.)
@@ -440,11 +445,21 @@ def assemble_markdown(response_dict, classification="unknown"):
     threshold = max(3, len(pages) * 0.4)
     running_headers = {name for name, count in header_counts.items() if count >= threshold}
 
-    for page in pages:
+    for i, page in enumerate(pages):
         md = page.get("markdown", "")
         header = page.get("header") or ""
         md_stripped = md.strip()
         is_notes_page = "Notes" in header or "NOTES" in header
+
+        # Replace trailing page number with inline anchor tag
+        if page_number_offset is not None:
+            expected = i + page_number_offset
+            last_line = md_stripped.rsplit('\n', 1)[-1].strip() if md_stripped else ''
+            if re.match(r'^\d{1,4}$', last_line) and int(last_line) == expected:
+                md = md.rstrip()
+                md = md[:md.rfind('\n')].rstrip() if '\n' in md else ''
+                md += f' <a class="pageNumber" data-page="{int(expected)}"></a>'
+                md_stripped = md.strip()
 
         # Extract section name from header
         section_name = None
@@ -561,7 +576,7 @@ def main():
 
     # Assemble markdown
     print("Assembling markdown...")
-    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'])
+    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'], footnote_meta=footnote_meta)
     output_md.write_text(markdown, encoding="utf-8")
 
     # Stats

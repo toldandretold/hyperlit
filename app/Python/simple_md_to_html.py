@@ -68,7 +68,7 @@ def process_inline_formatting(text):
     br_placeholder = '\x00BR_TAG\x00'
     text = re.sub(r'<br\s*/?>', br_placeholder, text, flags=re.IGNORECASE)
 
-    # Preserve <a class="wackSTEM*"> tags by replacing with placeholders
+    # Preserve <a class="wackSTEM*"> and <a class="pageNumber"> tags by replacing with placeholders
     stem_placeholder_map = {}
     stem_ctr = [0]
     def save_stem(m):
@@ -77,6 +77,7 @@ def process_inline_formatting(text):
         stem_ctr[0] += 1
         return key
     text = re.sub(r'<a\s+class="wackSTEM[^"]*"[^>]*>.*?</a>', save_stem, text)
+    text = re.sub(r'<a\s+class="pageNumber"[^>]*></a>', save_stem, text)
 
     # Escape HTML without double-encoding existing entities
     text = escape_html_no_double(text)
