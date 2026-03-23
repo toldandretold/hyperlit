@@ -10,18 +10,20 @@ class LlmService
     private string $baseUrl;
     private string $apiKey;
     private string $model;
+    private string $verificationModel;
 
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
         $this->apiKey  = config('services.llm.api_key', '');
         $this->model   = config('services.llm.model', '');
+        $this->verificationModel = config('services.llm.verification_model', '') ?: $this->model;
     }
 
     /**
      * Send a chat completion request (OpenAI-compatible format).
      */
-    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0): ?string
+    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null): ?string
     {
         if (!$this->apiKey || !$this->baseUrl) {
             return null;
@@ -31,9 +33,9 @@ class LlmService
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
             ])->timeout(30)->post($this->baseUrl . '/chat/completions', [
-                'model'            => $this->model,
+                'model'            => $model ?? $this->model,
                 'temperature'      => $temperature,
-                'max_tokens'       => 200,
+                'max_tokens'       => $maxTokens,
                 'reasoning_effort' => 'none',
                 'messages'         => [
                     ['role' => 'system', 'content' => $systemPrompt],
@@ -106,5 +108,94 @@ class LlmService
         );
 
         return $result ? trim($result, " \t\n\r\"'") : null;
+    }
+
+    /**
+     * Extract truth claims from a paragraph with [CITE:refId] markers.
+     * Returns array of {referenceId, truth_claim} or null on failure.
+     */
+    public function extractTruthClaims(string $markedText, array $citationContext): ?array
+    {
+        $systemPrompt = <<<'PROMPT'
+You are an academic citation analyst. The text contains inline citations as [CITE:refId] markers.
+
+For each citation, determine what part of the text it is supporting. A citation may support:
+- Just the clause it appears in
+- The full sentence
+- Multiple preceding sentences
+- An entire paragraph
+
+Use the provided information about each cited source to help determine scope.
+
+Return ONLY valid JSON: [{"referenceId": "refId", "truth_claim": "exact words from the text"}]
+
+CRITICAL RULES:
+- The truth_claim MUST be copied VERBATIM from the input text — do not change, rephrase, or summarize any words
+- Do not include the citation marker [CITE:...] itself in the truth_claim
+- Include the full scope of text the citation supports
+PROMPT;
+
+        $userMessage = "TEXT:\n{$markedText}\n\nCITATION SOURCES:\n";
+        foreach ($citationContext as $refId => $meta) {
+            $title = $meta['title'] ?? 'Unknown';
+            $abstract = $meta['abstract'] ?? 'No abstract available';
+            $userMessage .= "- [CITE:{$refId}]: \"{$title}\" — Abstract: {$abstract}\n";
+        }
+
+        $result = $this->chat($systemPrompt, $userMessage, 0.0, 800);
+
+        if (!$result) {
+            return null;
+        }
+
+        $result = trim($result);
+        $result = preg_replace('/^```(?:json)?\s*/i', '', $result);
+        $result = preg_replace('/\s*```$/', '', $result);
+
+        $parsed = json_decode($result, true);
+        if (!is_array($parsed)) {
+            Log::warning('LLM truth claim extraction: invalid JSON response', ['raw' => $result]);
+            return null;
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Verify whether source material supports a truth claim.
+     * Returns {matches: bool|null, summary, reasoning} or null on failure.
+     */
+    public function verifyCitation(string $truthClaim, string $sourceMaterial): ?array
+    {
+        $systemPrompt = <<<'PROMPT'
+You are verifying an academic citation. Does the source material support the truth claim?
+
+Please be accurate — I don't care about the outcome either way, I just want truth.
+
+Return ONLY valid JSON:
+{"matches": true/false/null, "summary": "One sentence on whether the meaning matches", "reasoning": "One sentence on why you think so"}
+
+Set matches to null if the source material is insufficient to determine.
+PROMPT;
+
+        $userMessage = "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}";
+
+        $result = $this->chat($systemPrompt, $userMessage, 0.0, 300, $this->verificationModel);
+
+        if (!$result) {
+            return null;
+        }
+
+        $result = trim($result);
+        $result = preg_replace('/^```(?:json)?\s*/i', '', $result);
+        $result = preg_replace('/\s*```$/', '', $result);
+
+        $parsed = json_decode($result, true);
+        if (!is_array($parsed) || !array_key_exists('matches', $parsed)) {
+            Log::warning('LLM citation verification: invalid JSON response', ['raw' => $result]);
+            return null;
+        }
+
+        return $parsed;
     }
 }

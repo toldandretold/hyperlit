@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Services\CitationReviewService;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+
+class CitationReviewCommand extends Command
+{
+    protected $signature = 'citation:review {bookId : The book to review citations for}';
+    protected $description = 'Review in-text citations: extract truth claims, search source material, verify with LLM';
+
+    public function handle(CitationReviewService $reviewService): int
+    {
+        $bookId = $this->argument('bookId');
+        $db = DB::connection('pgsql_admin');
+
+        // Validate book exists
+        $book = $db->table('library')->where('book', $bookId)->first();
+        if (!$book) {
+            $this->error("Book not found: {$bookId}");
+            return 1;
+        }
+
+        // Check LLM API key
+        if (!config('services.llm.api_key')) {
+            $this->error('LLM_API_KEY is not configured. Set it in .env');
+            return 1;
+        }
+
+        $this->info("Book: {$book->title}");
+        $this->newLine();
+
+        // Pre-flight checks
+        $bibTotal = $db->table('bibliography')->where('book', $bookId)->count();
+        $resolved = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->whereNotNull('foundation_source')
+            ->where('foundation_source', '!=', 'unknown')
+            ->count();
+        $withAbstracts = $db->table('bibliography as b')
+            ->join('library as l', 'l.book', '=', 'b.foundation_source')
+            ->where('b.book', $bookId)
+            ->whereNotNull('l.abstract')
+            ->count();
+        $withContent = $db->table('bibliography as b')
+            ->join('library as l', 'l.book', '=', 'b.foundation_source')
+            ->where('b.book', $bookId)
+            ->where('l.has_nodes', true)
+            ->count();
+
+        $this->info('Pre-flight:');
+        $this->line("  Bibliography entries:     {$bibTotal}");
+        $this->line("  Resolved sources:         {$resolved}/{$bibTotal}  " . ($resolved > 0 ? '<fg=green>(scan-bibliography ✓)</>' : '<fg=red>(scan-bibliography not run)</>'));
+        $this->line("  Sources with abstracts:   {$withAbstracts}/{$resolved}");
+        $this->line("  Sources with content:     {$withContent}/{$resolved}  " . ($withContent > 0 ? '(vacuum/ocr ✓)' : ''));
+        $this->newLine();
+
+        if ($resolved === 0) {
+            $this->error('No resolved sources. Run citation:scan-bibliography first.');
+            return 1;
+        }
+
+        // Run pipeline with progress output
+        $onProgress = function (string $phase, string $message) {
+            $this->line("  <fg=cyan>[{$phase}]</> {$message}");
+        };
+
+        $claims = $reviewService->review($bookId, $onProgress);
+
+        if (empty($claims)) {
+            $this->warn('No claims were extracted.');
+            return 0;
+        }
+
+        // Print summary
+        $this->newLine();
+        $this->info('Citation Review Summary:');
+
+        $matchCount = 0;
+        $disputeCount = 0;
+        $insufficientCount = 0;
+
+        foreach ($claims as $claim) {
+            $matches = $claim['llm_verdict']['matches'] ?? null;
+            if ($matches === true) {
+                $matchCount++;
+            } elseif ($matches === false) {
+                $disputeCount++;
+            } else {
+                $insufficientCount++;
+            }
+        }
+
+        $this->line("  <fg=green>Verified (matches):</>    {$matchCount}");
+        $this->line("  <fg=red>Disputed (no match):</>   {$disputeCount}");
+        $this->line("  <fg=yellow>Insufficient data:</>     {$insufficientCount}");
+
+        // Save reports
+        $timestamp = now()->format('Y-m-d_His');
+
+        $jsonFilename = "citation-review_{$bookId}_{$timestamp}.json";
+        Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $mdFilename = "citation-review_{$bookId}_{$timestamp}.md";
+        $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId);
+        Storage::put($mdFilename, $md);
+
+        $this->newLine();
+        $this->info("JSON report: " . storage_path("app/{$jsonFilename}"));
+        $this->info("Markdown report: " . storage_path("app/{$mdFilename}"));
+
+        return 0;
+    }
+}
