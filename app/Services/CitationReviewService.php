@@ -776,7 +776,6 @@ class CitationReviewService
         $plausible = [];
         $unlikely = [];
         $rejected = [];
-        $noEvidence = [];
 
         foreach ($claims as $claim) {
             if (empty($claim['source_book_id'])) {
@@ -790,34 +789,20 @@ class CitationReviewService
                 'plausible'  => $plausible[] = $claim,
                 'unlikely'   => $unlikely[] = $claim,
                 'rejected'   => $rejected[] = $claim,
-                default      => $noEvidence[] = $claim,
+                default      => $unverified[] = $claim,
             };
         }
 
-        // Summary table — strongest concern first
+        // Summary table — rendered as bar chart on the frontend via chartRenderer.js
         $md .= "## Summary\n\n";
-        $md .= "| Verdict | Count |\n|---------|-------|\n";
-        $md .= "| Rejected | " . count($rejected) . " |\n";
-        $md .= "| Unlikely | " . count($unlikely) . " |\n";
-        $md .= "| Unverified Sources | " . count($unverified) . " |\n";
-        $md .= "| No Evidence | " . count($noEvidence) . " |\n";
-        $md .= "| Plausible | " . count($plausible) . " |\n";
-        $md .= "| Likely | " . count($likely) . " |\n";
-        $md .= "| Confirmed | " . count($confirmed) . " |\n\n";
-
-        // Pie chart
-        $chart = $this->generatePieChartSvg([
-            ['label' => 'Rejected',    'count' => count($rejected),   'color' => '#e74c3c'],
-            ['label' => 'Unlikely',    'count' => count($unlikely),   'color' => '#e67e22'],
-            ['label' => 'Unverified',  'count' => count($unverified), 'color' => '#9b59b6'],
-            ['label' => 'No Evidence', 'count' => count($noEvidence), 'color' => '#95a5a6'],
-            ['label' => 'Plausible',   'count' => count($plausible),  'color' => '#f39c12'],
-            ['label' => 'Likely',      'count' => count($likely),     'color' => '#a3d977'],
-            ['label' => 'Confirmed',   'count' => count($confirmed),  'color' => '#27ae60'],
-        ]);
-        if ($chart) {
-            $md .= $chart . "\n\n";
-        }
+        $md .= '<table data-chart="verdict-summary"><thead><tr><th>Verdict</th><th>Count</th></tr></thead><tbody>' . "\n";
+        $md .= '<tr><td>Unverified Sources</td><td>' . count($unverified) . "</td></tr>\n";
+        $md .= '<tr><td>Rejected</td><td>' . count($rejected) . "</td></tr>\n";
+        $md .= '<tr><td>Unlikely</td><td>' . count($unlikely) . "</td></tr>\n";
+        $md .= '<tr><td>Plausible</td><td>' . count($plausible) . "</td></tr>\n";
+        $md .= '<tr><td>Likely</td><td>' . count($likely) . "</td></tr>\n";
+        $md .= '<tr><td>Confirmed</td><td>' . count($confirmed) . "</td></tr>\n";
+        $md .= "</tbody></table>\n\n";
 
         // Sections — strongest concern first
         if (!empty($rejected)) {
@@ -838,13 +823,6 @@ class CitationReviewService
             $md .= "## Unverified Sources\n\n";
             $md .= "These citations reference sources that were never found in any database.\n\n";
             foreach ($unverified as $c) {
-                $md .= $this->formatClaimMd($c, $bookId);
-            }
-        }
-
-        if (!empty($noEvidence)) {
-            $md .= "## No Evidence\n\n";
-            foreach ($noEvidence as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
@@ -871,73 +849,6 @@ class CitationReviewService
         }
 
         return $md;
-    }
-
-    /**
-     * Generate an inline SVG pie chart from verdict categories.
-     * Returns a single-line SVG string (no newlines) so the markdown converter can pass it through.
-     */
-    private function generatePieChartSvg(array $categories): string
-    {
-        $total = array_sum(array_column($categories, 'count'));
-        if ($total === 0) {
-            return '';
-        }
-
-        $cx = 120;
-        $cy = 120;
-        $r = 100;
-        $startAngle = -90; // 12 o'clock
-
-        $paths = '';
-        foreach ($categories as $cat) {
-            if ($cat['count'] === 0) {
-                continue;
-            }
-
-            $fraction = $cat['count'] / $total;
-            $angle = $fraction * 360;
-            $endAngle = $startAngle + $angle;
-
-            if ($angle >= 359.99) {
-                $paths .= sprintf('<circle cx="%s" cy="%s" r="%s" fill="%s"/>', $cx, $cy, $r, $cat['color']);
-            } else {
-                $x1 = $cx + $r * cos(deg2rad($startAngle));
-                $y1 = $cy + $r * sin(deg2rad($startAngle));
-                $x2 = $cx + $r * cos(deg2rad($endAngle));
-                $y2 = $cy + $r * sin(deg2rad($endAngle));
-                $largeArc = $angle > 180 ? 1 : 0;
-
-                $paths .= sprintf(
-                    '<path d="M%s,%s L%s,%s A%s,%s 0 %s,1 %s,%s Z" fill="%s"/>',
-                    $cx, $cy, round($x1, 2), round($y1, 2),
-                    $r, $r, $largeArc, round($x2, 2), round($y2, 2),
-                    $cat['color']
-                );
-            }
-
-            $startAngle = $endAngle;
-        }
-
-        // Legend with percentages
-        $legendY = 30;
-        $legends = '';
-        foreach ($categories as $cat) {
-            if ($cat['count'] === 0) {
-                continue;
-            }
-            $pct = round($cat['count'] / $total * 100);
-            $legends .= sprintf(
-                '<rect x="260" y="%s" width="14" height="14" rx="2" fill="%s"/>'
-                . '<text x="282" y="%s" fill="#e0e0e0" font-size="13" font-family="sans-serif">%s (%d%%)</text>',
-                $legendY, $cat['color'],
-                $legendY + 12, htmlspecialchars($cat['label']), $pct
-            );
-            $legendY += 26;
-        }
-
-        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 250" width="480" height="250">'
-            . $paths . $legends . '</svg>';
     }
 
     /**

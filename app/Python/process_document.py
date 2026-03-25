@@ -27,7 +27,7 @@ ALLOWED_ATTRS = {
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
     'sup': ['id', 'class', 'fn-count-id'],
-    '*': ['id', 'class', 'fn-count-id', 'data-node-id', 'data-math']
+    '*': ['id', 'class', 'fn-count-id', 'data-node-id', 'data-math', 'data-chart']
 }
 
 # Dangerous URL patterns

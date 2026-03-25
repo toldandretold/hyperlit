@@ -22,6 +22,7 @@ import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
+import { renderCharts } from './utilities/chartRenderer.js';
 import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
 
 /**
@@ -1064,6 +1065,7 @@ export function createChunkElement(nodes, instance) {
 
     // 📐 MATH RENDERING: Render LaTeX math via KaTeX
     renderMathElements(temp);
+    renderCharts(temp);
 
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;

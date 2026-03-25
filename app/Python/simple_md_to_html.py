@@ -355,9 +355,20 @@ def convert_markdown_to_html(markdown_content):
                     html_lines.append(f'<a class="footnoteSectionStart" id="fnRefSection_{ref_section_counter}"></a>')
                 last_ref_number = ref_number
 
-        # Raw HTML blocks (SVG charts, etc.) — pass through without escaping
-        if stripped.startswith('<svg') or stripped.startswith('<div'):
-            html_lines.append(stripped)
+        # Raw HTML blocks (SVG charts, tables with attributes, etc.) — pass through without escaping
+        if stripped.startswith('<svg') or stripped.startswith('<div') or stripped.startswith('<table '):
+            # Collect multi-line raw HTML block until closing tag
+            tag_name = stripped.split()[0].split('>')[0].lstrip('<')
+            close_tag = f'</{tag_name}>'
+            block_lines = [stripped]
+            if close_tag not in stripped:
+                i += 1
+                while i < len(lines):
+                    block_lines.append(lines[i])
+                    if close_tag in lines[i]:
+                        break
+                    i += 1
+            html_lines.append('\n'.join(block_lines))
             i += 1
             continue
 
