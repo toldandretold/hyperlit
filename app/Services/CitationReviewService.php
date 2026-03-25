@@ -509,6 +509,8 @@ class CitationReviewService
                 $claim['evidence_type'] = 'passages_only';
             } elseif ($hasAbstract) {
                 $claim['evidence_type'] = 'abstract_only';
+            } elseif (!empty($claim['source_title'])) {
+                $claim['evidence_type'] = 'title_only';
             } else {
                 $claim['evidence_type'] = 'none';
             }
@@ -663,10 +665,12 @@ class CitationReviewService
 
             // Build annotation text (short verdict for hover)
             $supportLabel = match ($verdict['support']) {
-                'supported'     => 'Supported',
-                'plausible'     => 'Plausible',
-                'not_supported' => 'Not Supported',
-                default         => $verdict['support'],
+                'confirmed'  => 'Confirmed',
+                'likely'     => 'Likely',
+                'plausible'  => 'Plausible',
+                'unlikely'   => 'Unlikely',
+                'rejected'   => 'Rejected',
+                default      => $verdict['support'],
             };
             $annotation = $supportLabel . ' — ' . mb_substr($verdict['summary'] ?? '', 0, 120);
 
@@ -704,6 +708,7 @@ class CitationReviewService
                     'abstract_only'    => 'Abstract only',
                     'abstract_passage' => 'Abstract + source passages',
                     'passage_only'     => 'Source passages only',
+                    'title_only'       => 'Title only (no abstract or passages)',
                     'none'             => 'No evidence',
                     default            => $evidenceType,
                 };
@@ -766,9 +771,11 @@ class CitationReviewService
 
         // Categorise — unverified sources first, then by LLM verdict
         $unverified = [];
-        $supported = [];
+        $confirmed = [];
+        $likely = [];
         $plausible = [];
-        $notSupported = [];
+        $unlikely = [];
+        $rejected = [];
         $noEvidence = [];
 
         foreach ($claims as $claim) {
@@ -778,38 +785,51 @@ class CitationReviewService
             }
             $support = $claim['llm_verdict']['support'] ?? 'insufficient';
             match ($support) {
-                'supported'     => $supported[] = $claim,
-                'plausible'     => $plausible[] = $claim,
-                'not_supported' => $notSupported[] = $claim,
-                default         => $noEvidence[] = $claim,
+                'confirmed'  => $confirmed[] = $claim,
+                'likely'     => $likely[] = $claim,
+                'plausible'  => $plausible[] = $claim,
+                'unlikely'   => $unlikely[] = $claim,
+                'rejected'   => $rejected[] = $claim,
+                default      => $noEvidence[] = $claim,
             };
         }
 
-        // Summary table — priority order (strongest claims first)
+        // Summary table — strongest concern first
         $md .= "## Summary\n\n";
         $md .= "| Verdict | Count |\n|---------|-------|\n";
-        $md .= "| Not Supported | " . count($notSupported) . " |\n";
+        $md .= "| Rejected | " . count($rejected) . " |\n";
+        $md .= "| Unlikely | " . count($unlikely) . " |\n";
         $md .= "| Unverified Sources | " . count($unverified) . " |\n";
         $md .= "| No Evidence | " . count($noEvidence) . " |\n";
         $md .= "| Plausible | " . count($plausible) . " |\n";
-        $md .= "| Supported | " . count($supported) . " |\n\n";
+        $md .= "| Likely | " . count($likely) . " |\n";
+        $md .= "| Confirmed | " . count($confirmed) . " |\n\n";
 
         // Pie chart
         $chart = $this->generatePieChartSvg([
-            ['label' => 'Not Supported', 'count' => count($notSupported), 'color' => '#e74c3c'],
-            ['label' => 'Unverified',    'count' => count($unverified),   'color' => '#e67e22'],
-            ['label' => 'No Evidence',   'count' => count($noEvidence),   'color' => '#95a5a6'],
-            ['label' => 'Plausible',     'count' => count($plausible),    'color' => '#f39c12'],
-            ['label' => 'Supported',     'count' => count($supported),    'color' => '#27ae60'],
+            ['label' => 'Rejected',    'count' => count($rejected),   'color' => '#e74c3c'],
+            ['label' => 'Unlikely',    'count' => count($unlikely),   'color' => '#e67e22'],
+            ['label' => 'Unverified',  'count' => count($unverified), 'color' => '#9b59b6'],
+            ['label' => 'No Evidence', 'count' => count($noEvidence), 'color' => '#95a5a6'],
+            ['label' => 'Plausible',   'count' => count($plausible),  'color' => '#f39c12'],
+            ['label' => 'Likely',      'count' => count($likely),     'color' => '#a3d977'],
+            ['label' => 'Confirmed',   'count' => count($confirmed),  'color' => '#27ae60'],
         ]);
         if ($chart) {
             $md .= $chart . "\n\n";
         }
 
-        // Sections — not supported first (strongest claim), then unverified
-        if (!empty($notSupported)) {
-            $md .= "## Not Supported\n\n";
-            foreach ($notSupported as $c) {
+        // Sections — strongest concern first
+        if (!empty($rejected)) {
+            $md .= "## Rejected\n\n";
+            foreach ($rejected as $c) {
+                $md .= $this->formatClaimMd($c, $bookId);
+            }
+        }
+
+        if (!empty($unlikely)) {
+            $md .= "## Unlikely\n\n";
+            foreach ($unlikely as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
@@ -836,9 +856,16 @@ class CitationReviewService
             }
         }
 
-        if (!empty($supported)) {
-            $md .= "## Supported\n\n";
-            foreach ($supported as $c) {
+        if (!empty($likely)) {
+            $md .= "## Likely\n\n";
+            foreach ($likely as $c) {
+                $md .= $this->formatClaimMd($c, $bookId);
+            }
+        }
+
+        if (!empty($confirmed)) {
+            $md .= "## Confirmed\n\n";
+            foreach ($confirmed as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
@@ -1088,14 +1115,17 @@ class CitationReviewService
             'abstract_and_passages' => $isWebSource ? 'Web page content + passages' : 'Abstract + passages',
             'passages_only'         => 'Passages only',
             'abstract_only'         => $isWebSource ? 'Web page content' : 'Abstract only',
+            'title_only'            => 'Title only (no abstract or passages)',
             default                 => 'None',
         };
 
         $verdictLabel = match ($verdict['support'] ?? 'insufficient') {
-            'supported'     => 'Supported',
-            'plausible'     => 'Plausible',
-            'not_supported' => 'Not Supported',
-            default         => 'No Evidence',
+            'confirmed'  => 'Confirmed',
+            'likely'     => 'Likely',
+            'plausible'  => 'Plausible',
+            'unlikely'   => 'Unlikely',
+            'rejected'   => 'Rejected',
+            default      => 'No Evidence',
         };
 
         $md = '';

@@ -116,7 +116,12 @@ export function verifyMutationSource(mutation) {
   const isInActiveDiv = activeSession.divElement?.contains(target);
   
   if (!isInActiveDiv) {
-    // This is the KEY TEST - if we see this, isolation FAILED
+    // Ghost mutation: node was removed from the DOM by contenteditable restructuring
+    if (!target.isConnected) {
+      return false;  // Skip silently — not a real breach
+    }
+
+    // Genuine isolation breach — node is still in the DOM but in the wrong container
     const leakInfo = {
       mutationType: mutation.type,
       targetId: target.id || target.nodeName,

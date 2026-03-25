@@ -131,7 +131,9 @@ Return ONLY valid JSON: [{"referenceId": "refId", "truth_claim": "...", "context
 RULES:
 - truth_claim: Copy the COMPLETE SENTENCE containing [CITE:refId] VERBATIM from the TEXT section. Do not include the [CITE:...] marker itself. Do not rephrase, summarise, or truncate.
 - If two citations appear in the same sentence, produce one entry per referenceId, both with the same truth_claim sentence.
-- contextualised_claim: Rewrite the truth_claim so it is fully self-contained and VERIFIABLE IN ISOLATION against the cited source.
+- contextualised_claim: Rewrite the truth_claim so the FACTUAL SUBSTANCE is fully self-contained and verifiable in isolation.
+  Do NOT include author names or attribution phrases ("X argues", "attributed to Y", "according to Z").
+  State ONLY the factual assertion itself — the verification step already knows which source is being checked.
   Resolve ALL:
   • Pronouns ("this", "these", "it", "they")
   • Demonstratives ("the former approach", "such conditions")
@@ -141,7 +143,7 @@ RULES:
   For comparative claims: identify what specific argument/conclusion/finding is being referred to
   by reading the PRECEDING CONTEXT and TEXT sections. State that substance explicitly.
   Example: "X presents a similar argument" → find what argument is described in the preceding
-  sentences and write "X argues that [substance from preceding text]".
+  sentences and write "[substance from preceding text]".
 
   CRITICAL: Use ONLY information from the PRECEDING CONTEXT and TEXT to resolve references.
   Do NOT use your own knowledge to infer what the argument is.
@@ -322,16 +324,21 @@ You are verifying an academic citation. Does the source material support the tru
 
 Be accurate — I want truth, not caution. Read the evidence carefully before judging.
 
-IMPORTANT: "supported" includes logical entailment. If the source says "X and Y both experienced Z",
-then a claim about X experiencing Z is SUPPORTED — you do not need X mentioned in isolation.
+IMPORTANT: "confirmed" includes logical entailment. If the source says "X and Y both experienced Z",
+then a claim about X experiencing Z is CONFIRMED — you do not need X mentioned in isolation.
+
+IMPORTANT: The claim may reference multiple authors. You are verifying against ONE source (in the SOURCE
+header). Only check whether THIS source supports the substance of the claim. Do not penalise because
+other authors mentioned in the claim are absent from this source.
 
 Return ONLY valid JSON:
-{"support": "supported|plausible|not_supported", "summary": "...", "reasoning": "...", "cited_passages": [1, 3]}
+{"support": "confirmed|likely|plausible|unlikely|rejected", "summary": "...", "reasoning": "...", "cited_passages": [1, 3]}
 
-- "supported": The source material contains information that confirms or logically entails the claim.
-  The claim does not need to appear verbatim — if the evidence implies it, that counts.
-- "plausible": The source's topic is related but the specific claim is not confirmed by the evidence provided.
-- "not_supported": The source material contradicts the claim, OR is clearly about an unrelated topic.
+- "confirmed": Evidence directly confirms or logically entails the claim. The claim does not need to appear verbatim — if the evidence implies it, that counts.
+- "likely": Topic is clearly related and the claim is consistent with the evidence, but not directly confirmed. Use when: passages discuss the right topic convincingly, abstract is in the right field, or strong topical alignment.
+- "plausible": Some topical overlap; the claim could be in this source but evidence is thin, partial, or tangential. Use when: paywalled content, very short passages, or only loosely related material.
+- "unlikely": Weak connection; the evidence barely relates to the claim, or the claim seems like a stretch given what's available.
+- "rejected": Evidence contradicts the claim OR is clearly about an unrelated topic.
 
 - "cited_passages": Passage numbers that support the claim. Empty array [] if none.
 
@@ -344,14 +351,17 @@ PROMPT;
                 "EVIDENCE CONTEXT: The passages below were retrieved by full-text search of the source — " .
                 "they are the best matches available, but the search may not have found every relevant passage.\n\n" .
                 "Judge the claim against what the passages actually say. If a passage confirms the claim " .
-                "(even as part of a broader statement or through logical entailment), that is \"supported\". " .
-                "If passages discuss the topic but don't directly confirm this specific claim, that is \"plausible\". " .
-                "Only use \"not_supported\" if the passages contradict the claim or are clearly unrelated.\n\n" .
+                "(even as part of a broader statement or through logical entailment), that is \"confirmed\". " .
+                "If passages discuss the right topic convincingly and the claim is consistent with what you see, " .
+                "that is \"likely\". If there is some topical overlap but evidence is thin, partial, or tangential " .
+                "(e.g. paywalled stub, very short passages), that is \"plausible\". If the connection is weak or " .
+                "the claim seems like a stretch, that is \"unlikely\". Only use \"rejected\" if the passages " .
+                "contradict the claim or are clearly about an unrelated topic.\n\n" .
                 "IMPORTANT: The source content may have been fetched from a web page. If the passages and/or " .
                 "abstract contain only bibliographic metadata (title, authors, ISBN, BibTeX, publisher info, " .
                 "citation formatting) rather than actual article/chapter text, treat this as ABSENT evidence — " .
                 "the source was not actually retrieved. In that case, use \"plausible\" if the work's title/topic " .
-                "is in the same field as the claim, NOT \"not_supported\". Reserve \"not_supported\" for cases where " .
+                "is in the same field as the claim, NOT \"rejected\". Reserve \"rejected\" for cases where " .
                 "you have real substantive text that contradicts or is unrelated to the claim.\n\n" .
                 "IMPORTANT: The passages are EXCERPTS FROM the cited source itself. The source header above " .
                 "identifies the work. When a claim says \"Author (Year) argues/discusses/shows X\", your job " .
@@ -359,17 +369,35 @@ PROMPT;
                 "within the passages, because authors do not cite themselves in their own text. A year mismatch " .
                 "between the claim and source metadata (e.g. 1991 vs 2021) may reflect republication or " .
                 "indexing differences — do not treat it as evidence of a wrong source.",
+            'title_only' =>
+                "EVIDENCE CONTEXT: You only have the TITLE, author, and year of this work — no abstract, " .
+                "no passages, no full text.\n\n" .
+                "Assess whether this work is likely to contain the claim based on the title/author/year alone.\n\n" .
+                "- \"confirmed\" is NOT possible with title only.\n" .
+                "- \"likely\": The title strongly suggests the work covers this topic (e.g. title mentions " .
+                "the exact subject of the claim, or the author is known for this specific area).\n" .
+                "- \"plausible\": The title is in a related field but doesn't specifically indicate " .
+                "the claim's topic.\n" .
+                "- \"unlikely\": The title suggests only a weak or tangential connection to the claim.\n" .
+                "- \"rejected\": The title is clearly about an unrelated topic (e.g. marine biology " .
+                "cited for fiscal policy).",
             default =>
                 "EVIDENCE CONTEXT: You only have the abstract of this work — NOT the full text.\n\n" .
-                "Step 1: Does the abstract directly confirm or logically entail the claim? If yes → \"supported\".\n\n" .
+                "Step 1: Does the abstract directly confirm or logically entail the claim? If yes → \"confirmed\".\n\n" .
                 "Step 2: If not — remember that an abstract is a tiny summary. The vast majority of a work's " .
                 "content — argumentation, case studies, literature review, specific findings, historical " .
                 "analysis — is NEVER mentioned in the abstract. A claim not appearing in the abstract tells " .
                 "you almost nothing about whether it appears in the full text.\n\n" .
-                "Only use \"not_supported\" if the abstract reveals the work is about a COMPLETELY DIFFERENT " .
+                "If the abstract discusses the same topic convincingly and the claim is consistent, use \"likely\". " .
+                "If there is some topical overlap but it's thin, use \"plausible\". If the connection is weak, " .
+                "use \"unlikely\".\n\n" .
+                "Only use \"rejected\" if the abstract reveals the work is about a COMPLETELY DIFFERENT " .
                 "TOPIC that makes the citation look like a mismatch (e.g. a marine biology paper cited for " .
                 "fiscal policy). If the work is in the same broad field/topic area as the claim, default to " .
-                "\"plausible\" — the claim could easily appear in the body text you cannot see.\n\n" .
+                "\"likely\" — the claim could easily appear in the body text you cannot see.\n\n" .
+                "CRITICAL: Same broad field = NOT \"rejected\". A book about African political economy should not be " .
+                "\"rejected\" for a claim about economic development in Africa. \"rejected\" is ONLY for clear field " .
+                "mismatches (marine biology cited for fiscal policy).\n\n" .
                 "Step 3: If the abstract IS about a clearly unrelated topic, flag it explicitly in your " .
                 "summary — this likely means the source was incorrectly matched in the bibliography.",
         };
@@ -408,7 +436,7 @@ PROMPT;
         }
 
         // Validate support value
-        $allowed = ['supported', 'plausible', 'not_supported'];
+        $allowed = ['confirmed', 'likely', 'plausible', 'unlikely', 'rejected'];
         if (!in_array($parsed['support'], $allowed, true)) {
             Log::warning('LLM citation verification: invalid support value', ['support' => $parsed['support']]);
             return null;

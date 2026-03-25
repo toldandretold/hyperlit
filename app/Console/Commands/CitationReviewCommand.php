@@ -109,9 +109,11 @@ class CitationReviewCommand extends Command
         $this->info('Citation Review Summary:');
 
         $unverifiedCount = 0;
-        $supportedCount = 0;
+        $confirmedCount = 0;
+        $likelyCount = 0;
         $plausibleCount = 0;
-        $notSupportedCount = 0;
+        $unlikelyCount = 0;
+        $rejectedCount = 0;
         $noEvidenceCount = 0;
 
         foreach ($claims as $claim) {
@@ -121,18 +123,22 @@ class CitationReviewCommand extends Command
             }
             $support = $claim['llm_verdict']['support'] ?? 'insufficient';
             match ($support) {
-                'supported'     => $supportedCount++,
-                'plausible'     => $plausibleCount++,
-                'not_supported' => $notSupportedCount++,
-                default         => $noEvidenceCount++,
+                'confirmed'  => $confirmedCount++,
+                'likely'     => $likelyCount++,
+                'plausible'  => $plausibleCount++,
+                'unlikely'   => $unlikelyCount++,
+                'rejected'   => $rejectedCount++,
+                default      => $noEvidenceCount++,
             };
         }
 
+        $this->line("  <fg=red>Rejected:</>        {$rejectedCount}");
+        $this->line("  <fg=#e67e22>Unlikely:</>        {$unlikelyCount}");
         $this->line("  <fg=magenta>Unverified:</>      {$unverifiedCount}");
-        $this->line("  <fg=red>Not supported:</>   {$notSupportedCount}");
         $this->line("  <fg=yellow>No evidence:</>     {$noEvidenceCount}");
         $this->line("  <fg=blue>Plausible:</>       {$plausibleCount}");
-        $this->line("  <fg=green>Supported:</>       {$supportedCount}");
+        $this->line("  <fg=#a3d977>Likely:</>          {$likelyCount}");
+        $this->line("  <fg=green>Confirmed:</>       {$confirmedCount}");
 
         // Save reports
         $timestamp = now()->format('Y-m-d_His');
