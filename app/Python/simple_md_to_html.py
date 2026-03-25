@@ -280,12 +280,33 @@ def convert_markdown_to_html(markdown_content):
             i += 1
             continue
 
-        # Blockquotes
-        if stripped.startswith('> '):
-            quote_text = stripped[2:]
-            formatted_quote = process_inline_formatting(quote_text)
-            html_lines.append(f'<blockquote><p>{formatted_quote}</p></blockquote>')
-            i += 1
+        # Blockquotes (collect consecutive > lines into a single blockquote)
+        if stripped.startswith('>'):
+            bq_lines = []
+            while i < len(lines):
+                s = lines[i].strip()
+                if s.startswith('> '):
+                    bq_lines.append(s[2:])
+                    i += 1
+                elif s == '>':
+                    bq_lines.append('')  # blank separator within blockquote
+                    i += 1
+                else:
+                    break
+            # Render as single blockquote with paragraphs split on blank lines
+            paragraphs = []
+            current = []
+            for bl in bq_lines:
+                if bl.strip() == '':
+                    if current:
+                        paragraphs.append(' '.join(current))
+                        current = []
+                else:
+                    current.append(bl)
+            if current:
+                paragraphs.append(' '.join(current))
+            inner = ''.join(f'<p>{process_inline_formatting(p)}</p>' for p in paragraphs)
+            html_lines.append(f'<blockquote>{inner}</blockquote>')
             continue
 
         # Images (standalone line)
@@ -333,6 +354,12 @@ def convert_markdown_to_html(markdown_content):
                     ref_section_counter += 1
                     html_lines.append(f'<a class="footnoteSectionStart" id="fnRefSection_{ref_section_counter}"></a>')
                 last_ref_number = ref_number
+
+        # Raw HTML blocks (SVG charts, etc.) — pass through without escaping
+        if stripped.startswith('<svg') or stripped.startswith('<div'):
+            html_lines.append(stripped)
+            i += 1
+            continue
 
         # Everything else as paragraph (including footnote patterns)
         # Process inline formatting

@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Log;
 use App\Services\OpenAlexService;
 use App\Services\OpenLibraryService;
 use App\Services\LlmService;
+use App\Services\WebFetchService;
+use App\Services\SemanticScholarService;
+use App\Services\BraveSearchService;
 
 class CitationScanBibliographyJob implements ShouldQueue
 {
@@ -24,6 +27,7 @@ class CitationScanBibliographyJob implements ShouldQueue
         private string $scanId,
         private string $bookId,
         private ?string $referenceId = null,
+        private bool $force = false,
     ) {}
 
     public function handle(OpenAlexService $openAlex): void
@@ -53,6 +57,31 @@ class CitationScanBibliographyJob implements ShouldQueue
             $db->table('citation_scans')
                 ->where('id', $this->scanId)
                 ->update(['total_entries' => $totalEntries, 'updated_at' => now()]);
+
+            // Force mode: clear existing matches so entries go through processUnlinkedEntry fresh
+            if ($this->force) {
+                $resetQuery = $db->table('bibliography')->where('book', $this->bookId);
+                if ($this->referenceId) {
+                    $resetQuery->where('referenceId', $this->referenceId);
+                }
+                $resetCount = $resetQuery->update([
+                    'source_id'         => null,
+                    'foundation_source' => null,
+                    'updated_at'        => now(),
+                ]);
+
+                Log::info('Force mode: cleared matches', [
+                    'scan_id' => $this->scanId,
+                    'reset'   => $resetCount,
+                ]);
+
+                // Re-fetch entries after reset so in-memory objects reflect nulled columns
+                $refetchQuery = $db->table('bibliography')->where('book', $this->bookId);
+                if ($this->referenceId) {
+                    $refetchQuery->where('referenceId', $this->referenceId);
+                }
+                $entries = $refetchQuery->get();
+            }
 
             foreach ($entries as $entry) {
                 $result = $this->processEntry($entry, $openAlex, $db);
@@ -148,7 +177,10 @@ class CitationScanBibliographyJob implements ShouldQueue
      *   2. Local library table search (title + metadataScore)
      *   3. OpenAlex title search (metadataScore)
      *   4. Open Library title search (metadataScore)
-     *   5. Give up
+     *   5. Web fetch (URL in bib text)
+     *   6. Semantic Scholar title search
+     *   7. Brave Search → fetch top results
+     *   8. Give up
      */
     private function processUnlinkedEntry(object $entry, OpenAlexService $openAlex, $db): array
     {
@@ -244,7 +276,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
-            if ($bestMatch && $bestScore >= 0.3) {
+            if ($bestMatch && $bestScore > 0.3) {
                 $normalised = $bestMatch;
                 $matchMethod = 'openalex';
                 $similarityScore = round($bestScore, 3);
@@ -275,14 +307,109 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
-            if ($bestMatch && $bestScore >= 0.3) {
+            if ($bestMatch && $bestScore > 0.3) {
                 $normalised = $bestMatch;
                 $matchMethod = 'open_library';
                 $similarityScore = round($bestScore, 3);
             }
         }
 
-        // --- Step 5: No match — mark as scanned-but-unresolved ---
+        // --- Step 5: Web fetch for entries with URLs ---
+        if (!$normalised) {
+            $webFetch = app(WebFetchService::class);
+            $url = $webFetch->extractUrl($content);
+
+            if ($url) {
+                $stubTitle = $searchedTitle ?? 'Web Source';
+                $text = $webFetch->fetchAndValidate($url, $stubTitle);
+
+                if ($text) {
+                    $stubAuthor = !empty($llmMetadata['authors']) ? implode('; ', $llmMetadata['authors']) : null;
+                    $stubYear   = $llmMetadata['year'] ?? null;
+                    $stubBookId = $webFetch->createWebStubWithNodes($db, $stubTitle, $stubAuthor, $stubYear, $text, $url);
+
+                    if ($stubBookId) {
+                        $db->table('bibliography')
+                            ->where('book', $this->bookId)
+                            ->where('referenceId', $referenceId)
+                            ->update([
+                                'source_id'         => $stubBookId,
+                                'foundation_source' => $stubBookId,
+                                'updated_at'        => now(),
+                            ]);
+
+                        return [
+                            'referenceId'        => $referenceId,
+                            'status'             => 'newly_resolved',
+                            'match_method'       => 'web_fetch',
+                            'searched_title'     => $searchedTitle,
+                            'result_title'       => $stubTitle,
+                            'foundation_book_id' => $stubBookId,
+                            'url'                => $url,
+                            'llm_metadata'       => $llmMetadata,
+                        ];
+                    }
+                }
+            }
+        }
+
+        // --- Step 6: Semantic Scholar ---
+        if (!$normalised && $searchedTitle) {
+            $semanticScholar = app(SemanticScholarService::class);
+            $ssAuthor = !empty($llmMetadata['authors'][0])
+                ? trim(explode(',', $llmMetadata['authors'][0], 2)[0])
+                : null;
+            $ssCandidates = $semanticScholar->search($searchedTitle, $ssAuthor);
+
+            $bestMatch = null;
+            $bestScore = 0.0;
+            foreach ($ssCandidates as $candidate) {
+                $score = $llmMetadata
+                    ? $openAlex->metadataScore($llmMetadata, $candidate)
+                    : $openAlex->titleSimilarity($searchedTitle, $candidate['title'] ?? '');
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestMatch = $candidate;
+                }
+            }
+
+            if ($bestMatch && $bestScore > 0.3) {
+                $normalised = $bestMatch;
+                $matchMethod = 'semantic_scholar';
+                $similarityScore = round($bestScore, 3);
+            }
+        }
+
+        // --- Step 7: Brave Search (web search + fetch) ---
+        if (!$normalised && $searchedTitle && config('services.brave_search.api_key')) {
+            $braveSearch = app(BraveSearchService::class);
+            $stubAuthor = !empty($llmMetadata['authors']) ? implode('; ', $llmMetadata['authors']) : null;
+            $stubYear = $llmMetadata['year'] ?? null;
+            $stubBookId = $braveSearch->searchAndFetch($searchedTitle, $stubAuthor, $stubYear, $db);
+
+            if ($stubBookId) {
+                $db->table('bibliography')
+                    ->where('book', $this->bookId)
+                    ->where('referenceId', $referenceId)
+                    ->update([
+                        'source_id'         => $stubBookId,
+                        'foundation_source' => $stubBookId,
+                        'updated_at'        => now(),
+                    ]);
+
+                return [
+                    'referenceId'        => $referenceId,
+                    'status'             => 'newly_resolved',
+                    'match_method'       => 'brave_search',
+                    'searched_title'     => $searchedTitle,
+                    'result_title'       => $searchedTitle,
+                    'foundation_book_id' => $stubBookId,
+                    'llm_metadata'       => $llmMetadata,
+                ];
+            }
+        }
+
+        // --- Step 8: No match — mark as scanned-but-unresolved ---
         if (!$normalised) {
             $db->table('bibliography')
                 ->where('book', $this->bookId)
@@ -477,7 +604,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
-            if ($bestMatch && $bestScore >= 0.3) {
+            if ($bestMatch && $bestScore > 0.3) {
                 $normalised = $bestMatch;
                 $matchMethod = 'openalex';
                 $similarityScore = round($bestScore, 3);
@@ -508,10 +635,105 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
-            if ($bestMatch && $bestScore >= 0.3) {
+            if ($bestMatch && $bestScore > 0.3) {
                 $normalised = $bestMatch;
                 $matchMethod = 'open_library';
                 $similarityScore = round($bestScore, 3);
+            }
+        }
+
+        // --- Step 4: Web fetch for entries with URLs ---
+        if (!$normalised) {
+            $webFetch = app(WebFetchService::class);
+            $url = $webFetch->extractUrl($content);
+
+            if ($url) {
+                $stubTitle = $searchedTitle ?? 'Web Source';
+                $text = $webFetch->fetchAndValidate($url, $stubTitle);
+
+                if ($text) {
+                    $stubAuthor = !empty($llmMetadata['authors']) ? implode('; ', $llmMetadata['authors']) : null;
+                    $stubYear   = $llmMetadata['year'] ?? null;
+                    $stubBookId = $webFetch->createWebStubWithNodes($db, $stubTitle, $stubAuthor, $stubYear, $text, $url);
+
+                    if ($stubBookId) {
+                        // Only set foundation_source — DO NOT modify source_id
+                        $db->table('bibliography')
+                            ->where('book', $this->bookId)
+                            ->where('referenceId', $referenceId)
+                            ->update([
+                                'foundation_source' => $stubBookId,
+                                'updated_at'        => now(),
+                            ]);
+
+                        return [
+                            'referenceId'        => $referenceId,
+                            'status'             => 'enriched',
+                            'match_method'       => 'web_fetch',
+                            'searched_title'     => $searchedTitle,
+                            'result_title'       => $stubTitle,
+                            'foundation_book_id' => $stubBookId,
+                            'url'                => $url,
+                            'llm_metadata'       => $llmMetadata,
+                        ];
+                    }
+                }
+            }
+        }
+
+        // --- Step 5: Semantic Scholar ---
+        if (!$normalised && $searchedTitle) {
+            $semanticScholar = app(SemanticScholarService::class);
+            $ssAuthor = !empty($llmMetadata['authors'][0])
+                ? trim(explode(',', $llmMetadata['authors'][0], 2)[0])
+                : null;
+            $ssCandidates = $semanticScholar->search($searchedTitle, $ssAuthor);
+
+            $bestMatch = null;
+            $bestScore = 0.0;
+            foreach ($ssCandidates as $candidate) {
+                $score = $llmMetadata
+                    ? $openAlex->metadataScore($llmMetadata, $candidate)
+                    : $openAlex->titleSimilarity($searchedTitle, $candidate['title'] ?? '');
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestMatch = $candidate;
+                }
+            }
+
+            if ($bestMatch && $bestScore > 0.3) {
+                $normalised = $bestMatch;
+                $matchMethod = 'semantic_scholar';
+                $similarityScore = round($bestScore, 3);
+            }
+        }
+
+        // --- Step 6: Brave Search (web search + fetch) ---
+        if (!$normalised && $searchedTitle && config('services.brave_search.api_key')) {
+            $braveSearch = app(BraveSearchService::class);
+            $stubAuthor = !empty($llmMetadata['authors']) ? implode('; ', $llmMetadata['authors']) : null;
+            $stubYear = $llmMetadata['year'] ?? null;
+            $stubBookId = $braveSearch->searchAndFetch($searchedTitle, $stubAuthor, $stubYear, $db);
+
+            if ($stubBookId) {
+                // Only set foundation_source — DO NOT modify source_id
+                $db->table('bibliography')
+                    ->where('book', $this->bookId)
+                    ->where('referenceId', $referenceId)
+                    ->update([
+                        'foundation_source' => $stubBookId,
+                        'updated_at'        => now(),
+                    ]);
+
+                return [
+                    'referenceId'        => $referenceId,
+                    'status'             => 'enriched',
+                    'match_method'       => 'brave_search',
+                    'searched_title'     => $searchedTitle,
+                    'result_title'       => $searchedTitle,
+                    'foundation_book_id' => $stubBookId,
+                    'llm_metadata'       => $llmMetadata,
+                ];
             }
         }
 

@@ -44,6 +44,33 @@ class OpenLibraryService
     }
 
     /**
+     * Fetch the description for a work from the Open Library Works API.
+     * $olKey is like "/works/OL262556W".
+     */
+    public function fetchDescription(string $olKey): ?string
+    {
+        try {
+            $response = Http::timeout(10)->get(self::BASE_URL . $olKey . '.json');
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $description = $response->json('description');
+
+            // Can be a plain string or {"type": "/type/text", "value": "..."}
+            if (is_array($description)) {
+                $description = $description['value'] ?? null;
+            }
+
+            return is_string($description) && strlen($description) > 30 ? trim($description) : null;
+        } catch (\Exception $e) {
+            Log::warning('Open Library description fetch failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Normalise an Open Library search doc into the shared citation shape
      * used by OpenAlexService::normaliseWork().
      */

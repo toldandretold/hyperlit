@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CitationReviewCommand extends Command
 {
-    protected $signature = 'citation:review {bookId : The book to review citations for}';
+    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)}';
     protected $description = 'Review in-text citations: extract truth claims, search source material, verify with LLM';
 
     public function handle(CitationReviewService $reviewService): int
@@ -32,6 +32,35 @@ class CitationReviewCommand extends Command
 
         $this->info("Book: {$book->title}");
         $this->newLine();
+
+        // --report-only: regenerate report + highlights from latest JSON
+        if ($this->option('report-only')) {
+            $pattern = storage_path("app/citation-review_{$bookId}_*.json");
+            $files = glob($pattern);
+            if (empty($files)) {
+                $this->error("No JSON files found matching: {$pattern}");
+                return 1;
+            }
+            sort($files);
+            $latestJson = end($files);
+            $this->info("Loading claims from: {$latestJson}");
+
+            $claims = json_decode(file_get_contents($latestJson), true);
+            if (empty($claims)) {
+                $this->warn('JSON file contained no claims.');
+                return 0;
+            }
+            $this->info("Loaded " . count($claims) . " claims");
+
+            $onProgress = function (string $phase, string $message) {
+                $this->line("  <fg=cyan>[{$phase}]</> {$message}");
+            };
+
+            $md = $reviewService->regenerateReport($claims, $bookId, $book->title ?? $bookId, $onProgress);
+
+            $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
+            return 0;
+        }
 
         // Pre-flight checks
         $bibTotal = $db->table('bibliography')->where('book', $bookId)->count();
@@ -79,24 +108,31 @@ class CitationReviewCommand extends Command
         $this->newLine();
         $this->info('Citation Review Summary:');
 
-        $matchCount = 0;
-        $disputeCount = 0;
-        $insufficientCount = 0;
+        $unverifiedCount = 0;
+        $supportedCount = 0;
+        $plausibleCount = 0;
+        $notSupportedCount = 0;
+        $noEvidenceCount = 0;
 
         foreach ($claims as $claim) {
-            $matches = $claim['llm_verdict']['matches'] ?? null;
-            if ($matches === true) {
-                $matchCount++;
-            } elseif ($matches === false) {
-                $disputeCount++;
-            } else {
-                $insufficientCount++;
+            if (empty($claim['source_book_id'])) {
+                $unverifiedCount++;
+                continue;
             }
+            $support = $claim['llm_verdict']['support'] ?? 'insufficient';
+            match ($support) {
+                'supported'     => $supportedCount++,
+                'plausible'     => $plausibleCount++,
+                'not_supported' => $notSupportedCount++,
+                default         => $noEvidenceCount++,
+            };
         }
 
-        $this->line("  <fg=green>Verified (matches):</>    {$matchCount}");
-        $this->line("  <fg=red>Disputed (no match):</>   {$disputeCount}");
-        $this->line("  <fg=yellow>Insufficient data:</>     {$insufficientCount}");
+        $this->line("  <fg=magenta>Unverified:</>      {$unverifiedCount}");
+        $this->line("  <fg=red>Not supported:</>   {$notSupportedCount}");
+        $this->line("  <fg=yellow>No evidence:</>     {$noEvidenceCount}");
+        $this->line("  <fg=blue>Plausible:</>       {$plausibleCount}");
+        $this->line("  <fg=green>Supported:</>       {$supportedCount}");
 
         // Save reports
         $timestamp = now()->format('Y-m-d_His');
@@ -111,6 +147,12 @@ class CitationReviewCommand extends Command
         $this->newLine();
         $this->info("JSON report: " . storage_path("app/{$jsonFilename}"));
         $this->info("Markdown report: " . storage_path("app/{$mdFilename}"));
+
+        // Import as sub-book
+        $this->info('Importing report as sub-book...');
+        $subBookId = $reviewService->importReportAsSubBook($md, $bookId, $book->title ?? $bookId);
+        $this->info("AI Review sub-book: {$subBookId}");
+        $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
         return 0;
     }

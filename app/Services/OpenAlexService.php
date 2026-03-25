@@ -275,7 +275,14 @@ class OpenAlexService
         $intersection = count(array_intersect($queryWords, $resultWords));
         $union        = count(array_unique(array_merge($queryWords, $resultWords)));
 
-        return $union > 0 ? $intersection / $union : 0.0;
+        $jaccard = $union > 0 ? $intersection / $union : 0.0;
+
+        // Penalise length mismatch — short query matching a much longer title
+        // (or vice versa) gets scaled down. Factor ranges from 0.5 to 1.0.
+        $lengthRatio = min(count($queryWords), count($resultWords))
+                     / max(count($queryWords), count($resultWords));
+
+        return $jaccard * (0.5 + 0.5 * $lengthRatio);
     }
 
     /**
@@ -294,14 +301,23 @@ class OpenAlexService
         $authorScore = 0.0;
         $llmAuthors = $llmMeta['authors'] ?? [];
         if (!empty($llmAuthors)) {
-            $llmSurnames = array_map(function (string $a): string {
+            // Strip diacritics to ASCII so "Aydın"→"Aydin", "Mbembé"→"Mbembe", etc.
+            $asciiFold = function (string $s): string {
+                if (function_exists('transliterator_transliterate')) {
+                    return transliterator_transliterate('Any-Latin; Latin-ASCII', $s);
+                }
+                $result = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+                return $result !== false ? $result : $s;
+            };
+
+            $llmSurnames = array_map(function (string $a) use ($asciiFold): string {
                 // "Lastname, Firstname" → "lastname"
                 $parts = explode(',', $a, 2);
-                return mb_strtolower(trim($parts[0]));
+                return $asciiFold(mb_strtolower(trim($parts[0])));
             }, $llmAuthors);
 
             $candidateAuthor = $candidate['author'] ?? '';
-            $candidateAuthorLower = mb_strtolower($candidateAuthor);
+            $candidateAuthorLower = $asciiFold(mb_strtolower($candidateAuthor));
 
             foreach ($llmSurnames as $surname) {
                 if ($surname && str_contains($candidateAuthorLower, $surname)) {
@@ -324,7 +340,39 @@ class OpenAlexService
             }
         }
 
-        return ($titleScore * 0.6) + ($authorScore * 0.25) + ($yearScore * 0.15);
+        // When we have author data from both sides but zero overlap, apply a penalty.
+        // This prevents weak title+year matches from passing when authors clearly differ.
+        // A milder penalty applies when the candidate has no author at all — we can't
+        // confirm authorship, so demand a stronger title match to compensate.
+        $authorMismatchPenalty = 1.0;
+        if ($authorScore === 0.0 && !empty($llmSurnames)) {
+            if (!empty($candidateAuthor)) {
+                $authorMismatchPenalty = 0.5;   // clear mismatch
+            } else {
+                $authorMismatchPenalty = 0.85;  // unconfirmed — mild skepticism
+            }
+        }
+
+        $rawScore = ($titleScore * 0.6) + ($authorScore * 0.25) + ($yearScore * 0.15);
+        $finalScore = $rawScore * $authorMismatchPenalty;
+
+        Log::info('metadataScore', [
+            'llm_title' => $llmMeta['title'] ?? '',
+            'candidate_title' => $candidate['title'] ?? '',
+            'titleScore' => round($titleScore, 4),
+            'llm_authors' => $llmAuthors,
+            'llm_surnames' => $llmSurnames ?? [],
+            'candidate_author' => $candidateAuthor ?? '',
+            'authorScore' => $authorScore,
+            'llm_year' => $llmYear,
+            'candidate_year' => $candidateYear,
+            'yearScore' => $yearScore,
+            'rawScore' => round($rawScore, 4),
+            'authorMismatchPenalty' => $authorMismatchPenalty,
+            'finalScore' => round($finalScore, 4),
+        ]);
+
+        return $finalScore;
     }
 
     /**
@@ -579,6 +627,12 @@ class OpenAlexService
         $bibtex = $normalised['bibtex'] ?? '';
         $url    = $olKey ? 'https://openlibrary.org' . $olKey : null;
 
+        // Fetch description from Open Library Works API if available
+        $abstract = $normalised['abstract'] ?? null;
+        if (!$abstract && $olKey) {
+            $abstract = app(OpenLibraryService::class)->fetchDescription($olKey);
+        }
+
         try {
             $now = now()->toDateTimeString();
             DB::connection('pgsql_admin')->table('library')->insert([
@@ -605,7 +659,7 @@ class OpenAlexService
                 'volume'         => null,
                 'issue'          => null,
                 'pages'          => null,
-                'abstract'       => $normalised['abstract'] ?? null,
+                'abstract'       => $abstract,
                 'url'            => $url,
                 'creator'        => ucfirst($source),
                 'creator_token'  => null,

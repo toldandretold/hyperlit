@@ -1223,6 +1223,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             previewNodes: highlight.preview_nodes || null,
             targetElement: targetEl || null,
             mode: isNewlyCreated ? 'create' : 'read',
+            creator: highlight.creator || null,
           };
 
           const loader = await loadSubBook(subBookId, highlight.book, highlight.hyperlight_id, 'hyperlight', scroller, loaderOpts);

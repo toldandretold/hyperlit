@@ -17,12 +17,14 @@ class ContentFetchService
     private FileHelpers $fileHelpers;
     private HtmlProcessor $htmlProcessor;
     private PdfProcessor $pdfProcessor;
+    private LlmService $llmService;
 
-    public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor)
+    public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
         $this->fileHelpers = $fileHelpers;
         $this->htmlProcessor = $htmlProcessor;
         $this->pdfProcessor = $pdfProcessor;
+        $this->llmService = $llmService;
     }
 
     /**
@@ -50,9 +52,8 @@ class ContentFetchService
         $path = resource_path("markdown/{$bookId}");
 
         try {
-            $response = Http::withHeaders([
-                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-            ])->timeout(30)->get($url);
+            $response = Http::withHeaders(self::browserHeaders())
+                ->timeout(30)->get($url);
 
             if (!$response->successful()) {
                 return [
@@ -109,21 +110,60 @@ class ContentFetchService
         $bookId = $libraryRecord->book;
         $oaUrl = $libraryRecord->oa_url ?? null;
         $pdfUrl = $libraryRecord->pdf_url ?? null;
+        $doi = $libraryRecord->doi ?? null;
 
-        // Strategy 1: OA HTML
-        if ($oaUrl) {
-            return $this->fetchHtml($oaUrl, $bookId);
+        $lastFailure = null;
+
+        // Strategy 1: oa_url looks like a PDF → downloadPdf
+        if ($oaUrl && $this->looksLikePdf($oaUrl)) {
+            $result = $this->downloadPdf($oaUrl, $bookId, $doi);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $lastFailure = $result['reason'];
+            // Reset pdf_url_status so later strategies aren't blocked
+            $this->setPdfUrlStatus($bookId, null);
         }
 
-        // Strategy 2: PDF download (OCR handled separately by citation:ocr)
-        if ($pdfUrl) {
-            $doi = $libraryRecord->doi ?? null;
-            return $this->downloadPdf($pdfUrl, $bookId, $doi);
+        // Strategy 2: oa_url as HTML
+        if ($oaUrl && !$this->looksLikePdf($oaUrl)) {
+            $result = $this->fetchHtml($oaUrl, $bookId);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $lastFailure = $result['reason'];
+        }
+
+        // Strategy 3: pdf_url (if different from oa_url)
+        if ($pdfUrl && $pdfUrl !== $oaUrl) {
+            $result = $this->downloadPdf($pdfUrl, $bookId, $doi);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $lastFailure = $result['reason'];
+            // Reset pdf_url_status so DOI strategy isn't blocked
+            $this->setPdfUrlStatus($bookId, null);
+        }
+
+        // Strategy 4: DOI resolution (last resort — even if oa_url existed but failed)
+        if ($doi) {
+            $doiUrl = 'https://doi.org/' . $doi;
+            $result = $this->fetchHtml($doiUrl, $bookId);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $lastFailure = $result['reason'];
+        }
+
+        // All strategies exhausted
+        if ($lastFailure) {
+            $this->setPdfUrlStatus($bookId, $lastFailure);
+            return ['status' => 'failed', 'reason' => $lastFailure];
         }
 
         return [
             'status' => 'skipped',
-            'reason' => 'No fetchable URL (no oa_url or pdf_url)',
+            'reason' => 'No fetchable URL (no oa_url, pdf_url, or doi)',
         ];
     }
 
@@ -238,20 +278,248 @@ class ContentFetchService
         ];
     }
 
+    /**
+     * Assess HTML content quality before importing.
+     *
+     * Layer 1: Extract scholarly meta tags (citation_pdf_url, citation_abstract).
+     * Layer 2: LLM content assessment when body quality is uncertain.
+     *
+     * @return array{action: string, reason: string, html?: string, abstract?: string}
+     *   action: 'pdf_downloaded' | 'import_html' | 'no_content' | 'blocked' | 'abstract_only'
+     */
+    private function assessHtmlContent(string $html, string $bookId): array
+    {
+        // --- Layer 1: Meta-tag extraction (no LLM) ---
+        $metaTags = $this->extractScholarlyMetaTags($html);
+
+        // Try PDF download via citation_pdf_url
+        if (!empty($metaTags['citation_pdf_url'])) {
+            $doi = DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)->value('doi');
+
+            $pdfResult = $this->downloadPdf($metaTags['citation_pdf_url'], $bookId, $doi);
+            if ($pdfResult['status'] !== 'failed') {
+                // Save abstract too if we found one
+                if (!empty($metaTags['citation_abstract'])) {
+                    $this->saveAbstractIfEmpty($bookId, $metaTags['citation_abstract']);
+                }
+                return ['action' => 'pdf_downloaded', 'reason' => $pdfResult['reason']];
+            }
+            // PDF download failed — continue to body assessment
+            $this->setPdfUrlStatus($bookId, null); // reset so it doesn't block
+        }
+
+        // Save abstract from meta tags if available
+        if (!empty($metaTags['citation_abstract'])) {
+            $this->saveAbstractIfEmpty($bookId, $metaTags['citation_abstract']);
+        }
+
+        // --- Layer 2: LLM content assessment ---
+        $cleanedHtml = $this->truncateHtmlForAssessment($html);
+
+        $assessment = $this->llmService->assessHtmlContent($cleanedHtml);
+
+        if (!$assessment) {
+            // LLM failed — fall through to import and let quality gate catch it
+            return ['action' => 'import_html', 'reason' => 'LLM assessment unavailable, importing as-is'];
+        }
+
+        if ($assessment['is_blocked']) {
+            return ['action' => 'blocked', 'reason' => 'Page is blocked (captcha/login wall)'];
+        }
+
+        // Save LLM-extracted abstract if meta tags didn't have one
+        if (!empty($assessment['abstract'])) {
+            $this->saveAbstractIfEmpty($bookId, $assessment['abstract']);
+        }
+
+        if ($assessment['has_article_content']) {
+            // Try to extract just the content div(s) if selector was identified
+            $trimmedHtml = $html;
+            if ($assessment['content_selector']) {
+                $extracted = $this->extractContentBySelector($html, $assessment['content_selector']);
+                if ($extracted) {
+                    $trimmedHtml = $extracted;
+                }
+            }
+            return ['action' => 'import_html', 'reason' => 'Article content found', 'html' => $trimmedHtml];
+        }
+
+        // No article content
+        if (!empty($metaTags['citation_abstract']) || !empty($assessment['abstract'])) {
+            return ['action' => 'abstract_only', 'reason' => 'No article body — abstract saved'];
+        }
+
+        return ['action' => 'no_content', 'reason' => 'No usable content found'];
+    }
+
+    /**
+     * Extract scholarly meta tags from HTML <head>.
+     */
+    private function extractScholarlyMetaTags(string $html): array
+    {
+        $tags = [];
+        $metaNames = ['citation_pdf_url', 'citation_abstract', 'citation_title'];
+
+        foreach ($metaNames as $name) {
+            // Match <meta name="citation_xxx" content="...">
+            if (preg_match('/<meta\s+[^>]*name=["\']' . preg_quote($name, '/') . '["\']\s+[^>]*content=["\']([^"\']*)["\'][^>]*>/is', $html, $m)) {
+                $tags[$name] = html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8');
+            } elseif (preg_match('/<meta\s+[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']' . preg_quote($name, '/') . '["\']\s*[^>]*>/is', $html, $m)) {
+                // content before name order
+                $tags[$name] = html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8');
+            }
+        }
+
+        return $tags;
+    }
+
+    /**
+     * Strip chrome from HTML and truncate for LLM assessment.
+     */
+    private function truncateHtmlForAssessment(string $html): string
+    {
+        // Remove script, style, nav, header, footer tags and their contents
+        $patterns = [
+            '/<script\b[^>]*>.*?<\/script>/is',
+            '/<style\b[^>]*>.*?<\/style>/is',
+            '/<nav\b[^>]*>.*?<\/nav>/is',
+            '/<header\b[^>]*>.*?<\/header>/is',
+            '/<footer\b[^>]*>.*?<\/footer>/is',
+            '/<svg\b[^>]*>.*?<\/svg>/is',
+            '/<noscript\b[^>]*>.*?<\/noscript>/is',
+        ];
+
+        $cleaned = preg_replace($patterns, '', $html);
+        // Collapse whitespace
+        $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+
+        // Truncate to ~4000 chars
+        if (strlen($cleaned) > 4000) {
+            $cleaned = substr($cleaned, 0, 4000) . "\n<!-- truncated -->";
+        }
+
+        return $cleaned;
+    }
+
+    /**
+     * Try to extract content from HTML using a CSS-like selector description from the LLM.
+     * Supports simple selectors: tag.class, tag[attr], tag#id.
+     */
+    private function extractContentBySelector(string $html, string $selector): ?string
+    {
+        // Convert LLM selector to a regex pattern for common cases
+        // e.g. "div.article-body" → <div[^>]*class="[^"]*article-body[^"]*"
+        // e.g. "section[data-article-body]" → <section[^>]*data-article-body
+        $patterns = [];
+
+        // Split on comma for multiple selectors
+        $selectors = array_map('trim', explode(',', $selector));
+
+        foreach ($selectors as $sel) {
+            if (preg_match('/^(\w+)\.(.+)$/', $sel, $m)) {
+                // tag.class
+                $patterns[] = '/<' . preg_quote($m[1], '/') . '\b[^>]*class=["\'][^"\']*' . preg_quote($m[2], '/') . '[^"\']*["\'][^>]*>(.*?)<\/' . preg_quote($m[1], '/') . '>/is';
+            } elseif (preg_match('/^(\w+)\[(.+)\]$/', $sel, $m)) {
+                // tag[attr]
+                $patterns[] = '/<' . preg_quote($m[1], '/') . '\b[^>]*' . preg_quote($m[2], '/') . '[^>]*>(.*?)<\/' . preg_quote($m[1], '/') . '>/is';
+            } elseif (preg_match('/^(\w+)#(.+)$/', $sel, $m)) {
+                // tag#id
+                $patterns[] = '/<' . preg_quote($m[1], '/') . '\b[^>]*id=["\']' . preg_quote($m[2], '/') . '["\'][^>]*>(.*?)<\/' . preg_quote($m[1], '/') . '>/is';
+            }
+        }
+
+        $extracted = '';
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html, $m)) {
+                $extracted .= $m[0] . "\n";
+            }
+        }
+
+        return $extracted ?: null;
+    }
+
+    /**
+     * Save abstract to library record if not already populated.
+     */
+    private function saveAbstractIfEmpty(string $bookId, string $abstract): void
+    {
+        if (strlen($abstract) < 50) {
+            return; // Too short to be meaningful
+        }
+
+        // Validate with LLM before saving — reject paywall messages, metadata, etc.
+        $title = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)->value('title');
+
+        if ($title && !$this->llmService->validateAbstract($abstract, $title)) {
+            Log::info('Rejected invalid abstract', ['book' => $bookId]);
+            return;
+        }
+
+        try {
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)
+                ->where(function ($q) {
+                    $q->whereNull('abstract')->orWhere('abstract', '');
+                })
+                ->update(['abstract' => $abstract, 'updated_at' => now()]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to save abstract', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Count paragraphs in nodes.json with >100 chars of plainText.
+     */
+    private function countSubstantialParagraphs(string $nodesPath): int
+    {
+        if (!File::exists($nodesPath)) {
+            return 0;
+        }
+
+        $nodes = json_decode(File::get($nodesPath), true);
+        if (!is_array($nodes)) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($nodes as $node) {
+            $plainText = $node['plainText'] ?? '';
+            if (strlen($plainText) > 100) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
     private function fetchHtml(string $url, string $bookId): array
     {
         $path = resource_path("markdown/{$bookId}");
 
         try {
-            // 1. Fetch HTML
-            $response = Http::withHeaders([
-                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-            ])->timeout(30)->get($url);
+            // 1. Fetch HTML (browser headers to avoid publisher 403s)
+            $response = Http::withHeaders(self::browserHeaders())
+                ->timeout(30)->get($url);
 
             if (!$response->successful()) {
                 return [
                     'status' => 'failed',
                     'reason' => "HTTP {$response->status()} fetching {$url}",
+                ];
+            }
+
+            // 1b. If the server returned a PDF despite us requesting HTML, save it as a PDF
+            $contentType = $response->header('Content-Type') ?? '';
+            if (str_contains($contentType, 'application/pdf') || str_contains($contentType, 'octet-stream')) {
+                $pdfResult = $this->savePdfResponse($response->body(), $bookId);
+                if ($pdfResult) {
+                    return $pdfResult;
+                }
+                return [
+                    'status' => 'failed',
+                    'reason' => "Server returned PDF Content-Type but body failed validation",
                 ];
             }
 
@@ -271,47 +539,31 @@ class ContentFetchService
             $htmlPath = "{$path}/original.html";
             File::put($htmlPath, $html);
 
-            // 3. Clean stale output files
-            foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
-                $staleFilePath = "{$path}/{$staleFile}";
-                if (File::exists($staleFilePath)) {
-                    File::delete($staleFilePath);
-                }
+            // 3. Assess content quality before processing
+            $assessment = $this->assessHtmlContent($html, $bookId);
+
+            if ($assessment['action'] === 'pdf_downloaded') {
+                return ['status' => 'downloaded', 'reason' => $assessment['reason']];
             }
 
-            // 4. Process via HtmlProcessor
-            $this->htmlProcessor->process($htmlPath, $path, $bookId);
-
-            // 5. Wait for nodes.json
-            $nodesPath = "{$path}/nodes.json";
-            $attempts = 0;
-            while (!File::exists($nodesPath) && $attempts < 15) {
-                sleep(2);
-                $attempts++;
+            if ($assessment['action'] === 'blocked') {
+                $this->setPdfUrlStatus($bookId, $assessment['reason']);
+                return ['status' => 'failed', 'reason' => $assessment['reason']];
             }
 
-            if (!File::exists($nodesPath)) {
-                return [
-                    'status' => 'failed',
-                    'reason' => 'Timed out waiting for nodes.json after HtmlProcessor',
-                ];
+            if ($assessment['action'] === 'no_content') {
+                $this->setPdfUrlStatus($bookId, 'no_content');
+                return ['status' => 'failed', 'reason' => $assessment['reason']];
             }
 
-            // 6. Save nodes to DB
-            $this->saveNodeChunksToDatabase($path, $bookId);
+            if ($assessment['action'] === 'abstract_only') {
+                $this->setPdfUrlStatus($bookId, 'abstract_only');
+                return ['status' => 'failed', 'reason' => $assessment['reason']];
+            }
 
-            // 7. Save footnotes to DB
-            $this->saveFootnotesToDatabase($path, $bookId);
-
-            // 8. Update library.has_nodes = true
-            DB::connection('pgsql_admin')->table('library')
-                ->where('book', $bookId)
-                ->update(['has_nodes' => true, 'updated_at' => now()]);
-
-            return [
-                'status' => 'imported',
-                'reason' => 'HTML fetched and processed successfully',
-            ];
+            // HTML import disabled — only PDFs are imported as content
+            $this->setPdfUrlStatus($bookId, 'html_skipped');
+            return ['status' => 'failed', 'reason' => 'HTML import disabled — only PDFs are imported as content'];
 
         } catch (\Exception $e) {
             Log::error('ContentFetchService::fetchHtml failed', [
@@ -339,9 +591,8 @@ class ContentFetchService
 
         try {
             // 1. Download PDF
-            $response = Http::withHeaders([
-                'User-Agent' => 'Hyperlit/1.0 (mailto:hello@hyperlit.app)',
-            ])->timeout(60)->get($pdfUrl);
+            $response = Http::withHeaders(self::browserHeaders())
+                ->timeout(60)->get($pdfUrl);
 
             if (!$response->successful()) {
                 $reason = "HTTP {$response->status()} fetching {$pdfUrl}";
@@ -464,9 +715,53 @@ class ContentFetchService
     }
 
     /**
+     * Detect URLs that point to PDFs based on path patterns.
+     */
+    private function looksLikePdf(string $url): bool
+    {
+        $path = strtolower(parse_url($url, PHP_URL_PATH) ?? '');
+
+        return str_ends_with($path, '.pdf')
+            || str_contains($path, '/pdf/')
+            || str_contains($path, '/downloadpdf/')
+            || str_contains($path, 'article-pdf')
+            || str_contains($path, 'viewcontent.cgi');
+    }
+
+    /**
+     * Validate and save a PDF response body to disk.
+     *
+     * @return array{status: string, reason: string}|null  Result on success, null on validation failure.
+     */
+    private function savePdfResponse(string $body, string $bookId): ?array
+    {
+        if (strlen($body) < 1000) {
+            return null;
+        }
+
+        if (substr($body, 0, 5) !== '%PDF-') {
+            return null;
+        }
+
+        $path = resource_path("markdown/{$bookId}");
+        if (!File::exists($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+
+        File::put("{$path}/original.pdf", $body);
+        $this->setPdfUrlStatus($bookId, 'downloaded');
+
+        $sizeFormatted = number_format(strlen($body));
+        return [
+            'status' => 'downloaded',
+            'reason' => "PDF saved ({$sizeFormatted} bytes) — ready for OCR",
+        ];
+    }
+
+    /**
      * Record the outcome of a pdf_url fetch attempt on the library record.
      */
-    private function setPdfUrlStatus(string $bookId, string $status): void
+    private function setPdfUrlStatus(string $bookId, ?string $status): void
     {
         try {
             DB::connection('pgsql_admin')->table('library')

@@ -43,19 +43,25 @@ class CitationVacuumCommand extends Command
         $this->info("Title: " . ($libraryRecord->title ?: '(untitled)'));
 
         $url = $libraryRecord->oa_url ?: ($libraryRecord->pdf_url ?: null);
-        if (!$url) {
-            $this->error('No fetchable URL (no oa_url or pdf_url) on this library record.');
+        $doi = $libraryRecord->doi ?? null;
+
+        if (!$url && !$doi) {
+            $this->error('No fetchable URL (no oa_url, pdf_url, or doi) on this library record.');
             return 1;
         }
 
-        // For PDF-only records, skip if already fetched/failed
+        // Skip if already fetched/failed (unless it has an oa_url which uses a different path)
         if (!$libraryRecord->oa_url && ($libraryRecord->pdf_url_status ?? null)) {
             $this->warn("Already processed (pdf_url_status: {$libraryRecord->pdf_url_status}). Skipping.");
             return 0;
         }
 
-        $urlType = $libraryRecord->oa_url ? 'OA' : 'PDF';
-        $this->line("{$urlType} URL: {$url}");
+        if ($url) {
+            $urlType = $libraryRecord->oa_url ? 'OA' : 'PDF';
+            $this->line("{$urlType} URL: {$url}");
+        } else {
+            $this->line("DOI: https://doi.org/{$doi}");
+        }
         $mode = $dryRun ? 'DRY-RUN' : 'FETCH';
         $this->info("Mode: {$mode}");
         $this->newLine();

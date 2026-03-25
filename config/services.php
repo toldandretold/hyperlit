@@ -46,4 +46,8 @@ return [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
     ],
 
+    'brave_search' => [
+        'api_key' => env('BRAVE_SEARCH_API_KEY'),
+    ],
+
 ];

@@ -601,7 +601,8 @@ mark.cascade-origin:hover {
 
 
 table {
-    width: 100%; /* Full width of container */
+    width: auto; /* Fit content, don't stretch */
+    max-width: 100%;
     border-collapse: collapse; /* Remove double borders */
     background-color: #2e2e2e; /* Dark background for table */
     color: #e0e0e0; /* Light text for contrast */
@@ -649,7 +650,6 @@ caption {
 
 /* Make tables in main-content horizontally scrollable */
 .main-content table {
-    display: block;
     overflow-x: auto;
     max-width: 100%;
 }

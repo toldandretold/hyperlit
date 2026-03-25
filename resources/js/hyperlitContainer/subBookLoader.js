@@ -281,8 +281,11 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       return;
     }
 
-    // Server is newer → proceed with sync, but guard against wiping local content
-    if (localNodes?.length > 0) {
+    // Server is newer → proceed with sync, but guard against wiping local content.
+    // AIreview sub-books are server-managed — server is always the source of truth.
+    const isAIReview = subBookState.creator?.startsWith('AIreview:');
+
+    if (!isAIReview && localNodes?.length > 0) {
       const localHasContent = localNodes.some(n => {
         const text = n.content?.replace(/<[^>]+>/g, '').trim();
         return text && text.length > 0;
@@ -374,7 +377,7 @@ async function createSubBookOnBackend(subBookId, parentBook, itemId, type, annot
  */
 export async function loadSubBook(
   subBookId, parentBook, itemId, type, scrollerDiv,
-  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read' } = {}
+  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null } = {}
 ) {
   // Clean up any prior instance
   destroySubBook(subBookId);
@@ -385,8 +388,27 @@ export async function loadSubBook(
   let nodes = null;
   let isNewSubBook = false;
 
-  // Single IDB fetch — reused for both branch and [read more] check below
-  const existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
+  // Single IDB fetch — reused for both branch and [read more] check below.
+  // For AIreview sub-books, ignore AND purge stale IDB nodes — server is source of truth.
+  // Preview nodes from the highlight are authoritative; enrichment will sync the rest.
+  const isAIReviewSubBook = creator?.startsWith('AIreview:');
+  let existingNodesFromIDB;
+  if (isAIReviewSubBook) {
+    existingNodesFromIDB = null;
+    // Eagerly purge stale IDB data so it can't resurface
+    Promise.all([
+      import('../postgreSQL.js'),
+      import('../indexedDB/core/connection.js'),
+    ]).then(async ([{ clearBookDataFromIndexedDB }, { openDatabase }]) => {
+      try {
+        const db = await openDatabase();
+        await clearBookDataFromIndexedDB(db, subBookId);
+        console.log(`🧹 Purged stale IDB data for AIreview sub-book "${subBookId}"`);
+      } catch (e) { console.warn('⚠️ IDB purge failed:', e); }
+    });
+  } else {
+    existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
+  }
 
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
@@ -472,7 +494,7 @@ export async function loadSubBook(
 
     // Async enrichment for new sub-books
     if (!isNewSubBook && mode === 'edit') {
-      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type });
+      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type, creator });
     }
 
     console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in ${mode} mode (${nodes.length} nodes)`);
@@ -586,7 +608,7 @@ export async function loadSubBook(
 
   // Async enrichment — fetch fresh data from backend
   if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type });
+    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type, creator });
   }
 
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);

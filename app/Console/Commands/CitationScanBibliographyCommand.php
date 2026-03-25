@@ -10,7 +10,8 @@ use App\Jobs\CitationScanBibliographyJob;
 
 class CitationScanBibliographyCommand extends Command
 {
-    protected $signature = 'citation:scan-bibliography {target : bookId or bookId:referenceId to scan a single citation}';
+    protected $signature = 'citation:scan-bibliography {target : bookId or bookId:referenceId to scan a single citation}
+                            {--force : Clear existing matches and re-scan from scratch}';
     protected $description = 'Scan a book\'s bibliography and resolve citations via OpenAlex';
 
     public function handle(): int
@@ -70,8 +71,12 @@ class CitationScanBibliographyCommand extends Command
         ]);
 
         // Dispatch the job (runs synchronously with QUEUE_CONNECTION=sync)
+        $force = (bool) $this->option('force');
+        if ($force) {
+            $this->warn('Force mode: clearing existing matches before re-scan.');
+        }
         $this->info('Running scan...');
-        CitationScanBibliographyJob::dispatch($scanId, $bookId, $referenceId);
+        CitationScanBibliographyJob::dispatch($scanId, $bookId, $referenceId, $force);
 
         // Fetch completed scan and print report
         $scan = $db->table('citation_scans')->where('id', $scanId)->first();
