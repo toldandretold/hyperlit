@@ -4,6 +4,7 @@ import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { getCurrentUser, getAnonymousToken, getCurrentUserInfo } from "../utilities/auth.js";
 import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
+import DOMPurify from 'dompurify';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // When the user clicks "Re-submit" from the footnote audit modal, the book ID
@@ -127,6 +128,395 @@ function populateFieldsFromBibtex() {
     }
 }
 
+// ─── Import Mode: state ───────────────────────────────────────────────
+let importSearchAbort = null;
+let importSearchDebounce = null;
+let importSearchOffset = 0;
+let importSearchQuery = '';
+
+// ─── Mode Switching ──────────────────────────────────────────────────
+function setupModeSwitching() {
+    const modeRadios = document.querySelectorAll('input[name="import_mode"]');
+    if (!modeRadios.length) return;
+
+    modeRadios.forEach(radio => {
+        radio.addEventListener('change', () => switchImportMode(radio.value));
+    });
+}
+
+function switchImportMode(mode) {
+    const searchPanel = document.getElementById('import-mode-search');
+    const bibtexPanel = document.getElementById('import-mode-bibtex');
+    const formFields = document.getElementById('import-form-fields');
+    const libraryNotice = document.getElementById('library-match-notice');
+
+    // Abort in-flight search
+    if (importSearchAbort) { importSearchAbort.abort(); importSearchAbort = null; }
+
+    // Hide library notice
+    if (libraryNotice) libraryNotice.style.display = 'none';
+
+    // Toggle panels
+    if (searchPanel) searchPanel.style.display = mode === 'search' ? '' : 'none';
+    if (bibtexPanel) bibtexPanel.style.display = mode === 'bibtex' ? '' : 'none';
+
+    if (mode === 'manual') {
+        // Show form fields immediately
+        if (formFields) formFields.style.display = '';
+    } else if (mode === 'search') {
+        // Hide form fields until a result is selected
+        if (formFields) formFields.style.display = 'none';
+        // Clear search results + reset pagination
+        importSearchOffset = 0;
+        importSearchQuery = '';
+        const results = document.getElementById('import-search-results');
+        if (results) results.innerHTML = '';
+        const input = document.getElementById('import-search-input');
+        if (input) { input.value = ''; input.focus(); }
+    } else if (mode === 'bibtex') {
+        // Hide form fields until bibtex is parsed
+        if (formFields) formFields.style.display = 'none';
+        const bibtex = document.getElementById('bibtex');
+        if (bibtex) bibtex.focus();
+    }
+}
+
+// ─── Search Functionality ────────────────────────────────────────────
+function setupImportSearch() {
+    const input = document.getElementById('import-search-input');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        clearTimeout(importSearchDebounce);
+        const query = input.value.trim();
+        if (query.length < 2) {
+            const results = document.getElementById('import-search-results');
+            if (results) results.innerHTML = '';
+            return;
+        }
+        importSearchDebounce = setTimeout(() => performImportSearch(query), 300);
+    });
+}
+
+async function performImportSearch(query, offset = 0) {
+    if (importSearchAbort) importSearchAbort.abort();
+    importSearchAbort = new AbortController();
+
+    const results = document.getElementById('import-search-results');
+    if (!results) return;
+
+    // New query → reset state + clear
+    if (offset === 0) {
+        importSearchQuery = query;
+        importSearchOffset = 0;
+        results.innerHTML = '<div class="import-search-loading">Searching...</div>';
+    }
+
+    try {
+        const url = `/api/search/combined?q=${encodeURIComponent(query)}&limit=10&offset=${offset}`;
+        const resp = await fetch(url, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
+            signal: importSearchAbort.signal
+        });
+        if (!resp.ok) throw new Error('Search failed');
+        const data = await resp.json();
+        await renderImportSearchResults(data.results || [], offset, data.has_more ?? false);
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            results.innerHTML = '<div class="import-search-empty">Search failed. Please try again.</div>';
+        }
+    }
+}
+
+async function renderImportSearchResults(items, offset, hasMore) {
+    const container = document.getElementById('import-search-results');
+    if (!container) return;
+
+    // Remove existing "Load more" button
+    container.querySelector('.citation-load-more')?.remove();
+
+    // New search → clear; pagination → append
+    if (offset === 0) {
+        container.innerHTML = '';
+    }
+
+    if (items.length === 0 && offset === 0) {
+        container.innerHTML = '<div class="import-search-empty">No results found</div>';
+        return;
+    }
+
+    items.forEach(result => {
+        const button = document.createElement('button');
+        button.className = 'citation-result-item';
+        button.type = 'button';
+
+        // Store metadata for selection
+        button.dataset.bookId = result.book || result.id || '';
+        button.dataset.bibtex = result.bibtex || '';
+        button.dataset.hasNodes = (result.has_nodes == null || !!result.has_nodes) ? '1' : '0';
+        button.dataset.source = result.source || 'library';
+        button.dataset.title = result.title || '';
+        button.dataset.author = result.author || '';
+        button.dataset.year = result.year || '';
+        button.dataset.journal = result.journal || '';
+        button.dataset.url = result.url || result.oa_url || '';
+
+        // Title-first display: <em>Title</em> — Author, Year, Journal
+        const title = result.title || 'Untitled';
+        const meta = [result.author, result.year, result.journal].filter(Boolean).join(', ');
+        button.innerHTML = DOMPurify.sanitize(`<em>${title}</em>${meta ? ' &mdash; ' + meta : ''}`, {
+            ALLOWED_TAGS: ['i', 'em', 'b', 'strong']
+        });
+
+        // Click / Enter handler — collapse results after selection
+        const select = () => {
+            handleImportSearchSelection(button);
+            container.innerHTML = '';
+        };
+        button.addEventListener('click', select);
+        button.addEventListener('keydown', (e) => { if (e.key === 'Enter') select(); });
+
+        container.appendChild(button);
+    });
+
+    // "Load more" button
+    if (hasMore) {
+        const loadMore = document.createElement('button');
+        loadMore.className = 'citation-load-more citation-result-item';
+        loadMore.textContent = 'Load more results';
+
+        const triggerLoadMore = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (loadMore.disabled) return;
+            importSearchOffset += 10;
+            loadMore.textContent = 'Loading\u2026';
+            loadMore.disabled = true;
+            performImportSearch(importSearchQuery, importSearchOffset);
+        };
+
+        loadMore.addEventListener('touchend', triggerLoadMore, { passive: false });
+        loadMore.addEventListener('click', triggerLoadMore);
+        container.appendChild(loadMore);
+    }
+}
+
+// ─── Search Result Selection ─────────────────────────────────────────
+function handleImportSearchSelection(div) {
+    const { bookId, bibtex, hasNodes, source, title, author, year, journal, url: resultUrl } = div.dataset;
+
+    // Library result with existing content → show notice
+    if (source === 'library' && hasNodes === '1' && bookId) {
+        showLibraryMatchNotice(bookId, bibtex, title, author, year, resultUrl);
+        return;
+    }
+
+    // Otherwise fill form directly
+    fillFormFromSelection(bibtex, title, author, year, journal, resultUrl, bookId);
+}
+
+function showLibraryMatchNotice(bookId, bibtex, title, author, year, resultUrl) {
+    const notice = document.getElementById('library-match-notice');
+    if (!notice) return;
+
+    notice.style.display = '';
+
+    // View existing
+    const viewBtn = document.getElementById('library-match-view');
+    if (viewBtn) {
+        viewBtn.href = `/${bookId}`;
+        viewBtn.onclick = (e) => {
+            // Navigate directly
+            e.stopPropagation();
+            // Mark external to preserve form state on mobile
+            if (window.newBookManager) window.newBookManager.recentExternalLinkClick = true;
+        };
+    }
+
+    // Create own version
+    const ownBtn = document.getElementById('library-match-own');
+    if (ownBtn) {
+        ownBtn.onclick = () => {
+            notice.style.display = 'none';
+            // Generate a variant ID (append _v2 etc.)
+            const variantId = bookId + '_v2';
+            fillFormFromSelection(bibtex, title, author, year, '', resultUrl, variantId);
+        };
+    }
+}
+
+async function fillFormFromSelection(bibtex, title, author, year, journal, resultUrl, bookId) {
+    // Don't reveal #import-form-fields — detail fields stay hidden in search/bibtex modes.
+    // The hidden inputs still get populated and submitted with the form.
+
+    if (bibtex) {
+        // Use BibTeX to populate all fields
+        const bibtexField = document.getElementById('bibtex');
+        if (bibtexField) {
+            bibtexField.value = bibtex;
+            // Detect type
+            const typeMatch = bibtex.match(/@(\w+)\s*\{/i);
+            if (typeMatch) {
+                const bibType = typeMatch[1].toLowerCase();
+                const radio = document.querySelector(`input[name="type"][value="${bibType}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    showFieldsForType(bibType);
+                } else {
+                    const misc = document.querySelector('input[name="type"][value="misc"]');
+                    if (misc) { misc.checked = true; showFieldsForType('misc'); }
+                }
+            }
+            populateFieldsFromBibtex();
+        }
+    } else {
+        // Set fields directly from metadata
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+        setVal('title', title);
+        setVal('author', author);
+        setVal('year', year);
+        setVal('journal', journal);
+        setVal('url', resultUrl);
+    }
+
+    // Auto-generate book ID with async uniqueness check
+    // Always overwrite — populateFieldsFromBibtex may have set a raw key (e.g. OpenAlex W-ID)
+    const generatedId = generateBookIdFromMetadata(bibtex, title, author, year);
+    const bookField = document.getElementById('book');
+    if (bookField && generatedId) {
+        const availableId = await findAvailableBookId(generatedId);
+        bookField.value = availableId;
+        updateBookUrlPreview(availableId);
+        bookField.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Trigger title validation
+    const titleField = document.getElementById('title');
+    if (titleField) titleField.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// ─── Book ID Auto-generation ─────────────────────────────────────────
+function generateBookIdFromMetadata(bibtex, title, author, year) {
+    // Priority 1: extract citation key from BibTeX (only if it looks human-readable)
+    if (bibtex) {
+        const keyMatch = bibtex.match(/@\w+\s*\{\s*([^,\s]+)\s*,/);
+        if (keyMatch && keyMatch[1] && /^[a-zA-Z0-9_-]+$/.test(keyMatch[1]) && keyMatch[1].length >= 3
+            && /[a-zA-Z]{2,}/.test(keyMatch[1])) {
+            return keyMatch[1];
+        }
+    }
+
+    const lastName = author ? author.split(/[,\s]+/)[0].replace(/[^a-zA-Z]/g, '').toLowerCase() : '';
+    const firstTitleWord = title ? title.split(/\s+/)[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : '';
+
+    // Priority 2: author + year + title → lastNameYEARfirstWord
+    if (lastName.length >= 2 && year && firstTitleWord) {
+        return lastName + year + firstTitleWord;
+    }
+
+    // Priority 3: author + year (no title)
+    if (lastName.length >= 2 && year) {
+        return lastName + year;
+    }
+
+    // Priority 4: title + year (no author)
+    if (firstTitleWord && year) {
+        return firstTitleWord + year;
+    }
+
+    // Priority 5: just title → first three words
+    if (title) {
+        const slug = title.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .split(/\s+/)
+            .slice(0, 3)
+            .join('_');
+        if (slug.length >= 3) return slug;
+    }
+
+    // Fallback
+    return 'import_' + Date.now();
+}
+
+async function findAvailableBookId(baseId) {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    for (let i = 0; i < 5; i++) {
+        const candidate = i === 0 ? baseId : `${baseId}_v${i + 1}`;
+        try {
+            const resp = await fetch('/api/validate-book-id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ book: candidate })
+            });
+            const data = await resp.json();
+            if (data.success && !data.exists) return candidate;
+        } catch { break; }
+    }
+    return baseId;
+}
+
+function updateBookUrlPreview(value) {
+    const preview = document.getElementById('book-url-preview');
+    if (preview) {
+        preview.textContent = value || 'your-id';
+    }
+}
+
+function setupBookUrlPreview() {
+    const bookField = document.getElementById('book');
+    if (!bookField) return;
+    bookField.addEventListener('input', () => {
+        updateBookUrlPreview(bookField.value.trim());
+    });
+}
+
+// ─── BibTeX Mode Enhancement ─────────────────────────────────────────
+function setupBibtexModeAutoReveal() {
+    const bibtexField = document.getElementById('bibtex');
+    if (!bibtexField) return;
+
+    // Watch for successful parse → auto-reveal form fields
+    const observer = new MutationObserver(() => {});
+    // Instead of MutationObserver, hook into the existing input/paste handlers
+    // by checking if title got populated after bibtex change
+    bibtexField.addEventListener('input', () => {
+        clearTimeout(bibtexField._revealTimer);
+        bibtexField._revealTimer = setTimeout(() => {
+            checkBibtexAndReveal();
+        }, 400);
+    });
+    bibtexField.addEventListener('paste', () => {
+        setTimeout(() => checkBibtexAndReveal(), 100);
+    });
+}
+
+async function checkBibtexAndReveal() {
+    const currentMode = document.querySelector('input[name="import_mode"]:checked')?.value;
+    if (currentMode !== 'bibtex') return;
+
+    const titleField = document.getElementById('title');
+    if (titleField && titleField.value.trim()) {
+        // Title was populated — don't reveal #import-form-fields in bibtex mode;
+        // detail fields stay hidden. The user sees file upload + /url + submit.
+
+        // Auto-generate book ID if empty
+        const bookField = document.getElementById('book');
+        if (bookField && !bookField.value) {
+            const bibtex = document.getElementById('bibtex')?.value || '';
+            const title = titleField.value;
+            const author = document.getElementById('author')?.value || '';
+            const year = document.getElementById('year')?.value || '';
+            const generatedId = generateBookIdFromMetadata(bibtex, title, author, year);
+            if (generatedId) {
+                const availableId = await findAvailableBookId(generatedId);
+                bookField.value = availableId;
+                updateBookUrlPreview(availableId);
+                bookField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    }
+}
+
 function validateFileInput() {
     const fileInput = document.getElementById('markdown_file');
     
@@ -233,7 +623,8 @@ function saveFormData() {
         booktitle: document.getElementById('booktitle')?.value || '',
         chapter: document.getElementById('chapter')?.value || '',
         editor: document.getElementById('editor')?.value || '',
-        type: selectedType ? selectedType.value : ''
+        type: selectedType ? selectedType.value : '',
+        import_mode: document.querySelector('input[name="import_mode"]:checked')?.value || 'search'
     };
     localStorage.setItem('formData', JSON.stringify(formData));
 }
@@ -242,7 +633,16 @@ function loadFormData() {
     const savedData = localStorage.getItem('formData');
     if (savedData) {
         const formData = JSON.parse(savedData);
-        
+
+        // Restore import mode first
+        if (formData.import_mode) {
+            const modeRadio = document.querySelector(`input[name="import_mode"][value="${formData.import_mode}"]`);
+            if (modeRadio) {
+                modeRadio.checked = true;
+                switchImportMode(formData.import_mode);
+            }
+        }
+
         Object.entries(formData).forEach(([key, value]) => {
             const element = document.getElementById(key);
             if (element && value) {
@@ -363,13 +763,19 @@ export function initializeCitationFormListeners() {
     }
 
     console.log("Citation form event listeners initialized");
-    
+
     // ✅ CRITICAL FIX: Set up validation when form is dynamically created
     setupFormSubmission();
     setupClearButton();
     setupRealTimeValidation();
     setupFormPersistence();
     loadFormData();
+
+    // ✅ NEW: Set up 3-mode interface
+    setupModeSwitching();
+    setupImportSearch();
+    setupBookUrlPreview();
+    setupBibtexModeAutoReveal();
 }
 
 function setupFormSubmission() {
@@ -419,11 +825,9 @@ function setupFormSubmission() {
 
         const errors = [];
 
-        // Title check
+        // Title: default to "Untitled" if empty
         if (!titleInput || !titleInput.value || titleInput.value.trim().length === 0) {
-            errors.push({ field: 'Title', message: 'Title is required' });
-            const el = document.getElementById('title-validation');
-            if (el) { el.textContent = 'Title is required'; el.className = 'validation-message error'; }
+            if (titleInput) titleInput.value = 'Untitled';
         }
 
         // Citation ID checks
@@ -758,6 +1162,16 @@ function setupClearButton() {
 
             // Reset re-submit bypass so normal validation applies again
             allowedResubmitBookId = null;
+
+            // Reset back to search mode
+            const searchRadio = document.querySelector('input[name="import_mode"][value="search"]');
+            if (searchRadio) {
+                searchRadio.checked = true;
+                switchImportMode('search');
+            }
+
+            // Reset URL preview
+            updateBookUrlPreview('');
         }, { passive: false });
     }
 }
@@ -830,9 +1244,8 @@ function setupRealTimeValidation() {
         },
         
         validateTitle: (value) => {
-            if (!value) return { valid: false, message: 'Title is required' };
-            if (value.length > 255) return { valid: false, message: 'Title must be less than 255 characters' };
-            return { valid: true, message: 'Valid title' };
+            if (value && value.length > 255) return { valid: false, message: 'Title must be less than 255 characters' };
+            return { valid: true, message: '' };
         },
         
         validateFile: (fileInput) => {

@@ -932,12 +932,12 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 .form-section {
-  margin-bottom: 1em;
-  padding-bottom: 0.5em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
 }
 
 .form-section:not(:last-of-type) {
-  border-bottom: 1px solid #333;
+  border-bottom: none;
 }
 
 /* Required field indicators */
@@ -1276,12 +1276,12 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 #source-container .form-section {
-  margin-bottom: 1em;
-  padding-bottom: 0.5em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
 }
 
 #source-container .form-section:not(:last-of-type) {
-  border-bottom: 1px solid #333;
+  border-bottom: none;
 }
 
 /* Required field indicators */
@@ -1893,4 +1893,153 @@ body[data-page="timemachine"] #main-content {
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
   font-size: 12px;
+}
+
+/* ========================================
+   Import Form: 3-Mode Interface
+   ======================================== */
+
+/* Mode Selector — horizontal pill tabs */
+.import-mode-selector {
+  margin-bottom: 1em;
+}
+
+.import-mode-group {
+  display: flex;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.import-mode-label {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  margin: 0 !important;
+}
+
+.import-mode-label input[type="radio"] {
+  display: none;
+}
+
+.import-mode-label span {
+  display: block;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text);
+  background: transparent;
+  transition: background 0.2s, color 0.2s;
+  border-right: 1px solid #444;
+}
+
+.import-mode-label:last-child span {
+  border-right: none;
+}
+
+.import-mode-label:has(input:checked) span {
+  background: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  font-weight: 600;
+}
+
+.import-mode-label:not(:has(input:checked)):hover span {
+  background: rgba(78, 172, 174, 0.15);
+}
+
+/* Search input */
+#import-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px; /* Prevents iOS zoom */
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: var(--container-solid-bg);
+  color: var(--color-text);
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 0.75em;
+}
+
+#import-search-input:focus {
+  border-color: var(--hyperlit-aqua);
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.2);
+}
+
+#import-search-input::placeholder {
+  color: rgba(203, 204, 204, 0.5);
+}
+
+/* Search results container */
+.import-search-results {
+  max-height: 40vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.import-search-loading,
+.import-search-empty {
+  text-align: center;
+  padding: 1.5em 1em;
+  color: var(--color-text);
+  opacity: 0.6;
+  font-size: 14px;
+}
+
+/* Library match notice */
+.import-library-notice {
+  background: rgba(78, 172, 174, 0.1);
+  border: 1px solid rgba(78, 172, 174, 0.3);
+  border-radius: 6px;
+  padding: 1em;
+  margin: 0.75em 0;
+}
+
+.import-library-notice p {
+  margin: 0 0 0.75em 0;
+  color: #4EACAE;
+  font-size: 14px;
+}
+
+.import-library-notice-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.import-library-notice-actions .formButton {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  padding: 8px 12px !important;
+  text-decoration: none;
+  display: block;
+}
+
+/* Book URL preview */
+#book-url-preview {
+  color: #4EACAE;
+}
+
+/* Mode panel visibility */
+.import-mode-panel {
+  /* Default visible — JS manages display */
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .import-mode-label span {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .import-library-notice-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-search-results {
+    max-height: 35vh;
+  }
 }

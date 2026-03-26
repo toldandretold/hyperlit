@@ -258,12 +258,51 @@ export class NewBookContainerManager extends ContainerManager {
       <form id="cite-form" action="/import-file" method="POST" enctype="multipart/form-data">
         <div class="form-header">
           <h2 style="color: #EF8D34;">Import File</h2>
-          <p class="form-subtitle">Required fields marked with <span class="required-indicator">*</span></p>
         </div>
 
         <input type="hidden" name="_token" value="${csrfToken}" id="submitFile">
 
-        <!-- File Upload Section -->
+        <!-- Mode Selector Tabs -->
+        <div class="import-mode-selector">
+          <div class="import-mode-group">
+            <label class="import-mode-label">
+              <input type="radio" name="import_mode" value="search" checked>
+              <span>Search</span>
+            </label>
+            <label class="import-mode-label">
+              <input type="radio" name="import_mode" value="bibtex">
+              <span>BibTeX</span>
+            </label>
+            <label class="import-mode-label">
+              <input type="radio" name="import_mode" value="manual">
+              <span>Manual</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Search Mode Panel -->
+        <div id="import-mode-search" class="import-mode-panel">
+          <input type="text" id="import-search-input" placeholder="Search by title, author, or keyword..." autocomplete="off">
+          <div class="import-search-results" id="import-search-results"></div>
+        </div>
+
+        <!-- BibTeX Mode Panel -->
+        <div id="import-mode-bibtex" class="import-mode-panel" style="display:none;">
+          <label for="bibtex">Paste BibTeX entry</label>
+          <textarea id="bibtex" name="bibtex" placeholder="@article{key,&#10;  author = {Author Name},&#10;  title = {Title},&#10;  year = {2024},&#10;  ...&#10;}"></textarea>
+          <div class="field-hint">Fields will auto-fill when a valid entry is detected</div>
+        </div>
+
+        <!-- Library Match Notice -->
+        <div id="library-match-notice" class="import-library-notice" style="display:none;">
+          <p>This source already exists in the library.</p>
+          <div class="import-library-notice-actions">
+            <a id="library-match-view" href="#" class="formButton">View existing source</a>
+            <button type="button" id="library-match-own" class="formButton">Create your own version</button>
+          </div>
+        </div>
+
+        <!-- File Upload Section - always visible -->
         <div class="form-section">
           <label for="markdown_file" class="required">File <span class="required-indicator">*</span></label>
           <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/*${pdfAccept}" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
@@ -271,92 +310,85 @@ export class NewBookContainerManager extends ContainerManager {
           <div id="file-validation" class="validation-message"></div>
         </div>
 
-        <!-- BibTeX Section -->
+        <!-- /url field with preview - always visible -->
         <div class="form-section">
-          <label for="bibtex">BibTeX Details (optional)</label>
-          <textarea id="bibtex" name="bibtex" placeholder="Paste BibTeX entry here..."></textarea>
-          <div class="field-hint">Auto-fills fields below when pasted</div>
-        </div>
-
-        <!-- Type Selection -->
-        <div class="form-section">
-          <label>Document Type:</label>
-          <div class="radio-group">
-            <label><input type="radio" name="type" value="article"> Article</label>
-            <label><input type="radio" name="type" value="book" checked> Book</label>
-            <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
-            <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
-            <label><input type="radio" name="type" value="incollection"> Chapter</label>
-          </div>
-        </div>
-
-        <!-- Required Fields Section -->
-        <div class="form-section">
-          
-          <label for="book" class="required">Book ID <span class="required-indicator">*</span></label>
+          <label for="book" class="required">/url <span class="required-indicator">*</span></label>
           <input type="text" id="book" name="book" required
                  placeholder="e.g., smith2023, doe_2024_book"
                  title="Only letters, numbers, underscores, and hyphens allowed">
-          <div class="field-hint">Unique identifier (letters, numbers, _, - only)</div>
+          <div class="field-hint">hyperlit.io/<strong id="book-url-preview">your-id</strong></div>
           <div id="book-validation" class="validation-message"></div>
-
         </div>
 
+        <!-- Title field - always visible -->
         <div class="form-section">
-          <label for="title" class="required">Title <span class="required-indicator">*</span></label>
-          <input type="text" id="title" name="title" required placeholder="Enter document title">
-          <div id="title-validation" class="validation-message"></div>
-        
+          <label for="title">Title</label>
+          <input type="text" id="title" name="title" placeholder="Enter document title">
+        </div>
 
-        <!-- Optional Fields Section -->
-        
-          
-          <label for="author">Author</label>
-          <input type="text" id="author" name="author" placeholder="Author name">
+        <!-- Detail fields (hidden in search/bibtex modes, shown in manual mode) -->
+        <div id="import-form-fields" style="display:none;">
 
-          <label for="year">Year</label>
-          <input type="number" id="year" name="year" min="1000" max="${new Date().getFullYear() + 10}" placeholder="Publication year">
+          <!-- Type Selection -->
+          <div class="form-section">
+            <label>Document Type:</label>
+            <div class="radio-group">
+              <label><input type="radio" name="type" value="article"> Article</label>
+              <label><input type="radio" name="type" value="book" checked> Book</label>
+              <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
+              <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+              <label><input type="radio" name="type" value="incollection"> Chapter</label>
+            </div>
+          </div>
 
-          <label for="url">URL</label>
-          <input type="url" id="url" name="url" placeholder="https://...">
+          <div class="form-section">
+            <label for="author">Author</label>
+            <input type="text" id="author" name="author" placeholder="Author name">
 
-          <!-- Type-specific fields -->
-          <label for="pages" class="optional-field" style="display:none;">Pages</label>
-          <input type="text" id="pages" name="pages" class="optional-field" style="display:none;" placeholder="e.g., 1-20, 45-67">
+            <label for="year">Year</label>
+            <input type="number" id="year" name="year" min="1000" max="${new Date().getFullYear() + 10}" placeholder="Publication year">
 
-          <label for="journal" class="optional-field" style="display:none;">Journal</label>
-          <input type="text" id="journal" name="journal" class="optional-field" style="display:none;" placeholder="Journal name">
+            <label for="url">URL</label>
+            <input type="url" id="url" name="url" placeholder="https://...">
 
-          <label for="publisher" class="optional-field" style="display:none;">Publisher</label>
-          <input type="text" id="publisher" name="publisher" class="optional-field" style="display:none;" placeholder="Publisher name">
+            <!-- Type-specific fields -->
+            <label for="pages" class="optional-field" style="display:none;">Pages</label>
+            <input type="text" id="pages" name="pages" class="optional-field" style="display:none;" placeholder="e.g., 1-20, 45-67">
 
-          <label for="school" class="optional-field" style="display:none;">School</label>
-          <input type="text" id="school" name="school" class="optional-field" style="display:none;" placeholder="University/School name">
+            <label for="journal" class="optional-field" style="display:none;">Journal</label>
+            <input type="text" id="journal" name="journal" class="optional-field" style="display:none;" placeholder="Journal name">
 
-          <label for="note" class="optional-field" style="display:none;">Note</label>
-          <input type="text" id="note" name="note" class="optional-field" style="display:none;" placeholder="Additional notes">
+            <label for="publisher" class="optional-field" style="display:none;">Publisher</label>
+            <input type="text" id="publisher" name="publisher" class="optional-field" style="display:none;" placeholder="Publisher name">
 
-          <label for="volume" class="optional-field" style="display:none;">Volume</label>
-          <input type="text" id="volume" name="volume" class="optional-field" style="display:none;" placeholder="e.g., 12">
+            <label for="school" class="optional-field" style="display:none;">School</label>
+            <input type="text" id="school" name="school" class="optional-field" style="display:none;" placeholder="University/School name">
 
-          <label for="issue" class="optional-field" style="display:none;">Issue</label>
-          <input type="text" id="issue" name="issue" class="optional-field" style="display:none;" placeholder="e.g., 3">
+            <label for="note" class="optional-field" style="display:none;">Note</label>
+            <input type="text" id="note" name="note" class="optional-field" style="display:none;" placeholder="Additional notes">
 
-          <label for="booktitle" class="optional-field" style="display:none;">Book Title</label>
-          <input type="text" id="booktitle" name="booktitle" class="optional-field" style="display:none;" placeholder="Title of the book this chapter appears in">
+            <label for="volume" class="optional-field" style="display:none;">Volume</label>
+            <input type="text" id="volume" name="volume" class="optional-field" style="display:none;" placeholder="e.g., 12">
 
-          <label for="chapter" class="optional-field" style="display:none;">Chapter</label>
-          <input type="text" id="chapter" name="chapter" class="optional-field" style="display:none;" placeholder="Chapter number or title">
+            <label for="issue" class="optional-field" style="display:none;">Issue</label>
+            <input type="text" id="issue" name="issue" class="optional-field" style="display:none;" placeholder="e.g., 3">
 
-          <label for="editor" class="optional-field" style="display:none;">Editor</label>
-          <input type="text" id="editor" name="editor" class="optional-field" style="display:none;" placeholder="Editor name(s)">
+            <label for="booktitle" class="optional-field" style="display:none;">Book Title</label>
+            <input type="text" id="booktitle" name="booktitle" class="optional-field" style="display:none;" placeholder="Title of the book this chapter appears in">
+
+            <label for="chapter" class="optional-field" style="display:none;">Chapter</label>
+            <input type="text" id="chapter" name="chapter" class="optional-field" style="display:none;" placeholder="Chapter number or title">
+
+            <label for="editor" class="optional-field" style="display:none;">Editor</label>
+            <input type="text" id="editor" name="editor" class="optional-field" style="display:none;" placeholder="Editor name(s)">
+          </div>
         </div>
 
         <div class="form-actions">
           <button type="submit" id="createButton" class="formButton">Create Book</button>
           <button type="button" id="clearButton" class="formButton">Clear</button>
         </div>
-        
+
         <div id="form-validation-summary" class="validation-summary" style="display:none;">
           <h4>Please fix the following issues:</h4>
           <ul id="validation-list"></ul>
@@ -908,6 +940,15 @@ loadFormData() {
         }
       });
       
+      // Restore import mode radio (triggers mode switching via change event)
+      if (data.import_mode) {
+        const modeRadio = document.querySelector(`input[name="import_mode"][value="${data.import_mode}"]`);
+        if (modeRadio) {
+          modeRadio.checked = true;
+          modeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
       // Restore radio button selection
       if (data.type) {
         const radio = document.querySelector(`input[name="type"][value="${data.type}"]`);
