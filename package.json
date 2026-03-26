@@ -4,7 +4,7 @@
     "scripts": {
         "php": "php artisan serve --host=127.0.0.1 --port=8000",
         "php:network": "php artisan serve --host=0.0.0.0 --port=8000",
-        "queue": "php artisan queue:work",
+        "queue": "php artisan queue:work --queue=citation-pipeline,default --timeout=1800",
         "dev": "vite",
         "mail": "lsof -i :1025 -P -n -sTCP:LISTEN >/dev/null 2>&1 && echo 'Mailpit already running, skipping' && tail -f /dev/null || mailpit",
         "dev:all": "node show-ip.js && concurrently -k -r -n PHP,QUEUE,DEV,MAIL -c \"cyan,magenta,green,yellow\" \"npm:php\" \"npm:queue\" \"npm:dev\" \"npm:mail\"",

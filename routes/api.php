@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);
     Route::get('/citation-scanner/status/{scanId}', [CitationScannerController::class, 'status']);
     Route::get('/citation-scanner/history/{book}', [CitationScannerController::class, 'history']);
+    Route::post('/citation-pipeline/trigger', [CitationScannerController::class, 'triggerPipeline']);
 });
 
 // Password reset routes (throttled to prevent abuse)

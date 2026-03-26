@@ -28,7 +28,9 @@ class CitationScanBibliographyJob implements ShouldQueue
         private string $bookId,
         private ?string $referenceId = null,
         private bool $force = false,
-    ) {}
+    ) {
+        $this->onQueue('citation-pipeline');
+    }
 
     public function handle(OpenAlexService $openAlex): void
     {

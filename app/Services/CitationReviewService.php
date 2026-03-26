@@ -61,12 +61,16 @@ class CitationReviewService
         $highlightCount = $this->createVerificationHighlights($claims, $bookId);
         $progress('highlights', "Created {$highlightCount} verification highlights");
 
+        $totalBib = DB::connection('pgsql_admin')
+            ->table('bibliography')->where('book', $bookId)->count();
+
         $stats = [
             'citation_occurrences' => $totalCitations,
             'nodes_with_citations' => count($citationNodes),
             'unique_sources'       => count($citationMeta),
             'verified_sources'     => $verified,
             'sources_with_content' => $withContent,
+            'total_bibliography'   => $totalBib,
         ];
 
         return ['claims' => $claims, 'stats' => $stats];
@@ -815,12 +819,12 @@ class CitationReviewService
         $md .= "## Known Unknown Citations \n\n";
 
         // Source coverage pie chart
-        $claimsWithSource = count(array_filter($claims, fn($c) => !empty($c['source_book_id'])));
-        $claimsWithoutSource = count($claims) - $claimsWithSource;
+        $sourcesFound = $stats['verified_sources'] ?? 0;
+        $sourcesNotFound = ($stats['total_bibliography'] ?? $stats['unique_sources'] ?? 0) - $sourcesFound;
 
         $md .= '<table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
-        $md .= '<tr><td>Source Found</td><td>' . $claimsWithSource . '</td></tr>';
-        $md .= '<tr><td>Source Not Found</td><td>' . $claimsWithoutSource . '</td></tr>';
+        $md .= '<tr><td>Source Found</td><td>' . $sourcesFound . '</td></tr>';
+        $md .= '<tr><td>Source Not Found</td><td>' . $sourcesNotFound . '</td></tr>';
         $md .= "</tbody></table>\n\n";
 
         $md .= "> Citations are matched against: [OpenAlex](https://openalex.org), [Open Library](https://openlibrary.org), [Semantic Scholar](https://www.semanticscholar.org), and [Brave Search](https://search.brave.com). Unmatched citations may be legit sources, but are worth reviewing.\n\n";

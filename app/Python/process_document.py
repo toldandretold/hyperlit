@@ -1260,6 +1260,37 @@ def main(html_file_path, output_dir, book_id):
         citations_linked = 0
         citations_unlinked = []
 
+        # --- 2A-pre: Convert existing <a href="#id"> links to in-text citations ---
+        anchor_converted = 0
+        anchor_unmatched = 0
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '')
+            # Skip if already a citation, bib-entry, footnote, or external link
+            if not href.startswith('#'):
+                continue
+            if 'in-text-citation' in a_tag.get('class', []):
+                continue
+            if 'bib-entry' in a_tag.get('class', []):
+                continue
+            if 'footnote-ref' in a_tag.get('class', []):
+                continue
+            # Skip anchors inside bibliography/reference section paragraphs
+            parent_p = a_tag.find_parent('p')
+            if parent_p and parent_p.find('a', class_='bib-entry'):
+                continue
+
+            anchor_id = href.lstrip('#')
+            if anchor_id in bibliography_map:
+                primary_id = bibliography_map[anchor_id]
+                a_tag['href'] = f'#{primary_id}'
+                a_tag['class'] = a_tag.get('class', []) + ['in-text-citation']
+                anchor_converted += 1
+            else:
+                anchor_unmatched += 1
+
+        print(f"  - Pre-linked anchors converted: {anchor_converted}")
+        print(f"  - Pre-linked anchors unmatched: {anchor_unmatched}")
+
         for text_node in soup.find_all(string=True):
             if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
                 text = str(text_node)

@@ -372,15 +372,17 @@ PROMPT;
             'title_only' =>
                 "EVIDENCE CONTEXT: You only have the TITLE, author, and year of this work — no abstract, " .
                 "no passages, no full text.\n\n" .
-                "Assess whether this work is likely to contain the claim based on the title/author/year alone.\n\n" .
+                "A title is the weakest possible evidence. Works routinely cover far more than their title " .
+                "suggests. You cannot infer what a work does or does not contain from its title alone.\n\n" .
                 "- \"confirmed\" is NOT possible with title only.\n" .
-                "- \"likely\": The title strongly suggests the work covers this topic (e.g. title mentions " .
-                "the exact subject of the claim, or the author is known for this specific area).\n" .
-                "- \"plausible\": The title is in a related field but doesn't specifically indicate " .
-                "the claim's topic.\n" .
-                "- \"unlikely\": The title suggests only a weak or tangential connection to the claim.\n" .
-                "- \"rejected\": The title is clearly about an unrelated topic (e.g. marine biology " .
-                "cited for fiscal policy).",
+                "- \"likely\": The title directly mentions the claim's specific topic.\n" .
+                "- \"plausible\": The title is in the same broad discipline as the claim. This is the " .
+                "DEFAULT for same-field works.\n" .
+                "- \"unlikely\": The title suggests a different area and the connection to the claim " .
+                "is not obvious.\n" .
+                "- \"rejected\": ONLY for clear cross-discipline mismatches (e.g. marine biology cited " .
+                "for fiscal policy). Same discipline = NOT \"rejected\" — use \"plausible\" at minimum.\n\n" .
+                "When in doubt, default to \"plausible\".",
             default =>
                 "EVIDENCE CONTEXT: You only have the abstract of this work — NOT the full text.\n\n" .
                 "Step 1: Does the abstract directly confirm or logically entail the claim? If yes → \"confirmed\".\n\n" .

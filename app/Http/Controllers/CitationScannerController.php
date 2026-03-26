@@ -7,6 +7,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Jobs\CitationScanBibliographyJob;
+use App\Jobs\CitationPipelineJob;
+use Illuminate\Support\Facades\Auth;
 
 class CitationScannerController extends Controller
 {
@@ -104,6 +106,69 @@ class CitationScannerController extends Controller
                 'created_at'        => $scan->created_at,
                 'updated_at'        => $scan->updated_at,
             ],
+        ]);
+    }
+
+    /**
+     * Trigger the full citation pipeline (bibliography scan, content scan, vacuum, OCR, LLM review).
+     * POST /api/citation-pipeline/trigger
+     * Premium users only.
+     */
+    public function triggerPipeline(Request $request): JsonResponse
+    {
+        $request->validate([
+            'book' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+        if (!$user || $user->status !== 'premium') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This feature is available to premium users only.',
+            ], 403);
+        }
+
+        $bookId = $request->input('book');
+        $db = DB::connection('pgsql_admin');
+
+        // Check that the book exists
+        $bookExists = $db->table('library')->where('book', $bookId)->exists();
+        if (!$bookExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found',
+            ], 404);
+        }
+
+        // Check no existing running pipeline for this book
+        $running = $db->table('citation_scans')
+            ->where('book', $bookId)
+            ->whereIn('status', ['pending', 'running'])
+            ->exists();
+
+        if ($running) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A citation scan is already in progress for this book.',
+            ], 409);
+        }
+
+        // Create a scan record so the frontend can poll immediately
+        $scanId = (string) Str::uuid();
+        $db->table('citation_scans')->insert([
+            'id'         => $scanId,
+            'book'       => $bookId,
+            'status'     => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        CitationPipelineJob::dispatch($bookId, $scanId);
+
+        return response()->json([
+            'success' => true,
+            'scan_id' => $scanId,
+            'message' => 'Citation pipeline has been queued.',
         ]);
     }
 

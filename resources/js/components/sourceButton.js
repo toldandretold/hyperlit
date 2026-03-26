@@ -3,7 +3,7 @@ import { log, verbose } from "../utilities/logger.js";
 import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB/index.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
-import { canUserEditBook, clearEditPermissionCache } from "../utilities/auth.js";
+import { canUserEditBook, clearEditPermissionCache, getAuthContextSync } from "../utilities/auth.js";
 
 // SVG icons for privacy toggle
 const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -236,6 +236,44 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
+    ${canEdit ? (() => {
+      const authCtx = getAuthContextSync();
+      const isLoggedIn = authCtx?.isLoggedIn;
+      const isPremium = authCtx?.user?.status === 'premium';
+
+      let btnHtml = '';
+      if (!isLoggedIn) {
+        btnHtml = `
+          <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: #888; border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            AI Citation Review
+          </button>
+          <p style="font-size: 11px; color: #666; margin-top: 6px;">Must be logged in.</p>`;
+      } else if (!isPremium) {
+        btnHtml = `
+          <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: #888; border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            AI Citation Review
+          </button>
+          <p style="font-size: 11px; color: #666; margin-top: 6px;">Currently only for premium users. Email <a href="mailto:team@hyperlit.io" style="color: #4EACAE;">team@hyperlit.io</a> if you are interested.</p>`;
+      } else {
+        btnHtml = `
+          <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            AI Citation Review
+          </button>
+          <div id="ai-review-info" style="display: none; margin-top: 10px;">
+            <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0; line-height: 1.5;">AI Citation Review compares all citations in this text to open databases, pulling any available data. It then compares the truth claim of each citation to the source material. The review takes 10-15 minutes. You will be emailed on completion.</p>
+            <button type="button" id="ai-review-generate" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #221F20; background: #EF8D34; border: none; border-radius: 4px; cursor: pointer; font-family: inherit;">Generate Review</button>
+          </div>`;
+      }
+
+      return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">AI Citation Review</h3>
+        ${btnHtml}
+      </div>`;
+    })() : ''}
+
     ${canEdit ? `<div id="version-history-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
       <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Version History</h3>
       <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
@@ -434,7 +472,29 @@ export class SourceContainerManager extends ContainerManager {
       this.handleReconvert();
     });
 
+    const aiReviewBtn = this.container.querySelector("#ai-review-btn");
+    if (aiReviewBtn && !aiReviewBtn.disabled) {
+      aiReviewBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const infoPanel = this.container.querySelector("#ai-review-info");
+        if (infoPanel) {
+          infoPanel.style.display = infoPanel.style.display === 'none' ? 'block' : 'none';
+        }
+      });
+    }
+
+    const aiReviewGenerate = this.container.querySelector("#ai-review-generate");
+    if (aiReviewGenerate) {
+      aiReviewGenerate.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleAiReviewGenerate();
+      });
+    }
+
     this.loadVersionHistory();
+    this.loadAiReviewStatus();
   }
 
   async loadVersionHistory() {
@@ -506,6 +566,7 @@ export class SourceContainerManager extends ContainerManager {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
+    this.stopAiReviewPolling();
     this.isOpen = false;
     window.activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()
@@ -641,6 +702,244 @@ export class SourceContainerManager extends ContainerManager {
       console.error('Reconvert failed:', error);
       alert('Reconversion failed: ' + error.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
+    }
+  }
+
+  async handleAiReviewGenerate() {
+    const generateBtn = this.container.querySelector("#ai-review-generate");
+    if (generateBtn) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Submitting...';
+    }
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const resp = await fetch('/api/citation-pipeline/trigger', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ book }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        throw new Error(data.message || `Request failed: ${resp.status}`);
+      }
+
+      this.setAiReviewState('reviewing');
+      this.startAiReviewPolling();
+    } catch (error) {
+      console.error('AI Review trigger failed:', error);
+      alert('Failed to start AI Citation Review: ' + error.message);
+      if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Review';
+      }
+    }
+  }
+
+  async loadAiReviewStatus() {
+    const section = this.container.querySelector('#ai-review-section');
+    const aiBtn = this.container.querySelector('#ai-review-btn');
+    if (!section || !aiBtn || aiBtn.disabled) return; // not premium or no section
+
+    try {
+      // 1. Check if a completed AIreview sub-book already exists
+      const aiReviewBook = `${book}/AIreview`;
+      let aiReviewExists = false;
+
+      // Try IndexedDB first (fast)
+      try {
+        const db = await openDatabase();
+        const libRecord = await getRecord(db, "library", aiReviewBook);
+        if (libRecord) aiReviewExists = true;
+      } catch (_) { /* ignore IndexedDB errors */ }
+
+      // If not in IndexedDB, check backend
+      if (!aiReviewExists) {
+        try {
+          const libResp = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(aiReviewBook)}/library`, {
+            credentials: 'include',
+          });
+          if (libResp.ok) {
+            const libData = await libResp.json();
+            if (libData.success && libData.library) aiReviewExists = true;
+          }
+        } catch (_) { /* ignore fetch errors */ }
+      }
+
+      // 2. Check scan history for in-progress scans
+      const resp = await fetch(`/api/citation-scanner/history/${encodeURIComponent(book)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) {
+        // If we can't get scan history but the AIreview exists, show completed
+        if (aiReviewExists) this.setAiReviewState('completed');
+        return;
+      }
+      const data = await resp.json();
+      const scans = data.scans;
+
+      // Check if any scan is currently in progress
+      // Ignore "pending" scans older than 30 minutes (stale records from before the fix)
+      const STALE_THRESHOLD = 30 * 60 * 1000;
+      const activeScan = scans?.find(s => {
+        if (s.status === 'running') return true;
+        if (s.status === 'pending') {
+          const age = Date.now() - new Date(s.created_at).getTime();
+          return age < STALE_THRESHOLD;
+        }
+        return false;
+      });
+      if (activeScan) {
+        this.setAiReviewState('reviewing');
+        this.startAiReviewPolling();
+        return;
+      }
+
+      // If AIreview sub-book exists, show completed regardless of scan records
+      if (aiReviewExists) {
+        this.setAiReviewState('completed');
+        return;
+      }
+
+      // Fall back to scan history
+      if (!scans || scans.length === 0) return;
+      const latest = scans[0];
+      if (latest.status === 'completed') {
+        const libTimestamp = parseInt(section.dataset.libTimestamp, 10) || 0;
+        const scanUpdatedAt = new Date(latest.updated_at).getTime();
+        if (libTimestamp > scanUpdatedAt) return;
+        this.setAiReviewState('completed');
+      }
+      // failed or other → stay idle
+    } catch (err) {
+      console.warn('Failed to load AI review status:', err);
+    }
+  }
+
+  setAiReviewState(state) {
+    const aiBtn = this.container.querySelector('#ai-review-btn');
+    if (!aiBtn) return;
+
+    const infoPanel = this.container.querySelector('#ai-review-info');
+
+    if (state === 'reviewing') {
+      aiBtn.disabled = true;
+      aiBtn.style.color = '#4EACAE';
+      aiBtn.style.borderColor = 'rgba(78,172,174,0.4)';
+      aiBtn.style.cursor = 'not-allowed';
+      aiBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Reviewing...`;
+      if (infoPanel) infoPanel.style.display = 'none';
+    } else if (state === 'completed') {
+      aiBtn.disabled = false;
+      aiBtn.style.color = '#4EACAE';
+      aiBtn.style.borderColor = 'rgba(78,172,174,0.4)';
+      aiBtn.style.cursor = 'pointer';
+      aiBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        See Review`;
+      if (infoPanel) infoPanel.style.display = 'none';
+
+      // Replace click handler to navigate to review page
+      const newBtn = aiBtn.cloneNode(true);
+      aiBtn.parentNode.replaceChild(newBtn, aiBtn);
+      newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = `/${encodeURIComponent(book)}/AIreview`;
+      });
+
+      // Add "Regenerate" link below
+      const existingRegen = this.container.querySelector('#ai-review-regenerate');
+      if (!existingRegen) {
+        const regenLink = document.createElement('a');
+        regenLink.id = 'ai-review-regenerate';
+        regenLink.href = '#';
+        regenLink.textContent = 'Regenerate';
+        regenLink.style.cssText = 'display: block; font-size: 11px; color: #888; margin-top: 6px; text-decoration: underline; cursor: pointer;';
+        regenLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Reset to idle state so user can trigger a new scan
+          const btn = this.container.querySelector('#ai-review-btn');
+          if (btn) {
+            const freshBtn = btn.cloneNode(false);
+            freshBtn.style.color = '#EF8D34';
+            freshBtn.style.borderColor = 'rgba(239,141,52,0.4)';
+            freshBtn.style.cursor = 'pointer';
+            freshBtn.disabled = false;
+            freshBtn.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              AI Citation Review`;
+            btn.parentNode.replaceChild(freshBtn, btn);
+            freshBtn.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              const panel = this.container.querySelector('#ai-review-info');
+              if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            });
+          }
+          regenLink.remove();
+        });
+        newBtn.parentNode.insertBefore(regenLink, newBtn.nextSibling);
+      }
+    }
+  }
+
+  startAiReviewPolling() {
+    this.stopAiReviewPolling(); // clear any existing interval
+    this._aiReviewPollInterval = setInterval(() => {
+      this.pollAiReviewStatus();
+    }, 30000);
+  }
+
+  stopAiReviewPolling() {
+    if (this._aiReviewPollInterval) {
+      clearInterval(this._aiReviewPollInterval);
+      this._aiReviewPollInterval = null;
+    }
+  }
+
+  async pollAiReviewStatus() {
+    try {
+      const resp = await fetch(`/api/citation-scanner/history/${encodeURIComponent(book)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const scans = data.scans;
+      if (!scans || scans.length === 0) return;
+
+      const latest = scans[0];
+
+      if (latest.status === 'completed') {
+        this.stopAiReviewPolling();
+        this.setAiReviewState('completed');
+      } else if (latest.status === 'failed') {
+        this.stopAiReviewPolling();
+        // Reset button to idle state
+        const aiBtn = this.container.querySelector('#ai-review-btn');
+        if (aiBtn) {
+          aiBtn.disabled = false;
+          aiBtn.style.color = '#EF8D34';
+          aiBtn.style.borderColor = 'rgba(239,141,52,0.4)';
+          aiBtn.style.cursor = 'pointer';
+          aiBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            AI Citation Review`;
+        }
+      }
+      // still pending/running → no-op, keep polling
+    } catch (err) {
+      console.warn('AI review poll failed:', err);
     }
   }
 
@@ -1601,6 +1900,7 @@ export function initializeSourceButtonListener() {
 export function destroySourceButtonListener() {
   if (sourceManager) {
     // Close container if open and reset animation state
+    sourceManager.stopAiReviewPolling();
     if (sourceManager.isOpen && sourceManager.container) {
       sourceManager.container.classList.add("hidden");
       sourceManager.container.classList.remove("open");

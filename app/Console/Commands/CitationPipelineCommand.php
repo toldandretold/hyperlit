@@ -157,6 +157,12 @@ class CitationPipelineCommand extends Command
             $this->newLine();
         }
 
+        // Bump annotations_updated_at so the frontend syncs on next load
+        $now_ms = round(microtime(true) * 1000);
+        $db->table('library')
+            ->where('book', $bookId)
+            ->update(['annotations_updated_at' => $now_ms]);
+
         // Final summary
         $this->newLine();
         $this->info('Pipeline complete:');

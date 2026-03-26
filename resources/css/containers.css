@@ -1890,6 +1890,16 @@ body[data-page="timemachine"] #main-content {
   opacity: 0.6;
 }
 
+/* ───── AI Citation Review in source container ───── */
+
+#ai-review-section #ai-review-btn:not(:disabled):hover {
+  background: rgba(239, 141, 52, 0.1);
+}
+
+#ai-review-section #ai-review-generate:hover {
+  opacity: 0.9;
+}
+
 /* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
 .fucked-buttons {
   font-size: 12px;
