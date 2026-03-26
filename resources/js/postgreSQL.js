@@ -610,6 +610,7 @@ async function updateEmbeddedAnnotationsInNodes(db, bookId, hyperlights, hyperci
           charEnd: nodeCharData.charEnd ?? 0,
           is_user_highlight: hl.is_user_highlight || false,
           annotation: hl.annotation,
+          creator: hl.creator,
           highlightedText: hl.highlightedText
         };
 

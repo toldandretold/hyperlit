@@ -18,6 +18,8 @@ use App\Http\Controllers\UnifiedSyncController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NodeHistoryController;
 use App\Http\Controllers\OpenAlexController;
+use App\Http\Controllers\CitationScannerController;
+use App\Http\Controllers\ImportController;
 
 
 
@@ -44,6 +46,12 @@ Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibr
 // OpenAlex citation lookup — requires authentication
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
+
+    // Citation scanner
+    Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);
+    Route::get('/citation-scanner/status/{scanId}', [CitationScannerController::class, 'status']);
+    Route::get('/citation-scanner/history/{book}', [CitationScannerController::class, 'history']);
+    Route::post('/citation-pipeline/trigger', [CitationScannerController::class, 'triggerPipeline']);
 });
 
 // Password reset routes (throttled to prevent abuse)
@@ -51,6 +59,12 @@ Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])
     ->middleware('throttle:5,1');
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])
     ->middleware('throttle:5,1');
+
+// Email verification routes
+Route::post('/email/resend', [AuthController::class, 'resendVerificationEmail'])
+    ->middleware(['auth:sanctum', 'throttle:5,1']);
+Route::post('/email/change', [AuthController::class, 'changeEmail'])
+    ->middleware(['auth:sanctum', 'throttle:5,1']);
 
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
@@ -164,6 +178,9 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         );
 
     Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth:sanctum');
+
+    Route::get('/books/{book}/reconvert-info', [ImportController::class, 'reconvertInfo']);
+    Route::post('/books/{book}/reconvert', [ImportController::class, 'reconvert']);
 
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',

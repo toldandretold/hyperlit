@@ -294,6 +294,15 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
       window.nodes = cached;
 
+      // Hydrate nodes with highlights/hypercites from standalone stores
+      // Editor saves may have cleared embedded arrays — rebuild from source of truth
+      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+      await rebuildNodeArrays(cached);
+
+      // Clear stale dirty flag — we just hydrated from source of truth
+      const { clearCacheDirtyFlag } = await import('./utilities/cacheState.js');
+      clearCacheDirtyFlag();
+
       // Build footnote numbering map for dynamic renumbering
       buildFootnoteMap(currentBook, cached);
 

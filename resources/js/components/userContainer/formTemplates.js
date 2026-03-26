@@ -78,15 +78,21 @@ export function getRegisterFormHTML() {
 
 /**
  * Generates user profile HTML with My Library and Logout buttons
+ * @param {boolean} emailVerified - Whether the user's email is verified
  * @returns {string} HTML string
  */
-export function getProfileHTML() {
+export function getProfileHTML(emailVerified = true) {
+  const verifyBanner = emailVerified ? '' : `
+      <button id="verifyEmailBtn" class="fucked-buttons"
+              style="width: 100%; padding: 8px; background: transparent; color: var(--color-secondary); border: 1px solid var(--color-secondary); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 12px;">
+        Verify Email
+      </button>`;
   return `
     <div class="user-profile">
       <button id="myBooksBtn" class="fucked-buttons"
               style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">
         My Library
-      </button>
+      </button>${verifyBanner}
       <button id="logout" class="fucked-buttons"
               style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; font-family: inherit;">
         Logout
@@ -201,6 +207,67 @@ export function getForgotPasswordSentHTML(email) {
               style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
         Back to Login
       </button>
+    </div>
+  `;
+}
+
+/**
+ * Generates verify email prompt HTML shown after registration
+ * @param {string} email - The user's email address
+ * @returns {string} HTML string
+ */
+export function getVerifyEmailHTML(email) {
+  const safeEmail = escapeHtml(email);
+  return `
+    <div class="user-form">
+      <h3 style="color: var(--color-secondary); margin-bottom: 10px;">Verify your email</h3>
+      <p style="font-size: 13px; color: var(--color-text); line-height: 1.5; margin-bottom: 20px;">
+        We sent a verification link to <strong>${safeEmail}</strong>. Check your inbox (and spam folder).
+      </p>
+      <button type="button" id="resendVerification"
+              style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+        Resend Email
+      </button>
+      <button type="button" id="changeEmailBtn"
+              style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
+        Change Email
+      </button>
+      <button type="button" id="dismissVerification"
+              style="width: 100%; padding: 6px; background: transparent; color: var(--color-text); opacity: 0.6; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+        I'll do this later
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Generates change email form HTML
+ * @param {string} currentEmail - The user's current email address
+ * @returns {string} HTML string
+ */
+export function getChangeEmailHTML(currentEmail) {
+  const safeEmail = escapeHtml(currentEmail);
+  return `
+    <div class="user-form">
+      <h3 style="color: var(--color-secondary); margin-bottom: 10px;">Change Email</h3>
+      <p style="font-size: 12px; color: var(--color-text); opacity: 0.7; margin-bottom: 12px; line-height: 1.4;">
+        Current: <strong>${safeEmail}</strong>
+      </p>
+      <form id="change-email-form" autocomplete="on">
+        <div style="margin-bottom: 15px;">
+          <input type="email" id="newEmailInput" name="email" placeholder="New email address" required autocomplete="email"
+                 style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <div id="changeEmailError" style="font-size: 11px; color: var(--color-primary); margin-top: 4px; display: none;"></div>
+        </div>
+        <button type="submit" id="changeEmailSubmit"
+                style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+          Update & Resend
+        </button>
+        <button type="button" id="backToVerify"
+                style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
+          Back
+        </button>
+      </form>
     </div>
   `;
 }

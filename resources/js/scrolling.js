@@ -1132,7 +1132,12 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       
       // Fallback: try once more with querySelector in case it's there but not detected
       let fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
-      
+
+      // For highlights, check by class (overlapping highlights use id="HL_overlap")
+      if (!fallbackTarget && targetId.startsWith('HL_')) {
+        fallbackTarget = lazyLoader.container.querySelector(`mark.${CSS.escape(targetId)}`);
+      }
+
       // For hypercites, also check overlapping elements in fallback
       if (!fallbackTarget && targetId.startsWith('hypercite_')) {
         const overlappingElements = lazyLoader.container.querySelectorAll('u[data-overlapping]');

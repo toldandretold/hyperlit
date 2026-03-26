@@ -47,6 +47,58 @@ export async function clearDatabase() {
 }
 
 /**
+ * Clear content (nodes, footnotes, bibliography) for a specific book from IndexedDB
+ * but preserve the library record, hyperlights, and hypercites.
+ * Also clears sub-book data (e.g. footnote sub-books with IDs like "bookId/Fn...").
+ *
+ * @param {string} bookId - The book ID to clear content for
+ * @returns {Promise<void>}
+ */
+export async function clearBookContentFromIndexedDB(bookId) {
+  console.log(`Clearing content for "${bookId}" from IndexedDB...`);
+  try {
+    const db = await openDatabase();
+    const contentStores = ['nodes', 'footnotes', 'bibliography'];
+    const tx = db.transaction([...contentStores, 'library'], 'readwrite');
+
+    for (const storeName of contentStores) {
+      const store = tx.objectStore(storeName);
+      const index = store.index('book');
+
+      // Delete main book records
+      await cursorDelete(index.openCursor(IDBKeyRange.only(bookId)));
+
+      // Delete sub-book records (bookId/ ... bookId/\uffff)
+      await cursorDelete(index.openCursor(
+        IDBKeyRange.bound(bookId + '/', bookId + '/\uffff')
+      ));
+    }
+
+    // Delete sub-book library records (but NOT the main library record)
+    const libStore = tx.objectStore('library');
+    await cursorDelete(libStore.openCursor(
+      IDBKeyRange.bound(bookId + '/', bookId + '/\uffff')
+    ));
+
+    console.log(`Content cleared for "${bookId}"`);
+  } catch (error) {
+    console.error(`Error clearing content for "${bookId}":`, error);
+    throw error;
+  }
+}
+
+function cursorDelete(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) { cursor.delete(); cursor.continue(); }
+      else resolve();
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
  * Delete all data for a specific book from IndexedDB
  * Used when deleting a book from the user profile page
  *

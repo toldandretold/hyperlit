@@ -68,6 +68,18 @@ def process_inline_formatting(text):
     br_placeholder = '\x00BR_TAG\x00'
     text = re.sub(r'<br\s*/?>', br_placeholder, text, flags=re.IGNORECASE)
 
+    # Preserve <a class="wackSTEM*"> and <a class="pageNumber"> tags by replacing with placeholders
+    stem_placeholder_map = {}
+    stem_ctr = [0]
+    def save_stem(m):
+        key = f'\x00STEM{stem_ctr[0]}\x00'
+        stem_placeholder_map[key] = m.group(0)
+        stem_ctr[0] += 1
+        return key
+    text = re.sub(r'<a\s+class="wackSTEM[^"]*"[^>]*>.*?</a>', save_stem, text)
+    text = re.sub(r'<a\s+class="pageNumber"[^>]*></a>', save_stem, text)
+    text = re.sub(r'<a\s+id="[^"]*"\s+href="[^"]*">[^<]*</a>', save_stem, text)
+
     # Escape HTML without double-encoding existing entities
     text = escape_html_no_double(text)
 
@@ -99,6 +111,11 @@ def process_inline_formatting(text):
     for key, replacement in math_placeholders.items():
         text = text.replace(key, replacement)
         text = text.replace(html.escape(key), replacement)
+
+    # Restore wackSTEM placeholders
+    for key, val in stem_placeholder_map.items():
+        text = text.replace(key, val)
+        text = text.replace(html.escape(key), val)
 
     # Convert escaped dollar signs to literal dollars
     text = text.replace(r'\$', '$')
@@ -264,12 +281,33 @@ def convert_markdown_to_html(markdown_content):
             i += 1
             continue
 
-        # Blockquotes
-        if stripped.startswith('> '):
-            quote_text = stripped[2:]
-            formatted_quote = process_inline_formatting(quote_text)
-            html_lines.append(f'<blockquote><p>{formatted_quote}</p></blockquote>')
-            i += 1
+        # Blockquotes (collect consecutive > lines into a single blockquote)
+        if stripped.startswith('>'):
+            bq_lines = []
+            while i < len(lines):
+                s = lines[i].strip()
+                if s.startswith('> '):
+                    bq_lines.append(s[2:])
+                    i += 1
+                elif s == '>':
+                    bq_lines.append('')  # blank separator within blockquote
+                    i += 1
+                else:
+                    break
+            # Render as single blockquote with paragraphs split on blank lines
+            paragraphs = []
+            current = []
+            for bl in bq_lines:
+                if bl.strip() == '':
+                    if current:
+                        paragraphs.append(' '.join(current))
+                        current = []
+                else:
+                    current.append(bl)
+            if current:
+                paragraphs.append(' '.join(current))
+            inner = ''.join(f'<p>{process_inline_formatting(p)}</p>' for p in paragraphs)
+            html_lines.append(f'<blockquote>{inner}</blockquote>')
             continue
 
         # Images (standalone line)
@@ -291,7 +329,7 @@ def convert_markdown_to_html(markdown_content):
 
         # Detect footnote section boundaries for sequential strategy
         # Check for footnote definition: line starts with [^N]: pattern
-        def_match = re.match(r'^\s*\[\^(\d+)\]\s*:', stripped)
+        def_match = re.match(r'^\s*\[\^(\d+)\]\s*[: ]', stripped)
         if def_match:
             def_number = int(def_match.group(1))
             # A restart (back to 1, or a number <= last) means new definition section
@@ -317,6 +355,23 @@ def convert_markdown_to_html(markdown_content):
                     ref_section_counter += 1
                     html_lines.append(f'<a class="footnoteSectionStart" id="fnRefSection_{ref_section_counter}"></a>')
                 last_ref_number = ref_number
+
+        # Raw HTML blocks (SVG charts, tables with attributes, etc.) — pass through without escaping
+        if stripped.startswith('<svg') or stripped.startswith('<div') or stripped.startswith('<table '):
+            # Collect multi-line raw HTML block until closing tag
+            tag_name = stripped.split()[0].split('>')[0].lstrip('<')
+            close_tag = f'</{tag_name}>'
+            block_lines = [stripped]
+            if close_tag not in stripped:
+                i += 1
+                while i < len(lines):
+                    block_lines.append(lines[i])
+                    if close_tag in lines[i]:
+                        break
+                    i += 1
+            html_lines.append('\n'.join(block_lines))
+            i += 1
+            continue
 
         # Everything else as paragraph (including footnote patterns)
         # Process inline formatting

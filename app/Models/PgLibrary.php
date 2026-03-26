@@ -56,9 +56,12 @@ class PgLibrary extends Model
         'oa_status',
         'oa_url',
         'pdf_url',
+        'pdf_url_status',
         'work_license',
         'cited_by_count',
         'language',
+        'foundation_source',
+        'abstract',
     ];
 
     protected $casts = [

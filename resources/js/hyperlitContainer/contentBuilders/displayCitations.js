@@ -28,80 +28,89 @@ export async function buildCitationContent(contentType, db = null) {
     const bibliographyStore = transaction.objectStore("bibliography");
 
     const lookupBook = contentType.parentBookId || book;
-    const key = [lookupBook, referenceId];
-    const result = await new Promise((resolve, reject) => {
-      const request = bibliographyStore.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
 
-    if (result && result.content) {
-      // Build navigation link if source_id exists and source has content to open
-      // source_has_nodes: undefined/null on old records → treat as true (backward compat)
-      const sourceHasNodes = result.source_has_nodes == null || !!result.source_has_nodes;
-      let navigationLink = '';
-      if (result.source_id && sourceHasNodes) {
-        // Fetch the library entry to check visibility
-        const libraryStore = transaction.objectStore('library');
-        const libraryRecord = await new Promise((resolve) => {
-          const request = libraryStore.get(result.source_id);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => resolve(null);
-        });
+    // Support multiple referenceIds (range citations like [6-8])
+    const ids = contentType.referenceIds || [referenceId];
+    let sections = '';
 
-        // Check access for private books
-        let hasAccess = true;
-        const isPrivate = libraryRecord && libraryRecord.visibility === 'private';
-        const isDeleted = libraryRecord && libraryRecord.visibility === 'deleted';
+    for (const refId of ids) {
+      const key = [lookupBook, refId];
+      const result = await new Promise((resolve, reject) => {
+        const request = bibliographyStore.get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
 
-        if (isPrivate) {
-          const { canUserEditBook } = await import('../../utilities/auth.js');
-          hasAccess = await canUserEditBook(result.source_id);
+      if (result && result.content) {
+        // Build navigation link if source_id exists and source has content to open
+        // source_has_nodes: undefined/null on old records → treat as true (backward compat)
+        const sourceHasNodes = result.source_has_nodes == null || !!result.source_has_nodes;
+        let navigationLink = '';
+        if (result.source_id && sourceHasNodes) {
+          // Fetch the library entry to check visibility
+          const libraryStore = transaction.objectStore('library');
+          const libraryRecord = await new Promise((resolve) => {
+            const request = libraryStore.get(result.source_id);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve(null);
+          });
+
+          // Check access for private books
+          let hasAccess = true;
+          const isPrivate = libraryRecord && libraryRecord.visibility === 'private';
+          const isDeleted = libraryRecord && libraryRecord.visibility === 'deleted';
+
+          if (isPrivate) {
+            const { canUserEditBook } = await import('../../utilities/auth.js');
+            hasAccess = await canUserEditBook(result.source_id);
+          }
+
+          // Configure button based on access
+          let buttonText = 'Open source';
+          let buttonStyle = 'display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;';
+          let buttonAttrs = '';
+
+          if (isDeleted) {
+            buttonText = 'Source deleted';
+            buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+            buttonAttrs = `data-deleted="true"`;
+          } else if (isPrivate && !hasAccess) {
+            buttonText = 'Source private';
+            buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+            buttonAttrs = `data-private="true" data-access="denied"`;
+          }
+
+          const targetUrl = `/${encodeURIComponent(result.source_id)}`;
+
+          navigationLink = `
+            <div class="citation-navigation" style="margin-top: 1em;">
+              <a href="${targetUrl}" class="citation-source-link" ${buttonAttrs} style="${buttonStyle}">
+                ${buttonText}
+                <span class="open-icon">↗</span>
+              </a>
+            </div>`;
         }
 
-        // Configure button based on access
-        let buttonText = 'Open source';
-        let buttonStyle = 'display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;';
-        let buttonAttrs = '';
-
-        if (isDeleted) {
-          buttonText = 'Source deleted';
-          buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
-          buttonAttrs = `data-deleted="true"`;
-        } else if (isPrivate && !hasAccess) {
-          buttonText = 'Source private';
-          buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
-          buttonAttrs = `data-private="true" data-access="denied"`;
-        }
-
-        const targetUrl = `/${encodeURIComponent(result.source_id)}`;
-
-        navigationLink = `
-          <div class="citation-navigation" style="margin-top: 1em;">
-            <a href="${targetUrl}" class="citation-source-link" ${buttonAttrs} style="${buttonStyle}">
-              ${buttonText}
-              <span class="open-icon">↗</span>
-            </a>
+        sections += `
+          <div class="citations-section" data-content-id="${refId}" data-reference-id="${refId}">
+            <h3 style="margin-bottom: 0.5em;">Reference</h3>
+            <blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">
+              ${result.content}
+            </blockquote>
+            ${navigationLink}
+            <hr style="margin: 2em 0; opacity: 0.5;">
+          </div>`;
+      } else {
+        sections += `
+          <div class="citations-section" data-content-id="${refId}">
+            <h3>Reference</h3>
+            <div class="error">Reference not found: ${refId}</div>
+            <hr style="margin: 2em 0; opacity: 0.5;">
           </div>`;
       }
-
-      return `
-        <div class="citations-section" data-content-id="${referenceId}" data-reference-id="${referenceId}">
-          <h3 style="margin-bottom: 0.5em;">Reference</h3>
-          <blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">
-            ${result.content}
-          </blockquote>
-          ${navigationLink}
-          <hr style="margin: 2em 0; opacity: 0.5;">
-        </div>`;
-    } else {
-      return `
-        <div class="citations-section" data-content-id="${referenceId}">
-          <h3>Reference</h3>
-          <div class="error">Reference not found: ${referenceId}</div>
-          <hr style="margin: 2em 0; opacity: 0.5;">
-        </div>`;
     }
+
+    return sections;
   } catch (error) {
     console.error('Error building citation content:', error);
     const referenceId = contentType?.referenceId || 'unknown';

@@ -232,9 +232,12 @@ export class LinkNavigationHandler {
     // 1. Exact same page anchor
     // 2. Both paths resolve to same book (handling hyperlight URLs)
     // 3. Target is book root and current is hyperlight of same book
-    const isSameBookNavigation = (currentBasePath === linkBasePath) || 
+    const isAIreviewLink = linkUrl.pathname.endsWith('/AIreview');
+    const isSameBookNavigation = !isAIreviewLink && (
+      (currentBasePath === linkBasePath) ||
       (currentPathIsHyperlight && targetPathIsBook && currentBasePath === currentBookPath) ||
-      (linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '');
+      (linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '')
+    );
     
     return isSamePageAnchor || isSameBookNavigation;
   }
@@ -248,6 +251,7 @@ export class LinkNavigationHandler {
       this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
       linkUrl.pathname;
       
+    if (linkUrl.pathname.endsWith('/AIreview')) return true;
     return linkBasePath && !linkBasePath.startsWith(currentBookPath);
   }
 
@@ -372,6 +376,11 @@ export class LinkNavigationHandler {
         targetBookId,
         linkUrl: linkUrl.href
       });
+
+      // Stamp current URL with clicked anchor's id so back-button can scroll to it
+      if (link.id) {
+        history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${link.id}`);
+      }
 
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const targetHash = linkUrl.hash;
@@ -620,6 +629,11 @@ export class LinkNavigationHandler {
       return segments[1];
     }
 
+    // Standalone sub-book routes (e.g., /Accumulation/AIreview)
+    if (segments.length >= 2 && segments[1] === 'AIreview') {
+      return `${segments[0]}/${segments[1]}`;
+    }
+
     // /{book} → extract first segment
     return segments[0] || null;
   }
@@ -737,6 +751,11 @@ export class LinkNavigationHandler {
     // /u/{username} → username is the book
     if (pathSegments[0] === 'u' && pathSegments.length >= 2) {
       return pathSegments[1];
+    }
+
+    // Standalone sub-book routes (e.g., /Accumulation/AIreview)
+    if (pathSegments.length >= 2 && pathSegments[1] === 'AIreview') {
+      return `${pathSegments[0]}/${pathSegments[1]}`;
     }
 
     // /{book} or /{book}/HL_xxx → first segment is the book

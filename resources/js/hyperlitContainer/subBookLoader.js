@@ -281,8 +281,11 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       return;
     }
 
-    // Server is newer → proceed with sync, but guard against wiping local content
-    if (localNodes?.length > 0) {
+    // Server is newer → proceed with sync, but guard against wiping local content.
+    // AIreview sub-books are server-managed — server is always the source of truth.
+    const isAIReview = subBookState.creator?.startsWith('AIreview:');
+
+    if (!isAIReview && localNodes?.length > 0) {
       const localHasContent = localNodes.some(n => {
         const text = n.content?.replace(/<[^>]+>/g, '').trim();
         return text && text.length > 0;
@@ -374,7 +377,7 @@ async function createSubBookOnBackend(subBookId, parentBook, itemId, type, annot
  */
 export async function loadSubBook(
   subBookId, parentBook, itemId, type, scrollerDiv,
-  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read' } = {}
+  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null } = {}
 ) {
   // Clean up any prior instance
   destroySubBook(subBookId);
@@ -385,7 +388,7 @@ export async function loadSubBook(
   let nodes = null;
   let isNewSubBook = false;
 
-  // Single IDB fetch — reused for both branch and [read more] check below
+  // Single IDB fetch — reused for both branch and [read more] check below.
   const existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
 
   if (previewNodes?.length) {
@@ -472,7 +475,7 @@ export async function loadSubBook(
 
     // Async enrichment for new sub-books
     if (!isNewSubBook && mode === 'edit') {
-      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type });
+      enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type, creator });
     }
 
     console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in ${mode} mode (${nodes.length} nodes)`);
@@ -586,7 +589,7 @@ export async function loadSubBook(
 
   // Async enrichment — fetch fresh data from backend
   if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type });
+    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type, creator });
   }
 
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);
@@ -653,4 +656,6 @@ export function destroyAllSubBooks() {
   for (const id of [...subBookLoaders.keys()]) {
     destroySubBook(id);
   }
+  // Allow enrichment to re-run on next open
+  enrichedSubBooks.clear();
 }

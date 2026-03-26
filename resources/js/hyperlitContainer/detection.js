@@ -121,11 +121,13 @@ export function detectCitation(element) {
   // Check if element is an old-style citation link
   if (element.tagName === 'A' && element.classList.contains('in-text-citation')) {
     const href = element.getAttribute('href');
+    const dataRefs = element.getAttribute('data-refs');
     if (href && href.startsWith('#')) {
       return {
         type: 'citation',
         element: element,
         referenceId: href.substring(1),
+        referenceIds: dataRefs ? dataRefs.split(',') : [href.substring(1)],
         parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }
@@ -158,11 +160,13 @@ export function detectCitation(element) {
   const parentCitation = element.closest('a.in-text-citation');
   if (parentCitation) {
     const href = parentCitation.getAttribute('href');
+    const dataRefs = parentCitation.getAttribute('data-refs');
     if (href && href.startsWith('#')) {
       return {
         type: 'citation',
         element: parentCitation,
         referenceId: href.substring(1),
+        referenceIds: dataRefs ? dataRefs.split(',') : [href.substring(1)],
         parentBookId: parentCitation.closest('[data-book-id]')?.dataset?.bookId || null
       };
     }

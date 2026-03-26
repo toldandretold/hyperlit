@@ -22,5 +22,6 @@ class PgReference extends Model
         'referenceId',
         'source_id',
         'content',
+        'foundation_source',
     ];
 }

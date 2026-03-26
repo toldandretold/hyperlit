@@ -34,6 +34,21 @@ Route::get('/based/{subBookId}', [TextController::class, 'showStandalone'])
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
+// AI Citation Review sub-book route
+Route::get('/{book}/AIreview', function (Request $request, $book) {
+    $subBookId = "{$book}/AIreview";
+    if (!DB::table('nodes')->where('book', $subBookId)->exists()) {
+        abort(404, 'AI Review not found for this book.');
+    }
+    return view('reader', [
+        'html'       => '',
+        'book'       => $subBookId,
+        'editMode'   => false,
+        'dataSource' => 'database',
+        'pageType'   => 'reader',
+    ]);
+})->where('book', '[A-Za-z0-9_-]+')->name('book.aireview');
+
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
     ->middleware('author')
@@ -205,6 +220,11 @@ Route::get('/reset-password/{token}', function (Request $request, $token) {
         'email' => $request->query('email', ''),
     ]);
 })->name('password.reset');
+
+// Email verification link (clicked from email)
+Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\AuthController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('verification.verify');
 
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])

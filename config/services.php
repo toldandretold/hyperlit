@@ -35,4 +35,23 @@ return [
         ],
     ],
 
+    'llm' => [
+        'base_url' => env('LLM_BASE_URL', 'https://api.fireworks.ai/inference/v1'),
+        'api_key'  => env('LLM_API_KEY'),
+        'model'    => env('LLM_MODEL', 'accounts/fireworks/models/qwen3-8b'),
+        'verification_model' => env('LLM_VERIFICATION_MODEL'),
+    ],
+
+    'mistral_ocr' => [
+        'api_key' => env('MISTRAL_OCR_API_KEY'),
+    ],
+
+    'brave_search' => [
+        'api_key' => env('BRAVE_SEARCH_API_KEY'),
+    ],
+
+    'semantic_scholar' => [
+        'api_key' => env('SEMANTIC_SCHOLAR_API_KEY'),
+    ],
+
 ];

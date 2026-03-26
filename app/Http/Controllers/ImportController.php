@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
@@ -18,6 +19,7 @@ use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\EpubProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
+use App\Services\DocumentImport\Processors\PdfProcessor;
 
 class ImportController extends Controller
 {
@@ -28,7 +30,8 @@ class ImportController extends Controller
         private HtmlProcessor $htmlProcessor,
         private EpubProcessor $epubProcessor,
         private ZipProcessor $zipProcessor,
-        private DocxProcessor $docxProcessor
+        private DocxProcessor $docxProcessor,
+        private PdfProcessor $pdfProcessor
     ) {}
 
     public function createMainTextMarkdown(Request $request)
@@ -89,10 +92,10 @@ class ImportController extends Controller
                     }
 
                     $extension = strtolower($value->getClientOriginalExtension());
-                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
 
                     if (!in_array($extension, $allowedExtensions)) {
-                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, or image file.');
+                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, .pdf, or image file.');
                         return;
                     }
 
@@ -172,6 +175,17 @@ class ImportController extends Controller
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
                 }
 
+                // PDF uploads require premium status
+                if ($extension === 'pdf' && Auth::user()?->status !== 'premium') {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'PDF import requires a premium account'
+                        ], 403);
+                    }
+                    return redirect()->back()->with('error', 'PDF import requires a premium account.');
+                }
+
                 $originalFilename = "original.{$extension}";
                 $originalFilePath = "{$path}/{$originalFilename}";
                 $file->move($path, $originalFilename);
@@ -237,6 +251,7 @@ class ImportController extends Controller
             if ($isDocxProcessing) {
                 $this->saveNodeChunksToDatabase($path, $bookId);
                 $this->saveFootnotesToDatabase($path, $bookId);
+                $this->saveReferencesToDatabase($path, $bookId);
             }
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -247,7 +262,8 @@ class ImportController extends Controller
                 $hasIssues = $auditData && (
                     count($auditData['gaps'] ?? []) > 0 ||
                     count($auditData['unmatched_refs'] ?? []) > 0 ||
-                    count($auditData['unmatched_defs'] ?? []) > 0
+                    count($auditData['unmatched_defs'] ?? []) > 0 ||
+                    count($auditData['duplicates'] ?? []) > 0
                 );
 
                 return response()->json([
@@ -341,6 +357,10 @@ class ImportController extends Controller
                 $this->zipProcessor->process($filePath, $outputPath, $bookId);
                 return true;
 
+            case 'pdf':
+                $this->pdfProcessor->process($filePath, $outputPath, $bookId);
+                return true;
+
             case 'doc':
             case 'docx':
                 $this->docxProcessor->process($filePath, $outputPath, $bookId);
@@ -430,6 +450,130 @@ class ImportController extends Controller
                 'chunks_attempted' => count($insertData ?? [])
             ]);
         }
+    }
+
+    public function reconvertInfo(string $book)
+    {
+        $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+        $path = resource_path("markdown/{$book}");
+
+        $sourceType = null;
+        if (File::exists("{$path}/original.pdf"))       $sourceType = 'pdf';
+        elseif (File::exists("{$path}/original.md"))     $sourceType = 'md';
+        elseif (File::exists("{$path}/original.html"))   $sourceType = 'html';
+        elseif (File::exists("{$path}/original.docx"))   $sourceType = 'docx';
+        elseif (File::exists("{$path}/main-text.md"))    $sourceType = 'md';
+
+        return response()->json([
+            'canReconvert' => $sourceType !== null,
+            'hasOcrCache'  => File::exists("{$path}/ocr_response.json"),
+            'sourceType'   => $sourceType,
+        ]);
+    }
+
+    public function reconvert(Request $request, string $book)
+    {
+        $startTime = microtime(true);
+        $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+        // 1. Verify book exists and user owns it
+        $record = PgLibrary::where('book', $book)->first();
+        if (!$record) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        }
+
+        $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+        if (!$creatorInfo['valid']) {
+            return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
+        }
+
+        $isOwner = ($creatorInfo['creator'] && $record->creator === $creatorInfo['creator'])
+                || ($creatorInfo['creator_token'] && $record->creator_token === $creatorInfo['creator_token']);
+        if (!$isOwner) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        // 2. Determine source file + processor type
+        $path = resource_path("markdown/{$book}");
+        $sourceType = null;
+        $inputFile  = null;
+
+        foreach (['pdf', 'md', 'html', 'docx'] as $ext) {
+            if (File::exists("{$path}/original.{$ext}")) {
+                $sourceType = $ext;
+                $inputFile  = "{$path}/original.{$ext}";
+                break;
+            }
+        }
+        if (!$inputFile && File::exists("{$path}/main-text.md")) {
+            $sourceType = 'md';
+            $inputFile  = "{$path}/main-text.md";
+        }
+        if (!$inputFile) {
+            return response()->json(['success' => false, 'message' => 'No source file found'], 404);
+        }
+
+        // 3. Clean stale output files
+        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
+            $f = "{$path}/{$staleFile}";
+            if (File::exists($f)) File::delete($f);
+        }
+
+        // 4. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
+        $this->clearBookContent($book);
+
+        // 5. Re-run conversion pipeline
+        try {
+            $this->processFile($inputFile, $path, $book, $sourceType);
+        } catch (\Exception $e) {
+            Log::error('Reconvert failed', ['book' => $book, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Conversion failed: ' . $e->getMessage()], 500);
+        }
+
+        // 6. Wait for nodes.json
+        $nodesPath = "{$path}/nodes.json";
+        $attempts = 0;
+        while (!File::exists($nodesPath) && $attempts < 15) {
+            sleep(2);
+            $attempts++;
+        }
+        if (!File::exists($nodesPath)) {
+            return response()->json(['success' => false, 'message' => 'Timed out waiting for nodes.json'], 500);
+        }
+
+        // 7. Save to database
+        $this->saveNodeChunksToDatabase($path, $book);
+        $this->saveFootnotesToDatabase($path, $book);
+        $this->saveReferencesToDatabase($path, $book);
+
+        // 8. Update library timestamp
+        $record->timestamp = round(microtime(true) * 1000);
+        $record->save();
+
+        // 9. Return result
+        $auditPath = "{$path}/audit.json";
+        $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
+
+        return response()->json([
+            'success'            => true,
+            'bookId'             => $book,
+            'sourceType'         => $sourceType,
+            'processing_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
+            'footnoteAudit'      => $auditData,
+        ]);
+    }
+
+    private function clearBookContent(string $bookId): void
+    {
+        PgNodeChunk::where('book', $bookId)->delete();
+        PgFootnote::where('book', $bookId)->delete();
+        \DB::table('bibliography')->where('book', $bookId)->delete();
+
+        // Delete sub-book nodes and library records (footnote sub-books: "{bookId}/Fn...")
+        PgNodeChunk::where('book', 'LIKE', "{$bookId}/%")->delete();
+        PgLibrary::where('book', 'LIKE', "{$bookId}/%")
+            ->where('type', 'sub_book')
+            ->delete();
     }
 
     /**
@@ -546,6 +690,61 @@ class ImportController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to save footnotes to database', [
+                'book'  => $bookId,
+                'error' => substr($e->getMessage(), 0, 500),
+            ]);
+        }
+    }
+
+    /**
+     * Save references from JSON file to database
+     */
+    private function saveReferencesToDatabase(string $path, string $bookId): void
+    {
+        try {
+            $referencesPath = "{$path}/references.json";
+            if (!File::exists($referencesPath)) {
+                Log::info('No references.json found — skipping reference import', ['book' => $bookId]);
+                return;
+            }
+
+            $referencesData = json_decode(File::get($referencesPath), true);
+            if (empty($referencesData)) return;
+
+            // Clear existing references for this book
+            \DB::table('bibliography')->where('book', $bookId)->delete();
+
+            $now = now();
+            $insertData = [];
+            foreach ($referencesData as $ref) {
+                $referenceId = $ref['referenceId'] ?? null;
+                if (!$referenceId) continue;
+
+                $insertData[] = [
+                    'book'        => $bookId,
+                    'referenceId' => $referenceId,
+                    'source_id'   => $ref['source_id'] ?? null,
+                    'content'     => $ref['content'] ?? '',
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ];
+            }
+
+            // Deduplicate by referenceId (last entry wins) in case of key conflicts
+            $deduped = [];
+            foreach ($insertData as $row) {
+                $deduped[$row['referenceId']] = $row;
+            }
+            $insertData = array_values($deduped);
+
+            // Bulk insert in batches
+            foreach (array_chunk($insertData, 500) as $batch) {
+                \DB::table('bibliography')->insert($batch);
+            }
+
+            Log::info("Saved " . count($insertData) . " references to database", ['book' => $bookId]);
+        } catch (\Exception $e) {
+            Log::error('Failed to save references to database', [
                 'book'  => $bookId,
                 'error' => substr($e->getMessage(), 0, 500),
             ]);

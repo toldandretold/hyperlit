@@ -1,0 +1,763 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use App\Models\PgLibrary;
+
+class OpenAlexService
+{
+    public const BASE_URL = 'https://api.openalex.org';
+    public const USER_AGENT = 'Hyperlit/1.0 (mailto:hello@hyperlit.app)';
+    public const SELECT_FIELDS = 'id,title,authorships,publication_year,primary_location,best_oa_location,doi,biblio,open_access,type,language,cited_by_count,abstract_inverted_index';
+
+    /**
+     * Make an HTTP GET request with retry logic for 429 rate limiting.
+     * Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+     */
+    private function retryableGet(string $url, array $query = []): \Illuminate\Http\Client\Response
+    {
+        $maxRetries = 3;
+
+        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get($url, $query);
+
+            if ($response->status() !== 429 || $attempt === $maxRetries) {
+                return $response;
+            }
+
+            $retryAfter = (int) ($response->header('Retry-After') ?: 0);
+            $backoff = $retryAfter > 0 ? $retryAfter : pow(2, $attempt);
+
+            Log::info('OpenAlex 429 rate limited, retrying', [
+                'attempt'     => $attempt + 1,
+                'backoff_sec' => $backoff,
+                'url'         => $url,
+            ]);
+
+            sleep($backoff);
+        }
+
+        return $response; // unreachable, but satisfies static analysis
+    }
+
+    /**
+     * Fetch works from OpenAlex by search query and normalise them.
+     *
+     * @return array<int, array>
+     */
+    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1): array
+    {
+        $response = $this->retryableGet(self::BASE_URL . '/works', [
+            'search'   => $query,
+            'per_page' => $limit,
+            'page'     => $page,
+            'select'   => self::SELECT_FIELDS,
+        ]);
+
+        if (!$response->successful()) {
+            Log::warning('OpenAlex API returned ' . $response->status() . ' for query: ' . $query);
+            return [];
+        }
+
+        $works = $response->json('results') ?? [];
+
+        return array_map(fn(array $work) => $this->normaliseWork($work), $works);
+    }
+
+    /**
+     * Fetch works by author name from OpenAlex (two-step: resolve author -> fetch works).
+     *
+     * @return array<int, array>
+     */
+    public function fetchFromOpenAlexByAuthor(string $query, int $limit = 10): array
+    {
+        $authorResponse = $this->retryableGet(self::BASE_URL . '/authors', [
+            'search'   => $query,
+            'per_page' => 1,
+            'select'   => 'id',
+        ]);
+
+        if (!$authorResponse->successful()) {
+            return [];
+        }
+
+        $authors = $authorResponse->json('results') ?? [];
+        if (empty($authors)) {
+            return [];
+        }
+
+        $authorId = $authors[0]['id'] ?? null;
+        if (!$authorId) {
+            return [];
+        }
+
+        $worksResponse = $this->retryableGet(self::BASE_URL . '/works', [
+            'filter'   => 'authorships.author.id:' . $authorId,
+            'per_page' => $limit,
+            'sort'     => 'cited_by_count:desc',
+            'select'   => self::SELECT_FIELDS,
+        ]);
+
+        if (!$worksResponse->successful()) {
+            return [];
+        }
+
+        $works = $worksResponse->json('results') ?? [];
+
+        return array_map(fn(array $work) => $this->normaliseWork($work), $works);
+    }
+
+    /**
+     * Fetch a single work by DOI from OpenAlex.
+     * Returns a normalised work array, or null if not found.
+     */
+    public function fetchByDoi(string $doi): ?array
+    {
+        $response = $this->retryableGet(self::BASE_URL . '/works/doi:' . $doi, [
+            'select' => self::SELECT_FIELDS,
+        ]);
+
+        if (!$response->successful()) {
+            return null;
+        }
+
+        $work = $response->json();
+        if (empty($work) || empty($work['id'])) {
+            return null;
+        }
+
+        return $this->normaliseWork($work);
+    }
+
+    /**
+     * Extract a DOI from HTML content or plain text.
+     * Looks for <a href="...doi.org/..."> links first, then plain text DOI patterns.
+     */
+    public function extractDoi(string $html): ?string
+    {
+        // 1. Look for DOI links: <a href="https://doi.org/10.xxxx/...">
+        if (preg_match('#href=["\']https?://(?:dx\.)?doi\.org/(10\.\d{4,9}/[^\s"\'<>]+)["\']#i', $html, $m)) {
+            return rtrim($m[1], '.,;)');
+        }
+
+        // 2. Plain text DOI pattern: doi:10.xxxx/... or https://doi.org/10.xxxx/...
+        if (preg_match('#(?:doi:\s*|https?://(?:dx\.)?doi\.org/)(10\.\d{4,9}/[^\s<>]+)#i', $html, $m)) {
+            return rtrim($m[1], '.,;)');
+        }
+
+        // 3. Bare DOI: 10.xxxx/... (must start at word boundary)
+        if (preg_match('#\b(10\.\d{4,9}/[^\s<>"]+)#', $html, $m)) {
+            return rtrim($m[1], '.,;)');
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract the title from a raw citation string (may contain HTML).
+     * Bibtex formatting wraps book titles in <i> and article titles in quotes.
+     * Also handles EPUB text-style spans like <span class="t13">.
+     */
+    public function extractTitle(string $raw): string
+    {
+        $plain = strip_tags($raw);
+
+        // 1. Quoted title: "Title" or curly quotes — article/chapter titles are typically quoted
+        if (preg_match('/[\x{201C}""]([^\x{201C}\x{201D}""]+)[\x{201D}""]/u', $plain, $m)) {
+            $quoted = trim($m[1], " \t\n\r.");
+            if (strlen($quoted) >= 10) {
+                return $quoted;
+            }
+        }
+
+        // Italic tag pattern: <i>, <em>, or <span class="tNN"> (EPUB text-style classes)
+        $italicPattern = '#<(?:i|em|span\s+class="t\d+")>#i';
+
+        // 2. HTML italic title: find the first italic marker and use year-anchor logic
+        if (preg_match($italicPattern, $raw)) {
+            // Extract italic text (handle all three tag types)
+            $italicText = null;
+            if (preg_match('#<(?:i|em)>(.*?)</(?:i|em)>#is', $raw, $m)) {
+                $italicText = trim(strip_tags($m[1]));
+            } elseif (preg_match('#<span\s+class="t\d+">(.*?)</span>#is', $raw, $m)) {
+                $italicText = trim(strip_tags($m[1]));
+            }
+
+            if ($italicText && strlen($italicText) >= 5) {
+                // Find year (19xx or 20xx) position in plain text
+                $yearPos = null;
+                if (preg_match('/\b(19|20)\d{2}\b/', $plain, $ym, PREG_OFFSET_CAPTURE)) {
+                    $yearPos = $ym[0][1] + strlen($ym[0][0]);
+                }
+
+                // Find italic marker position in plain text by locating the italic text
+                $italicPos = $italicText ? mb_strpos($plain, $italicText) : false;
+
+                // If there's text between year and italic → that's an article title
+                if ($yearPos !== null && $italicPos !== false && $italicPos > $yearPos) {
+                    $between = trim(substr($plain, $yearPos, $italicPos - $yearPos));
+                    // Strip leading punctuation/whitespace
+                    $between = preg_replace('/^[\s.,;:)\]]+/', '', $between);
+                    // Strip trailing punctuation
+                    $between = preg_replace('/[\s.,;:]+$/', '', $between);
+                    if (strlen($between) >= 10) {
+                        return $between;
+                    }
+                }
+
+                // No text before italic, or text too short → italic text is the title (book)
+                return $italicText;
+            }
+        }
+
+        // 3. Year-anchor fallback: find year, take text after it up to the first sentence boundary
+        if (preg_match('/\b(?:19|20)\d{2}[a-z]?\b[.)]*\s*(.+)/u', $plain, $m)) {
+            $afterYear = trim($m[1]);
+            // Strip leading punctuation
+            $afterYear = preg_replace('/^[\s.,;:)\]]+/', '', $afterYear);
+            if (preg_match('/^(.+?)\.\s/', $afterYear, $sm)) {
+                $title = trim($sm[1]);
+                if (strlen($title) >= 10) {
+                    return $title;
+                }
+            }
+            // If no sentence boundary, take up to 150 chars
+            if (strlen($afterYear) >= 10) {
+                return trim(substr($afterYear, 0, 150));
+            }
+        }
+
+        // 4. Last resort: strip author pattern and year, truncate at first sentence boundary
+        $cleaned = preg_replace('/^[A-Z][a-z]+,\s*[A-Z][a-z.]+(?:\s+and\s+[A-Z][a-z]+,\s*[A-Z][a-z.]+)*\.?\s*/', '', $plain);
+        $cleaned = preg_replace('/\(?\d{4}\)?[.:]?\s*\d*[-\x{2013}]?\d*\.?/u', '', $cleaned);
+        $cleaned = trim($cleaned);
+
+        if (preg_match('/^(.+?)\.\s/', $cleaned, $m)) {
+            $title = trim($m[1]);
+            if (strlen($title) >= 10) {
+                return $title;
+            }
+        }
+
+        return trim(substr($cleaned, 0, 150));
+    }
+
+    /**
+     * Compute word-overlap similarity between a search query and a result title.
+     * Returns a float between 0.0 (no overlap) and 1.0 (identical words).
+     * Uses Jaccard similarity: |intersection| / |union| on lowercased word sets,
+     * with common stop words removed.
+     */
+    public function titleSimilarity(string $query, string $resultTitle): float
+    {
+        $stopWords = ['the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'by', 'with', 'from', 'at', 'is', 'as'];
+
+        $tokenise = function (string $text) use ($stopWords): array {
+            $text = mb_strtolower($text);
+            $text = preg_replace('/[^\w\s]/u', ' ', $text);
+            $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+            return array_values(array_diff($words, $stopWords));
+        };
+
+        $queryWords  = $tokenise($query);
+        $resultWords = $tokenise($resultTitle);
+
+        if (empty($queryWords) || empty($resultWords)) {
+            return 0.0;
+        }
+
+        $intersection = count(array_intersect($queryWords, $resultWords));
+        $union        = count(array_unique(array_merge($queryWords, $resultWords)));
+
+        $jaccard = $union > 0 ? $intersection / $union : 0.0;
+
+        // Penalise length mismatch — short query matching a much longer title
+        // (or vice versa) gets scaled down. Factor ranges from 0.5 to 1.0.
+        $lengthRatio = min(count($queryWords), count($resultWords))
+                     / max(count($queryWords), count($resultWords));
+
+        return $jaccard * (0.5 + 0.5 * $lengthRatio);
+    }
+
+    /**
+     * Compute a composite metadata score between LLM-extracted metadata and an OpenAlex candidate.
+     * Weights: title 0.6, author 0.25, year 0.15. Returns 0.0–1.0.
+     */
+    public function metadataScore(array $llmMeta, array $candidate): float
+    {
+        // Title similarity (weight 0.6)
+        $titleScore = $this->titleSimilarity(
+            $llmMeta['title'] ?? '',
+            $candidate['title'] ?? ''
+        );
+
+        // Author match (weight 0.25): 1.0 if any LLM author surname appears in any candidate authorship
+        $authorScore = 0.0;
+        $llmAuthors = $llmMeta['authors'] ?? [];
+        if (!empty($llmAuthors)) {
+            // Strip diacritics to ASCII so "Aydın"→"Aydin", "Mbembé"→"Mbembe", etc.
+            $asciiFold = function (string $s): string {
+                if (function_exists('transliterator_transliterate')) {
+                    return transliterator_transliterate('Any-Latin; Latin-ASCII', $s);
+                }
+                $result = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+                return $result !== false ? $result : $s;
+            };
+
+            $llmSurnames = array_map(function (string $a) use ($asciiFold): string {
+                // "Lastname, Firstname" → "lastname"
+                $parts = explode(',', $a, 2);
+                return $asciiFold(mb_strtolower(trim($parts[0])));
+            }, $llmAuthors);
+
+            $candidateAuthor = $candidate['author'] ?? '';
+            $candidateAuthorLower = $asciiFold(mb_strtolower($candidateAuthor));
+
+            foreach ($llmSurnames as $surname) {
+                if ($surname && str_contains($candidateAuthorLower, $surname)) {
+                    $authorScore = 1.0;
+                    break;
+                }
+            }
+        }
+
+        // Year match (weight 0.15): 1.0 exact, 0.5 if ±1, 0.0 otherwise
+        $yearScore = 0.0;
+        $llmYear = $llmMeta['year'] ?? null;
+        $candidateYear = $candidate['year'] ?? null;
+        if ($llmYear !== null && $candidateYear !== null) {
+            $diff = abs((int) $llmYear - (int) $candidateYear);
+            if ($diff === 0) {
+                $yearScore = 1.0;
+            } elseif ($diff === 1) {
+                $yearScore = 0.5;
+            }
+        }
+
+        // When we have author data from both sides but zero overlap, apply a penalty.
+        // This prevents weak title+year matches from passing when authors clearly differ.
+        // A milder penalty applies when the candidate has no author at all — we can't
+        // confirm authorship, so demand a stronger title match to compensate.
+        $authorMismatchPenalty = 1.0;
+        if ($authorScore === 0.0 && !empty($llmSurnames)) {
+            if (!empty($candidateAuthor)) {
+                $authorMismatchPenalty = 0.5;   // clear mismatch
+            } else {
+                $authorMismatchPenalty = 0.85;  // unconfirmed — mild skepticism
+            }
+        }
+
+        $rawScore = ($titleScore * 0.6) + ($authorScore * 0.25) + ($yearScore * 0.15);
+        $finalScore = $rawScore * $authorMismatchPenalty;
+
+        Log::info('metadataScore', [
+            'llm_title' => $llmMeta['title'] ?? '',
+            'candidate_title' => $candidate['title'] ?? '',
+            'titleScore' => round($titleScore, 4),
+            'llm_authors' => $llmAuthors,
+            'llm_surnames' => $llmSurnames ?? [],
+            'candidate_author' => $candidateAuthor ?? '',
+            'authorScore' => $authorScore,
+            'llm_year' => $llmYear,
+            'candidate_year' => $candidateYear,
+            'yearScore' => $yearScore,
+            'rawScore' => round($rawScore, 4),
+            'authorMismatchPenalty' => $authorMismatchPenalty,
+            'finalScore' => round($finalScore, 4),
+        ]);
+
+        return $finalScore;
+    }
+
+    /**
+     * Check whether a normalised work is a real citable work (not paratext, component, etc.).
+     */
+    public function isCitableWork(array $normalised): bool
+    {
+        $citableTypes = [
+            'journal-article', 'article', 'book', 'book-chapter',
+            'dissertation', 'proceedings-article', 'report',
+            'peer-review', 'monograph', 'reference-entry',
+            'proceedings', 'standard', 'posted-content',
+        ];
+
+        $type = $normalised['type'] ?? null;
+
+        return $type !== null && in_array($type, $citableTypes, true);
+    }
+
+    /**
+     * Reconstruct plain text from an OpenAlex abstract_inverted_index.
+     * The index maps each word to an array of positions: {"word": [0, 5], ...}.
+     */
+    public static function reconstructAbstract(?array $invertedIndex): ?string
+    {
+        if (empty($invertedIndex)) {
+            return null;
+        }
+
+        $words = [];
+        foreach ($invertedIndex as $word => $positions) {
+            foreach ((array) $positions as $pos) {
+                $words[(int) $pos] = (string) $word;
+            }
+        }
+
+        if (empty($words)) {
+            return null;
+        }
+
+        ksort($words);
+
+        return implode(' ', $words);
+    }
+
+    /**
+     * Normalise a raw OpenAlex work object into the shared citation shape.
+     */
+    public function normaliseWork(array $work): array
+    {
+        $authorships = $work['authorships'] ?? [];
+        $authors = array_map(
+            fn($a) => $a['author']['display_name'] ?? 'Unknown',
+            array_slice($authorships, 0, 3)
+        );
+        $author = $authors ? implode('; ', $authors) : null;
+
+        $rawId = $work['id'] ?? null;
+        $openalexId = $rawId ? basename($rawId) : null;
+
+        $doi = $work['doi'] ?? null;
+        if ($doi && str_starts_with($doi, 'https://doi.org/')) {
+            $doi = substr($doi, strlen('https://doi.org/'));
+        }
+
+        $pdfUrl = $work['primary_location']['pdf_url']
+            ?? $work['best_oa_location']['pdf_url']
+            ?? null;
+
+        $firstPage = $work['biblio']['first_page'] ?? null;
+        $lastPage  = $work['biblio']['last_page'] ?? null;
+
+        $sanitiseUrl = fn(?string $url): ?string =>
+            ($url && filter_var($url, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $url))
+                ? $url
+                : null;
+
+        return [
+            'book'           => null,
+            'title'          => $work['title'] ?? null,
+            'author'         => $author,
+            'has_nodes'      => false,
+            'year'           => $work['publication_year'] ?? null,
+            'journal'        => $work['primary_location']['source']['display_name'] ?? null,
+            'doi'            => $doi,
+            'openalex_id'    => $openalexId,
+            'source'         => 'openalex',
+            'is_oa'          => $work['open_access']['is_oa'] ?? null,
+            'oa_status'      => $work['open_access']['oa_status'] ?? null,
+            'oa_url'         => $sanitiseUrl($work['open_access']['oa_url'] ?? null),
+            'pdf_url'        => $sanitiseUrl($pdfUrl),
+            'work_license'   => $work['primary_location']['license'] ?? null,
+            'cited_by_count' => $work['cited_by_count'] ?? null,
+            'language'       => $work['language'] ?? null,
+            'type'           => $work['type'] ?? null,
+            'volume'         => $work['biblio']['volume'] ?? null,
+            'issue'          => $work['biblio']['issue'] ?? null,
+            'pages'          => ($firstPage && $lastPage) ? $firstPage . '–' . $lastPage : null,
+            'bibtex'         => $this->generateBibtex($work),
+            'abstract'       => self::reconstructAbstract($work['abstract_inverted_index'] ?? null),
+        ];
+    }
+
+    /**
+     * Batch-upsert OpenAlex search results as lightweight library stubs.
+     *
+     * @param array<int, array> $candidates  Already-normalised works
+     * @return array<int, array>  Candidates with `book` and `bibtex` populated
+     */
+    public function upsertLibraryStubs(array $candidates): array
+    {
+        $openalexIds = array_values(array_filter(array_column($candidates, 'openalex_id')));
+
+        if (empty($openalexIds)) {
+            return $candidates;
+        }
+
+        $existing = PgLibrary::whereIn('openalex_id', $openalexIds)
+            ->select(['book', 'openalex_id', 'bibtex'])
+            ->get()
+            ->keyBy('openalex_id');
+
+        $timestamp = time();
+
+        foreach ($candidates as &$candidate) {
+            $openalexId = $candidate['openalex_id'] ?? null;
+            if (!$openalexId) continue;
+
+            if ($existing->has($openalexId)) {
+                $stub = $existing->get($openalexId);
+                $candidate['book']   = $stub->book;
+                $candidate['bibtex'] = $stub->bibtex;
+            } else {
+                $bookId = (string) Str::uuid();
+                $bibtex = $candidate['bibtex'];
+                $doiUrl = $candidate['doi'] ? 'https://doi.org/' . $candidate['doi'] : null;
+
+                try {
+                    $now = now()->toDateTimeString();
+                    DB::connection('pgsql_admin')->table('library')->insert([
+                        'book'           => $bookId,
+                        'has_nodes'      => false,
+                        'listed'         => false,
+                        'visibility'     => 'public',
+                        'openalex_id'    => $openalexId,
+                        'bibtex'         => $bibtex,
+                        'title'          => $candidate['title'],
+                        'author'         => $candidate['author'],
+                        'year'           => $candidate['year'],
+                        'journal'        => $candidate['journal'],
+                        'doi'            => $candidate['doi'],
+                        'is_oa'          => $candidate['is_oa'],
+                        'oa_status'      => $candidate['oa_status'],
+                        'oa_url'         => $candidate['oa_url'],
+                        'pdf_url'        => $candidate['pdf_url'],
+                        'work_license'   => $candidate['work_license'],
+                        'cited_by_count' => $candidate['cited_by_count'],
+                        'language'       => $candidate['language'],
+                        'type'           => $candidate['type'],
+                        'volume'         => $candidate['volume'],
+                        'issue'          => $candidate['issue'],
+                        'pages'          => $candidate['pages'],
+                        'abstract'       => $candidate['abstract'] ?? null,
+                        'url'            => $doiUrl,
+                        'creator'        => 'OpenAlex',
+                        'creator_token'  => null,
+                        'timestamp'      => $timestamp,
+                        'raw_json'       => json_encode([
+                            'book'        => $bookId,
+                            'title'       => $candidate['title'],
+                            'author'      => $candidate['author'],
+                            'year'        => $candidate['year'],
+                            'type'        => $candidate['type'],
+                            'journal'     => $candidate['journal'],
+                            'doi'         => $candidate['doi'],
+                            'url'         => $doiUrl,
+                            'openalex_id' => $openalexId,
+                            'bibtex'      => $bibtex,
+                            'visibility'  => 'public',
+                            'creator'     => 'OpenAlex',
+                        ]),
+                        'created_at'     => $now,
+                        'updated_at'     => $now,
+                    ]);
+
+                    $candidate['book']   = $bookId;
+                    $candidate['bibtex'] = $bibtex;
+                } catch (\Exception $e) {
+                    Log::warning('OpenAlex stub creation failed for ' . $openalexId . ': ' . $e->getMessage());
+                }
+            }
+        }
+        unset($candidate);
+
+        return $candidates;
+    }
+
+    /**
+     * Create or find a single library stub for a normalised work.
+     * Returns the book UUID, or null on failure.
+     */
+    public function createOrFindStub(array $normalised): ?string
+    {
+        // For non-OpenAlex sources (e.g. Open Library), use the generic path
+        if (empty($normalised['openalex_id'])) {
+            return $this->createStubDirect($normalised);
+        }
+
+        $result = $this->upsertLibraryStubs([$normalised]);
+        return $result[0]['book'] ?? null;
+    }
+
+    /**
+     * Create a library stub directly from a normalised work (any source).
+     * Deduplicates by open_library_key if present, then by title+year.
+     */
+    private function createStubDirect(array $normalised): ?string
+    {
+        $title  = $normalised['title'] ?? null;
+        $author = $normalised['author'] ?? null;
+        $year   = $normalised['year'] ?? null;
+        $olKey  = $normalised['open_library_key'] ?? null;
+
+        if (!$title) {
+            return null;
+        }
+
+        // Check for existing stub by open_library_key first
+        if ($olKey) {
+            $existing = DB::connection('pgsql_admin')->table('library')
+                ->where('open_library_key', $olKey)
+                ->first(['book', 'bibtex']);
+            if ($existing) {
+                return $existing->book;
+            }
+        }
+
+        // Fallback dedup by title+year
+        $query = DB::connection('pgsql_admin')->table('library')
+            ->whereRaw('LOWER(title) = ?', [mb_strtolower($title)]);
+        if ($year) {
+            $query->where('year', $year);
+        }
+        $existing = $query->first(['book', 'bibtex']);
+
+        if ($existing) {
+            return $existing->book;
+        }
+
+        $bookId = (string) Str::uuid();
+        $source = $normalised['source'] ?? 'unknown';
+        $bibtex = $normalised['bibtex'] ?? '';
+        $url    = $olKey ? 'https://openlibrary.org' . $olKey : null;
+
+        // Fetch description from Open Library Works API if available
+        $abstract = $normalised['abstract'] ?? null;
+        if (!$abstract && $olKey) {
+            $abstract = app(OpenLibraryService::class)->fetchDescription($olKey);
+        }
+
+        try {
+            $now = now()->toDateTimeString();
+            DB::connection('pgsql_admin')->table('library')->insert([
+                'book'              => $bookId,
+                'has_nodes'         => false,
+                'listed'            => false,
+                'visibility'        => 'public',
+                'openalex_id'       => null,
+                'open_library_key'  => $olKey,
+                'bibtex'            => $bibtex,
+                'title'             => $title,
+                'author'            => $author,
+                'year'              => $year,
+                'journal'           => $normalised['journal'] ?? null,
+                'doi'               => null,
+                'is_oa'          => null,
+                'oa_status'      => null,
+                'oa_url'         => null,
+                'pdf_url'        => null,
+                'work_license'   => null,
+                'cited_by_count' => null,
+                'language'       => null,
+                'type'           => $normalised['type'] ?? null,
+                'volume'         => null,
+                'issue'          => null,
+                'pages'          => null,
+                'abstract'       => $abstract,
+                'url'            => $url,
+                'creator'        => ucfirst($source),
+                'creator_token'  => null,
+                'timestamp'      => time(),
+                'raw_json'       => json_encode([
+                    'book'              => $bookId,
+                    'title'             => $title,
+                    'author'            => $author,
+                    'year'              => $year,
+                    'type'              => $normalised['type'] ?? null,
+                    'publisher'         => $normalised['publisher'] ?? null,
+                    'open_library_key'  => $olKey,
+                    'url'               => $url,
+                    'bibtex'            => $bibtex,
+                    'visibility'        => 'public',
+                    'creator'           => ucfirst($source),
+                ]),
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ]);
+
+            return $bookId;
+        } catch (\Exception $e) {
+            Log::warning("Library stub creation failed ({$source}): " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Generate a BibTeX entry string from a raw OpenAlex work.
+     */
+    public function generateBibtex(array $work): string
+    {
+        $rawId = $work['id'] ?? null;
+        $openalexId = $rawId ? basename($rawId) : 'unknown';
+
+        $type = match ($work['type'] ?? '') {
+            'journal-article' => 'article',
+            'book'            => 'book',
+            'book-chapter'    => 'incollection',
+            'conference'      => 'inproceedings',
+            'dissertation'    => 'phdthesis',
+            default           => 'misc',
+        };
+
+        $authorships = $work['authorships'] ?? [];
+        $bibtexAuthors = array_map(function ($a) {
+            $name = $a['author']['display_name'] ?? 'Unknown';
+            $parts = explode(' ', trim($name));
+            if (count($parts) === 1) {
+                return $parts[0];
+            }
+            $last = array_pop($parts);
+            $first = implode(' ', $parts);
+            return $last . ', ' . $first;
+        }, $authorships);
+
+        $authorStr = implode(' and ', $bibtexAuthors) ?: 'Unknown';
+
+        $title  = $work['title'] ?? '';
+        $year   = $work['publication_year'] ?? '';
+        $journal = $work['primary_location']['source']['display_name'] ?? null;
+        $volume  = $work['biblio']['volume'] ?? null;
+        $number  = $work['biblio']['issue'] ?? null;
+        $firstPage = $work['biblio']['first_page'] ?? null;
+        $lastPage  = $work['biblio']['last_page'] ?? null;
+        $pages = ($firstPage && $lastPage) ? $firstPage . '--' . $lastPage : ($firstPage ?? null);
+
+        $doi = $work['doi'] ?? null;
+        if ($doi && str_starts_with($doi, 'https://doi.org/')) {
+            $doi = substr($doi, strlen('https://doi.org/'));
+        }
+
+        $doiUrl = $doi ? 'https://doi.org/' . $doi : null;
+
+        $fields = [
+            'author' => $authorStr,
+            'title'  => $title,
+            'year'   => (string) $year,
+        ];
+
+        if ($journal) {
+            $fieldKey = in_array($type, ['inproceedings']) ? 'booktitle' : 'journal';
+            $fields[$fieldKey] = $journal;
+        }
+        if ($volume)  $fields['volume'] = $volume;
+        if ($number)  $fields['number'] = $number;
+        if ($pages)   $fields['pages']  = $pages;
+        if ($doi)     $fields['doi']    = $doi;
+        if ($doiUrl)  $fields['url']    = $doiUrl;
+
+        $lines = ["@{$type}{{$openalexId},"];
+        foreach ($fields as $key => $value) {
+            $escaped = str_replace('{', '\\{', str_replace('}', '\\}', (string) $value));
+            $lines[] = "  {$key} = {{$escaped}},";
+        }
+        $lines[] = '}';
+
+        return implode("\n", $lines);
+    }
+}

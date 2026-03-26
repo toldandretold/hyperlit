@@ -729,19 +729,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         };
       }
 
-      // 🗑️ Delete removed citations from bibliography
-      if (removedCitations.length > 0) {
-        console.log(`🗑️ Deleting ${removedCitations.length} removed citation(s) from bibliography`);
-        const bibStore = tx.objectStore('bibliography');
-        for (const citation of removedCitations) {
-          const key = [bookId, citation.referenceId];
-          bibStore.delete(key);
-          console.log(`🗑️ Deleted bibliography entry: ${citation.referenceId}`);
-          // Queue deletion for sync to PostgreSQL
-          queueForSync('bibliography', citation.referenceId, 'delete', { book: bookId, referenceId: citation.referenceId });
-        }
-      }
-
       // 🔍 DEBUG: Log what's being saved
       verbose.content(`Saving to IndexedDB: startLine=${toSave.startLine}, node_id=${toSave.node_id}, hasContent=${!!toSave.content}`, 'indexedDB/nodes/batch.js');
       chunksStore.put(toSave);
