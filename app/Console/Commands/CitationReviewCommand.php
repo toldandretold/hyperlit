@@ -97,7 +97,9 @@ class CitationReviewCommand extends Command
             $this->line("  <fg=cyan>[{$phase}]</> {$message}");
         };
 
-        $claims = $reviewService->review($bookId, $onProgress);
+        $result = $reviewService->review($bookId, $onProgress);
+        $claims = $result['claims'];
+        $stats = $result['stats'];
 
         if (empty($claims)) {
             $this->warn('No claims were extracted.');
@@ -147,7 +149,7 @@ class CitationReviewCommand extends Command
         Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $mdFilename = "citation-review_{$bookId}_{$timestamp}.md";
-        $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId);
+        $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId, $stats);
         Storage::put($mdFilename, $md);
 
         $this->newLine();

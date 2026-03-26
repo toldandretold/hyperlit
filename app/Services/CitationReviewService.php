@@ -32,7 +32,7 @@ class CitationReviewService
         $progress('parse', "Found " . count($citationNodes) . " nodes with citations ({$totalCitations} total citation occurrences)");
 
         if (empty($citationNodes)) {
-            return [];
+            return ['claims' => [], 'stats' => []];
         }
 
         // Phase 2: Enrich
@@ -46,7 +46,7 @@ class CitationReviewService
         $progress('extract', "Extracted " . count($claims) . " truth claims from " . count($citationNodes) . " nodes");
 
         if (empty($claims)) {
-            return [];
+            return ['claims' => [], 'stats' => []];
         }
 
         // Phase 4: Search source passages
@@ -61,20 +61,28 @@ class CitationReviewService
         $highlightCount = $this->createVerificationHighlights($claims, $bookId);
         $progress('highlights', "Created {$highlightCount} verification highlights");
 
-        return $claims;
+        $stats = [
+            'citation_occurrences' => $totalCitations,
+            'nodes_with_citations' => count($citationNodes),
+            'unique_sources'       => count($citationMeta),
+            'verified_sources'     => $verified,
+            'sources_with_content' => $withContent,
+        ];
+
+        return ['claims' => $claims, 'stats' => $stats];
     }
 
     /**
      * Regenerate highlights + markdown report from an existing claims array (skip LLM phases).
      */
-    public function regenerateReport(array $claims, string $bookId, string $bookTitle, ?callable $onProgress = null): string
+    public function regenerateReport(array $claims, string $bookId, string $bookTitle, ?callable $onProgress = null, array $stats = []): string
     {
         $progress = $onProgress ?? fn() => null;
 
         $highlightCount = $this->createVerificationHighlights($claims, $bookId);
         $progress('highlights', "Created {$highlightCount} verification highlights");
 
-        $md = $this->buildMarkdownReport($claims, $bookId, $bookTitle);
+        $md = $this->buildMarkdownReport($claims, $bookId, $bookTitle, $stats);
         $progress('report', "Built markdown report (" . strlen($md) . " bytes)");
 
         $subBookId = $this->importReportAsSubBook($md, $bookId, $bookTitle);
@@ -317,21 +325,6 @@ class CitationReviewService
                         'claim' => mb_substr($truthClaim, 0, 200),
                     ]);
                     continue;
-                }
-
-                // Validate: [CITE:refId] must be in the sentence the truth_claim was taken from
-                $expectedSentence = $this->extractSentenceAroundCite($node['marked_text'], $refId);
-                if ($expectedSentence !== null) {
-                    $normExpected = $this->normaliseQuotes($expectedSentence);
-                    $normClaim    = $this->normaliseQuotes($truthClaim);
-                    if (mb_stripos($normExpected, $normClaim) === false
-                        && mb_stripos($normClaim, $normExpected) === false) {
-                        Log::warning("Truth claim is not the sentence containing [CITE:{$refId}] in node {$node['node_id']}", [
-                            'claim'    => mb_substr($truthClaim, 0, 200),
-                            'expected' => mb_substr($expectedSentence, 0, 200),
-                        ]);
-                        continue;
-                    }
                 }
 
                 // Compute charStart/charEnd from citation position in HTML
@@ -762,12 +755,43 @@ class CitationReviewService
     /**
      * Build a markdown report from the claims array.
      */
-    public function buildMarkdownReport(array $claims, string $bookId, string $bookTitle): string
+    public function buildMarkdownReport(array $claims, string $bookId, string $bookTitle, array $stats = []): string
     {
-        $md = "# Citation Review Report\n\n";
-        $md .= "- **Book:** {$bookTitle}\n";
-        $md .= "- **Date:** " . now()->toDateTimeString() . "\n";
-        $md .= "- **Claims analyzed:** " . count($claims) . "\n\n";
+        $md = "# AI Citation Review\n\n";
+
+        // Build citation line from library metadata
+        $db = DB::connection('pgsql_admin');
+        $bookMeta = $db->table('library')->where('book', $bookId)->first();
+        $citationParts = [];
+        $title = $bookMeta->title ?? $bookTitle;
+        $externalUrl = $bookMeta->doi ? 'https://doi.org/' . $bookMeta->doi : ($bookMeta->oa_url ?? $bookMeta->url ?? null);
+        $citationParts[] = $externalUrl ? "[{$title}]({$externalUrl})" : "[{$title}](/{$bookId})";
+        if (!empty($bookMeta->author)) {
+            $citationParts[] = $bookMeta->author;
+        }
+        if (!empty($bookMeta->year)) {
+            $citationParts[] = "({$bookMeta->year})";
+        }
+        $md .= "Text: " . implode(' — ', $citationParts) . "\n\n";
+        $md .= "Date: " . now()->toDateTimeString() . "\n";
+        if (!empty($stats)) {
+            $md .= "Citations in text: {$stats['citation_occurrences']} (across {$stats['nodes_with_citations']} paragraphs)\n";
+            $md .= "Unique sources cited: {$stats['unique_sources']} ({$stats['verified_sources']} verified, {$stats['sources_with_content']} with full text)\n";
+        }
+        $md .= "## Known Unknown Citations \n\n";
+
+        // Source coverage pie chart
+        $claimsWithSource = count(array_filter($claims, fn($c) => !empty($c['source_book_id'])));
+        $claimsWithoutSource = count($claims) - $claimsWithSource;
+
+        $md .= '<table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
+        $md .= '<tr><td>Source Found</td><td>' . $claimsWithSource . '</td></tr>';
+        $md .= '<tr><td>Source Not Found</td><td>' . $claimsWithoutSource . '</td></tr>';
+        $md .= "</tbody></table>\n\n";
+
+        $md .= "> Citations are matched against: [OpenAlex](https://openalex.org), [Open Library](https://openlibrary.org), [Semantic Scholar](https://www.semanticscholar.org), and [Brave Search](https://search.brave.com). Unmatched citations may be legit sources, but are worth reviewing.\n\n";
+
+        $md .= "## Results\n\n";
 
         // Categorise — unverified sources first, then by LLM verdict
         $unverified = [];
@@ -794,7 +818,6 @@ class CitationReviewService
         }
 
         // Summary table — rendered as bar chart on the frontend via chartRenderer.js
-        $md .= "## Summary\n\n";
         $md .= '<table data-chart="verdict-summary"><thead><tr><th>Verdict</th><th>Count</th></tr></thead><tbody>' . "\n";
         $md .= '<tr><td>Unverified Sources</td><td>' . count($unverified) . "</td></tr>\n";
         $md .= '<tr><td>Rejected</td><td>' . count($rejected) . "</td></tr>\n";
@@ -803,6 +826,10 @@ class CitationReviewService
         $md .= '<tr><td>Likely</td><td>' . count($likely) . "</td></tr>\n";
         $md .= '<tr><td>Confirmed</td><td>' . count($confirmed) . "</td></tr>\n";
         $md .= "</tbody></table>\n\n";
+
+        $md .= "> An open-weight LLM ([Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)) is used to extract the truth claim of each in-text citation. These are compared to the available data for that source. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
+
+        $md .= "---\n\n";
 
         // Sections — strongest concern first
         if (!empty($rejected)) {
@@ -813,14 +840,14 @@ class CitationReviewService
         }
 
         if (!empty($unlikely)) {
-            $md .= "## Unlikely\n\n";
+            $md .= "# Unlikely\n\n";
             foreach ($unlikely as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
 
         if (!empty($unverified)) {
-            $md .= "## Unverified Sources\n\n";
+            $md .= "# Unverified Sources\n\n";
             $md .= "These citations reference sources that were never found in any database.\n\n";
             foreach ($unverified as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
@@ -828,21 +855,21 @@ class CitationReviewService
         }
 
         if (!empty($plausible)) {
-            $md .= "## Plausible\n\n";
+            $md .= "# Plausible\n\n";
             foreach ($plausible as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
 
         if (!empty($likely)) {
-            $md .= "## Likely\n\n";
+            $md .= "# Likely\n\n";
             foreach ($likely as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
         }
 
         if (!empty($confirmed)) {
-            $md .= "## Confirmed\n\n";
+            $md .= "# Confirmed\n\n";
             foreach ($confirmed as $c) {
                 $md .= $this->formatClaimMd($c, $bookId);
             }
@@ -951,41 +978,6 @@ class CitationReviewService
         }
 
         return "**Source:** {$md}\n";
-    }
-
-    /**
-     * Extract the sentence surrounding a [CITE:refId] marker from marked text.
-     * Returns the sentence with CITE markers stripped, or null if marker not found.
-     */
-    private function extractSentenceAroundCite(string $markedText, string $refId): ?string
-    {
-        $marker = "[CITE:{$refId}]";
-        $citePos = mb_strpos($markedText, $marker);
-        if ($citePos === false) {
-            return null;
-        }
-
-        // Sentence start: search backward for '. ', '? ', '! ' (greedy = last match)
-        $before = mb_substr($markedText, 0, $citePos);
-        if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
-            $sentStart = mb_strlen($m[0]);
-        } else {
-            $sentStart = 0;
-        }
-
-        // Sentence end: search forward from after the marker
-        $afterPos = $citePos + mb_strlen($marker);
-        $after = mb_substr($markedText, $afterPos);
-        if (preg_match('/^.*?[.!?](?:\s|$)/su', $after, $m)) {
-            $sentEnd = $afterPos + mb_strlen($m[0]);
-        } else {
-            $sentEnd = mb_strlen($markedText);
-        }
-
-        // Extract sentence and strip CITE markers
-        $sentence = mb_substr($markedText, $sentStart, $sentEnd - $sentStart);
-        $sentence = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $sentence);
-        return trim($sentence);
     }
 
     /**

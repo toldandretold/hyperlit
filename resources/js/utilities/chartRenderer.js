@@ -32,10 +32,8 @@ function buildBarChartSvg(data, colors) {
 
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.setAttribute('width', String(width));
-  svg.setAttribute('height', String(height));
   svg.style.display = 'block';
-  svg.style.maxWidth = '100%';
+  svg.style.width = '100%';
   svg.style.height = 'auto';
   svg.style.margin = '0.5em 0';
 
@@ -82,7 +80,140 @@ function buildBarChartSvg(data, colors) {
   return svg;
 }
 
+const DONUT_COLORS = {
+  'Source Found': '#27ae60',
+  'Source Not Found': '#9b59b6',
+};
+
+function buildDonutChartSvg(data, colors) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const width = 300;
+  const donutCx = width / 2;
+  const donutCy = 110;
+  const outerR = 90;
+  const innerR = 58;
+  const legendRowHeight = 22;
+  const legendTop = donutCy + outerR + 25;
+  const height = legendTop + data.length * legendRowHeight + 10;
+
+  const total = data.reduce((s, d) => s + d.count, 0);
+
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.style.display = 'block';
+  svg.style.width = '100%';
+  svg.style.maxWidth = '400px';
+  svg.style.height = 'auto';
+  svg.style.margin = '0.5em auto';
+
+  if (total === 0) {
+    // Empty state — grey ring
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', String(donutCx));
+    circle.setAttribute('cy', String(donutCy));
+    circle.setAttribute('r', String(outerR));
+    circle.setAttribute('fill', '#444');
+    svg.appendChild(circle);
+    const inner = document.createElementNS(svgNS, 'circle');
+    inner.setAttribute('cx', String(donutCx));
+    inner.setAttribute('cy', String(donutCy));
+    inner.setAttribute('r', String(innerR));
+    inner.setAttribute('fill', 'transparent');
+    svg.appendChild(inner);
+    return svg;
+  }
+
+  // Draw segments
+  let startAngle = -Math.PI / 2;
+  data.forEach(item => {
+    if (item.count === 0) return;
+    const fraction = item.count / total;
+    const endAngle = startAngle + fraction * 2 * Math.PI;
+    const color = colors[item.label] || '#888';
+
+    // For a full circle (single segment), use two arcs
+    if (fraction >= 1) {
+      const circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('cx', String(donutCx));
+      circle.setAttribute('cy', String(donutCy));
+      circle.setAttribute('r', String(outerR));
+      circle.setAttribute('fill', color);
+      svg.appendChild(circle);
+    } else {
+      const largeArc = fraction > 0.5 ? 1 : 0;
+      const x1 = donutCx + outerR * Math.cos(startAngle);
+      const y1 = donutCy + outerR * Math.sin(startAngle);
+      const x2 = donutCx + outerR * Math.cos(endAngle);
+      const y2 = donutCy + outerR * Math.sin(endAngle);
+      const ix1 = donutCx + innerR * Math.cos(startAngle);
+      const iy1 = donutCy + innerR * Math.sin(startAngle);
+      const ix2 = donutCx + innerR * Math.cos(endAngle);
+      const iy2 = donutCy + innerR * Math.sin(endAngle);
+
+      const d = [
+        `M ${x1} ${y1}`,
+        `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`,
+        `L ${ix2} ${iy2}`,
+        `A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix1} ${iy1}`,
+        'Z',
+      ].join(' ');
+
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', color);
+      svg.appendChild(path);
+    }
+
+    startAngle = endAngle;
+  });
+
+  // Inner circle (donut hole) — transparent to show parent background
+  const hole = document.createElementNS(svgNS, 'circle');
+  hole.setAttribute('cx', String(donutCx));
+  hole.setAttribute('cy', String(donutCy));
+  hole.setAttribute('r', String(innerR));
+  hole.setAttribute('fill', 'var(--bg-color, #1a1a2e)');
+  svg.appendChild(hole);
+
+  // Centre text
+  const centreText = document.createElementNS(svgNS, 'text');
+  centreText.setAttribute('x', String(donutCx));
+  centreText.setAttribute('y', String(donutCy + 7));
+  centreText.setAttribute('text-anchor', 'middle');
+  centreText.setAttribute('fill', '#e0e0e0');
+  centreText.setAttribute('font-size', '22');
+  centreText.setAttribute('font-family', 'sans-serif');
+  centreText.setAttribute('font-weight', 'bold');
+  centreText.textContent = `${data[0]?.count ?? 0}/${total}`;
+  svg.appendChild(centreText);
+
+  // Legend below donut — stacked vertically
+  data.forEach((item, i) => {
+    const color = colors[item.label] || '#888';
+    const rowY = legendTop + i * legendRowHeight;
+
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.setAttribute('cx', '20');
+    dot.setAttribute('cy', String(rowY));
+    dot.setAttribute('r', '6');
+    dot.setAttribute('fill', color);
+    svg.appendChild(dot);
+
+    const label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('x', '32');
+    label.setAttribute('y', String(rowY + 5));
+    label.setAttribute('fill', '#e0e0e0');
+    label.setAttribute('font-size', '14');
+    label.setAttribute('font-family', 'sans-serif');
+    label.textContent = `${item.label} (${item.count})`;
+    svg.appendChild(label);
+  });
+
+  return svg;
+}
+
 export function renderCharts(container) {
+  // Verdict bar charts
   const tables = container.querySelectorAll('table[data-chart="verdict-summary"]');
   tables.forEach(table => {
     const rows = table.querySelectorAll('tbody tr');
@@ -95,6 +226,22 @@ export function renderCharts(container) {
     });
 
     const svg = buildBarChartSvg(data, COLORS);
+    table.replaceWith(svg);
+  });
+
+  // Source coverage donut charts
+  const coverageTables = container.querySelectorAll('table[data-chart="source-coverage"]');
+  coverageTables.forEach(table => {
+    const rows = table.querySelectorAll('tbody tr');
+    const data = Array.from(rows).map(row => {
+      const cells = row.querySelectorAll('td');
+      return {
+        label: cells[0]?.textContent?.trim() || '',
+        count: parseInt(cells[1]?.textContent?.trim(), 10) || 0,
+      };
+    });
+
+    const svg = buildDonutChartSvg(data, DONUT_COLORS);
     table.replaceWith(svg);
   });
 }
