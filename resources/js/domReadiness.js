@@ -96,7 +96,12 @@ export function waitForElementReady(targetId, options = {}) {
       
       // Find element within the specified container
       let element = container.querySelector(`#${CSS.escape(targetId)}`);
-      
+
+      // For highlights, also check by class (overlapping highlights use id="HL_overlap")
+      if (!element && targetId.startsWith('HL_')) {
+        element = container.querySelector(`mark.${CSS.escape(targetId)}`);
+      }
+
       // For hypercites, also check overlapping elements if direct element not found
       if (!element && targetId.startsWith('hypercite_')) {
         const overlappingElements = container.querySelectorAll('u[data-overlapping]');

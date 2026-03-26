@@ -389,26 +389,7 @@ export async function loadSubBook(
   let isNewSubBook = false;
 
   // Single IDB fetch — reused for both branch and [read more] check below.
-  // For AIreview sub-books, ignore AND purge stale IDB nodes — server is source of truth.
-  // Preview nodes from the highlight are authoritative; enrichment will sync the rest.
-  const isAIReviewSubBook = creator?.startsWith('AIreview:');
-  let existingNodesFromIDB;
-  if (isAIReviewSubBook) {
-    existingNodesFromIDB = null;
-    // Eagerly purge stale IDB data so it can't resurface
-    Promise.all([
-      import('../postgreSQL.js'),
-      import('../indexedDB/core/connection.js'),
-    ]).then(async ([{ clearBookDataFromIndexedDB }, { openDatabase }]) => {
-      try {
-        const db = await openDatabase();
-        await clearBookDataFromIndexedDB(db, subBookId);
-        console.log(`🧹 Purged stale IDB data for AIreview sub-book "${subBookId}"`);
-      } catch (e) { console.warn('⚠️ IDB purge failed:', e); }
-    });
-  } else {
-    existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
-  }
+  const existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
 
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
@@ -675,4 +656,6 @@ export function destroyAllSubBooks() {
   for (const id of [...subBookLoaders.keys()]) {
     destroySubBook(id);
   }
+  // Allow enrichment to re-run on next open
+  enrichedSubBooks.clear();
 }

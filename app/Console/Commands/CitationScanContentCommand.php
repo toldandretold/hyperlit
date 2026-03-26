@@ -38,10 +38,13 @@ class CitationScanContentCommand extends Command
         $this->info("Found " . count($citations) . " unique citation(s).");
         $this->newLine();
 
+        // Load match_method from the latest bibliography scan
+        $matchMethods = $this->loadMatchMethods($db, $bookId);
+
         // Phase 2 — Resolve each unique referenceId
         $results = [];
         foreach ($citations as $refId => $info) {
-            $results[] = $this->resolveReference($refId, $info, $db, $bookId);
+            $results[] = $this->resolveReference($refId, $info, $db, $bookId, $matchMethods);
         }
 
         // Print summary
@@ -144,15 +147,43 @@ class CitationScanContentCommand extends Command
     }
 
     /**
+     * Load match_method for each referenceId from the latest bibliography scan results.
+     */
+    private function loadMatchMethods($db, string $bookId): array
+    {
+        $scan = $db->table('citation_scans')
+            ->where('book', $bookId)
+            ->where('status', 'completed')
+            ->orderByDesc('created_at')
+            ->first(['results']);
+
+        if (!$scan || !$scan->results) {
+            return [];
+        }
+
+        $results = json_decode($scan->results, true) ?? [];
+        $map = [];
+
+        foreach ($results as $r) {
+            if (!empty($r['referenceId']) && !empty($r['match_method'])) {
+                $map[$r['referenceId']] = $r['match_method'];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Resolve a single referenceId against bibliography + library.
      */
-    private function resolveReference(string $refId, array $info, $db, string $bookId): array
+    private function resolveReference(string $refId, array $info, $db, string $bookId, array $matchMethods = []): array
     {
         $result = [
             'referenceId'        => $refId,
             'occurrences'        => $info['occurrences'],
             'surrounding_text'   => $info['surrounding_text'],
             'status'             => 'no_match',
+            'match_method'       => $matchMethods[$refId] ?? null,
             'foundation_book_id' => null,
             'content_book_id'    => null,
             'library_title'      => null,
@@ -306,6 +337,9 @@ class CitationScanContentCommand extends Command
 
         if (!empty($r['library_title'])) {
             $md .= "- **Title:** {$r['library_title']}\n";
+        }
+        if (!empty($r['match_method'])) {
+            $md .= "- **Matched by:** {$r['match_method']}\n";
         }
         if (!empty($r['foundation_book_id'])) {
             $md .= "- **Foundation book:** `{$r['foundation_book_id']}`\n";

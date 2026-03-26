@@ -65,10 +65,11 @@ class BackendHighlightService
                 return null;
             }
 
-            $charStart = mb_strpos($node->plainText, $text);
+            $decodedPlain = html_entity_decode($node->plainText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $charStart = mb_strpos($decodedPlain, $text);
             if ($charStart === false) {
                 // Fallback: normalise Unicode quotes/dashes for matching
-                $normPlain = $this->normaliseQuotes($node->plainText);
+                $normPlain = $this->normaliseQuotes($decodedPlain);
                 $normText  = $this->normaliseQuotes($text);
                 $charStart = mb_strpos($normPlain, $normText);
             }
@@ -129,10 +130,14 @@ class BackendHighlightService
             $db->table('hyperlights')->insert($highlightData);
         }
 
-        // 6. Update annotations_updated_at so clients know to re-sync
+        // 6. Update annotations_updated_at + timestamp so clients do a full re-sync
+        $now_ms = round(microtime(true) * 1000);
         $db->table('library')
             ->where('book', $bookId)
-            ->update(['annotations_updated_at' => round(microtime(true) * 1000)]);
+            ->update([
+                'annotations_updated_at' => $now_ms,
+                'timestamp' => $now_ms,
+            ]);
 
         // 7. Upsert library record for the sub-book (annotation sub-book)
         $libraryExists = $db->table('library')->where('book', $subBookId)->exists();
@@ -237,11 +242,15 @@ class BackendHighlightService
             ->whereIn('hyperlight_id', $highlightIds)
             ->delete();
 
-        // Update annotations_updated_at so clients know to re-sync
+        // Update annotations_updated_at + timestamp so clients do a full re-sync
         if ($deleted > 0) {
+            $now_ms = round(microtime(true) * 1000);
             $db->table('library')
                 ->where('book', $bookId)
-                ->update(['annotations_updated_at' => round(microtime(true) * 1000)]);
+                ->update([
+                    'annotations_updated_at' => $now_ms,
+                    'timestamp' => $now_ms,
+                ]);
         }
 
         Log::info('BackendHighlightService: deleted highlights by creator', [

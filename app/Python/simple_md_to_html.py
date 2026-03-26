@@ -78,6 +78,7 @@ def process_inline_formatting(text):
         return key
     text = re.sub(r'<a\s+class="wackSTEM[^"]*"[^>]*>.*?</a>', save_stem, text)
     text = re.sub(r'<a\s+class="pageNumber"[^>]*></a>', save_stem, text)
+    text = re.sub(r'<a\s+id="[^"]*"\s+href="[^"]*">[^<]*</a>', save_stem, text)
 
     # Escape HTML without double-encoding existing entities
     text = escape_html_no_double(text)

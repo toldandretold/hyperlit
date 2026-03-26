@@ -589,6 +589,35 @@ mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
     filter: brightness(0.75);
 }
 
+/* AI Review verdict-colored highlights */
+mark.hl-confirmed {
+  background-color: rgba(39, 174, 96, var(--highlight-intensity)) !important;
+}
+mark.hl-likely {
+  background-color: rgba(100, 200, 100, var(--highlight-intensity)) !important;
+}
+mark.hl-plausible {
+  background-color: rgba(241, 196, 15, var(--highlight-intensity)) !important;
+}
+mark.hl-unlikely {
+  background-color: rgba(231, 65, 50, var(--highlight-intensity)) !important;
+}
+mark.hl-rejected {
+  background-color: rgba(231, 76, 60, var(--highlight-intensity)) !important;
+}
+
+/* Dark text for light verdict highlights at high intensity (3+ overlaps) */
+mark.hl-likely:not([data-highlight-count="1"]):not([data-highlight-count="2"]),
+mark.hl-plausible:not([data-highlight-count="1"]):not([data-highlight-count="2"]) {
+  color: var(--hyperlit-black) !important;
+}
+
+mark.hl-confirmed:hover { background-color: rgba(39, 174, 96, var(--highlight-intensity)) !important; }
+mark.hl-likely:hover { background-color: rgba(100, 200, 100, var(--highlight-intensity)) !important; }
+mark.hl-plausible:hover { background-color: rgba(241, 196, 15, var(--highlight-intensity)) !important; }
+mark.hl-unlikely:hover { background-color: rgba(231, 65, 50, var(--highlight-intensity)) !important; }
+mark.hl-rejected:hover { background-color: rgba(231, 76, 60, var(--highlight-intensity)) !important; }
+
 /* Sustained glow on the base mark element when navigating to a hyperlight */
 mark.cascade-origin,
 mark.cascade-origin:hover {

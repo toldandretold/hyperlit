@@ -253,6 +253,7 @@ export function createLazyLoader(config) {
 
   // 🔗 CENTRALIZED LINK HANDLING - scoped to this lazy loader instance
   const globalLinkHandler = async (event) => {
+    if (event.defaultPrevented) return; // Already handled by another lazy loader's handler
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
@@ -449,6 +450,8 @@ export function createLazyLoader(config) {
     }
     forceSavePosition();
   };
+
+  instance.forceSaveScrollPosition = () => forceSavePosition(true);
 
   document.dispatchEvent(new Event("pageReady"));
 
@@ -837,6 +840,13 @@ export function createLazyLoader(config) {
       // 1. Re-read the fresh nodes from IndexedDB (from your original)
       instance.nodes = await instance.getNodeChunks();
 
+      // Hydrate with highlights from standalone stores
+      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+      await rebuildNodeArrays(instance.nodes);
+
+      // Clear stale dirty flag — we just hydrated from source of truth
+      clearCacheDirtyFlag();
+
       // 2. Remove all rendered chunk-DIVs (from your original)
       // ⚠️ DIAGNOSTIC: Log when chunks are removed during refresh
       const chunksToRemove = instance.container.querySelectorAll("[data-chunk-id]");
@@ -1216,7 +1226,14 @@ export function applyHighlights(html, highlights, bookId) {
     // Recalculate positions based on current DOM state
     const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
 
-    if (positions) {
+    if (!positions) {
+      const hlId = segment.highlightIDs.join(', ');
+      const totalLen = getTextNodes(tempElement).reduce((sum, n) => sum + n.textContent.length, 0);
+      console.warn(`⚠️ applyHighlights: findPositionsInDOM returned null — highlight [${hlId}], charStart=${segment.charStart}, charEnd=${segment.charEnd}, totalTextLength=${totalLen}`);
+      continue;
+    }
+
+    {
       const markElement = document.createElement("mark");
 
       // Always set data-highlight-count and intensity
@@ -1243,6 +1260,26 @@ export function applyHighlights(html, highlights, bookId) {
       // Add user-specific class for styling
       if (hasUserHighlight) {
         markElement.classList.add('user-highlight');
+      }
+
+      // Check for AI review verdict highlights and add color class
+      const aiReviewHighlight = segment.highlightIDs
+        .map(id => highlights.find(h => (h.hyperlight_id || h.highlightID) === id))
+        .find(h => h?.creator?.startsWith('AIreview:'));
+
+      if (aiReviewHighlight && aiReviewHighlight.annotation) {
+        const verdict = aiReviewHighlight.annotation.split(' — ')[0].toLowerCase();
+        const verdictClass = {
+          'confirmed': 'hl-confirmed',
+          'likely': 'hl-likely',
+          'plausible': 'hl-plausible',
+          'unlikely': 'hl-unlikely',
+          'rejected': 'hl-rejected',
+          'source not found': 'hl-source-not-found',
+        }[verdict];
+        if (verdictClass) {
+          markElement.classList.add(verdictClass);
+        }
       }
 
       // Use surroundContents instead of extractContents

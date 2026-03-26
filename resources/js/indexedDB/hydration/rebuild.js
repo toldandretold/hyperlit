@@ -47,8 +47,6 @@ export async function rebuildNodeArrays(nodes) {
       queryHypercitesByNodes(db, dataNodeIDs),
     ]);
 
-    verbose.content(`NEW SYSTEM: Found ${hyperlights.length} hyperlights, ${hypercites.length} hypercites for these nodes`, 'indexedDB/hydration/rebuild.js');
-
     // Build arrays for each node from normalized data
     nodes.forEach(node => {
       node.hyperlights = buildHyperlightsForNode(node, hyperlights);
@@ -173,7 +171,7 @@ function buildHyperlightsForNode(node, allHyperlights) {
     return [];
   }
 
-  return allHyperlights
+  const results = allHyperlights
     .filter(hl => hl.node_id.includes(node.node_id) && hl.book === node.book)
     .map(hl => {
       // Extract per-node position from charData
@@ -190,12 +188,16 @@ function buildHyperlightsForNode(node, allHyperlights) {
         charStart: charData.charStart,
         charEnd: charData.charEnd,
         annotation: hl.annotation,
+        creator: hl.creator,
+        preview_nodes: hl.preview_nodes,
         is_user_highlight: hl.is_user_highlight,
         hidden: hl.hidden || false,
         time_since: hl.time_since,
       };
     })
     .filter(Boolean); // Remove nulls from missing charData
+
+  return results;
 }
 
 /**

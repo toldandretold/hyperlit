@@ -109,7 +109,7 @@ class CitationReviewService
 
         foreach ($nodes as $node) {
             $content = $node->content ?? '';
-            $currentPlain = $node->plainText ?? '';
+            $currentPlain = html_entity_decode($node->plainText ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
             // Check for in-text citations (href-first or class-first)
             if (!preg_match('/<a\s[^>]*class="in-text-citation"[^>]*>/i', $content)) {
@@ -622,6 +622,18 @@ class CitationReviewService
                     'content'   => '<p><strong>Explanation:</strong> This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.</p>',
                     'plainText' => 'Explanation: This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.',
                 ];
+                $snfContent[] = [
+                    'type'      => 'p',
+                    'content'   => '<p><a href="/' . e($bookId) . '/AIreview#ref_' . e($highlightId) . '">See within full report</a></p>',
+                    'plainText' => 'See within full report',
+                ];
+
+                // Color all <strong> tags purple (unverified)
+                foreach ($snfContent as &$node) {
+                    $node['content'] = str_replace('<strong>', '<strong style="color:#9b59b6">', $node['content']);
+                }
+                unset($node);
+
                 $result = $this->highlights->createHighlight([
                     'bookId'         => $bookId,
                     'nodeId'         => $nodeId,
@@ -669,6 +681,16 @@ class CitationReviewService
 
             // Build sub-book content nodes
             $subBookContent = [];
+
+            // Verdict color (matches the AIreview chart palette)
+            $verdictColor = match ($verdict['support']) {
+                'confirmed' => '#27ae60',
+                'likely'    => '#a3d977',
+                'plausible' => '#f1c40f',
+                'unlikely'  => '#e67e22',
+                'rejected'  => '#e74c3c',
+                default     => '#9b59b6',
+            };
 
             // Node 1: Verdict
             $subBookContent[] = [
@@ -729,6 +751,18 @@ class CitationReviewService
                     'plainText' => 'Reasoning: ' . $verdict['reasoning'],
                 ];
             }
+
+            $subBookContent[] = [
+                'type'      => 'p',
+                'content'   => '<p><a href="/' . e($bookId) . '/AIreview#ref_' . e($highlightId) . '">See within full report</a></p>',
+                'plainText' => 'See within full report',
+            ];
+
+            // Color all <strong> tags with the verdict color
+            foreach ($subBookContent as &$node) {
+                $node['content'] = str_replace('<strong>', '<strong style="color:' . $verdictColor . '">', $node['content']);
+            }
+            unset($node);
 
             $result = $this->highlights->createHighlight([
                 'bookId'         => $bookId,
@@ -1039,7 +1073,7 @@ class CitationReviewService
         }
         if (!empty($claim['has_highlight'])) {
             $highlightId = $claim['highlightId'] ?? 'HL_' . abs(crc32($claim['node_id'] . $refId));
-            $md .= "**Claim:** \"{$claim['truth_claim']}\" [←](/{$bookId}/{$highlightId})\n";
+            $md .= "**Claim:** \"{$claim['truth_claim']}\" <a id=\"ref_{$highlightId}\" href=\"/{$bookId}#{$highlightId}\">←</a>\n";
         } else {
             $md .= "**Claim:** \"{$claim['truth_claim']}\"\n";
         }

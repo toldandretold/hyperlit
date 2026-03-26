@@ -306,6 +306,7 @@ class DatabaseToIndexedDBController extends Controller
                     'charStart' => $nodeCharData['charStart'],
                     'charEnd' => $nodeCharData['charEnd'],
                     'annotation' => $hl->annotation,
+                    'creator' => $hl->creator,
                     'preview_nodes' => $hl->preview_nodes
                         ? json_decode($hl->preview_nodes, true)
                         : null,

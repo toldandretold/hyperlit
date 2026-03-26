@@ -5,15 +5,29 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Semantic Scholar paper search service.
+ *
+ * Authenticated (x-api-key): 1 request per second.
+ * Unauthenticated:           100 requests per 5 minutes (~0.33 req/sec).
+ */
 class SemanticScholarService
 {
     public const BASE_URL = 'https://api.semanticscholar.org/graph/v1';
 
+    private ?string $apiKey;
+
+    /** @var float Epoch timestamp of the last API call (shared across instances). */
+    private static float $lastCallTime = 0.0;
+
+    public function __construct()
+    {
+        $this->apiKey = config('services.semantic_scholar.api_key');
+    }
+
     /**
      * Search Semantic Scholar for papers matching the given title and optional author.
      * Returns an array of normalised work arrays compatible with the shared citation shape.
-     *
-     * Free API: no key required, 100 requests per 5 minutes.
      */
     public function search(string $title, ?string $author = null, int $limit = 5): array
     {
@@ -24,7 +38,17 @@ class SemanticScholarService
 
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                $response = Http::timeout(15)->get(self::BASE_URL . '/paper/search', [
+                $this->rateGate();
+
+                $request = Http::timeout(15);
+
+                if ($this->apiKey) {
+                    $request = $request->withHeaders([
+                        'x-api-key' => $this->apiKey,
+                    ]);
+                }
+
+                $response = $request->get(self::BASE_URL . '/paper/search', [
                     'query'  => $query,
                     'fields' => 'title,authors,year,abstract,externalIds,venue',
                     'limit'  => $limit,
@@ -53,6 +77,22 @@ class SemanticScholarService
 
         Log::info('Semantic Scholar rate limited, gave up after 3 retries');
         return [];
+    }
+
+    /**
+     * Enforce a minimum 1-second gap between API calls.
+     */
+    private function rateGate(): void
+    {
+        $now = microtime(true);
+        $elapsed = $now - self::$lastCallTime;
+
+        if ($elapsed < 1.0) {
+            $sleepMicroseconds = (int) ((1.0 - $elapsed) * 1_000_000);
+            usleep($sleepMicroseconds);
+        }
+
+        self::$lastCallTime = microtime(true);
     }
 
     /**

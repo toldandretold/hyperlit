@@ -59,6 +59,49 @@ class CitationReviewCommand extends Command
             $md = $reviewService->regenerateReport($claims, $bookId, $book->title ?? $bookId, $onProgress);
 
             $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
+
+            // Send completion email to book creator
+            $unverifiedCount = $confirmedCount = $likelyCount = $plausibleCount = $unlikelyCount = $rejectedCount = 0;
+            foreach ($claims as $claim) {
+                if (empty($claim['source_book_id'])) {
+                    $unverifiedCount++;
+                    continue;
+                }
+                match ($claim['llm_verdict']['support'] ?? 'insufficient') {
+                    'confirmed'  => $confirmedCount++,
+                    'likely'     => $likelyCount++,
+                    'plausible'  => $plausibleCount++,
+                    'unlikely'   => $unlikelyCount++,
+                    'rejected'   => $rejectedCount++,
+                    default      => null,
+                };
+            }
+
+            $creator = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
+            if ($creator?->email) {
+                $appUrl = config('app.url');
+                \Illuminate\Support\Facades\Mail::send('emails.citation-review', [
+                    'logoUrl'       => url('/images/logoc.png'),
+                    'bookTitle'     => $book->title ?? $bookId,
+                    'reviewUrl'     => "{$appUrl}/{$bookId}/AIreview",
+                    'bookUrl'       => "{$appUrl}/{$bookId}",
+                    'confirmed'     => $confirmedCount,
+                    'likely'        => $likelyCount,
+                    'plausible'     => $plausibleCount,
+                    'unlikely'      => $unlikelyCount,
+                    'rejected'      => $rejectedCount,
+                    'unverified'    => $unverifiedCount,
+                    'sourcesFound'  => count(array_unique(array_filter(array_column($claims, 'source_book_id')))),
+                    'sourcesTotal'  => count(array_unique(array_filter(array_column($claims, 'referenceId')))),
+                    'citationCount' => count($claims),
+                ], function ($message) use ($creator) {
+                    $message->to($creator->email)->subject('AI Citation Review Complete');
+                });
+                $this->info("Notification sent to {$creator->email}");
+            } else {
+                $this->warn("No email sent — could not find user for creator: {$book->creator}");
+            }
+
             return 0;
         }
 
@@ -161,6 +204,30 @@ class CitationReviewCommand extends Command
         $subBookId = $reviewService->importReportAsSubBook($md, $bookId, $book->title ?? $bookId);
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
+
+        // Send completion email to book creator
+        $creator = \App\Models\User::where('name', $book->creator)->first();
+        if ($creator?->email) {
+            $appUrl = config('app.url');
+            \Illuminate\Support\Facades\Mail::send('emails.citation-review', [
+                'logoUrl'       => url('/images/logoc.png'),
+                'bookTitle'     => $book->title ?? $bookId,
+                'reviewUrl'     => "{$appUrl}/{$bookId}/AIreview",
+                'bookUrl'       => "{$appUrl}/{$bookId}",
+                'confirmed'     => $confirmedCount,
+                'likely'        => $likelyCount,
+                'plausible'     => $plausibleCount,
+                'unlikely'      => $unlikelyCount,
+                'rejected'      => $rejectedCount,
+                'unverified'    => $unverifiedCount,
+                'sourcesFound'  => $stats['sources_with_content'] ?? 0,
+                'sourcesTotal'  => $stats['unique_sources'] ?? 0,
+                'citationCount' => $stats['citation_occurrences'] ?? 0,
+            ], function ($message) use ($creator) {
+                $message->to($creator->email)->subject('AI Citation Review Complete');
+            });
+            $this->info("Notification sent to {$creator->email}");
+        }
 
         return 0;
     }

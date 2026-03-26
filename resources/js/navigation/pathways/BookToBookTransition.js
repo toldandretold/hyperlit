@@ -71,6 +71,11 @@ export class BookToBookTransition {
         // Guarantee immediate visibility
         ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${toBook}...`, toBook);
         
+        // Save scroll position before destroying the old reader
+        if (currentLazyLoader?.forceSaveScrollPosition) {
+          currentLazyLoader.forceSaveScrollPosition();
+        }
+
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
 
@@ -133,7 +138,7 @@ export class BookToBookTransition {
         console.error('❌ BookToBookTransition: Transition failed:', error);
 
         // Fallback to full page navigation
-        const fallbackUrl = `/${toBook}/edit?target=1&edit=1${hash}`;
+        const fallbackUrl = `/${toBook}${hash}`;
         console.log('🔄 BookToBookTransition: Falling back to full page navigation:', fallbackUrl);
         window.location.href = fallbackUrl;
 
@@ -208,7 +213,7 @@ export class BookToBookTransition {
   static async fetchReaderPageHtml(bookId) {
     console.log(`📥 BookToBookTransition: Fetching reader HTML for ${bookId}`);
     
-    const response = await fetch(`/${bookId}/edit?target=1`);
+    const response = await fetch(`/${bookId}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch reader page HTML: ${response.status}`);
     }
@@ -292,6 +297,9 @@ export class BookToBookTransition {
       // Set the current book
       setCurrentBook(bookId);
       updateDatabaseBookId(bookId);
+
+      // Always clear stale skip flag from previous transitions
+      setSkipScrollRestoration(false);
 
       // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
       // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
