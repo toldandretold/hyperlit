@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -35,7 +37,8 @@ class AuthController extends Controller
             'success' => true,
             'user' => Auth::user(),
             'message' => 'Login successful',
-            'anonymous_content' => $anonymousContent
+            'anonymous_content' => $anonymousContent,
+            'email_verified' => Auth::user()->email_verified_at !== null,
         ]);
     }
 
@@ -84,11 +87,14 @@ class AuthController extends Controller
         $user = User::find($userId);
         Auth::login($user);
 
+        $this->sendVerificationEmail($user);
+
         return response()->json([
             'success' => true,
             'user' => $user,
             'message' => 'Registration successful',
-            'anonymous_content' => $anonymousContent
+            'anonymous_content' => $anonymousContent,
+            'email_verified' => false,
         ]);
     }
 
@@ -503,6 +509,82 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password has been reset successfully.',
+        ]);
+    }
+
+    private function sendVerificationEmail($user)
+    {
+        $verificationUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($user->email)]
+        );
+
+        Mail::send('emails.verify-email', [
+            'verificationUrl' => $verificationUrl,
+            'logoUrl' => url('/images/logoc.png'),
+        ], function ($message) use ($user) {
+            $message->to($user->email)->subject('Verify Your Email');
+        });
+    }
+
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        $user = DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('id', $id)
+            ->first();
+
+        if (!$user || !hash_equals($hash, sha1($user->email))) {
+            return redirect('/?verified=0');
+        }
+
+        DB::selectOne('SELECT auth_verify_user_email(?, ?)', [$id, $user->email]);
+
+        return redirect('/?verified=1');
+    }
+
+    public function resendVerificationEmail(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->email_verified_at !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email is already verified.',
+            ], 400);
+        }
+
+        $this->sendVerificationEmail($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification email sent.',
+        ]);
+    }
+
+    public function changeEmail(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+        ]);
+
+        $newEmail = $request->input('email');
+
+        DB::selectOne('SELECT auth_change_user_email(?, ?)', [$user->id, $newEmail]);
+
+        // Refresh user model with new email
+        $user->email = $newEmail;
+        $user->email_verified_at = null;
+
+        $this->sendVerificationEmail($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email updated. Verification link sent to new address.',
+            'user' => $user->fresh(),
         ]);
     }
 

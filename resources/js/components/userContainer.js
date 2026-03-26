@@ -21,6 +21,8 @@ import {
   getErrorHTML,
   getForgotPasswordFormHTML,
   getForgotPasswordSentHTML,
+  getVerifyEmailHTML,
+  getChangeEmailHTML,
 } from './userContainer/formTemplates.js';
 import {
   validateUsername,
@@ -62,11 +64,27 @@ export class UserContainerManager extends ContainerManager {
       this.updateButtonColor();
       log.init("User container initialized (logged in)", "/components/userContainer.js");
     } else {
-      // 📡 OFFLINE: Check if we have cached user info in memory
-      // getCurrentUser returns null when offline and not initialized, but we might
-      // have user info from a previous session
       log.init("User container initialized (anonymous or offline)", "/components/userContainer.js");
     }
+
+    // Check for email verification success redirect
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('verified') === '1') {
+      window.history.replaceState({}, '', window.location.pathname);
+      this.showVerifiedToast();
+    }
+  }
+
+  showVerifiedToast() {
+    const toast = document.createElement('div');
+    toast.textContent = 'Email verified successfully!';
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#4EACAE;color:#fff;padding:12px 24px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;z-index:10000;opacity:0;transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
   }
 
   updateButtonColor() {
@@ -119,6 +137,12 @@ export class UserContainerManager extends ContainerManager {
       '#backToLogin': () => this.showLoginForm(),
       '#logout': () => this.handleLogout(),
       '#myBooksBtn': () => this.handleMyBooksClick(),
+      '#verifyEmailBtn': () => this.showVerifyEmailScreen(),
+      '#resendVerification': () => this.handleResendVerification(),
+      '#changeEmailBtn': () => this.showChangeEmailForm(),
+      '#changeEmailSubmit': () => this.handleChangeEmail(),
+      '#backToVerify': () => this.showVerifyEmailScreen(),
+      '#dismissVerification': () => this.closeContainer(),
     };
 
     for (const [selector, handler] of Object.entries(handlers)) {
@@ -180,6 +204,113 @@ export class UserContainerManager extends ContainerManager {
     }
   }
 
+  showVerifyEmailScreen() {
+    const container = document.querySelector(".custom-alert") || this.container;
+    container.innerHTML = getVerifyEmailHTML(this.user?.email || '');
+
+    if (!this.isOpen && container === this.container) {
+      this.openContainer("verify-email");
+    }
+  }
+
+  showChangeEmailForm() {
+    const container = document.querySelector(".custom-alert") || this.container;
+    container.innerHTML = getChangeEmailHTML(this.user?.email || '');
+
+    if (!this.isOpen && container === this.container) {
+      this.openContainer("change-email");
+    }
+  }
+
+  async handleResendVerification() {
+    const btn = document.getElementById('resendVerification');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+
+    try {
+      await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+      const csrfToken = this.getCsrfTokenFromCookie();
+
+      const response = await fetch('/api/email/resend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        if (btn) { btn.textContent = 'Sent!'; }
+        setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; } }, 3000);
+      } else {
+        const data = await response.json();
+        if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; }
+        if (data.message === 'Email is already verified.') {
+          this.showUserProfile();
+        }
+      }
+    } catch (error) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; }
+    }
+  }
+
+  async handleChangeEmail() {
+    const emailInput = document.getElementById('newEmailInput');
+    const email = emailInput?.value?.trim();
+    const errorEl = document.getElementById('changeEmailError');
+    const btn = document.getElementById('changeEmailSubmit');
+
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    if (!email) {
+      if (errorEl) { errorEl.textContent = 'Email is required.'; errorEl.style.display = 'block'; }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating\u2026'; }
+
+    try {
+      await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+      const csrfToken = this.getCsrfTokenFromCookie();
+
+      const response = await fetch('/api/email/change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (data.user) {
+          this.user = data.user;
+          setCurrentUser(data.user);
+        }
+        this.showVerifyEmailScreen();
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = 'Update & Resend'; }
+        if (errorEl && data.errors?.email) {
+          errorEl.textContent = data.errors.email[0];
+          errorEl.style.display = 'block';
+        } else if (errorEl) {
+          errorEl.textContent = data.message || 'Failed to update email.';
+          errorEl.style.display = 'block';
+        }
+      }
+    } catch (error) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update & Resend'; }
+      if (errorEl) { errorEl.textContent = 'Network error. Please try again.'; errorEl.style.display = 'block'; }
+    }
+  }
+
   async handleForgotPassword() {
     const emailInput = document.getElementById('forgotEmail');
     const email = emailInput?.value?.trim();
@@ -221,7 +352,8 @@ export class UserContainerManager extends ContainerManager {
   }
 
   showUserProfile() {
-    this.container.innerHTML = getProfileHTML();
+    const emailVerified = this.user?.email_verified_at !== null && this.user?.email_verified_at !== undefined;
+    this.container.innerHTML = getProfileHTML(emailVerified);
 
     if (!this.isOpen) {
       this.openContainer("profile");
@@ -318,6 +450,9 @@ export class UserContainerManager extends ContainerManager {
 
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
+        } else if (data.email_verified === false) {
+          await clearAllCachedData();
+          this.showVerifyEmailScreen();
         } else {
           await clearAllCachedData();
           const pageType = document.body.getAttribute('data-page');
@@ -375,6 +510,9 @@ export class UserContainerManager extends ContainerManager {
 
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
+        } else if (data.email_verified === false) {
+          await clearAllCachedData();
+          this.showVerifyEmailScreen();
         } else {
           await clearAllCachedData();
           const pageType = document.body.getAttribute('data-page');
@@ -539,6 +677,8 @@ export class UserContainerManager extends ContainerManager {
       login: { width: "280px", height: "auto" },
       register: { width: "280px", height: "auto" },
       "forgot-password": { width: "280px", height: "auto" },
+      "verify-email": { width: "280px", height: "auto" },
+      "change-email": { width: "280px", height: "auto" },
       profile: { width: "160px", height: "auto" },
       "transfer-prompt": { width: "320px", height: "auto" },
     };

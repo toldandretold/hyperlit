@@ -221,6 +221,11 @@ Route::get('/reset-password/{token}', function (Request $request, $token) {
     ]);
 })->name('password.reset');
 
+// Email verification link (clicked from email)
+Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\AuthController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('verification.verify');
+
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
      ->where('book', '[A-Za-z0-9_-]+')

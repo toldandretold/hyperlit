@@ -60,6 +60,12 @@ Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])
     ->middleware('throttle:5,1');
 
+// Email verification routes
+Route::post('/email/resend', [AuthController::class, 'resendVerificationEmail'])
+    ->middleware(['auth:sanctum', 'throttle:5,1']);
+Route::post('/email/change', [AuthController::class, 'changeEmail'])
+    ->middleware(['auth:sanctum', 'throttle:5,1']);
+
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
 Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);
