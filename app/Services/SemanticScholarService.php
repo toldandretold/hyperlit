@@ -80,6 +80,36 @@ class SemanticScholarService
     }
 
     /**
+     * Search Semantic Scholar for multiple queries, respecting 1 req/s rate limit.
+     * Uses the existing rateGate() + retry logic from search() for each request sequentially.
+     * Still faster than the old approach because these only run for entries that survived
+     * earlier waves (typically a small subset).
+     *
+     * @param array $queries Keyed by referenceId: ['ref1' => ['title' => ..., 'author' => ...], ...]
+     * @return array Arrays of normalised results keyed by referenceId
+     */
+    public function searchBatch(array $queries, int $limit = 5): array
+    {
+        if (empty($queries)) {
+            return [];
+        }
+
+        $allResults = [];
+
+        foreach ($queries as $key => $query) {
+            $searchQuery = $query['title'];
+            if (!empty($query['author'])) {
+                $searchQuery .= ' ' . $query['author'];
+            }
+
+            // Reuse existing search() which has rateGate + 429 retry built in
+            $allResults[$key] = $this->search($searchQuery, null, $limit);
+        }
+
+        return $allResults;
+    }
+
+    /**
      * Enforce a minimum 1-second gap between API calls.
      */
     private function rateGate(): void

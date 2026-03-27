@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -72,6 +73,76 @@ class WebFetchService
         }
 
         return $text;
+    }
+
+    /**
+     * Fetch and validate multiple URLs concurrently using Http::pool.
+     * Fetches in chunks of 8 with 1s gap to avoid overwhelming publisher servers.
+     *
+     * @param array $items Keyed by referenceId: ['ref1' => ['url' => ..., 'title' => ...], ...]
+     * @return array Validated text keyed by referenceId (null for failures)
+     */
+    public function fetchAndValidateBatch(array $items): array
+    {
+        if (empty($items)) {
+            return [];
+        }
+
+        $results = [];
+        $keys = array_keys($items);
+        $chunks = array_chunk($keys, 8);
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            // Fetch chunk concurrently
+            $responses = Http::pool(function (Pool $pool) use ($items, $chunkKeys) {
+                foreach ($chunkKeys as $key) {
+                    $pool->as((string) $key)
+                        ->withHeaders(ContentFetchService::browserHeaders())
+                        ->timeout(15)
+                        ->get($items[$key]['url']);
+                }
+            });
+
+            // Process responses
+            foreach ($chunkKeys as $key) {
+                $item = $items[$key];
+                $response = $responses[(string) $key] ?? null;
+                if (!$response || !$response->successful()) {
+                    $results[$key] = null;
+                    continue;
+                }
+
+                $contentType = $response->header('Content-Type') ?? '';
+                if (str_contains($contentType, 'application/pdf')) {
+                    $results[$key] = null;
+                    continue;
+                }
+
+                $text = $this->extractTextFromHtml($response->body());
+                if (!$text || strlen($text) < 200) {
+                    $results[$key] = null;
+                    continue;
+                }
+
+                // LLM validate (sequential — typically few entries reach this wave)
+                if (!$this->llm->validateWebContent($text, $item['title'])) {
+                    Log::info('WebFetchService batch: LLM rejected content', [
+                        'url'   => $item['url'],
+                        'title' => $item['title'],
+                    ]);
+                    $results[$key] = null;
+                    continue;
+                }
+
+                $results[$key] = $text;
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                sleep(1);
+            }
+        }
+
+        return $results;
     }
 
     /**

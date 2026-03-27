@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -133,6 +134,128 @@ class OpenAlexService
         }
 
         return $this->normaliseWork($work);
+    }
+
+    /**
+     * Fetch multiple works by DOI concurrently using Http::pool.
+     * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
+     * Retries 429'd requests individually via retryableGet.
+     *
+     * @param array $dois Keyed by referenceId: ['ref1' => '10.xxx/yyy', ...]
+     * @return array Normalised works keyed by referenceId (null for failures)
+     */
+    public function fetchByDoiBatch(array $dois): array
+    {
+        if (empty($dois)) {
+            return [];
+        }
+
+        $allResults = [];
+        $keys = array_keys($dois);
+        $chunks = array_chunk($keys, 8);
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            $responses = Http::pool(function (Pool $pool) use ($dois, $chunkKeys) {
+                foreach ($chunkKeys as $key) {
+                    $pool->as((string) $key)
+                        ->withHeaders(['User-Agent' => self::USER_AGENT])
+                        ->timeout(15)
+                        ->get(self::BASE_URL . '/works/doi:' . $dois[$key], [
+                            'select' => self::SELECT_FIELDS,
+                        ]);
+                }
+            });
+
+            foreach ($chunkKeys as $key) {
+                $response = $responses[(string) $key] ?? null;
+
+                // Retry 429s individually with backoff
+                if ($response && $response->status() === 429) {
+                    Log::info('OpenAlex batch DOI 429, retrying individually', ['doi' => $dois[$key]]);
+                    $response = $this->retryableGet(self::BASE_URL . '/works/doi:' . $dois[$key], [
+                        'select' => self::SELECT_FIELDS,
+                    ]);
+                }
+
+                if ($response && $response->successful()) {
+                    $work = $response->json();
+                    $allResults[$key] = (!empty($work) && !empty($work['id']))
+                        ? $this->normaliseWork($work)
+                        : null;
+                } else {
+                    $allResults[$key] = null;
+                }
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                sleep(1);
+            }
+        }
+
+        return $allResults;
+    }
+
+    /**
+     * Search OpenAlex for multiple queries concurrently using Http::pool.
+     * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
+     * Retries 429'd requests individually via retryableGet.
+     *
+     * @param array $queries Keyed by referenceId: ['ref1' => 'search title', ...]
+     * @return array Arrays of normalised candidates keyed by referenceId
+     */
+    public function searchBatch(array $queries, int $limit = 5): array
+    {
+        if (empty($queries)) {
+            return [];
+        }
+
+        $allResults = [];
+        $keys = array_keys($queries);
+        $chunks = array_chunk($keys, 8);
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $limit) {
+                foreach ($chunkKeys as $key) {
+                    $pool->as((string) $key)
+                        ->withHeaders(['User-Agent' => self::USER_AGENT])
+                        ->timeout(15)
+                        ->get(self::BASE_URL . '/works', [
+                            'search'   => $queries[$key],
+                            'per_page' => $limit,
+                            'page'     => 1,
+                            'select'   => self::SELECT_FIELDS,
+                        ]);
+                }
+            });
+
+            foreach ($chunkKeys as $key) {
+                $response = $responses[(string) $key] ?? null;
+
+                // Retry 429s individually with backoff
+                if ($response && $response->status() === 429) {
+                    Log::info('OpenAlex batch search 429, retrying individually', ['query' => $queries[$key]]);
+                    $response = $this->retryableGet(self::BASE_URL . '/works', [
+                        'search'   => $queries[$key],
+                        'per_page' => $limit,
+                        'page'     => 1,
+                        'select'   => self::SELECT_FIELDS,
+                    ]);
+                }
+
+                if ($response && $response->successful()) {
+                    $works = $response->json('results') ?? [];
+                    $allResults[$key] = array_map(fn(array $work) => $this->normaliseWork($work), $works);
+                } else {
+                    $allResults[$key] = [];
+                }
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                sleep(1);
+            }
+        }
+
+        return $allResults;
     }
 
     /**

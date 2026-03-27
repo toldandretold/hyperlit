@@ -261,7 +261,7 @@ class CitationReviewService
     {
         $claims = [];
         $nodeCount = count($citationNodes);
-        $batchSize = 10;
+        $batchSize = 30;
         $chunks = array_chunk($citationNodes, $batchSize);
 
         foreach ($chunks as $chunkIndex => $chunk) {
@@ -492,7 +492,7 @@ class CitationReviewService
     private function verifyClaims(array &$claims, callable $progress): void
     {
         $total = count($claims);
-        $batchSize = 10;
+        $batchSize = 30;
 
         // Phase A: Batch all validateAbstract calls for non-web-source claims with abstracts
         $progress('verify', "Validating abstracts...");

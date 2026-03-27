@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -41,6 +42,67 @@ class OpenLibraryService
             Log::warning('Open Library API request failed: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Search Open Library for multiple queries concurrently using Http::pool.
+     * Processes in chunks of 10 with 1s gap to avoid overwhelming the API.
+     *
+     * @param array $queries Keyed by referenceId: ['ref1' => ['title' => ..., 'author' => ...], ...]
+     * @return array Arrays of normalised docs keyed by referenceId
+     */
+    public function searchBatch(array $queries, int $limit = 5): array
+    {
+        if (empty($queries)) {
+            return [];
+        }
+
+        $allResults = [];
+        $keys = array_keys($queries);
+        $chunks = array_chunk($keys, 10);
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            try {
+                $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $limit) {
+                    foreach ($chunkKeys as $key) {
+                        $query = $queries[$key];
+                        $params = [
+                            'title'  => $query['title'],
+                            'fields' => self::SEARCH_FIELDS,
+                            'limit'  => $limit,
+                        ];
+                        if (!empty($query['author'])) {
+                            $params['author'] = $query['author'];
+                        }
+
+                        $pool->as((string) $key)
+                            ->timeout(15)
+                            ->get(self::BASE_URL . '/search.json', $params);
+                    }
+                });
+
+                foreach ($chunkKeys as $key) {
+                    $response = $responses[(string) $key] ?? null;
+                    if ($response && $response->successful()) {
+                        $docs = $response->json('docs') ?? [];
+                        $allResults[$key] = array_map(fn(array $doc) => $this->normaliseDoc($doc), $docs);
+                    } else {
+                        $allResults[$key] = [];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Open Library batch request failed: ' . $e->getMessage());
+                foreach ($chunkKeys as $key) {
+                    $allResults[$key] = [];
+                }
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                sleep(1);
+            }
+        }
+
+        return $allResults;
     }
 
     /**

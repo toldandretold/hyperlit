@@ -180,7 +180,7 @@ class LlmService
             ];
         }
 
-        $batchSize = 10;
+        $batchSize = 30;
         $keys = array_keys($requests);
         $chunks = array_chunk($keys, $batchSize);
         $allResults = [];
@@ -568,7 +568,7 @@ Return ONLY valid JSON:
 - "likely": Topic is clearly related and the claim is consistent with the evidence, but not directly confirmed. Use when: passages discuss the right topic convincingly, abstract is in the right field, or strong topical alignment.
 - "plausible": Some topical overlap; the claim could be in this source but evidence is thin, partial, or tangential. Use when: paywalled content, very short passages, or only loosely related material.
 - "unlikely": Weak connection; the evidence barely relates to the claim, or the claim seems like a stretch given what's available.
-- "rejected": Evidence contradicts the claim OR is clearly about an unrelated topic.
+- "rejected": The source is about a genuinely unrelated topic and there is zero chance it supports the claim — even accounting for the fact that you may not have the full text and that academic works often cover diverse topics. "Contradiction" is NOT grounds for rejection: a passage may present competing views, quote opponents, or describe positions later rebutted. If there is any plausible connection between the source's topic and the claim, do NOT reject.
 
 - "cited_passages": Passage numbers that support the claim. Empty array [] if none.
 
@@ -584,20 +584,25 @@ PROMPT;
         return match ($evidenceType) {
             'abstract_and_passages', 'passages_only' =>
                 "EVIDENCE CONTEXT: The passages below were retrieved by full-text search of the source — " .
-                "they are the best matches available, but the search may not have found every relevant passage.\n\n" .
+                "they are the best matches available, but the search may not have found every relevant passage. " .
+                "These are EXCERPTS, not the complete work.\n\n" .
                 "Judge the claim against what the passages actually say. If a passage confirms the claim " .
                 "(even as part of a broader statement or through logical entailment), that is \"confirmed\". " .
                 "If passages discuss the right topic convincingly and the claim is consistent with what you see, " .
                 "that is \"likely\". If there is some topical overlap but evidence is thin, partial, or tangential " .
                 "(e.g. paywalled stub, very short passages), that is \"plausible\". If the connection is weak or " .
-                "the claim seems like a stretch, that is \"unlikely\". Only use \"rejected\" if the passages " .
-                "contradict the claim or are clearly about an unrelated topic.\n\n" .
+                "the claim seems like a stretch, that is \"unlikely\".\n\n" .
+                "REJECTION CRITERIA: Only use \"rejected\" if the source is about a genuinely unrelated topic " .
+                "and there is zero chance it supports the claim. Because these are excerpts, apparent " .
+                "\"contradiction\" is NOT grounds for rejection — a passage may present a competing view being " .
+                "discussed, quote an opponent, or describe a position the author later rebuts. You cannot " .
+                "distinguish the author's own position from positions they critique using fragments alone. " .
+                "If there is any plausible connection between the source's topic and the claim, do NOT reject.\n\n" .
                 "IMPORTANT: The source content may have been fetched from a web page. If the passages and/or " .
                 "abstract contain only bibliographic metadata (title, authors, ISBN, BibTeX, publisher info, " .
                 "citation formatting) rather than actual article/chapter text, treat this as ABSENT evidence — " .
                 "the source was not actually retrieved. In that case, use \"plausible\" if the work's title/topic " .
-                "is in the same field as the claim, NOT \"rejected\". Reserve \"rejected\" for cases where " .
-                "you have real substantive text that contradicts or is unrelated to the claim.\n\n" .
+                "is in the same field as the claim, NOT \"rejected\".\n\n" .
                 "IMPORTANT: The passages are EXCERPTS FROM the cited source itself. The source header above " .
                 "identifies the work. When a claim says \"Author (Year) argues/discusses/shows X\", your job " .
                 "is to check whether X appears in the passages — do NOT look for mentions of the author's name " .
@@ -616,9 +621,11 @@ PROMPT;
                 "- \"plausible\": This is the DEFAULT when the content is in the same field or about the same " .
                 "subject — the full page likely contains more detail that was not retrieved.\n" .
                 "- \"unlikely\": Weak connection; the content barely relates to the claim.\n" .
-                "- \"rejected\": ONLY if the content clearly contradicts the claim OR is about a completely " .
-                "unrelated topic. Do NOT reject just because the specific claim text is not found — the " .
-                "content may be truncated.\n\n" .
+                "- \"rejected\": ONLY if the source is about a genuinely unrelated topic and there is zero " .
+                "chance it supports the claim. Do NOT reject just because the specific claim text is not " .
+                "found — the content may be truncated. Apparent \"contradiction\" is NOT grounds for " .
+                "rejection — the content may present competing views, quote opponents, or describe positions " .
+                "that are later rebutted in the full document.\n\n" .
                 "IMPORTANT: If the content contains only bibliographic metadata (title, authors, ISBN, BibTeX, " .
                 "publisher info) rather than actual substantive text, treat this as ABSENT evidence — use " .
                 "\"plausible\" if the work's title/topic is in the same field as the claim.\n\n" .
@@ -636,8 +643,8 @@ PROMPT;
                 "DEFAULT for same-field works.\n" .
                 "- \"unlikely\": The title suggests a different area and the connection to the claim " .
                 "is not obvious.\n" .
-                "- \"rejected\": ONLY for clear cross-discipline mismatches (e.g. marine biology cited " .
-                "for fiscal policy). Same discipline = NOT \"rejected\" — use \"plausible\" at minimum.\n\n" .
+                "- \"rejected\": ONLY if the source is about a genuinely unrelated topic (e.g. marine biology " .
+                "cited for fiscal policy). Same discipline = NOT \"rejected\" — use \"plausible\" at minimum.\n\n" .
                 "When in doubt, default to \"plausible\".",
             default =>
                 "EVIDENCE CONTEXT: You only have the abstract of this work — NOT the full text.\n\n" .
@@ -649,14 +656,15 @@ PROMPT;
                 "If the abstract discusses the same topic convincingly and the claim is consistent, use \"likely\". " .
                 "If there is some topical overlap but it's thin, use \"plausible\". If the connection is weak, " .
                 "use \"unlikely\".\n\n" .
-                "Only use \"rejected\" if the abstract reveals the work is about a COMPLETELY DIFFERENT " .
-                "TOPIC that makes the citation look like a mismatch (e.g. a marine biology paper cited for " .
-                "fiscal policy). If the work is in the same broad field/topic area as the claim, default to " .
-                "\"likely\" — the claim could easily appear in the body text you cannot see.\n\n" .
+                "Only use \"rejected\" if the abstract reveals the work is about a genuinely unrelated topic " .
+                "and there is zero chance it supports the claim (e.g. a marine biology paper cited for " .
+                "fiscal policy). An abstract discussing a seemingly opposite position is NOT grounds for " .
+                "rejection — the work may critique that position, and the full text may well support the claim. " .
+                "If the work is in the same broad field/topic area as the claim, do NOT reject.\n\n" .
                 "CRITICAL: Same broad field = NOT \"rejected\". A book about African political economy should not be " .
-                "\"rejected\" for a claim about economic development in Africa. \"rejected\" is ONLY for clear field " .
-                "mismatches (marine biology cited for fiscal policy).\n\n" .
-                "Step 3: If the abstract IS about a clearly unrelated topic, flag it explicitly in your " .
+                "\"rejected\" for a claim about economic development in Africa. \"rejected\" is ONLY for genuinely " .
+                "unrelated topics where there is no plausible connection.\n\n" .
+                "Step 3: If the abstract IS about a genuinely unrelated topic, flag it explicitly in your " .
                 "summary — this likely means the source was incorrectly matched in the bibliography.",
         };
     }
