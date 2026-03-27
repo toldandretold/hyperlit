@@ -727,7 +727,7 @@ PROMPT;
     public function verifyCitation(string $truthClaim, string $sourceMaterial, string $evidenceType = 'abstract_only'): ?array
     {
         $evidenceContext = $this->buildEvidenceContext($evidenceType);
-        $userMessage = "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}\n\n{$evidenceContext}";
+        $userMessage = "{$evidenceContext}\n\nTRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}";
 
         $result = $this->chat(
             $this->verifyCitationSystemPrompt(),
@@ -749,7 +749,7 @@ PROMPT;
             $evidenceContext = $this->buildEvidenceContext($evidenceType);
             $requests[$key] = [
                 'system'      => $this->verifyCitationSystemPrompt(),
-                'user'        => "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}\n\n{$evidenceContext}",
+                'user'        => "{$evidenceContext}\n\nTRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}",
                 'model'       => $this->verificationModel,
                 'max_tokens'  => 4096,
                 'temperature' => 0.0,

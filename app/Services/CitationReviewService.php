@@ -449,11 +449,15 @@ class CitationReviewService
                 }
             }
 
-            $claim['source_passages'] = array_map(fn($p) => [
-                'node_id' => $p->node_id,
-                'text'    => mb_substr($p->plainText ?? '', 0, 1500),
-                'rank'    => round($p->rank, 4),
-            ], $passages);
+            $claim['source_passages'] = array_map(function($p) {
+                $text = $p->plainText ?? '';
+                $truncated = mb_strlen($text) > 1500;
+                return [
+                    'node_id' => $p->node_id,
+                    'text'    => mb_substr($text, 0, 1500) . ($truncated ? "\n[...TRUNCATED]" : ''),
+                    'rank'    => round($p->rank, 4),
+                ];
+            }, $passages);
         }
         unset($claim);
     }
@@ -582,10 +586,14 @@ class CitationReviewService
                 $sourceMaterial .= "SOURCE: " . implode(' — ', $sourceHeader) . "\n\n";
             }
             if ($hasAbstract) {
-                $sourceMaterial .= "ABSTRACT:\n{$claim['abstract']}\n\n";
+                $abstractLabel = $isWebSource
+                    ? "ABSTRACT (scraped from web — may be truncated)"
+                    : "ABSTRACT (summary only — does NOT represent the full text)";
+                $sourceMaterial .= "{$abstractLabel}:\n{$claim['abstract']}\n\n";
             }
             if ($hasPassages) {
-                $sourceMaterial .= "PASSAGES FROM SOURCE TEXT:\n";
+                $count = count($claim['source_passages']);
+                $sourceMaterial .= "PASSAGES FROM SOURCE TEXT ({$count} excerpts found by search — the source contains far more text than shown here):\n";
                 foreach ($claim['source_passages'] as $j => $p) {
                     $sourceMaterial .= "--- Passage " . ($j + 1) . " ---\n{$p['text']}\n\n";
                 }
