@@ -536,16 +536,28 @@ class CitationReviewService
                 $hasAbstract = $isWebSource || ($abstractResults[$i] ?? false);
             }
 
-            if ($hasPassages && $hasAbstract) {
+            if ($isWebSource) {
+                // Web sources get their own evidence tier — content may be truncated
+                if ($hasPassages) {
+                    $claim['evidence_type'] = 'web_and_passages';
+                } elseif ($hasAbstract) {
+                    $claim['evidence_type'] = 'web_only';
+                }
+                // else falls through to title_only/none below
+            } elseif ($hasPassages && $hasAbstract) {
                 $claim['evidence_type'] = 'abstract_and_passages';
             } elseif ($hasPassages) {
                 $claim['evidence_type'] = 'passages_only';
             } elseif ($hasAbstract) {
                 $claim['evidence_type'] = 'abstract_only';
-            } elseif (!empty($claim['source_title'])) {
-                $claim['evidence_type'] = 'title_only';
-            } else {
-                $claim['evidence_type'] = 'none';
+            }
+
+            if (!isset($claim['evidence_type'])) {
+                if (!empty($claim['source_title'])) {
+                    $claim['evidence_type'] = 'title_only';
+                } else {
+                    $claim['evidence_type'] = 'none';
+                }
             }
 
             // Short-circuit: no real evidence
@@ -780,12 +792,14 @@ class CitationReviewService
             $evidenceType = $verdict['evidence_type'] ?? null;
             if ($evidenceType) {
                 $evidenceLabel = match ($evidenceType) {
-                    'abstract_only'    => 'Abstract only',
-                    'abstract_passage' => 'Abstract + source passages',
-                    'passage_only'     => 'Source passages only',
-                    'title_only'       => 'Title only (no abstract or passages)',
-                    'none'             => 'No evidence',
-                    default            => $evidenceType,
+                    'abstract_only'     => 'Abstract only',
+                    'abstract_passage'  => 'Abstract + source passages',
+                    'passage_only'      => 'Source passages only',
+                    'web_and_passages'  => 'Web page content (partial) + passages',
+                    'web_only'          => 'Web page content (partial)',
+                    'title_only'        => 'Title only (no abstract or passages)',
+                    'none'              => 'No evidence',
+                    default             => $evidenceType,
                 };
                 $subBookContent[] = [
                     'type'      => 'p',
@@ -1107,11 +1121,12 @@ class CitationReviewService
         $refId = $claim['referenceId'];
         $verdict = $claim['llm_verdict'] ?? [];
 
-        $isWebSource = ($claim['source_type'] ?? null) === 'web_source';
         $evidenceLabel = match ($claim['evidence_type'] ?? 'none') {
-            'abstract_and_passages' => $isWebSource ? 'Web page content + passages' : 'Abstract + passages',
+            'abstract_and_passages' => 'Abstract + passages',
+            'web_and_passages'      => 'Web page content (partial) + passages',
             'passages_only'         => 'Passages only',
-            'abstract_only'         => $isWebSource ? 'Web page content' : 'Abstract only',
+            'abstract_only'         => 'Abstract only',
+            'web_only'              => 'Web page content (partial)',
             'title_only'            => 'Title only (no abstract or passages)',
             default                 => 'None',
         };

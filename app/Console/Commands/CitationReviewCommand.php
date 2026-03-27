@@ -206,7 +206,7 @@ class CitationReviewCommand extends Command
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
         // Send completion email to book creator
-        $creator = \App\Models\User::where('name', $book->creator)->first();
+        $creator = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
         if ($creator?->email) {
             $appUrl = config('app.url');
             \Illuminate\Support\Facades\Mail::send('emails.citation-review', [

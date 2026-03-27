@@ -537,6 +537,27 @@ PROMPT;
                 "within the passages, because authors do not cite themselves in their own text. A year mismatch " .
                 "between the claim and source metadata (e.g. 1991 vs 2021) may reflect republication or " .
                 "indexing differences — do not treat it as evidence of a wrong source.",
+            'web_and_passages', 'web_only' =>
+                "EVIDENCE CONTEXT: The content below was scraped from a web page — it may be TRUNCATED or " .
+                "INCOMPLETE. Web pages (especially legal judgments, reports, and long articles) are often " .
+                "thousands of paragraphs long, and only the first portion may have been retrieved.\n\n" .
+                "The full document could contain information not present in what was retrieved. Do NOT assume " .
+                "that because a specific claim is not found in this partial content, it does not appear in the " .
+                "full document.\n\n" .
+                "- \"confirmed\": ONLY if the evidence directly states or logically entails the claim.\n" .
+                "- \"likely\": The content discusses the right topic and the claim is consistent with what you see.\n" .
+                "- \"plausible\": This is the DEFAULT when the content is in the same field or about the same " .
+                "subject — the full page likely contains more detail that was not retrieved.\n" .
+                "- \"unlikely\": Weak connection; the content barely relates to the claim.\n" .
+                "- \"rejected\": ONLY if the content clearly contradicts the claim OR is about a completely " .
+                "unrelated topic. Do NOT reject just because the specific claim text is not found — the " .
+                "content may be truncated.\n\n" .
+                "IMPORTANT: If the content contains only bibliographic metadata (title, authors, ISBN, BibTeX, " .
+                "publisher info) rather than actual substantive text, treat this as ABSENT evidence — use " .
+                "\"plausible\" if the work's title/topic is in the same field as the claim.\n\n" .
+                "IMPORTANT: When a claim says \"Author (Year) argues/discusses/shows X\", check whether X " .
+                "appears in the content — do NOT look for mentions of the author's name within the text, " .
+                "because authors do not cite themselves in their own work.",
             'title_only' =>
                 "EVIDENCE CONTEXT: You only have the TITLE, author, and year of this work — no abstract, " .
                 "no passages, no full text.\n\n" .
