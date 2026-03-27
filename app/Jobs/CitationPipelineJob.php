@@ -15,7 +15,7 @@ class CitationPipelineJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 1800;
+    public int $timeout = 7200; // 2 hours — LLM calls are slow, batched 5 at a time
     public int $tries = 1;
 
     public function __construct(
