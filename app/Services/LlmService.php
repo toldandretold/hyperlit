@@ -161,6 +161,73 @@ class LlmService
     }
 
     /**
+     * Extract structured metadata from multiple citations concurrently.
+     * @param array $citations Array of citation HTML strings keyed by any key
+     * @return array Parsed metadata keyed same as input (null for failures)
+     */
+    public function extractCitationMetadataBatch(array $citations): array
+    {
+        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "..."}. Use null for any field you cannot determine. The year must be an integer or null. Authors must be an array of strings in "Lastname, Firstname" format.';
+
+        $requests = [];
+        foreach ($citations as $key => $html) {
+            $requests[$key] = [
+                'system'           => $systemPrompt,
+                'user'             => strip_tags($html),
+                'max_tokens'       => 200,
+                'temperature'      => 0.0,
+                'reasoning_effort' => 'none',
+            ];
+        }
+
+        $batchSize = 10;
+        $keys = array_keys($requests);
+        $chunks = array_chunk($keys, $batchSize);
+        $allResults = [];
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            $batchRequests = [];
+            foreach ($chunkKeys as $k) {
+                $batchRequests[$k] = $requests[$k];
+            }
+
+            $rawResponses = $this->chatBatch($batchRequests, 30);
+
+            foreach ($rawResponses as $k => $raw) {
+                if (!$raw) {
+                    $allResults[$k] = null;
+                    continue;
+                }
+
+                $raw = trim($raw);
+                $raw = preg_replace('/^```(?:json)?\s*/i', '', $raw);
+                $raw = preg_replace('/\s*```$/', '', $raw);
+
+                $parsed = json_decode($raw, true);
+                if (!is_array($parsed) || empty($parsed['title'])) {
+                    Log::warning('LLM batch metadata extraction: invalid JSON response', ['raw' => $raw]);
+                    $allResults[$k] = null;
+                    continue;
+                }
+
+                $allResults[$k] = [
+                    'title'     => is_string($parsed['title']) ? trim($parsed['title']) : null,
+                    'authors'   => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
+                    'year'      => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
+                    'journal'   => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
+                    'publisher' => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+                ];
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                usleep(250_000);
+            }
+        }
+
+        return $allResults;
+    }
+
+    /**
      * Extract the title of the cited work from a raw citation string using the LLM.
      */
     public function extractCitationTitle(string $citationHtml): ?string

@@ -261,7 +261,7 @@ class CitationReviewService
     {
         $claims = [];
         $nodeCount = count($citationNodes);
-        $batchSize = 5;
+        $batchSize = 10;
         $chunks = array_chunk($citationNodes, $batchSize);
 
         foreach ($chunks as $chunkIndex => $chunk) {
@@ -399,7 +399,7 @@ class CitationReviewService
 
             // Rate limit between batches
             if ($chunkIndex < count($chunks) - 1) {
-                sleep(1);
+                usleep(250_000);
             }
         }
 
@@ -492,7 +492,7 @@ class CitationReviewService
     private function verifyClaims(array &$claims, callable $progress): void
     {
         $total = count($claims);
-        $batchSize = 5;
+        $batchSize = 10;
 
         // Phase A: Batch all validateAbstract calls for non-web-source claims with abstracts
         $progress('verify', "Validating abstracts...");
@@ -519,7 +519,7 @@ class CitationReviewService
                 }
                 $processedCount += count($chunk);
                 if ($chunkIndex < count($abstractChunks) - 1) {
-                    sleep(1);
+                    usleep(250_000);
                 }
             }
         }
@@ -628,7 +628,7 @@ class CitationReviewService
                 }
 
                 if ($chunkIndex < count($verifyChunks) - 1) {
-                    sleep(1);
+                    usleep(250_000);
                 }
             }
         }
