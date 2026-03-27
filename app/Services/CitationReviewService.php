@@ -254,151 +254,153 @@ class CitationReviewService
     }
 
     /**
-     * Phase 3: Send each citation-bearing node to the LLM for truth claim extraction.
+     * Phase 3: Send citation-bearing nodes to the LLM for truth claim extraction.
+     * Processes nodes in concurrent batches of 5 for ~5x speedup.
      */
     private function extractTruthClaims(array $citationNodes, array $citationMeta, callable $progress): array
     {
         $claims = [];
         $nodeCount = count($citationNodes);
+        $batchSize = 5;
+        $chunks = array_chunk($citationNodes, $batchSize);
 
-        foreach ($citationNodes as $i => $node) {
-            $progress('extract', "Processing node " . ($i + 1) . "/{$nodeCount}...");
+        foreach ($chunks as $chunkIndex => $chunk) {
+            $offset = $chunkIndex * $batchSize;
+            $progress('extract', "Processing nodes " . ($offset + 1) . "-" . ($offset + count($chunk)) . " of {$nodeCount}...");
 
-            // Build citation context for this node's references
-            $context = [];
-            foreach ($node['reference_ids'] as $refId) {
-                if (isset($citationMeta[$refId])) {
-                    $context[$refId] = $citationMeta[$refId];
+            // Prepare batch items
+            $batchItems = [];
+            foreach ($chunk as $node) {
+                $context = [];
+                foreach ($node['reference_ids'] as $refId) {
+                    if (isset($citationMeta[$refId])) {
+                        $context[$refId] = $citationMeta[$refId];
+                    }
                 }
+                $markedText = $node['marked_text'];
+                if (mb_strlen($markedText) > 3000) {
+                    $markedText = mb_substr($markedText, 0, 3000) . '...';
+                }
+                $batchItems[] = [$markedText, $context, $node['preceding_context'] ?? ''];
             }
 
-            // Truncate very long text
-            $markedText = $node['marked_text'];
-            if (mb_strlen($markedText) > 3000) {
-                $markedText = mb_substr($markedText, 0, 3000) . '...';
-            }
+            // Send batch concurrently
+            $batchResults = $this->llm->extractTruthClaimsBatch($batchItems);
 
-            $extracted = $this->llm->extractTruthClaims($markedText, $context, $node['preceding_context'] ?? '');
+            // Process results
+            foreach ($chunk as $j => $node) {
+                $extracted = $batchResults[$j] ?? null;
 
-            if ($extracted === null) {
-                Log::warning("LLM truth claim extraction failed for node {$node['node_id']}");
-                continue;
-            }
-
-            foreach ($extracted as $claim) {
-                $refId = $claim['referenceId'] ?? null;
-                $truthClaim = $claim['truth_claim'] ?? null;
-
-                if (!$refId || !$truthClaim) {
+                if ($extracted === null) {
+                    Log::warning("LLM truth claim extraction failed for node {$node['node_id']}");
                     continue;
                 }
 
-                // Validate: referenceId must be one of this node's known citations
-                if (!in_array($refId, $node['reference_ids'])) {
-                    Log::warning("LLM hallucinated referenceId '{$refId}' not in node {$node['node_id']}");
-                    continue;
-                }
+                foreach ($extracted as $claim) {
+                    $refId = $claim['referenceId'] ?? null;
+                    $truthClaim = $claim['truth_claim'] ?? null;
 
-                // Strip [CITE:...] markers the LLM may have included despite instructions
-                $truthClaim = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $truthClaim);
-                $truthClaim = trim($truthClaim);
+                    if (!$refId || !$truthClaim) {
+                        continue;
+                    }
 
-                if (!$truthClaim) {
-                    continue;
-                }
+                    if (!in_array($refId, $node['reference_ids'])) {
+                        Log::warning("LLM hallucinated referenceId '{$refId}' not in node {$node['node_id']}");
+                        continue;
+                    }
 
-                // Validate verbatim: truth_claim must appear in the marked text
-                // Strip [CITE:...] from marked text too — the LLM was told to exclude them
-                $markedForMatch = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $node['marked_text']);
-                $normMarked = $this->normaliseQuotes($markedForMatch);
-                $normClaim  = $this->normaliseQuotes($truthClaim);
+                    $truthClaim = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $truthClaim);
+                    $truthClaim = trim($truthClaim);
 
-                // Tier 1: Normalised match (smart quotes, dashes, whitespace)
-                $verbatimMatch = mb_stripos($normMarked, $normClaim) !== false;
+                    if (!$truthClaim) {
+                        continue;
+                    }
 
-                // Tier 2: Strip ALL punctuation — catches remaining Unicode oddities
-                if (!$verbatimMatch) {
-                    $stripPunct = fn(string $s) => trim(preg_replace('/\s+/', ' ',
-                        preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($s))));
-                    $verbatimMatch = mb_strpos($stripPunct($normMarked), $stripPunct($normClaim)) !== false;
-                }
+                    $markedForMatch = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $node['marked_text']);
+                    $normMarked = $this->normaliseQuotes($markedForMatch);
+                    $normClaim  = $this->normaliseQuotes($truthClaim);
 
-                if (!$verbatimMatch) {
-                    Log::warning("Truth claim not found verbatim in node {$node['node_id']}", [
-                        'refId' => $refId,
-                        'claim' => mb_substr($truthClaim, 0, 200),
-                    ]);
-                    continue;
-                }
+                    $verbatimMatch = mb_stripos($normMarked, $normClaim) !== false;
 
-                // Compute charStart/charEnd from citation position in HTML
-                // (like frontend calculateCleanTextOffset — no fragile text search)
-                $plainText = $node['plainText'];
-                $citeCharPos = $node['citationPositions'][$refId] ?? null;
+                    if (!$verbatimMatch) {
+                        $stripPunct = fn(string $s) => trim(preg_replace('/\s+/', ' ',
+                            preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($s))));
+                        $verbatimMatch = mb_strpos($stripPunct($normMarked), $stripPunct($normClaim)) !== false;
+                    }
 
-                if ($citeCharPos !== null) {
-                    // Sentence start: search backward for '. ' or '? ' or '! '
-                    $before = mb_substr($plainText, 0, $citeCharPos);
-                    if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
-                        $charStart = mb_strlen($m[0]);
+                    if (!$verbatimMatch) {
+                        Log::warning("Truth claim not found verbatim in node {$node['node_id']}", [
+                            'refId' => $refId,
+                            'claim' => mb_substr($truthClaim, 0, 200),
+                        ]);
+                        continue;
+                    }
+
+                    $plainText = $node['plainText'];
+                    $citeCharPos = $node['citationPositions'][$refId] ?? null;
+
+                    if ($citeCharPos !== null) {
+                        $before = mb_substr($plainText, 0, $citeCharPos);
+                        if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
+                            $charStart = mb_strlen($m[0]);
+                        } else {
+                            $charStart = 0;
+                        }
+                        $after = mb_substr($plainText, $citeCharPos);
+                        if (preg_match('/^.*?[.!?](?:\s|$)/su', $after, $m)) {
+                            $charEnd = $citeCharPos + mb_strlen($m[0]);
+                        } else {
+                            $charEnd = mb_strlen($plainText);
+                        }
                     } else {
-                        $charStart = 0;
+                        $charStart = mb_strpos($plainText, $truthClaim);
+                        if ($charStart === false) {
+                            $normPlain = $this->normaliseQuotes($plainText);
+                            $normTruth = $this->normaliseQuotes($truthClaim);
+                            $charStart = mb_strpos($normPlain, $normTruth);
+                        }
+                        $charEnd = ($charStart !== false) ? $charStart + mb_strlen($truthClaim) : null;
+                        if ($charStart === false) {
+                            $charStart = null;
+                        }
                     }
-                    // Sentence end: search forward from citation position
-                    $after = mb_substr($plainText, $citeCharPos);
-                    if (preg_match('/^.*?[.!?](?:\s|$)/su', $after, $m)) {
-                        $charEnd = $citeCharPos + mb_strlen($m[0]);
-                    } else {
-                        $charEnd = mb_strlen($plainText);
-                    }
-                } else {
-                    // Fallback: existing text search (kept as safety net)
-                    $charStart = mb_strpos($plainText, $truthClaim);
-                    if ($charStart === false) {
-                        $normPlain = $this->normaliseQuotes($plainText);
-                        $normTruth = $this->normaliseQuotes($truthClaim);
-                        $charStart = mb_strpos($normPlain, $normTruth);
-                    }
-                    $charEnd = ($charStart !== false) ? $charStart + mb_strlen($truthClaim) : null;
-                    if ($charStart === false) {
-                        $charStart = null;
-                    }
+
+                    $highlightId = 'HL_' . abs(crc32($node['node_id'] . $refId));
+
+                    $meta = $citationMeta[$refId] ?? [];
+
+                    $claims[] = [
+                        'node_id'              => $node['node_id'],
+                        'referenceId'          => $refId,
+                        'truth_claim'          => $truthClaim,
+                        'contextualised_claim' => $claim['contextualised_claim'] ?? $truthClaim,
+                        'verified_source'      => $meta['verified'] ?? false,
+                        'source_book_id'       => $meta['source_book_id'] ?? null,
+                        'source_title'         => $meta['title'] ?? null,
+                        'source_author'        => $meta['author'] ?? null,
+                        'source_year'          => $meta['year'] ?? null,
+                        'has_source_content'   => $meta['has_source_content'] ?? false,
+                        'abstract'             => $meta['abstract'] ?? null,
+                        'bib_citation'         => $meta['bib_citation'] ?? null,
+                        'source_type'          => $meta['source_type'] ?? null,
+                        'source_url'           => $meta['url'] ?? null,
+                        'source_doi'           => $meta['doi'] ?? null,
+                        'source_oa_url'        => $meta['oa_url'] ?? null,
+                        'source_passages'      => [],
+                        'llm_verdict'          => null,
+                        'evidence_type'        => 'none',
+                        'source_material_sent' => null,
+                        'charStart'            => $charStart,
+                        'charEnd'              => $charEnd,
+                        'highlightId'          => $highlightId,
+                    ];
                 }
-
-                // Deterministic highlight ID — HL_ prefix required by frontend routing
-                // Use crc32 for a compact numeric hash from node+ref
-                $highlightId = 'HL_' . abs(crc32($node['node_id'] . $refId));
-
-                $meta = $citationMeta[$refId] ?? [];
-
-                $claims[] = [
-                    'node_id'              => $node['node_id'],
-                    'referenceId'          => $refId,
-                    'truth_claim'          => $truthClaim,
-                    'contextualised_claim' => $claim['contextualised_claim'] ?? $truthClaim,
-                    'verified_source'      => $meta['verified'] ?? false,
-                    'source_book_id'       => $meta['source_book_id'] ?? null,
-                    'source_title'         => $meta['title'] ?? null,
-                    'source_author'        => $meta['author'] ?? null,
-                    'source_year'          => $meta['year'] ?? null,
-                    'has_source_content'   => $meta['has_source_content'] ?? false,
-                    'abstract'             => $meta['abstract'] ?? null,
-                    'bib_citation'         => $meta['bib_citation'] ?? null,
-                    'source_type'          => $meta['source_type'] ?? null,
-                    'source_url'           => $meta['url'] ?? null,
-                    'source_doi'           => $meta['doi'] ?? null,
-                    'source_oa_url'        => $meta['oa_url'] ?? null,
-                    'source_passages'      => [],
-                    'llm_verdict'          => null,
-                    'evidence_type'        => 'none',
-                    'source_material_sent' => null,
-                    'charStart'            => $charStart,
-                    'charEnd'              => $charEnd,
-                    'highlightId'          => $highlightId,
-                ];
             }
 
-            sleep(1);
+            // Rate limit between batches
+            if ($chunkIndex < count($chunks) - 1) {
+                sleep(1);
+            }
         }
 
         return $claims;
@@ -484,21 +486,55 @@ class CitationReviewService
     }
 
     /**
-     * Phase 5: Send each claim + source material to the advanced LLM for verification.
+     * Phase 5: Verify claims against source material using concurrent LLM batches.
+     * Two-phase approach: batch validateAbstract first, then batch verifyCitation.
      */
     private function verifyClaims(array &$claims, callable $progress): void
     {
         $total = count($claims);
+        $batchSize = 5;
+
+        // Phase A: Batch all validateAbstract calls for non-web-source claims with abstracts
+        $progress('verify', "Validating abstracts...");
+        $abstractItems = [];
+        $abstractKeyMap = [];
+
+        foreach ($claims as $i => $claim) {
+            $isWebSource = ($claim['source_type'] ?? null) === 'web_source';
+            if (!empty($claim['abstract']) && !$isWebSource) {
+                $abstractKeyMap[] = $i;
+                $abstractItems[] = [$claim['abstract'], $claim['source_title'] ?? ''];
+            }
+        }
+
+        $abstractResults = [];
+        if (!empty($abstractItems)) {
+            $abstractChunks = array_chunk($abstractItems, $batchSize);
+            $processedCount = 0;
+            foreach ($abstractChunks as $chunkIndex => $chunk) {
+                $batchResults = $this->llm->validateAbstractBatch($chunk);
+                foreach ($batchResults as $j => $result) {
+                    $claimIndex = $abstractKeyMap[$processedCount + $j];
+                    $abstractResults[$claimIndex] = $result;
+                }
+                $processedCount += count($chunk);
+                if ($chunkIndex < count($abstractChunks) - 1) {
+                    sleep(1);
+                }
+            }
+        }
+
+        // Determine evidence types and build source material for all claims
+        $verifyItems = [];
+        $verifyKeyMap = [];
 
         foreach ($claims as $i => &$claim) {
-            $progress('verify', "Verifying claim " . ($i + 1) . "/{$total}...");
-
-            // Determine evidence type — validate abstract isn't junk
-            // Web sources have pre-extracted content as abstract; skip LLM validation for them
             $hasPassages = !empty($claim['source_passages']);
             $isWebSource = ($claim['source_type'] ?? null) === 'web_source';
-            $hasAbstract = !empty($claim['abstract'])
-                && ($isWebSource || $this->llm->validateAbstract($claim['abstract'], $claim['source_title'] ?? ''));
+            $hasAbstract = false;
+            if (!empty($claim['abstract'])) {
+                $hasAbstract = $isWebSource || ($abstractResults[$i] ?? false);
+            }
 
             if ($hasPassages && $hasAbstract) {
                 $claim['evidence_type'] = 'abstract_and_passages';
@@ -512,7 +548,7 @@ class CitationReviewService
                 $claim['evidence_type'] = 'none';
             }
 
-            // Short-circuit: no real evidence — don't send to LLM
+            // Short-circuit: no real evidence
             if ($claim['evidence_type'] === 'none') {
                 $claim['source_material_sent'] = null;
                 $claim['llm_verdict'] = [
@@ -523,7 +559,7 @@ class CitationReviewService
                 continue;
             }
 
-            // Assemble source material
+            // Build source material
             $sourceMaterial = '';
             $sourceHeader = array_filter([
                 $claim['source_title'] ?? null,
@@ -545,25 +581,45 @@ class CitationReviewService
 
             $claim['source_material_sent'] = trim($sourceMaterial) ?: null;
 
-            $verdict = $this->llm->verifyCitation(
+            $verifyKeyMap[] = $i;
+            $verifyItems[] = [
                 $claim['contextualised_claim'] ?? $claim['truth_claim'],
                 $sourceMaterial,
-                $claim['evidence_type']
-            );
-
-            if ($verdict === null) {
-                $claim['llm_verdict'] = [
-                    'support'   => 'insufficient',
-                    'summary'   => 'LLM verification failed',
-                    'reasoning' => 'The verification model did not return a valid response.',
-                ];
-            } else {
-                $claim['llm_verdict'] = $verdict;
-            }
-
-            sleep(1);
+                $claim['evidence_type'],
+            ];
         }
         unset($claim);
+
+        // Phase B: Batch all verifyCitation calls
+        if (!empty($verifyItems)) {
+            $verifyChunks = array_chunk($verifyItems, $batchSize);
+            $verifyKeyChunks = array_chunk($verifyKeyMap, $batchSize);
+
+            foreach ($verifyChunks as $chunkIndex => $chunk) {
+                $chunkStart = $chunkIndex * $batchSize;
+                $progress('verify', "Verifying claims " . ($chunkStart + 1) . "-" . ($chunkStart + count($chunk)) . " of " . count($verifyItems) . "...");
+
+                $batchResults = $this->llm->verifyCitationBatch($chunk);
+
+                foreach ($batchResults as $j => $verdict) {
+                    $claimIndex = $verifyKeyChunks[$chunkIndex][$j];
+
+                    if ($verdict === null) {
+                        $claims[$claimIndex]['llm_verdict'] = [
+                            'support'   => 'insufficient',
+                            'summary'   => 'LLM verification failed',
+                            'reasoning' => 'The verification model did not return a valid response.',
+                        ];
+                    } else {
+                        $claims[$claimIndex]['llm_verdict'] = $verdict;
+                    }
+                }
+
+                if ($chunkIndex < count($verifyChunks) - 1) {
+                    sleep(1);
+                }
+            }
+        }
     }
 
     /**

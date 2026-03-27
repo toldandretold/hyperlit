@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -63,6 +64,64 @@ class LlmService
     }
 
     /**
+     * Send multiple chat completion requests concurrently using HTTP pool.
+     * Each request: [system, user, model?, temperature?, max_tokens?, reasoning_effort?]
+     * Returns array keyed same as input with raw response strings (null for failures).
+     */
+    public function chatBatch(array $requests, int $timeout = 30): array
+    {
+        if (!$this->apiKey || !$this->baseUrl) {
+            return array_fill_keys(array_keys($requests), null);
+        }
+
+        try {
+            $url = $this->baseUrl . '/chat/completions';
+            $apiKey = $this->apiKey;
+            $defaultModel = $this->model;
+
+            $responses = Http::pool(function (Pool $pool) use ($requests, $timeout, $url, $apiKey, $defaultModel) {
+                foreach ($requests as $key => $req) {
+                    $body = [
+                        'model'       => $req['model'] ?? $defaultModel,
+                        'temperature' => $req['temperature'] ?? 0.0,
+                        'max_tokens'  => $req['max_tokens'] ?? 200,
+                        'messages'    => [
+                            ['role' => 'system', 'content' => $req['system']],
+                            ['role' => 'user',   'content' => $req['user']],
+                        ],
+                    ];
+                    if (array_key_exists('reasoning_effort', $req)) {
+                        $body['reasoning_effort'] = $req['reasoning_effort'];
+                    }
+
+                    $pool->as((string) $key)
+                        ->withHeaders(['Authorization' => 'Bearer ' . $apiKey])
+                        ->timeout($timeout)
+                        ->post($url, $body);
+                }
+            });
+
+            $results = [];
+            foreach ($requests as $key => $_) {
+                $response = $responses[(string) $key] ?? null;
+                if ($response && $response->successful()) {
+                    $results[$key] = $response->json('choices.0.message.content');
+                } else {
+                    if ($response) {
+                        Log::warning('LLM batch: request ' . $key . ' returned ' . $response->status());
+                    }
+                    $results[$key] = null;
+                }
+            }
+
+            return $results;
+        } catch (\Exception $e) {
+            Log::warning('LLM batch request failed: ' . $e->getMessage());
+            return array_fill_keys(array_keys($requests), null);
+        }
+    }
+
+    /**
      * Extract structured metadata from a citation using the LLM.
      * Returns associative array with: title, authors, year, journal, publisher — or null on failure.
      */
@@ -116,12 +175,11 @@ class LlmService
     }
 
     /**
-     * Extract truth claims from a paragraph with [CITE:refId] markers.
-     * Returns array of {referenceId, truth_claim} or null on failure.
+     * System prompt for truth claim extraction.
      */
-    public function extractTruthClaims(string $markedText, array $citationContext, string $precedingContext = ''): ?array
+    private function extractClaimsSystemPrompt(): string
     {
-        $systemPrompt = <<<'PROMPT'
+        return <<<'PROMPT'
 You are an academic citation analyst. The text contains inline citations as [CITE:refId] markers.
 
 For each [CITE:refId], extract the sentence it appears in and identify what factual claim the citation supports.
@@ -154,24 +212,34 @@ RULES:
 
 IMPORTANT: Keep your reasoning brief. Budget most of your output tokens for the JSON response, not thinking.
 PROMPT;
+    }
 
-        $userMessage = '';
+    /**
+     * Build user message for truth claim extraction.
+     */
+    private function buildExtractClaimsMessage(string $markedText, array $citationContext, string $precedingContext = ''): string
+    {
+        $msg = '';
         if ($precedingContext !== '') {
-            $userMessage .= "PRECEDING CONTEXT:\n{$precedingContext}\n\n";
+            $msg .= "PRECEDING CONTEXT:\n{$precedingContext}\n\n";
         }
-        $userMessage .= "TEXT:\n{$markedText}\n\nCITATION SOURCES:\n";
+        $msg .= "TEXT:\n{$markedText}\n\nCITATION SOURCES:\n";
         foreach ($citationContext as $refId => $meta) {
             $title = $meta['title'] ?? 'Unknown';
-            $userMessage .= "- [CITE:{$refId}]: \"{$title}\"\n";
+            $msg .= "- [CITE:{$refId}]: \"{$title}\"\n";
         }
+        return $msg;
+    }
 
-        $result = $this->chat($systemPrompt, $userMessage, 0.0, 4096, $this->verificationModel, 120, reasoningEffort: null);
-
+    /**
+     * Parse raw LLM response for truth claim extraction.
+     */
+    private function parseExtractClaimsResult(?string $result): ?array
+    {
         if (!$result) {
             return null;
         }
 
-        // Strip <think>...</think> reasoning tags (from reasoning models like QwQ)
         $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
         if (str_contains($result, '<think>')) {
             $result = preg_replace('/<think>[\s\S]*/i', '', $result);
@@ -184,10 +252,9 @@ PROMPT;
         $parsed = json_decode($result, true);
 
         // LLM sometimes returns multiple JSON arrays instead of one: [{...}]\n[{...}]
-        // Merge them into a single array
         if (!is_array($parsed)) {
             $merged = [];
-            foreach (preg_split('/\]\s*\[/', $result) as $i => $fragment) {
+            foreach (preg_split('/\]\s*\[/', $result) as $fragment) {
                 $fragment = '[' . ltrim($fragment, '[');
                 $fragment = rtrim($fragment, ']') . ']';
                 $sub = json_decode($fragment, true);
@@ -204,6 +271,47 @@ PROMPT;
         }
 
         return $parsed;
+    }
+
+    /**
+     * Extract truth claims from a paragraph with [CITE:refId] markers.
+     * Returns array of {referenceId, truth_claim} or null on failure.
+     */
+    public function extractTruthClaims(string $markedText, array $citationContext, string $precedingContext = ''): ?array
+    {
+        $result = $this->chat(
+            $this->extractClaimsSystemPrompt(),
+            $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext),
+            0.0, 4096, $this->verificationModel, 120, reasoningEffort: null
+        );
+        return $this->parseExtractClaimsResult($result);
+    }
+
+    /**
+     * Extract truth claims for multiple nodes concurrently.
+     * @param array $items Array of [markedText, citationContext, precedingContext]
+     * @return array Parsed results keyed same as input (null for failures)
+     */
+    public function extractTruthClaimsBatch(array $items): array
+    {
+        $requests = [];
+        foreach ($items as $key => [$markedText, $citationContext, $precedingContext]) {
+            $requests[$key] = [
+                'system'      => $this->extractClaimsSystemPrompt(),
+                'user'        => $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext),
+                'model'       => $this->verificationModel,
+                'max_tokens'  => 4096,
+                'temperature' => 0.0,
+            ];
+        }
+
+        $rawResponses = $this->chatBatch($requests, 120);
+
+        $results = [];
+        foreach ($rawResponses as $key => $raw) {
+            $results[$key] = $this->parseExtractClaimsResult($raw);
+        }
+        return $results;
     }
 
     /**
@@ -280,6 +388,62 @@ PROMPT;
     }
 
     /**
+     * Validate multiple abstracts concurrently.
+     * @param array $items Array of [text, title]
+     * @return array Boolean results keyed same as input
+     */
+    public function validateAbstractBatch(array $items): array
+    {
+        $systemPrompt = <<<'PROMPT'
+Does this text look like a real academic abstract or description for the given work?
+Return ONLY valid JSON: {"is_abstract": true}
+Return {"is_abstract": false} if it is: a paywall message, access instructions, citation metadata,
+a database listing, HTML fragments, or otherwise not a genuine summary of the work's content.
+PROMPT;
+
+        $requests = [];
+        $shortCircuit = [];
+
+        foreach ($items as $key => [$text, $title]) {
+            if (strlen($text) < 30 || !$title) {
+                $shortCircuit[$key] = false;
+            } else {
+                $requests[$key] = [
+                    'system'           => $systemPrompt,
+                    'user'             => "TITLE: {$title}\n\nTEXT:\n{$text}",
+                    'max_tokens'       => 50,
+                    'temperature'      => 0.0,
+                    'reasoning_effort' => 'none',
+                ];
+            }
+        }
+
+        $rawResponses = !empty($requests) ? $this->chatBatch($requests, 30) : [];
+
+        $results = [];
+        foreach ($items as $key => $_) {
+            if (isset($shortCircuit[$key])) {
+                $results[$key] = false;
+                continue;
+            }
+
+            $raw = $rawResponses[$key] ?? null;
+            if (!$raw) {
+                $results[$key] = false;
+                continue;
+            }
+
+            $raw = trim($raw);
+            $raw = preg_replace('/^```(?:json)?\s*/i', '', $raw);
+            $raw = preg_replace('/\s*```$/', '', $raw);
+            $parsed = json_decode($raw, true);
+            $results[$key] = is_array($parsed) && !empty($parsed['is_abstract']);
+        }
+
+        return $results;
+    }
+
+    /**
      * Screen fetched web content for relevance to a cited work's title.
      * Returns true if content is substantive and related, false for junk pages.
      */
@@ -314,12 +478,11 @@ PROMPT;
     }
 
     /**
-     * Verify whether source material supports a truth claim.
-     * Returns {support, summary, reasoning} or null on failure.
+     * System prompt for citation verification.
      */
-    public function verifyCitation(string $truthClaim, string $sourceMaterial, string $evidenceType = 'abstract_only'): ?array
+    private function verifyCitationSystemPrompt(): string
     {
-        $systemPrompt = <<<'PROMPT'
+        return <<<'PROMPT'
 You are verifying an academic citation. Does the source material support the truth claim?
 
 Be accurate — I want truth, not caution. Read the evidence carefully before judging.
@@ -344,9 +507,14 @@ Return ONLY valid JSON:
 
 IMPORTANT: Keep your reasoning brief (under 200 words in your thinking). Budget most of your output tokens for the JSON response.
 PROMPT;
+    }
 
-        // Build evidence context based on what kind of evidence we're working with
-        $evidenceContext = match ($evidenceType) {
+    /**
+     * Build evidence context instructions based on evidence type.
+     */
+    private function buildEvidenceContext(string $evidenceType): string
+    {
+        return match ($evidenceType) {
             'abstract_and_passages', 'passages_only' =>
                 "EVIDENCE CONTEXT: The passages below were retrieved by full-text search of the source — " .
                 "they are the best matches available, but the search may not have found every relevant passage.\n\n" .
@@ -403,11 +571,13 @@ PROMPT;
                 "Step 3: If the abstract IS about a clearly unrelated topic, flag it explicitly in your " .
                 "summary — this likely means the source was incorrectly matched in the bibliography.",
         };
+    }
 
-        $userMessage = "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}\n\n{$evidenceContext}";
-
-        $result = $this->chat($systemPrompt, $userMessage, 0.0, 4096, $this->verificationModel, 120, reasoningEffort: null);
-
+    /**
+     * Parse raw LLM response for citation verification.
+     */
+    private function parseVerifyCitationResult(?string $result): ?array
+    {
         if (!$result) {
             return null;
         }
@@ -452,5 +622,50 @@ PROMPT;
         $parsed['thinking'] = $thinking;
 
         return $parsed;
+    }
+
+    /**
+     * Verify whether source material supports a truth claim.
+     * Returns {support, summary, reasoning} or null on failure.
+     */
+    public function verifyCitation(string $truthClaim, string $sourceMaterial, string $evidenceType = 'abstract_only'): ?array
+    {
+        $evidenceContext = $this->buildEvidenceContext($evidenceType);
+        $userMessage = "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}\n\n{$evidenceContext}";
+
+        $result = $this->chat(
+            $this->verifyCitationSystemPrompt(),
+            $userMessage,
+            0.0, 4096, $this->verificationModel, 120, reasoningEffort: null
+        );
+        return $this->parseVerifyCitationResult($result);
+    }
+
+    /**
+     * Verify multiple citations concurrently.
+     * @param array $items Array of [truthClaim, sourceMaterial, evidenceType]
+     * @return array Parsed results keyed same as input (null for failures)
+     */
+    public function verifyCitationBatch(array $items): array
+    {
+        $requests = [];
+        foreach ($items as $key => [$truthClaim, $sourceMaterial, $evidenceType]) {
+            $evidenceContext = $this->buildEvidenceContext($evidenceType);
+            $requests[$key] = [
+                'system'      => $this->verifyCitationSystemPrompt(),
+                'user'        => "TRUTH CLAIM: {$truthClaim}\n\nSOURCE MATERIAL:\n{$sourceMaterial}\n\n{$evidenceContext}",
+                'model'       => $this->verificationModel,
+                'max_tokens'  => 4096,
+                'temperature' => 0.0,
+            ];
+        }
+
+        $rawResponses = $this->chatBatch($requests, 120);
+
+        $results = [];
+        foreach ($rawResponses as $key => $raw) {
+            $results[$key] = $this->parseVerifyCitationResult($raw);
+        }
+        return $results;
     }
 }
