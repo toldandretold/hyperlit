@@ -85,8 +85,34 @@ class CitationScanBibliographyJob implements ShouldQueue
                 $entries = $refetchQuery->get();
             }
 
+            // Pre-extract LLM metadata for all entries in concurrent batches
+            $preExtractedMetadata = [];
+            if (config('services.llm.api_key')) {
+                $llm = app(LlmService::class);
+                $batchSize = 5;
+                $metadataItems = [];
+                foreach ($entries as $entry) {
+                    $metadataItems[$entry->referenceId] = $entry->content ?? '';
+                }
+
+                foreach (array_chunk($metadataItems, $batchSize, true) as $chunk) {
+                    $batchResults = $llm->extractCitationMetadataBatch($chunk);
+                    foreach ($batchResults as $refId => $meta) {
+                        $preExtractedMetadata[$refId] = $meta;
+                        if ($meta) {
+                            Log::debug('LLM metadata extraction', [
+                                'referenceId' => $refId,
+                                'llmMetadata' => $meta,
+                            ]);
+                        }
+                    }
+                    sleep(1);
+                }
+                Log::info('Pre-extracted LLM metadata', ['count' => count(array_filter($preExtractedMetadata))]);
+            }
+
             foreach ($entries as $entry) {
-                $result = $this->processEntry($entry, $openAlex, $db);
+                $result = $this->processEntry($entry, $openAlex, $db, $preExtractedMetadata);
                 $results[] = $result;
 
                 match ($result['status']) {
@@ -144,7 +170,7 @@ class CitationScanBibliographyJob implements ShouldQueue
         }
     }
 
-    private function processEntry(object $entry, OpenAlexService $openAlex, $db): array
+    private function processEntry(object $entry, OpenAlexService $openAlex, $db, array $preExtractedMetadata = []): array
     {
         $referenceId = $entry->referenceId;
         $content     = $entry->content ?? '';
@@ -152,9 +178,9 @@ class CitationScanBibliographyJob implements ShouldQueue
 
         try {
             if ($sourceId === null) {
-                return $this->processUnlinkedEntry($entry, $openAlex, $db);
+                return $this->processUnlinkedEntry($entry, $openAlex, $db, $preExtractedMetadata);
             } else {
-                return $this->processLinkedEntry($entry, $openAlex, $db);
+                return $this->processLinkedEntry($entry, $openAlex, $db, $preExtractedMetadata);
             }
         } catch (\Exception $e) {
             Log::warning('Citation scan entry error', [
@@ -184,7 +210,7 @@ class CitationScanBibliographyJob implements ShouldQueue
      *   7. Brave Search → fetch top results
      *   8. Give up
      */
-    private function processUnlinkedEntry(object $entry, OpenAlexService $openAlex, $db): array
+    private function processUnlinkedEntry(object $entry, OpenAlexService $openAlex, $db, array $preExtractedMetadata = []): array
     {
         $referenceId = $entry->referenceId;
         $content     = $entry->content ?? '';
@@ -199,12 +225,13 @@ class CitationScanBibliographyJob implements ShouldQueue
         // --- Step 0: Extract DOI + LLM metadata upfront ---
         $doi = $openAlex->extractDoi($content);
 
-        $llmMetadata = null;
-        if (config('services.llm.api_key')) {
+        // Use pre-extracted metadata from batch, fall back to single call
+        $llmMetadata = $preExtractedMetadata[$referenceId] ?? null;
+        if ($llmMetadata === null && config('services.llm.api_key') && !array_key_exists($referenceId, $preExtractedMetadata)) {
             $llm = app(LlmService::class);
             $llmMetadata = $llm->extractCitationMetadata($content);
 
-            Log::debug('LLM metadata extraction', [
+            Log::debug('LLM metadata extraction (fallback)', [
                 'referenceId' => $referenceId,
                 'llmMetadata' => $llmMetadata,
             ]);
@@ -531,7 +558,7 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Uses LLM metadata + same resolution chain: DOI → OpenAlex → Open Library.
      * Skips library table search (entry already has a source_id link).
      */
-    private function processLinkedEntry(object $entry, OpenAlexService $openAlex, $db): array
+    private function processLinkedEntry(object $entry, OpenAlexService $openAlex, $db, array $preExtractedMetadata = []): array
     {
         $referenceId = $entry->referenceId;
         $content     = $entry->content ?? '';
@@ -555,8 +582,9 @@ class CitationScanBibliographyJob implements ShouldQueue
         // --- Extract DOI + LLM metadata ---
         $doi = $openAlex->extractDoi($content);
 
-        $llmMetadata = null;
-        if (config('services.llm.api_key')) {
+        // Use pre-extracted metadata from batch, fall back to single call
+        $llmMetadata = $preExtractedMetadata[$referenceId] ?? null;
+        if ($llmMetadata === null && config('services.llm.api_key') && !array_key_exists($referenceId, $preExtractedMetadata)) {
             $llm = app(LlmService::class);
             $llmMetadata = $llm->extractCitationMetadata($content);
         }

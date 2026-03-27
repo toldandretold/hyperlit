@@ -161,6 +161,57 @@ class LlmService
     }
 
     /**
+     * Extract citation metadata for multiple entries concurrently.
+     * @param array $items Array of citation HTML strings keyed by any key
+     * @return array Parsed metadata keyed same as input (null for failures)
+     */
+    public function extractCitationMetadataBatch(array $items): array
+    {
+        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "..."}. Use null for any field you cannot determine. The year must be an integer or null. Authors must be an array of strings in "Lastname, Firstname" format.';
+
+        $requests = [];
+        foreach ($items as $key => $citationHtml) {
+            $requests[$key] = [
+                'system'           => $systemPrompt,
+                'user'             => strip_tags($citationHtml),
+                'max_tokens'       => 200,
+                'temperature'      => 0.0,
+                'reasoning_effort' => 'none',
+            ];
+        }
+
+        $rawResponses = $this->chatBatch($requests, 30);
+
+        $results = [];
+        foreach ($rawResponses as $key => $result) {
+            if (!$result) {
+                $results[$key] = null;
+                continue;
+            }
+
+            $result = trim($result);
+            $result = preg_replace('/^```(?:json)?\s*/i', '', $result);
+            $result = preg_replace('/\s*```$/', '', $result);
+
+            $parsed = json_decode($result, true);
+            if (!is_array($parsed) || empty($parsed['title'])) {
+                $results[$key] = null;
+                continue;
+            }
+
+            $results[$key] = [
+                'title'     => is_string($parsed['title']) ? trim($parsed['title']) : null,
+                'authors'   => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
+                'year'      => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
+                'journal'   => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
+                'publisher' => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
      * Extract the title of the cited work from a raw citation string using the LLM.
      */
     public function extractCitationTitle(string $citationHtml): ?string
