@@ -20,7 +20,7 @@ class CitationScanBibliographyJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 600;
+    public int $timeout = 3600; // 1 hour — LLM batch extraction + external API lookups
     public int $tries = 1;
 
     public function __construct(
