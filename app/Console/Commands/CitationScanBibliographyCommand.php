@@ -76,7 +76,7 @@ class CitationScanBibliographyCommand extends Command
             $this->warn('Force mode: clearing existing matches before re-scan.');
         }
         $this->info('Running scan...');
-        CitationScanBibliographyJob::dispatch($scanId, $bookId, $referenceId, $force);
+        CitationScanBibliographyJob::dispatchSync($scanId, $bookId, $referenceId, $force);
 
         // Fetch completed scan and print report
         $scan = $db->table('citation_scans')->where('id', $scanId)->first();
