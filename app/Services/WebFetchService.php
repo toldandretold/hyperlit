@@ -107,7 +107,7 @@ class WebFetchService
             foreach ($chunkKeys as $key) {
                 $item = $items[$key];
                 $response = $responses[(string) $key] ?? null;
-                if (!$response || !$response->successful()) {
+                if (!$response || $response instanceof \Illuminate\Http\Client\ConnectionException || !$response->successful()) {
                     $results[$key] = null;
                     continue;
                 }
