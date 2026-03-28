@@ -1002,7 +1002,9 @@ class CitationReviewService
         $md .= '<tr><td>Confirmed</td><td>' . count($confirmed) . "</td></tr>\n";
         $md .= "</tbody></table>\n\n";
 
-        $md .= "> An open-weight LLM ([Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)) is used to extract the truth claim of each in-text citation. These are compared to the available data for that source. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
+        $extractionModel = basename(config('services.llm.extraction_model'));
+        $verificationModel = basename(config('services.llm.verification_model'));
+        $md .= "> Truth claims are extracted by [{$extractionModel}] and verified by [{$verificationModel}]. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
 
         $md .= "---\n\n";
 
