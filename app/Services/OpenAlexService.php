@@ -33,7 +33,15 @@ class OpenAlexService
             }
 
             $retryAfter = (int) ($response->header('Retry-After') ?: 0);
-            $backoff = $retryAfter > 0 ? $retryAfter : pow(2, $attempt);
+            $maxBackoff = 10;
+            $backoff = $retryAfter > 0 ? min($retryAfter, $maxBackoff) : pow(2, $attempt);
+
+            if ($retryAfter > $maxBackoff) {
+                Log::warning('OpenAlex Retry-After exceeds cap', [
+                    'retry_after' => $retryAfter,
+                    'capped_to'   => $maxBackoff,
+                ]);
+            }
 
             Log::info('OpenAlex 429 rate limited, retrying', [
                 'attempt'     => $attempt + 1,
@@ -139,7 +147,7 @@ class OpenAlexService
     /**
      * Fetch multiple works by DOI concurrently using Http::pool.
      * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
-     * Retries 429'd requests individually via retryableGet.
+     * Skips 429'd requests (returns null) and increases inter-chunk gap to 3s when throttled.
      *
      * @param array $dois Keyed by referenceId: ['ref1' => '10.xxx/yyy', ...]
      * @return array Normalised works keyed by referenceId (null for failures)
@@ -153,6 +161,7 @@ class OpenAlexService
         $allResults = [];
         $keys = array_keys($dois);
         $chunks = array_chunk($keys, 8);
+        $throttled = false;
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
             $responses = Http::pool(function (Pool $pool) use ($dois, $chunkKeys) {
@@ -166,15 +175,17 @@ class OpenAlexService
                 }
             });
 
+            $had429 = false;
+
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
 
-                // Retry 429s individually with backoff
+                // Skip 429s — the entry will fail this wave and can be retried in a later wave
                 if ($response && $response->status() === 429) {
-                    Log::info('OpenAlex batch DOI 429, retrying individually', ['doi' => $dois[$key]]);
-                    $response = $this->retryableGet(self::BASE_URL . '/works/doi:' . $dois[$key], [
-                        'select' => self::SELECT_FIELDS,
-                    ]);
+                    Log::warning('OpenAlex batch DOI 429, skipping', ['doi' => $dois[$key]]);
+                    $allResults[$key] = null;
+                    $had429 = true;
+                    continue;
                 }
 
                 if ($response && $response->successful()) {
@@ -187,8 +198,12 @@ class OpenAlexService
                 }
             }
 
+            if ($had429) {
+                $throttled = true;
+            }
+
             if ($chunkIndex < count($chunks) - 1) {
-                sleep(1);
+                sleep($throttled ? 3 : 1);
             }
         }
 
@@ -198,7 +213,7 @@ class OpenAlexService
     /**
      * Search OpenAlex for multiple queries concurrently using Http::pool.
      * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
-     * Retries 429'd requests individually via retryableGet.
+     * Skips 429'd requests (returns []) and increases inter-chunk gap to 3s when throttled.
      *
      * @param array $queries Keyed by referenceId: ['ref1' => 'search title', ...]
      * @return array Arrays of normalised candidates keyed by referenceId
@@ -212,6 +227,7 @@ class OpenAlexService
         $allResults = [];
         $keys = array_keys($queries);
         $chunks = array_chunk($keys, 8);
+        $throttled = false;
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
             $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $limit, $yearFilters) {
@@ -232,18 +248,17 @@ class OpenAlexService
                 }
             });
 
+            $had429 = false;
+
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
 
-                // Retry 429s individually with backoff
+                // Skip 429s — the entry will fail this wave and can be retried in a later wave
                 if ($response && $response->status() === 429) {
-                    Log::info('OpenAlex batch search 429, retrying individually', ['query' => $queries[$key]]);
-                    $response = $this->retryableGet(self::BASE_URL . '/works', [
-                        'search'   => $queries[$key],
-                        'per_page' => $limit,
-                        'page'     => 1,
-                        'select'   => self::SELECT_FIELDS,
-                    ]);
+                    Log::warning('OpenAlex batch search 429, skipping', ['query' => $queries[$key]]);
+                    $allResults[$key] = [];
+                    $had429 = true;
+                    continue;
                 }
 
                 if ($response && $response->successful()) {
@@ -254,8 +269,12 @@ class OpenAlexService
                 }
             }
 
+            if ($had429) {
+                $throttled = true;
+            }
+
             if ($chunkIndex < count($chunks) - 1) {
-                sleep(1);
+                sleep($throttled ? 3 : 1);
             }
         }
 
