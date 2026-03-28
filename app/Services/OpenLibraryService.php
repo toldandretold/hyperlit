@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class OpenLibraryService
 {
     public const BASE_URL = 'https://openlibrary.org';
-    public const SEARCH_FIELDS = 'key,title,author_name,first_publish_year,publisher,isbn,oclc,lccn,subject';
+    public const SEARCH_FIELDS = 'key,title,subtitle,author_name,first_publish_year,publisher,isbn,oclc,lccn,subject';
 
     /**
      * Search Open Library for books matching the given criteria.
@@ -146,9 +146,16 @@ class OpenLibraryService
 
         $olKey = $doc['key'] ?? null;
 
+        // Combine title + subtitle when available (OL stores them separately)
+        $title = $doc['title'] ?? null;
+        $subtitle = $doc['subtitle'] ?? null;
+        if ($title && $subtitle) {
+            $title = $title . ': ' . $subtitle;
+        }
+
         return [
             'book'             => null,
-            'title'            => $doc['title'] ?? null,
+            'title'            => $title,
             'author'           => $author,
             'has_nodes'        => false,
             'year'             => $doc['first_publish_year'] ?? null,
@@ -194,6 +201,10 @@ class OpenLibraryService
 
         $authorStr = implode(' and ', $bibtexAuthors) ?: 'Unknown';
         $title = $doc['title'] ?? '';
+        $subtitle = $doc['subtitle'] ?? null;
+        if ($title && $subtitle) {
+            $title = $title . ': ' . $subtitle;
+        }
         $year = $doc['first_publish_year'] ?? '';
         $publishers = $doc['publisher'] ?? [];
 

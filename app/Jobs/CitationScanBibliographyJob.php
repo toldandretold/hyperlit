@@ -388,9 +388,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 continue;
                             }
                             $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                            $title   = $retryTitles[$refId];
+                            // Score against shortened title — the whole point of b-waves
+                            $scoreMeta = $llmMeta;
+                            if ($scoreMeta) {
+                                $scoreMeta['title'] = $title;
+                            }
+                            $score   = $scoreMeta
+                                ? $openAlex->metadataScore($scoreMeta, $candidate)
                                 : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
                             if ($score > $bestScore) {
                                 $bestScore = $score;
@@ -494,9 +499,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $bestScore = 0.0;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                            $title   = $pool[$refId]['shortenedTitle'];
+                            // Score against shortened title — the whole point of b-waves
+                            $scoreMeta = $llmMeta;
+                            if ($scoreMeta) {
+                                $scoreMeta['title'] = $title;
+                            }
+                            $score   = $scoreMeta
+                                ? $openAlex->metadataScore($scoreMeta, $candidate)
                                 : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
                             if ($score > $bestScore) {
                                 $bestScore = $score;
@@ -638,9 +648,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $bestScore = 0.0;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                            $title   = $pool[$refId]['shortenedTitle'];
+                            // Score against shortened title — the whole point of b-waves
+                            $scoreMeta = $llmMeta;
+                            if ($scoreMeta) {
+                                $scoreMeta['title'] = $title;
+                            }
+                            $score   = $scoreMeta
+                                ? $openAlex->metadataScore($scoreMeta, $candidate)
                                 : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
                             if ($score > $bestScore) {
                                 $bestScore = $score;

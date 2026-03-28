@@ -409,8 +409,8 @@ class OpenAlexService
             $name = $this->asciiFold(mb_strtolower($name));
             $name = preg_replace('/[,.\-]/u', ' ', $name);
             $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY);
-            // Remove single-letter initials
-            return array_values(array_filter($words, fn($w) => mb_strlen($w) > 1));
+            // Remove initials (1-2 char tokens like "A", "AG", "CK")
+            return array_values(array_filter($words, fn($w) => mb_strlen($w) > 2));
         };
 
         $words1 = $normalise($name1);
@@ -501,6 +501,11 @@ class OpenAlexService
         // Author match (weight 0.25): proportional matching via nameSimilarity
         $authorScore = 0.0;
         $llmAuthors = $llmMeta['authors'] ?? [];
+        // Strip "et al." — it inflates the denominator and never matches a real name
+        $llmAuthors = array_values(array_filter($llmAuthors, function ($a) {
+            $normalised = mb_strtolower(trim($a));
+            return $normalised !== 'et al.' && $normalised !== 'et al' && $normalised !== 'etal';
+        }));
         $candidateAuthor = $candidate['author'] ?? '';
 
         if (!empty($llmAuthors) && !empty($candidateAuthor)) {
