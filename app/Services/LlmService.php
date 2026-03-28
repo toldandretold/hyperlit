@@ -13,13 +13,15 @@ class LlmService
     private string $apiKey;
     private string $model;
     private string $verificationModel;
+    private string $extractionModel;
 
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
         $this->apiKey  = config('services.llm.api_key', '');
-        $this->model   = config('services.llm.model', '');
-        $this->verificationModel = config('services.llm.verification_model', '') ?: $this->model;
+        $this->model   = config('services.llm.model');
+        $this->extractionModel   = config('services.llm.extraction_model');
+        $this->verificationModel = config('services.llm.verification_model');
     }
 
     /**
@@ -355,7 +357,7 @@ PROMPT;
         $result = $this->chat(
             $this->extractClaimsSystemPrompt(),
             $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext, $extractedSentences),
-            0.0, 4096, $this->verificationModel, 120, reasoningEffort: null
+            0.0, 4096, $this->extractionModel, 120, reasoningEffort: null
         );
         return $this->parseExtractClaimsResult($result);
     }
@@ -374,7 +376,7 @@ PROMPT;
             $requests[$key] = [
                 'system'      => $this->extractClaimsSystemPrompt(),
                 'user'        => $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext, $extractedSentences),
-                'model'       => $this->verificationModel,
+                'model'       => $this->extractionModel,
                 'max_tokens'  => 4096,
                 'temperature' => 0.0,
             ];
@@ -790,6 +792,78 @@ PROMPT;
         foreach ($rawResponses as $key => $raw) {
             $results[$key] = $this->parseVerifyCitationResult($raw);
         }
+        return $results;
+    }
+
+    /**
+     * System prompt for rejection review (binary topical connection check).
+     */
+    private function rejectionReviewSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are reviewing a citation that was flagged as "rejected" — meaning a previous check concluded the source is unrelated to the claim. Your job is a simple binary check: is there ANY plausible topical connection?
+
+Answer ONLY with the single word CONNECTED or UNRELATED.
+
+CONNECTED means: the source and claim share a topical connection — same person, same event, same political context, same field, same country/region being discussed, or the source could plausibly be cited as evidence for this type of claim. Academic citations often use primary sources (speeches, legislation, news articles) as evidence of discourse patterns — the source does NOT need to state the academic's conclusion.
+
+UNRELATED means: the source and claim are about genuinely different topics with no plausible connection. Example: a marine biology paper cited for a claim about fiscal policy.
+
+Examples:
+- Source: "Speech by Prime Minister Modi at Hindu rally" / Claim: "Hindu nationalist discourse frames Muslims as outsiders" → CONNECTED (the speech IS the discourse being analysed)
+- Source: "Article about Amit Shah calling critics 'anti-national'" / Claim: "BJP leaders use anti-Muslim rhetoric" → CONNECTED ("anti-national" is the coded language the claim discusses)
+- Source: "Greenpeace India report on coal mining" / Claim: "Greenpeace India campaigned against industrial pollution" → CONNECTED (same organisation, same broad environmental topic)
+- Source: "Introduction to Marine Ecology, 3rd ed." / Claim: "Central bank interest rate policy affects housing prices" → UNRELATED
+
+When in doubt, answer CONNECTED. False rejections are more costly than false passes.
+PROMPT;
+    }
+
+    /**
+     * Review a batch of rejected claims for topical connection.
+     * Each item: [source_description, contextualised_claim]
+     * Returns array of booleans (true = connected, false = unrelated) keyed same as input.
+     */
+    public function reviewRejectionBatch(array $items): array
+    {
+        if (empty($items)) {
+            return [];
+        }
+
+        $systemPrompt = $this->rejectionReviewSystemPrompt();
+        $requests = [];
+
+        foreach ($items as $key => [$sourceDesc, $claim]) {
+            $requests[$key] = [
+                'system'      => $systemPrompt,
+                'user'        => "SOURCE: {$sourceDesc}\n\nCLAIM: {$claim}",
+                'model'       => $this->verificationModel,
+                'max_tokens'  => 100,
+                'temperature' => 0.0,
+            ];
+        }
+
+        $rawResponses = $this->chatBatch($requests, 60);
+
+        $results = [];
+        foreach ($items as $key => $_) {
+            $raw = $rawResponses[$key] ?? null;
+            if (!$raw) {
+                // If review fails, default to connected (benefit of the doubt)
+                $results[$key] = true;
+                continue;
+            }
+
+            // Strip <think> tags if present
+            $raw = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $raw);
+            if (str_contains($raw, '<think>')) {
+                $raw = preg_replace('/<think>[\s\S]*/i', '', $raw);
+            }
+            $raw = strtoupper(trim($raw));
+
+            $results[$key] = !str_contains($raw, 'UNRELATED');
+        }
+
         return $results;
     }
 }

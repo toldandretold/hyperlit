@@ -650,6 +650,55 @@ class CitationReviewService
                 }
             }
         }
+
+        // Phase C: Review rejected verdicts for false rejections
+        $rejectedItems = [];
+        $rejectedKeyMap = [];
+
+        foreach ($claims as $i => $claim) {
+            if (($claim['llm_verdict']['support'] ?? null) === 'rejected') {
+                $sourceDesc = implode(' — ', array_filter([
+                    $claim['source_title'] ?? null,
+                    $claim['source_author'] ?? null,
+                    isset($claim['source_year']) ? "({$claim['source_year']})" : null,
+                ]));
+                if (!$sourceDesc) {
+                    continue;
+                }
+                $rejectedKeyMap[] = $i;
+                $rejectedItems[] = [
+                    $sourceDesc,
+                    $claim['contextualised_claim'] ?? $claim['truth_claim'],
+                ];
+            }
+        }
+
+        if (!empty($rejectedItems)) {
+            $progress('verify', "Reviewing " . count($rejectedItems) . " rejected verdicts for false rejections...");
+
+            $reviewResults = $this->llm->reviewRejectionBatch($rejectedItems);
+
+            $upgraded = 0;
+            foreach ($reviewResults as $j => $isConnected) {
+                if ($isConnected) {
+                    $claimIndex = $rejectedKeyMap[$j];
+                    $claims[$claimIndex]['llm_verdict']['support'] = 'unlikely';
+                    $claims[$claimIndex]['llm_verdict']['reasoning'] =
+                        ($claims[$claimIndex]['llm_verdict']['reasoning'] ?? '') .
+                        ' [Upgraded from "rejected" by rejection review: topical connection detected]';
+                    $upgraded++;
+
+                    Log::info('Rejection review: upgraded to unlikely', [
+                        'source' => $rejectedItems[$j][0],
+                        'claim'  => mb_substr($rejectedItems[$j][1], 0, 120),
+                    ]);
+                }
+            }
+
+            if ($upgraded > 0) {
+                $progress('verify', "Rejection review: upgraded {$upgraded} of " . count($rejectedItems) . " rejected verdicts to unlikely");
+            }
+        }
     }
 
     /**
