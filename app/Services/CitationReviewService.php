@@ -113,7 +113,11 @@ class CitationReviewService
 
         foreach ($nodes as $node) {
             $content = $node->content ?? '';
-            $currentPlain = html_entity_decode($node->plainText ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $currentPlain = html_entity_decode(
+                $node->plainText ?? strip_tags($node->content ?? ''),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8'
+            );
 
             // Check for in-text citations (href-first or class-first)
             if (!preg_match('/<a\s[^>]*class="in-text-citation"[^>]*>/i', $content)) {
