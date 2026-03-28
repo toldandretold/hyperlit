@@ -102,6 +102,13 @@ class CitationReviewService
     {
         $db = DB::connection('pgsql_admin');
 
+        // Pre-load bibliography referenceIds for validation
+        $bibRefIds = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->pluck('referenceId')
+            ->flip()
+            ->toArray();
+
         $nodes = $db->table('nodes')
             ->where('book', $bookId)
             ->select(['node_id', 'content', 'plainText'])
@@ -119,20 +126,19 @@ class CitationReviewService
                 'UTF-8'
             );
 
-            // Check for in-text citations (href-first or class-first)
-            if (!preg_match('/<a\s[^>]*class="in-text-citation"[^>]*>/i', $content)) {
+            // Check for any anchor with href="#..."
+            if (!preg_match('/<a\s[^>]*href="#([^"]+)"[^>]*>/i', $content)) {
                 $prevContext = mb_substr($currentPlain, -500);
                 continue;
             }
 
-            // Replace citation anchors with [CITE:refId] markers
-            $marked = preg_replace(
-                '/<a\s[^>]*href="#([^"]+)"[^>]*class="in-text-citation"[^>]*>.*?<\/a>/i',
-                '[CITE:$1]', $content
-            );
-            $marked = preg_replace(
-                '/<a\s[^>]*class="in-text-citation"[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/i',
-                '[CITE:$1]', $marked
+            // Replace citation anchors with [CITE:refId] markers — only for bibliography refIds
+            $marked = preg_replace_callback(
+                '/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is',
+                function ($m) use ($bibRefIds) {
+                    return isset($bibRefIds[$m[1]]) ? '[CITE:' . $m[1] . ']' : $m[0];
+                },
+                $content
             );
             $marked = strip_tags($marked);
 
@@ -149,20 +155,15 @@ class CitationReviewService
             // by finding the <a> tag byte offset in HTML and counting
             // plain text characters before it (like frontend calculateCleanTextOffset)
             $citationPositions = [];
-            $patterns = [
-                '/<a\s[^>]*href="#([^"]+)"[^>]*class="in-text-citation"[^>]*>.*?<\/a>/i',
-                '/<a\s[^>]*class="in-text-citation"[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/i',
-            ];
-            foreach ($patterns as $pattern) {
-                if (preg_match_all($pattern, $content, $tagMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
-                    foreach ($tagMatches as $tagMatch) {
-                        $matchedRefId = $tagMatch[1][0]; // captured href fragment
-                        $tagByteOffset = $tagMatch[0][1]; // byte offset of full match
-                        if (!isset($citationPositions[$matchedRefId])) {
-                            $contentBefore = substr($content, 0, $tagByteOffset);
-                            $plainBefore = html_entity_decode(strip_tags($contentBefore), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                            $citationPositions[$matchedRefId] = mb_strlen($plainBefore);
-                        }
+            if (preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $tagMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
+                foreach ($tagMatches as $tagMatch) {
+                    $matchedRefId = $tagMatch[1][0]; // captured href fragment
+                    $tagByteOffset = $tagMatch[0][1]; // byte offset of full match
+                    // Only track positions for bibliography-validated refIds
+                    if (isset($bibRefIds[$matchedRefId]) && !isset($citationPositions[$matchedRefId])) {
+                        $contentBefore = substr($content, 0, $tagByteOffset);
+                        $plainBefore = html_entity_decode(strip_tags($contentBefore), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $citationPositions[$matchedRefId] = mb_strlen($plainBefore);
                     }
                 }
             }

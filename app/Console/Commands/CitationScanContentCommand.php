@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class CitationScanContentCommand extends Command
@@ -74,23 +75,116 @@ class CitationScanContentCommand extends Command
     {
         $nodes = $db->table('nodes')
             ->where('book', $bookId)
-            ->select(['content', 'plainText'])
+            ->select(['node_id', 'content', 'plainText'])
             ->get();
+
+        // Pre-load bibliography entries for self-reference detection
+        $bibPlainTexts = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->pluck('content', 'referenceId')
+            ->map(fn($html) => trim(strip_tags($html)))
+            ->toArray();
+
+        // O(1) lookup set for bibliography referenceIds
+        $bibRefIdSet = array_flip(array_keys($bibPlainTexts));
 
         $citations = [];
 
         foreach ($nodes as $node) {
             $content = $node->content ?? '';
 
-            // Match <a href="#refId" class="in-text-citation">
-            if (!preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*class="in-text-citation"[^>]*>/i', $content, $matches)) {
-                // Also try class before href
-                if (!preg_match_all('/<a\s[^>]*class="in-text-citation"[^>]*href="#([^"]+)"[^>]*>/i', $content, $matches)) {
-                    continue;
+            // Fast-path: skip nodes that are tagged as bibliography content
+            if (str_contains($content, 'data-static-content="bibliography"')) {
+                continue;
+            }
+
+            // Match any <a href="#refId"> — we validate refId against bibliography below
+            if (!preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $matches)) {
+                continue;
+            }
+
+            // Filter to only refIds that exist in bibliography
+            $validIndices = [];
+            foreach ($matches[1] as $i => $refId) {
+                if (isset($bibRefIdSet[$refId])) {
+                    $validIndices[] = $i;
+                }
+            }
+            if (empty($validIndices)) {
+                continue;
+            }
+
+            // Self-heal: add missing class="in-text-citation" to citation links
+            $healed = false;
+            foreach ($validIndices as $i) {
+                $fullTag = $matches[0][$i];
+                if (!str_contains($fullTag, 'in-text-citation')) {
+                    $refId = $matches[1][$i];
+                    $fixedTag = preg_replace(
+                        '/<a\s([^>]*href="#' . preg_quote($refId, '/') . '")/i',
+                        '<a class="in-text-citation" $1',
+                        $fullTag
+                    );
+                    $content = str_replace($fullTag, $fixedTag, $content);
+                    $healed = true;
+                }
+            }
+            if ($healed) {
+                $db->table('nodes')
+                    ->where('book', $bookId)
+                    ->where('node_id', $node->node_id)
+                    ->update(['content' => $content]);
+                Log::info('Added missing in-text-citation class to citation links', [
+                    'node_id' => $node->node_id,
+                ]);
+                // Re-match after healing so $matches reflects updated content
+                preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $matches);
+                $validIndices = [];
+                foreach ($matches[1] as $i => $refId) {
+                    if (isset($bibRefIdSet[$refId])) {
+                        $validIndices[] = $i;
+                    }
                 }
             }
 
-            foreach ($matches[1] as $refId) {
+            // Check if this node IS a bibliography entry (self-reference)
+            $isBibEntry = false;
+            $validRefIds = array_map(fn($i) => $matches[1][$i], $validIndices);
+            foreach ($validRefIds as $refId) {
+                if (isset($bibPlainTexts[$refId])) {
+                    $nodeText = trim($node->plainText ?? '');
+                    $bibText = $bibPlainTexts[$refId];
+                    $prefixLen = min(60, strlen($bibText));
+                    if ($prefixLen >= 30 && str_starts_with($nodeText, substr($bibText, 0, $prefixLen))) {
+                        $isBibEntry = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isBibEntry) {
+                // Strip all citation <a> tags that reference bibliography entries, keep inner text
+                $cleanedContent = preg_replace_callback(
+                    '/<a\s[^>]*href="#([^"]+)"[^>]*>(.*?)<\/a>/is',
+                    function ($m) use ($bibRefIdSet) {
+                        return isset($bibRefIdSet[$m[1]]) ? $m[2] : $m[0];
+                    },
+                    $content
+                );
+                if ($cleanedContent !== $content) {
+                    $db->table('nodes')
+                        ->where('book', $bookId)
+                        ->where('node_id', $node->node_id)
+                        ->update(['content' => $cleanedContent]);
+                    Log::info('Stripped self-referencing citation from bibliography node', [
+                        'node_id' => $node->node_id,
+                        'refIds'  => $validRefIds,
+                    ]);
+                }
+                continue; // skip this node entirely
+            }
+
+            foreach ($validRefIds as $refId) {
                 if (!isset($citations[$refId])) {
                     $citations[$refId] = [
                         'occurrences' => 0,

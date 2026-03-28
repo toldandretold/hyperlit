@@ -8,8 +8,9 @@ import { calculateCleanTextOffset, findContainerWithNumericalId } from './calcul
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
 import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database.js';
-import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
+import { reprocessHighlightsForNodes, unwrapMark, unwrapElement, isContentLink } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
+import { queueNodeForSave } from '../divEditor/index.js';
 import { log, verbose } from '../utilities/logger.js';
 import { withPending, setProgrammaticUpdateInProgress, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState.js';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
@@ -158,6 +159,7 @@ export function handleSelection() {
   const highlights = document.querySelectorAll('mark');
   let isSelectingHighlight = false;
   let isSelectingUserHighlight = false;
+  let isSelectingLink = false;
 
   // Check if the selection contains or overlaps with any existing highlight
   const selection = window.getSelection();
@@ -200,6 +202,35 @@ export function handleSelection() {
         }
       }
     });
+
+    // Check if the selection intersects with any user-created content links (edit mode only)
+    if (window.isEditing) {
+    const anchorRoot = (selectionRange.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? selectionRange.commonAncestorContainer.parentElement
+      : selectionRange.commonAncestorContainer);
+    const searchRoot = anchorRoot?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || anchorRoot;
+    if (searchRoot && searchRoot.querySelectorAll) {
+      const anchors = searchRoot.querySelectorAll('a[href]');
+      anchors.forEach(function (anchor) {
+        if (!isContentLink(anchor)) return;
+        try {
+          const anchorRange = document.createRange();
+          anchorRange.selectNodeContents(anchor);
+          const intersects = selectionRange.compareBoundaryPoints(Range.END_TO_START, anchorRange) <= 0 &&
+                           anchorRange.compareBoundaryPoints(Range.END_TO_START, selectionRange) <= 0;
+          if (intersects) {
+            isSelectingLink = true;
+          }
+        } catch (e) {
+          // Fallback to text-based comparison
+          if (selectedText.includes(anchor.textContent.trim()) ||
+              anchor.textContent.trim().includes(selectedText)) {
+            isSelectingLink = true;
+          }
+        }
+      });
+    }
+    } // end window.isEditing
   }
 
   // Detect whether the selection lives inside a sub-book and update active context
@@ -250,12 +281,12 @@ export function handleSelection() {
 
     buttons.style.left = `${rect.left + window.scrollX}px`;
 
-    // Show delete button only if selecting user's own highlight
-    if (isSelectingUserHighlight) {
-      console.log("Detected user's highlight selection - showing delete button");
+    // Show delete button if selecting user's own highlight or a content link
+    if (isSelectingUserHighlight || isSelectingLink) {
+      console.log("Detected user highlight or content link selection - showing delete button");
       document.getElementById("delete-hyperlight").style.display = "block";
     } else {
-      console.log("No user highlight selected - hiding delete button");
+      console.log("No user highlight or content link selected - hiding delete button");
       document.getElementById("delete-hyperlight").style.display = "none";
     }
   } else {
@@ -641,6 +672,33 @@ export async function deleteHighlightHandler(event, bookId) {
     }
   });
 
+  // Find content links that intersect the selection (edit mode only)
+  const linksToUnwrap = [];
+  if (window.isEditing) {
+    const anchorRoot = (selectionRange.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? selectionRange.commonAncestorContainer.parentElement
+      : selectionRange.commonAncestorContainer);
+    const linkSearchRoot = anchorRoot?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || anchorRoot;
+    if (linkSearchRoot && linkSearchRoot.querySelectorAll) {
+      const anchors = linkSearchRoot.querySelectorAll('a[href]');
+      anchors.forEach(anchor => {
+        if (!isContentLink(anchor)) return;
+        try {
+          const anchorRange = document.createRange();
+          anchorRange.selectNodeContents(anchor);
+          const intersects = selectionRange.compareBoundaryPoints(Range.END_TO_START, anchorRange) <= 0 &&
+                           anchorRange.compareBoundaryPoints(Range.END_TO_START, selectionRange) <= 0;
+          if (intersects) linksToUnwrap.push(anchor);
+        } catch (e) {
+          if (selectedText.indexOf(anchor.textContent.trim()) !== -1 ||
+              anchor.textContent.trim().indexOf(selectedText) !== -1) {
+            linksToUnwrap.push(anchor);
+          }
+        }
+      });
+    }
+  }
+
   // Second pass: remove ALL marks with the highlight class (not by ID, by class)
   // Wrap in programmatic flag so the MutationObserver doesn't treat
   // these DOM changes as user edits (the mark element gets detached,
@@ -661,8 +719,27 @@ export async function deleteHighlightHandler(event, bookId) {
         unwrapMark(mark);
       });
     });
+
+    // Unwrap content links
+    linksToUnwrap.forEach(anchor => {
+      const container = anchor.closest(
+        "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+      );
+      if (container && container.id) {
+        affectedNodeChunks.add(container.id);
+      }
+      unwrapElement(anchor);
+    });
   } finally {
     setProgrammaticUpdateInProgress(false);
+  }
+
+  // Queue affected nodes for save if links were unwrapped (links have no IndexedDB records)
+  if (linksToUnwrap.length > 0) {
+    affectedNodeChunks.forEach(nodeId => {
+      queueNodeForSave(nodeId, 'update');
+    });
+    console.log(`✅ Unwrapped ${linksToUnwrap.length} content links, queued ${affectedNodeChunks.size} nodes for save`);
   }
 
   const updatedNodeChunks = [];

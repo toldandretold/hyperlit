@@ -17,6 +17,8 @@ export class SelectionDeletionHandler {
     // Capture selection before deletion
     this.editor.addEventListener('keydown', (e) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Check for content links first — unwrap them instead of deleting text
+        if (this.checkAndUnwrapLinks(e)) return;
         this.captureSelectionForDeletion();
       }
     });
@@ -40,6 +42,85 @@ export class SelectionDeletionHandler {
     });
   }
   
+  /**
+   * If a non-collapsed selection intersects user-created content links,
+   * unwrap them (remove <a>, keep text) instead of deleting text.
+   * Returns true if links were unwrapped (caller should skip normal deletion).
+   */
+  checkAndUnwrapLinks(e) {
+    if (!window.isEditing) return false;
+    const selection = window.getSelection();
+    if (selection.isCollapsed || selection.rangeCount === 0) return false;
+
+    const range = selection.getRangeAt(0);
+    const root = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentElement
+      : range.commonAncestorContainer;
+    const searchRoot = root?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || root;
+    if (!searchRoot || !searchRoot.querySelectorAll) return false;
+
+    const anchors = searchRoot.querySelectorAll('a[href]');
+    const linksToUnwrap = [];
+
+    for (const anchor of anchors) {
+      // Inline isContentLink checks to keep synchronous
+      const href = anchor.getAttribute('href');
+      if (!href) continue;
+      if (anchor.classList.contains('footnote-ref')) continue;
+      if (anchor.id && anchor.id.startsWith('hypercite_')) continue;
+      if (anchor.closest('sup[fn-count-id]')) continue;
+      if (anchor.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) continue;
+
+      try {
+        const anchorRange = document.createRange();
+        anchorRange.selectNodeContents(anchor);
+        const intersects = range.compareBoundaryPoints(Range.END_TO_START, anchorRange) <= 0 &&
+                         anchorRange.compareBoundaryPoints(Range.END_TO_START, range) <= 0;
+        if (intersects) linksToUnwrap.push(anchor);
+      } catch (err) { /* ignore */ }
+    }
+
+    if (linksToUnwrap.length === 0) return false;
+
+    // Prevent browser from deleting text
+    e.preventDefault();
+
+    import('./operationState.js').then(({ setProgrammaticUpdateInProgress }) => {
+      setProgrammaticUpdateInProgress(true);
+      try {
+        const affectedNodeIds = new Set();
+        linksToUnwrap.forEach(anchor => {
+          const container = anchor.closest(
+            "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+          );
+          if (container && container.id) {
+            affectedNodeIds.add(container.id);
+          }
+          // Inline unwrap
+          const parent = anchor.parentNode;
+          if (!parent) return;
+          while (anchor.firstChild) {
+            parent.insertBefore(anchor.firstChild, anchor);
+          }
+          parent.removeChild(anchor);
+          if (typeof parent.normalize === 'function') parent.normalize();
+        });
+
+        // Queue affected nodes for save
+        if (this.queueNodeForSave) {
+          affectedNodeIds.forEach(nodeId => {
+            this.queueNodeForSave(nodeId, 'update');
+          });
+        }
+        console.log(`✅ Keyboard unwrapped ${linksToUnwrap.length} content links`);
+      } finally {
+        setProgrammaticUpdateInProgress(false);
+      }
+    });
+
+    return true;
+  }
+
   captureSelectionForDeletion() {
   const selection = window.getSelection();
 

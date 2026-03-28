@@ -12,12 +12,13 @@ use App\Models\PgLibrary;
 class OpenAlexService
 {
     public const BASE_URL = 'https://api.openalex.org';
-    public const USER_AGENT = 'Hyperlit/1.0 (mailto:hello@hyperlit.app)';
+    public const USER_AGENT = 'Hyperlit/1.0 (mailto:sam@hyperlit.io)';
     public const SELECT_FIELDS = 'id,title,authorships,publication_year,primary_location,best_oa_location,doi,biblio,open_access,type,language,cited_by_count,abstract_inverted_index';
 
     /**
      * Make an HTTP GET request with retry logic for 429 rate limiting.
      * Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+     * Proactively sleeps when X-RateLimit-Remaining drops below threshold.
      */
     private function retryableGet(string $url, array $query = []): \Illuminate\Http\Client\Response
     {
@@ -29,6 +30,8 @@ class OpenAlexService
             ])->get($url, $query);
 
             if ($response->status() !== 429 || $attempt === $maxRetries) {
+                // Proactive throttle: sleep when remaining requests are low
+                $this->proactiveThrottle($response);
                 return $response;
             }
 
@@ -53,6 +56,35 @@ class OpenAlexService
         }
 
         return $response; // unreachable, but satisfies static analysis
+    }
+
+    /**
+     * Check X-RateLimit-Remaining header and proactively sleep when low.
+     * Prevents hitting 429s by backing off before the limit is reached.
+     */
+    private function proactiveThrottle(\Illuminate\Http\Client\Response $response): void
+    {
+        $remaining = $response->header('X-RateLimit-Remaining');
+
+        if ($remaining === null) {
+            return;
+        }
+
+        $remaining = (int) $remaining;
+
+        if ($remaining < 20) {
+            Log::info('OpenAlex rate limit low, proactive throttle', [
+                'remaining' => $remaining,
+                'sleep_sec' => 2,
+            ]);
+            sleep(2);
+        } elseif ($remaining < 50) {
+            Log::info('OpenAlex rate limit approaching, proactive throttle', [
+                'remaining' => $remaining,
+                'sleep_sec' => 1,
+            ]);
+            sleep(1);
+        }
     }
 
     /**
@@ -146,8 +178,9 @@ class OpenAlexService
 
     /**
      * Fetch multiple works by DOI concurrently using Http::pool.
-     * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
+     * Processes in chunks of 5 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
      * Skips 429'd requests (returns null) and increases inter-chunk gap to 3s when throttled.
+     * Monitors X-RateLimit-Remaining for proactive throttling.
      *
      * @param array $dois Keyed by referenceId: ['ref1' => '10.xxx/yyy', ...]
      * @return array Normalised works keyed by referenceId (null for failures)
@@ -160,7 +193,7 @@ class OpenAlexService
 
         $allResults = [];
         $keys = array_keys($dois);
-        $chunks = array_chunk($keys, 8);
+        $chunks = array_chunk($keys, 5);
         $throttled = false;
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
@@ -176,6 +209,7 @@ class OpenAlexService
             });
 
             $had429 = false;
+            $lowestRemaining = PHP_INT_MAX;
 
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
@@ -193,6 +227,12 @@ class OpenAlexService
                     $allResults[$key] = (!empty($work) && !empty($work['id']))
                         ? $this->normaliseWork($work)
                         : null;
+
+                    // Track lowest remaining across this chunk's responses
+                    $remaining = $response->header('X-RateLimit-Remaining');
+                    if ($remaining !== null) {
+                        $lowestRemaining = min($lowestRemaining, (int) $remaining);
+                    }
                 } else {
                     $allResults[$key] = null;
                 }
@@ -203,7 +243,15 @@ class OpenAlexService
             }
 
             if ($chunkIndex < count($chunks) - 1) {
-                sleep($throttled ? 3 : 1);
+                // Proactive throttle based on remaining quota
+                if ($lowestRemaining < 20) {
+                    Log::info('OpenAlex batch DOI: rate limit low, sleeping 3s', ['remaining' => $lowestRemaining]);
+                    sleep(3);
+                } elseif ($throttled || $lowestRemaining < 50) {
+                    sleep($throttled ? 3 : 2);
+                } else {
+                    sleep(1);
+                }
             }
         }
 
@@ -212,8 +260,9 @@ class OpenAlexService
 
     /**
      * Search OpenAlex for multiple queries concurrently using Http::pool.
-     * Processes in chunks of 8 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
+     * Processes in chunks of 5 with 1s gap to stay under OpenAlex's 10 req/s polite limit.
      * Skips 429'd requests (returns []) and increases inter-chunk gap to 3s when throttled.
+     * Monitors X-RateLimit-Remaining for proactive throttling.
      *
      * @param array $queries Keyed by referenceId: ['ref1' => 'search title', ...]
      * @return array Arrays of normalised candidates keyed by referenceId
@@ -226,7 +275,7 @@ class OpenAlexService
 
         $allResults = [];
         $keys = array_keys($queries);
-        $chunks = array_chunk($keys, 8);
+        $chunks = array_chunk($keys, 5);
         $throttled = false;
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
@@ -249,6 +298,7 @@ class OpenAlexService
             });
 
             $had429 = false;
+            $lowestRemaining = PHP_INT_MAX;
 
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
@@ -264,6 +314,12 @@ class OpenAlexService
                 if ($response && $response->successful()) {
                     $works = $response->json('results') ?? [];
                     $allResults[$key] = array_map(fn(array $work) => $this->normaliseWork($work), $works);
+
+                    // Track lowest remaining across this chunk's responses
+                    $remaining = $response->header('X-RateLimit-Remaining');
+                    if ($remaining !== null) {
+                        $lowestRemaining = min($lowestRemaining, (int) $remaining);
+                    }
                 } else {
                     $allResults[$key] = [];
                 }
@@ -274,7 +330,15 @@ class OpenAlexService
             }
 
             if ($chunkIndex < count($chunks) - 1) {
-                sleep($throttled ? 3 : 1);
+                // Proactive throttle based on remaining quota
+                if ($lowestRemaining < 20) {
+                    Log::info('OpenAlex batch search: rate limit low, sleeping 3s', ['remaining' => $lowestRemaining]);
+                    sleep(3);
+                } elseif ($throttled || $lowestRemaining < 50) {
+                    sleep($throttled ? 3 : 2);
+                } else {
+                    sleep(1);
+                }
             }
         }
 

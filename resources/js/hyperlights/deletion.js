@@ -27,6 +27,42 @@ export function unwrapMark(mark) {
 }
 
 /**
+ * Unwrap any element (e.g. <a>), preserving its content.
+ * Semantic alias for unwrapMark — works on any element, not just marks.
+ * @param {HTMLElement} element - The element to unwrap
+ */
+export function unwrapElement(element) {
+  unwrapMark(element);
+}
+
+/**
+ * Check whether an anchor is a user-created content link (e.g. pasted URL)
+ * as opposed to a system link (footnote ref, citation, hypercite).
+ * @param {HTMLAnchorElement} anchor
+ * @returns {boolean}
+ */
+export function isContentLink(anchor) {
+  if (!anchor || anchor.tagName !== 'A') return false;
+
+  const href = anchor.getAttribute('href');
+  if (!href) return false;
+
+  // System-generated link classes (footnotes only — citations are unwrappable)
+  if (anchor.classList.contains('footnote-ref')) return false;
+
+  // Hypercite links (id starts with "hypercite_")
+  if (anchor.id && anchor.id.startsWith('hypercite_')) return false;
+
+  // Links inside footnote sup markers
+  if (anchor.closest('sup[fn-count-id]')) return false;
+
+  // Links inside citation/hypercite sections
+  if (anchor.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) return false;
+
+  return true;
+}
+
+/**
  * Delete a highlight by ID
  * @param {string} highlightId - The highlight ID to delete
  * @returns {Promise<Object>} Deletion result with affected nodes

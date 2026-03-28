@@ -1,5 +1,7 @@
 // resources/js/selectionHandler.js
 
+import { isContentLink } from '../hyperlights/deletion.js';
+
 let hyperlightButtons = null;
 let originalParent = null;
 
@@ -87,6 +89,25 @@ function handleSelection() {
         isOverlapping = true;
       }
     });
+
+    // Also check if selection overlaps any user-created content links (edit mode only)
+    if (!isOverlapping && window.isEditing) {
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const root = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      const anchors = root.querySelectorAll ? root.querySelectorAll('a[href]') : [];
+      for (const a of anchors) {
+        if (!isContentLink(a)) continue;
+        try {
+          const aRange = document.createRange();
+          aRange.selectNodeContents(a);
+          const intersects = range.compareBoundaryPoints(Range.END_TO_START, aRange) <= 0 &&
+                           aRange.compareBoundaryPoints(Range.END_TO_START, range) <= 0;
+          if (intersects) { isOverlapping = true; break; }
+        } catch (e) { /* ignore */ }
+      }
+    }
+
     document.getElementById("delete-hyperlight").style.display = isOverlapping
       ? "block"
       : "none";
