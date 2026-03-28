@@ -254,6 +254,8 @@ For each [CITE:refId], extract the sentence it appears in and identify what fact
 Return ONLY valid JSON: [{"referenceId": "refId", "truth_claim": "...", "contextualised_claim": "..."}]
 
 RULES:
+- Each citation includes the sentence it appears in (after "— appears in sentence:"). Use this to correctly identify which sentence to extract. The truth_claim should be this sentence.
+- If the sentence is an anaphoric reference (e.g. "The same argument is made by...", "This is also noted by..."), include the substantive preceding sentence(s) that contain the actual claim.
 - truth_claim: Copy the COMPLETE SENTENCE containing [CITE:refId] VERBATIM from the TEXT section. Do not include the [CITE:...] marker itself. Do not rephrase, summarise, or truncate.
 - If two citations appear in the same sentence, produce one entry per referenceId, both with the same truth_claim sentence.
 - contextualised_claim: Rewrite the truth_claim so the FACTUAL SUBSTANCE is fully self-contained and verifiable in isolation.
@@ -284,7 +286,7 @@ PROMPT;
     /**
      * Build user message for truth claim extraction.
      */
-    private function buildExtractClaimsMessage(string $markedText, array $citationContext, string $precedingContext = ''): string
+    private function buildExtractClaimsMessage(string $markedText, array $citationContext, string $precedingContext = '', array $extractedSentences = []): string
     {
         $msg = '';
         if ($precedingContext !== '') {
@@ -293,7 +295,11 @@ PROMPT;
         $msg .= "TEXT:\n{$markedText}\n\nCITATION SOURCES:\n";
         foreach ($citationContext as $refId => $meta) {
             $title = $meta['title'] ?? 'Unknown';
-            $msg .= "- [CITE:{$refId}]: \"{$title}\"\n";
+            $line = "- [CITE:{$refId}]: \"{$title}\"";
+            if (!empty($extractedSentences[$refId])) {
+                $line .= " — appears in sentence: \"{$extractedSentences[$refId]}\"";
+            }
+            $msg .= $line . "\n";
         }
         return $msg;
     }
@@ -344,11 +350,11 @@ PROMPT;
      * Extract truth claims from a paragraph with [CITE:refId] markers.
      * Returns array of {referenceId, truth_claim} or null on failure.
      */
-    public function extractTruthClaims(string $markedText, array $citationContext, string $precedingContext = ''): ?array
+    public function extractTruthClaims(string $markedText, array $citationContext, string $precedingContext = '', array $extractedSentences = []): ?array
     {
         $result = $this->chat(
             $this->extractClaimsSystemPrompt(),
-            $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext),
+            $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext, $extractedSentences),
             0.0, 4096, $this->verificationModel, 120, reasoningEffort: null
         );
         return $this->parseExtractClaimsResult($result);
@@ -356,16 +362,18 @@ PROMPT;
 
     /**
      * Extract truth claims for multiple nodes concurrently.
-     * @param array $items Array of [markedText, citationContext, precedingContext]
+     * @param array $items Array of [markedText, citationContext, precedingContext, extractedSentences]
      * @return array Parsed results keyed same as input (null for failures)
      */
     public function extractTruthClaimsBatch(array $items): array
     {
         $requests = [];
-        foreach ($items as $key => [$markedText, $citationContext, $precedingContext]) {
+        foreach ($items as $key => $item) {
+            [$markedText, $citationContext, $precedingContext] = $item;
+            $extractedSentences = $item[3] ?? [];
             $requests[$key] = [
                 'system'      => $this->extractClaimsSystemPrompt(),
-                'user'        => $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext),
+                'user'        => $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext, $extractedSentences),
                 'model'       => $this->verificationModel,
                 'max_tokens'  => 4096,
                 'temperature' => 0.0,

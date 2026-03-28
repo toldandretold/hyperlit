@@ -163,13 +163,20 @@ class CitationReviewService
                 }
             }
 
+            // Extract the sentence each citation appears in
+            $extractedSentences = [];
+            foreach ($citationPositions as $refId => $charPos) {
+                $extractedSentences[$refId] = $this->extractSentenceAtPosition($currentPlain, $charPos);
+            }
+
             $result[] = [
-                'node_id'            => $node->node_id,
-                'marked_text'        => $marked,
-                'plainText'          => $currentPlain,
-                'reference_ids'      => array_values($referenceIds),
-                'preceding_context'  => $prevContext,
-                'citationPositions'  => $citationPositions,
+                'node_id'             => $node->node_id,
+                'marked_text'         => $marked,
+                'plainText'           => $currentPlain,
+                'reference_ids'       => array_values($referenceIds),
+                'preceding_context'   => $prevContext,
+                'citationPositions'   => $citationPositions,
+                'extracted_sentences' => $extractedSentences,
             ];
 
             $prevContext = mb_substr($currentPlain, -500);
@@ -281,7 +288,7 @@ class CitationReviewService
                 if (mb_strlen($markedText) > 3000) {
                     $markedText = mb_substr($markedText, 0, 3000) . '...';
                 }
-                $batchItems[] = [$markedText, $context, $node['preceding_context'] ?? ''];
+                $batchItems[] = [$markedText, $context, $node['preceding_context'] ?? '', $node['extracted_sentences'] ?? []];
             }
 
             // Send batch concurrently
@@ -1094,6 +1101,27 @@ class CitationReviewService
         }
 
         return "**Source:** {$md}\n";
+    }
+
+    /**
+     * Extract the sentence surrounding a character position in plain text.
+     * Uses the same regex logic as the charStart/charEnd computation in extractTruthClaims().
+     */
+    private function extractSentenceAtPosition(string $plainText, int $charPos): string
+    {
+        $before = mb_substr($plainText, 0, $charPos);
+        if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
+            $start = mb_strlen($m[0]);
+        } else {
+            $start = 0;
+        }
+        $after = mb_substr($plainText, $charPos);
+        if (preg_match('/^.*?[.!?](?:\s|$)/su', $after, $m)) {
+            $end = $charPos + mb_strlen($m[0]);
+        } else {
+            $end = mb_strlen($plainText);
+        }
+        return trim(mb_substr($plainText, $start, $end - $start));
     }
 
     /**
