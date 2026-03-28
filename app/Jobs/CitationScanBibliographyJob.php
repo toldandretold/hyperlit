@@ -311,7 +311,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 // ── Wave 4b: Retry failed entries with shortened title (main title before colon) ──
                 $retryTitles = [];
                 $retryYearFilters = [];
-                foreach ($pool as $refId => $item) {
+                foreach ($pool as $refId => &$item) {
                     if (!$item['searchedTitle']) {
                         continue;
                     }
@@ -319,6 +319,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (preg_match('/^(.{10,}?)\s*[:\x{2013}\x{2014}]\s/u', $item['searchedTitle'], $m)) {
                         $shortened = trim($m[1]);
                         if ($shortened !== $item['searchedTitle'] && strlen($shortened) >= 10) {
+                            // Store shortened title in pool so Waves 5, 7, 8 can use it
+                            $item['shortenedTitle'] = $shortened;
                             $retryTitles[$refId] = $shortened;
                             if (!empty($item['llmMetadata']['year'])) {
                                 $retryYearFilters[$refId] = $item['llmMetadata']['year'];
@@ -326,6 +328,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                 }
+                unset($item);
                 if (!empty($retryTitles)) {
                     Log::info('Wave 4b: Retry with shortened titles', ['count' => count($retryTitles)]);
                     $oaRetryResults = $openAlex->searchBatch($retryTitles, 5, $retryYearFilters);
@@ -373,6 +376,8 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // ── Wave 5: Open Library search (Http::pool) ──
             if (!empty($pool)) {
+                $openLibrary = app(OpenLibraryService::class);
+
                 $olQueries = [];
                 foreach ($pool as $refId => $item) {
                     if (!$item['searchedTitle']) {
@@ -387,7 +392,6 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
                 if (!empty($olQueries)) {
                     Log::info('Wave 5: Open Library search', ['count' => count($olQueries)]);
-                    $openLibrary = app(OpenLibraryService::class);
                     $olResults = $openLibrary->searchBatch($olQueries, 5);
                     foreach ($olResults as $refId => $candidates) {
                         if (!isset($pool[$refId])) {
@@ -407,6 +411,60 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                         }
                         if ($bestMatch && $bestScore > 0.3) {
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
+                            }
+                        }
+                    }
+                }
+
+                // ── Wave 5b: Retry with shortened titles on Open Library ──
+                $olRetryQueries = [];
+                foreach ($pool as $refId => $item) {
+                    if (empty($item['shortenedTitle'])) {
+                        continue;
+                    }
+                    $olAuthor = null;
+                    if (!empty($item['llmMetadata']['authors'][0])) {
+                        $parts = explode(',', $item['llmMetadata']['authors'][0], 2);
+                        $olAuthor = trim($parts[0]);
+                    }
+                    $olRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $olAuthor];
+                }
+                if (!empty($olRetryQueries)) {
+                    Log::info('Wave 5b: Open Library retry with shortened titles', ['count' => count($olRetryQueries)]);
+                    $olRetryResults = $openLibrary->searchBatch($olRetryQueries, 5);
+                    foreach ($olRetryResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['searchedTitle'];
+                            $score   = $llmMeta
+                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.3) {
+                            Log::info('Wave 5b: matched with shortened title', [
+                                'refId'          => $refId,
+                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
+                                'resultTitle'    => $bestMatch['title'] ?? null,
+                                'score'          => $bestScore,
+                            ]);
                             $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
                             if ($result) {
                                 $results[] = $result;
@@ -466,6 +524,8 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // ── Wave 7: Semantic Scholar (chunked, rate-limited) ──
             if (!empty($pool)) {
+                $semanticScholar = app(SemanticScholarService::class);
+
                 $ssQueries = [];
                 foreach ($pool as $refId => $item) {
                     if (!$item['searchedTitle']) {
@@ -478,7 +538,6 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
                 if (!empty($ssQueries)) {
                     Log::info('Wave 7: Semantic Scholar search', ['count' => count($ssQueries)]);
-                    $semanticScholar = app(SemanticScholarService::class);
                     $ssResults = $semanticScholar->searchBatch($ssQueries, 5);
                     foreach ($ssResults as $refId => $candidates) {
                         if (!isset($pool[$refId])) {
@@ -511,6 +570,58 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                 }
+
+                // ── Wave 7b: Retry with shortened titles on Semantic Scholar ──
+                $ssRetryQueries = [];
+                foreach ($pool as $refId => $item) {
+                    if (empty($item['shortenedTitle'])) {
+                        continue;
+                    }
+                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
+                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
+                        : null;
+                    $ssRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $ssAuthor];
+                }
+                if (!empty($ssRetryQueries)) {
+                    Log::info('Wave 7b: Semantic Scholar retry with shortened titles', ['count' => count($ssRetryQueries)]);
+                    $ssRetryResults = $semanticScholar->searchBatch($ssRetryQueries, 5);
+                    foreach ($ssRetryResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['searchedTitle'];
+                            $score   = $llmMeta
+                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.3) {
+                            Log::info('Wave 7b: matched with shortened title', [
+                                'refId'          => $refId,
+                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
+                                'resultTitle'    => $bestMatch['title'] ?? null,
+                                'score'          => $bestScore,
+                            ]);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
+                            }
+                        }
+                    }
+                }
             }
 
             // ── Wave 8: Brave Search (Http::pool) ──
@@ -520,9 +631,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (!$item['searchedTitle']) {
                         continue;
                     }
+                    // Use shortened title for Brave if available (better search results)
+                    $braveTitle = $item['shortenedTitle'] ?? $item['searchedTitle'];
                     $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
                     $braveQueries[$refId] = [
-                        'title'  => $item['searchedTitle'],
+                        'title'  => $braveTitle,
                         'author' => $stubAuthor,
                         'year'   => $item['llmMetadata']['year'] ?? null,
                     ];
