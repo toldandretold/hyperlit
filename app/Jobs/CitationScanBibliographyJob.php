@@ -110,7 +110,23 @@ class CitationScanBibliographyJob implements ShouldQueue
                 $llm = app(LlmService::class);
                 $toExtract = [];
                 foreach ($needsResolution as $entry) {
-                    $toExtract[$entry->referenceId] = $entry->content ?? '';
+                    // Use cached LLM metadata if available
+                    $cached = $entry->llm_metadata;
+                    if (is_string($cached)) {
+                        $cached = json_decode($cached, true);
+                    }
+                    if (!empty($cached)) {
+                        $llmMetadataMap[$entry->referenceId] = $cached;
+                    } else {
+                        $toExtract[$entry->referenceId] = $entry->content ?? '';
+                    }
+                }
+
+                if (!empty($llmMetadataMap)) {
+                    Log::info('Skipping LLM extraction for entries with cached metadata', [
+                        'scan_id' => $this->scanId,
+                        'count'   => count($llmMetadataMap),
+                    ]);
                 }
 
                 if (!empty($toExtract)) {
@@ -118,7 +134,19 @@ class CitationScanBibliographyJob implements ShouldQueue
                         'scan_id' => $this->scanId,
                         'count'   => count($toExtract),
                     ]);
-                    $llmMetadataMap = $llm->extractCitationMetadataBatch($toExtract);
+                    $extracted = $llm->extractCitationMetadataBatch($toExtract);
+                    $llmMetadataMap = array_merge($llmMetadataMap, $extracted);
+
+                    // Cache newly extracted metadata on bibliography rows
+                    foreach ($extracted as $refId => $metadata) {
+                        $db->table('bibliography')
+                            ->where('book', $this->bookId)
+                            ->where('referenceId', $refId)
+                            ->update([
+                                'llm_metadata' => json_encode($metadata),
+                                'updated_at'   => now(),
+                            ]);
+                    }
                 }
             }
 
@@ -288,6 +316,9 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
+            // ── Phase A: Full-title searches (all APIs) ──
+            $storedCandidates = [];
+
             // ── Wave 4: OpenAlex title search (Http::pool) ──
             if (!empty($pool)) {
                 $titlesToSearch = [];
@@ -309,6 +340,9 @@ class CitationScanBibliographyJob implements ShouldQueue
                         if (!isset($pool[$refId])) {
                             continue;
                         }
+                        // Store candidates for shortened-title re-scoring
+                        $storedCandidates[$refId]['openalex'] = $candidates;
+
                         $bestMatch = null;
                         $bestScore = 0.0;
                         foreach ($candidates as $candidate) {
@@ -353,29 +387,207 @@ class CitationScanBibliographyJob implements ShouldQueue
                     }
                 }
 
-                // ── Wave 4b: Retry failed entries with shortened title (main title before colon) ──
-                $retryTitles = [];
-                $retryYearFilters = [];
-                foreach ($pool as $refId => &$item) {
+            }
+
+            // ── Wave 5: Open Library search (Http::pool) ──
+            if (!empty($pool)) {
+                $openLibrary = app(OpenLibraryService::class);
+
+                $olQueries = [];
+                foreach ($pool as $refId => $item) {
                     if (!$item['searchedTitle']) {
                         continue;
                     }
-                    // Only retry if the title has a subtitle separator (colon or em-dash)
-                    if (preg_match('/^(.{10,}?)\s*[:\x{2013}\x{2014}]\s/u', $item['searchedTitle'], $m)) {
-                        $shortened = trim($m[1]);
-                        if ($shortened !== $item['searchedTitle'] && strlen($shortened) >= 10) {
-                            // Store shortened title in pool so Waves 5, 7, 8 can use it
-                            $item['shortenedTitle'] = $shortened;
-                            $retryTitles[$refId] = $shortened;
-                            if (!empty($item['llmMetadata']['year'])) {
-                                $retryYearFilters[$refId] = $item['llmMetadata']['year'];
+                    $olAuthor = null;
+                    if (!empty($item['llmMetadata']['authors'][0])) {
+                        $parts = explode(',', $item['llmMetadata']['authors'][0], 2);
+                        $olAuthor = trim($parts[0]);
+                    }
+                    $olQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $olAuthor];
+                }
+                if (!empty($olQueries)) {
+                    Log::info('Wave 5: Open Library search', ['count' => count($olQueries)]);
+                    $olResults = $openLibrary->searchBatch($olQueries, 5);
+                    foreach ($olResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        // Store candidates for shortened-title re-scoring
+                        $storedCandidates[$refId]['openlibrary'] = $candidates;
+
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['searchedTitle'];
+                            $score   = $llmMeta
+                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.3) {
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
                             }
                         }
                     }
                 }
+
+            }
+
+            // ── Wave 7: Semantic Scholar search (chunked, rate-limited) ──
+            if (!empty($pool)) {
+                $semanticScholar = app(SemanticScholarService::class);
+
+                $ssQueries = [];
+                foreach ($pool as $refId => $item) {
+                    if (!$item['searchedTitle']) {
+                        continue;
+                    }
+                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
+                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
+                        : null;
+                    $ssQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $ssAuthor];
+                }
+                if (!empty($ssQueries)) {
+                    Log::info('Wave 7: Semantic Scholar search', ['count' => count($ssQueries)]);
+                    $ssResults = $semanticScholar->searchBatch($ssQueries, 5);
+                    foreach ($ssResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        // Store candidates for shortened-title re-scoring
+                        $storedCandidates[$refId]['semantic_scholar'] = $candidates;
+
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['searchedTitle'];
+                            $score   = $llmMeta
+                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.3) {
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Phase B: Shortened-title retries ──
+            if (!empty($pool)) {
+                // Generate shortened titles for entries with subtitle separators
+                foreach ($pool as $refId => &$item) {
+                    if (!$item['searchedTitle']) {
+                        continue;
+                    }
+                    if (preg_match('/^(.{10,}?)\s*[:\x{2013}\x{2014}]\s/u', $item['searchedTitle'], $m)) {
+                        $shortened = trim($m[1]);
+                        if ($shortened !== $item['searchedTitle'] && strlen($shortened) >= 10) {
+                            $item['shortenedTitle'] = $shortened;
+                        }
+                    }
+                }
                 unset($item);
+
+                // Re-score stored candidates from Phase A using shortened titles
+                foreach ($pool as $refId => $item) {
+                    if (empty($item['shortenedTitle']) || empty($storedCandidates[$refId])) {
+                        continue;
+                    }
+                    $shortened = $item['shortenedTitle'];
+                    $bestMatch = null;
+                    $bestScore = 0.0;
+                    $bestSource = null;
+
+                    foreach ($storedCandidates[$refId] as $source => $candidates) {
+                        foreach ($candidates as $candidate) {
+                            if ($source === 'openalex' && !$openAlex->isCitableWork($candidate)) {
+                                continue;
+                            }
+                            $scoreMeta = $item['llmMetadata'];
+                            if ($scoreMeta) {
+                                $scoreMeta['title'] = $shortened;
+                            }
+                            $score = $scoreMeta
+                                ? $openAlex->metadataScore($scoreMeta, $candidate)
+                                : $openAlex->titleSimilarity($shortened, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                                $bestSource = $source;
+                            }
+                        }
+                    }
+
+                    $sourceToMethod = [
+                        'openalex'         => 'openalex',
+                        'openlibrary'      => 'open_library',
+                        'semantic_scholar' => 'semantic_scholar',
+                    ];
+
+                    if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($item['llmMetadata'], $bestMatch)) {
+                        $matchMethod = $sourceToMethod[$bestSource] ?? $bestSource;
+                        Log::info('Shortened-title re-score: matched from stored candidates', [
+                            'refId'          => $refId,
+                            'shortenedTitle' => $shortened,
+                            'resultTitle'    => $bestMatch['title'] ?? null,
+                            'score'          => $bestScore,
+                            'source'         => $bestSource,
+                        ]);
+                        $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, $matchMethod, round($bestScore, 3), $openAlex, $db);
+                        if ($result) {
+                            $results[] = $result;
+                            match ($result['status']) {
+                                'newly_resolved' => $newlyResolved++,
+                                'enriched'       => $enrichedExisting++,
+                                default          => $failedToResolve++,
+                            };
+                            unset($pool[$refId]);
+                        }
+                    }
+                }
+
+                // API calls for entries still unresolved after re-scoring
+
+                // ── Wave 4b: OpenAlex retry with shortened titles ──
+                $retryTitles = [];
+                $retryYearFilters = [];
+                foreach ($pool as $refId => $item) {
+                    if (empty($item['shortenedTitle'])) {
+                        continue;
+                    }
+                    $retryTitles[$refId] = $item['shortenedTitle'];
+                    if (!empty($item['llmMetadata']['year'])) {
+                        $retryYearFilters[$refId] = $item['llmMetadata']['year'];
+                    }
+                }
                 if (!empty($retryTitles)) {
-                    Log::info('Wave 4b: Retry with shortened titles', ['count' => count($retryTitles)]);
+                    Log::info('Wave 4b: OpenAlex retry with shortened titles', ['count' => count($retryTitles)]);
                     $oaRetryResults = $openAlex->searchBatch($retryTitles, 5, $retryYearFilters);
                     foreach ($oaRetryResults as $refId => $candidates) {
                         if (!isset($pool[$refId])) {
@@ -389,7 +601,6 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $retryTitles[$refId];
-                            // Score against shortened title — the whole point of b-waves
                             $scoreMeta = $llmMeta;
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $title;
@@ -422,60 +633,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                 }
-            }
 
-            // ── Wave 5: Open Library search (Http::pool) ──
-            if (!empty($pool)) {
-                $openLibrary = app(OpenLibraryService::class);
-
-                $olQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
-                        continue;
-                    }
-                    $olAuthor = null;
-                    if (!empty($item['llmMetadata']['authors'][0])) {
-                        $parts = explode(',', $item['llmMetadata']['authors'][0], 2);
-                        $olAuthor = trim($parts[0]);
-                    }
-                    $olQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $olAuthor];
+                // ── Wave 5b: Open Library retry with shortened titles ──
+                if (!isset($openLibrary)) {
+                    $openLibrary = app(OpenLibraryService::class);
                 }
-                if (!empty($olQueries)) {
-                    Log::info('Wave 5: Open Library search', ['count' => count($olQueries)]);
-                    $olResults = $openLibrary->searchBatch($olQueries, 5);
-                    foreach ($olResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
-                            }
-                        }
-                    }
-                }
-
-                // ── Wave 5b: Retry with shortened titles on Open Library ──
                 $olRetryQueries = [];
                 foreach ($pool as $refId => $item) {
                     if (empty($item['shortenedTitle'])) {
@@ -500,7 +662,6 @@ class CitationScanBibliographyJob implements ShouldQueue
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['shortenedTitle'];
-                            // Score against shortened title — the whole point of b-waves
                             $scoreMeta = $llmMeta;
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $title;
@@ -533,7 +694,68 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                 }
+
+                // ── Wave 7b: Semantic Scholar retry with shortened titles ──
+                if (!isset($semanticScholar)) {
+                    $semanticScholar = app(SemanticScholarService::class);
+                }
+                $ssRetryQueries = [];
+                foreach ($pool as $refId => $item) {
+                    if (empty($item['shortenedTitle'])) {
+                        continue;
+                    }
+                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
+                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
+                        : null;
+                    $ssRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $ssAuthor];
+                }
+                if (!empty($ssRetryQueries)) {
+                    Log::info('Wave 7b: Semantic Scholar retry with shortened titles', ['count' => count($ssRetryQueries)]);
+                    $ssRetryResults = $semanticScholar->searchBatch($ssRetryQueries, 5);
+                    foreach ($ssRetryResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['shortenedTitle'];
+                            $scoreMeta = $llmMeta;
+                            if ($scoreMeta) {
+                                $scoreMeta['title'] = $title;
+                            }
+                            $score   = $scoreMeta
+                                ? $openAlex->metadataScore($scoreMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
+                            Log::info('Wave 7b: matched with shortened title', [
+                                'refId'          => $refId,
+                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
+                                'resultTitle'    => $bestMatch['title'] ?? null,
+                                'score'          => $bestScore,
+                            ]);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
+                            }
+                        }
+                    }
+                }
             }
+
+            // ── Phase C: Remaining waves ──
 
             // ── Wave 6: Web fetch for entries with URLs (Http::pool) ──
             if (!empty($pool)) {
@@ -572,113 +794,6 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 default          => $failedToResolve++,
                             };
                             unset($pool[$refId]);
-                        }
-                    }
-                }
-            }
-
-            // ── Wave 7: Semantic Scholar (chunked, rate-limited) ──
-            if (!empty($pool)) {
-                $semanticScholar = app(SemanticScholarService::class);
-
-                $ssQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
-                        continue;
-                    }
-                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
-                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
-                        : null;
-                    $ssQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $ssAuthor];
-                }
-                if (!empty($ssQueries)) {
-                    Log::info('Wave 7: Semantic Scholar search', ['count' => count($ssQueries)]);
-                    $ssResults = $semanticScholar->searchBatch($ssQueries, 5);
-                    foreach ($ssResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
-                            }
-                        }
-                    }
-                }
-
-                // ── Wave 7b: Retry with shortened titles on Semantic Scholar ──
-                $ssRetryQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle'])) {
-                        continue;
-                    }
-                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
-                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
-                        : null;
-                    $ssRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $ssAuthor];
-                }
-                if (!empty($ssRetryQueries)) {
-                    Log::info('Wave 7b: Semantic Scholar retry with shortened titles', ['count' => count($ssRetryQueries)]);
-                    $ssRetryResults = $semanticScholar->searchBatch($ssRetryQueries, 5);
-                    foreach ($ssRetryResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['shortenedTitle'];
-                            // Score against shortened title — the whole point of b-waves
-                            $scoreMeta = $llmMeta;
-                            if ($scoreMeta) {
-                                $scoreMeta['title'] = $title;
-                            }
-                            $score   = $scoreMeta
-                                ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
-                            Log::info('Wave 7b: matched with shortened title', [
-                                'refId'          => $refId,
-                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
-                                'resultTitle'    => $bestMatch['title'] ?? null,
-                                'score'          => $bestScore,
-                            ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
-                            }
                         }
                     }
                 }
@@ -786,6 +901,22 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'status'      => 'error',
                 'error'       => 'Failed to create library stub',
             ];
+        }
+
+        // Enrich stub title with LLM metadata if more complete
+        $llmTitle = $poolItem['llmMetadata']['title'] ?? null;
+        $normalisedTitle = $normalised['title'] ?? '';
+        if ($llmTitle && mb_strlen($llmTitle) > mb_strlen($normalisedTitle) && $normalisedTitle !== '') {
+            if (mb_stripos($llmTitle, $normalisedTitle) !== false) {
+                $db->table('library')
+                    ->where('book', $stubBookId)
+                    ->update(['title' => $llmTitle, 'updated_at' => now()]);
+                Log::info('Enriched stub title with LLM metadata', [
+                    'stubBookId' => $stubBookId,
+                    'oldTitle'   => $normalisedTitle,
+                    'newTitle'   => $llmTitle,
+                ]);
+            }
         }
 
         if ($isLinked) {

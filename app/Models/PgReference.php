@@ -23,5 +23,10 @@ class PgReference extends Model
         'source_id',
         'content',
         'foundation_source',
+        'llm_metadata',
+    ];
+
+    protected $casts = [
+        'llm_metadata' => 'array',
     ];
 }
