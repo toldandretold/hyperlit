@@ -325,14 +325,17 @@ class CitationReviewService
 
                     $markedForMatch = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $node['marked_text']);
                     $normMarked = $this->normaliseQuotes($markedForMatch);
+                    $normPlain  = $this->normaliseQuotes($node['plainText']);
                     $normClaim  = $this->normaliseQuotes($truthClaim);
 
-                    $verbatimMatch = mb_stripos($normMarked, $normClaim) !== false;
+                    $verbatimMatch = mb_stripos($normMarked, $normClaim) !== false
+                                  || mb_stripos($normPlain, $normClaim) !== false;
 
                     if (!$verbatimMatch) {
                         $stripPunct = fn(string $s) => trim(preg_replace('/\s+/', ' ',
                             preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($s))));
-                        $verbatimMatch = mb_strpos($stripPunct($normMarked), $stripPunct($normClaim)) !== false;
+                        $verbatimMatch = mb_strpos($stripPunct($normMarked), $stripPunct($normClaim)) !== false
+                                      || mb_strpos($stripPunct($normPlain), $stripPunct($normClaim)) !== false;
                     }
 
                     if (!$verbatimMatch) {
