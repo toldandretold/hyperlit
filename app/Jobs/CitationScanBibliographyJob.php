@@ -181,7 +181,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             }
             unset($item);
 
-            // ── Wave 2: DOI lookup on OpenAlex (Http::pool) ──
+            // ── Wave 2a: Local library DOI lookup (DB only — no HTTP) ──
             $doisToLookup = [];
             foreach ($pool as $refId => $item) {
                 if ($item['doi']) {
@@ -189,7 +189,52 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
             if (!empty($doisToLookup)) {
-                Log::info('Wave 2: DOI lookup', ['count' => count($doisToLookup)]);
+                Log::info('Wave 2a: Local DOI lookup', ['count' => count($doisToLookup)]);
+                $localDoiMatches = $db->table('library')
+                    ->whereIn('doi', array_values($doisToLookup))
+                    ->get(['book', 'title', 'doi', 'openalex_id', 'open_library_key'])
+                    ->keyBy('doi');
+
+                foreach ($doisToLookup as $refId => $doi) {
+                    if (!isset($pool[$refId])) continue;
+                    $match = $localDoiMatches->get($doi);
+                    if ($match) {
+                        $item = $pool[$refId];
+                        $updateData = $item['isLinked']
+                            ? ['foundation_source' => $match->book, 'updated_at' => now()]
+                            : ['source_id' => $match->book, 'foundation_source' => $match->book, 'updated_at' => now()];
+
+                        $db->table('bibliography')
+                            ->where('book', $this->bookId)
+                            ->where('referenceId', $refId)
+                            ->update($updateData);
+
+                        $results[] = [
+                            'referenceId'        => $refId,
+                            'status'             => $item['isLinked'] ? 'enriched' : 'newly_resolved',
+                            'match_method'       => 'local_doi',
+                            'searched_title'     => $item['searchedTitle'],
+                            'result_title'       => $match->title,
+                            'openalex_id'        => $match->openalex_id,
+                            'open_library_key'   => $match->open_library_key,
+                            'foundation_book_id' => $match->book,
+                            'llm_metadata'       => $item['llmMetadata'],
+                        ];
+                        $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
+                        unset($pool[$refId]);
+                        unset($doisToLookup[$refId]);
+                    }
+                }
+
+                Log::info('Wave 2a: Local DOI matches', [
+                    'found'     => $localDoiMatches->count(),
+                    'remaining' => count($doisToLookup),
+                ]);
+            }
+
+            // ── Wave 2b: DOI lookup on OpenAlex — only DOIs not found locally ──
+            if (!empty($doisToLookup)) {
+                Log::info('Wave 2b: OpenAlex DOI lookup', ['count' => count($doisToLookup)]);
                 $doiResults = $openAlex->fetchByDoiBatch($doisToLookup);
                 foreach ($doiResults as $refId => $normalised) {
                     if ($normalised && isset($pool[$refId])) {
@@ -352,7 +397,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestMatch = $candidate;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 4b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $retryTitles[$refId],
@@ -458,7 +503,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestMatch = $candidate;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 5b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $pool[$refId]['shortenedTitle'],
@@ -602,7 +647,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestMatch = $candidate;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 7b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $pool[$refId]['shortenedTitle'],
@@ -631,8 +676,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (!$item['searchedTitle']) {
                         continue;
                     }
-                    // Use shortened title for Brave if available (better search results)
-                    $braveTitle = $item['shortenedTitle'] ?? $item['searchedTitle'];
+                    $braveTitle = $item['searchedTitle'];
                     $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
                     $braveQueries[$refId] = [
                         'title'  => $braveTitle,
@@ -904,5 +948,51 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'results'           => json_encode($results),
                 'updated_at'        => now(),
             ]);
+    }
+
+    /**
+     * Check whether a candidate has at least author OR year confirmation against LLM metadata.
+     * Used as an extra guard for shortened-title "b" waves to prevent false positives.
+     */
+    private function hasAuthorOrYearConfirmation(?array $llmMeta, array $candidate): bool
+    {
+        if (!$llmMeta) {
+            return false;
+        }
+
+        // Year check: exact or ±1
+        $llmYear = $llmMeta['year'] ?? null;
+        $candidateYear = $candidate['year'] ?? null;
+        if ($llmYear !== null && $candidateYear !== null) {
+            if (abs((int) $llmYear - (int) $candidateYear) <= 1) {
+                return true;
+            }
+        }
+
+        // Author check: any LLM author surname found as a whole word in candidate author
+        $llmAuthors = $llmMeta['authors'] ?? [];
+        $candidateAuthor = $candidate['author'] ?? '';
+        if (!empty($llmAuthors) && !empty($candidateAuthor)) {
+            $candidateAuthorLower = mb_strtolower($candidateAuthor);
+            foreach ($llmAuthors as $author) {
+                $parts = explode(',', $author, 2);
+                $surname = mb_strtolower(trim($parts[0]));
+                if ($surname && strlen($surname) >= 2) {
+                    // Word-boundary match — prevents "Smith" matching "Blacksmith"
+                    if (preg_match('/\b' . preg_quote($surname, '/') . '\b/iu', $candidateAuthorLower)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        Log::debug('Shortened-title wave: no author/year confirmation', [
+            'llm_authors' => $llmAuthors,
+            'llm_year' => $llmYear,
+            'candidate_author' => $candidateAuthor,
+            'candidate_year' => $candidateYear,
+        ]);
+
+        return false;
     }
 }

@@ -376,24 +376,93 @@ class OpenAlexService
     }
 
     /**
-     * Compute word-overlap similarity between a search query and a result title.
-     * Returns a float between 0.0 (no overlap) and 1.0 (identical words).
-     * Uses Jaccard similarity: |intersection| / |union| on lowercased word sets,
-     * with common stop words removed.
+     * Strip diacritics to ASCII: "Aydın"→"Aydin", "Mbembé"→"Mbembe", etc.
+     */
+    private function asciiFold(string $s): string
+    {
+        if (function_exists('transliterator_transliterate')) {
+            return transliterator_transliterate('Any-Latin; Latin-ASCII', $s);
+        }
+        $result = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+        return $result !== false ? $result : $s;
+    }
+
+    /**
+     * Lowercase, strip diacritics, remove punctuation, collapse whitespace.
+     */
+    private function normaliseText(string $s): string
+    {
+        $s = $this->asciiFold(mb_strtolower($s));
+        $s = preg_replace('/[^\w\s]/u', ' ', $s);
+        return preg_replace('/\s+/', ' ', trim($s));
+    }
+
+    /**
+     * Compare two individual author names using word-set matching.
+     * Handles reordering ("Nilsen, Alf Gunvald" vs "Alf Gunvald Nilsen")
+     * and fuzzy tolerance via levenshtein().
+     * Returns proportion of shorter name's words that matched (0.0–1.0).
+     */
+    private function nameSimilarity(string $name1, string $name2): float
+    {
+        $normalise = function (string $name): array {
+            $name = $this->asciiFold(mb_strtolower($name));
+            $name = preg_replace('/[,.\-]/u', ' ', $name);
+            $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY);
+            // Remove single-letter initials
+            return array_values(array_filter($words, fn($w) => mb_strlen($w) > 1));
+        };
+
+        $words1 = $normalise($name1);
+        $words2 = $normalise($name2);
+
+        if (empty($words1) || empty($words2)) {
+            return 0.0;
+        }
+
+        $shorter = count($words1) <= count($words2) ? $words1 : $words2;
+        $longer  = count($words1) <= count($words2) ? $words2 : $words1;
+
+        $matched = 0;
+        $used = [];
+        foreach ($shorter as $sw) {
+            foreach ($longer as $li => $lw) {
+                if (isset($used[$li])) continue;
+                if ($sw === $lw || (mb_strlen($sw) >= 4 && mb_strlen($lw) >= 4 && levenshtein($sw, $lw) <= 1)) {
+                    $matched++;
+                    $used[$li] = true;
+                    break;
+                }
+            }
+        }
+
+        return $matched / count($shorter);
+    }
+
+    /**
+     * Compute blended word + character similarity between two titles.
+     * Returns 0.0–1.0. Combines Jaccard word-overlap (structural) with
+     * similar_text() percentage (typo tolerance), scaled by a length penalty.
      */
     public function titleSimilarity(string $query, string $resultTitle): float
     {
         $stopWords = ['the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'by', 'with', 'from', 'at', 'is', 'as'];
 
+        $normQuery  = $this->normaliseText($query);
+        $normResult = $this->normaliseText($resultTitle);
+
+        if ($normQuery === '' || $normResult === '') {
+            return 0.0;
+        }
+
+        // Word-level Jaccard
         $tokenise = function (string $text) use ($stopWords): array {
-            $text = mb_strtolower($text);
-            $text = preg_replace('/[^\w\s]/u', ' ', $text);
             $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
             return array_values(array_diff($words, $stopWords));
         };
 
-        $queryWords  = $tokenise($query);
-        $resultWords = $tokenise($resultTitle);
+        $queryWords  = $tokenise($normQuery);
+        $resultWords = $tokenise($normResult);
 
         if (empty($queryWords) || empty($resultWords)) {
             return 0.0;
@@ -401,60 +470,70 @@ class OpenAlexService
 
         $intersection = count(array_intersect($queryWords, $resultWords));
         $union        = count(array_unique(array_merge($queryWords, $resultWords)));
+        $jaccard      = $union > 0 ? $intersection / $union : 0.0;
 
-        $jaccard = $union > 0 ? $intersection / $union : 0.0;
+        // Character-level similarity (typo tolerance)
+        similar_text($normQuery, $normResult, $charSimPercent);
+        $charSim = $charSimPercent / 100.0;
 
-        // Penalise length mismatch — short query matching a much longer title
-        // (or vice versa) gets scaled down. Factor ranges from 0.5 to 1.0.
+        // Blend: 60% word-level, 40% character-level
+        $blended = 0.6 * $jaccard + 0.4 * $charSim;
+
+        // Length penalty: min/max word count ratio scaled 0.5–1.0
         $lengthRatio = min(count($queryWords), count($resultWords))
                      / max(count($queryWords), count($resultWords));
 
-        return $jaccard * (0.5 + 0.5 * $lengthRatio);
+        return $blended * (0.5 + 0.5 * $lengthRatio);
     }
 
     /**
-     * Compute a composite metadata score between LLM-extracted metadata and an OpenAlex candidate.
-     * Weights: title 0.6, author 0.25, year 0.15. Returns 0.0–1.0.
+     * Compute a composite metadata score between LLM-extracted metadata and a candidate.
+     * Weights: title 0.55, author 0.25, year 0.12, journal 0.08. Returns 0.0–1.0.
      */
     public function metadataScore(array $llmMeta, array $candidate): float
     {
-        // Title similarity (weight 0.6)
+        // Title similarity (weight 0.55)
         $titleScore = $this->titleSimilarity(
             $llmMeta['title'] ?? '',
             $candidate['title'] ?? ''
         );
 
-        // Author match (weight 0.25): 1.0 if any LLM author surname appears in any candidate authorship
+        // Author match (weight 0.25): proportional matching via nameSimilarity
         $authorScore = 0.0;
         $llmAuthors = $llmMeta['authors'] ?? [];
-        if (!empty($llmAuthors)) {
-            // Strip diacritics to ASCII so "Aydın"→"Aydin", "Mbembé"→"Mbembe", etc.
-            $asciiFold = function (string $s): string {
-                if (function_exists('transliterator_transliterate')) {
-                    return transliterator_transliterate('Any-Latin; Latin-ASCII', $s);
+        $candidateAuthor = $candidate['author'] ?? '';
+
+        if (!empty($llmAuthors) && !empty($candidateAuthor)) {
+            // Split candidate authors by semicolons into individual names
+            $candidateNames = array_map('trim', explode(';', $candidateAuthor));
+            $candidateNames = array_values(array_filter($candidateNames, fn($n) => strlen($n) >= 2));
+
+            $matchedCount = 0;
+            $usedCandidates = [];
+
+            foreach ($llmAuthors as $llmAuthor) {
+                $bestNameScore = 0.0;
+                $bestIdx = -1;
+
+                foreach ($candidateNames as $ci => $cName) {
+                    if (isset($usedCandidates[$ci])) continue;
+                    $ns = $this->nameSimilarity($llmAuthor, $cName);
+                    if ($ns > $bestNameScore) {
+                        $bestNameScore = $ns;
+                        $bestIdx = $ci;
+                    }
                 }
-                $result = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
-                return $result !== false ? $result : $s;
-            };
 
-            $llmSurnames = array_map(function (string $a) use ($asciiFold): string {
-                // "Lastname, Firstname" → "lastname"
-                $parts = explode(',', $a, 2);
-                return $asciiFold(mb_strtolower(trim($parts[0])));
-            }, $llmAuthors);
-
-            $candidateAuthor = $candidate['author'] ?? '';
-            $candidateAuthorLower = $asciiFold(mb_strtolower($candidateAuthor));
-
-            foreach ($llmSurnames as $surname) {
-                if ($surname && str_contains($candidateAuthorLower, $surname)) {
-                    $authorScore = 1.0;
-                    break;
+                if ($bestNameScore >= 0.6 && $bestIdx >= 0) {
+                    $matchedCount++;
+                    $usedCandidates[$bestIdx] = true;
                 }
             }
+
+            $authorScore = count($llmAuthors) > 0 ? $matchedCount / count($llmAuthors) : 0.0;
         }
 
-        // Year match (weight 0.15): 1.0 exact, 0.5 if ±1, 0.0 otherwise
+        // Year match (weight 0.12): 1.0 exact, 0.5 if ±1, 0.0 otherwise
         $yearScore = 0.0;
         $llmYear = $llmMeta['year'] ?? null;
         $candidateYear = $candidate['year'] ?? null;
@@ -467,20 +546,32 @@ class OpenAlexService
             }
         }
 
-        // When we have author data from both sides but zero overlap, apply a penalty.
-        // This prevents weak title+year matches from passing when authors clearly differ.
-        // A milder penalty applies when the candidate has no author at all — we can't
-        // confirm authorship, so demand a stronger title match to compensate.
+        // Journal bonus (weight 0.08): similar_text comparison
+        $journalScore = 0.0;
+        $llmJournal = $llmMeta['journal'] ?? '';
+        $candidateJournal = $candidate['journal'] ?? '';
+        if (strlen($llmJournal) >= 3 && strlen($candidateJournal) >= 3) {
+            $normLlmJournal  = $this->normaliseText($llmJournal);
+            $normCandJournal = $this->normaliseText($candidateJournal);
+            similar_text($normLlmJournal, $normCandJournal, $journalSimPercent);
+            $journalSim = $journalSimPercent / 100.0;
+            $journalScore = $journalSim >= 0.4 ? $journalSim : 0.0;
+        }
+
+        // Author mismatch penalty
         $authorMismatchPenalty = 1.0;
-        if ($authorScore === 0.0 && !empty($llmSurnames)) {
+        if ($authorScore === 0.0 && !empty($llmAuthors)) {
             if (!empty($candidateAuthor)) {
                 $authorMismatchPenalty = 0.5;   // clear mismatch
             } else {
                 $authorMismatchPenalty = 0.85;  // unconfirmed — mild skepticism
             }
+        } elseif ($authorScore > 0.0 && $authorScore < 0.5 && !empty($llmAuthors)) {
+            // Partial but weak match: graduated penalty
+            $authorMismatchPenalty = 0.7 + 0.6 * $authorScore;
         }
 
-        $rawScore = ($titleScore * 0.6) + ($authorScore * 0.25) + ($yearScore * 0.15);
+        $rawScore = ($titleScore * 0.55) + ($authorScore * 0.25) + ($yearScore * 0.12) + ($journalScore * 0.08);
         $finalScore = $rawScore * $authorMismatchPenalty;
 
         Log::info('metadataScore', [
@@ -488,14 +579,16 @@ class OpenAlexService
             'candidate_title' => $candidate['title'] ?? '',
             'titleScore' => round($titleScore, 4),
             'llm_authors' => $llmAuthors,
-            'llm_surnames' => $llmSurnames ?? [],
-            'candidate_author' => $candidateAuthor ?? '',
-            'authorScore' => $authorScore,
+            'candidate_author' => $candidateAuthor,
+            'authorScore' => round($authorScore, 4),
             'llm_year' => $llmYear,
             'candidate_year' => $candidateYear,
             'yearScore' => $yearScore,
+            'llm_journal' => $llmJournal,
+            'candidate_journal' => $candidateJournal,
+            'journalScore' => round($journalScore, 4),
             'rawScore' => round($rawScore, 4),
-            'authorMismatchPenalty' => $authorMismatchPenalty,
+            'authorMismatchPenalty' => round($authorMismatchPenalty, 4),
             'finalScore' => round($finalScore, 4),
         ]);
 
