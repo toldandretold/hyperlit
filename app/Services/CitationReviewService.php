@@ -570,11 +570,9 @@ class CitationReviewService
                 $claim['evidence_type'] = 'abstract_only';
             }
 
-            if (!isset($claim['evidence_type'])) {
+            if ($claim['evidence_type'] === 'none') {
                 if (!empty($claim['source_title'])) {
                     $claim['evidence_type'] = 'title_only';
-                } else {
-                    $claim['evidence_type'] = 'none';
                 }
             }
 

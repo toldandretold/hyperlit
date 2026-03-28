@@ -307,6 +307,68 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                 }
+
+                // ── Wave 4b: Retry failed entries with shortened title (main title before colon) ──
+                $retryTitles = [];
+                $retryYearFilters = [];
+                foreach ($pool as $refId => $item) {
+                    if (!$item['searchedTitle']) {
+                        continue;
+                    }
+                    // Only retry if the title has a subtitle separator (colon or em-dash)
+                    if (preg_match('/^(.{10,}?)\s*[:\x{2013}\x{2014}]\s/u', $item['searchedTitle'], $m)) {
+                        $shortened = trim($m[1]);
+                        if ($shortened !== $item['searchedTitle'] && strlen($shortened) >= 10) {
+                            $retryTitles[$refId] = $shortened;
+                            if (!empty($item['llmMetadata']['year'])) {
+                                $retryYearFilters[$refId] = $item['llmMetadata']['year'];
+                            }
+                        }
+                    }
+                }
+                if (!empty($retryTitles)) {
+                    Log::info('Wave 4b: Retry with shortened titles', ['count' => count($retryTitles)]);
+                    $oaRetryResults = $openAlex->searchBatch($retryTitles, 5, $retryYearFilters);
+                    foreach ($oaRetryResults as $refId => $candidates) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        foreach ($candidates as $candidate) {
+                            if (!$openAlex->isCitableWork($candidate)) {
+                                continue;
+                            }
+                            $llmMeta = $pool[$refId]['llmMetadata'];
+                            $title   = $pool[$refId]['searchedTitle'];
+                            $score   = $llmMeta
+                                ? $openAlex->metadataScore($llmMeta, $candidate)
+                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                            if ($score > $bestScore) {
+                                $bestScore = $score;
+                                $bestMatch = $candidate;
+                            }
+                        }
+                        if ($bestMatch && $bestScore > 0.3) {
+                            Log::info('Wave 4b: matched with shortened title', [
+                                'refId'          => $refId,
+                                'shortenedTitle' => $retryTitles[$refId],
+                                'resultTitle'    => $bestMatch['title'] ?? null,
+                                'score'          => $bestScore,
+                            ]);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                unset($pool[$refId]);
+                            }
+                        }
+                    }
+                }
             }
 
             // ── Wave 5: Open Library search (Http::pool) ──
