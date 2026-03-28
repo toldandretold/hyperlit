@@ -203,7 +203,7 @@ class OpenAlexService
      * @param array $queries Keyed by referenceId: ['ref1' => 'search title', ...]
      * @return array Arrays of normalised candidates keyed by referenceId
      */
-    public function searchBatch(array $queries, int $limit = 5): array
+    public function searchBatch(array $queries, int $limit = 5, array $yearFilters = []): array
     {
         if (empty($queries)) {
             return [];
@@ -214,17 +214,21 @@ class OpenAlexService
         $chunks = array_chunk($keys, 8);
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
-            $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $limit) {
+            $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $limit, $yearFilters) {
                 foreach ($chunkKeys as $key) {
+                    $params = [
+                        'search'   => $queries[$key],
+                        'per_page' => $limit,
+                        'page'     => 1,
+                        'select'   => self::SELECT_FIELDS,
+                    ];
+                    if (isset($yearFilters[$key])) {
+                        $params['filter'] = 'publication_year:' . (int) $yearFilters[$key];
+                    }
                     $pool->as((string) $key)
                         ->withHeaders(['User-Agent' => self::USER_AGENT])
                         ->timeout(15)
-                        ->get(self::BASE_URL . '/works', [
-                            'search'   => $queries[$key],
-                            'per_page' => $limit,
-                            'page'     => 1,
-                            'select'   => self::SELECT_FIELDS,
-                        ]);
+                        ->get(self::BASE_URL . '/works', $params);
                 }
             });
 
@@ -508,6 +512,7 @@ class OpenAlexService
             'dissertation', 'proceedings-article', 'report',
             'peer-review', 'monograph', 'reference-entry',
             'proceedings', 'standard', 'posted-content',
+            'edited-book',
         ];
 
         $type = $normalised['type'] ?? null;

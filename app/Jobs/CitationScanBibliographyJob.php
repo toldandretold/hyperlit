@@ -167,9 +167,17 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'pool_size' => count($pool),
             ]);
 
-            // ── Wave 1: DOI extraction (regex — instant) ──
+            // ── Wave 1: DOI extraction (regex — instant, then merge LLM-extracted DOIs) ──
             foreach ($pool as $refId => &$item) {
                 $item['doi'] = $openAlex->extractDoi($item['content']);
+            }
+            unset($item);
+
+            // Merge LLM-extracted DOIs for entries where regex found nothing
+            foreach ($pool as $refId => &$item) {
+                if (!$item['doi'] && !empty($item['llmMetadata']['doi'])) {
+                    $item['doi'] = $item['llmMetadata']['doi'];
+                }
             }
             unset($item);
 
@@ -245,7 +253,13 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
                 if (!empty($titlesToSearch)) {
                     Log::info('Wave 4: OpenAlex title search', ['count' => count($titlesToSearch)]);
-                    $oaResults = $openAlex->searchBatch($titlesToSearch, 5);
+                    $yearFilters = [];
+                    foreach ($pool as $refId => $item) {
+                        if ($item['searchedTitle'] && !empty($item['llmMetadata']['year'])) {
+                            $yearFilters[$refId] = $item['llmMetadata']['year'];
+                        }
+                    }
+                    $oaResults = $openAlex->searchBatch($titlesToSearch, 5, $yearFilters);
                     foreach ($oaResults as $refId => $candidates) {
                         if (!isset($pool[$refId])) {
                             continue;
@@ -254,6 +268,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $bestScore = 0.0;
                         foreach ($candidates as $candidate) {
                             if (!$openAlex->isCitableWork($candidate)) {
+                                Log::debug('Wave 4: rejected non-citable type', [
+                                    'refId' => $refId,
+                                    'title' => $candidate['title'] ?? null,
+                                    'type'  => $candidate['type'] ?? null,
+                                ]);
                                 continue;
                             }
                             $llmMeta = $pool[$refId]['llmMetadata'];
@@ -265,6 +284,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
                             }
+                        }
+                        if ($bestMatch && $bestScore <= 0.3) {
+                            Log::info('Wave 4: best candidate below threshold', [
+                                'refId'         => $refId,
+                                'bestScore'     => $bestScore,
+                                'bestTitle'     => $bestMatch['title'] ?? null,
+                                'searchedTitle' => $pool[$refId]['searchedTitle'],
+                            ]);
                         }
                         if ($bestMatch && $bestScore > 0.3) {
                             $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db);
