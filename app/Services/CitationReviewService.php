@@ -1342,6 +1342,7 @@ class CitationReviewService
             'creator'       => $parent->creator ?? null,
             'creator_token' => $parent->creator_token ?? null,
             'visibility'    => $parent->visibility ?? 'public',
+            'listed'        => false,
             'has_nodes'     => true,
             'timestamp'     => round(microtime(true) * 1000),
             'raw_json'      => json_encode(['type' => 'ai_review', 'parent' => $bookId]),

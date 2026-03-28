@@ -147,6 +147,7 @@ class BackendHighlightService
             'creator'       => $parent->creator ?? null,
             'creator_token' => $parent->creator_token ?? null,
             'visibility'    => $parent->visibility ?? 'public',
+            'listed'        => false,
             'has_nodes'     => true,
             'timestamp'     => round(microtime(true) * 1000),
             'raw_json'      => json_encode(['type' => 'highlight_annotation', 'parent' => $bookId]),
