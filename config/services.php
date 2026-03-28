@@ -39,8 +39,8 @@ return [
         'base_url'           => env('LLM_BASE_URL', 'https://api.fireworks.ai/inference/v1'),
         'api_key'            => env('LLM_API_KEY'),
         'model'              => 'accounts/fireworks/models/qwen3-8b',
-        'extraction_model'   => 'accounts/fireworks/models/qwq-32b',
-        'verification_model' => 'accounts/fireworks/models/qwen3-235b-a22b',
+        'extraction_model'   => 'accounts/fireworks/models/qwen3-8b',
+        'verification_model' => 'accounts/fireworks/models/deepseek-v3p2',
     ],
 
     'mistral_ocr' => [
