@@ -580,6 +580,14 @@ Return ONLY valid JSON:
 
 - "cited_passages": Passage numbers that support the claim. Empty array [] if none.
 
+IMPORTANT: Academics often cite PRIMARY SOURCES (speeches, legislation, government documents, press releases,
+news articles, interviews) as evidence of discourse patterns, ideology, or rhetoric. The source does NOT need
+to explicitly state the academic's interpretation. A political speech cited for a claim about nationalist
+ideology may never mention the specific groups being "othered" or the analytical framework — the academic is
+reading "against the grain", drawing conclusions the original author never intended. If the source is by or
+about the same entity/person/event discussed in the claim, there is ALWAYS a plausible connection — use
+"plausible" at minimum, NEVER "rejected".
+
 IMPORTANT: Keep your reasoning brief (under 200 words in your thinking). Budget most of your output tokens for the JSON response.
 PROMPT;
     }
@@ -616,7 +624,11 @@ PROMPT;
                 "is to check whether X appears in the passages — do NOT look for mentions of the author's name " .
                 "within the passages, because authors do not cite themselves in their own text. A year mismatch " .
                 "between the claim and source metadata (e.g. 1991 vs 2021) may reflect republication or " .
-                "indexing differences — do not treat it as evidence of a wrong source.",
+                "indexing differences — do not treat it as evidence of a wrong source.\n\n" .
+                "IMPORTANT: Academics read sources \"against the grain\" — drawing conclusions the original " .
+                "author never intended. A primary source (speech, legislation, news article) does NOT need " .
+                "to state the academic's interpretation. If the source relates to the same political actor, " .
+                "event, or context as the claim, default to \"plausible\" at minimum.",
             'web_and_passages', 'web_only' =>
                 "EVIDENCE CONTEXT: The content below was scraped from a web page — it may be TRUNCATED or " .
                 "INCOMPLETE. Web pages (especially legal judgments, reports, and long articles) are often " .
@@ -633,13 +645,21 @@ PROMPT;
                 "chance it supports the claim. Do NOT reject just because the specific claim text is not " .
                 "found — the content may be truncated. Apparent \"contradiction\" is NOT grounds for " .
                 "rejection — the content may present competing views, quote opponents, or describe positions " .
-                "that are later rebutted in the full document.\n\n" .
+                "that are later rebutted in the full document. A detail mismatch (e.g. the content describes " .
+                "event A while the claim references event B from the same context) is NOT grounds for rejection " .
+                "if the source covers the same broader topic — the truncated portion may well cover the " .
+                "specific detail. Use \"likely\" when the topic matches but the specific detail is missing.\n\n" .
                 "IMPORTANT: If the content contains only bibliographic metadata (title, authors, ISBN, BibTeX, " .
                 "publisher info) rather than actual substantive text, treat this as ABSENT evidence — use " .
                 "\"plausible\" if the work's title/topic is in the same field as the claim.\n\n" .
                 "IMPORTANT: When a claim says \"Author (Year) argues/discusses/shows X\", check whether X " .
                 "appears in the content — do NOT look for mentions of the author's name within the text, " .
-                "because authors do not cite themselves in their own work.",
+                "because authors do not cite themselves in their own work.\n\n" .
+                "IMPORTANT: Primary sources (speeches, government documents, press releases, news articles) " .
+                "are often cited as evidence of discourse, ideology, or rhetoric. Academics read sources " .
+                "\"against the grain\" — drawing conclusions the original author never intended. The source " .
+                "does NOT need to state the academic's interpretation. If the source relates to the same " .
+                "political actor, event, or context as the claim, default to \"plausible\" at minimum.",
             'title_only' =>
                 "EVIDENCE CONTEXT: You only have the TITLE, author, and year of this work — no abstract, " .
                 "no passages, no full text.\n\n" .
