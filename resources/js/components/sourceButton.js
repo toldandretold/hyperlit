@@ -305,6 +305,20 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       }
     })()}
 
+    ${(canEdit && !accessDenied && record) ? `
+    <div id="delete-book-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+      <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+        Delete Book
+      </button>
+      <p style="font-size: 11px; color: #666; margin-top: 6px;">Permanently delete this book and all associated data.</p>
+    </div>` : ''}
+
     </div>
 
     ${privacyToggleHtml}
@@ -470,6 +484,13 @@ export class SourceContainerManager extends ContainerManager {
       e.preventDefault();
       e.stopPropagation();
       this.handleReconvert();
+    });
+
+    const deleteBtn = this.container.querySelector("#delete-book-btn");
+    if (deleteBtn) deleteBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleDeleteBook();
     });
 
     const aiReviewBtn = this.container.querySelector("#ai-review-btn");
@@ -702,6 +723,90 @@ export class SourceContainerManager extends ContainerManager {
       console.error('Reconvert failed:', error);
       alert('Reconversion failed: ' + error.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
+    }
+  }
+
+  async handleDeleteBook() {
+    // Re-check permissions
+    const canEdit = await canUserEditBook(book);
+    if (!canEdit) {
+      alert("You don't have permission to delete this book.");
+      return;
+    }
+
+    // First confirmation
+    if (!confirm(`Delete "${book}" and all associated data?`)) return;
+
+    // Second confirmation — spell out what's lost
+    if (!confirm(
+      'Are you sure? This will permanently delete:\n\n' +
+      '- All book content (nodes, footnotes, references)\n' +
+      '- The library record and citation data\n' +
+      '- Any AI review results\n\n' +
+      'This action cannot be undone.'
+    )) return;
+
+    const btn = this.container.querySelector("#delete-book-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.style.cursor = 'not-allowed';
+      btn.style.opacity = '0.6';
+      btn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Deleting...`;
+    }
+
+    try {
+      // 1. Delete from IndexedDB
+      const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
+      await deleteBookFromIndexedDB(book);
+
+      // 2. Delete from server
+      const { refreshAuth } = await import('../utilities/auth.js');
+      await refreshAuth();
+
+      const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        credentials: 'include',
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`${resp.status} ${txt}`);
+      }
+
+      console.log(`Book ${book} deleted successfully.`);
+
+      // 3. Redirect to user home
+      const authCtx = getAuthContextSync();
+      const username = authCtx?.user?.username;
+      window.location.href = username ? `/${encodeURIComponent(username)}` : '/';
+
+    } catch (error) {
+      console.error('Delete book failed:', error);
+      alert('Failed to delete book: ' + error.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        btn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          Delete Book`;
+      }
     }
   }
 
