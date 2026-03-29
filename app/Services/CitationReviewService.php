@@ -251,7 +251,7 @@ class CitationReviewService
                 'author'             => $lib->author ?? null,
                 'year'               => $lib->year ?? null,
                 'abstract'           => $lib->abstract ?? null,
-                'verified'           => $lib && (!empty($lib->openalex_id) || !empty($lib->open_library_key) || ($lib->type ?? null) === 'web_source'),
+                'verified'           => ($source && $source !== 'unknown' && $lib !== null),
                 'source_book_id'     => $resolvedSource,
                 'has_source_content' => (bool) ($lib->has_nodes ?? false),
                 'bib_citation'       => $bib->content ?? null,
