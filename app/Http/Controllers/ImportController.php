@@ -462,6 +462,8 @@ class ImportController extends Controller
         elseif (File::exists("{$path}/original.md"))     $sourceType = 'md';
         elseif (File::exists("{$path}/original.html"))   $sourceType = 'html';
         elseif (File::exists("{$path}/original.docx"))   $sourceType = 'docx';
+        elseif (File::exists("{$path}/original.epub"))   $sourceType = 'epub';
+        elseif (File::exists("{$path}/original.doc"))    $sourceType = 'doc';
         elseif (File::exists("{$path}/main-text.md"))    $sourceType = 'md';
 
         return response()->json([
@@ -493,12 +495,43 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        // 2. Determine source file + processor type
+        // 2. Handle optional file upload (replace source file)
         $path = resource_path("markdown/{$book}");
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $ext = strtolower($file->getClientOriginalExtension());
+
+            if (!in_array($ext, ['md', 'doc', 'docx', 'epub', 'html', 'pdf'])) {
+                return response()->json(['success' => false, 'message' => 'Unsupported file type. Allowed: md, doc, docx, epub, html, pdf'], 422);
+            }
+
+            if ($ext === 'pdf' && Auth::user()?->status !== 'premium') {
+                return response()->json(['success' => false, 'message' => 'PDF import requires a premium account'], 403);
+            }
+
+            if (!$this->validator->validateUploadedFile($file)) {
+                return response()->json(['success' => false, 'message' => 'File validation failed. The file may contain suspicious content or invalid structure.'], 422);
+            }
+
+            // Delete all existing original.* files + stale OCR cache
+            foreach (File::glob("{$path}/original.*") as $oldFile) {
+                File::delete($oldFile);
+            }
+            if (File::exists("{$path}/ocr_response.json")) {
+                File::delete("{$path}/ocr_response.json");
+            }
+
+            // Save new file
+            $file->move($path, "original.{$ext}");
+            chmod("{$path}/original.{$ext}", 0644);
+        }
+
+        // 3. Determine source file + processor type
         $sourceType = null;
         $inputFile  = null;
 
-        foreach (['pdf', 'md', 'html', 'docx'] as $ext) {
+        foreach (['pdf', 'md', 'html', 'docx', 'epub', 'doc'] as $ext) {
             if (File::exists("{$path}/original.{$ext}")) {
                 $sourceType = $ext;
                 $inputFile  = "{$path}/original.{$ext}";
@@ -513,16 +546,16 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'No source file found'], 404);
         }
 
-        // 3. Clean stale output files
+        // 4. Clean stale output files
         foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
             $f = "{$path}/{$staleFile}";
             if (File::exists($f)) File::delete($f);
         }
 
-        // 4. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
+        // 5. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
         $this->clearBookContent($book);
 
-        // 5. Re-run conversion pipeline
+        // 6. Re-run conversion pipeline
         try {
             $this->processFile($inputFile, $path, $book, $sourceType);
         } catch (\Exception $e) {
@@ -530,7 +563,7 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'Conversion failed: ' . $e->getMessage()], 500);
         }
 
-        // 6. Wait for nodes.json
+        // 7. Wait for nodes.json
         $nodesPath = "{$path}/nodes.json";
         $attempts = 0;
         while (!File::exists($nodesPath) && $attempts < 15) {
@@ -541,16 +574,16 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'Timed out waiting for nodes.json'], 500);
         }
 
-        // 7. Save to database
+        // 8. Save to database
         $this->saveNodeChunksToDatabase($path, $book);
         $this->saveFootnotesToDatabase($path, $book);
         $this->saveReferencesToDatabase($path, $book);
 
-        // 8. Update library timestamp
+        // 9. Update library timestamp
         $record->timestamp = round(microtime(true) * 1000);
         $record->save();
 
-        // 9. Return result
+        // 10. Return result
         $auditPath = "{$path}/audit.json";
         $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
 

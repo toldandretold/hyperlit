@@ -305,6 +305,22 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       }
     })()}
 
+    ${(canEdit && !accessDenied) ? `
+    <div id="reupload-section" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Re-upload Source</h3>
+      <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+        <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>
+      </div>
+      <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.epub,.html,.pdf" style="display: none;">
+      <p id="reupload-status" style="font-size: 12px; color: #d73a49; margin-top: 6px; display: none;"></p>
+    </div>` : ''}
+
     ${(canEdit && !accessDenied && record) ? `
     <div id="delete-book-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
       <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -492,6 +508,31 @@ export class SourceContainerManager extends ContainerManager {
       e.stopPropagation();
       this.handleDeleteBook();
     });
+
+    // Re-upload drop zone
+    const dropzone = this.container.querySelector("#reupload-dropzone");
+    const fileInput = this.container.querySelector("#reupload-file-input");
+    if (dropzone && fileInput) {
+      dropzone.addEventListener("click", () => fileInput.click());
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#EF8D34';
+      });
+      dropzone.addEventListener("dragleave", () => {
+        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
+      });
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
+        const file = e.dataTransfer.files[0];
+        if (file) this.handleReupload(file);
+      });
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (file) this.handleReupload(file);
+        fileInput.value = '';
+      });
+    }
 
     const aiReviewBtn = this.container.querySelector("#ai-review-btn");
     if (aiReviewBtn && !aiReviewBtn.disabled) {
@@ -723,6 +764,114 @@ export class SourceContainerManager extends ContainerManager {
       console.error('Reconvert failed:', error);
       alert('Reconversion failed: ' + error.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
+    }
+  }
+
+  async handleReupload(file) {
+    const statusEl = this.container.querySelector("#reupload-status");
+    const dropzone = this.container.querySelector("#reupload-dropzone");
+
+    const showError = (msg) => {
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.display = 'block'; }
+    };
+    const hideError = () => {
+      if (statusEl) { statusEl.style.display = 'none'; }
+    };
+
+    hideError();
+
+    // Validate extension
+    const ext = file.name.split('.').pop().toLowerCase();
+    const allowed = ['md', 'doc', 'docx', 'epub', 'html', 'pdf'];
+    if (!allowed.includes(ext)) {
+      showError(`Unsupported file type ".${ext}". Allowed: ${allowed.join(', ')}`);
+      return;
+    }
+
+    // PDF requires premium
+    if (ext === 'pdf') {
+      const authCtx = getAuthContextSync();
+      if (authCtx?.user?.status !== 'premium') {
+        showError('PDF import requires a premium account.');
+        return;
+      }
+    }
+
+    // Validate size (50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      showError('File must be less than 50MB.');
+      return;
+    }
+
+    // Confirm
+    if (!confirm(
+      'This will replace all book content with the uploaded file. ' +
+      'Existing content will be overwritten.\n\n' +
+      'You can use Version History to go back if needed.\n\nContinue?'
+    )) return;
+
+    // Set uploading state
+    if (dropzone) {
+      dropzone.style.pointerEvents = 'none';
+      dropzone.style.opacity = '0.5';
+      dropzone.innerHTML = '<p style="font-size: 13px; color: #EF8D34; margin: 0;">Uploading &amp; converting...</p>';
+    }
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `Failed: ${resp.status}`);
+      }
+
+      const result = await resp.json();
+
+      // Show footnote audit modal if issues exist
+      if (result.footnoteAudit) {
+        const audit = result.footnoteAudit;
+        const hasIssues = (audit.gaps?.length || 0) +
+          (audit.unmatched_refs?.length || 0) +
+          (audit.unmatched_defs?.length || 0) +
+          (audit.duplicates?.length || 0) > 0;
+
+        if (hasIssues) {
+          const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
+          await ImportBookTransition.showFootnoteAuditModal(audit, book, { mode: 'reconvert' });
+        }
+      }
+
+      // Clear IndexedDB content
+      const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
+      await clearBookContentFromIndexedDB(book);
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Re-upload failed:', error);
+      showError('Re-upload failed: ' + error.message);
+
+      // Reset dropzone
+      if (dropzone) {
+        dropzone.style.pointerEvents = '';
+        dropzone.style.opacity = '';
+        dropzone.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+          <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>`;
+      }
     }
   }
 
