@@ -21,7 +21,7 @@ body.theme-light {
   --color-accent: var(--hyperlit-aqua);
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);
-  --color-strong: var(--hyperlit-orange);
+  --color-strong: var(--hyperlit-white);
 
   /* Container backgrounds for light mode */
   --container-glass-bg: rgba(244, 236, 216, 0.80);

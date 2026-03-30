@@ -20,6 +20,7 @@ use App\Services\DocumentImport\Processors\EpubProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\BillingService;
 
 class ImportController extends Controller
 {
@@ -31,7 +32,8 @@ class ImportController extends Controller
         private EpubProcessor $epubProcessor,
         private ZipProcessor $zipProcessor,
         private DocxProcessor $docxProcessor,
-        private PdfProcessor $pdfProcessor
+        private PdfProcessor $pdfProcessor,
+        private BillingService $billing,
     ) {}
 
     public function createMainTextMarkdown(Request $request)
@@ -176,7 +178,7 @@ class ImportController extends Controller
                 }
 
                 // PDF uploads require premium status
-                if ($extension === 'pdf' && Auth::user()?->status !== 'premium') {
+                if ($extension === 'pdf' && !Auth::user()?->isPremium()) {
                     if ($request->expectsJson()) {
                         return response()->json([
                             'success' => false,
@@ -184,6 +186,17 @@ class ImportController extends Controller
                         ], 403);
                     }
                     return redirect()->back()->with('error', 'PDF import requires a premium account.');
+                }
+
+                // Pay-as-you-go users need positive balance
+                if ($extension === 'pdf' && !$this->billing->canProceed(Auth::user())) {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Insufficient balance. Please top up your credits to continue.'
+                        ], 402);
+                    }
+                    return redirect()->back()->with('error', 'Insufficient balance. Please top up your credits.');
                 }
 
                 $originalFilename = "original.{$extension}";
@@ -252,6 +265,11 @@ class ImportController extends Controller
                 $this->saveNodeChunksToDatabase($path, $bookId);
                 $this->saveFootnotesToDatabase($path, $bookId);
                 $this->saveReferencesToDatabase($path, $bookId);
+            }
+
+            // Bill OCR cost for PDF imports
+            if ($extension === 'pdf') {
+                $this->billOcrImport(Auth::user(), $bookId, $path);
             }
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -506,8 +524,12 @@ class ImportController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unsupported file type. Allowed: md, doc, docx, epub, html, pdf'], 422);
             }
 
-            if ($ext === 'pdf' && Auth::user()?->status !== 'premium') {
+            if ($ext === 'pdf' && !Auth::user()?->isPremium()) {
                 return response()->json(['success' => false, 'message' => 'PDF import requires a premium account'], 403);
+            }
+
+            if ($ext === 'pdf' && !$this->billing->canProceed(Auth::user())) {
+                return response()->json(['success' => false, 'message' => 'Insufficient balance. Please top up your credits to continue.'], 402);
             }
 
             if (!$this->validator->validateUploadedFile($file)) {
@@ -579,11 +601,16 @@ class ImportController extends Controller
         $this->saveFootnotesToDatabase($path, $book);
         $this->saveReferencesToDatabase($path, $book);
 
-        // 9. Update library timestamp
+        // 9. Bill OCR cost for PDF reconversions
+        if ($sourceType === 'pdf') {
+            $this->billOcrImport(Auth::user(), $book, $path);
+        }
+
+        // 10. Update library timestamp
         $record->timestamp = round(microtime(true) * 1000);
         $record->save();
 
-        // 10. Return result
+        // 11. Return result
         $auditPath = "{$path}/audit.json";
         $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
 
@@ -594,6 +621,61 @@ class ImportController extends Controller
             'processing_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
             'footnoteAudit'      => $auditData,
         ]);
+    }
+
+    /**
+     * Bill the user for OCR pages after a PDF import/reconvert.
+     */
+    private function billOcrImport(?\App\Models\User $user, string $bookId, string $path): void
+    {
+        if (!$user) {
+            return;
+        }
+
+        try {
+            $ocrJson = "{$path}/ocr_response.json";
+            if (!File::exists($ocrJson)) {
+                return;
+            }
+
+            $ocrData = json_decode(File::get($ocrJson), true);
+            $totalPages = count($ocrData['pages'] ?? []);
+
+            if ($totalPages <= 0) {
+                return;
+            }
+
+            $pricing = config('services.llm.pricing.mistral-ocr-latest', []);
+            $perKPages = $pricing['per_1k_pages'] ?? null;
+
+            if (!$perKPages) {
+                return;
+            }
+
+            $cost = $totalPages / 1000 * $perKPages;
+
+            $this->billing->charge(
+                $user,
+                round($cost, 4),
+                "PDF Import: {$bookId}",
+                'ocr',
+                [[
+                    'label'     => "OCR ({$totalPages} pages)",
+                    'category'  => 'ocr',
+                    'quantity'  => $totalPages,
+                    'unit'      => 'pages',
+                    'unit_cost' => $perKPages / 1000,
+                    'amount'    => round($cost, 4),
+                ]],
+                ['book' => $bookId],
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to bill OCR import', [
+                'book'  => $bookId,
+                'user'  => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function clearBookContent(string $bookId): void

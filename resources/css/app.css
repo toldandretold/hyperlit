@@ -182,10 +182,16 @@ sup.arrow-target {
 }
 
 b, strong {
+    font-weight: 600;
     color: var(--color-strong);
 }
 
+.libraryCard b, .libraryCard strong {
+    color: var(--hyperlit-orange);
+}
+
 h1 {
+    font-family: var(--font-family-display);
     font-size: var(--font-size-h1);
     color: var(--color-text);
     font-weight: 700;
@@ -194,6 +200,7 @@ h1 {
 }
 
 h2 {
+    font-family: var(--font-family-display);
     color: var(--color-text);
     font-size: var(--font-size-h2);
     letter-spacing: var(--letter-spacing-medium);
@@ -203,6 +210,7 @@ h2 {
 }
 
 h3 {
+    font-family: var(--font-family-display);
     font-size: var(--font-size-h3);
     color: var(--color-text);
     margin-top: 1.6em;
@@ -216,8 +224,19 @@ h3 {
     margin-top: 0;
 }
 
-h4, h5, h6 {
+h4 {
+    font-family: var(--font-family-display);
     font-size: var(--font-size-h4);
+    color: var(--color-text);
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: var(--letter-spacing-light);
+    font-weight: 550;
+}
+
+h5, h6 {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-h5);
     color: var(--color-text);
     margin-top: 1.6em;
     margin-bottom: .4em;
@@ -266,9 +285,15 @@ blockquote {
     overflow-wrap: anywhere;
   }
   
-  /* You may also want to adjust other elements proportionally */
+  /* Lighter weights at small sizes to prevent squished letterforms */
   h1 {
-    font-size: 1.3em; /* Slightly smaller than 1.5em */
+    font-weight: 600;
+  }
+  h2 {
+    font-weight: 550;
+  }
+  h3, h4, h5, h6 {
+    font-weight: 500;
   }
   
   code {
@@ -303,6 +328,7 @@ ins {
 
 blockquote strong {
     color: var(--hyperlit-black);
+    font-weight: 600;
 }
 
 sup {

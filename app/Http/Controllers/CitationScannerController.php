@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Jobs\CitationScanBibliographyJob;
 use App\Jobs\CitationPipelineJob;
+use App\Services\BillingService;
 use Illuminate\Support\Facades\Auth;
 
 class CitationScannerController extends Controller
@@ -122,11 +123,18 @@ class CitationScannerController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user || $user->status !== 'premium') {
+        if (!$user || !$user->isPremium()) {
             return response()->json([
                 'success' => false,
                 'message' => 'This feature is available to premium users only.',
             ], 403);
+        }
+
+        if (!app(BillingService::class)->canProceed($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient balance. Please top up your credits to continue.',
+            ], 402);
         }
 
         $bookId = $request->input('book');

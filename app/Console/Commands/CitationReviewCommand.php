@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Services\BillingService;
 use App\Services\CitationReviewService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class CitationReviewCommand extends Command
@@ -219,8 +221,14 @@ class CitationReviewCommand extends Command
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
-        // Send completion email to book creator
+        // Bill the book creator for this review
         $creator = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
+
+        if ($creator) {
+            $this->billReview($creator, $bookId, $book->title ?? $bookId, $stats);
+        }
+
+        // Send completion email to book creator
         if ($creator?->email) {
             $appUrl = config('app.url');
             \Illuminate\Support\Facades\Mail::send('emails.citation-review', [
@@ -244,5 +252,104 @@ class CitationReviewCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Calculate costs and create a billing ledger entry for the citation review.
+     */
+    private function billReview(\App\Models\User $user, string $bookId, string $bookTitle, array $stats): void
+    {
+        try {
+            $billing = app(BillingService::class);
+            $pricing = config('services.llm.pricing', []);
+            $lineItems = [];
+            $totalCost = 0.0;
+
+            // OCR line item — get page count from pipeline step_timings
+            $pipelineId = $stats['pipeline_id'] ?? null;
+            $ocrTotalPages = 0;
+
+            if ($pipelineId) {
+                $pipeline = DB::connection('pgsql_admin')
+                    ->table('citation_pipelines')
+                    ->where('id', $pipelineId)
+                    ->first();
+
+                if ($pipeline && $pipeline->step_timings) {
+                    $stepTimings = json_decode($pipeline->step_timings, true);
+                    $ocrTotalPages = $stepTimings['ocr']['total_pages'] ?? 0;
+                }
+            }
+
+            if ($ocrTotalPages > 0) {
+                $ocrPricing = $pricing['mistral-ocr-latest'] ?? null;
+                if ($ocrPricing && isset($ocrPricing['per_1k_pages'])) {
+                    $ocrCost = $ocrTotalPages / 1000 * $ocrPricing['per_1k_pages'];
+                    $totalCost += $ocrCost;
+                    $lineItems[] = [
+                        'label'     => "OCR ({$ocrTotalPages} pages)",
+                        'category'  => 'ocr',
+                        'quantity'  => $ocrTotalPages,
+                        'unit'      => 'pages',
+                        'unit_cost' => $ocrPricing['per_1k_pages'] / 1000,
+                        'amount'    => round($ocrCost, 4),
+                    ];
+                }
+            }
+
+            // LLM line items — per-model breakdown
+            $llmUsage = $stats['llm_usage'] ?? null;
+            if ($llmUsage && !empty($llmUsage['by_model'])) {
+                foreach ($llmUsage['by_model'] as $model => $usage) {
+                    $prompt = $usage['prompt_tokens'] ?? 0;
+                    $completion = $usage['completion_tokens'] ?? 0;
+                    $totalTokens = $prompt + $completion;
+
+                    $modelPricing = $pricing[$model] ?? null;
+                    if ($modelPricing && isset($modelPricing['input'], $modelPricing['output'])) {
+                        $cost = ($prompt / 1_000_000 * $modelPricing['input'])
+                              + ($completion / 1_000_000 * $modelPricing['output']);
+                        $totalCost += $cost;
+
+                        $shortName = basename($model);
+                        $lineItems[] = [
+                            'label'     => "{$shortName} (" . number_format($totalTokens) . " tokens)",
+                            'category'  => 'llm',
+                            'quantity'  => $totalTokens,
+                            'unit'      => 'tokens',
+                            'unit_cost' => $totalTokens > 0 ? round($cost / $totalTokens, 8) : 0,
+                            'amount'    => round($cost, 4),
+                            'meta'      => [
+                                'model'             => $model,
+                                'prompt_tokens'     => $prompt,
+                                'completion_tokens'  => $completion,
+                            ],
+                        ];
+                    }
+                }
+            }
+
+            if ($totalCost <= 0) {
+                return;
+            }
+
+            $billing->charge(
+                $user,
+                round($totalCost, 4),
+                "Citation Review: {$bookTitle}",
+                'ai_review',
+                $lineItems,
+                ['book' => $bookId, 'pipeline_id' => $pipelineId],
+            );
+
+            $this->info("Billed \$" . number_format($totalCost, 2) . " to {$user->name}");
+        } catch (\Throwable $e) {
+            Log::error('Failed to bill citation review', [
+                'book'  => $bookId,
+                'user'  => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->warn("Billing failed: {$e->getMessage()}");
+        }
     }
 }

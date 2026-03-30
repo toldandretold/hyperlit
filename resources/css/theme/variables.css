@@ -29,7 +29,7 @@
   /* Interactive Elements */
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);
-  --color-strong: var(--hyperlit-orange);
+  --color-strong: var(--hyperlit-white);
 
   /* Highlighting */
   --highlight-base: var(--hyperlit-pink);
@@ -46,14 +46,16 @@
 
   /* Typography */
   --font-family-base: 'Inter', arial, sans-serif;
+  --font-family-display: 'InterDisplay', 'Inter', arial, sans-serif;
   --font-family-mono: "Courier New", Courier, monospace;
 
   --font-size-base: 28px;
   --font-size-mobile: 18px;
-  --font-size-h1: 1.5em;
-  --font-size-h2: 1em;
-  --font-size-h3: 1em;
-  --font-size-h4: 0.8em;
+  --font-size-h1: 1.8em;
+  --font-size-h2: 1.6em;
+  --font-size-h3: 1.4em;
+  --font-size-h4: 1.2em;
+  --font-size-h5: 1em;
   --font-size-code: 20px;
   --font-size-sup: 14px;
 
@@ -119,7 +121,11 @@
 @media only screen and (max-width: 500px) {
   :root {
     --font-size-base: var(--font-size-mobile);
-    --font-size-h1: 1.3em;
+    --font-size-h1: 1.5em;
+    --font-size-h2: 1.3em;
+    --font-size-h3: 1.2em;
+    --font-size-h4: 1.1em;
+    --font-size-h5: 1em;
     --font-size-code: 16px;
     --font-size-sup: 12px;
   }

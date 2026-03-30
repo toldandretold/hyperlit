@@ -20,6 +20,7 @@ use App\Http\Controllers\NodeHistoryController;
 use App\Http\Controllers\OpenAlexController;
 use App\Http\Controllers\CitationScannerController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\BillingController;
 
 
 
@@ -46,6 +47,12 @@ Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibr
 // OpenAlex citation lookup — requires authentication
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
+
+    // Billing
+    Route::get('/billing/balance', [BillingController::class, 'balance']);
+    Route::get('/billing/ledger', [BillingController::class, 'ledger']);
+    Route::get('/billing/ledger/{id}', [BillingController::class, 'show']);
+    Route::post('/billing/credits', [BillingController::class, 'addCredits']);
 
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);

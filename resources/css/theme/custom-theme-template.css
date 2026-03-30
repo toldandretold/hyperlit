@@ -30,7 +30,7 @@
 
   --color-link: #4EACAE;         /* Link color */
   --color-link-hover: #EE4A95;   /* Link hover color */
-  --color-strong: #EF8D34;       /* Bold/strong text color */
+  --color-strong: #CBCCCC;       /* Bold/strong text color (matches text, weight provides emphasis) */
 
   /* ====================
      HIGHLIGHTING

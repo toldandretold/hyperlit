@@ -13,8 +13,8 @@
 
 
     b, strong {
-
-        color: #EF8D34;
+        font-weight: 600;
+        color: #CBCCCC;
     }
 
 
@@ -78,8 +78,8 @@
 
 
     blockquote strong {
-
         color: #221F20;
+        font-weight: 600;
     }
 
     sup {

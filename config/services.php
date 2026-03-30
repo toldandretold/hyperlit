@@ -50,6 +50,14 @@ return [
         ],
     ],
 
+    'billing_tiers' => [
+        // user.status => multiplier on top of raw API costs
+        'premium'    => ['multiplier' => 1.0,  'label' => 'Premium'],      // unlimited sub, no per-use markup
+        'budget'     => ['multiplier' => 1.5,  'label' => 'Budget'],       // pay-as-you-go + overhead
+        'solidarity' => ['multiplier' => 2.0,  'label' => 'Solidarity'],   // voluntary higher rate
+        'capitalist' => ['multiplier' => 5.0,  'label' => 'Capitalist'],   // institutional
+    ],
+
     'mistral_ocr' => [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
     ],

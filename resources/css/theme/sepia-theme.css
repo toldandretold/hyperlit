@@ -21,7 +21,7 @@ body.theme-sepia {
   --color-accent: var(--hyperlit-aqua);
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);
-  --color-strong: var(--hyperlit-orange);
+  --color-strong: var(--hyperlit-white);
 
   /* Container backgrounds for sepia mode */
   --container-glass-bg: rgba(232, 215, 184, 0.80);

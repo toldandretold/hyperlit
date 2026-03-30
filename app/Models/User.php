@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +63,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'user_token',
         'status',
+        'credits',
+        'debits',
     ];
 
     /**
@@ -85,6 +88,30 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'credits' => 'decimal:2',
+            'debits' => 'decimal:2',
         ];
+    }
+
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(BillingLedger::class);
+    }
+
+    public function getBalanceAttribute(): float
+    {
+        return (float) $this->credits - (float) $this->debits;
+    }
+
+    public function isPremium(): bool
+    {
+        return array_key_exists($this->status, config('services.billing_tiers', []));
+    }
+
+    public function getBillingMultiplier(): float
+    {
+        $tier = config("services.billing_tiers.{$this->status}");
+
+        return $tier['multiplier'] ?? 1.0;
     }
 }
