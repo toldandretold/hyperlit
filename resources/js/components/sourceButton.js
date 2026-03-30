@@ -985,7 +985,7 @@ export class SourceContainerManager extends ContainerManager {
         throw new Error(data.message || `Request failed: ${resp.status}`);
       }
 
-      this._aiReviewScanId = data.scan_id;
+      this._pipelineId = data.pipeline_id;
       this.setAiReviewState('reviewing');
       this.startAiReviewPolling();
     } catch (error) {
@@ -1028,70 +1028,56 @@ export class SourceContainerManager extends ContainerManager {
         } catch (_) { /* ignore fetch errors */ }
       }
 
-      // 2. Check scan history for in-progress scans
-      const resp = await fetch(`/api/citation-scanner/history/${encodeURIComponent(book)}`, {
+      // 2. Check if a pipeline is currently running
+      const resp = await fetch(`/api/citation-pipeline/running/${encodeURIComponent(book)}`, {
         credentials: 'include',
       });
       if (!resp.ok) {
-        // If we can't get scan history but the AIreview exists, show completed
         if (aiReviewExists) this.setAiReviewState('completed');
         return;
       }
       const data = await resp.json();
-      const scans = data.scans;
 
-      // Check if any scan is currently in progress
-      // Ignore "pending" scans older than 30 minutes (stale records from before the fix)
-      const STALE_THRESHOLD = 30 * 60 * 1000;
-      const activeScan = scans?.find(s => {
-        if (s.status === 'running') return true;
-        if (s.status === 'pending') {
-          const age = Date.now() - new Date(s.created_at).getTime();
-          return age < STALE_THRESHOLD;
-        }
-        return false;
-      });
-      if (activeScan) {
-        this.setAiReviewState('reviewing');
+      if (data.pipeline) {
+        this._pipelineId = data.pipeline.id;
+        this.setAiReviewState('reviewing', data.pipeline.current_step);
         this.startAiReviewPolling();
         return;
       }
 
-      // If AIreview sub-book exists, show completed regardless of scan records
+      // No running pipeline — show completed if AIreview sub-book exists
       if (aiReviewExists) {
         this.setAiReviewState('completed');
         return;
       }
-
-      // Fall back to scan history
-      if (!scans || scans.length === 0) return;
-      const latest = scans[0];
-      if (latest.status === 'completed') {
-        const libTimestamp = parseInt(section.dataset.libTimestamp, 10) || 0;
-        const scanUpdatedAt = new Date(latest.updated_at).getTime();
-        if (libTimestamp > scanUpdatedAt) return;
-        this.setAiReviewState('completed');
-      }
-      // failed or other → stay idle
     } catch (err) {
       console.warn('Failed to load AI review status:', err);
     }
   }
 
-  setAiReviewState(state) {
+  setAiReviewState(state, currentStep) {
     const aiBtn = this.container.querySelector('#ai-review-btn');
     if (!aiBtn) return;
+
+    const stepLabels = {
+      bibliography: 'Scanning bibliography',
+      content: 'Scanning citations',
+      vacuum: 'Fetching sources',
+      ocr: 'Processing PDFs',
+      review: 'Reviewing citations',
+    };
 
     const infoPanel = this.container.querySelector('#ai-review-info');
 
     if (state === 'reviewing') {
+      const stepText = (currentStep && stepLabels[currentStep]) || 'Reviewing...';
       aiBtn.disabled = true;
       aiBtn.style.color = '#4EACAE';
       aiBtn.style.borderColor = 'rgba(78,172,174,0.4)';
       aiBtn.style.cursor = 'not-allowed';
       aiBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Reviewing...`;
+        ${stepText}`;
       if (infoPanel) infoPanel.style.display = 'none';
     } else if (state === 'completed') {
       aiBtn.disabled = false;
@@ -1165,20 +1151,20 @@ export class SourceContainerManager extends ContainerManager {
 
   async pollAiReviewStatus() {
     try {
-      if (!this._aiReviewScanId) return;
+      if (!this._pipelineId) return;
 
-      const resp = await fetch(`/api/citation-scanner/status/${encodeURIComponent(this._aiReviewScanId)}`, {
+      const resp = await fetch(`/api/citation-pipeline/status/${encodeURIComponent(this._pipelineId)}`, {
         credentials: 'include',
       });
       if (!resp.ok) return;
       const data = await resp.json();
-      const scan = data.scan;
-      if (!scan) return;
+      const pipeline = data.pipeline;
+      if (!pipeline) return;
 
-      if (scan.status === 'completed') {
+      if (pipeline.status === 'completed') {
         this.stopAiReviewPolling();
         this.setAiReviewState('completed');
-      } else if (scan.status === 'failed') {
+      } else if (pipeline.status === 'failed') {
         this.stopAiReviewPolling();
         // Reset button to idle state
         const aiBtn = this.container.querySelector('#ai-review-btn');
@@ -1191,8 +1177,10 @@ export class SourceContainerManager extends ContainerManager {
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             AI Citation Review`;
         }
+      } else {
+        // Still running — update the step display
+        this.setAiReviewState('reviewing', pipeline.current_step);
       }
-      // still pending/running → no-op, keep polling
     } catch (err) {
       console.warn('AI review poll failed:', err);
     }

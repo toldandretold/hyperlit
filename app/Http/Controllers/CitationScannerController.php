@@ -141,7 +141,7 @@ class CitationScannerController extends Controller
         }
 
         // Check no existing running pipeline for this book
-        $running = $db->table('citation_scans')
+        $running = $db->table('citation_pipelines')
             ->where('book', $bookId)
             ->whereIn('status', ['pending', 'running'])
             ->exists();
@@ -149,26 +149,26 @@ class CitationScannerController extends Controller
         if ($running) {
             return response()->json([
                 'success' => false,
-                'message' => 'A citation scan is already in progress for this book.',
+                'message' => 'A citation pipeline is already in progress for this book.',
             ], 409);
         }
 
-        // Create a scan record so the frontend can poll immediately
-        $scanId = (string) Str::uuid();
-        $db->table('citation_scans')->insert([
-            'id'         => $scanId,
+        // Create a pipeline record so the frontend can poll immediately
+        $pipelineId = (string) Str::uuid();
+        $db->table('citation_pipelines')->insert([
+            'id'         => $pipelineId,
             'book'       => $bookId,
             'status'     => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        CitationPipelineJob::dispatch($bookId, $scanId);
+        CitationPipelineJob::dispatch($bookId, $pipelineId);
 
         return response()->json([
-            'success' => true,
-            'scan_id' => $scanId,
-            'message' => 'Citation pipeline has been queued.',
+            'success'     => true,
+            'pipeline_id' => $pipelineId,
+            'message'     => 'Citation pipeline has been queued.',
         ]);
     }
 
@@ -193,6 +193,65 @@ class CitationScannerController extends Controller
         return response()->json([
             'success' => true,
             'scans'   => $scans,
+        ]);
+    }
+
+    /**
+     * Get the status of a citation pipeline.
+     * GET /api/citation-pipeline/status/{pipelineId}
+     */
+    public function pipelineStatus(string $pipelineId): JsonResponse
+    {
+        $pipeline = DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->first();
+
+        if (!$pipeline) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pipeline not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success'  => true,
+            'pipeline' => [
+                'id'           => $pipeline->id,
+                'book'         => $pipeline->book,
+                'status'       => $pipeline->status,
+                'current_step' => $pipeline->current_step,
+                'step_detail'  => $pipeline->step_detail,
+                'error'        => $pipeline->error,
+                'created_at'   => $pipeline->created_at,
+                'updated_at'   => $pipeline->updated_at,
+            ],
+        ]);
+    }
+
+    /**
+     * Check if a pipeline is currently running for a book.
+     * GET /api/citation-pipeline/running/{book}
+     */
+    public function pipelineRunning(string $book): JsonResponse
+    {
+        $pipeline = DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('book', $book)
+            ->whereIn('status', ['pending', 'running'])
+            ->first();
+
+        return response()->json([
+            'success'  => true,
+            'pipeline' => $pipeline ? [
+                'id'           => $pipeline->id,
+                'book'         => $pipeline->book,
+                'status'       => $pipeline->status,
+                'current_step' => $pipeline->current_step,
+                'step_detail'  => $pipeline->step_detail,
+                'created_at'   => $pipeline->created_at,
+                'updated_at'   => $pipeline->updated_at,
+            ] : null,
         ]);
     }
 }

@@ -20,38 +20,43 @@ class CitationPipelineJob implements ShouldQueue
 
     public function __construct(
         private string $bookId,
-        private string $scanId,
+        private string $pipelineId,
     ) {
         $this->onQueue('citation-pipeline');
     }
 
     public function handle(): void
     {
-        Log::info('CitationPipelineJob starting', ['book' => $this->bookId, 'scanId' => $this->scanId]);
+        Log::info('CitationPipelineJob starting', ['book' => $this->bookId, 'pipelineId' => $this->pipelineId]);
 
         $db = DB::connection('pgsql_admin');
 
-        // Mark scan as running
-        $db->table('citation_scans')
-            ->where('id', $this->scanId)
-            ->update(['status' => 'running', 'updated_at' => now()]);
+        // Mark pipeline as running
+        $db->table('citation_pipelines')
+            ->where('id', $this->pipelineId)
+            ->update([
+                'status'       => 'running',
+                'current_step' => 'bibliography',
+                'updated_at'   => now(),
+            ]);
 
         try {
             $exitCode = Artisan::call('citation:pipeline', [
-                'bookId' => $this->bookId,
+                'bookId'          => $this->bookId,
+                '--pipeline-id'   => $this->pipelineId,
             ]);
 
             if ($exitCode !== 0) {
                 $output = Artisan::output();
                 Log::error('CitationPipelineJob failed', [
-                    'book'     => $this->bookId,
-                    'scanId'   => $this->scanId,
-                    'exitCode' => $exitCode,
-                    'output'   => $output,
+                    'book'       => $this->bookId,
+                    'pipelineId' => $this->pipelineId,
+                    'exitCode'   => $exitCode,
+                    'output'     => $output,
                 ]);
 
-                $db->table('citation_scans')
-                    ->where('id', $this->scanId)
+                $db->table('citation_pipelines')
+                    ->where('id', $this->pipelineId)
                     ->update([
                         'status'     => 'failed',
                         'error'      => "citation:pipeline exited with code {$exitCode}",
@@ -62,21 +67,21 @@ class CitationPipelineJob implements ShouldQueue
                 return;
             }
 
-            // Mark scan as completed
-            $db->table('citation_scans')
-                ->where('id', $this->scanId)
+            // Mark pipeline as completed
+            $db->table('citation_pipelines')
+                ->where('id', $this->pipelineId)
                 ->update(['status' => 'completed', 'updated_at' => now()]);
 
-            Log::info('CitationPipelineJob completed', ['book' => $this->bookId, 'scanId' => $this->scanId]);
+            Log::info('CitationPipelineJob completed', ['book' => $this->bookId, 'pipelineId' => $this->pipelineId]);
         } catch (\Throwable $e) {
             Log::error('CitationPipelineJob exception', [
-                'book'    => $this->bookId,
-                'scanId'  => $this->scanId,
-                'error'   => $e->getMessage(),
+                'book'       => $this->bookId,
+                'pipelineId' => $this->pipelineId,
+                'error'      => $e->getMessage(),
             ]);
 
-            $db->table('citation_scans')
-                ->where('id', $this->scanId)
+            $db->table('citation_pipelines')
+                ->where('id', $this->pipelineId)
                 ->update([
                     'status'     => 'failed',
                     'error'      => $e->getMessage(),

@@ -9,7 +9,8 @@ class CitationPipelineCommand extends Command
 {
     protected $signature = 'citation:pipeline {bookId : The parent book to run the full citation pipeline for}
                             {--skip-fetch : Skip vacuum + OCR steps}
-                            {--skip-review : Stop after fetching content (no LLM review)}';
+                            {--skip-review : Stop after fetching content (no LLM review)}
+                            {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}';
 
     protected $description = 'Run the full citation pipeline: bibliography scan → content scan → vacuum → OCR → review';
 
@@ -31,6 +32,7 @@ class CitationPipelineCommand extends Command
         $summary = [];
 
         // Step 1: Scan bibliography (includes web fetch for URL-bearing entries)
+        $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
         $this->info('Step 1/5: Scanning bibliography...');
         $bibCountBefore = $db->table('bibliography')->where('book', $bookId)->count();
         $exit = $this->call('citation:scan-bibliography', ['target' => $bookId]);
@@ -43,6 +45,7 @@ class CitationPipelineCommand extends Command
         $this->newLine();
 
         // Step 2: Scan content (informational — non-blocking)
+        $this->updatePipelineStep('content', 'Scanning in-text citations');
         $this->info('Step 2/5: Scanning in-text citations...');
         $this->call('citation:scan-content', ['bookId' => $bookId]);
         $this->newLine();
@@ -57,6 +60,7 @@ class CitationPipelineCommand extends Command
             $this->info('Step 4/5: OCR — skipped (--skip-fetch)');
             $this->newLine();
         } else {
+            $this->updatePipelineStep('vacuum', 'Fetching source content');
             $this->info('Step 3/5: Fetching source content...');
 
             $sources = $db->table('bibliography as b')
@@ -85,6 +89,7 @@ class CitationPipelineCommand extends Command
 
                 foreach ($sources as $i => $source) {
                     $title = $source->title ?: '(untitled)';
+                    $this->updatePipelineStep('vacuum', 'Fetching source ' . ($i + 1) . '/' . $sources->count());
                     $this->line("  <fg=cyan>[" . ($i + 1) . "/{$sources->count()}] {$title}</>");
 
                     $exit = $this->call('citation:vacuum', ['bookId' => $source->book]);
@@ -108,6 +113,7 @@ class CitationPipelineCommand extends Command
             $this->newLine();
 
             // Step 4: Targeted OCR
+            $this->updatePipelineStep('ocr', 'Running OCR on downloaded PDFs');
             $this->info('Step 4/5: Running OCR on downloaded PDFs...');
 
             $downloaded = $db->table('bibliography as b')
@@ -130,6 +136,7 @@ class CitationPipelineCommand extends Command
 
                 foreach ($downloaded as $i => $source) {
                     $title = $source->title ?: '(untitled)';
+                    $this->updatePipelineStep('ocr', 'Processing PDF ' . ($i + 1) . '/' . $downloaded->count());
                     $this->line("  <fg=cyan>[" . ($i + 1) . "/{$downloaded->count()}] {$title}</>");
 
                     $exit = $this->call('citation:ocr', ['bookId' => $source->book]);
@@ -152,6 +159,7 @@ class CitationPipelineCommand extends Command
             $this->info('Step 5/5: Review — skipped (--skip-review)');
             $this->newLine();
         } else {
+            $this->updatePipelineStep('review', 'Reviewing citations with LLM');
             $this->info('Step 5/5: Reviewing citations...');
             $exit = $this->call('citation:review', ['bookId' => $bookId]);
             if ($exit !== 0) {
@@ -183,5 +191,22 @@ class CitationPipelineCommand extends Command
         }
 
         return 0;
+    }
+
+    private function updatePipelineStep(string $step, ?string $detail = null): void
+    {
+        $pipelineId = $this->option('pipeline-id');
+        if (!$pipelineId) return;
+
+        $update = [
+            'current_step' => $step,
+            'step_detail'  => $detail,
+            'updated_at'   => now(),
+        ];
+
+        DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->update($update);
     }
 }
