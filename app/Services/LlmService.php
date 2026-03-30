@@ -15,6 +15,10 @@ class LlmService
     private string $verificationModel;
     private string $extractionModel;
 
+    private array $usageByModel = [];
+    private int $totalRequests = 0;
+    private int $failedRequests = 0;
+
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
@@ -22,6 +26,23 @@ class LlmService
         $this->model   = config('services.llm.model');
         $this->extractionModel   = config('services.llm.extraction_model');
         $this->verificationModel = config('services.llm.verification_model');
+    }
+
+    /**
+     * Track token usage per model.
+     */
+    private function trackUsage(string $model, array $usage): void
+    {
+        if (!isset($this->usageByModel[$model])) {
+            $this->usageByModel[$model] = [
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'requests' => 0,
+            ];
+        }
+        $this->usageByModel[$model]['prompt_tokens'] += (int) ($usage['prompt_tokens'] ?? 0);
+        $this->usageByModel[$model]['completion_tokens'] += (int) ($usage['completion_tokens'] ?? 0);
+        $this->usageByModel[$model]['requests']++;
     }
 
     /**
@@ -51,15 +72,25 @@ class LlmService
                 'Authorization' => 'Bearer ' . $this->apiKey,
             ])->timeout($timeout)->post($this->baseUrl . '/chat/completions', $body);
 
+            $this->totalRequests++;
+
             if (!$response->successful()) {
+                $this->failedRequests++;
                 Log::warning('LLM API returned ' . $response->status(), [
                     'body' => $response->body(),
                 ]);
                 return null;
             }
 
+            $usage = $response->json('usage');
+            if ($usage) {
+                $this->trackUsage($body['model'], $usage);
+            }
+
             return $response->json('choices.0.message.content');
         } catch (\Exception $e) {
+            $this->totalRequests++;
+            $this->failedRequests++;
             Log::warning('LLM API request failed: ' . $e->getMessage());
             return null;
         }
@@ -105,10 +136,17 @@ class LlmService
 
             $results = [];
             foreach ($requests as $key => $_) {
+                $this->totalRequests++;
                 $response = $responses[(string) $key] ?? null;
                 if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                    $usage = $response->json('usage');
+                    $reqModel = $requests[$key]['model'] ?? $defaultModel;
+                    if ($usage) {
+                        $this->trackUsage($reqModel, $usage);
+                    }
                     $results[$key] = $response->json('choices.0.message.content');
                 } else {
+                    $this->failedRequests++;
                     if ($response instanceof \Illuminate\Http\Client\Response) {
                         Log::warning('LLM batch: request ' . $key . ' returned ' . $response->status());
                     } elseif ($response instanceof \Throwable) {
@@ -120,6 +158,8 @@ class LlmService
 
             return $results;
         } catch (\Exception $e) {
+            $this->totalRequests += count($requests);
+            $this->failedRequests += count($requests);
             Log::warning('LLM batch request failed: ' . $e->getMessage());
             return array_fill_keys(array_keys($requests), null);
         }
@@ -821,6 +861,28 @@ Examples:
 
 When in doubt, answer CONNECTED. False rejections are more costly than false passes.
 PROMPT;
+    }
+
+    /**
+     * Get accumulated LLM usage statistics with per-model breakdown.
+     */
+    public function getUsageStats(): array
+    {
+        return [
+            'by_model'           => $this->usageByModel,
+            'total_requests'     => $this->totalRequests,
+            'failed_requests'    => $this->failedRequests,
+        ];
+    }
+
+    /**
+     * Reset accumulated LLM usage statistics.
+     */
+    public function resetUsageStats(): void
+    {
+        $this->usageByModel = [];
+        $this->totalRequests = 0;
+        $this->failedRequests = 0;
     }
 
     /**

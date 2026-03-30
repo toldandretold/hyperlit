@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CitationReviewCommand extends Command
 {
-    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)}';
+    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)} {--pipeline-id= : Pipeline tracking ID for appendix diagnostics}';
     protected $description = 'Review in-text citations: extract truth claims, search source material, verify with LLM';
 
     public function handle(CitationReviewService $reviewService): int
@@ -56,7 +56,12 @@ class CitationReviewCommand extends Command
                 $this->line("  <fg=cyan>[{$phase}]</> {$message}");
             };
 
-            $md = $reviewService->regenerateReport($claims, $bookId, $book->title ?? $bookId, $onProgress);
+            $reportStats = [];
+            if ($this->option('pipeline-id')) {
+                $reportStats['pipeline_id'] = $this->option('pipeline-id');
+            }
+
+            $md = $reviewService->regenerateReport($claims, $bookId, $book->title ?? $bookId, $onProgress, $reportStats);
 
             $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
@@ -140,9 +145,18 @@ class CitationReviewCommand extends Command
             $this->line("  <fg=cyan>[{$phase}]</> {$message}");
         };
 
+        // Reset LLM usage tracking before the review
+        $reviewService->getLlm()->resetUsageStats();
+
         $result = $reviewService->review($bookId, $onProgress);
         $claims = $result['claims'];
         $stats = $result['stats'];
+
+        // Capture LLM usage and pipeline ID for the appendix
+        $stats['llm_usage'] = $reviewService->getLlm()->getUsageStats();
+        if ($this->option('pipeline-id')) {
+            $stats['pipeline_id'] = $this->option('pipeline-id');
+        }
 
         if (empty($claims)) {
             $this->warn('No claims were extracted.');

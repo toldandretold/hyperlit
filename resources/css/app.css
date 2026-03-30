@@ -679,8 +679,13 @@ caption {
 
 /* Make tables in main-content horizontally scrollable */
 .main-content table {
+    display: block;
     overflow-x: auto;
     max-width: 100%;
+    white-space: nowrap;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 

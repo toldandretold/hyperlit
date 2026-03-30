@@ -12,6 +12,81 @@ import DOMPurify from 'dompurify';
 // real-time validators skip the server uniqueness check for that specific ID.
 let allowedResubmitBookId = null;
 
+// ─── PDF Cost Estimate ───────────────────────────────────────────────
+const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
+
+let _pdfjsPromise = null;
+function loadPdfJs() {
+    if (!_pdfjsPromise) {
+        _pdfjsPromise = import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/+esm')
+            .then(mod => {
+                const pdfjsLib = mod;
+                pdfjsLib.GlobalWorkerOptions.workerSrc =
+                    'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.min.mjs';
+                return pdfjsLib;
+            })
+            .catch(err => {
+                _pdfjsPromise = null; // allow retry on next call
+                throw err;
+            });
+    }
+    return _pdfjsPromise;
+}
+
+async function showPdfCostEstimate(file) {
+    const el = document.getElementById('pdf-cost-estimate');
+    if (!el) return;
+
+    // Show loading state
+    el.style.display = 'block';
+    el.style.color = 'var(--color-accent, #00bcd4)';
+    el.style.fontSize = '13px';
+    el.style.marginTop = '6px';
+    el.style.padding = '8px 10px';
+    el.style.borderRadius = '4px';
+    el.style.backgroundColor = 'rgba(0, 188, 212, 0.08)';
+    el.style.border = '1px solid rgba(0, 188, 212, 0.25)';
+    el.textContent = 'Reading PDF...';
+
+    try {
+        const pdfjsLib = await loadPdfJs();
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const numPages = pdf.numPages;
+        pdf.destroy();
+
+        const cost = (numPages / 1000) * MISTRAL_OCR_COST_PER_1K_PAGES;
+        el.textContent = `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — Estimated OCR cost: $${cost.toFixed(2)}`;
+    } catch (err) {
+        console.warn('PDF cost estimate failed:', err);
+        el.style.color = '#EF8D34';
+        el.style.backgroundColor = 'rgba(239, 141, 52, 0.08)';
+        el.style.border = '1px solid rgba(239, 141, 52, 0.25)';
+        el.textContent = 'Could not determine page count';
+    }
+}
+
+function hidePdfCostEstimate() {
+    const el = document.getElementById('pdf-cost-estimate');
+    if (el) {
+        el.style.display = 'none';
+        el.textContent = '';
+    }
+}
+
+function handlePdfCostEstimate(fileInput) {
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        hidePdfCostEstimate();
+        return;
+    }
+    const file = fileInput.files[0];
+    if (file && file.name.toLowerCase().endsWith('.pdf')) {
+        showPdfCostEstimate(file);
+    } else {
+        hidePdfCostEstimate();
+    }
+}
+
 // Add the helper functions from createNewBook.js
 function generateUUID() {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
@@ -756,12 +831,6 @@ export function initializeCitationFormListeners() {
         });
     }
 
-    // Set up file validation
-    const fileInput = document.getElementById('markdown_file');
-    if (fileInput) {
-        fileInput.addEventListener('change', validateFileInput);
-    }
-
     console.log("Citation form event listeners initialized");
 
     // ✅ CRITICAL FIX: Set up validation when form is dynamically created
@@ -1132,6 +1201,9 @@ function setupClearButton() {
             // Reset inputs
             form.reset();
 
+            // Hide PDF cost estimate
+            hidePdfCostEstimate();
+
             // Hide optional fields (labels and inputs)
             document.querySelectorAll('.optional-field').forEach(field => {
                 field.style.display = 'none';
@@ -1432,6 +1504,7 @@ function setupRealTimeValidation() {
             // Pass field base id 'file' so showValidationMessage targets #file-validation
             showValidationMessage('file', result);
             validateForm();
+            handlePdfCostEstimate(this);
         });
     }
     

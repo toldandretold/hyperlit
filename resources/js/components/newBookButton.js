@@ -308,6 +308,7 @@ export class NewBookContainerManager extends ContainerManager {
           <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/*${pdfAccept}" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
           <div class="field-hint">Upload a document file</div>
           <div id="file-validation" class="validation-message"></div>
+          <div id="pdf-cost-estimate" style="display:none;"></div>
         </div>
 
         <!-- /url field with preview - always visible -->

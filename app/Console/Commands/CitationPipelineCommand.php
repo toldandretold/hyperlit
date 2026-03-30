@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class CitationPipelineCommand extends Command
 {
@@ -132,6 +133,7 @@ class CitationPipelineCommand extends Command
 
             $ocrProcessed = 0;
             $ocrFailed = 0;
+            $ocrTotalPages = 0;
 
             if ($downloaded->isEmpty()) {
                 $this->line('  No PDFs awaiting OCR.');
@@ -148,6 +150,14 @@ class CitationPipelineCommand extends Command
 
                     if ($exit === 0) {
                         $ocrProcessed++;
+
+                        // Count pages from cached OCR response
+                        $safeDir = str_replace('/', '_', $source->book);
+                        $ocrJson = resource_path("markdown/{$safeDir}/ocr_response.json");
+                        if (File::exists($ocrJson)) {
+                            $ocrData = json_decode(File::get($ocrJson), true);
+                            $ocrTotalPages += count($ocrData['pages'] ?? []);
+                        }
                     } else {
                         $ocrFailed++;
                         $this->line("  <fg=yellow>OCR failed — continuing</>");
@@ -156,6 +166,11 @@ class CitationPipelineCommand extends Command
             }
 
             $summary['ocr'] = ['processed' => $ocrProcessed, 'failed' => $ocrFailed];
+
+            // Store OCR page count in step timings
+            if ($ocrTotalPages > 0 && isset($this->stepTimings['ocr'])) {
+                $this->stepTimings['ocr']['total_pages'] = $ocrTotalPages;
+            }
             $this->newLine();
         }
 
@@ -166,13 +181,20 @@ class CitationPipelineCommand extends Command
         } else {
             $this->updatePipelineStep('review', 'Reviewing citations with LLM');
             $this->info('Step 5/5: Reviewing citations...');
-            $exit = $this->call('citation:review', ['bookId' => $bookId]);
+            $reviewArgs = ['bookId' => $bookId];
+            if ($this->option('pipeline-id')) {
+                $reviewArgs['--pipeline-id'] = $this->option('pipeline-id');
+            }
+            $exit = $this->call('citation:review', $reviewArgs);
             if ($exit !== 0) {
                 $this->error('Review step failed.');
                 return 1;
             }
             $this->newLine();
         }
+
+        // Finalize step timings
+        $this->finalizeStepTimings();
 
         // Bump annotations_updated_at so the frontend syncs on next load
         $now_ms = round(microtime(true) * 1000);
@@ -198,20 +220,68 @@ class CitationPipelineCommand extends Command
         return 0;
     }
 
+    private ?string $currentTimingStep = null;
+    private array $stepTimings = [];
+
     private function updatePipelineStep(string $step, ?string $detail = null): void
     {
+        $now = now();
+
+        // Close previous step timing
+        if ($this->currentTimingStep !== null && isset($this->stepTimings[$this->currentTimingStep])) {
+            $prev = &$this->stepTimings[$this->currentTimingStep];
+            $prev['completed_at'] = $now->toDateTimeString();
+            $started = \Carbon\Carbon::parse($prev['started_at']);
+            $prev['duration_seconds'] = $started->diffInSeconds($now);
+            unset($prev);
+        }
+
+        // Open new step timing
+        $this->currentTimingStep = $step;
+        $this->stepTimings[$step] = [
+            'started_at'       => $now->toDateTimeString(),
+            'completed_at'     => null,
+            'duration_seconds' => null,
+        ];
+
         $pipelineId = $this->option('pipeline-id');
         if (!$pipelineId) return;
 
         $update = [
-            'current_step' => $step,
-            'step_detail'  => $detail,
-            'updated_at'   => now(),
+            'current_step'  => $step,
+            'step_detail'   => $detail,
+            'step_timings'  => json_encode($this->stepTimings),
+            'updated_at'    => $now,
         ];
 
         DB::connection('pgsql_admin')
             ->table('citation_pipelines')
             ->where('id', $pipelineId)
             ->update($update);
+    }
+
+    private function finalizeStepTimings(): void
+    {
+        $now = now();
+
+        // Close the last step
+        if ($this->currentTimingStep !== null && isset($this->stepTimings[$this->currentTimingStep])) {
+            $prev = &$this->stepTimings[$this->currentTimingStep];
+            $prev['completed_at'] = $now->toDateTimeString();
+            $started = \Carbon\Carbon::parse($prev['started_at']);
+            $prev['duration_seconds'] = $started->diffInSeconds($now);
+            unset($prev);
+        }
+
+        $pipelineId = $this->option('pipeline-id');
+        if (!$pipelineId) return;
+
+        DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->update([
+                'step_timings' => json_encode($this->stepTimings),
+                'updated_at'   => $now,
+            ]);
     }
 }
