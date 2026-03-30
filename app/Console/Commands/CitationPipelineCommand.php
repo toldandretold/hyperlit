@@ -10,6 +10,7 @@ class CitationPipelineCommand extends Command
     protected $signature = 'citation:pipeline {bookId : The parent book to run the full citation pipeline for}
                             {--skip-fetch : Skip vacuum + OCR steps}
                             {--skip-review : Stop after fetching content (no LLM review)}
+                            {--force : Re-resolve all bibliography entries from scratch (ignore existing source links)}
                             {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}';
 
     protected $description = 'Run the full citation pipeline: bibliography scan → content scan → vacuum → OCR → review';
@@ -35,7 +36,11 @@ class CitationPipelineCommand extends Command
         $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
         $this->info('Step 1/5: Scanning bibliography...');
         $bibCountBefore = $db->table('bibliography')->where('book', $bookId)->count();
-        $exit = $this->call('citation:scan-bibliography', ['target' => $bookId]);
+        $bibArgs = ['target' => $bookId];
+        if ($this->option('force')) {
+            $bibArgs['--force'] = true;
+        }
+        $exit = $this->call('citation:scan-bibliography', $bibArgs);
         if ($exit !== 0) {
             $this->error('Bibliography scan failed. Aborting.');
             return 1;

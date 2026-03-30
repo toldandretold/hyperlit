@@ -21,6 +21,7 @@ class CitationPipelineJob implements ShouldQueue
     public function __construct(
         private string $bookId,
         private string $pipelineId,
+        private bool $force = false,
     ) {
         $this->onQueue('citation-pipeline');
     }
@@ -41,10 +42,15 @@ class CitationPipelineJob implements ShouldQueue
             ]);
 
         try {
-            $exitCode = Artisan::call('citation:pipeline', [
+            $args = [
                 'bookId'          => $this->bookId,
                 '--pipeline-id'   => $this->pipelineId,
-            ]);
+            ];
+            if ($this->force) {
+                $args['--force'] = true;
+            }
+
+            $exitCode = Artisan::call('citation:pipeline', $args);
 
             if ($exitCode !== 0) {
                 $output = Artisan::output();

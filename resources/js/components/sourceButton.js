@@ -264,6 +264,10 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
           </button>
           <div id="ai-review-info" style="display: none; margin-top: 10px;">
             <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0; line-height: 1.5;">AI Citation Review compares all citations in this text to open databases, pulling any available data. It then compares the truth claim of each citation to the source material. The review takes 10-15 minutes. You will be emailed on completion.</p>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aaa; margin-bottom: 10px; cursor: pointer;">
+              <input type="checkbox" id="ai-review-force" style="accent-color: #EF8D34;" />
+              Rescan all sources from scratch
+            </label>
             <button type="button" id="ai-review-generate" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #221F20; background: #EF8D34; border: none; border-radius: 4px; cursor: pointer; font-family: inherit;">Generate Review</button>
           </div>`;
       }
@@ -976,7 +980,7 @@ export class SourceContainerManager extends ContainerManager {
           'X-CSRF-TOKEN': csrfToken,
         },
         credentials: 'include',
-        body: JSON.stringify({ book }),
+        body: JSON.stringify({ book, force: this.container.querySelector('#ai-review-force')?.checked || false }),
       });
 
       const data = await resp.json().catch(() => ({}));

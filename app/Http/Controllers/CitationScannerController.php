@@ -117,7 +117,8 @@ class CitationScannerController extends Controller
     public function triggerPipeline(Request $request): JsonResponse
     {
         $request->validate([
-            'book' => 'required|string',
+            'book'  => 'required|string',
+            'force' => 'sometimes|boolean',
         ]);
 
         $user = Auth::user();
@@ -129,6 +130,7 @@ class CitationScannerController extends Controller
         }
 
         $bookId = $request->input('book');
+        $force  = $request->boolean('force', false);
         $db = DB::connection('pgsql_admin');
 
         // Check that the book exists
@@ -163,7 +165,7 @@ class CitationScannerController extends Controller
             'updated_at' => now(),
         ]);
 
-        CitationPipelineJob::dispatch($bookId, $pipelineId);
+        CitationPipelineJob::dispatch($bookId, $pipelineId, $force);
 
         return response()->json([
             'success'     => true,
