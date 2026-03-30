@@ -153,7 +153,11 @@ class CitationPipelineCommand extends Command
             $this->newLine();
         } else {
             $this->info('Step 5/5: Reviewing citations...');
-            $this->call('citation:review', ['bookId' => $bookId]);
+            $exit = $this->call('citation:review', ['bookId' => $bookId]);
+            if ($exit !== 0) {
+                $this->error('Review step failed.');
+                return 1;
+            }
             $this->newLine();
         }
 

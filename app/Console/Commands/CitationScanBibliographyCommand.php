@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Jobs\CitationScanBibliographyJob;
+use App\Services\OpenAlexService;
 
 class CitationScanBibliographyCommand extends Command
 {
@@ -70,13 +71,14 @@ class CitationScanBibliographyCommand extends Command
             'updated_at'    => now(),
         ]);
 
-        // Dispatch the job (runs synchronously with QUEUE_CONNECTION=sync)
+        // Run the job logic directly (works in both CLI and queue-worker contexts)
         $force = (bool) $this->option('force');
         if ($force) {
             $this->warn('Force mode: clearing existing matches before re-scan.');
         }
         $this->info('Running scan...');
-        CitationScanBibliographyJob::dispatchSync($scanId, $bookId, $referenceId, $force);
+        $job = new CitationScanBibliographyJob($scanId, $bookId, $referenceId, $force);
+        $job->handle(app(OpenAlexService::class));
 
         // Fetch completed scan and print report
         $scan = $db->table('citation_scans')->where('id', $scanId)->first();

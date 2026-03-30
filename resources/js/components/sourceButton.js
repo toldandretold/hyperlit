@@ -985,6 +985,7 @@ export class SourceContainerManager extends ContainerManager {
         throw new Error(data.message || `Request failed: ${resp.status}`);
       }
 
+      this._aiReviewScanId = data.scan_id;
       this.setAiReviewState('reviewing');
       this.startAiReviewPolling();
     } catch (error) {
@@ -1164,20 +1165,20 @@ export class SourceContainerManager extends ContainerManager {
 
   async pollAiReviewStatus() {
     try {
-      const resp = await fetch(`/api/citation-scanner/history/${encodeURIComponent(book)}`, {
+      if (!this._aiReviewScanId) return;
+
+      const resp = await fetch(`/api/citation-scanner/status/${encodeURIComponent(this._aiReviewScanId)}`, {
         credentials: 'include',
       });
       if (!resp.ok) return;
       const data = await resp.json();
-      const scans = data.scans;
-      if (!scans || scans.length === 0) return;
+      const scan = data.scan;
+      if (!scan) return;
 
-      const latest = scans[0];
-
-      if (latest.status === 'completed') {
+      if (scan.status === 'completed') {
         this.stopAiReviewPolling();
         this.setAiReviewState('completed');
-      } else if (latest.status === 'failed') {
+      } else if (scan.status === 'failed') {
         this.stopAiReviewPolling();
         // Reset button to idle state
         const aiBtn = this.container.querySelector('#ai-review-btn');
