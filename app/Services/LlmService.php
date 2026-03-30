@@ -106,11 +106,13 @@ class LlmService
             $results = [];
             foreach ($requests as $key => $_) {
                 $response = $responses[(string) $key] ?? null;
-                if ($response && $response->successful()) {
+                if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                     $results[$key] = $response->json('choices.0.message.content');
                 } else {
-                    if ($response) {
+                    if ($response instanceof \Illuminate\Http\Client\Response) {
                         Log::warning('LLM batch: request ' . $key . ' returned ' . $response->status());
+                    } elseif ($response instanceof \Throwable) {
+                        Log::warning('LLM batch: request ' . $key . ' connection failed: ' . $response->getMessage());
                     }
                     $results[$key] = null;
                 }
