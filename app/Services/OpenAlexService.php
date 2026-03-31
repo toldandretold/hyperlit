@@ -589,6 +589,11 @@ class OpenAlexService
             $candidate['title'] ?? ''
         );
 
+        // Title floor: if the title doesn't remotely match, hard reject regardless of author/year
+        if ($titleScore < 0.15) {
+            return 0.0;
+        }
+
         // Author match (weight 0.25): proportional matching via nameSimilarity
         $authorScore = 0.0;
         $llmAuthors = $llmMeta['authors'] ?? [];

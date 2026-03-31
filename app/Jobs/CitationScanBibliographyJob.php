@@ -74,6 +74,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                 $resetCount = $resetQuery->update([
                     'source_id'         => null,
                     'foundation_source' => null,
+                    'match_method'      => null,
+                    'match_score'       => null,
                     'updated_at'        => now(),
                 ]);
 
@@ -120,7 +122,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (is_string($cached)) {
                         $cached = json_decode($cached, true);
                     }
-                    if (!empty($cached)) {
+                    if (!empty($cached) && array_key_exists('type', $cached)) {
                         $llmMetadataMap[$entry->referenceId] = $cached;
                     } else {
                         $toExtract[$entry->referenceId] = $entry->content ?? '';
@@ -299,8 +301,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db);
                     if ($localMatch) {
                         $updateData = $item['isLinked']
-                            ? ['foundation_source' => $localMatch['book'], 'updated_at' => now()]
-                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'updated_at' => now()];
+                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'updated_at' => now()]
+                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'updated_at' => now()];
 
                         $db->table('bibliography')
                             ->where('book', $this->bookId)

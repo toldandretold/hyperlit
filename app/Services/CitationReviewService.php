@@ -713,6 +713,81 @@ class CitationReviewService
                 $progress('verify', "Rejection review: upgraded {$upgraded} of " . count($rejectedItems) . " rejected verdicts to unlikely");
             }
         }
+
+        // Phase D: Hard-reject claims with author mismatch
+        $authorOverrides = 0;
+        foreach ($claims as $i => &$claim) {
+            if ($this->hasAuthorMismatch($claim)) {
+                $claim['llm_verdict'] = [
+                    'support'   => 'rejected',
+                    'summary'   => 'Author mismatch: the matched source belongs to a different author.',
+                    'reasoning' => 'The bibliography entry names a different author than the matched source. This is a false match.',
+                ];
+                $authorOverrides++;
+            }
+        }
+        unset($claim);
+
+        if ($authorOverrides > 0) {
+            $progress('verify', "Author mismatch override: rejected {$authorOverrides} claims with mismatched authors");
+        }
+    }
+
+    /**
+     * Check whether a claim has a clear author mismatch between bibliography and matched source.
+     * Returns true when both sides have author data but no surnames overlap.
+     */
+    private function hasAuthorMismatch(array $claim): bool
+    {
+        $llmMeta = $claim['llm_metadata'] ?? null;
+        $sourceAuthor = $claim['source_author'] ?? null;
+
+        if (!is_array($llmMeta) || !$sourceAuthor) {
+            return false;
+        }
+
+        $llmAuthors = $llmMeta['authors'] ?? null;
+        if (!$llmAuthors) {
+            return false;
+        }
+
+        $llmAuthorStr = is_array($llmAuthors) ? implode('; ', $llmAuthors) : (string) $llmAuthors;
+        if (trim($llmAuthorStr) === '') {
+            return false;
+        }
+
+        $extractSurname = function (string $name): string {
+            $name = trim($name);
+            // "Surname, First" -> Surname
+            if (str_contains($name, ',')) {
+                return mb_strtolower(trim(explode(',', $name)[0]));
+            }
+            // "First Surname" -> Surname (last word)
+            $words = preg_split('/\s+/', $name);
+            return mb_strtolower(end($words));
+        };
+
+        $llmSurnames = [];
+        $authors = is_array($llmAuthors) ? $llmAuthors : preg_split('/[;,]\s*/', (string) $llmAuthors);
+        foreach ($authors as $a) {
+            $s = $extractSurname($a);
+            if ($s !== '') {
+                $llmSurnames[] = $s;
+            }
+        }
+
+        if (empty($llmSurnames)) {
+            return false;
+        }
+
+        $sourceLower = mb_strtolower($sourceAuthor);
+        foreach ($llmSurnames as $surname) {
+            if (mb_strpos($sourceLower, $surname) !== false) {
+                return false; // found overlap — not a mismatch
+            }
+        }
+
+        return true; // no surname overlap — author mismatch
     }
 
     /**
