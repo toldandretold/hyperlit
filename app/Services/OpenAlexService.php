@@ -213,16 +213,20 @@ class OpenAlexService
 
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
+                if (!$response instanceof \Illuminate\Http\Client\Response) {
+                    $allResults[$key] = null;
+                    continue;
+                }
 
                 // Skip 429s — the entry will fail this wave and can be retried in a later wave
-                if ($response && $response->status() === 429) {
+                if ($response->status() === 429) {
                     Log::warning('OpenAlex batch DOI 429, skipping', ['doi' => $dois[$key]]);
                     $allResults[$key] = null;
                     $had429 = true;
                     continue;
                 }
 
-                if ($response && $response->successful()) {
+                if ($response->successful()) {
                     $work = $response->json();
                     $allResults[$key] = (!empty($work) && !empty($work['id']))
                         ? $this->normaliseWork($work)
@@ -302,16 +306,20 @@ class OpenAlexService
 
             foreach ($chunkKeys as $key) {
                 $response = $responses[(string) $key] ?? null;
+                if (!$response instanceof \Illuminate\Http\Client\Response) {
+                    $allResults[$key] = [];
+                    continue;
+                }
 
                 // Skip 429s — the entry will fail this wave and can be retried in a later wave
-                if ($response && $response->status() === 429) {
+                if ($response->status() === 429) {
                     Log::warning('OpenAlex batch search 429, skipping', ['query' => $queries[$key]]);
                     $allResults[$key] = [];
                     $had429 = true;
                     continue;
                 }
 
-                if ($response && $response->successful()) {
+                if ($response->successful()) {
                     $works = $response->json('results') ?? [];
                     $allResults[$key] = array_map(fn(array $work) => $this->normaliseWork($work), $works);
 

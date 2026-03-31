@@ -83,7 +83,7 @@ class OpenLibraryService
 
                 foreach ($chunkKeys as $key) {
                     $response = $responses[(string) $key] ?? null;
-                    if ($response && $response->successful()) {
+                    if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                         $docs = $response->json('docs') ?? [];
                         $allResults[$key] = array_map(fn(array $doc) => $this->normaliseDoc($doc), $docs);
                     } else {
