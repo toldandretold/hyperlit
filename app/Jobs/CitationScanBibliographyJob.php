@@ -300,9 +300,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                     }
                     $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db);
                     if ($localMatch) {
+                        $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
                         $updateData = $item['isLinked']
-                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'updated_at' => now()]
-                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'updated_at' => now()];
+                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson, 'updated_at' => now()]
+                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson, 'updated_at' => now()];
 
                         $db->table('bibliography')
                             ->where('book', $this->bookId)
@@ -356,6 +357,7 @@ class CitationScanBibliographyJob implements ShouldQueue
 
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             if (!$openAlex->isCitableWork($candidate)) {
                                 Log::debug('Wave 4: rejected non-citable type', [
@@ -367,12 +369,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
+                            $scoreResult = $llmMeta
                                 ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore <= 0.3) {
@@ -384,7 +388,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                             ]);
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -428,19 +432,22 @@ class CitationScanBibliographyJob implements ShouldQueue
 
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
+                            $scoreResult = $llmMeta
                                 ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -482,19 +489,22 @@ class CitationScanBibliographyJob implements ShouldQueue
 
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['searchedTitle'];
-                            $score   = $llmMeta
+                            $scoreResult = $llmMeta
                                 ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -534,6 +544,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $bestMatch = null;
                     $bestScore = 0.0;
                     $bestSource = null;
+                    $bestDiagnostics = null;
 
                     foreach ($storedCandidates[$refId] as $source => $candidates) {
                         foreach ($candidates as $candidate) {
@@ -544,13 +555,15 @@ class CitationScanBibliographyJob implements ShouldQueue
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $shortened;
                             }
-                            $score = $scoreMeta
+                            $scoreResult = $scoreMeta
                                 ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : $openAlex->titleSimilarity($shortened, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($shortened, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
                                 $bestSource = $source;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                     }
@@ -570,7 +583,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                             'score'          => $bestScore,
                             'source'         => $bestSource,
                         ]);
-                        $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, $matchMethod, round($bestScore, 3), $openAlex, $db);
+                        $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, $matchMethod, round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                         if ($result) {
                             $results[] = $result;
                             match ($result['status']) {
@@ -606,6 +619,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             if (!$openAlex->isCitableWork($candidate)) {
                                 continue;
@@ -616,12 +630,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $title;
                             }
-                            $score   = $scoreMeta
+                            $scoreResult = $scoreMeta
                                 ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
@@ -631,7 +647,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'resultTitle'    => $bestMatch['title'] ?? null,
                                 'score'          => $bestScore,
                             ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -670,6 +686,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['shortenedTitle'];
@@ -677,12 +694,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $title;
                             }
-                            $score   = $scoreMeta
+                            $scoreResult = $scoreMeta
                                 ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
@@ -692,7 +711,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'resultTitle'    => $bestMatch['title'] ?? null,
                                 'score'          => $bestScore,
                             ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -729,6 +748,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                         $bestMatch = null;
                         $bestScore = 0.0;
+                        $bestDiagnostics = null;
                         foreach ($candidates as $candidate) {
                             $llmMeta = $pool[$refId]['llmMetadata'];
                             $title   = $pool[$refId]['shortenedTitle'];
@@ -736,12 +756,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                             if ($scoreMeta) {
                                 $scoreMeta['title'] = $title;
                             }
-                            $score   = $scoreMeta
+                            $scoreResult = $scoreMeta
                                 ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : $openAlex->titleSimilarity($title, $candidate['title'] ?? '');
+                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
+                            $score = $scoreResult['score'];
                             if ($score > $bestScore) {
                                 $bestScore = $score;
                                 $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
                             }
                         }
                         if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
@@ -751,7 +773,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'resultTitle'    => $bestMatch['title'] ?? null,
                                 'score'          => $bestScore,
                             ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db);
+                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
                             if ($result) {
                                 $results[] = $result;
                                 match ($result['status']) {
@@ -900,7 +922,7 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Resolve a pool entry using a normalised work (OpenAlex/OL/SS shape).
      * Creates or finds a library stub, updates bibliography, returns result array.
      */
-    private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db): ?array
+    private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db, ?array $matchDiagnostics = null): ?array
     {
         $refId    = $poolItem['referenceId'];
         $isLinked = $poolItem['isLinked'];
@@ -936,10 +958,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ->where('book', $this->bookId)
                 ->where('referenceId', $refId)
                 ->update([
-                    'foundation_source' => $stubBookId,
-                    'match_method'      => $matchMethod,
-                    'match_score'       => $score,
-                    'updated_at'        => now(),
+                    'foundation_source'  => $stubBookId,
+                    'match_method'       => $matchMethod,
+                    'match_score'        => $score,
+                    'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
+                    'updated_at'         => now(),
                 ]);
 
             return [
@@ -964,11 +987,12 @@ class CitationScanBibliographyJob implements ShouldQueue
             ->where('book', $this->bookId)
             ->where('referenceId', $refId)
             ->update([
-                'source_id'         => $stubBookId,
-                'foundation_source' => $stubBookId,
-                'match_method'      => $matchMethod,
-                'match_score'       => $score,
-                'updated_at'        => now(),
+                'source_id'          => $stubBookId,
+                'foundation_source'  => $stubBookId,
+                'match_method'       => $matchMethod,
+                'match_score'        => $score,
+                'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
+                'updated_at'         => now(),
             ]);
 
         return [
@@ -1065,6 +1089,7 @@ class CitationScanBibliographyJob implements ShouldQueue
 
         $bestMatch = null;
         $bestScore = 0.0;
+        $bestDiagnostics = null;
 
         foreach ($candidates as $row) {
             $candidate = [
@@ -1073,13 +1098,15 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'year'   => $row->year,
             ];
 
-            $score = $llmMetadata
+            $scoreResult = $llmMetadata
                 ? $openAlex->metadataScore($llmMetadata, $candidate)
-                : $openAlex->titleSimilarity($title, $row->title ?? '');
+                : ['score' => $openAlex->titleSimilarity($title, $row->title ?? '')];
+            $score = $scoreResult['score'];
 
             if ($score > $bestScore) {
                 $bestScore = $score;
                 $bestMatch = $row;
+                $bestDiagnostics = $scoreResult;
             }
         }
 
@@ -1088,6 +1115,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'book'             => $bestMatch->book,
                 'title'            => $bestMatch->title,
                 'score'            => round($bestScore, 3),
+                'diagnostics'      => $bestDiagnostics,
                 'openalex_id'      => $bestMatch->openalex_id,
                 'open_library_key' => $bestMatch->open_library_key,
             ];

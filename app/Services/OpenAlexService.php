@@ -581,7 +581,7 @@ class OpenAlexService
      * Compute a composite metadata score between LLM-extracted metadata and a candidate.
      * Weights: title 0.55, author 0.25, year 0.10, journal 0.05, publisher 0.05. Returns 0.0–1.0.
      */
-    public function metadataScore(array $llmMeta, array $candidate): float
+    public function metadataScore(array $llmMeta, array $candidate): array
     {
         // Title similarity (weight 0.55)
         $titleScore = $this->titleSimilarity(
@@ -591,7 +591,11 @@ class OpenAlexService
 
         // Title floor: if the title doesn't remotely match, hard reject regardless of author/year
         if ($titleScore < 0.15) {
-            return 0.0;
+            return [
+                'score'           => 0.0,
+                'titleScore'      => round($titleScore, 4),
+                'reason'          => 'title_floor',
+            ];
         }
 
         // Author match (weight 0.25): proportional matching via nameSimilarity
@@ -675,40 +679,51 @@ class OpenAlexService
         $authorMismatchPenalty = 1.0;
         if ($authorScore === 0.0 && !empty($llmAuthors)) {
             if (!empty($candidateAuthor)) {
-                return 0.0;  // both sides have authors, none match → hard reject
+                // Both sides have authors, none match → hard reject
+                return [
+                    'score'            => 0.0,
+                    'titleScore'       => round($titleScore, 4),
+                    'authorScore'      => 0.0,
+                    'yearScore'        => $yearScore,
+                    'journalScore'     => round($journalScore, 4),
+                    'publisherScore'   => round($publisherScore, 4),
+                    'authorPenalty'    => 0.0,
+                    'rawScore'         => 0.0,
+                    'llmAuthors'       => $llmAuthors,
+                    'candidateAuthor'  => $candidateAuthor,
+                    'reason'           => 'author_hard_reject',
+                ];
             } else {
                 $authorMismatchPenalty = 0.85;  // candidate has no author data
             }
         } elseif ($authorScore > 0.0 && $authorScore < 0.5 && !empty($llmAuthors)) {
             // Partial but weak match: graduated penalty
             $authorMismatchPenalty = 0.7 + 0.6 * $authorScore;
+        } elseif (empty($llmAuthors) && !empty($candidateAuthor)) {
+            // LLM extracted no authors but candidate has specific author.
+            // Can't confirm or deny — apply penalty.
+            $authorMismatchPenalty = 0.75;
         }
 
         $rawScore = ($titleScore * 0.55) + ($authorScore * 0.25) + ($yearScore * 0.10) + ($journalScore * 0.05) + ($publisherScore * 0.05);
         $finalScore = $rawScore * $authorMismatchPenalty;
 
-        Log::info('metadataScore', [
-            'llm_title' => $llmMeta['title'] ?? '',
-            'candidate_title' => $candidate['title'] ?? '',
-            'titleScore' => round($titleScore, 4),
-            'llm_authors' => $llmAuthors,
-            'candidate_author' => $candidateAuthor,
-            'authorScore' => round($authorScore, 4),
-            'llm_year' => $llmYear,
-            'candidate_year' => $candidateYear,
-            'yearScore' => $yearScore,
-            'llm_journal' => $llmJournal,
-            'candidate_journal' => $candidateJournal,
-            'journalScore' => round($journalScore, 4),
-            'llm_publisher' => $llmPublisher,
-            'candidate_publisher' => $candidatePublisher,
-            'publisherScore' => round($publisherScore, 4),
-            'rawScore' => round($rawScore, 4),
-            'authorMismatchPenalty' => round($authorMismatchPenalty, 4),
-            'finalScore' => round($finalScore, 4),
-        ]);
+        $breakdown = [
+            'score'            => $finalScore,
+            'titleScore'       => round($titleScore, 4),
+            'authorScore'      => round($authorScore, 4),
+            'yearScore'        => $yearScore,
+            'journalScore'     => round($journalScore, 4),
+            'publisherScore'   => round($publisherScore, 4),
+            'authorPenalty'    => round($authorMismatchPenalty, 4),
+            'rawScore'         => round($rawScore, 4),
+            'llmAuthors'       => $llmAuthors,
+            'candidateAuthor'  => $candidateAuthor,
+        ];
 
-        return $finalScore;
+        Log::info('metadataScore', $breakdown);
+
+        return $breakdown;
     }
 
     /**
