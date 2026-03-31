@@ -635,7 +635,7 @@ class OpenAlexService
                 }
             }
 
-            $authorScore = count($llmAuthors) > 0 ? $matchedCount / count($llmAuthors) : 0.0;
+            $authorScore = count($llmAuthors) > 0 ? (float)($matchedCount / count($llmAuthors)) : 0.0;
         }
 
         // Year match (weight 0.12): 1.0 exact, 0.5 if ±1, 0.0 otherwise
