@@ -173,7 +173,7 @@ class LlmService
     {
         $plain = strip_tags($citationHtml);
         $result = $this->chat(
-            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "...", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null. For reprints or re-editions formatted like "[1938] 1989", use the original year in brackets (1938). Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
+            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null. For reprints or re-editions formatted like "[1938] 1989", use the original year in brackets (1938). Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
             $plain
         );
 
@@ -201,6 +201,7 @@ class LlmService
             'year'      => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
             'journal'   => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
             'publisher' => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+            'type'      => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
             'doi'       => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
         ];
     }
@@ -212,7 +213,7 @@ class LlmService
      */
     public function extractCitationMetadataBatch(array $citations): array
     {
-        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "...", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null. For reprints or re-editions formatted like "[1938] 1989", use the original year in brackets (1938). Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.';
+        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null. For reprints or re-editions formatted like "[1938] 1989", use the original year in brackets (1938). Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.';
 
         $requests = [];
         foreach ($citations as $key => $html) {
@@ -261,6 +262,7 @@ class LlmService
                     'year'      => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
                     'journal'   => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
                     'publisher' => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+                    'type'      => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
                     'doi'       => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
                 ];
             }

@@ -219,7 +219,7 @@ class CitationReviewService
         $bibEntries = $db->table('bibliography')
             ->where('book', $bookId)
             ->whereIn('referenceId', $allRefIds)
-            ->select(['referenceId', 'foundation_source', 'content'])
+            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score'])
             ->get()
             ->keyBy('referenceId');
 
@@ -264,6 +264,9 @@ class CitationReviewService
                 'url'                => $lib->url ?? null,
                 'doi'                => $lib->doi ?? null,
                 'oa_url'             => $lib->oa_url ?? null,
+                'llm_metadata'       => is_string($bib->llm_metadata ?? null) ? json_decode($bib->llm_metadata, true) : null,
+                'match_method'       => $bib->match_method ?? null,
+                'match_score'        => $bib->match_score ?? null,
             ];
         }
 
@@ -406,6 +409,9 @@ class CitationReviewService
                         'source_url'           => $meta['url'] ?? null,
                         'source_doi'           => $meta['doi'] ?? null,
                         'source_oa_url'        => $meta['oa_url'] ?? null,
+                        'llm_metadata'         => $meta['llm_metadata'] ?? null,
+                        'match_method'         => $meta['match_method'] ?? null,
+                        'match_score'          => $meta['match_score'] ?? null,
                         'source_passages'      => [],
                         'llm_verdict'          => null,
                         'evidence_type'        => 'none',
@@ -1034,8 +1040,53 @@ class CitationReviewService
         if (!empty($unverified)) {
             $md .= "# Unverified Sources\n\n";
             $md .= "These citations reference sources that were never found in any database.\n\n";
+
+            // Group by source type
+            $typeOrder = [
+                'book' => 'Books',
+                'journal-article' => 'Journal Articles',
+                'book-chapter' => 'Book Chapters',
+                'conference-paper' => 'Conference Papers',
+                'thesis' => 'Theses',
+                'report' => 'Reports',
+                'news-article' => 'News Articles',
+                'archival-source' => 'Archival Sources',
+                'youtube-video' => 'YouTube Videos',
+                'website' => 'Websites',
+                'other' => 'Other',
+            ];
+            $academicTypes = ['book', 'journal-article', 'book-chapter', 'conference-paper', 'thesis', 'report'];
+
+            $grouped = [];
             foreach ($unverified as $c) {
-                $md .= $this->formatClaimMd($c, $bookId);
+                $type = $c['llm_metadata']['type'] ?? 'unknown';
+                if (!isset($typeOrder[$type])) {
+                    $type = 'unknown';
+                }
+                $grouped[$type][] = $c;
+            }
+
+            // Render in defined order, then unknown at the end
+            $orderedKeys = array_keys($typeOrder);
+            $orderedKeys[] = 'unknown';
+
+            foreach ($orderedKeys as $type) {
+                if (empty($grouped[$type])) {
+                    continue;
+                }
+                $label = $typeOrder[$type] ?? 'Unknown Type';
+                $count = count($grouped[$type]);
+                $md .= "## {$label} ({$count})\n\n";
+
+                if (in_array($type, $academicTypes, true)) {
+                    $md .= "> Not found in any academic database — higher priority for manual review.\n\n";
+                } else {
+                    $md .= "> Not found — non-academic sources are not expected in academic databases.\n\n";
+                }
+
+                foreach ($grouped[$type] as $c) {
+                    $md .= $this->formatClaimMd($c, $bookId);
+                }
             }
         }
 
@@ -1477,6 +1528,134 @@ class CitationReviewService
     }
 
     /**
+     * Build match diagnostics: score, method, and mismatch warnings.
+     */
+    private function buildMatchDiagnosticsMd(array $claim): string
+    {
+        $lines = [];
+        $matchScore  = $claim['match_score'] ?? null;
+        $matchMethod = $claim['match_method'] ?? null;
+        $llmMeta     = $claim['llm_metadata'] ?? null;
+
+        // Score + method line
+        if ($matchMethod || $matchScore !== null) {
+            $methodLabels = [
+                'local_doi'          => 'Local DOI',
+                'doi'                => 'DOI (OpenAlex)',
+                'library'            => 'Local library',
+                'openalex'           => 'OpenAlex (title search)',
+                'open_library'       => 'Open Library',
+                'semantic_scholar'   => 'Semantic Scholar',
+                'web_fetch'          => 'Web fetch',
+                'brave_search'       => 'Brave Search',
+            ];
+
+            $parts = [];
+            if ($matchScore !== null) {
+                $parts[] = round($matchScore * 100, 1) . '%';
+            }
+            if ($matchMethod) {
+                $parts[] = $methodLabels[$matchMethod] ?? $matchMethod;
+            }
+
+            $line = '**Match:** ' . implode(' — ', $parts);
+            if ($matchScore !== null && $matchScore < 0.6) {
+                $line .= ' — *this was the closest match found*';
+            }
+            $lines[] = $line;
+        }
+
+        if (!is_array($llmMeta)) {
+            return empty($lines) ? '' : implode("\n", $lines) . "\n";
+        }
+
+        // Year mismatch
+        $llmYear    = $llmMeta['year'] ?? null;
+        $sourceYear = $claim['source_year'] ?? null;
+        if ($llmYear && $sourceYear && (string) $llmYear !== (string) $sourceYear) {
+            $lines[] = "\u{26A0} Year mismatch: bibliography says {$llmYear}, matched source says {$sourceYear}";
+        }
+
+        // Author mismatch — lightweight first-surname check
+        $llmAuthors   = $llmMeta['authors'] ?? null;
+        $sourceAuthor = $claim['source_author'] ?? null;
+        if ($llmAuthors && $sourceAuthor) {
+            $llmAuthorStr = is_array($llmAuthors) ? implode('; ', $llmAuthors) : (string) $llmAuthors;
+            $extractSurname = function (string $name): string {
+                $name = trim($name);
+                // "Surname, First" → Surname
+                if (str_contains($name, ',')) {
+                    return mb_strtolower(trim(explode(',', $name)[0]));
+                }
+                // "First Surname" → Surname (last word)
+                $words = preg_split('/\s+/', $name);
+                return mb_strtolower(end($words));
+            };
+
+            $llmSurnames = [];
+            $authors = is_array($llmAuthors) ? $llmAuthors : preg_split('/[;,]\s*/', (string) $llmAuthors);
+            foreach ($authors as $a) {
+                $s = $extractSurname($a);
+                if ($s !== '') $llmSurnames[] = $s;
+            }
+
+            $sourceLower = mb_strtolower($sourceAuthor);
+            $hasOverlap = false;
+            foreach ($llmSurnames as $surname) {
+                if (mb_strpos($sourceLower, $surname) !== false) {
+                    $hasOverlap = true;
+                    break;
+                }
+            }
+
+            if (!$hasOverlap && !empty($llmSurnames)) {
+                $lines[] = "\u{26A0} Author mismatch: bibliography has \"{$llmAuthorStr}\" but source has \"{$sourceAuthor}\"";
+            }
+        }
+
+        // Publisher mismatch
+        $llmPublisher = $llmMeta['publisher'] ?? null;
+        // Source publisher would be in library record — not currently passed through,
+        // so skip this check unless both sides have data.
+
+        // Title difference — use simple_title_similarity since we can't call OpenAlexService here
+        $llmTitle    = $llmMeta['title'] ?? null;
+        $sourceTitle = $claim['source_title'] ?? null;
+        if ($llmTitle && $sourceTitle) {
+            $sim = $this->simpleTitleSimilarity($llmTitle, $sourceTitle);
+            if ($sim < 0.7) {
+                $lines[] = "\u{26A0} Title differs: bibliography has \"{$llmTitle}\" but matched source is \"{$sourceTitle}\"";
+            }
+        }
+
+        return empty($lines) ? '' : implode("\n", $lines) . "\n";
+    }
+
+    /**
+     * Simple word-overlap title similarity (0.0–1.0) for diagnostic warnings.
+     */
+    private function simpleTitleSimilarity(string $a, string $b): float
+    {
+        $stopWords = ['the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'by', 'with', 'from', 'at', 'is', 'as'];
+        $tokenise = function (string $text) use ($stopWords): array {
+            $text = mb_strtolower(preg_replace('/[^\p{L}\p{N}\s]/u', '', $text));
+            $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+            return array_values(array_diff($words, $stopWords));
+        };
+
+        $wordsA = $tokenise($a);
+        $wordsB = $tokenise($b);
+        if (empty($wordsA) || empty($wordsB)) {
+            return 0.0;
+        }
+
+        $intersection = count(array_intersect($wordsA, $wordsB));
+        $union = count(array_unique(array_merge($wordsA, $wordsB)));
+
+        return $union > 0 ? $intersection / $union : 0.0;
+    }
+
+    /**
      * Extract the sentence surrounding a character position in plain text.
      * Uses the same regex logic as the charStart/charEnd computation in extractTruthClaims().
      */
@@ -1550,6 +1729,19 @@ class CitationReviewService
         };
 
         $md = '';
+
+        // Source first (as heading-style line)
+        $sourceMdLine = $this->buildSourceMd($claim);
+        if ($sourceMdLine) {
+            $md .= $sourceMdLine;
+        }
+
+        // Match diagnostics (score, method, mismatch warnings)
+        $diagnostics = $this->buildMatchDiagnosticsMd($claim);
+        if ($diagnostics) {
+            $md .= $diagnostics;
+        }
+
         $bibCitation = $claim['bib_citation'] ?? null;
         if ($bibCitation) {
             $bibPlain = html_entity_decode(strip_tags($bibCitation), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -1563,10 +1755,6 @@ class CitationReviewService
         }
         if (!empty($claim['contextualised_claim']) && $claim['contextualised_claim'] !== $claim['truth_claim']) {
             $md .= "**Contextualised:** \"{$claim['contextualised_claim']}\"\n";
-        }
-        $sourceMdLine = $this->buildSourceMd($claim);
-        if ($sourceMdLine) {
-            $md .= $sourceMdLine;
         }
         $md .= "**Evidence:** {$evidenceLabel}\n";
         $md .= "**Verdict:** {$verdictLabel}\n";

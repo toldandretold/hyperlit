@@ -571,7 +571,7 @@ class OpenAlexService
 
     /**
      * Compute a composite metadata score between LLM-extracted metadata and a candidate.
-     * Weights: title 0.55, author 0.25, year 0.12, journal 0.08. Returns 0.0–1.0.
+     * Weights: title 0.55, author 0.25, year 0.10, journal 0.05, publisher 0.05. Returns 0.0–1.0.
      */
     public function metadataScore(array $llmMeta, array $candidate): float
     {
@@ -634,7 +634,7 @@ class OpenAlexService
             }
         }
 
-        // Journal bonus (weight 0.08): similar_text comparison
+        // Journal bonus (weight 0.05): similar_text comparison
         $journalScore = 0.0;
         $llmJournal = $llmMeta['journal'] ?? '';
         $candidateJournal = $candidate['journal'] ?? '';
@@ -646,20 +646,32 @@ class OpenAlexService
             $journalScore = $journalSim >= 0.4 ? $journalSim : 0.0;
         }
 
+        // Publisher comparison (weight 0.05): bonus only — no penalty if missing
+        $publisherScore = 0.0;
+        $llmPublisher = $llmMeta['publisher'] ?? '';
+        $candidatePublisher = $candidate['publisher'] ?? '';
+        if (strlen($llmPublisher) >= 3 && strlen($candidatePublisher) >= 3) {
+            $normLlmPub  = $this->normaliseText($llmPublisher);
+            $normCandPub = $this->normaliseText($candidatePublisher);
+            similar_text($normLlmPub, $normCandPub, $pubSimPercent);
+            $pubSim = $pubSimPercent / 100.0;
+            $publisherScore = $pubSim >= 0.4 ? $pubSim : 0.0;
+        }
+
         // Author mismatch penalty
         $authorMismatchPenalty = 1.0;
         if ($authorScore === 0.0 && !empty($llmAuthors)) {
             if (!empty($candidateAuthor)) {
-                $authorMismatchPenalty = 0.5;   // clear mismatch
+                return 0.0;  // both sides have authors, none match → hard reject
             } else {
-                $authorMismatchPenalty = 0.85;  // unconfirmed — mild skepticism
+                $authorMismatchPenalty = 0.85;  // candidate has no author data
             }
         } elseif ($authorScore > 0.0 && $authorScore < 0.5 && !empty($llmAuthors)) {
             // Partial but weak match: graduated penalty
             $authorMismatchPenalty = 0.7 + 0.6 * $authorScore;
         }
 
-        $rawScore = ($titleScore * 0.55) + ($authorScore * 0.25) + ($yearScore * 0.12) + ($journalScore * 0.08);
+        $rawScore = ($titleScore * 0.55) + ($authorScore * 0.25) + ($yearScore * 0.10) + ($journalScore * 0.05) + ($publisherScore * 0.05);
         $finalScore = $rawScore * $authorMismatchPenalty;
 
         Log::info('metadataScore', [
@@ -675,6 +687,9 @@ class OpenAlexService
             'llm_journal' => $llmJournal,
             'candidate_journal' => $candidateJournal,
             'journalScore' => round($journalScore, 4),
+            'llm_publisher' => $llmPublisher,
+            'candidate_publisher' => $candidatePublisher,
+            'publisherScore' => round($publisherScore, 4),
             'rawScore' => round($rawScore, 4),
             'authorMismatchPenalty' => round($authorMismatchPenalty, 4),
             'finalScore' => round($finalScore, 4),
@@ -766,6 +781,7 @@ class OpenAlexService
             'has_nodes'      => false,
             'year'           => $work['publication_year'] ?? null,
             'journal'        => $work['primary_location']['source']['display_name'] ?? null,
+            'publisher'      => $work['primary_location']['source']['host_organization_name'] ?? null,
             'doi'            => $doi,
             'openalex_id'    => $openalexId,
             'source'         => 'openalex',
@@ -832,6 +848,7 @@ class OpenAlexService
                         'author'         => $candidate['author'],
                         'year'           => $candidate['year'],
                         'journal'        => $candidate['journal'],
+                        'publisher'      => $candidate['publisher'] ?? null,
                         'doi'            => $candidate['doi'],
                         'is_oa'          => $candidate['is_oa'],
                         'oa_status'      => $candidate['oa_status'],
@@ -856,6 +873,7 @@ class OpenAlexService
                             'year'        => $candidate['year'],
                             'type'        => $candidate['type'],
                             'journal'     => $candidate['journal'],
+                            'publisher'   => $candidate['publisher'] ?? null,
                             'doi'         => $candidate['doi'],
                             'url'         => $doiUrl,
                             'openalex_id' => $openalexId,

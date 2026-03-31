@@ -23,6 +23,11 @@ class CitationScanBibliographyJob implements ShouldQueue
     public int $timeout = 3600; // 1 hour — LLM batch extraction + external API lookups
     public int $tries = 1;
 
+    private const ACADEMIC_TYPES = [
+        'book', 'journal-article', 'book-chapter',
+        'conference-paper', 'thesis', 'report',
+    ];
+
     public function __construct(
         private string $scanId,
         private string $bookId,
@@ -187,12 +192,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                     'llmMetadata'   => $llmMetadata,
                     'searchedTitle' => $searchedTitle,
                     'doi'           => null,
+                    'isAcademic'    => in_array($llmMetadata['type'] ?? null, self::ACADEMIC_TYPES, true)
+                                      || ($llmMetadata['type'] ?? null) === null,
                 ];
             }
 
+            $nonAcademicCount = count(array_filter($pool, fn($item) => !$item['isAcademic']));
             Log::info('Wave resolution starting', [
-                'scan_id'   => $this->scanId,
-                'pool_size' => count($pool),
+                'scan_id'             => $this->scanId,
+                'pool_size'           => count($pool),
+                'non_academic_count'  => $nonAcademicCount,
             ]);
 
             // ── Wave 1: DOI extraction (regex — instant, then merge LLM-extracted DOIs) ──
@@ -323,7 +332,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             if (!empty($pool)) {
                 $titlesToSearch = [];
                 foreach ($pool as $refId => $item) {
-                    if ($item['searchedTitle']) {
+                    if ($item['searchedTitle'] && $item['isAcademic']) {
                         $titlesToSearch[$refId] = $item['searchedTitle'];
                     }
                 }
@@ -395,7 +404,7 @@ class CitationScanBibliographyJob implements ShouldQueue
 
                 $olQueries = [];
                 foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
+                    if (!$item['searchedTitle'] || !$item['isAcademic']) {
                         continue;
                     }
                     $olAuthor = null;
@@ -451,7 +460,7 @@ class CitationScanBibliographyJob implements ShouldQueue
 
                 $ssQueries = [];
                 foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
+                    if (!$item['searchedTitle'] || !$item['isAcademic']) {
                         continue;
                     }
                     $ssAuthor = !empty($item['llmMetadata']['authors'][0])
@@ -578,7 +587,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 $retryTitles = [];
                 $retryYearFilters = [];
                 foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle'])) {
+                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
                         continue;
                     }
                     $retryTitles[$refId] = $item['shortenedTitle'];
@@ -640,7 +649,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
                 $olRetryQueries = [];
                 foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle'])) {
+                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
                         continue;
                     }
                     $olAuthor = null;
@@ -701,7 +710,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
                 $ssRetryQueries = [];
                 foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle'])) {
+                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
                         continue;
                     }
                     $ssAuthor = !empty($item['llmMetadata']['authors'][0])
@@ -926,6 +935,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ->where('referenceId', $refId)
                 ->update([
                     'foundation_source' => $stubBookId,
+                    'match_method'      => $matchMethod,
+                    'match_score'       => $score,
                     'updated_at'        => now(),
                 ]);
 
@@ -953,6 +964,8 @@ class CitationScanBibliographyJob implements ShouldQueue
             ->update([
                 'source_id'         => $stubBookId,
                 'foundation_source' => $stubBookId,
+                'match_method'      => $matchMethod,
+                'match_score'       => $score,
                 'updated_at'        => now(),
             ]);
 
@@ -989,6 +1002,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ->where('referenceId', $refId)
                 ->update([
                     'foundation_source' => $stubBookId,
+                    'match_method'      => $matchMethod,
+                    'match_score'       => null,
                     'updated_at'        => now(),
                 ]);
 
@@ -1010,6 +1025,8 @@ class CitationScanBibliographyJob implements ShouldQueue
             ->update([
                 'source_id'         => $stubBookId,
                 'foundation_source' => $stubBookId,
+                'match_method'      => $matchMethod,
+                'match_score'       => null,
                 'updated_at'        => now(),
             ]);
 
