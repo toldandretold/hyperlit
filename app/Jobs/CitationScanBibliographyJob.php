@@ -291,6 +291,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
+            $nearMisses = []; // refId => best sub-threshold candidate across all waves
+
             // ── Wave 3: Local library table search (DB queries — no HTTP) ──
             if (!empty($pool)) {
                 Log::info('Wave 3: Library table search', ['remaining' => count($pool)]);
@@ -298,7 +300,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (!$item['searchedTitle']) {
                         continue;
                     }
-                    $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db);
+                    $localNearMiss = null;
+                    $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db, $localNearMiss);
                     if ($localMatch) {
                         $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
                         $updateData = $item['isLinked']
@@ -324,6 +327,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                         ];
                         $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
                         unset($pool[$refId]);
+                    } elseif ($localNearMiss && $localNearMiss['score'] > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                        $nearMisses[$refId] = $localNearMiss;
                     }
                 }
             }
@@ -399,6 +404,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 unset($pool[$refId]);
                             }
                         }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'openalex',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
+                        }
                     }
                 }
 
@@ -458,6 +473,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 unset($pool[$refId]);
                             }
                         }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'open_library',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
+                        }
                     }
                 }
 
@@ -514,6 +539,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 };
                                 unset($pool[$refId]);
                             }
+                        }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'semantic_scholar',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
                         }
                     }
                 }
@@ -594,6 +629,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                             unset($pool[$refId]);
                         }
                     }
+                    if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                        $nearMisses[$refId] = [
+                            'score'       => round($bestScore, 3),
+                            'title'       => $bestMatch['title'] ?? null,
+                            'author'      => $bestMatch['author'] ?? null,
+                            'year'        => $bestMatch['year'] ?? null,
+                            'source'      => $sourceToMethod[$bestSource] ?? $bestSource,
+                            'diagnostics' => $bestDiagnostics,
+                        ];
+                    }
                 }
 
                 // API calls for entries still unresolved after re-scoring
@@ -657,6 +702,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 };
                                 unset($pool[$refId]);
                             }
+                        }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'openalex',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
                         }
                     }
                 }
@@ -722,6 +777,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 unset($pool[$refId]);
                             }
                         }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'open_library',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
+                        }
                     }
                 }
 
@@ -783,6 +848,16 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 };
                                 unset($pool[$refId]);
                             }
+                        }
+                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'semantic_scholar',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
                         }
                     }
                 }
@@ -869,13 +944,15 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // ── Mark remaining as no_match ──
             foreach ($pool as $refId => $item) {
+                $nearMiss = $nearMisses[$refId] ?? null;
                 $db->table('bibliography')
                     ->where('book', $this->bookId)
                     ->where('referenceId', $refId)
                     ->whereNull('foundation_source')
                     ->update([
-                        'foundation_source' => 'unknown',
-                        'updated_at'        => now(),
+                        'foundation_source'  => 'unknown',
+                        'match_diagnostics'  => $nearMiss ? json_encode($nearMiss) : null,
+                        'updated_at'         => now(),
                     ]);
 
                 $results[] = [
@@ -883,6 +960,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     'status'         => 'no_match',
                     'searched_title' => $item['searchedTitle'],
                     'llm_metadata'   => $item['llmMetadata'],
+                    'near_miss'      => $nearMiss,
                 ];
                 $failedToResolve++;
             }
@@ -1072,7 +1150,7 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Only returns stubs that have been verified (have openalex_id or open_library_key).
      * Returns ['book' => uuid, 'title' => ..., 'score' => float] or null.
      */
-    private function searchLibraryTable(string $title, ?array $llmMetadata, OpenAlexService $openAlex, $db): ?array
+    private function searchLibraryTable(string $title, ?array $llmMetadata, OpenAlexService $openAlex, $db, ?array &$nearMiss = null): ?array
     {
         $candidates = $db->table('library')
             ->whereRaw("title ILIKE ?", ['%' . mb_substr($title, 0, 50) . '%'])
@@ -1118,6 +1196,18 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'diagnostics'      => $bestDiagnostics,
                 'openalex_id'      => $bestMatch->openalex_id,
                 'open_library_key' => $bestMatch->open_library_key,
+            ];
+        }
+
+        // Below threshold — populate near-miss for caller
+        if ($bestMatch) {
+            $nearMiss = [
+                'score'       => round($bestScore, 3),
+                'title'       => $bestMatch->title,
+                'author'      => $bestMatch->author,
+                'year'        => $bestMatch->year,
+                'source'      => 'library',
+                'diagnostics' => $bestDiagnostics,
             ];
         }
 
