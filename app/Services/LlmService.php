@@ -173,7 +173,7 @@ class LlmService
     {
         $plain = strip_tags($citationHtml);
         $result = $this->chat(
-            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": null, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. For reprints like "(2009[1832])" or "[1938] 1989", set "year" to the reprint/publication year (e.g. 2009 or 1989) and "original_year" to the original year in square brackets (e.g. 1832 or 1938). For non-reprints, "original_year" should be null. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
+            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
             $plain
         );
 
@@ -214,14 +214,14 @@ class LlmService
      */
     public function extractCitationMetadataBatch(array $citations): array
     {
-        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": null, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. For reprints like "(2009[1832])" or "[1938] 1989", set "year" to the reprint/publication year (e.g. 2009 or 1989) and "original_year" to the original year in square brackets (e.g. 1832 or 1938). For non-reprints, "original_year" should be null. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.';
+        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present. The url should be any URL present in the citation text (even if malformed), or null if none.';
 
         $requests = [];
         foreach ($citations as $key => $html) {
             $requests[$key] = [
                 'system'           => $systemPrompt,
                 'user'             => strip_tags($html),
-                'max_tokens'       => 200,
+                'max_tokens'       => 250,
                 'temperature'      => 0.0,
                 'reasoning_effort' => 'none',
             ];
@@ -266,6 +266,7 @@ class LlmService
                     'publisher'     => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
                     'type'          => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
                     'doi'           => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
+                    'url'           => is_string($parsed['url'] ?? null) ? trim($parsed['url']) : null,
                 ];
             }
 

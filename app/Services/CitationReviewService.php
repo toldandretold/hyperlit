@@ -1629,6 +1629,28 @@ class CitationReviewService
             }
         }
 
+        // URL flags — potential fabrication indicator
+        $urlFlags = $llmMeta['url_flags'] ?? null;
+        if (!empty($urlFlags)) {
+            $flagLabels = [
+                'malformed_protocol' => 'malformed URL protocol (not http/https)',
+                'no_protocol'        => 'URL has no recognisable protocol',
+                'domain_not_found'   => 'domain does not exist (DNS lookup failed)',
+            ];
+            $descriptions = [];
+            foreach ($urlFlags as $flag) {
+                if (isset($flagLabels[$flag])) {
+                    $descriptions[] = $flagLabels[$flag];
+                } elseif (str_starts_with($flag, 'suspicious_tld:')) {
+                    $descriptions[] = 'suspicious TLD ".' . substr($flag, 15) . '"';
+                } else {
+                    $descriptions[] = $flag;
+                }
+            }
+            $url = $llmMeta['url'] ?? 'unknown';
+            $lines[] = "\u{1F6A9} **Suspicious URL** (`{$url}`): " . implode(', ', $descriptions) . ' — possible LLM-fabricated citation';
+        }
+
         return empty($lines) ? '' : implode("\n", $lines) . "\n";
     }
 

@@ -157,6 +157,60 @@ class CitationScanBibliographyJob implements ShouldQueue
                 }
             }
 
+            // ── Validate URLs extracted by LLM and flag suspicious ones ──
+            foreach ($llmMetadataMap as $refId => &$meta) {
+                if (empty($meta['url'])) continue;
+
+                $url = $meta['url'];
+                $flags = [];
+
+                // Check for malformed protocol (htts://, htp://, etc.)
+                if (preg_match('#^https?://#i', $url) === 0) {
+                    if (preg_match('#^[a-z]{2,6}://#i', $url)) {
+                        $flags[] = 'malformed_protocol';
+                    } else {
+                        $flags[] = 'no_protocol';
+                    }
+                }
+
+                // Check for suspicious domain patterns (double TLDs like google.reports)
+                if (preg_match('#^https?://([^/]+)#i', $url, $dm) ||
+                    preg_match('#^[a-z]+://([^/]+)#i', $url, $dm)) {
+                    $host = $dm[1];
+                    $parts = explode('.', $host);
+                    if (count($parts) >= 3) {
+                        $last = strtolower(end($parts));
+                        $knownTlds = ['com','org','net','edu','gov','io','co','uk','au','ca','de','fr','jp','us','info','biz','dev','app','me'];
+                        if (!in_array($last, $knownTlds)) {
+                            $flags[] = 'suspicious_tld:' . $last;
+                        }
+                    }
+                }
+
+                // DNS check — does the domain even exist?
+                $correctedUrl = preg_replace('#^htts://#i', 'https://', $url);
+                $correctedUrl = preg_replace('#^htp://#i', 'http://', $correctedUrl);
+                $correctedUrl = preg_replace('#^htps://#i', 'https://', $correctedUrl);
+                $host = parse_url($correctedUrl, PHP_URL_HOST);
+                if ($host && gethostbyname($host) === $host) {
+                    $flags[] = 'domain_not_found';
+                }
+
+                if (!empty($flags)) {
+                    $meta['url_flags'] = $flags;
+
+                    // Update cached metadata with flags
+                    $db->table('bibliography')
+                        ->where('book', $this->bookId)
+                        ->where('referenceId', $refId)
+                        ->update([
+                            'llm_metadata' => json_encode($meta),
+                            'updated_at'   => now(),
+                        ]);
+                }
+            }
+            unset($meta);
+
             // Build pool of unresolved entries
             $pool = [];
             foreach ($needsResolution as $entry) {
@@ -292,6 +346,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             }
 
             $nearMisses = []; // refId => best sub-threshold candidate across all waves
+            $waveResults = []; // refId => per-wave outcome for diagnostics
 
             // ── Wave 3: Local library table search (DB queries — no HTTP) ──
             if (!empty($pool)) {
@@ -414,6 +469,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'diagnostics' => $bestDiagnostics,
                             ];
                         }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['openalex'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
+                        }
                     }
                 }
 
@@ -483,6 +543,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'diagnostics' => $bestDiagnostics,
                             ];
                         }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['open_library'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
+                        }
                     }
                 }
 
@@ -549,6 +614,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'source'      => 'semantic_scholar',
                                 'diagnostics' => $bestDiagnostics,
                             ];
+                        }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['semantic_scholar'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
                         }
                     }
                 }
@@ -713,6 +783,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'diagnostics' => $bestDiagnostics,
                             ];
                         }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['openalex_short'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
+                        }
                     }
                 }
 
@@ -787,6 +862,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'diagnostics' => $bestDiagnostics,
                             ];
                         }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['open_library_short'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
+                        }
                     }
                 }
 
@@ -859,6 +939,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'diagnostics' => $bestDiagnostics,
                             ];
                         }
+                        if (isset($pool[$refId])) {
+                            $waveResults[$refId]['semantic_scholar_short'] = $bestMatch
+                                ? 'best_score:' . round($bestScore, 3)
+                                : 'no_candidates';
+                        }
                     }
                 }
             }
@@ -869,8 +954,22 @@ class CitationScanBibliographyJob implements ShouldQueue
             if (!empty($pool)) {
                 $webFetch = app(WebFetchService::class);
                 $urlItems = [];
+                $llmUrlEntries = [];
                 foreach ($pool as $refId => $item) {
                     $url = $webFetch->extractUrl($item['content']);
+
+                    // Fallback: use LLM-extracted URL (with protocol typo fix)
+                    if (!$url && !empty($item['llmMetadata']['url'])) {
+                        $llmUrl = $item['llmMetadata']['url'];
+                        $llmUrl = preg_replace('#^htts://#i', 'https://', $llmUrl);
+                        $llmUrl = preg_replace('#^htp://#i', 'http://', $llmUrl);
+                        $llmUrl = preg_replace('#^htps://#i', 'https://', $llmUrl);
+                        if (preg_match('#^https?://#i', $llmUrl)) {
+                            $url = $llmUrl;
+                            $llmUrlEntries[$refId] = true;
+                        }
+                    }
+
                     if ($url) {
                         $urlItems[$refId] = [
                             'url'   => $url,
@@ -895,6 +994,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         if ($stubBookId) {
                             $result = $this->resolveWithStub($item, $stubBookId, 'web_fetch', $db);
                             $result['url'] = $url;
+                            $result['url_flags'] = $item['llmMetadata']['url_flags'] ?? null;
                             $results[] = $result;
                             match ($result['status']) {
                                 'newly_resolved' => $newlyResolved++,
@@ -931,6 +1031,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                             continue;
                         }
                         $result = $this->resolveWithStub($pool[$refId], $stubBookId, 'brave_search', $db);
+                        $result['url_flags'] = $pool[$refId]['llmMetadata']['url_flags'] ?? null;
                         $results[] = $result;
                         match ($result['status']) {
                             'newly_resolved' => $newlyResolved++,
@@ -945,13 +1046,31 @@ class CitationScanBibliographyJob implements ShouldQueue
             // ── Mark remaining as no_match ──
             foreach ($pool as $refId => $item) {
                 $nearMiss = $nearMisses[$refId] ?? null;
+
+                // If no near-miss candidate was found, create diagnostic from wave results
+                if (!$nearMiss && !empty($waveResults[$refId])) {
+                    $nearMiss = [
+                        'score'       => 0.0,
+                        'title'       => null,
+                        'source'      => 'none',
+                        'diagnostics' => ['wave_results' => $waveResults[$refId]],
+                    ];
+                } elseif (!$nearMiss) {
+                    $nearMiss = [
+                        'score'       => 0.0,
+                        'title'       => null,
+                        'source'      => 'none',
+                        'diagnostics' => ['reason' => $item['searchedTitle'] ? 'no_candidates_all_waves' : 'no_searchable_title'],
+                    ];
+                }
+
                 $db->table('bibliography')
                     ->where('book', $this->bookId)
                     ->where('referenceId', $refId)
                     ->whereNull('foundation_source')
                     ->update([
                         'foundation_source'  => 'unknown',
-                        'match_diagnostics'  => $nearMiss ? json_encode($nearMiss) : null,
+                        'match_diagnostics'  => json_encode($nearMiss),
                         'updated_at'         => now(),
                     ]);
 
@@ -961,6 +1080,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     'searched_title' => $item['searchedTitle'],
                     'llm_metadata'   => $item['llmMetadata'],
                     'near_miss'      => $nearMiss,
+                    'url_flags'      => $item['llmMetadata']['url_flags'] ?? null,
                 ];
                 $failedToResolve++;
             }
