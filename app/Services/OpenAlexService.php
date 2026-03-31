@@ -639,15 +639,22 @@ class OpenAlexService
         }
 
         // Year match (weight 0.12): 1.0 exact, 0.5 if ±1, 0.0 otherwise
+        // Check against both year and original_year; take the best score
         $yearScore = 0.0;
-        $llmYear = $llmMeta['year'] ?? null;
         $candidateYear = $candidate['year'] ?? null;
-        if ($llmYear !== null && $candidateYear !== null) {
-            $diff = abs((int) $llmYear - (int) $candidateYear);
-            if ($diff === 0) {
-                $yearScore = 1.0;
-            } elseif ($diff === 1) {
-                $yearScore = 0.5;
+        $yearsToCheck = array_filter([
+            $llmMeta['year'] ?? null,
+            $llmMeta['original_year'] ?? null,
+        ], fn($v) => $v !== null);
+        if ($candidateYear !== null) {
+            foreach ($yearsToCheck as $y) {
+                $diff = abs((int) $y - (int) $candidateYear);
+                if ($diff === 0) {
+                    $yearScore = 1.0;
+                    break;
+                } elseif ($diff === 1 && $yearScore < 0.5) {
+                    $yearScore = 0.5;
+                }
             }
         }
 

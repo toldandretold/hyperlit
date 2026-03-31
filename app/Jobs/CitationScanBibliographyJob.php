@@ -344,7 +344,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $yearFilters = [];
                     foreach ($pool as $refId => $item) {
                         if ($item['searchedTitle'] && !empty($item['llmMetadata']['year'])) {
-                            $yearFilters[$refId] = $item['llmMetadata']['year'];
+                            $yearFilters[$refId] = $item['llmMetadata']['original_year'] ?? $item['llmMetadata']['year'];
                         }
                     }
                     $oaResults = $openAlex->searchBatch($titlesToSearch, 5, $yearFilters);
