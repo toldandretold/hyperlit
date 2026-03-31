@@ -135,8 +135,13 @@ export class ChunkMutationHandler {
             );
           };
 
-          // Ignore MARK tag mutations (handled by hyperlights module)
-          if (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes)) {
+          // Never skip if removedNodes contains elements with numerical IDs (paragraph deletions)
+          const hasNumericalIdRemoval = Array.from(mutation.removedNodes).some(node =>
+            node.nodeType === Node.ELEMENT_NODE && node.id && NUMERICAL_ID_PATTERN.test(node.id)
+          );
+
+          // Ignore MARK tag mutations (handled by hyperlights module), but only if no paragraph deletions present
+          if (!hasNumericalIdRemoval && (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes))) {
             verbose.content("Ignoring MARK tag mutation in divEditor, handled by hyperlights module", 'divEditor/chunkMutationHandler.js');
             return;
           }

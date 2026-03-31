@@ -7,6 +7,8 @@
  * - Arrow key navigation to skip over hypercite anchors (hyperciteArrowHandler)
  */
 
+import { queueNodeForSave, queueNodeForDeletion } from './index.js';
+
 export class SupTagHandler {
   constructor(editableDiv) {
     this.editableDiv = editableDiv;
@@ -494,12 +496,20 @@ export class SupTagHandler {
             e.preventDefault();
             e.stopPropagation();
 
+            // Capture IDs before DOM removal
+            const nextBlockId = nextBlock.id;
+            const currentBlockId = currentBlock.id;
+
             // Manual merge: move all children from next block to current block
             while (nextBlock.firstChild) {
               currentBlock.appendChild(nextBlock.firstChild);
             }
             // Remove the empty next block
             nextBlock.remove();
+
+            // Queue deletion of removed block and update of surviving block
+            if (nextBlockId) queueNodeForDeletion(nextBlockId, nextBlock);
+            if (currentBlockId) queueNodeForSave(currentBlockId, 'update');
             return;
           }
         }
@@ -612,6 +622,10 @@ export class SupTagHandler {
           const currentP = supElement.closest('p, h1, h2, h3, h4, h5, h6, div');
           const prevP = currentP?.previousElementSibling;
           if (prevP) {
+            // Capture IDs before DOM removal
+            const currentPId = currentP.id;
+            const prevPId = prevP.id;
+
             // Move all children from current paragraph to previous
             while (currentP.firstChild) {
               prevP.appendChild(currentP.firstChild);
@@ -619,6 +633,10 @@ export class SupTagHandler {
 
             // Remove the now-empty paragraph
             currentP.remove();
+
+            // Queue deletion of removed paragraph and update of surviving paragraph
+            if (currentPId) queueNodeForDeletion(currentPId, currentP);
+            if (prevPId) queueNodeForSave(prevPId, 'update');
 
             // Position cursor before the sup (which is now in prevP)
             const newRange = document.createRange();
