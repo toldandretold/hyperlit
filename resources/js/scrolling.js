@@ -564,6 +564,13 @@ async function fallbackScrollPosition(lazyLoader) {
 
 
 export async function restoreScrollPosition() {
+  // Convert ?scroll= query param to hash (used by Word doc links to avoid # → %23 encoding)
+  const scrollParam = new URLSearchParams(window.location.search).get('scroll');
+  if (scrollParam) {
+    const cleanUrl = window.location.origin + window.location.pathname;
+    history.replaceState(history.state, '', cleanUrl + '#' + scrollParam);
+  }
+
   // 🔍 DIAGNOSTIC: Entry point logging
   console.log('🔍 SCROLL DEBUG: ========== restoreScrollPosition() ENTRY ==========');
   console.log('🔍 SCROLL DEBUG: URL =', window.location.href);

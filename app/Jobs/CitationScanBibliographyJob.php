@@ -76,6 +76,8 @@ class CitationScanBibliographyJob implements ShouldQueue
                     'foundation_source' => null,
                     'match_method'      => null,
                     'match_score'       => null,
+                    'match_diagnostics' => null,
+                    'llm_metadata'      => null,
                     'updated_at'        => now(),
                 ]);
 

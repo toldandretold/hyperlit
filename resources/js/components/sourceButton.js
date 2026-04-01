@@ -1924,18 +1924,19 @@ function downloadMarkdown(filename, text) {
 
 // Walk a DOM node and return either Paragraphs or Runs.
 // Runs of type TextRun must be created with their styling flags upfront.
-function htmlElementToDocx(node, docxComponents) {
-  const { TextRun, Paragraph, HeadingLevel, ExternalHyperlink } = docxComponents;
+function htmlElementToDocx(node, docxComponents, opts = {}) {
+  const { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap } = docxComponents;
   const out = [];
 
   node.childNodes.forEach(child => {
     if (child.nodeType === Node.TEXT_NODE) {
       // plain text
-      out.push(
-        new TextRun({
-          text: child.textContent,
-        })
-      );
+      const runOpts = { text: child.textContent, font: "Helvetica" };
+      if (opts.bold) runOpts.bold = true;
+      if (opts.italics) runOpts.italics = true;
+      if (opts.superScript) runOpts.superScript = true;
+      if (opts.subScript) runOpts.subScript = true;
+      out.push(new TextRun(runOpts));
     }
     else if (child.nodeType === Node.ELEMENT_NODE) {
       const tag = child.tagName.toLowerCase();
@@ -1955,9 +1956,10 @@ function htmlElementToDocx(node, docxComponents) {
             h5: HeadingLevel.HEADING_5,
             h6: HeadingLevel.HEADING_6,
           }[tag];
+          const headingRuns = htmlElementToDocx(child, docxComponents, opts);
           out.push(
             new Paragraph({
-              text: child.textContent,
+              children: headingRuns,
               heading: level,
             })
           );
@@ -1966,65 +1968,48 @@ function htmlElementToDocx(node, docxComponents) {
 
         case 'strong':
         case 'b': {
-          // Bold: each text node under here becomes a bold run
-          child.childNodes.forEach(n => {
-            if (n.nodeType === Node.TEXT_NODE) {
-              out.push(
-                new TextRun({
-                  text: n.textContent,
-                  bold: true,
-                })
-              );
-            } else {
-              // nested tags: recurse and mark bold on each run
-              htmlElementToDocx(n, docxComponents).forEach(run => {
-                if (run instanceof TextRun) {
-                  out.push(
-                    new TextRun({
-                      text: run.text,
-                      bold: true,
-                      italics: run.italics,
-                    })
-                  );
-                } else {
-                  out.push(run);
-                }
-              });
-            }
-          });
+          htmlElementToDocx(child, docxComponents, { ...opts, bold: true }).forEach(item => out.push(item));
           break;
         }
 
         case 'em':
         case 'i': {
-          child.childNodes.forEach(n => {
-            if (n.nodeType === Node.TEXT_NODE) {
-              out.push(
-                new TextRun({
-                  text: n.textContent,
-                  italics: true,
-                })
-              );
-            } else {
-              htmlElementToDocx(n, docxComponents).forEach(run => {
-                if (run instanceof TextRun) {
-                  out.push(
-                    new TextRun({
-                      text: run.text,
-                      italics: true,
-                      bold: run.bold,
-                    })
-                  );
-                } else {
-                  out.push(run);
-                }
-              });
-            }
-          });
+          htmlElementToDocx(child, docxComponents, { ...opts, italics: true }).forEach(item => out.push(item));
+          break;
+        }
+
+        case 'sup': {
+          // Footnote reference → Word footnote
+          if (child.classList?.contains('footnote-ref') && child.id && footnoteMap?.has(child.id)) {
+            out.push(new FootnoteReferenceRun(footnoteMap.get(child.id)));
+            break;
+          }
+          // Hypercite open icon → skip (handled by parent <a>)
+          if (child.classList?.contains('open-icon')) {
+            break;
+          }
+          // Regular superscript
+          htmlElementToDocx(child, docxComponents, { ...opts, superScript: true }).forEach(item => out.push(item));
+          break;
+        }
+
+        case 'sub': {
+          htmlElementToDocx(child, docxComponents, { ...opts, subScript: true }).forEach(item => out.push(item));
           break;
         }
 
         case 'a': {
+          // Hypercite arrow link → Word footnote
+          if (child.querySelector?.('sup.open-icon') && child.id && footnoteMap?.has(child.id)) {
+            out.push(new FootnoteReferenceRun(footnoteMap.get(child.id)));
+            break;
+          }
+          // Citation ref (no href) → plain text
+          if (child.classList?.contains('citation-ref')) {
+            out.push(new TextRun({ text: child.textContent, font: "Helvetica" }));
+            break;
+          }
+          // Regular external hyperlink
           const url = child.getAttribute('href') || '';
           const text = child.textContent;
           out.push(
@@ -2033,6 +2018,7 @@ function htmlElementToDocx(node, docxComponents) {
               children: [
                 new TextRun({
                   text,
+                  font: "Helvetica",
                   style: 'Hyperlink',
                 }),
               ],
@@ -2042,13 +2028,103 @@ function htmlElementToDocx(node, docxComponents) {
         }
 
         case 'br': {
-          out.push(new TextRun({ text: '\n' }));
+          out.push(new TextRun({ text: '\n', font: "Helvetica" }));
+          break;
+        }
+
+        case 'p': {
+          const pChildren = htmlElementToDocx(child, docxComponents, opts);
+          out.push(new Paragraph({ children: pChildren, style: "Normal" }));
+          break;
+        }
+
+        case 'blockquote': {
+          const inner = htmlElementToDocx(child, docxComponents, { ...opts, italics: true });
+          let bqBuf = [];
+          const flush = () => {
+            if (bqBuf.length) {
+              out.push(new Paragraph({
+                children: bqBuf,
+                indent: { left: 720 },
+                style: "Normal",
+              }));
+              bqBuf = [];
+            }
+          };
+          inner.forEach(item => {
+            if (item instanceof Paragraph) {
+              flush();
+              // Push the nested paragraph as-is (it already has its own content)
+              out.push(item);
+            } else {
+              bqBuf.push(item);
+            }
+          });
+          flush();
+          break;
+        }
+
+        case 'ul':
+        case 'ol': {
+          const isOrdered = tag === 'ol';
+          let index = 0;
+          child.childNodes.forEach(li => {
+            if (li.nodeType !== Node.ELEMENT_NODE) return;
+            if (li.tagName.toLowerCase() !== 'li') return;
+            index++;
+            const prefix = isOrdered ? `${index}. ` : '\u2022  ';
+            const liChildren = htmlElementToDocx(li, docxComponents, opts);
+            // Separate paragraphs from runs
+            const runs = [];
+            const paras = [];
+            liChildren.forEach(item => {
+              if (item instanceof Paragraph) paras.push(item);
+              else runs.push(item);
+            });
+            // Main list item paragraph with prefix
+            out.push(new Paragraph({
+              children: [
+                new TextRun({ text: prefix, font: "Helvetica" }),
+                ...runs,
+              ],
+              indent: { left: 720, hanging: 360 },
+            }));
+            // Any nested block-level content
+            paras.forEach(p => out.push(p));
+          });
+          break;
+        }
+
+        case 'pre': {
+          const codeEl = child.querySelector('code');
+          const text = codeEl ? codeEl.textContent : child.textContent;
+          const lines = text.split('\n');
+          lines.forEach(line => {
+            out.push(new Paragraph({
+              children: [
+                new TextRun({
+                  text: line || ' ',
+                  font: "Courier New",
+                }),
+              ],
+              spacing: { after: 0, line: 240 },
+            }));
+          });
+          break;
+        }
+
+        case 'code': {
+          // Inline code
+          const codeOpts = { text: child.textContent, font: "Courier New" };
+          if (opts.bold) codeOpts.bold = true;
+          if (opts.italics) codeOpts.italics = true;
+          out.push(new TextRun(codeOpts));
           break;
         }
 
         default:
           // everything else: recurse inline
-          htmlElementToDocx(child, docxComponents).forEach(item => out.push(item));
+          htmlElementToDocx(child, docxComponents, opts).forEach(item => out.push(item));
       }
     }
   });
@@ -2059,28 +2135,224 @@ function htmlElementToDocx(node, docxComponents) {
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId = book || 'latest') {
   const docxLib = await loadDocxLib();
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink } = docxLib;
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun } = docxLib;
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a,b) => a.chunk_id - b.chunk_id);
 
   const parser = new DOMParser();
-  const children = [];
 
+  // --- Phase 1: Parse all chunks into DOM fragments ---
+  const fragments = [];
   for (const chunk of chunks) {
     const frag = parser.parseFromString(
       `<div>${chunk.content||chunk.html}</div>`,
       'text/html'
     ).body.firstChild;
+    fragments.push(frag);
+  }
 
-    // collect Runs and Paragraphs
-    const runsAndParas = htmlElementToDocx(frag, { TextRun, Paragraph, HeadingLevel, ExternalHyperlink });
+  // --- Phase 2: Pre-scan fragments for footnote refs and hypercite arrows ---
+  const footnoteMap = new Map();       // elementId → footnoteNumber
+  const footnoteDefinitions = {};      // { number: { children: [Paragraph, ...] } }
+  let fnCounter = 1;
+
+  // Collect footnote ref IDs
+  const footnoteRefIds = [];
+  // Collect hypercite arrow elements: { id, targetBookId }
+  const hyperciteArrows = [];
+
+  for (const frag of fragments) {
+    // Footnote refs: <sup class="footnote-ref" id="Fn...">
+    frag.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+      if (!footnoteMap.has(sup.id)) {
+        footnoteRefIds.push(sup.id);
+      }
+    });
+
+    // Hypercite arrows: <a href="..."><sup class="open-icon">↗</sup></a>
+    frag.querySelectorAll('a[href]').forEach(anchor => {
+      if (anchor.querySelector('sup.open-icon') && anchor.id && !footnoteMap.has(anchor.id)) {
+        try {
+          const href = anchor.getAttribute('href');
+          const urlPath = new URL(href, window.location.origin).pathname;
+          // Extract book ID from first path segment (decoded)
+          const segments = urlPath.split('/').filter(Boolean);
+          if (segments.length > 0) {
+            const parsed = new URL(href, window.location.origin);
+            // Use ?scroll= instead of # — Word encodes # to %23 in external hyperlinks
+            let sourceUrl = parsed.origin + parsed.pathname;
+            if (parsed.hash) {
+              sourceUrl += '?scroll=' + encodeURIComponent(parsed.hash.substring(1));
+            }
+            hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]), sourceUrl });
+          }
+        } catch (e) {
+          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
+        }
+      }
+    });
+  }
+
+  // Helper: convert HTML content to docx paragraphs (for footnote bodies)
+  const htmlToFootnoteParagraphs = (htmlContent) => {
+    const fnFrag = parser.parseFromString(
+      `<div>${htmlContent}</div>`,
+      'text/html'
+    ).body.firstChild;
+    // Use a simple docxComponents without footnoteMap to avoid recursion
+    const fnDocxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink };
+    const items = htmlElementToDocx(fnFrag, fnDocxComponents);
+    // Group runs into paragraphs
+    const paragraphs = [];
+    let runBuf = [];
+    items.forEach(item => {
+      if (item instanceof Paragraph) {
+        if (runBuf.length) {
+          paragraphs.push(new Paragraph({ children: runBuf }));
+          runBuf = [];
+        }
+        paragraphs.push(item);
+      } else {
+        runBuf.push(item);
+      }
+    });
+    if (runBuf.length) {
+      paragraphs.push(new Paragraph({ children: runBuf }));
+    }
+    return paragraphs;
+  };
+
+  // --- Phase 3: Fetch footnote content from IndexedDB ---
+  // Open DB once for footnote fallback lookups
+  let fnDb;
+  if (footnoteRefIds.length > 0) {
+    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+  }
+
+  for (const fnId of footnoteRefIds) {
+    const subBookId = `${bookId}/${fnId}`;
+    try {
+      // Try nodes store first (works if footnote was previously opened)
+      let fnNodes = await getNodeChunksFromIndexedDB(subBookId);
+
+      // Fallback: check footnotes store for preview_nodes
+      if ((!fnNodes || fnNodes.length === 0) && fnDb) {
+        try {
+          const tx = fnDb.transaction('footnotes', 'readonly');
+          const index = tx.objectStore('footnotes').index('footnoteId');
+          const results = await new Promise((resolve, reject) => {
+            const req = index.getAll(fnId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+          // Find the record matching our parent book
+          const fnRecord = results.find(r => r.book === bookId);
+          if (fnRecord?.preview_nodes?.length) {
+            fnNodes = fnRecord.preview_nodes;
+          }
+        } catch (e) {
+          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
+        }
+      }
+
+      if (fnNodes) fnNodes.sort((a, b) => a.chunk_id - b.chunk_id);
+      let fnParagraphs = [];
+      for (const node of (fnNodes || [])) {
+        const content = node.content || node.html || '';
+        fnParagraphs.push(...htmlToFootnoteParagraphs(content));
+      }
+      if (fnParagraphs.length === 0) {
+        fnParagraphs = [new Paragraph({ children: [new TextRun({ text: '(footnote)', font: 'Helvetica' })] })];
+      }
+      const num = fnCounter++;
+      footnoteMap.set(fnId, num);
+      footnoteDefinitions[num] = { children: fnParagraphs };
+    } catch (e) {
+      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
+      const num = fnCounter++;
+      footnoteMap.set(fnId, num);
+      footnoteDefinitions[num] = { children: [new Paragraph({ children: [new TextRun({ text: '(footnote)', font: 'Helvetica' })] })] };
+    }
+  }
+
+  // --- Phase 4: Fetch citation data for hypercite arrows ---
+  let db;
+  if (hyperciteArrows.length > 0) {
+    try {
+      db = await openDatabase();
+    } catch (e) {
+      console.warn('Failed to open database for hypercite citations:', e);
+    }
+  }
+
+  for (const { id, targetBookId, sourceUrl } of hyperciteArrows) {
+    let fnParagraphs = [];
+    try {
+      if (db) {
+        const record = await getRecord(db, 'library', targetBookId);
+        if (record?.bibtex) {
+          let citationHtml = await formatBibtexToCitation(record.bibtex);
+          if (sourceUrl) {
+            if (citationHtml.includes('<a ')) {
+              // Replace existing link URL with sourceUrl
+              citationHtml = citationHtml.replace(/(<a\s[^>]*href=")([^"]*)(")/, `$1${sourceUrl}$3`);
+            } else {
+              // No link in citation — wrap just the title (italic or quoted text) in a link
+              // Match <i>Title</i> or "Title"
+              const titleMatch = citationHtml.match(/(<i>[^<]+<\/i>|"[^"]+")/) ;
+              if (titleMatch) {
+                citationHtml = citationHtml.replace(titleMatch[0], `<a href="${sourceUrl}">${titleMatch[0]}</a>`);
+              } else {
+                // Fallback: wrap the whole thing
+                citationHtml = `<a href="${sourceUrl}">${citationHtml}</a>`;
+              }
+            }
+          }
+          fnParagraphs = htmlToFootnoteParagraphs(citationHtml);
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
+    }
+    if (fnParagraphs.length === 0) {
+      // Fallback: create a linked citation with the target book ID
+      const linkChildren = sourceUrl
+        ? [new ExternalHyperlink({
+            link: sourceUrl,
+            children: [new TextRun({ text: targetBookId, font: "Helvetica", style: 'Hyperlink' })],
+          })]
+        : [new TextRun({ text: targetBookId, font: 'Helvetica' })];
+      fnParagraphs = [new Paragraph({ children: linkChildren })];
+    }
+    const num = fnCounter++;
+    footnoteMap.set(id, num);
+    footnoteDefinitions[num] = { children: fnParagraphs };
+  }
+
+  // --- Phase 5: Convert fragments to docx elements ---
+  const docxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap };
+  const children = [];
+
+  // Debug: count element types for diagnostics
+  const tagCounts = {};
+
+  for (const frag of fragments) {
+    // Log what top-level tag is inside each fragment's wrapper div
+    frag.childNodes.forEach(child => {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const tag = child.tagName.toLowerCase();
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      }
+    });
+
+    const runsAndParas = htmlElementToDocx(frag, docxComponents);
 
     // group Runs into Paragraphs
     let buf = [];
     runsAndParas.forEach(item => {
       if (item instanceof Paragraph) {
         if (buf.length) {
-          children.push(new Paragraph({ children: buf }));
+          children.push(new Paragraph({ children: buf, style: "Normal" }));
           buf = [];
         }
         children.push(item);
@@ -2089,11 +2361,52 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
       }
     });
     if (buf.length) {
-      children.push(new Paragraph({ children: buf }));
+      children.push(new Paragraph({ children: buf, style: "Normal" }));
     }
   }
 
+  console.log('📊 DOCX export tag summary:', tagCounts);
+
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: "Helvetica", size: 22 },
+          paragraph: { spacing: { after: 200, line: 276 } },
+        },
+        heading1: {
+          run: { font: "Helvetica", size: 48, bold: true },
+          paragraph: { spacing: { before: 360, after: 120 } },
+        },
+        heading2: {
+          run: { font: "Helvetica", size: 36, bold: true },
+          paragraph: { spacing: { before: 280, after: 100 } },
+        },
+        heading3: {
+          run: { font: "Helvetica", size: 28, bold: true },
+          paragraph: { spacing: { before: 240, after: 80 } },
+        },
+        heading4: {
+          run: { font: "Helvetica", size: 24, bold: true },
+          paragraph: { spacing: { before: 200, after: 80 } },
+        },
+        heading5: {
+          run: { font: "Helvetica", size: 22, bold: true },
+        },
+        heading6: {
+          run: { font: "Helvetica", size: 22, bold: true, italics: true },
+        },
+      },
+      paragraphStyles: [
+        {
+          id: "Normal",
+          name: "Normal",
+          run: { font: "Helvetica", size: 22 },
+          paragraph: { spacing: { after: 200, line: 276 } },
+        },
+      ],
+    },
+    footnotes: footnoteDefinitions,
     sections: [{ properties: {}, children }],
   });
   return Packer.toBlob(doc);
