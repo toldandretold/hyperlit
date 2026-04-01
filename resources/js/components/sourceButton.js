@@ -1925,7 +1925,7 @@ function downloadMarkdown(filename, text) {
 // Walk a DOM node and return either Paragraphs or Runs.
 // Runs of type TextRun must be created with their styling flags upfront.
 function htmlElementToDocx(node, docxComponents, opts = {}) {
-  const { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap } = docxComponents;
+  const { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } = docxComponents;
   const out = [];
 
   node.childNodes.forEach(child => {
@@ -2067,30 +2067,46 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
         case 'ul':
         case 'ol': {
           const isOrdered = tag === 'ol';
-          let index = 0;
+          const ref = isOrdered ? 'numbered-list' : 'bullet-list';
+          const level = opts.listLevel || 0;
+          const instance = docxComponents.nextListInstance++;
+
           child.childNodes.forEach(li => {
             if (li.nodeType !== Node.ELEMENT_NODE) return;
             if (li.tagName.toLowerCase() !== 'li') return;
-            index++;
-            const prefix = isOrdered ? `${index}. ` : '\u2022  ';
-            const liChildren = htmlElementToDocx(li, docxComponents, opts);
-            // Separate paragraphs from runs
-            const runs = [];
-            const paras = [];
-            liChildren.forEach(item => {
-              if (item instanceof Paragraph) paras.push(item);
-              else runs.push(item);
+
+            // Separate inline content from nested lists
+            const tempDiv = document.createElement('div');
+            const nestedLists = [];
+            li.childNodes.forEach(liChild => {
+              const liTag = liChild.nodeType === Node.ELEMENT_NODE && liChild.tagName.toLowerCase();
+              if (liTag === 'ul' || liTag === 'ol') {
+                nestedLists.push(liChild);
+              } else {
+                tempDiv.appendChild(liChild.cloneNode(true));
+              }
             });
-            // Main list item paragraph with prefix
-            out.push(new Paragraph({
-              children: [
-                new TextRun({ text: prefix, font: "Helvetica" }),
-                ...runs,
-              ],
-              indent: { left: 720, hanging: 360 },
-            }));
-            // Any nested block-level content
+
+            const liRuns = htmlElementToDocx(tempDiv, docxComponents, opts);
+            const runs = liRuns.filter(item => !(item instanceof Paragraph));
+            const paras = liRuns.filter(item => item instanceof Paragraph);
+
+            // Main list item paragraph with Word numbering
+            if (runs.length) {
+              out.push(new Paragraph({
+                children: runs,
+                numbering: { reference: ref, level, instance },
+              }));
+            }
             paras.forEach(p => out.push(p));
+
+            // Nested lists at deeper level — wrap in a container so the walker hits the <ul>/<ol> tag
+            for (const nested of nestedLists) {
+              const wrapper = document.createElement('div');
+              wrapper.appendChild(nested.cloneNode(true));
+              htmlElementToDocx(wrapper, docxComponents, { ...opts, listLevel: level + 1 })
+                .forEach(item => out.push(item));
+            }
           });
           break;
         }
@@ -2122,6 +2138,73 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
           break;
         }
 
+        case 'table': {
+          if (!Table) break;
+          const rows = [];
+          const trElements = child.querySelectorAll('tr');
+          // Count max columns from first row to distribute width evenly
+          const firstTr = trElements[0];
+          const colCount = firstTr ? firstTr.querySelectorAll('th, td').length : 1;
+          // Use DXA (twips) for reliable cross-platform rendering
+          // Standard page: 8.5" with 1" margins = 6.5" content = 9360 twips
+          const totalTableWidth = 9360;
+          const cellWidthDxa = Math.floor(totalTableWidth / colCount);
+          const columnWidths = Array(colCount).fill(cellWidthDxa);
+
+          trElements.forEach(tr => {
+            const cells = [];
+            tr.querySelectorAll('th, td').forEach(cell => {
+              const isTh = cell.tagName.toLowerCase() === 'th';
+              const cellItems = htmlElementToDocx(cell, docxComponents, isTh ? { ...opts, bold: true } : opts);
+              // Group runs into paragraphs
+              const cellParas = [];
+              let cellBuf = [];
+              cellItems.forEach(item => {
+                if (item instanceof Paragraph) {
+                  if (cellBuf.length) {
+                    cellParas.push(new Paragraph({ children: cellBuf }));
+                    cellBuf = [];
+                  }
+                  cellParas.push(item);
+                } else {
+                  cellBuf.push(item);
+                }
+              });
+              if (cellBuf.length) cellParas.push(new Paragraph({ children: cellBuf }));
+              if (cellParas.length === 0) cellParas.push(new Paragraph({ children: [] }));
+
+              cells.push(new TableCell({
+                children: cellParas,
+                width: { size: cellWidthDxa, type: WidthType.DXA },
+              }));
+            });
+            if (cells.length > 0) {
+              rows.push(new TableRow({ children: cells }));
+            }
+          });
+          if (rows.length > 0) {
+            out.push(new Table({
+              rows,
+              columnWidths,
+              width: { size: totalTableWidth, type: WidthType.DXA },
+            }));
+          }
+          break;
+        }
+
+        case 'img': {
+          if (!ImageRun) break;
+          const src = child.getAttribute('src');
+          if (src) {
+            const rawW = child.getAttribute('width');
+            const rawH = child.getAttribute('height');
+            const imgWidth = parseInt(rawW, 10) || 400;
+            const imgHeight = parseInt(rawH, 10) || 300;
+            out.push({ __imagePlaceholder: true, src, width: imgWidth, height: imgHeight, hasWidth: !!rawW, hasHeight: !!rawH });
+          }
+          break;
+        }
+
         default:
           // everything else: recurse inline
           htmlElementToDocx(child, docxComponents, opts).forEach(item => out.push(item));
@@ -2135,7 +2218,7 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId = book || 'latest') {
   const docxLib = await loadDocxLib();
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun } = docxLib;
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, LevelFormat, AlignmentType } = docxLib;
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a,b) => a.chunk_id - b.chunk_id);
 
@@ -2160,6 +2243,8 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
   const footnoteRefIds = [];
   // Collect hypercite arrow elements: { id, targetBookId }
   const hyperciteArrows = [];
+  // Collect citation ref IDs for References section
+  const citationRefIds = [];
 
   for (const frag of fragments) {
     // Footnote refs: <sup class="footnote-ref" id="Fn...">
@@ -2167,6 +2252,11 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
       if (!footnoteMap.has(sup.id)) {
         footnoteRefIds.push(sup.id);
       }
+    });
+
+    // Citation refs: <a class="citation-ref" id="Ref...">
+    frag.querySelectorAll('a.citation-ref[id]').forEach(cite => {
+      citationRefIds.push(cite.id);
     });
 
     // Hypercite arrows: <a href="..."><sup class="open-icon">↗</sup></a>
@@ -2200,7 +2290,7 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
       'text/html'
     ).body.firstChild;
     // Use a simple docxComponents without footnoteMap to avoid recursion
-    const fnDocxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink };
+    const fnDocxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, nextListInstance: 0 };
     const items = htmlElementToDocx(fnFrag, fnDocxComponents);
     // Group runs into paragraphs
     const paragraphs = [];
@@ -2329,8 +2419,35 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
     footnoteDefinitions[num] = { children: fnParagraphs };
   }
 
+  // --- Phase 4b: Fetch citation content from bibliography store for References section ---
+  const referencesData = [];
+  if (citationRefIds.length > 0) {
+    let bibDb;
+    try { bibDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    if (bibDb) {
+      const seenSourceIds = new Set();
+      for (const refId of citationRefIds) {
+        try {
+          const tx = bibDb.transaction('bibliography', 'readonly');
+          const store = tx.objectStore('bibliography');
+          const record = await new Promise((resolve, reject) => {
+            const req = store.get([bookId, refId]);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+          if (record?.content && !seenSourceIds.has(record.source_id)) {
+            seenSourceIds.add(record.source_id);
+            referencesData.push({ content: record.content });
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
+        }
+      }
+    }
+  }
+
   // --- Phase 5: Convert fragments to docx elements ---
-  const docxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap };
+  const docxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, nextListInstance: 0 };
   const children = [];
 
   // Debug: count element types for diagnostics
@@ -2347,10 +2464,11 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
 
     const runsAndParas = htmlElementToDocx(frag, docxComponents);
 
-    // group Runs into Paragraphs
+    // group Runs into Paragraphs; Tables and image placeholders are block-level
     let buf = [];
     runsAndParas.forEach(item => {
-      if (item instanceof Paragraph) {
+      const isBlock = (item instanceof Paragraph) || (item instanceof Table) || item?.__imagePlaceholder;
+      if (isBlock) {
         if (buf.length) {
           children.push(new Paragraph({ children: buf, style: "Normal" }));
           buf = [];
@@ -2367,7 +2485,104 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
 
   console.log('📊 DOCX export tag summary:', tagCounts);
 
+  // --- Phase 6: Append References section ---
+  if (referencesData.length > 0) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: 'References', font: 'Helvetica' })],
+      heading: HeadingLevel.HEADING_2,
+      pageBreakBefore: true,
+    }));
+    for (const ref of referencesData) {
+      const refFrag = parser.parseFromString(
+        `<div>${ref.content}</div>`,
+        'text/html'
+      ).body.firstChild;
+      const refDocxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, nextListInstance: 0 };
+      const refItems = htmlElementToDocx(refFrag, refDocxComponents);
+      let refBuf = [];
+      refItems.forEach(item => {
+        const isBlock = (item instanceof Paragraph) || (item instanceof Table) || item?.__imagePlaceholder;
+        if (isBlock) {
+          if (refBuf.length) {
+            children.push(new Paragraph({ children: refBuf, style: "Normal" }));
+            refBuf = [];
+          }
+          children.push(item);
+        } else {
+          refBuf.push(item);
+        }
+      });
+      if (refBuf.length) {
+        children.push(new Paragraph({ children: refBuf, style: "Normal" }));
+      }
+    }
+  }
+
+  // --- Phase 7: Resolve image placeholders ---
+  for (let i = 0; i < children.length; i++) {
+    const item = children[i];
+    if (item?.__imagePlaceholder) {
+      try {
+        const resp = await fetch(item.src);
+        const blob = await resp.blob();
+        const buf = await blob.arrayBuffer();
+
+        // Resolve natural dimensions from the image itself
+        let w = item.width;
+        let h = item.height;
+        const hasExplicitSize = item.hasWidth && item.hasHeight;
+        if (!hasExplicitSize) {
+          try {
+            const bmp = await createImageBitmap(blob);
+            w = bmp.width;
+            h = bmp.height;
+            bmp.close();
+          } catch (_) { /* keep defaults */ }
+        }
+
+        // Cap to fit page content width (~600px)
+        if (w > 600) {
+          const scale = 600 / w;
+          w = Math.round(600);
+          h = Math.round(h * scale);
+        }
+        children[i] = new Paragraph({
+          children: [new ImageRun({
+            data: buf,
+            transformation: { width: w, height: h },
+          })],
+        });
+      } catch (e) {
+        console.warn('Failed to fetch image for docx export:', item.src, e);
+        children[i] = new Paragraph({
+          children: [new TextRun({ text: `[image: ${item.src}]`, font: 'Helvetica', italics: true })],
+          style: 'Normal',
+        });
+      }
+    }
+  }
+
   const doc = new Document({
+    numbering: {
+      config: [
+        {
+          reference: 'bullet-list',
+          levels: [
+            { level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } }, run: { font: 'Symbol' } } },
+            { level: 1, format: LevelFormat.BULLET, text: '\u25CB', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } }, run: { font: 'Courier New' } } },
+            { level: 2, format: LevelFormat.BULLET, text: '\u25AA', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } }, run: { font: 'Symbol' } } },
+          ],
+        },
+        {
+          reference: 'numbered-list',
+          levels: [
+            { level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+            { level: 1, format: LevelFormat.LOWER_LETTER, text: '%2.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+            { level: 2, format: LevelFormat.LOWER_ROMAN, text: '%3.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } } } },
+          ],
+        },
+      ],
+    },
     styles: {
       default: {
         document: {
