@@ -5,8 +5,10 @@
  */
 
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoaderFactory.js';
-import { attachMarkListeners } from '../hyperlights/index.js';
-import { attachUnderlineClickListeners } from '../hypercites/index.js';
+// NOTE: hyperlights/index.js and hypercites/index.js are imported DYNAMICALLY
+// (inside async functions) to break a circular dependency chain:
+//   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader
+// Static imports here would leave subBookLoaders in the TDZ during module evaluation.
 import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index.js';
 import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
@@ -146,8 +148,10 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
  * @param {Array} freshNodes - Fresh node data from IndexedDB (includes hyperlights/hypercites)
  */
 async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
+  const { attachMarkListeners } = await import('../hyperlights/index.js');
+  const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
   const container = subBookState.containerDiv;
-  
+
   if (previewNodeIds.length === 0) {
     console.warn(`⚠️ No preview node IDs stored, cannot hydrate preview nodes`);
     return;
@@ -379,6 +383,10 @@ export async function loadSubBook(
   subBookId, parentBook, itemId, type, scrollerDiv,
   { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null } = {}
 ) {
+  // Dynamic imports to break circular dependency (see comment at top of file)
+  const { attachMarkListeners } = await import('../hyperlights/index.js');
+  const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+
   // Clean up any prior instance
   destroySubBook(subBookId);
 

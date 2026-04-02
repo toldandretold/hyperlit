@@ -21,6 +21,7 @@ import base64
 from pathlib import Path
 from statistics import median
 from mistralai.client import Mistral
+from pypdf import PdfReader
 
 SUPERSCRIPT_MAP = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079", "0123456789")
 
@@ -33,6 +34,146 @@ def convert_footnotes(text):
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
 
+def normalize_all_footnote_refs(text):
+    """Convert [N], bare numbers after punctuation, and LaTeX superscripts to [^N].
+
+    Uses sequential validation: candidates are only converted if their number
+    fits within the sequence of already-known [^N] refs. This prevents false
+    positives like [2015] or table numbers from being converted.
+    """
+    # Step 1: Convert Unicode superscripts (already reliable)
+    text = convert_footnotes(text)
+
+    # Step 2: Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]
+    text = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', text)
+
+    # Step 3: Collect known [^N] positions
+    known = [(m.start(), int(m.group(1))) for m in re.finditer(r'\[\^(\d+)\]', text)]
+    if not known:
+        return text
+
+    max_known = max(n for _, n in known)
+
+    # Step 4: Collect candidates
+
+    # [N] not at line start, not inside links/images (][, ](, ![)
+    bracket_candidates = []
+    for m in re.finditer(r'\[(\d+)\]', text):
+        num = int(m.group(1))
+        if num > 500 or num < 1:
+            continue
+        pos = m.start()
+        # Skip line-start occurrences (definitions, not refs)
+        if pos == 0 or text[pos - 1] == '\n':
+            continue
+        # Skip if part of markdown link/image syntax
+        if pos > 0 and text[pos - 1] in (']', '!'):
+            continue
+        if m.end() < len(text) and text[m.end()] == '(':
+            continue
+        bracket_candidates.append((pos, num, m.start(), m.end(), 'bracket'))
+
+    # Bare numbers after punctuation: .46 , ,47 — sentence-ending punctuation followed by number+space
+    bare_candidates = []
+    for m in re.finditer(r'(?<=[.,;:!?])(\d{1,3})\s', text):
+        num = int(m.group(1))
+        if num > 500 or num < 1:
+            continue
+        pos = m.start()
+        # Skip if at line start
+        if pos == 0 or text[pos - 1] == '\n':
+            continue
+        bare_candidates.append((pos, num, m.start(), m.start() + len(m.group(1)), 'bare'))
+
+    all_candidates = bracket_candidates + bare_candidates
+    if not all_candidates:
+        return text
+
+    # Step 5: Merge known + candidates, sort by position
+    all_entries = [(pos, num, 'known') for pos, num in known]
+    all_entries += [(pos, num, kind) for pos, num, _s, _e, kind in all_candidates]
+    all_entries.sort(key=lambda x: x[0])
+
+    # Build lookup for candidate replacement spans
+    candidate_spans = {}
+    for pos, num, start, end, kind in (bracket_candidates + bare_candidates):
+        candidate_spans[pos] = (start, end, kind, num)
+
+    # Step 6: Validate candidates against the known sequence
+    validated = []
+    for i, (pos, num, entry_kind) in enumerate(all_entries):
+        if entry_kind == 'known':
+            continue
+
+        # Find nearest known refs before and after this position
+        prev_known = None
+        next_known = None
+        for j in range(i - 1, -1, -1):
+            if all_entries[j][2] == 'known':
+                prev_known = all_entries[j][1]
+                break
+        for j in range(i + 1, len(all_entries)):
+            if all_entries[j][2] == 'known':
+                next_known = all_entries[j][1]
+                break
+
+        # Validate: number must fit between surrounding knowns
+        valid = True
+        if prev_known is not None and num <= prev_known:
+            valid = False
+        if next_known is not None and num >= next_known:
+            valid = False
+        # Must not exceed reasonable range
+        if num > max_known + 20:
+            valid = False
+        # If no surrounding knowns at all, require number to be in range
+        if prev_known is None and next_known is None:
+            valid = False
+
+        if valid:
+            validated.append(pos)
+
+    # Step 7: Replace validated candidates (work backwards to preserve positions)
+    validated_set = set(validated)
+    replacements = []
+    for pos, num, start, end, kind in (bracket_candidates + bare_candidates):
+        if pos in validated_set:
+            replacements.append((start, end, f'[^{num}]'))
+
+    # Sort by start position descending so replacements don't shift later positions
+    replacements.sort(key=lambda x: x[0], reverse=True)
+    for start, end, replacement in replacements:
+        text = text[:start] + replacement + text[end:]
+
+    return text
+
+
+def normalize_footnote_defs(text):
+    """Convert [N] at line start to [^N] definitions using the same sequential logic.
+
+    Line-start [N] followed by text are likely footnote definitions if the number
+    fits the document's footnote sequence.
+    """
+    # Collect known [^N] definition numbers
+    known_def_nums = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', text, re.MULTILINE))
+    if not known_def_nums:
+        return text
+
+    max_known = max(known_def_nums)
+
+    # Find line-start [N] that look like definitions
+    def replace_def(m):
+        num = int(m.group(1))
+        if num in known_def_nums:
+            return m.group(0)  # Already a known def — shouldn't happen, but safe
+        if num > max_known + 20 or num < 1:
+            return m.group(0)
+        return f'[^{num}]{m.group(2)}'
+
+    text = re.sub(r'^\[(\d+)\]( .)', replace_def, text, flags=re.MULTILINE)
+    return text
+
+
 def renumber_page_footnotes(page_md, global_counter):
     """Renumber footnotes on a single page from local numbering to global sequential.
 
@@ -43,6 +184,35 @@ def renumber_page_footnotes(page_md, global_counter):
     """
     # First convert any Unicode superscripts to [^N] format
     page_md = convert_footnotes(page_md)
+
+    # Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]
+    page_md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', page_md)
+
+    # Convert inline [N] → [^N] (not at line start, N < 500)
+    # Since we know this is page_bottom, inline [N] are footnote refs
+    def convert_bracket_ref(m):
+        num = int(m.group(1))
+        if num > 500 or num < 1:
+            return m.group(0)
+        pos = m.start()
+        if pos == 0 or page_md[pos - 1] == '\n':
+            return m.group(0)  # Line-start = definition, not ref
+        if pos > 0 and page_md[pos - 1] in (']', '!'):
+            return m.group(0)  # Part of markdown link/image
+        if m.end() < len(page_md) and page_md[m.end()] == '(':
+            return m.group(0)
+        return f'[^{m.group(1)}]'
+    page_md = re.sub(r'\[(\d+)\]', convert_bracket_ref, page_md)
+
+    # Convert bare numbers after sentence-ending punctuation: .46 This → .[^46] This
+    # Only when followed by space + uppercase letter/opening quote (new sentence)
+    # (?<!\d\.) prevents matching decimal numbers like "4.0" or "1.9 million"
+    page_md = re.sub(
+        r'(?<!\d\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+        r'[^\1]',
+        page_md,
+        flags=re.DOTALL
+    )
 
     # Collect unique local footnote numbers in order of first appearance
     seen = set()
@@ -78,7 +248,7 @@ def split_body_and_footnotes(md):
     Footnote definitions start with [^N] at the beginning of a line.
     Returns (body, footnotes) where footnotes may be empty string.
     """
-    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Z\d"]', md, re.MULTILINE)
+    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*\u201c\u2018]', md, re.MULTILINE)
     if not match:
         return md, ""
 
@@ -98,11 +268,13 @@ def fetch_ocr(pdf_path, api_key):
     """Upload PDF to Mistral OCR and return raw response dict."""
     client = Mistral(api_key=api_key)
 
-    print(f"Uploading {pdf_path.name} ({pdf_path.stat().st_size // 1024 // 1024}MB)...")
+    file_size = pdf_path.stat().st_size
+    print(f"Uploading {pdf_path.name} ({file_size / 1024 / 1024:.1f}MB)...")
     uploaded_file = client.files.upload(
-        file={"file_name": pdf_path.stem, "content": pdf_path.read_bytes()},
+        file={"file_name": pdf_path.name, "content": pdf_path.read_bytes()},
         purpose="ocr",
     )
+    print(f"Upload response: id={uploaded_file.id}")
     signed_url = client.files.get_signed_url(file_id=uploaded_file.id, expiry=1)
 
     print("Running OCR... (this may take a few minutes)")
@@ -337,6 +509,13 @@ def classify_footnotes(response_dict):
           and (reset_frequency < 0.2 or max_ref_number > 50)):
         classification = "wackSTEMbibliographyNotes"
 
+    # Page-bottom with continuous numbering (no resets across pages)
+    elif (co_location_ratio > 0.4
+          and pages_with_both >= 3
+          and reset_frequency < 0.1
+          and max_ref_number > 10):
+        classification = "page_bottom"
+
     elif (co_location_ratio > 0.5
           and reset_frequency > 0.4):
         classification = "page_bottom"
@@ -363,8 +542,13 @@ def classify_footnotes(response_dict):
     if classification == "page_bottom":
         if co_location_ratio > 0.8:
             confidence += 0.3
+        elif co_location_ratio > 0.4:
+            confidence += 0.15
         if reset_frequency > 0.7:
             confidence += 0.3
+        elif reset_frequency < 0.1 and max_ref_number > 10:
+            # Continuous numbering — high max ref is a strong signal
+            confidence += 0.25
         if notes_page_count == 0:
             confidence += 0.2
         if trailing_page_number_consistency > 0.5:
@@ -485,7 +669,109 @@ def wrap_stem_definitions(text):
     return text
 
 
-def assemble_markdown(response_dict, classification="unknown", footnote_meta=None):
+def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
+    """Extract per-page footnote definitions from PDF using pypdf.
+
+    Returns dict: {page_index: [(fn_number, definition_text), ...]}
+    """
+    reader = PdfReader(pdf_path)
+    running_headers = running_headers or set()
+    # Build lowercase set for matching
+    running_lower = {h.lower().strip() for h in running_headers}
+
+    # Copyright boilerplate pattern to strip from each page
+    boilerplate_re = re.compile(
+        r'East Asian Policy \d{4}\.\d+:\d+-\d+\. Downloaded from.*$',
+        re.DOTALL
+    )
+
+    result = {}
+    for page_idx in range(len(reader.pages)):
+        text = reader.pages[page_idx].extract_text()
+        if not text:
+            continue
+
+        # Strip copyright boilerplate
+        text = boilerplate_re.sub('', text).rstrip()
+
+        # Split into lines
+        lines = text.split('\n')
+
+        # Find footnote definitions: bare number at line start, 1-3 spaces, then text
+        defs = []
+        current_num = None
+        current_text = None
+
+        for line in lines:
+            # Match: number (1-3 digits), 1-3 spaces, then text starting with uppercase, quote, or open paren
+            m = re.match(r'^(\d{1,3})\s{1,3}([A-Z"\'(\u201c\u2018].{2,})', line)
+            if m:
+                num = int(m.group(1))
+                def_text = m.group(2).strip()
+
+                # Filter out page number lines like "116  east asian policy"
+                # Check if the text (lowercased) starts with a running header
+                is_page_num = False
+                text_lower = def_text.lower().strip()
+                for rh in running_lower:
+                    if text_lower.startswith(rh):
+                        is_page_num = True
+                        break
+
+                if is_page_num:
+                    continue
+
+                # Save previous definition if any
+                if current_num is not None:
+                    defs.append((current_num, current_text))
+
+                current_num = num
+                current_text = def_text
+            elif current_num is not None:
+                # Continuation line: non-empty, starts with lowercase, space, or quote
+                stripped = line.strip()
+                if stripped and not re.match(r'^\d{1,3}\s{1,3}[A-Z"\'(\u201c\u2018]', line):
+                    current_text += ' ' + stripped
+                else:
+                    # Non-continuation: save current and reset
+                    defs.append((current_num, current_text))
+                    current_num = None
+                    current_text = None
+
+        # Save final definition
+        if current_num is not None:
+            defs.append((current_num, current_text))
+
+        if defs:
+            result[page_idx] = defs
+
+    return result
+
+
+def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number):
+    """Return list of (number, text) for footnotes missing from OCR.
+
+    Args:
+        ocr_defs_set: set of footnote numbers already present as definitions
+        pypdf_defs_by_page: output from extract_pypdf_footnote_defs()
+        max_ref_number: highest footnote ref number in the document
+    """
+    recovered = []
+    seen = set()
+    for page_idx in sorted(pypdf_defs_by_page.keys()):
+        for fn_num, fn_text in pypdf_defs_by_page[page_idx]:
+            if fn_num in ocr_defs_set:
+                continue
+            if fn_num < 1 or fn_num > max_ref_number:
+                continue
+            if fn_num in seen:
+                continue
+            seen.add(fn_num)
+            recovered.append((fn_num, fn_text))
+    return recovered
+
+
+def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None):
     """Assemble pages into markdown, injecting section headings from headers."""
     pages = response_dict["pages"]
 
@@ -578,17 +864,34 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined = rejoin_page_breaks(combined)
         # Format and append collected footnote definitions
         fn_defs = "\n\n".join(fn_defs_parts)
-        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', fn_defs, flags=re.MULTILINE)
+        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', fn_defs, flags=re.MULTILINE)
         if fn_defs.strip():
             combined = combined + "\n\n" + fn_defs
-        return combined
     else:
-        combined = convert_footnotes(combined)
+        combined = normalize_all_footnote_refs(combined)
+        combined = normalize_footnote_defs(combined)
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
         # Only at start of line (definitions), not inline references
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Z\d])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
 
-    combined = rejoin_page_breaks(combined)
+    # --- pypdf fallback: recover missing footnote definitions ---
+    if pdf_path and classification != "wackSTEMbibliographyNotes":
+        # Collect definition numbers already in the assembled text
+        ocr_def_nums = set(int(n) for n in re.findall(r'^\[\^(\d+)\]\s*:', combined, re.MULTILINE))
+        # Collect all inline ref numbers
+        ref_nums = set(int(n) for n in re.findall(r'\[\^(\d+)\]', combined))
+        # Find refs that have no definition
+        missing = ref_nums - ocr_def_nums
+        if missing:
+            max_ref = max(ref_nums) if ref_nums else 0
+            pypdf_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
+            recovered = recover_missing_defs(ocr_def_nums, pypdf_defs, max_ref)
+            if recovered:
+                recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
+                combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
+                print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
+
     return combined
 
 
@@ -659,7 +962,7 @@ def main():
 
     # Assemble markdown
     print("Assembling markdown...")
-    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'], footnote_meta=footnote_meta)
+    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'], footnote_meta=footnote_meta, pdf_path=pdf_path)
     output_md.write_text(markdown, encoding="utf-8")
 
     # Stats

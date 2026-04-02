@@ -1791,6 +1791,22 @@ async function loadTurndown() {
   return _TurndownService;
 }
 
+let _TurndownGfm = null;
+async function loadTurndownGfm() {
+  if (_TurndownGfm) return _TurndownGfm;
+  const mod = await import('https://cdn.skypack.dev/turndown-plugin-gfm');
+  _TurndownGfm = mod;
+  return _TurndownGfm;
+}
+
+let _JSZip = null;
+async function loadJSZip() {
+  if (_JSZip) return _JSZip;
+  const mod = await import('https://cdn.skypack.dev/jszip');
+  _JSZip = mod.default;
+  return _JSZip;
+}
+
 let _Docx = null;
 async function loadDocxLib() {
   if (_Docx) return _Docx;
@@ -1810,23 +1826,344 @@ async function loadHtmlToText() {
 }
 
 /**
+ * Converts citation HTML (from formatBibtexToCitation) to inline markdown.
+ * <i>text</i> → *text*, <a href="url">text</a> → [text](url), strips other tags.
+ */
+function citationHtmlToMarkdown(html) {
+  return html
+    .replace(/<i>([^<]*)<\/i>/g, '*$1*')
+    .replace(/<a\s+href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)')
+    .replace(/<[^>]+>/g, '');
+}
+
+/**
  * Fetches all nodes for a book, converts to markdown,
- * and returns a single string.
+ * and returns { markdown, images }.
  */
 async function buildMarkdownForBook(bookId = book || 'latest') {
-  // 1) get raw chunks
   const chunks = await getNodeChunksFromIndexedDB(bookId);
-  // 2) sort by chunk_id
-  chunks.sort((a,b) => a.chunk_id - b.chunk_id);
-  // 3) load converter
+  chunks.sort((a, b) => a.chunk_id - b.chunk_id);
+
+  const parser = new DOMParser();
+
+  // --- Phase 1: Parse all chunks into DOM fragments ---
+  const fragments = [];
+  for (const chunk of chunks) {
+    const frag = parser.parseFromString(
+      `<div>${chunk.content || chunk.html}</div>`,
+      'text/html'
+    ).body.firstChild;
+    fragments.push(frag);
+  }
+
+  // --- Phase 2: Pre-scan for footnote refs, hypercite arrows, citation refs, images ---
+  const footnoteRefIds = [];
+  const hyperciteArrows = [];
+  const citationRefIds = [];
+  const imageUrls = new Set();
+  const seenFnIds = new Set();
+
+  for (const frag of fragments) {
+    frag.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+      if (!seenFnIds.has(sup.id)) {
+        seenFnIds.add(sup.id);
+        footnoteRefIds.push(sup.id);
+      }
+    });
+
+    frag.querySelectorAll('a.citation-ref[id]').forEach(cite => {
+      citationRefIds.push(cite.id);
+    });
+
+    frag.querySelectorAll('a[href]').forEach(anchor => {
+      if (anchor.querySelector('sup.open-icon') && anchor.id && !seenFnIds.has(anchor.id)) {
+        seenFnIds.add(anchor.id);
+        try {
+          const href = anchor.getAttribute('href');
+          const parsed = new URL(href, window.location.origin);
+          const segments = parsed.pathname.split('/').filter(Boolean);
+          if (segments.length > 0) {
+            let sourceUrl = parsed.origin + parsed.pathname;
+            if (parsed.hash) {
+              sourceUrl += parsed.hash;
+            }
+            hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]), sourceUrl });
+          }
+        } catch (e) {
+          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
+        }
+      }
+    });
+
+    frag.querySelectorAll('img[src]').forEach(img => {
+      imageUrls.add(img.getAttribute('src'));
+    });
+  }
+
+  // --- Phase 3: Fetch footnote content from IndexedDB ---
+  const footnoteContents = new Map(); // fnId → markdown string
+  let fnDb;
+  if (footnoteRefIds.length > 0) {
+    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+  }
+
+  // Helper: convert footnote HTML nodes to markdown text
   const Turndown = await loadTurndown();
-  const turndownService = new Turndown();
-  // 4) convert each chunk.html (or chunk.content) → md
-  const mdParts = chunks.map(chunk =>
-    turndownService.turndown(chunk.content || chunk.html)
-  );
-  // 5) join with double newlines
-  return mdParts.join('\n\n');
+  const simpleTd = new Turndown({ headingStyle: 'atx' });
+
+  for (const fnId of footnoteRefIds) {
+    const subBookId = `${bookId}/${fnId}`;
+    try {
+      let fnNodes = await getNodeChunksFromIndexedDB(subBookId);
+
+      if ((!fnNodes || fnNodes.length === 0) && fnDb) {
+        try {
+          const tx = fnDb.transaction('footnotes', 'readonly');
+          const index = tx.objectStore('footnotes').index('footnoteId');
+          const results = await new Promise((resolve, reject) => {
+            const req = index.getAll(fnId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+          const fnRecord = results.find(r => r.book === bookId);
+          if (fnRecord?.preview_nodes?.length) {
+            fnNodes = fnRecord.preview_nodes;
+          }
+        } catch (e) {
+          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
+        }
+      }
+
+      if (fnNodes) fnNodes.sort((a, b) => a.chunk_id - b.chunk_id);
+      const paragraphs = [];
+      for (const node of (fnNodes || [])) {
+        const content = node.content || node.html || '';
+        if (content.trim()) {
+          paragraphs.push(simpleTd.turndown(content).trim());
+        }
+      }
+      footnoteContents.set(fnId, paragraphs.length > 0 ? paragraphs : ['(footnote)']);
+    } catch (e) {
+      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
+      footnoteContents.set(fnId, ['(footnote)']);
+    }
+  }
+
+  // --- Phase 4: Fetch citation data for hypercite arrows ---
+  const hyperciteContents = new Map(); // elementId → markdown citation string
+  let db;
+  if (hyperciteArrows.length > 0) {
+    try { db = await openDatabase(); } catch (e) { console.warn('Failed to open database for hypercite citations:', e); }
+  }
+
+  for (const { id, targetBookId, sourceUrl } of hyperciteArrows) {
+    let citationMd = targetBookId;
+    try {
+      if (db) {
+        const record = await getRecord(db, 'library', targetBookId);
+        if (record?.bibtex) {
+          let citationHtml = await formatBibtexToCitation(record.bibtex);
+          if (sourceUrl) {
+            if (citationHtml.includes('<a ')) {
+              citationHtml = citationHtml.replace(/(<a\s[^>]*href=")([^"]*)(")/, `$1${sourceUrl}$3`);
+            } else {
+              const titleMatch = citationHtml.match(/(<i>[^<]+<\/i>|"[^"]+")/);
+              if (titleMatch) {
+                citationHtml = citationHtml.replace(titleMatch[0], `<a href="${sourceUrl}">${titleMatch[0]}</a>`);
+              } else {
+                citationHtml = `<a href="${sourceUrl}">${citationHtml}</a>`;
+              }
+            }
+          }
+          citationMd = citationHtmlToMarkdown(citationHtml);
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
+    }
+    hyperciteContents.set(id, citationMd);
+  }
+
+  // --- Phase 4b: Fetch bibliography records for citation refs ---
+  const referencesData = [];
+  if (citationRefIds.length > 0) {
+    let bibDb;
+    try { bibDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    if (bibDb) {
+      const seenSourceIds = new Set();
+      for (const refId of citationRefIds) {
+        try {
+          const tx = bibDb.transaction('bibliography', 'readonly');
+          const store = tx.objectStore('bibliography');
+          const record = await new Promise((resolve, reject) => {
+            const req = store.get([bookId, refId]);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+          if (record?.content && !seenSourceIds.has(record.source_id)) {
+            seenSourceIds.add(record.source_id);
+            referencesData.push({ content: record.content });
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
+        }
+      }
+    }
+  }
+
+  // --- Phase 5: Configure Turndown with GFM tables and custom rules ---
+  const turndownService = new Turndown({ headingStyle: 'atx' });
+
+  // Apply GFM tables plugin
+  try {
+    const gfm = await loadTurndownGfm();
+    if (gfm.tables) {
+      turndownService.use(gfm.tables);
+    }
+  } catch (e) {
+    console.warn('Failed to load GFM tables plugin:', e);
+  }
+
+  // Track hypercite counter for footnote labels
+  let hyperciteCounter = 0;
+  const hyperciteLabels = new Map(); // elementId → "hyperciteN"
+
+  // Custom rule: footnote references
+  turndownService.addRule('footnote-ref', {
+    filter: (node) => {
+      return node.nodeName === 'SUP'
+        && node.classList?.contains('footnote-ref')
+        && node.id
+        && footnoteContents.has(node.id);
+    },
+    replacement: (content, node) => `[^${node.id}]`
+  });
+
+  // Custom rule: hypercite arrows
+  turndownService.addRule('hypercite-arrow', {
+    filter: (node) => {
+      return node.nodeName === 'A'
+        && node.querySelector?.('sup.open-icon')
+        && node.id
+        && hyperciteContents.has(node.id);
+    },
+    replacement: (content, node) => {
+      if (!hyperciteLabels.has(node.id)) {
+        hyperciteCounter++;
+        hyperciteLabels.set(node.id, `hypercite${hyperciteCounter}`);
+      }
+      return `[^${hyperciteLabels.get(node.id)}]`;
+    }
+  });
+
+  // Custom rule: citation refs → plain text
+  turndownService.addRule('citation-ref', {
+    filter: (node) => {
+      return node.nodeName === 'A' && node.classList?.contains('citation-ref');
+    },
+    replacement: (content) => content
+  });
+
+  // Image filename tracking for deduplication
+  const imageFilenames = new Map(); // src → filename
+  const usedFilenames = new Set();
+
+  function getImageFilename(src) {
+    if (imageFilenames.has(src)) return imageFilenames.get(src);
+    let filename;
+    try {
+      const urlPath = new URL(src, window.location.origin).pathname;
+      filename = urlPath.split('/').pop() || 'image.png';
+    } catch {
+      filename = 'image.png';
+    }
+    // Deduplicate
+    let base = filename;
+    let counter = 1;
+    while (usedFilenames.has(filename)) {
+      const dot = base.lastIndexOf('.');
+      if (dot > 0) {
+        filename = `${base.substring(0, dot)}-${counter}${base.substring(dot)}`;
+      } else {
+        filename = `${base}-${counter}`;
+      }
+      counter++;
+    }
+    usedFilenames.add(filename);
+    imageFilenames.set(src, filename);
+    return filename;
+  }
+
+  // Custom rule: image rewrite
+  turndownService.addRule('image-rewrite', {
+    filter: 'img',
+    replacement: (content, node) => {
+      const src = node.getAttribute('src');
+      if (!src) return '';
+      const alt = node.getAttribute('alt') || '';
+      const filename = getImageFilename(src);
+      return `![${alt}](images/${filename})`;
+    }
+  });
+
+  // --- Phase 6: Convert each chunk through Turndown ---
+  const mdParts = [];
+  for (const frag of fragments) {
+    const html = frag.innerHTML;
+    if (html.trim()) {
+      mdParts.push(turndownService.turndown(html));
+    }
+  }
+
+  // --- Phase 7: Build footnotes section ---
+  const footnoteDefs = [];
+
+  // Regular footnotes
+  for (const fnId of footnoteRefIds) {
+    const paragraphs = footnoteContents.get(fnId) || ['(footnote)'];
+    const first = paragraphs[0];
+    const rest = paragraphs.slice(1);
+    let def = `[^${fnId}]: ${first}`;
+    for (const p of rest) {
+      def += `\n\n    ${p.split('\n').join('\n    ')}`;
+    }
+    footnoteDefs.push(def);
+  }
+
+  // Hypercite footnotes
+  for (const [elementId, label] of hyperciteLabels) {
+    const citation = hyperciteContents.get(elementId) || elementId;
+    footnoteDefs.push(`[^${label}]: ${citation}`);
+  }
+
+  // --- Phase 8: Build references section ---
+  let referencesMd = '';
+  if (referencesData.length > 0) {
+    const refLines = ['## References', ''];
+    for (const ref of referencesData) {
+      const refMd = citationHtmlToMarkdown(ref.content);
+      refLines.push(refMd);
+      refLines.push('');
+    }
+    referencesMd = refLines.join('\n');
+  }
+
+  // --- Phase 9: Join body + footnotes + references ---
+  const sections = [mdParts.join('\n\n')];
+  if (footnoteDefs.length > 0) {
+    sections.push('---\n\n' + footnoteDefs.join('\n\n'));
+  }
+  if (referencesMd) {
+    sections.push('---\n\n' + referencesMd);
+  }
+  const markdown = sections.join('\n\n');
+
+  // Collect image sources for bundling
+  const images = imageUrls.size > 0
+    ? Array.from(imageUrls).map(src => ({ src, filename: getImageFilename(src) }))
+    : [];
+
+  return { markdown, images };
 }
 
 async function buildHtmlForBook(bookId = book || 'latest') {
@@ -1877,10 +2214,40 @@ async function buildDocxBuffer(bookId = book || 'latest') {
  */
 async function exportBookAsMarkdown(bookId = book || 'latest') {
   try {
-    const md = await buildMarkdownForBook(bookId);
-    const filename = `book-${bookId}.md`;
-    downloadMarkdown(filename, md);
-    console.log(`✅ Markdown exported to ${filename}`);
+    const { markdown, images } = await buildMarkdownForBook(bookId);
+
+    if (images.length > 0) {
+      // Bundle as zip with images
+      const JSZip = await loadJSZip();
+      const zip = new JSZip();
+      zip.file(`book-${bookId}.md`, markdown);
+
+      const imgFolder = zip.folder('images');
+      for (const { src, filename } of images) {
+        try {
+          const resp = await fetch(src);
+          const blob = await resp.blob();
+          imgFolder.file(filename, blob);
+        } catch (e) {
+          console.warn('Failed to fetch image for zip:', src, e);
+        }
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `book-${bookId}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log(`✅ Markdown + images exported as book-${bookId}.zip`);
+    } else {
+      const filename = `book-${bookId}.md`;
+      downloadMarkdown(filename, markdown);
+      console.log(`✅ Markdown exported to ${filename}`);
+    }
   } catch (err) {
     console.error('❌ Failed to export markdown:', err);
   }
