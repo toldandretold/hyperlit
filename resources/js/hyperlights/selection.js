@@ -358,11 +358,18 @@ export function cleanupHighlightingControls() {
     // Note: Cannot remove the touchend listener since it was added as an anonymous function
     documentListenersAttached = false;
   }
-  // Reset button listener guards so reinit can re-attach
+  // Actually remove button listeners, then reset guards so reinit can re-attach
   const copyButton = document.getElementById("copy-hyperlight");
   const deleteButton = document.getElementById("delete-hyperlight");
-  if (copyButton) copyButton._listenersAttached = false;
-  if (deleteButton) deleteButton._listenersAttached = false;
+  [copyButton, deleteButton].forEach(btn => {
+    if (!btn) return;
+    if (btn._wrappedHandler) {
+      btn.removeEventListener("mousedown", btn._wrappedHandler);
+      btn.removeEventListener("touchstart", btn._wrappedHandler);
+      btn._wrappedHandler = null;
+    }
+    btn._listenersAttached = false;
+  });
 }
 
 /**

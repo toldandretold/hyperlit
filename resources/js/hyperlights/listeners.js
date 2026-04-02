@@ -5,6 +5,9 @@
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 import { verbose } from '../utilities/logger.js';
 
+// Module-level debounce flag shared by all handlers
+let isProcessing = false;
+
 /**
  * Attach click and hover listeners to all mark elements
  * @param {HTMLElement} scope - Scope to search within (default: document)
@@ -99,9 +102,6 @@ export function addTouchAndClickListener(element, handler) {
     return;
   }
 
-  // Add a flag to prevent duplicate processing within a short time window
-  let isProcessing = false;
-
   const wrappedHandler = function(event) {
     if (isProcessing) {
       console.log("🚫 Handler already processing, ignoring duplicate event");
@@ -125,6 +125,9 @@ export function addTouchAndClickListener(element, handler) {
   // Add the listeners
   element.addEventListener("mousedown", wrappedHandler);
   element.addEventListener("touchstart", wrappedHandler);
+
+  // Store handler ref so cleanup can remove listeners
+  element._wrappedHandler = wrappedHandler;
 
   // Mark that we've attached listeners using a custom property
   element._listenersAttached = true;
