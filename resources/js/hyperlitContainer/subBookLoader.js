@@ -314,6 +314,35 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       // Hydrate preview nodes with fresh hyperlights/hypercites data
       await hydratePreviewNodes(subBookState, previewNodeIds, freshNodes);
 
+      // If the container was empty/synthesized (no real text), re-render with fresh nodes
+      if (freshNodes.length > 0 && subBookLoaders.has(subBookId)) {
+        const entry = subBookLoaders.get(subBookId);
+        const container = entry.containerDiv;
+        const currentText = container?.textContent?.trim();
+        if (container && (!currentText || currentText.length === 0)) {
+          console.log(`🔄 Container was empty — re-rendering "${subBookId}" with ${freshNodes.length} fresh nodes`);
+          const { attachMarkListeners } = await import('../hyperlights/index.js');
+          const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+          const previewSlice = freshNodes.slice(0, 5);
+          const nodesByChunk = {};
+          previewSlice.forEach(node => {
+            if (!nodesByChunk[node.chunk_id]) nodesByChunk[node.chunk_id] = [];
+            nodesByChunk[node.chunk_id].push(node);
+          });
+          container.innerHTML = '';
+          for (const [chunkId, chunkNodes] of Object.entries(nodesByChunk)) {
+            const chunkEl = createChunkElement(chunkNodes, { bookId: subBookId });
+            if (chunkEl) {
+              container.appendChild(chunkEl);
+              attachMarkListeners(chunkEl);
+              attachUnderlineClickListeners(chunkEl);
+            }
+          }
+          // Update preview node IDs on state
+          subBookState.previewNodeIds = previewSlice.map(n => n.node_id);
+        }
+      }
+
       // Update state with fresh data
       subBookState.nodes = freshNodes;
 
@@ -410,6 +439,7 @@ export async function loadSubBook(
       nodes = existingNodesFromIDB.slice(0, 5);
     } else {
       // Nothing exists anywhere — synthesise a local node and register on backend
+      console.warn(`⚠️ No preview_nodes or IDB nodes for "${subBookId}" — synthesizing from annotationHtml (${annotationHtml.length} chars)`);
       isNewSubBook = true;
       const localNodeId = generateNodeId(subBookId);
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
@@ -481,8 +511,8 @@ export async function loadSubBook(
     subBookLoaders.set(subBookId, { loader, containerDiv });
     lazyLoaders[subBookId] = loader;
 
-    // Async enrichment for new sub-books
-    if (!isNewSubBook && mode === 'edit') {
+    // Async enrichment — fetch fresh data from backend
+    if (mode === 'edit') {
       enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds: [], scrollerDiv, hasMoreContent: true, nodes, bookId: subBookId, parentBook, itemId, type, creator });
     }
 
@@ -502,7 +532,7 @@ export async function loadSubBook(
   // Preview nodes come from highlight.preview_nodes with empty hyperlights arrays —
   // rebuildNodeArrays queries the hyperlights store by node_id and populates them.
   const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild.js');
-  await rebuildNodeArrays(firstFiveNodes);
+  await rebuildNodeArrays(firstFiveNodes, { skipWrite: true });
 
   // Create lazy loader with preview nodes only (not all nodes)
   // This enables highlighting while keeping load minimal
@@ -595,10 +625,9 @@ export async function loadSubBook(
       .catch(err => console.warn('⚠️ Preview hydration failed:', err));
   }
 
-  // Async enrichment — fetch fresh data from backend
-  if (!isNewSubBook) {
-    enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type, creator });
-  }
+  // Async enrichment — fetch fresh data from backend (always run, even for new sub-books,
+  // so that if initial data was empty the enrichment can self-heal from server)
+  enrichSubBookFromDB(subBookId, { loader, containerDiv, previewNodeIds, scrollerDiv, hasMoreContent, nodes: existingNodesFromIDB || nodes, bookId: subBookId, parentBook, itemId, type, creator });
 
   console.log(`✅ subBookLoader: Sub-book "${subBookId}" loaded in read mode (${firstFiveNodes.length}/${totalAvailableNodes} nodes, lazy loader active)`);
   return loader;

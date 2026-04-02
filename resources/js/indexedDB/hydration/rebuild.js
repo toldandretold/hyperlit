@@ -24,7 +24,7 @@ import { verbose } from '../../utilities/logger.js';
  * @param {Array} nodes - Array of node objects to rebuild
  * @returns {Promise<void>}
  */
-export async function rebuildNodeArrays(nodes) {
+export async function rebuildNodeArrays(nodes, { skipWrite = false } = {}) {
   if (!nodes || nodes.length === 0) {
     console.warn('⚠️ rebuildNodeArrays: No nodes provided');
     return;
@@ -66,7 +66,9 @@ export async function rebuildNodeArrays(nodes) {
     });
 
     // Update nodes in IndexedDB with new arrays (fire-and-forget cache update)
-    updateNodesInDB(db, nodes).catch(err => console.error('❌ Failed to update nodes cache in IndexedDB:', err));
+    if (!skipWrite) {
+      updateNodesInDB(db, nodes).catch(err => console.error('❌ Failed to update nodes cache in IndexedDB:', err));
+    }
 
     verbose.content(`NEW SYSTEM: Successfully rebuilt arrays for ${nodes.length} nodes`, 'indexedDB/hydration/rebuild.js');
   } catch (error) {

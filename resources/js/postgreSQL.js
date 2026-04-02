@@ -706,7 +706,9 @@ export async function clearBookDataFromIndexedDB(db, bookId) {
   verbose.content(`Clearing existing data for book: ${bookId}`, 'postgreSQL.js');
 
   // Clear stores that have book-based indices
-  const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites'];
+  // NOTE: 'footnotes' has compound keyPath ["book", "footnoteId"] — must use 'book' index,
+  // not store.delete(bookId) which silently no-ops on compound keys.
+  const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites', 'footnotes'];
 
   for (const storeName of bookIndexedStores) {
     const tx = db.transaction(storeName, 'readwrite');
@@ -728,24 +730,6 @@ export async function clearBookDataFromIndexedDB(db, bookId) {
     }
 
     verbose.content(`Cleared ${keys.length} records from ${storeName}`, 'postgreSQL.js');
-  }
-
-  // Clear single-record stores (footnotes uses book as primary key)
-  const singleRecordStores = ['footnotes'];
-  for (const storeName of singleRecordStores) {
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-
-    try {
-      await new Promise((resolve, reject) => {
-        const deleteRequest = store.delete(bookId);
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
-      });
-      verbose.content(`Cleared ${storeName} for book`, 'postgreSQL.js');
-    } catch (error) {
-      verbose.content(`No existing ${storeName} record to clear`, 'postgreSQL.js');
-    }
   }
 
   // Clear library (uses citationID as key, which should match bookId)
