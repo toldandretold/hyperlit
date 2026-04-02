@@ -596,7 +596,11 @@ def process_whole_document_footnotes(soup, book_id):
 
         # Extract the digit from either group 2 or group 3
         identifier = number_match.group(2) or number_match.group(3)
-        first_content = number_match.group(4).strip()
+
+        # Extract content from inner HTML to preserve <a>, <em> etc.
+        first_inner_html = ''.join(str(c) for c in first_element.children)
+        html_match = re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*(.*)', first_inner_html, re.DOTALL)
+        first_content = html_match.group(2).strip() if html_match else number_match.group(4).strip()
 
         # Collect content from all elements for this footnote
         content_parts = [first_content] if first_content else []
@@ -687,7 +691,11 @@ def process_sequential_footnotes(soup, book_id):
                 continue
 
             identifier = number_match.group(2) or number_match.group(3)
-            first_content = number_match.group(4).strip()
+
+            # Extract content from inner HTML to preserve <a>, <em> etc.
+            first_inner_html = ''.join(str(c) for c in first_element.children)
+            html_match = re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*(.*)', first_inner_html, re.DOTALL)
+            first_content = html_match.group(2).strip() if html_match else number_match.group(4).strip()
 
             content_parts = [first_content] if first_content else []
             for elem in range_elements[start_idx + 1:end_idx]:
@@ -1199,7 +1207,11 @@ def main(html_file_path, output_dir, book_id):
 
                 # Extract the digit from either group 2 or group 3
                 identifier = number_match.group(2) or number_match.group(3)
-                first_content = number_match.group(4).strip()
+
+                # Extract content from inner HTML to preserve <a>, <em> etc.
+                first_inner_html = ''.join(str(c) for c in first_element.children)
+                html_match = re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*(.*)', first_inner_html, re.DOTALL)
+                first_content = html_match.group(2).strip() if html_match else number_match.group(4).strip()
 
                 # Collect content from all elements for this footnote
                 content_parts = [first_content] if first_content else []
