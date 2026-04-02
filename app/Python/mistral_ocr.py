@@ -669,6 +669,79 @@ def wrap_stem_definitions(text):
     return text
 
 
+def fix_mangled_urls(text, pdf_path):
+    """Fix URLs mangled by Mistral OCR into HTML-attribute format.
+
+    OCR produces: <https: about-matrade="" en="" www.example.com="">
+    Real URL is:  <https://www.example.com/en/about-matrade/>
+
+    Uses pypdf to extract real URLs and matches by domain.
+    """
+    # Find all mangled URLs
+    mangled_pattern = re.compile(r'<https?:\s[^>]*?=""[^>]*>')
+    mangled_urls = mangled_pattern.findall(text)
+    if not mangled_urls:
+        return text
+
+    # Extract real URLs from pypdf (all pages)
+    reader = PdfReader(pdf_path)
+    real_urls = []
+    for page in reader.pages:
+        page_text = page.extract_text() or ''
+        # pypdf URLs may span lines; capture generously
+        for m in re.finditer(r'https?://[^\s>)\]]+', page_text):
+            real_urls.append(m.group().rstrip('.,;:'))
+
+    # Build domain → [url, url, ...] map (preserving order)
+    from collections import defaultdict
+    domain_map = defaultdict(list)
+    for url in real_urls:
+        m = re.match(r'https?://([^/]+)', url)
+        if m:
+            domain_map[m.group(1).lower()].append(url)
+
+    # Track which real URLs have been used per domain
+    domain_used = defaultdict(int)
+
+    def replace_mangled(m):
+        mangled = m.group(0)
+        # Extract attributes (the ="" parts)
+        attrs = re.findall(r'([\w./?&=%~+:@!-]+)=""', mangled)
+        if not attrs:
+            return mangled
+
+        # Identify domain: attribute with dots that looks like a hostname
+        domain = None
+        for attr in attrs:
+            if re.match(r'^[\w-]+\.[\w.-]+\.\w{2,}$', attr):
+                domain = attr.lower()
+                break
+        # Fallback: any attr with a dot
+        if not domain:
+            for attr in attrs:
+                if '.' in attr and not attr.endswith('.pdf') and not attr.endswith('.html'):
+                    domain = attr.lower()
+                    break
+
+        if domain and domain in domain_map:
+            idx = domain_used[domain]
+            urls = domain_map[domain]
+            if idx < len(urls):
+                domain_used[domain] += 1
+                return f'<{urls[idx]}>'
+            # More mangled than real — reconstruct
+        # No pypdf match — reconstruct from parts
+        if domain:
+            path_parts = [a for a in attrs if a.lower() != domain]
+            return f'<https://{domain}/{"/".join(path_parts)}>'
+        return mangled
+
+    text = mangled_pattern.sub(replace_mangled, text)
+    # Remove closing tags: </https:>
+    text = re.sub(r'</https?:[^>]*>', '', text)
+    return text
+
+
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     """Extract per-page footnote definitions from PDF using pypdf.
 
@@ -875,6 +948,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
         combined = rejoin_page_breaks(combined)
 
+    # --- Fix mangled URLs from OCR ---
+    if pdf_path:
+        combined = fix_mangled_urls(combined, pdf_path)
+
     # --- pypdf fallback: recover missing footnote definitions ---
     if pdf_path and classification != "wackSTEMbibliographyNotes":
         # Collect definition numbers already in the assembled text
@@ -891,6 +968,32 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
                 combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
                 print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
+
+    # --- Convert <url> autolinks to clickable links ---
+    # Angle-bracket URLs like <https://example.com> get stripped by HTML parsers.
+    # Use <a> tags directly since footnote content is stored as HTML.
+    combined = re.sub(
+        r'<(https?://[^>]+)>',
+        r'<a href="\1" target="_blank">\1</a>',
+        combined
+    )
+
+    # --- Reorder image-before-caption → caption-before-image ---
+    # OCR places images before their figure/table captions.  Swap so the
+    # caption (e.g. "FIGURE 4 …") sits above its image for readability.
+    combined = re.sub(
+        r'^(!\[[^\]]*\]\([^)]+\))\n+((?:FIGURE|TABLE|CHART|GRAPH)\s.+)',
+        r'\2\n\1',
+        combined,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+
+    # --- Add ## Footnotes heading before definitions ---
+    # Find the first footnote definition and insert heading before it
+    fn_heading_match = re.search(r'^(\[\^\d+\]\s*:)', combined, re.MULTILINE)
+    if fn_heading_match:
+        pos = fn_heading_match.start()
+        combined = combined[:pos].rstrip() + "\n\n## Footnotes\n\n" + combined[pos:]
 
     return combined
 

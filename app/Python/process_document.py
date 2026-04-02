@@ -22,7 +22,7 @@ ALLOWED_TAGS = [
 ]
 
 ALLOWED_ATTRS = {
-    'a': ['href', 'title', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page'],
+    'a': ['href', 'title', 'target', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],

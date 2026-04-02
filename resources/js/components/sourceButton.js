@@ -2024,9 +2024,9 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
     console.warn('Failed to load GFM tables plugin:', e);
   }
 
-  // Track hypercite counter for footnote labels
-  let hyperciteCounter = 0;
-  const hyperciteLabels = new Map(); // elementId → "hyperciteN"
+  // Unified footnote numbering: footnotes and hypercites share one sequence
+  let footnoteCounter = 0;
+  const footnoteLabels = new Map(); // elementId → number
 
   // Custom rule: footnote references
   turndownService.addRule('footnote-ref', {
@@ -2036,7 +2036,12 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
         && node.id
         && footnoteContents.has(node.id);
     },
-    replacement: (content, node) => `[^${node.id}]`
+    replacement: (content, node) => {
+      if (!footnoteLabels.has(node.id)) {
+        footnoteLabels.set(node.id, ++footnoteCounter);
+      }
+      return `[^${footnoteLabels.get(node.id)}]`;
+    }
   });
 
   // Custom rule: hypercite arrows
@@ -2048,11 +2053,10 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
         && hyperciteContents.has(node.id);
     },
     replacement: (content, node) => {
-      if (!hyperciteLabels.has(node.id)) {
-        hyperciteCounter++;
-        hyperciteLabels.set(node.id, `hypercite${hyperciteCounter}`);
+      if (!footnoteLabels.has(node.id)) {
+        footnoteLabels.set(node.id, ++footnoteCounter);
       }
-      return `[^${hyperciteLabels.get(node.id)}]`;
+      return `[^${footnoteLabels.get(node.id)}]`;
     }
   });
 
@@ -2120,10 +2124,12 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
 
   // Regular footnotes
   for (const fnId of footnoteRefIds) {
+    const num = footnoteLabels.get(fnId);
+    if (num == null) continue; // not referenced in body
     const paragraphs = footnoteContents.get(fnId) || ['(footnote)'];
     const first = paragraphs[0];
     const rest = paragraphs.slice(1);
-    let def = `[^${fnId}]: ${first}`;
+    let def = `[^${num}]: ${first}`;
     for (const p of rest) {
       def += `\n\n    ${p.split('\n').join('\n    ')}`;
     }
@@ -2131,9 +2137,10 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
   }
 
   // Hypercite footnotes
-  for (const [elementId, label] of hyperciteLabels) {
-    const citation = hyperciteContents.get(elementId) || elementId;
-    footnoteDefs.push(`[^${label}]: ${citation}`);
+  for (const [elementId, num] of footnoteLabels) {
+    if (!hyperciteContents.has(elementId)) continue; // skip regular footnotes
+    const citation = hyperciteContents.get(elementId);
+    footnoteDefs.push(`[^${num}]: ${citation}`);
   }
 
   // --- Phase 8: Build references section ---

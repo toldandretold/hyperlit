@@ -723,8 +723,9 @@ class ImportController extends Controller
                 $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
                 $uuid      = (string) Str::uuid();
                 $plainText = strip_tags($content);
+                $safeHtml  = strip_tags($content, '<a><em><strong><i><b>');
                 $nodeHtml  = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
-                           . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
+                           . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
 
                 $previewNodes = [[
                     'book'        => $subBookId,
