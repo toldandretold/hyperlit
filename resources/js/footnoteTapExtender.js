@@ -19,7 +19,7 @@ export function initFootnoteTapExtender() {
 
   function findNearestTarget(x, y) {
     // Collect all footnote/citation elements currently in the DOM
-    const selectors = 'sup[fn-count-id], a.in-text-citation, a.citation-ref';
+    const selectors = 'sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]';
     const elements = document.querySelectorAll(selectors);
 
     let best = null;
@@ -65,7 +65,7 @@ export function initFootnoteTapExtender() {
 
     // If the touch directly hit a footnote/citation element, let the existing
     // click handler in footnotesCitations.js deal with it — return null target.
-    const directHit = touch.target?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref');
+    const directHit = touch.target?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');
     if (directHit) {
       touchState = null;
       return;
@@ -111,9 +111,13 @@ export function initFootnoteTapExtender() {
     // Guard 4: Must not be actively scrolling
     if (isActivelyScrollingForLinkBlock()) return;
 
-    // All guards passed — fire the footnote/citation handler
+    // All guards passed — fire the appropriate handler
     e.preventDefault();
-    handleFootnoteOrCitationClick(state.target);
+    if (state.target.matches('a[id^="hypercite_"]')) {
+      state.target.click();
+    } else {
+      handleFootnoteOrCitationClick(state.target);
+    }
   }
 
   function onTouchCancel() {

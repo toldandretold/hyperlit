@@ -371,7 +371,8 @@ sup.open-icon {
 sup[fn-count-id],
 .footnote-ref,
 .in-text-citation,
-.citation-ref {
+.citation-ref,
+a[id^="hypercite_"] {
     /* Increase touch target size */
     position: relative;
     cursor: pointer;
@@ -402,7 +403,8 @@ sup[fn-count-id]::before,
 /* Visual feedback on touch/hover */
 sup[fn-count-id]:hover,
 .in-text-citation:hover,
-.citation-ref:hover {
+.citation-ref:hover,
+a[id^="hypercite_"]:hover {
     background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
     border-radius: 3px;
 }
@@ -410,7 +412,8 @@ sup[fn-count-id]:hover,
 /* Active state for touch feedback */
 sup[fn-count-id]:active,
 .in-text-citation:active,
-.citation-ref:active {
+.citation-ref:active,
+a[id^="hypercite_"]:active {
     background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
     transform: scale(1.05); /* Slight scale up when tapped */
 }
@@ -418,7 +421,8 @@ sup[fn-count-id]:active,
 @media (hover: none) and (pointer: coarse) {
     sup[fn-count-id]:active,
     .in-text-citation:active,
-    .citation-ref:active {
+    .citation-ref:active,
+    a[id^="hypercite_"]:active {
         transform: none;
     }
 }
