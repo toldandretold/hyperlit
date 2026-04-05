@@ -133,6 +133,49 @@ window.addEventListener("pageshow", async (event) => {
   }
 });
 
+// Proactive IDB health check when tab becomes visible again.
+// Catches iOS cases where IDB dies without bfcache (Safari can kill
+// IDB connections during background suspension without event.persisted).
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return;
+
+  // Only probe on reader pages where editing can occur
+  const pageType = document.body.getAttribute('data-page');
+  if (pageType !== 'reader') return;
+
+  try {
+    const { openDatabase } = await import('./indexedDB/core/connection.js');
+    const { reportIDBSuccess, reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor.js');
+
+    const db = await openDatabase();
+
+    // Lightweight test transaction
+    await new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction('nodes', 'readonly');
+        const store = tx.objectStore('nodes');
+        const req = store.count();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+        tx.onerror = () => reject(tx.error);
+      } catch (e) {
+        reject(e);
+      }
+    });
+
+    db.close();
+    reportIDBSuccess();
+  } catch (e) {
+    console.warn('[viewManager] IDB health probe failed on visibility change:', e);
+
+    const { reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor.js');
+    // Report twice to immediately cross the failure threshold
+    reportIDBFailure(e);
+    reportIDBFailure(e);
+    attemptRecovery();
+  }
+});
+
 export async function cleanupReaderView() {
   verbose.init('Cleaning up previous reader view', 'viewManager.js');
 

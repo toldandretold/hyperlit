@@ -16,6 +16,7 @@ import { clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 import { markCacheDirty } from '../utilities/cacheState.js';
 import { debounce } from '../utilities/debounce.js';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
+import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 
 // Re-export debounce for backwards compatibility
 export { debounce };
@@ -141,6 +142,12 @@ export class SaveQueue {
       return;
     }
 
+    // Circuit-breaker: if IDB is broken, leave items queued for retry after recovery
+    if (isIDBBroken()) {
+      console.warn('🎯 saveNodeToDatabase: IDB broken — skipping (items stay queued)');
+      return;
+    }
+
     const nodesToSave = Array.from(this.pendingSaves.nodes.values());
     console.log(`🎯 saveNodeToDatabase: processing ${nodesToSave.length} nodes`);
     this.pendingSaves.nodes.clear();
@@ -181,6 +188,7 @@ export class SaveQueue {
           }
 
           console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
+          reportIDBSuccess();
           // ✅ Mark cache dirty after successful saves
           markCacheDirty();
           // ✅ Invalidate search index so next search reflects edits
@@ -201,8 +209,17 @@ export class SaveQueue {
 
       } catch (error) {
         console.error('❌ Error in batch save:', error);
-        // Re-queue failed saves
-        nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
+        const shouldStop = reportIDBFailure(error, {
+          retryFn: () => {
+            // Re-queue and retry after recovery
+            nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
+            this.debouncedSaveNode();
+          }
+        });
+        if (!shouldStop) {
+          // Transient error — re-queue once for normal debounce retry
+          nodesToSave.forEach(node => this.pendingSaves.nodes.set(node.id, node));
+        }
       } finally {
         this.currentSavePromise = null;
       }
@@ -217,6 +234,12 @@ export class SaveQueue {
    */
   async processBatchDeletions() {
     if (this.pendingSaves.deletions.size === 0) return;
+
+    // Circuit-breaker: if IDB is broken, leave items queued for retry after recovery
+    if (isIDBBroken()) {
+      console.warn('🎯 processBatchDeletions: IDB broken — skipping (items stay queued)');
+      return;
+    }
 
     const nodeIdsToDelete = Array.from(this.pendingSaves.deletions);
 
@@ -271,19 +294,34 @@ export class SaveQueue {
         verbose.content(`Batch deleted ${nodeIds.length} nodes from book ${bookId}`, 'divEditor/saveQueue.js');
       }
 
-      // ✅ REMOVED: Legacy ensureMinimumDocumentStructure() call from old node-counting system
-      // The no-delete-id marker system prevents document from becoming empty, so this is unnecessary
+      reportIDBSuccess();
     } catch (error) {
       console.error('❌ Error in batch deletion:', error);
-      // Re-queue failed deletions
-      nodeIdsToDelete.forEach(id => this.pendingSaves.deletions.add(id));
-      // Re-populate the deletionMap with bookIds
-      nodeIdsToDelete.forEach(id => {
-        const data = deletionDataMap.get(id);
-        if (data) {
-          this.pendingSaves.deletionMap.set(id, data);
+      const shouldStop = reportIDBFailure(error, {
+        retryFn: () => {
+          // Re-queue and retry after recovery
+          nodeIdsToDelete.forEach(id => this.pendingSaves.deletions.add(id));
+          nodeIdsToDelete.forEach(id => {
+            const data = deletionDataMap.get(id);
+            if (data) {
+              if (!this.pendingSaves.deletionMap) this.pendingSaves.deletionMap = new Map();
+              this.pendingSaves.deletionMap.set(id, data);
+            }
+          });
+          this.debouncedBatchDelete();
         }
       });
+      if (!shouldStop) {
+        // Transient error — re-queue once for normal debounce retry
+        nodeIdsToDelete.forEach(id => this.pendingSaves.deletions.add(id));
+        nodeIdsToDelete.forEach(id => {
+          const data = deletionDataMap.get(id);
+          if (data) {
+            if (!this.pendingSaves.deletionMap) this.pendingSaves.deletionMap = new Map();
+            this.pendingSaves.deletionMap.set(id, data);
+          }
+        });
+      }
     } finally {
       // ✅ Clear chunk loading flags to re-enable lazy loading
       clearChunkLoadingInProgress();

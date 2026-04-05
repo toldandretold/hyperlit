@@ -6,6 +6,7 @@
 
 import { verbose } from '../utilities/logger.js';
 import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
+import { isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 
 export let isProcessing = false
 export let isComplete   = false
@@ -88,8 +89,13 @@ export function glowCloudOrange() {
   clearTimeout(safetyTimer)
   safetyTimer = setTimeout(() => {
     if (isProcessing && !isComplete) {
-      console.warn('CloudRef safety reset — stuck orange for 30s')
-      resetIndicator()
+      if (isIDBBroken()) {
+        console.warn('CloudRef safety timeout — IDB broken, showing red')
+        glowCloudRed()
+      } else {
+        console.warn('CloudRef safety reset — stuck orange for 30s')
+        resetIndicator()
+      }
     }
   }, 30000)
 
