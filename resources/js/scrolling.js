@@ -794,21 +794,22 @@ export async function restoreScrollPosition() {
           currentLazyLoader.loadChunk(loadedChunkId, "down");
         }
 
-        // If the loaded chunk is too small to fill the viewport, load adjacent chunks
+        // If the loaded chunk has fewer than 20 nodes, load the next chunk too
         if (loadedChunkId !== undefined) {
-          const allChunkIds = currentLazyLoader.chunkManifest
-            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
-            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
-          const pos = allChunkIds.indexOf(loadedChunkId);
-          const scrollable = currentLazyLoader.scrollableParent;
-          // Keep loading next chunks until content is scrollable or we run out
-          let nextPos = pos + 1;
-          while (nextPos < allChunkIds.length && scrollable.scrollHeight <= scrollable.clientHeight) {
-            const nextId = allChunkIds[nextPos];
-            const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
-            if (!hasNodes) break; // Don't attempt chunks we don't have yet
-            await currentLazyLoader.loadChunk(nextId, "down");
-            nextPos++;
+          const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
+          if (loadedNodeCount < 20) {
+            const allChunkIds = currentLazyLoader.chunkManifest
+              ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
+              : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+            const pos = allChunkIds.indexOf(loadedChunkId);
+            let nextPos = pos + 1;
+            while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
+              const nextId = allChunkIds[nextPos];
+              const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
+              if (!hasNodes) break;
+              await currentLazyLoader.loadChunk(nextId, "down");
+              nextPos++;
+            }
           }
         }
         return;

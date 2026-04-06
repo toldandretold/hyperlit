@@ -648,16 +648,21 @@ export class BookToBookTransition {
           console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
           currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
 
-          // If the loaded chunk is too small to fill the viewport, load adjacent chunks
-          const allChunkIds = currentLazyLoader.chunkManifest
-            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
-            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
-          const pos = allChunkIds.indexOf(firstChunk.chunk_id);
-          const scrollable = currentLazyLoader.scrollableParent;
-          let nextPos = pos + 1;
-          while (nextPos < allChunkIds.length && scrollable.scrollHeight <= scrollable.clientHeight) {
-            currentLazyLoader.loadChunk(allChunkIds[nextPos], "down");
-            nextPos++;
+          // If the loaded chunk has fewer than 20 nodes, load the next chunk too
+          const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
+          if (loadedNodeCount < 20) {
+            const allChunkIds = currentLazyLoader.chunkManifest
+              ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
+              : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+            const pos = allChunkIds.indexOf(firstChunk.chunk_id);
+            let nextPos = pos + 1;
+            while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
+              const nextId = allChunkIds[nextPos];
+              const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
+              if (!hasNodes) break;
+              await currentLazyLoader.loadChunk(nextId, "down");
+              nextPos++;
+            }
           }
 
           // Wait a moment for the chunks to be inserted
