@@ -208,7 +208,9 @@ Each node is a row, with its own nodeID. This is used to match each node to any 
 
 When a user navigates to hyperlit.io/book, the nodes for that book are pulled from the nodes table, along with its "library card" details from the library table, and any other related content from the hyperlights, hypercites, bibliography, or footnotes tables (relying on nodeID). 
 
-In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users' current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. (this is currently slow. I will make it faster in future, by potentially injecting first chunk of nodes into blade view so it loads instantly, and so users don't need to download a whole book before the page loads).
+In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users' current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. 
+
+The backend also checks which chunk needs to be loaded first. If there is not hypercite, hyperlight or foontote ID in the url, it checks saved scroll position for user from the user_reading_positions table. Otherwise it finds which chunk the #id is in. Then sends that chunk. This means page loads much faster. For example, only need to download one chunk of 100 nodes of the BIble before can start reading the bible. Then /resources/js/initialChunkLoader.js hanldes this on front end. Edit mode will not work until all other chunks have downloaded (happens after page load). This also makes navigation to hypercites faster... as don't need to load whole book before can see the hypercited text. 
 
 On the frontend:
 
