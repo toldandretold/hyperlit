@@ -356,6 +356,18 @@ export async function loadHyperText(bookId, progressCallback = null) {
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
+      // Dim the edit button while background download is pending — edit mode
+      // needs the full dataset, so the user shouldn't enter it yet.
+      const editBtn = document.getElementById('editButton');
+      if (editBtn) {
+        editBtn.style.opacity = '0.3';
+        editBtn.style.pointerEvents = 'none';
+        window.addEventListener('backgroundDownloadComplete', () => {
+          editBtn.style.opacity = '';
+          editBtn.style.pointerEvents = '';
+        }, { once: true });
+      }
+
       // Background download remaining chunks (Phase 3)
       setTimeout(() => {
         import('./backgroundDownloader.js').then(({ backgroundDownloadRemainingChunks }) => {

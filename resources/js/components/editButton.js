@@ -191,6 +191,14 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
     }
   }
 
+  // Wait for background download if still in progress (chunked lazy loading).
+  // Edit operations (paste, renumber, footnote insert) need the full dataset —
+  // block edit mode until all chunks are available.
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
+
   // =================================================================
   // THE SINGLE, CORRECT PERMISSION CHECK
   // =================================================================

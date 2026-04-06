@@ -1031,36 +1031,45 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     } else {
       // Use custom logic for non-numeric IDs.
       const targetLine = findLineForCustomId(targetId, lazyLoader.nodes);
-      if (targetLine === null) {
-        console.warn(
-          `No block found for target ID "${targetId}". ` +
-            `Fallback: loading default view.`
+      if (targetLine !== null) {
+        targetChunkIndex = lazyLoader.nodes.findIndex(
+          node => targetLine === node.startLine
         );
-        // Instead of silently finishing, try the fallback.
-        hideNavigationLoading();
-        fallbackScrollPosition(lazyLoader);
-        if (typeof lazyLoader.attachMarkListeners === "function") {
-          lazyLoader.attachMarkListeners(lazyLoader.container);
-        }
-        lazyLoader.isNavigatingToInternalId = false;
-        lazyLoader.pendingNavigationTarget = null;
-        // Resolve with fallback flag so callers know we didn't reach target
-        if (lazyLoader._navigationResolve) {
-          lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
-          lazyLoader._navigationResolve = null;
-          lazyLoader._navigationReject = null;
-        }
-        return;
       }
-      targetChunkIndex = lazyLoader.nodes.findIndex(
-        node => targetLine === node.startLine
-      );
+    }
+
+    // If target not found and we only have partial data, wait for background
+    // download to complete then retry with the full dataset.
+    if (targetChunkIndex === -1 && !lazyLoader.isFullyLoaded) {
+      console.log(`⏳ Target "${targetId}" not in partial data, waiting for background download...`);
+      if (progressIndicator) {
+        progressIndicator.updateProgress(35, "Waiting for full content...");
+      }
+      const { waitForBackgroundDownload } = await import('./backgroundDownloader.js');
+      await waitForBackgroundDownload();
+
+      // Retry lookup with now-complete dataset
+      if (/^\d+$/.test(targetId)) {
+        targetChunkIndex = lazyLoader.nodes.findIndex(
+          node => node.startLine.toString() === targetId
+        );
+      } else {
+        const retryLine = findLineForCustomId(targetId, lazyLoader.nodes);
+        if (retryLine !== null) {
+          targetChunkIndex = lazyLoader.nodes.findIndex(
+            node => retryLine === node.startLine
+          );
+        }
+      }
+      if (targetChunkIndex !== -1) {
+        console.log(`✅ Target "${targetId}" found after background download`);
+      }
     }
 
     if (targetChunkIndex === -1) {
       console.warn(
-        `No chunk found for target ID "${targetId}". ` +
-          "Fallback: proceeding with default content."
+        `No block found for target ID "${targetId}". ` +
+          `Fallback: loading default view.`
       );
       hideNavigationLoading();
       fallbackScrollPosition(lazyLoader);
@@ -1099,8 +1108,10 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     const targetNode = lazyLoader.nodes[targetChunkIndex];
     const targetChunkId = targetNode.chunk_id;
     
-    // Get all unique chunk_ids and sort them
-    const allChunkIds = [...new Set(lazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+    // Get all unique chunk_ids — use manifest when available (partial load)
+    const allChunkIds = lazyLoader.chunkManifest
+      ? lazyLoader.chunkManifest.map(m => m.chunk_id)
+      : [...new Set(lazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
     const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
     
     // Load target chunk plus adjacent chunks
