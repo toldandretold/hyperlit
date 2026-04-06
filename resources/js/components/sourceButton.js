@@ -1841,6 +1841,11 @@ function citationHtmlToMarkdown(html) {
  * and returns { markdown, images }.
  */
 async function buildMarkdownForBook(bookId = book || 'latest') {
+  // Ensure all chunks are available before exporting
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a, b) => a.chunk_id - b.chunk_id);
 
@@ -2174,6 +2179,10 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
 }
 
 async function buildHtmlForBook(bookId = book || 'latest') {
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a, b) => a.chunk_id - b.chunk_id);
   // assume chunk.content contains valid inner-HTML of each <div>
@@ -2192,6 +2201,10 @@ async function buildHtmlForBook(bookId = book || 'latest') {
 }
 
 async function buildDocxBuffer(bookId = book || 'latest') {
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
   const { Document, Packer, Paragraph, TextRun } = await loadDocxLib();
   const htmlToText = await loadHtmlToText();
   const chunks = await getNodeChunksFromIndexedDB(bookId);
@@ -2591,6 +2604,10 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
 
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId = book || 'latest') {
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
   const docxLib = await loadDocxLib();
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, LevelFormat, AlignmentType } = docxLib;
   const chunks = await getNodeChunksFromIndexedDB(bookId);

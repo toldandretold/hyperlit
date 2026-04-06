@@ -119,7 +119,7 @@ function throttle(fn, delay) {
  * @param {HTMLElement} chunkElement - The chunk element that was just loaded
  * @param {Array} allNodesInBook - All nodes for this book from IndexedDB
  */
-async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
+async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook, isFullyLoaded = true) {
   try {
     // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
     const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities.js');
@@ -140,6 +140,12 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
     if (hasMarkerInDB) {
       verbose.content('no-delete-id marker exists in IndexedDB (not yet loaded)', 'lazyLoaderFactory.js');
       return; // Exists in DB, will appear when that chunk loads
+    }
+
+    // Skip marker creation when not fully loaded — marker may exist in an unloaded chunk
+    if (!isFullyLoaded) {
+      verbose.content('Skipping no-delete-id marker check (partial load)', 'lazyLoaderFactory.js');
+      return;
     }
 
     // Step 3: No marker anywhere - add to first node in this chunk
@@ -175,6 +181,7 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
 export function createLazyLoader(config) {
   const {
     nodes,
+    chunkManifest = null,
     loadNextChunk,
     loadPreviousChunk,
     attachMarkListeners: attachMarkers,
@@ -240,6 +247,8 @@ export function createLazyLoader(config) {
     scrollSaveCooldown: false, // NEW: Cooldown period after navigation
     refreshInProgress: false, // NEW: Prevents unlock during refresh
     lastViewportWidth: null, // Track viewport width for smart resize handling
+    chunkManifest: chunkManifest || null, // Chunked lazy loading: manifest of all chunks
+    isFullyLoaded: !chunkManifest,        // false when only initial chunk is loaded
   };
 
   // Set up user scroll detection to prevent restoration interference
@@ -437,6 +446,13 @@ export function createLazyLoader(config) {
         if (existingData !== stringifiedData) {
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
+
+          // Save to server (debounced) for cross-device resume
+          const chunkEl = topVisible.closest('[data-chunk-id]');
+          const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id'), 10) : 0;
+          import('./readingPosition.js').then(({ debouncedServerSave }) => {
+            debouncedServerSave(instance.bookId, detectedId, chunkId);
+          }).catch(() => {}); // Best-effort
         }
       }
     }
@@ -462,6 +478,26 @@ export function createLazyLoader(config) {
   } else {
     instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250), { passive: true });
   }
+
+  // Save reading position to server on page unload (cross-device resume)
+  window.addEventListener('beforeunload', () => {
+    const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+    const storedData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    if (storedData) {
+      try {
+        const scrollData = JSON.parse(storedData);
+        if (scrollData?.elementId) {
+          // Find chunk_id from DOM
+          const el = document.getElementById(scrollData.elementId);
+          const chunkEl = el?.closest('[data-chunk-id]');
+          const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id'), 10) : 0;
+          import('./readingPosition.js').then(({ sendBeaconSave }) => {
+            sendBeaconSave(instance.bookId, scrollData.elementId, chunkId);
+          }).catch(() => {});
+        }
+      } catch (e) { /* best-effort */ }
+    }
+  });
 
   instance.restoreScrollPositionAfterResize = async () => {
     // Check if user is currently scrolling
@@ -874,7 +910,9 @@ export function createLazyLoader(config) {
       instance.observer.observe(instance.bottomSentinel);
 
       // 6. ✅ Determine which chunks to load (target + adjacent)
-      const allChunkIds = [...new Set(instance.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+      const allChunkIds = instance.chunkManifest
+        ? instance.chunkManifest.map(m => m.chunk_id)
+        : [...new Set(instance.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
       let targetChunkId = allChunkIds.length > 0 ? allChunkIds[0] : null;
 
       if (targetElementId) {
@@ -1656,11 +1694,18 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
   let nextChunkId = null;
   let nextNodes = [];
 
-  for (const node of instance.nodes) {
-    const nodeChunkId = parseFloat(node.chunk_id);
-
-    if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
-      nextChunkId = nodeChunkId;
+  // Use chunk manifest for discovery when available (chunked lazy loading)
+  if (instance.chunkManifest) {
+    const idx = instance.chunkManifest.findIndex(m => m.chunk_id === currentId);
+    nextChunkId = (idx >= 0 && idx < instance.chunkManifest.length - 1)
+      ? instance.chunkManifest[idx + 1].chunk_id : null;
+  } else {
+    // Fallback: scan all nodes (when fully loaded)
+    for (const node of instance.nodes) {
+      const nodeChunkId = parseFloat(node.chunk_id);
+      if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
+        nextChunkId = nodeChunkId;
+      }
     }
   }
 
@@ -1672,6 +1717,20 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
     }
 
     nextNodes = instance.nodes.filter(node => parseFloat(node.chunk_id) === nextChunkId);
+
+    // Server fallback: chunk not yet downloaded
+    if (nextNodes.length === 0 && !instance.isFullyLoaded) {
+      try {
+        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB } = await import('./chunkFetcher.js');
+        nextNodes = await fetchSingleChunkFromServer(instance.bookId, nextChunkId);
+        if (nextNodes.length > 0) {
+          await storeSingleChunkToIndexedDB(nextNodes);
+          instance.nodes.push(...nextNodes);
+        }
+      } catch (err) {
+        console.error('Server fallback for next chunk failed:', err);
+      }
+    }
 
     if (nextNodes.length === 0) {
       return;
@@ -1687,7 +1746,7 @@ export async function loadNextChunkFixed(currentLastChunkId, instance) {
       instance.currentlyLoadedChunks.add(nextChunkId);
 
       // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
-      ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
+      ensureNoDeleteMarkerForBook(chunkElement, instance.nodes, instance.isFullyLoaded).catch(err =>
         console.error('Failed to ensure no-delete-id marker:', err)
       );
 
@@ -1725,11 +1784,18 @@ export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   let prevChunkId = null;
   let prevNodes = [];
 
-  for (const node of instance.nodes) {
-    const nodeChunkId = parseFloat(node.chunk_id);
-
-    if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
-      prevChunkId = nodeChunkId;
+  // Use chunk manifest for discovery when available (chunked lazy loading)
+  if (instance.chunkManifest) {
+    const idx = instance.chunkManifest.findIndex(m => m.chunk_id === currentId);
+    prevChunkId = (idx >= 0 && idx > 0)
+      ? instance.chunkManifest[idx - 1].chunk_id : null;
+  } else {
+    // Fallback: scan all nodes (when fully loaded)
+    for (const node of instance.nodes) {
+      const nodeChunkId = parseFloat(node.chunk_id);
+      if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
+        prevChunkId = nodeChunkId;
+      }
     }
   }
 
@@ -1739,6 +1805,20 @@ export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     }
 
     prevNodes = instance.nodes.filter(node => parseFloat(node.chunk_id) === prevChunkId);
+
+    // Server fallback: chunk not yet downloaded
+    if (prevNodes.length === 0 && !instance.isFullyLoaded) {
+      try {
+        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB } = await import('./chunkFetcher.js');
+        prevNodes = await fetchSingleChunkFromServer(instance.bookId, prevChunkId);
+        if (prevNodes.length > 0) {
+          await storeSingleChunkToIndexedDB(prevNodes);
+          instance.nodes.push(...prevNodes);
+        }
+      } catch (err) {
+        console.error('Server fallback for previous chunk failed:', err);
+      }
+    }
 
     if (prevNodes.length === 0) {
       return;

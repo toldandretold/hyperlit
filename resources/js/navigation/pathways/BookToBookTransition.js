@@ -96,6 +96,10 @@ export class BookToBookTransition {
         
         progress(60, 'Initializing reader...');
 
+        // Set pending navigation target so fetchInitialChunk can load the correct chunk
+        const navigationTarget = hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null;
+        window._pendingChunkTarget = navigationTarget;
+
         // Initialize the new reader view
         // Pass hash navigation flag to prevent scroll position interference
         const hasHashNavigation = !!(hash || hyperlightId || hyperciteId || footnoteId);
@@ -110,9 +114,14 @@ export class BookToBookTransition {
         });
         
         progress(78, 'Loading initial content...');
-        
-        // Manually trigger first chunk load to ensure content appears
-        await this.ensureInitialContentLoaded(toBook);
+
+        // When hash navigation is pending, skip loading chunk 0 —
+        // handleHashNavigation will load the correct chunk directly via
+        // findLineForCustomId → loadChunk. Loading chunk 0 first is wasted
+        // work since _navigateToInternalId clears the container anyway.
+        if (!hasHashNavigation) {
+          await this.ensureInitialContentLoaded(toBook);
+        }
         
         progress(80, 'Finalizing navigation...');
 
@@ -342,8 +351,12 @@ export class BookToBookTransition {
     });
 
     try {
-      // Wait for content to be fully loaded
-      if (pendingFirstChunkLoadedPromise) {
+      // Wait for content to be fully loaded — but only if a chunk was pre-loaded
+      // by ensureInitialContentLoaded. When hash navigation is pending we skipped
+      // that step (no point loading chunk 0 just to discard it), so the promise
+      // won't resolve until _navigateToInternalId loads the correct chunk itself.
+      const hasPreloadedChunk = !!document.querySelector(`#${CSS.escape(bookId)} [data-chunk-id]`);
+      if (pendingFirstChunkLoadedPromise && hasPreloadedChunk) {
         console.log('⏳ BookToBookTransition: Waiting for content to load before navigation');
         await pendingFirstChunkLoadedPromise;
         console.log('✅ BookToBookTransition: Content loaded, proceeding with navigation');
@@ -627,9 +640,10 @@ export class BookToBookTransition {
         return;
       }
       
-      // Find the first chunk to load
+      // Find the first chunk to load — prefer chunk 0, but during chunked lazy loading
+      // the initial chunk may be a different one (e.g. the chunk containing a navigation target)
       if (window.nodes && window.nodes.length > 0) {
-        const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
+        const firstChunk = window.nodes[0];
         if (firstChunk) {
           console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
           currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");

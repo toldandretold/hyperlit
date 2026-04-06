@@ -629,6 +629,13 @@ class SearchToolbarManager {
 // Search toolbar manager instance (singleton)
 let searchToolbarManager = null;
 
+// Invalidate search index when background download completes (chunked lazy loading)
+window.addEventListener('backgroundDownloadComplete', () => {
+  if (searchToolbarManager) {
+    searchToolbarManager.searchIndexCache = null;
+  }
+});
+
 /**
  * Initialize the search toolbar manager
  */

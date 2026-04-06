@@ -17,7 +17,8 @@ import {
   updateHistoryLog,
   executeSyncPayload,
   saveAllFootnotesToIndexedDB,
-  saveAllReferencesToIndexedDB
+  saveAllReferencesToIndexedDB,
+  getLocalStorageKey,
 } from "./indexedDB/index.js";
 
 import {
@@ -27,6 +28,7 @@ import {
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./postgreSQL.js";
+import { fetchInitialChunk } from "./initialChunkLoader.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 import { checkForDuplicateTabs, registerBookOpen } from "./utilities/BroadcastListener.js";
 
@@ -285,6 +287,10 @@ export async function loadHyperText(bookId, progressCallback = null) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
 
+      // Clear any pending SPA navigation target — it was set for fetchInitialChunk
+      // which we're skipping (cache hit). Without this it leaks to the next navigation.
+      window._pendingChunkTarget = null;
+
       // Migrate old-format footnotes if needed (display numbers → footnote IDs)
       if (hasOldFormatFootnotes(cached)) {
         await migrateOldFormatFootnotes(currentBook, cached);
@@ -321,49 +327,93 @@ export async function loadHyperText(bookId, progressCallback = null) {
       return;
     }
 
-    // 2. Try Database Sync
+    // 2. Try chunked initial load (fast: fetches only one chunk first)
     updatePageLoadProgress(20, "Connecting to database...");
-    const dbResult = await syncBookDataFromDatabase(currentBook);
-    if (dbResult && dbResult.success) {
-      updatePageLoadProgress(50, "Loading from database...");
-      const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
-      if (dbChunks && dbChunks.length) {
-        verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL`, 'initializePage.js');
+    const initialResult = await fetchInitialChunk(currentBook);
+    if (initialResult?.success) {
+      updatePageLoadProgress(50, "Loading initial content...");
+      verbose.content(
+        `Initial chunk loaded: ${initialResult.nodes.length} nodes (chunk ${initialResult.targetChunkId})`,
+        'initializePage.js'
+      );
 
-        // Migrate old-format footnotes if needed (display numbers → footnote IDs)
-        if (hasOldFormatFootnotes(dbChunks)) {
-          await migrateOldFormatFootnotes(currentBook, dbChunks);
-          // Save migrated nodes back to IndexedDB (lazy migration)
-          await saveAllNodeChunksToIndexedDB(dbChunks, currentBook);
+      window.nodes = initialResult.nodes;
+      window.chunkManifest = initialResult.chunkManifest;
+
+      // Seed sessionStorage with server bookmark so restoreScrollPosition finds it.
+      // On a fresh device/browser there's no localStorage — the server bookmark is
+      // the only source of truth for where to resume. Without this, scroll restoration
+      // defaults to chunk 0 which may not be in the initial download.
+      if (initialResult.bookmark?.element_id && !openHyperlightID && !openFootnoteID) {
+        const storageKey = getLocalStorageKey("scrollPosition", currentBook);
+        const scrollData = JSON.stringify({ elementId: initialResult.bookmark.element_id });
+        sessionStorage.setItem(storageKey, scrollData);
+      }
+
+      // Build footnote numbering map for dynamic renumbering
+      buildFootnoteMap(currentBook, initialResult.nodes);
+
+      updatePageLoadProgress(90, "Initializing interface...");
+      initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+
+      // Dim the edit button while background download is pending — edit mode
+      // needs the full dataset, so the user shouldn't enter it yet.
+      const editBtn = document.getElementById('editButton');
+      if (editBtn) {
+        editBtn.style.opacity = '0.3';
+        editBtn.style.pointerEvents = 'none';
+        window.addEventListener('backgroundDownloadComplete', () => {
+          editBtn.style.opacity = '';
+          editBtn.style.pointerEvents = '';
+        }, { once: true });
+      }
+
+      // Background download remaining chunks (Phase 3)
+      setTimeout(() => {
+        import('./backgroundDownloader.js').then(({ backgroundDownloadRemainingChunks }) => {
+          backgroundDownloadRemainingChunks(currentBook, currentLazyLoader);
+        }).catch(err => {
+          console.warn('Background download module not available, falling back:', err);
+        });
+      }, 100);
+
+      return;
+    }
+
+    // 2b. Fall back to full sync if initial chunk failed with a retryable error
+    if (initialResult && initialResult.reason === 'sync_error') {
+      verbose.content('Initial chunk failed, trying full sync fallback...', 'initializePage.js');
+      const dbResult = await syncBookDataFromDatabase(currentBook);
+      if (dbResult && dbResult.success) {
+        updatePageLoadProgress(50, "Loading from database...");
+        const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
+        if (dbChunks && dbChunks.length) {
+          verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL (full sync fallback)`, 'initializePage.js');
+
+          if (hasOldFormatFootnotes(dbChunks)) {
+            await migrateOldFormatFootnotes(currentBook, dbChunks);
+            await saveAllNodeChunksToIndexedDB(dbChunks, currentBook);
+          }
+
+          window.nodes = dbChunks;
+          buildFootnoteMap(currentBook, dbChunks);
+
+          updatePageLoadProgress(90, "Initializing interface...");
+          initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+          return;
         }
+      }
 
-        window.nodes = dbChunks;
-
-        // Build footnote numbering map for dynamic renumbering
-        buildFootnoteMap(currentBook, dbChunks);
-
-        updatePageLoadProgress(90, "Initializing interface...");
-        initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
-
-        // Note: Interactive features initialization handled by viewManager.js
-
-        return;
+      if (dbResult && dbResult.reason === 'sync_error') {
+        log.error(`Database sync failed for ${currentBook}`, 'initializePage.js', dbResult.error);
+        updatePageLoadProgress(0, "Database connection failed");
+        alert(`Cannot load book: Database connection failed.\n\nError: ${dbResult.error}\n\nPlease check your internet connection and try again.`);
+        throw new Error(`Database sync failed: ${dbResult.error}`);
       }
     }
 
-    // ✅ CRITICAL FIX: Only use file fallbacks if database says "book not found" (404)
-    // Do NOT use fallbacks on network/server errors to prevent data loss
-    if (dbResult && dbResult.reason === 'sync_error') {
-      log.error(`Database sync failed for ${currentBook}`, 'initializePage.js', dbResult.error);
-      updatePageLoadProgress(0, "Database connection failed");
-      alert(`Cannot load book: Database connection failed.\n\nError: ${dbResult.error}\n\nPlease check your internet connection and try again.`);
-      throw new Error(`Database sync failed: ${dbResult.error}`);
-    }
-
     // 3. Book not found in database - show error
-    // NOTE: File-based fallbacks (JSON and markdown) removed to prevent loading stale data.
-    // During import, ImportBookTransition.js loads fresh JSON files directly.
-    if (!dbResult || dbResult.reason === 'book_not_found') {
+    if (!initialResult || initialResult.reason === 'book_not_found') {
       log.error(`Book "${currentBook}" not found in database`, 'initializePage.js');
       updatePageLoadProgress(0, "Book not found");
       throw new Error(`Book "${currentBook}" not found. It may not have been imported yet.`);
@@ -520,6 +570,7 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
 
     currentLazyLoader = createLazyLoader({
       nodes: window.nodes,
+      chunkManifest: window.chunkManifest || null,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
@@ -883,6 +934,12 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
   // Skip server timestamp check when offline - use cached data
   if (!navigator.onLine) {
     console.log(`📡 Offline: skipping server check for ${bookId}`);
+    return;
+  }
+
+  // Skip if background download is in progress (it will bring fresh data)
+  if (window._backgroundDownloadInProgress) {
+    console.log(`⏳ Background download in progress, skipping timestamp check for ${bookId}`);
     return;
   }
 
