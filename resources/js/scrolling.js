@@ -593,7 +593,10 @@ export async function restoreScrollPosition() {
     }
   }
 
-  if (wrapper && wrapper.scrollHeight <= wrapper.clientHeight && !window.location.hash) {
+  // Only bail early if actual content is loaded but doesn't overflow.
+  // When no chunks are in the DOM yet we still need to proceed to load them.
+  const hasChunksInDom = wrapper && wrapper.querySelectorAll('[data-chunk-id]').length > 0;
+  if (hasChunksInDom && wrapper.scrollHeight <= wrapper.clientHeight && !window.location.hash) {
     console.log('🔍 SCROLL DEBUG: EARLY EXIT - content doesnt overflow and no hash target');
     return;
   }
@@ -801,7 +804,10 @@ export async function restoreScrollPosition() {
           // Keep loading next chunks until content is scrollable or we run out
           let nextPos = pos + 1;
           while (nextPos < allChunkIds.length && scrollable.scrollHeight <= scrollable.clientHeight) {
-            currentLazyLoader.loadChunk(allChunkIds[nextPos], "down");
+            const nextId = allChunkIds[nextPos];
+            const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
+            if (!hasNodes) break; // Don't attempt chunks we don't have yet
+            await currentLazyLoader.loadChunk(nextId, "down");
             nextPos++;
           }
         }
