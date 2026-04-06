@@ -859,6 +859,26 @@ class DatabaseToIndexedDBController extends Controller
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
             $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $visibleHyperlightIds);
 
+            // If the target chunk is too small to fill a viewport, include adjacent chunks
+            // so the user has enough content to scroll
+            $minNodes = 20;
+            if (count($initialNodes) < $minNodes && count($chunkManifest) > 1) {
+                $chunkIds = array_column($chunkManifest, 'chunk_id');
+                $targetPos = array_search($targetChunkId, $chunkIds);
+
+                // Try next chunk first, then previous
+                if ($targetPos !== false && $targetPos < count($chunkIds) - 1) {
+                    $nextChunkId = $chunkIds[$targetPos + 1];
+                    $nextNodes = $this->getNodeChunksForChunk($bookId, $nextChunkId, $visibleHyperlightIds);
+                    $initialNodes = array_merge($initialNodes, $nextNodes);
+                }
+                if (count($initialNodes) < $minNodes && $targetPos !== false && $targetPos > 0) {
+                    $prevChunkId = $chunkIds[$targetPos - 1];
+                    $prevNodes = $this->getNodeChunksForChunk($bookId, $prevChunkId, $visibleHyperlightIds);
+                    $initialNodes = array_merge($prevNodes, $initialNodes);
+                }
+            }
+
             // Get footnotes + library (small, needed immediately)
             $footnotes = $this->getFootnotes($bookId);
             $library = $this->getLibrary($bookId);
