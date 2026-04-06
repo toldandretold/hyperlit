@@ -106,18 +106,22 @@ function handleBrokenImages(container) {
   if (images.length === 0) return;
 
   images.forEach(img => {
+    // PROACTIVE: Set aspect-ratio immediately to prevent Safari collapse on 404.
+    // CSS spec: height:auto uses aspect-ratio as fallback when the image has no
+    // intrinsic ratio (broken). This reserves space before the error event fires.
+    const w = img.getAttribute('width');
+    const h = img.getAttribute('height');
+    if (w && h) {
+      img.style.aspectRatio = `${w} / ${h}`;
+    }
+
     img.addEventListener('error', () => {
       // Already handled
       if (img.classList.contains('broken-image')) return;
 
       img.classList.add('broken-image');
 
-      // Preserve aspect ratio from width/height attributes to prevent layout shift
-      const w = img.getAttribute('width');
-      const h = img.getAttribute('height');
-      if (w && h) {
-        img.style.aspectRatio = `${w} / ${h}`;
-      } else {
+      if (!w || !h) {
         img.style.minHeight = '200px';
       }
       img.style.width = '100%';

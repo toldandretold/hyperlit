@@ -70,10 +70,7 @@
   background: #f5f5f5;
   border: 2px dashed #ccc;
   border-radius: 4px;
-  margin: 1em 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   overflow: hidden;
 }
 

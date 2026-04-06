@@ -299,6 +299,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       }
 
       window.nodes = cached;
+      window.chunkManifest = null; // Clear stale manifest — full dataset from cache, no manifest needed
 
       // Hydrate nodes with highlights/hypercites from standalone stores
       // Editor saves may have cleared embedded arrays — rebuild from source of truth
