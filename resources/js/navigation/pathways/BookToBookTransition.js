@@ -19,7 +19,7 @@ import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index.js';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
-import { navigateToInternalId } from '../../scrolling.js';
+import { navigateToInternalId, resetUserScrollState } from '../../scrolling.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -75,6 +75,7 @@ export class BookToBookTransition {
         if (currentLazyLoader?.forceSaveScrollPosition) {
           currentLazyLoader.forceSaveScrollPosition();
         }
+        resetUserScrollState(); // Clear stale scroll state from old book
 
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
@@ -643,35 +644,52 @@ export class BookToBookTransition {
       // Find the first chunk to load — prefer chunk 0, but during chunked lazy loading
       // the initial chunk may be a different one (e.g. the chunk containing a navigation target)
       if (window.nodes && window.nodes.length > 0) {
-        const firstChunk = window.nodes[0];
-        if (firstChunk) {
-          console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
-          await currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+        let targetChunkId = window.nodes[0].chunk_id;
 
-          // If the loaded chunk has fewer than 20 nodes, load the next chunk too
-          const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
-          if (loadedNodeCount < 20) {
-            const allChunkIds = currentLazyLoader.chunkManifest
-              ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
-              : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
-            const pos = allChunkIds.indexOf(firstChunk.chunk_id);
-            let nextPos = pos + 1;
-            while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
-              const nextId = allChunkIds[nextPos];
-              const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
-              if (!hasNodes) break;
-              await currentLazyLoader.loadChunk(nextId, "down");
-              nextPos++;
+        // Check for saved scroll position to resume at correct chunk
+        try {
+          const scrollKey = `scrollPosition_${bookId}`;
+          const scrollData = sessionStorage.getItem(scrollKey) || localStorage.getItem(scrollKey);
+          if (scrollData) {
+            const parsed = JSON.parse(scrollData);
+            if (parsed?.elementId) {
+              const matchingNode = window.nodes.find(
+                n => String(n.startLine) === String(parsed.elementId)
+              );
+              if (matchingNode) {
+                targetChunkId = matchingNode.chunk_id;
+                console.log(`📄 Resuming at chunk ${targetChunkId} (saved position: ${parsed.elementId})`);
+              }
             }
           }
+        } catch (e) { /* fall back to first chunk */ }
 
-          // Verify content was loaded
-          const loadedChunks = container.querySelectorAll('[data-chunk-id]');
-          if (loadedChunks.length > 0) {
-            console.log(`✅ Initial content loaded successfully: ${loadedChunks.length} chunks`);
-          } else {
-            console.warn(`❌ Initial content load may have failed`);
+        console.log(`📄 Manually loading chunk ${targetChunkId} for ${bookId}`);
+        await currentLazyLoader.loadChunk(targetChunkId, "down");
+
+        // If the loaded chunk has fewer than 20 nodes, load the next chunk too
+        const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
+        if (loadedNodeCount < 20) {
+          const allChunkIds = currentLazyLoader.chunkManifest
+            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
+            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+          const pos = allChunkIds.indexOf(targetChunkId);
+          let nextPos = pos + 1;
+          while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
+            const nextId = allChunkIds[nextPos];
+            const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
+            if (!hasNodes) break;
+            await currentLazyLoader.loadChunk(nextId, "down");
+            nextPos++;
           }
+        }
+
+        // Verify content was loaded
+        const loadedChunks = container.querySelectorAll('[data-chunk-id]');
+        if (loadedChunks.length > 0) {
+          console.log(`✅ Initial content loaded successfully: ${loadedChunks.length} chunks`);
+        } else {
+          console.warn(`❌ Initial content load may have failed`);
         }
       }
       

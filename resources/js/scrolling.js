@@ -292,6 +292,19 @@ export function setNavigatingState(isNavigating) {
   userScrollState.isNavigating = isNavigating;
 }
 
+// Clear all stale scroll tracking from the previous book
+export function resetUserScrollState() {
+  userScrollState.isScrolling = false;
+  userScrollState.lastUserScrollTime = 0;
+  userScrollState.isNavigating = false;
+  if (userScrollState.scrollTimeout) {
+    clearTimeout(userScrollState.scrollTimeout);
+    userScrollState.scrollTimeout = null;
+  }
+  userScrollState.touchStartY = null;
+  userScrollState.touchStartX = null;
+}
+
 // Set up user scroll detection for a container
 export function setupUserScrollDetection(scrollableContainer) {
   if (!scrollableContainer) {
