@@ -6,6 +6,7 @@ import {
     loadHypercitesToIndexedDB,
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
+import { buildFootnoteMap, updateFootnoteNumbersInDOM } from './footnotes/FootnoteNumberingService.js';
 
 /**
  * After the first chunk is rendered, download ALL remaining book data
@@ -61,6 +62,12 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
         // Update window.nodes for other consumers
         if (data.nodes?.length) {
             window.nodes = data.nodes;
+
+            // Rebuild footnote map with FULL dataset (initial chunk only had ~100 nodes)
+            buildFootnoteMap(bookId, data.nodes);
+            // Fix corrupted fn-count-id on already-rendered DOM sups
+            // (PG heals naturally when user edits a node — the save path reads corrected DOM)
+            updateFootnoteNumbersInDOM();
         }
 
         verbose.content(

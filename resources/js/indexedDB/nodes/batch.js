@@ -814,20 +814,22 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         // Skip if caller handles renumbering (e.g., footnoteInserter.js)
         if (!options.skipFootnoteRenumber) {
           // Compare before/after to detect both additions AND deletions
+          const normalizeFootnoteIds = (arr) =>
+            (arr || []).map(f => typeof f === 'string' ? f : f?.id).filter(Boolean).sort();
           const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node => {
             const originalNode = originalNodeChunkStates.get(node.startLine);
-            const oldFootnotes = originalNode?.footnotes || [];
-            const newFootnotes = node.footnotes || [];
-            // Trigger if footnote count changed (added or deleted)
-            const changed = oldFootnotes.length !== newFootnotes.length ||
-                   JSON.stringify(oldFootnotes.sort()) !== JSON.stringify(newFootnotes.sort());
+            const oldIds = normalizeFootnoteIds(originalNode?.footnotes);
+            const newIds = normalizeFootnoteIds(node.footnotes);
+            // Trigger if footnote count changed (added or deleted) — ID-only comparison ignores format differences
+            const changed = oldIds.length !== newIds.length ||
+                   JSON.stringify(oldIds) !== JSON.stringify(newIds);
             if (changed) {
-              console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldFootnotes.length} → ${newFootnotes.length}`);
+              console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldIds.length} → ${newIds.length}`);
             }
             return changed;
           });
 
-          if (nodesWithFootnoteChanges.length > 0 || affectedDataNodeIDs.length > 0) {
+          if (nodesWithFootnoteChanges.length > 0) {
             console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
             try {
               const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');

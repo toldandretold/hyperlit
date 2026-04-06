@@ -34,8 +34,10 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
       buildFootnoteMap(parentBookId, nodes);
     }
 
-    // Use dynamic display number from FootnoteNumberingService, fallback to fnCountId
+    // Use dynamic display number from FootnoteNumberingService
+    // Prefer fnTextContent (never corrupted by client) over fnCountId (potentially corrupted)
     const displayNumber = getDisplayNumber(footnoteId)
+      || (contentType.fnTextContent && contentType.fnTextContent !== '?' ? contentType.fnTextContent : null)
       || (fnCountId && fnCountId !== '?' ? fnCountId : null)
       || '?';
 

@@ -323,7 +323,7 @@ async function persistRenumberedNodes(bookId, affectedStartLines) {
       id: startLine
     }));
 
-    await batchUpdateIndexedDBRecords(recordsToUpdate, { bookId });
+    await batchUpdateIndexedDBRecords(recordsToUpdate, { bookId, skipFootnoteRenumber: true });
 
     verbose.content(`Persisted ${recordsToUpdate.length} renumbered nodes via batch update`, 'FootnoteNumberingService.js');
   } catch (error) {

@@ -70,6 +70,7 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: element,
       fnCountId: element.getAttribute('fn-count-id'),
+      fnTextContent: element.textContent?.trim(),
       footnoteId: footnoteId,
       parentBookId: element.closest('[data-book-id]')?.dataset?.bookId || null
     };
@@ -85,6 +86,7 @@ export function detectFootnote(element) {
         type: 'footnote',
         element: supElement,
         fnCountId: supElement.getAttribute('fn-count-id'),
+        fnTextContent: supElement.textContent?.trim(),
         footnoteId: footnoteId,
         parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
       };
@@ -100,6 +102,7 @@ export function detectFootnote(element) {
       type: 'footnote',
       element: supElement,
       fnCountId: supElement.getAttribute('fn-count-id'),
+      fnTextContent: supElement.textContent?.trim(),
       footnoteId: footnoteId,
       parentBookId: supElement.closest('[data-book-id]')?.dataset?.bookId || null
     };
