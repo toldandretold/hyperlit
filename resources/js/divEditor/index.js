@@ -267,14 +267,45 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // Create named function so we can remove it later
   videoDeleteHandler = (e) => {
-    const deleteBtn = e.target.closest('[data-action="delete-video"]');
+    const deleteBtn = e.target.closest('[data-action="delete-video"], [data-action="delete-broken-image"]');
     if (!deleteBtn) return; // Early exit for performance
 
     e.preventDefault();
     e.stopPropagation();
 
-    const videoEmbed = deleteBtn.closest('.video-embed');
-    if (videoEmbed && videoEmbed.id) {
+    const isImage = deleteBtn.dataset.action === 'delete-broken-image';
+
+    if (isImage) {
+      // Broken image: wrapper sits INSIDE a node element — remove just the wrapper
+      const wrapper = deleteBtn.closest('.broken-image-wrapper');
+      if (!wrapper) return;
+
+      const nodeEl = wrapper.closest('[data-node-id]');
+      console.log(`🗑️ Deleting broken image in node: ${nodeEl?.id}`);
+
+      wrapper.remove();
+
+      // If the node is now empty, give it a <br> so it stays editable
+      if (nodeEl && nodeEl.textContent.trim() === '' && !nodeEl.querySelector('img, iframe, video')) {
+        nodeEl.innerHTML = '<br>';
+      }
+
+      // Place cursor in the parent node
+      if (nodeEl) {
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.selectNodeContents(nodeEl);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      console.log(`✅ Broken image removed`);
+    } else {
+      // Video embed: the .video-embed IS the node element
+      const videoEmbed = deleteBtn.closest('.video-embed');
+      if (!videoEmbed || !videoEmbed.id) return;
+
       console.log(`🗑️ Deleting video embed: ${videoEmbed.id}`);
 
         // Check for adjacent content to focus cursor

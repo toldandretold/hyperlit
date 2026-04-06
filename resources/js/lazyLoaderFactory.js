@@ -96,6 +96,57 @@ export function renderMathElements(container) {
   });
 }
 
+/**
+ * Attach error handlers to images in a chunk element.
+ * On 404/error, preserves the image's aspect ratio (preventing layout shift)
+ * and shows a broken-image placeholder with a delete button for edit mode.
+ */
+function handleBrokenImages(container) {
+  const images = container.querySelectorAll('img');
+  if (images.length === 0) return;
+
+  images.forEach(img => {
+    img.addEventListener('error', () => {
+      // Already handled
+      if (img.classList.contains('broken-image')) return;
+
+      img.classList.add('broken-image');
+
+      // Preserve aspect ratio from width/height attributes to prevent layout shift
+      const w = img.getAttribute('width');
+      const h = img.getAttribute('height');
+      if (w && h) {
+        img.style.aspectRatio = `${w} / ${h}`;
+      } else {
+        img.style.minHeight = '200px';
+      }
+      img.style.width = '100%';
+
+      img.alt = 'Image failed to load';
+
+      // Wrap in a container with contenteditable="false" to prevent mutation tracking
+      const picture = img.closest('picture') || img;
+      const parent = picture.parentNode;
+      if (!parent) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'broken-image-wrapper';
+      wrapper.setAttribute('contenteditable', 'false');
+
+      // Create delete button (mirrors video delete btn)
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'broken-image-delete-btn';
+      deleteBtn.setAttribute('data-action', 'delete-broken-image');
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Delete broken image';
+
+      parent.insertBefore(wrapper, picture);
+      wrapper.appendChild(picture);
+      wrapper.appendChild(deleteBtn);
+    }, { once: true });
+  });
+}
+
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
   let timer = null;
@@ -1114,6 +1165,7 @@ export function createChunkElement(nodes, instance) {
     // 📐 MATH RENDERING: Render LaTeX math via KaTeX
     renderMathElements(temp);
     renderCharts(temp);
+    handleBrokenImages(temp);
 
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;
