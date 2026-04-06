@@ -1896,7 +1896,13 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   if (direction === "up") {
     instance.container.insertBefore(chunkElement, instance.container.firstChild);
   } else {
-    instance.container.appendChild(chunkElement);
+    // Insert before the bottom sentinel so chunks stay above it
+    const bottomSentinel = instance.bottomSentinel;
+    if (bottomSentinel && bottomSentinel.parentNode === instance.container) {
+      instance.container.insertBefore(chunkElement, bottomSentinel);
+    } else {
+      instance.container.appendChild(chunkElement);
+    }
   }
 
   instance.currentlyLoadedChunks.add(chunkId);
