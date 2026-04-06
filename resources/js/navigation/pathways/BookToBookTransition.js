@@ -647,11 +647,23 @@ export class BookToBookTransition {
         if (firstChunk) {
           console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
           currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
-          
-          // Wait a moment for the chunk to be inserted
+
+          // If the loaded chunk is too small to fill the viewport, load adjacent chunks
+          const allChunkIds = currentLazyLoader.chunkManifest
+            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
+            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+          const pos = allChunkIds.indexOf(firstChunk.chunk_id);
+          const scrollable = currentLazyLoader.scrollableParent;
+          let nextPos = pos + 1;
+          while (nextPos < allChunkIds.length && scrollable.scrollHeight <= scrollable.clientHeight) {
+            currentLazyLoader.loadChunk(allChunkIds[nextPos], "down");
+            nextPos++;
+          }
+
+          // Wait a moment for the chunks to be inserted
           await new Promise(resolve => setTimeout(resolve, 200));
-          
-          // Verify it was loaded
+
+          // Verify content was loaded
           const loadedChunks = container.querySelectorAll('[data-chunk-id]');
           if (loadedChunks.length > 0) {
             console.log(`✅ Initial content loaded successfully: ${loadedChunks.length} chunks`);

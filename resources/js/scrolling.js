@@ -780,13 +780,30 @@ export async function restoreScrollPosition() {
         currentLazyLoader.container.innerHTML = "";
         // Load chunk 0 if available, otherwise load the lowest available chunk
         const chunk0Nodes = currentLazyLoader.nodes.filter(node => node.chunk_id === 0);
+        let loadedChunkId;
         if (chunk0Nodes.length > 0) {
+          loadedChunkId = 0;
           currentLazyLoader.loadChunk(0, "down");
         } else if (currentLazyLoader.nodes.length > 0) {
           // Chunked lazy loading: initial chunk may not be chunk 0
-          const firstAvailableChunkId = currentLazyLoader.nodes
+          loadedChunkId = currentLazyLoader.nodes
             .reduce((min, n) => Math.min(min, n.chunk_id), Infinity);
-          currentLazyLoader.loadChunk(firstAvailableChunkId, "down");
+          currentLazyLoader.loadChunk(loadedChunkId, "down");
+        }
+
+        // If the loaded chunk is too small to fill the viewport, load adjacent chunks
+        if (loadedChunkId !== undefined) {
+          const allChunkIds = currentLazyLoader.chunkManifest
+            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
+            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+          const pos = allChunkIds.indexOf(loadedChunkId);
+          const scrollable = currentLazyLoader.scrollableParent;
+          // Keep loading next chunks until content is scrollable or we run out
+          let nextPos = pos + 1;
+          while (nextPos < allChunkIds.length && scrollable.scrollHeight <= scrollable.clientHeight) {
+            currentLazyLoader.loadChunk(allChunkIds[nextPos], "down");
+            nextPos++;
+          }
         }
         return;
       }
