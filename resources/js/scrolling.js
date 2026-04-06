@@ -786,12 +786,12 @@ export async function restoreScrollPosition() {
         let loadedChunkId;
         if (chunk0Nodes.length > 0) {
           loadedChunkId = 0;
-          currentLazyLoader.loadChunk(0, "down");
+          await currentLazyLoader.loadChunk(0, "down");
         } else if (currentLazyLoader.nodes.length > 0) {
           // Chunked lazy loading: initial chunk may not be chunk 0
           loadedChunkId = currentLazyLoader.nodes
             .reduce((min, n) => Math.min(min, n.chunk_id), Infinity);
-          currentLazyLoader.loadChunk(loadedChunkId, "down");
+          await currentLazyLoader.loadChunk(loadedChunkId, "down");
         }
 
         // If the loaded chunk has fewer than 20 nodes, load the next chunk too

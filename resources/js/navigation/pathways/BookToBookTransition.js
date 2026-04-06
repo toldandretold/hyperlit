@@ -646,7 +646,7 @@ export class BookToBookTransition {
         const firstChunk = window.nodes[0];
         if (firstChunk) {
           console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
-          currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+          await currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
 
           // If the loaded chunk has fewer than 20 nodes, load the next chunk too
           const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
@@ -664,9 +664,6 @@ export class BookToBookTransition {
               nextPos++;
             }
           }
-
-          // Wait a moment for the chunks to be inserted
-          await new Promise(resolve => setTimeout(resolve, 200));
 
           // Verify content was loaded
           const loadedChunks = container.querySelectorAll('[data-chunk-id]');

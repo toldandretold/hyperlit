@@ -859,13 +859,6 @@ class DatabaseToIndexedDBController extends Controller
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
             $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $visibleHyperlightIds);
 
-            \Log::info('getInitialChunk', [
-                'book' => $bookId,
-                'target_chunk' => $targetChunkId,
-                'initial_node_count' => count($initialNodes),
-                'manifest_chunks' => count($chunkManifest),
-            ]);
-
             // If the target chunk is too small to fill a viewport, include adjacent chunks
             // so the user has enough content to scroll
             $minNodes = 20;
@@ -873,22 +866,15 @@ class DatabaseToIndexedDBController extends Controller
                 $chunkIds = array_column($chunkManifest, 'chunk_id');
                 $targetPos = array_search($targetChunkId, $chunkIds);
 
-                \Log::info('Adjacent chunk logic triggered', [
-                    'targetPos' => $targetPos,
-                    'chunkIds' => $chunkIds,
-                ]);
-
                 // Try next chunk first, then previous
                 if ($targetPos !== false && $targetPos < count($chunkIds) - 1) {
                     $nextChunkId = $chunkIds[$targetPos + 1];
                     $nextNodes = $this->getNodeChunksForChunk($bookId, $nextChunkId, $visibleHyperlightIds);
-                    \Log::info('Added next chunk', ['nextChunkId' => $nextChunkId, 'nextNodeCount' => count($nextNodes)]);
                     $initialNodes = array_merge($initialNodes, $nextNodes);
                 }
                 if (count($initialNodes) < $minNodes && $targetPos !== false && $targetPos > 0) {
                     $prevChunkId = $chunkIds[$targetPos - 1];
                     $prevNodes = $this->getNodeChunksForChunk($bookId, $prevChunkId, $visibleHyperlightIds);
-                    \Log::info('Added prev chunk', ['prevChunkId' => $prevChunkId, 'prevNodeCount' => count($prevNodes)]);
                     $initialNodes = array_merge($prevNodes, $initialNodes);
                 }
             }
@@ -905,11 +891,6 @@ class DatabaseToIndexedDBController extends Controller
 
             // Get bookmark for restoration
             $bookmark = $this->getBookmarkData($request, $bookId);
-
-            \Log::info('getInitialChunk FINAL', [
-                'total_nodes_sent' => count($initialNodes),
-                'book' => $bookId,
-            ]);
 
             return response()->json([
                 'initial_chunk' => $initialNodes,
