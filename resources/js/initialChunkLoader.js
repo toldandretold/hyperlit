@@ -94,7 +94,7 @@ function buildInitialChunkParams() {
     const spaTarget = window._pendingChunkTarget;
     if (spaTarget) {
         window._pendingChunkTarget = null; // Consume it
-        if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_')) {
+        if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
             params.set('target', spaTarget);
             return params;
         }
@@ -107,7 +107,7 @@ function buildInitialChunkParams() {
     // Priority 1: URL hash target
     const hash = window.location.hash?.substring(1);
     if (hash) {
-        if (hash.startsWith('hypercite_') || hash.startsWith('HL_')) {
+        if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || hash.startsWith('Fn') || hash.includes('_Fn')) {
             params.set('target', hash);
             return params;
         }
@@ -124,8 +124,11 @@ function buildInitialChunkParams() {
         return params;
     }
 
-    // Priority 3: OpenFootnoteID — footnotes don't determine chunk, use resume
-    // (footnotes are in a separate store, not tied to a specific chunk)
+    // Priority 3: OpenFootnoteID from URL path (footnote IDs contain _Fn)
+    if (OpenFootnoteID) {
+        params.set('target', OpenFootnoteID);
+        return params;
+    }
 
     // Priority 4: Resume from saved position
     params.set('resume', 'true');

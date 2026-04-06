@@ -1011,6 +1011,18 @@ class DatabaseToIndexedDBController extends Controller
             }
         }
 
+        // Footnote target → search nodes.footnotes JSON array for the ID
+        // Footnote IDs can be "Fn1234_abc" or "bookId_Fn1234_abc"
+        if ($target && (str_starts_with($target, 'Fn') || str_contains($target, '_Fn'))) {
+            $node = DB::table('nodes')
+                ->where('book', $bookId)
+                ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
+                ->first();
+            if ($node) {
+                return (int) $node->chunk_id;
+            }
+        }
+
         // Element ID (startLine) → find chunk
         if ($elementId) {
             $node = DB::table('nodes')
