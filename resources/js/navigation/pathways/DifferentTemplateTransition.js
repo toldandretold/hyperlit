@@ -60,6 +60,13 @@ export class DifferentTemplateTransition {
 
       progress(80, 'Initializing new page...');
 
+      // Set pending navigation target so fetchInitialChunk can load the correct chunk
+      // (during SPA transitions, window.location.hash hasn't been updated yet)
+      if (hash) {
+        const target = hash.startsWith('#') ? hash.substring(1) : hash;
+        if (target) window._pendingChunkTarget = target;
+      }
+
       // Step 4: Structure-aware initialization (using shared utility)
       const bookId = toBook || LinkNavigationHandler.getBookIdFromUrl(targetUrlResolved);
       await initializeToStructure(toStructure, bookId, progress);

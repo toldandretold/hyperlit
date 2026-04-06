@@ -820,7 +820,7 @@ export async function loadNodeChunksToIndexedDB(db, nodes) {
 /**
  * Load footnotes into IndexedDB
  */
-async function loadFootnotesToIndexedDB(db, footnotes) {
+export async function loadFootnotesToIndexedDB(db, footnotes) {
   if (!footnotes || !footnotes.data) {
     verbose.content('No footnotes to load', 'postgreSQL.js');
     return;
@@ -857,7 +857,7 @@ async function loadFootnotesToIndexedDB(db, footnotes) {
 /**
  * Load bibliography/references into IndexedDB
  */
-async function loadBibliographyToIndexedDB(db, bibliography) {
+export async function loadBibliographyToIndexedDB(db, bibliography) {
   if (!bibliography || !bibliography.data) {
     verbose.content('No bibliography to load', 'postgreSQL.js');
     return;
@@ -899,7 +899,7 @@ async function loadBibliographyToIndexedDB(db, bibliography) {
 /**
  * Load hyperlights into IndexedDB
  */
-async function loadHyperlightsToIndexedDB(db, hyperlights) {
+export async function loadHyperlightsToIndexedDB(db, hyperlights) {
   if (!hyperlights || hyperlights.length === 0) {
     verbose.content('No hyperlights to load', 'postgreSQL.js');
     return;
@@ -940,7 +940,7 @@ async function loadHyperlightsToIndexedDB(db, hyperlights) {
 /**
  * Load hypercites into IndexedDB
  */
-async function loadHypercitesToIndexedDB(db, hypercites) {
+export async function loadHypercitesToIndexedDB(db, hypercites) {
   if (!hypercites || hypercites.length === 0) {
     verbose.content('No hypercites to load', 'postgreSQL.js');
     return;

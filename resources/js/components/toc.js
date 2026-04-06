@@ -13,6 +13,14 @@ export const tocContainer = document.getElementById("toc-container");
 export const tocOverlay = document.getElementById("toc-overlay");
 export const tocButton = document.getElementById("toc-toggle-button");
 
+// Invalidate TOC cache when background download completes (chunked lazy loading)
+window.addEventListener('backgroundDownloadComplete', () => {
+  if (tocCache) {
+    tocCache.data = null;
+    tocCache.lastScanTime = 0;
+  }
+});
+
 // Create a custom TOC manager that generates content before opening
 let tocManager = null;
 

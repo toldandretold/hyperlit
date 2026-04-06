@@ -778,9 +778,16 @@ export async function restoreScrollPosition() {
           });
         }
         currentLazyLoader.container.innerHTML = "";
-        currentLazyLoader.nodes
-          .filter(node => node.chunk_id === 0)
-          .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));
+        // Load chunk 0 if available, otherwise load the lowest available chunk
+        const chunk0Nodes = currentLazyLoader.nodes.filter(node => node.chunk_id === 0);
+        if (chunk0Nodes.length > 0) {
+          currentLazyLoader.loadChunk(0, "down");
+        } else if (currentLazyLoader.nodes.length > 0) {
+          // Chunked lazy loading: initial chunk may not be chunk 0
+          const firstAvailableChunkId = currentLazyLoader.nodes
+            .reduce((min, n) => Math.min(min, n.chunk_id), Infinity);
+          currentLazyLoader.loadChunk(firstAvailableChunkId, "down");
+        }
         return;
       }
       

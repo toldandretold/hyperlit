@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array
      */
     protected $except = [
-        // Add URIs here that should be excluded from CSRF verification, if any
+        'api/database-to-indexeddb/books/*/reading-position',
     ];
 }

@@ -809,4 +809,379 @@ class DatabaseToIndexedDBController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get initial chunk for fast first-render loading.
+     * Returns a single chunk of nodes + chunk manifest for lazy loading the rest.
+     */
+    public function getInitialChunk(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            // Determine target chunk via priority chain
+            $targetChunkId = $this->resolveTargetChunkId($request, $bookId);
+
+            // Build chunk manifest
+            $chunkManifest = DB::table('nodes')
+                ->where('book', $bookId)
+                ->selectRaw('chunk_id, MIN("startLine") as first_line, MAX("startLine") as last_line, COUNT(*) as node_count')
+                ->groupBy('chunk_id')
+                ->orderBy('chunk_id')
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'chunk_id' => (int) $row->chunk_id,
+                        'first_line' => (float) $row->first_line,
+                        'last_line' => (float) $row->last_line,
+                        'node_count' => (int) $row->node_count,
+                    ];
+                })
+                ->toArray();
+
+            if (empty($chunkManifest)) {
+                return response()->json([
+                    'error' => 'No data found for book',
+                    'book_id' => $bookId
+                ], 404);
+            }
+
+            // Validate target chunk exists in manifest, fall back to 0
+            $validChunkIds = array_column($chunkManifest, 'chunk_id');
+            if (!in_array($targetChunkId, $validChunkIds)) {
+                $targetChunkId = $validChunkIds[0] ?? 0;
+            }
+
+            // Get nodes for target chunk with embedded annotations
+            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
+            $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $visibleHyperlightIds);
+
+            // Get footnotes + library (small, needed immediately)
+            $footnotes = $this->getFootnotes($bookId);
+            $library = $this->getLibrary($bookId);
+
+            // Get all annotation stores — small compared to nodes, and needed
+            // immediately so highlights/citations work before background download
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
+            $bibliography = $this->getBibliography($bookId);
+
+            // Get bookmark for restoration
+            $bookmark = $this->getBookmarkData($request, $bookId);
+
+            return response()->json([
+                'initial_chunk' => $initialNodes,
+                'chunk_manifest' => $chunkManifest,
+                'target_chunk_id' => $targetChunkId,
+                'footnotes' => $footnotes,
+                'library' => $library,
+                'hyperlights' => $hyperlights,
+                'hypercites' => $hypercites,
+                'bibliography' => $bibliography,
+                'bookmark' => $bookmark,
+                'metadata' => [
+                    'book_id' => $bookId,
+                    'total_chunks' => count($chunkManifest),
+                    'loaded_chunk' => $targetChunkId,
+                    'generated_at' => now()->toISOString(),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching initial chunk', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'message' => 'Failed to fetch initial chunk'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get initial chunk for a sub-book.
+     */
+    public function getSubBookInitialChunk(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        return $this->getInitialChunk($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get a single chunk of nodes by chunk_id (for on-demand loading).
+     */
+    public function getSingleChunk(Request $request, string $bookId, int $chunkId): JsonResponse
+    {
+        try {
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
+            $nodes = $this->getNodeChunksForChunk($bookId, $chunkId, $visibleHyperlightIds);
+
+            if (empty($nodes)) {
+                return response()->json([
+                    'error' => 'Chunk not found',
+                    'book_id' => $bookId,
+                    'chunk_id' => $chunkId
+                ], 404);
+            }
+
+            return response()->json([
+                'nodes' => $nodes,
+                'chunk_id' => $chunkId,
+                'book_id' => $bookId,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching single chunk', [
+                'book_id' => $bookId,
+                'chunk_id' => $chunkId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Resolve which chunk_id to load first, based on request params.
+     */
+    private function resolveTargetChunkId(Request $request, string $bookId): int
+    {
+        $target = $request->query('target');
+        $elementId = $request->query('element_id');
+        $resume = $request->query('resume');
+        $chunkId = $request->query('chunk_id');
+
+        // Direct chunk_id param (for on-demand fetch)
+        if ($chunkId !== null) {
+            return (int) $chunkId;
+        }
+
+        // Hypercite target → look up node → get chunk_id
+        if ($target && str_starts_with($target, 'hypercite_')) {
+            $hyperciteId = $target;
+            $hypercite = DB::table('hypercites')
+                ->where('book', $bookId)
+                ->where('hyperciteId', $hyperciteId)
+                ->first();
+
+            if ($hypercite) {
+                $nodeIds = json_decode($hypercite->node_id ?? '[]', true);
+                if (!empty($nodeIds)) {
+                    $node = DB::table('nodes')
+                        ->where('book', $bookId)
+                        ->where('node_id', $nodeIds[0])
+                        ->first();
+                    if ($node) {
+                        return (int) $node->chunk_id;
+                    }
+                }
+            }
+        }
+
+        // Hyperlight target → look up node → get chunk_id
+        if ($target && str_starts_with($target, 'HL_')) {
+            $hyperlight = DB::table('hyperlights')
+                ->where('book', $bookId)
+                ->where('hyperlight_id', $target)
+                ->first();
+
+            if ($hyperlight) {
+                $nodeIds = json_decode($hyperlight->node_id ?? '[]', true);
+                if (!empty($nodeIds)) {
+                    $node = DB::table('nodes')
+                        ->where('book', $bookId)
+                        ->where('node_id', $nodeIds[0])
+                        ->first();
+                    if ($node) {
+                        return (int) $node->chunk_id;
+                    }
+                }
+            }
+        }
+
+        // Element ID (startLine) → find chunk
+        if ($elementId) {
+            $node = DB::table('nodes')
+                ->where('book', $bookId)
+                ->where('startLine', $elementId)
+                ->first();
+            if ($node) {
+                return (int) $node->chunk_id;
+            }
+        }
+
+        // Resume → read from user_reading_positions
+        if ($resume === 'true') {
+            $bookmark = $this->getBookmarkData($request, $bookId);
+            if ($bookmark) {
+                return (int) $bookmark['chunk_id'];
+            }
+        }
+
+        // Default: chunk 0
+        return 0;
+    }
+
+    /**
+     * Get node chunks for a specific chunk_id with embedded annotations.
+     * Variant of getNodeChunks() filtered to a single chunk.
+     */
+    private function getNodeChunksForChunk(string $bookId, int $chunkId, array $visibleHyperlightIds): array
+    {
+        $processedHighlights = $this->getHyperlights($bookId);
+
+        $highlightLookup = [];
+        foreach ($processedHighlights as $highlight) {
+            $highlightLookup[$highlight['hyperlight_id']] = $highlight;
+        }
+
+        $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
+        $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
+
+        $chunks = DB::table('nodes')
+            ->where('book', $bookId)
+            ->where('chunk_id', $chunkId)
+            ->orderBy('startLine')
+            ->get()
+            ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
+                $nodeUUID = $chunk->node_id;
+
+                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
+                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
+
+                return [
+                    'book' => $chunk->book,
+                    'chunk_id' => (int) $chunk->chunk_id,
+                    'startLine' => (float) $chunk->startLine,
+                    'node_id' => $chunk->node_id,
+                    'content' => $chunk->content,
+                    'plainText' => $chunk->plainText,
+                    'type' => $chunk->type,
+                    'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
+                    'hypercites' => $finalHypercites,
+                    'hyperlights' => array_values($finalHyperlights),
+                    'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
+                ];
+            })
+            ->toArray();
+
+        return $chunks;
+    }
+
+    /**
+     * Get bookmark data for the current user/session.
+     */
+    private function getBookmarkData(Request $request, string $bookId): ?array
+    {
+        $user = Auth::user();
+        $anonymousToken = $request->cookie('anon_token');
+
+        $query = DB::table('user_reading_positions')
+            ->where('book', $bookId);
+
+        if ($user) {
+            $query->where('user_name', $user->name);
+        } elseif ($anonymousToken) {
+            $query->where('anon_token', $anonymousToken);
+        } else {
+            return null;
+        }
+
+        $position = $query->first();
+
+        if (!$position) {
+            return null;
+        }
+
+        return [
+            'chunk_id' => (int) $position->chunk_id,
+            'element_id' => $position->element_id,
+        ];
+    }
+
+    /**
+     * Save reading position (bookmark).
+     */
+    public function saveReadingPosition(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $anonymousToken = $request->cookie('anon_token');
+
+            $chunkId = $request->input('chunk_id', 0);
+            $elementId = $request->input('element_id');
+
+            if ($user) {
+                DB::table('user_reading_positions')
+                    ->updateOrInsert(
+                        ['book' => $bookId, 'user_name' => $user->name],
+                        [
+                            'chunk_id' => $chunkId,
+                            'element_id' => $elementId,
+                            'anon_token' => null,
+                            'updated_at' => now(),
+                        ]
+                    );
+            } elseif ($anonymousToken) {
+                DB::table('user_reading_positions')
+                    ->updateOrInsert(
+                        ['book' => $bookId, 'anon_token' => $anonymousToken],
+                        [
+                            'chunk_id' => $chunkId,
+                            'element_id' => $elementId,
+                            'user_name' => null,
+                            'updated_at' => now(),
+                        ]
+                    );
+            } else {
+                return response()->json(['error' => 'No user identity'], 401);
+            }
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            Log::error('Error saving reading position', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Get reading position (bookmark).
+     */
+    public function getReadingPosition(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $bookmark = $this->getBookmarkData($request, $bookId);
+
+            if (!$bookmark) {
+                return response()->json(['bookmark' => null]);
+            }
+
+            return response()->json(['bookmark' => $bookmark]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting reading position', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
 }

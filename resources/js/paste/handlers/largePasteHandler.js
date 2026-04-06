@@ -41,6 +41,12 @@ export async function handleLargePaste(
 ) {
   event.preventDefault();
 
+  // Wait for background download if still in progress (chunked lazy loading)
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
+
   // Show progress overlay for large paste operation
   ProgressOverlayConductor.showSPATransition(10, 'Processing paste...', true);
 

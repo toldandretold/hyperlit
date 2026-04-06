@@ -272,6 +272,24 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-library');
+    Route::get('books/{parentBook}/{subId}/initial', [DatabaseToIndexedDBController::class, 'getSubBookInitialChunk'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-initial');
+
+    // Chunked lazy loading: initial chunk + manifest
+    Route::get('books/{bookId}/initial', [DatabaseToIndexedDBController::class, 'getInitialChunk'])
+        ->name('api.database-to-indexeddb.book-initial');
+
+    // Chunked lazy loading: fetch a single chunk on demand
+    Route::get('books/{bookId}/chunk/{chunkId}', [DatabaseToIndexedDBController::class, 'getSingleChunk'])
+        ->where('chunkId', '[0-9]+')
+        ->name('api.database-to-indexeddb.book-chunk');
+
+    // Reading position (bookmark) endpoints
+    Route::post('books/{bookId}/reading-position', [DatabaseToIndexedDBController::class, 'saveReadingPosition'])
+        ->name('api.database-to-indexeddb.save-reading-position');
+    Route::get('books/{bookId}/reading-position', [DatabaseToIndexedDBController::class, 'getReadingPosition'])
+        ->name('api.database-to-indexeddb.get-reading-position');
 
     // Get full book data for IndexedDB import
     Route::get('books/{bookId}/data', [DatabaseToIndexedDBController::class, 'getBookData'])
