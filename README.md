@@ -210,7 +210,7 @@ When a user navigates to hyperlit.io/book, the nodes for that book are pulled fr
 
 In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users' current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. 
 
-The backend also checks which chunk needs to be loaded first. If there is not hypercite, hyperlight or foontote ID in the url, it checks saved scroll position for user from the user_reading_positions table. Otherwise it finds which chunk the #id is in. Then sends that chunk. This means page loads much faster. For example, only need to download one chunk of 100 nodes of the BIble before can start reading the bible. Then /resources/js/initialChunkLoader.js hanldes this on front end. Edit mode will not work until all other chunks have downloaded (happens after page load). This also makes navigation to hypercites faster... as don't need to load whole book before can see the hypercited text. 
+The backend also checks which chunk needs to be loaded first, and sends only that chunk. This ensures text can be read quickly. Other chunks are loaded into indexedDB afterp page load. See: /resources/js/initialChunkLoader.js ... Note: Edit mode will not work until all other chunks have downloaded.
 
 On the frontend:
 
