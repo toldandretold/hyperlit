@@ -23,7 +23,7 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        if (!Auth::attempt($request->only('email', 'password'), true)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -101,7 +101,9 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            // For session-based auth, just invalidate the session
+            // Clear the remember-me token (DB + cookie) before destroying session
+            \Auth::guard('web')->logout();
+
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 

@@ -357,6 +357,63 @@ syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
 
 
 /**
+ * Flush the entire editing pipeline to ensure no pending edits are lost.
+ * Called before clearing IndexedDB data so unsaved work reaches the server first.
+ *
+ * Pipeline: footnote debounces → input debounce → SaveQueue → masterSync
+ */
+async function flushAllPendingEdits() {
+  // Fast path: nothing to flush if not editing and no pending syncs
+  try {
+    const { pendingSyncs } = await import('./indexedDB/syncQueue/queue.js');
+    if (!window.isEditing && pendingSyncs.size === 0) {
+      return;
+    }
+  } catch (e) {
+    // If we can't even check, proceed with flush attempts
+  }
+
+  verbose.content('Flushing all pending edits before clear+redownload', 'postgreSQL.js');
+
+  // 1. Flush footnote annotation debounces
+  try {
+    const { flushPendingFootnoteSaves } = await import('./footnotes/footnoteAnnotations.js');
+    flushPendingFootnoteSaves();
+  } catch (e) {
+    verbose.content(`Footnote flush skipped: ${e.message}`, 'postgreSQL.js');
+  }
+
+  // 2. Flush input debounce (200ms timer)
+  try {
+    const { flushInputDebounce } = await import('./divEditor/index.js');
+    flushInputDebounce();
+  } catch (e) {
+    verbose.content(`Input debounce flush skipped: ${e.message}`, 'postgreSQL.js');
+  }
+
+  // 3. Flush SaveQueue → IndexedDB (1.5s timer)
+  try {
+    const { flushAllPendingSaves } = await import('./divEditor/index.js');
+    await flushAllPendingSaves();
+  } catch (e) {
+    verbose.content(`SaveQueue flush skipped: ${e.message}`, 'postgreSQL.js');
+  }
+
+  // 4. Flush masterSync → server (3s timer) with 5s timeout
+  try {
+    const { debouncedMasterSync } = await import('./indexedDB/syncQueue/master.js');
+    await Promise.race([
+      debouncedMasterSync.flush(),
+      new Promise(resolve => setTimeout(resolve, 5000)),
+    ]);
+  } catch (e) {
+    verbose.content(`masterSync flush skipped: ${e.message}`, 'postgreSQL.js');
+  }
+
+  verbose.content('Pending edits flushed', 'postgreSQL.js');
+}
+
+/**
  * Sync complete book data from Laravel API to IndexedDB
  */
 export async function syncBookDataFromDatabase(bookId) {
@@ -416,6 +473,9 @@ export async function syncBookDataFromDatabase(bookId) {
     // 2. Open IndexedDB
     verbose.content('Opening IndexedDB', 'postgreSQL.js');
     const db = await openDatabase();
+
+    // 2.5 Flush any pending edits to the server before clearing
+    await flushAllPendingEdits();
 
     // 3. Clear existing data for this book
     verbose.content('Clearing existing data for this book', 'postgreSQL.js');
@@ -494,6 +554,9 @@ export async function syncAnnotationsOnly(bookId) {
 
     // 2. Open IndexedDB
     const db = await openDatabase();
+
+    // 2.5 Flush any pending edits to the server before clearing
+    await flushAllPendingEdits();
 
     // 3. Clear only annotations for this book (not nodes)
     await clearAnnotationsFromIndexedDB(db, bookId);

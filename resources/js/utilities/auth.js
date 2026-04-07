@@ -137,6 +137,40 @@ async function initializeAuth() {
 }
 
 /**
+ * Fetch a fresh CSRF token from the server and update window.csrfToken + meta tag.
+ * Used to recover from 419 errors when the Laravel session has expired.
+ * Returns true if the user is still authenticated, false if they've been logged out.
+ */
+export async function refreshCsrfToken() {
+  const response = await fetch("/api/auth/session-info", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to refresh CSRF token: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.csrf_token) {
+    window.csrfToken = data.csrf_token;
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) {
+      metaTag.setAttribute('content', data.csrf_token);
+    }
+    console.log("🔄 CSRF token refreshed after 419");
+  }
+
+  return !!data.authenticated;
+}
+
+/**
  * Handles the full logout process.
  * Makes a POST request to the server's logout endpoint, then clears all local data.
  */

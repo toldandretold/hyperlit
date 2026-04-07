@@ -186,6 +186,58 @@ Route::get('/{book}/references.json', function (Request $request, $book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
+// Download all book data as ZIP (owner-only)
+Route::get('/{book}/download-all', function (Request $request, $book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // Check ownership (not just read access)
+    $user    = $request->user();
+    $anonTok = $request->cookie('anon_author');
+
+    $record = DB::table('library')->where('book', $book)->first();
+    if (!$record) {
+        abort(404, 'Book not found.');
+    }
+
+    $isOwner = false;
+    if ($user && $record->creator === $user->name) {
+        $isOwner = true;
+    } elseif (!$user && $anonTok && $record->creator_token && hash_equals($record->creator_token, $anonTok)) {
+        $isOwner = true;
+    }
+    if (!$isOwner) {
+        abort(403, 'Only the book owner can download all data.');
+    }
+
+    $bookDir = resource_path("markdown/{$book}");
+    if (!is_dir($bookDir)) {
+        abort(404, 'Book directory not found.');
+    }
+
+    $zipPath = tempnam(sys_get_temp_dir(), 'hyperlit_') . '.zip';
+    $zip = new \ZipArchive();
+    if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+        abort(500, 'Could not create ZIP archive.');
+    }
+
+    $files = new \RecursiveIteratorIterator(
+        new \RecursiveDirectoryIterator($bookDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+        \RecursiveIteratorIterator::LEAVES_ONLY
+    );
+
+    foreach ($files as $file) {
+        if ($file->isFile()) {
+            $realPath = $file->getRealPath();
+            $relativePath = $book . '/' . substr($realPath, strlen($bookDir) + 1);
+            $zip->addFile($realPath, $relativePath);
+        }
+    }
+
+    $zip->close();
+
+    return response()->download($zipPath, "{$book}_all_data.zip")->deleteFileAfterSend(true);
+})->where('book', '[a-zA-Z0-9\-_]+');
+
 // Media serving route for all images (folder uploads use media/, docx uses media/)
 Route::get('/{book}/media/{filename}', function (Request $request, $book, $filename) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);

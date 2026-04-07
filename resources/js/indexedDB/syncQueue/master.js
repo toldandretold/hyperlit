@@ -7,6 +7,7 @@ import { openDatabase } from '../core/connection.js';
 import { debounce } from '../../utilities/debounce.js';
 import { toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
+import { refreshCsrfToken } from '../../utilities/auth.js';
 
 // Dependencies that will be injected
 let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave;
@@ -144,8 +145,8 @@ export async function executeSyncPayload(payload) {
 
   console.log(`🔄 Unified sync: ${syncSummary.join(', ')}`);
 
-  // Make single unified API request
-  const res = await fetch("/api/db/unified-sync", {
+  // Helper: perform the fetch with a fresh CSRF token from the meta tag
+  const doFetch = () => fetch("/api/db/unified-sync", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -156,6 +157,23 @@ export async function executeSyncPayload(payload) {
     credentials: "include",
     body: JSON.stringify(unifiedPayload)
   });
+
+  let res = await doFetch();
+
+  // Handle expired CSRF token (419) — refresh and retry once
+  if (res.status === 419) {
+    console.warn("🔄 Got 419 (CSRF token expired), refreshing token and retrying...");
+    try {
+      const stillAuthenticated = await refreshCsrfToken();
+      if (!stillAuthenticated) {
+        throw new Error("Session expired — please log in again and refresh the page. Your changes are saved locally.");
+      }
+      res = await doFetch();
+    } catch (refreshError) {
+      console.error("❌ Failed to refresh CSRF token:", refreshError);
+      throw refreshError;
+    }
+  }
 
   if (!res.ok) {
     // Handle stale data (409 Conflict) specially

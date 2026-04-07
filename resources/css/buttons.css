@@ -645,6 +645,11 @@ black #221F20;
   height: 100%;
 }
 
+#download-all .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
 .download-btn {
   background: transparent;
   color: var(--color-text);

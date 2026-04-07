@@ -236,6 +236,21 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
+    ${canEdit ? `<button type="button" id="download-all" class="download-btn">
+  <div class="icon-wrapper">
+    <svg
+      class="download-icon"
+      viewBox="0 0 24 24"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg"
+      style="width: 80%; height: 100%;"
+    >
+      <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" fill="currentColor"/>
+      <text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="var(--color-bg, #1a1a2e)" font-family="sans-serif">raw</text>
+    </svg>
+    </div>
+  </button>` : ''}
+
     ${canEdit ? (() => {
       const authCtx = getAuthContextSync();
       const isLoggedIn = authCtx?.isLoggedIn;
@@ -495,6 +510,12 @@ export class SourceContainerManager extends ContainerManager {
       e.preventDefault();
       e.stopPropagation();
       exportBookAsDocxStyled(book);
+    });
+    const downloadAllBtn = this.container.querySelector("#download-all");
+    if (downloadAllBtn) downloadAllBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = `/${encodeURIComponent(book)}/download-all`;
     });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());

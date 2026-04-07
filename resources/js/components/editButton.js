@@ -386,7 +386,7 @@ export function disableEditMode() {
     import('../divEditor/index.js')
   ]).then(async ([editToolbar, divEditor]) => {
     const { getEditToolbar } = editToolbar;
-    const { stopObserving, flushAllPendingSaves } = divEditor;
+    const { stopObserving, flushAllPendingSaves, flushInputDebounce } = divEditor;
 
     // Get the existing toolbar instance and hide it:
     const toolbar = getEditToolbar();
@@ -416,6 +416,7 @@ export function disableEditMode() {
       });
     } else {
       // No decimals - just flush pending saves
+      flushInputDebounce();
       await flushAllPendingSaves();
     }
   }).catch(err => {
