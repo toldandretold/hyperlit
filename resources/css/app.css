@@ -24,6 +24,11 @@ body {
     box-sizing: border-box;
 }
 
+/* Prevent iPad Safari SVG collapse - SVGs in buttons need to size from their CSS, not max-width */
+button svg, #logoContainer img {
+    max-width: none;
+}
+
 /* Ensure images resize proportionally */
 img {
     max-width: 100%;
