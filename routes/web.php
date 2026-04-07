@@ -209,27 +209,61 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
         abort(403, 'Only the book owner can download all data.');
     }
 
-    $bookDir = resource_path("markdown/{$book}");
-    if (!is_dir($bookDir)) {
-        abort(404, 'Book directory not found.');
-    }
-
     $zipPath = tempnam(sys_get_temp_dir(), 'hyperlit_') . '.zip';
     $zip = new \ZipArchive();
     if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
         abort(500, 'Could not create ZIP archive.');
     }
 
-    $files = new \RecursiveIteratorIterator(
-        new \RecursiveDirectoryIterator($bookDir, \RecursiveDirectoryIterator::SKIP_DOTS),
-        \RecursiveIteratorIterator::LEAVES_ONLY
-    );
+    // --- PostgreSQL data export ---
+    $prefix = "{$book}/postgresql_data";
 
-    foreach ($files as $file) {
-        if ($file->isFile()) {
-            $realPath = $file->getRealPath();
-            $relativePath = $book . '/' . substr($realPath, strlen($bookDir) + 1);
-            $zip->addFile($realPath, $relativePath);
+    // Library record (strip creator_token)
+    $libraryData = clone $record;
+    unset($libraryData->creator_token);
+    $zip->addFromString("{$prefix}/library.json", json_encode($libraryData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Nodes
+    $nodes = DB::table('nodes')->where('book', $book)->get();
+    $zip->addFromString("{$prefix}/nodes.json", json_encode($nodes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Sub-book nodes (footnotes/hyperlights have book IDs like book_123/Fn456)
+    $subBookNodes = DB::table('nodes')->where('book', 'like', $book . '/%')->get();
+    $zip->addFromString("{$prefix}/sub_book_nodes.json", json_encode($subBookNodes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Footnotes
+    $footnotes = DB::table('footnotes')->where('book', $book)->get();
+    $zip->addFromString("{$prefix}/footnotes.json", json_encode($footnotes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Hyperlights (strip creator_token from each record)
+    $hyperlights = DB::table('hyperlights')->where('book', $book)->get()->map(function ($row) {
+        unset($row->creator_token);
+        return $row;
+    })->values();
+    $zip->addFromString("{$prefix}/hyperlights.json", json_encode($hyperlights, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Hypercites
+    $hypercites = DB::table('hypercites')->where('book', $book)->get();
+    $zip->addFromString("{$prefix}/hypercites.json", json_encode($hypercites, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Bibliography
+    $bibliography = DB::table('bibliography')->where('book', $book)->get();
+    $zip->addFromString("{$prefix}/bibliography.json", json_encode($bibliography, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // --- Original files (markdown dir) if they exist ---
+    $bookDir = resource_path("markdown/{$book}");
+    if (is_dir($bookDir)) {
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($bookDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($files as $file) {
+            if ($file->isFile()) {
+                $realPath = $file->getRealPath();
+                $relativePath = "{$book}/original_files/" . substr($realPath, strlen($bookDir) + 1);
+                $zip->addFile($realPath, $relativePath);
+            }
         }
     }
 
