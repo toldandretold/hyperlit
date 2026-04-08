@@ -207,8 +207,9 @@ def renumber_page_footnotes(page_md, global_counter):
     # Convert bare numbers after sentence-ending punctuation: .46 This → .[^46] This
     # Only when followed by space + uppercase letter/opening quote (new sentence)
     # (?<!\d\.) prevents matching decimal numbers like "4.0" or "1.9 million"
+    # (?<![A-Z]\.) prevents matching section/table numbering like "I.1", "V.2"
     page_md = re.sub(
-        r'(?<!\d\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+        r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
         r'[^\1]',
         page_md,
         flags=re.DOTALL
@@ -996,8 +997,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
 
             # Convert bare numbers after punctuation: .46 This → .[^46] This
+            # (?<![A-Z]\.) rejects section/table numbering like "I.1", "V.2"
             md = re.sub(
-                r'(?<!\d\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+                r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
                 r'[^\1]',
                 md,
                 flags=re.DOTALL
