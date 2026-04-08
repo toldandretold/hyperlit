@@ -877,12 +877,48 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     global_fn_counter = 1  # For page_bottom renumbering
     fn_defs_parts = []  # Collected footnote definitions for page_bottom
 
-    # Build set of definition-heavy page indices from footnote_meta
+    # Build set of definition-heavy page indices from footnote_meta.
+    # Two filters to avoid false positives (e.g., numbered lists in body text):
+    # 1. Exclude pages that also have refs (body pages, not notes pages)
+    # 2. Require a neighboring page also be def-heavy (notes pages cluster together)
     def_heavy_pages = set()
     if footnote_meta and classification == "chapter_endnotes":
+        candidates = set()
         for entry in footnote_meta.get('page_summary', []):
-            if len(entry.get('defs', [])) >= 5:
-                def_heavy_pages.add(entry['index'])
+            if len(entry.get('defs', [])) >= 3 and not entry.get('refs'):
+                candidates.add(entry['index'])
+        for p in candidates:
+            if (p - 1) in candidates or (p + 1) in candidates:
+                def_heavy_pages.add(p)
+
+    # Pre-compute chapter offsets for chapter_endnotes renumbering.
+    # Each chapter restarts footnote numbering at 1; we offset them to be globally unique.
+    chapter_fn_offsets = None
+    if classification == "chapter_endnotes" and footnote_meta:
+        chapter_fn_offsets = [0] * len(pages)
+        cumulative = 0
+        ch_max = 0          # max footnote number in current chapter (refs + defs)
+        ref_ch_max = 0      # max ref number in current chapter (for detecting resets)
+
+        for entry in footnote_meta.get('page_summary', []):
+            refs = entry.get('refs', [])
+            defs = entry.get('defs', [])
+
+            if defs:
+                ch_max = max(ch_max, max(defs))
+
+            if refs:
+                ref_max = max(refs)
+                if ref_ch_max > 10 and ref_max < ref_ch_max * 0.5:
+                    # Number reset — new chapter
+                    cumulative += ch_max
+                    ch_max = ref_max
+                    ref_ch_max = ref_max
+                    for j in range(entry['index'], len(pages)):
+                        chapter_fn_offsets[j] = cumulative
+                else:
+                    ch_max = max(ch_max, ref_max)
+                    ref_ch_max = max(ref_ch_max, ref_max)
 
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
@@ -939,6 +975,46 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 md_parts.append(body)
             if fn_text.strip():
                 fn_defs_parts.append(fn_text)
+        elif classification == "chapter_endnotes":
+            # Convert all footnote ref formats to [^N] (before offset)
+            md = convert_footnotes(md)
+            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+
+            # Convert inline [N] → [^N] (bracket refs from OCR)
+            def _convert_bracket(m, _md=md):
+                num = int(m.group(1))
+                if num > 500 or num < 1:
+                    return m.group(0)
+                pos = m.start()
+                if pos == 0 or _md[pos - 1] == '\n':
+                    return m.group(0)
+                if pos > 0 and _md[pos - 1] in (']', '!'):
+                    return m.group(0)
+                if m.end() < len(_md) and _md[m.end()] == '(':
+                    return m.group(0)
+                return f'[^{m.group(1)}]'
+            md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
+
+            # Convert bare numbers after punctuation: .46 This → .[^46] This
+            md = re.sub(
+                r'(?<!\d\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+                r'[^\1]',
+                md,
+                flags=re.DOTALL
+            )
+
+            # Apply chapter offset for global uniqueness
+            if chapter_fn_offsets:
+                offset = chapter_fn_offsets[i]
+                if offset > 0:
+                    md = re.sub(
+                        r'\[\^(\d+)\]',
+                        lambda m: f'[^{int(m.group(1)) + offset}]',
+                        md
+                    )
+
+            if md_stripped:
+                md_parts.append(md)
         elif md_stripped:
             md_parts.append(md)
 
@@ -955,6 +1031,11 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', fn_defs, flags=re.MULTILINE)
         if fn_defs.strip():
             combined = combined + "\n\n" + fn_defs
+    elif classification == "chapter_endnotes":
+        # Superscripts already converted per-page with chapter offsets applied.
+        # Fix def formatting and rejoin page breaks.
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
     else:
         combined = normalize_all_footnote_refs(combined)
         combined = normalize_footnote_defs(combined)
@@ -968,7 +1049,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined = fix_mangled_urls(combined, pdf_path)
 
     # --- pypdf fallback: recover missing footnote definitions ---
-    if pdf_path and classification != "wackSTEMbibliographyNotes":
+    # Skip for chapter_endnotes — renumbered offsets don't match pypdf's original numbers
+    if pdf_path and classification not in ("wackSTEMbibliographyNotes", "chapter_endnotes"):
         # Collect definition numbers already in the assembled text
         ocr_def_nums = set(int(n) for n in re.findall(r'^\[\^(\d+)\]\s*:', combined, re.MULTILINE))
         # Collect all inline ref numbers
