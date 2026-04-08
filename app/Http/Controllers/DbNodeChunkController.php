@@ -293,7 +293,8 @@ class DbNodeChunkController extends Controller
                     'incoming_nodes' => count($data['data']),
                     'caller' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3),
                 ]);
-                PgNodeChunk::where('book', $book)->delete();
+
+                $now = now()->format('Y-m-d H:i:s');
 
                 $records = [];
                 foreach ($data['data'] as $item) {
@@ -304,22 +305,54 @@ class DbNodeChunkController extends Controller
                         'node_id' => $item['node_id'] ?? null,
                         'content' => $item['content'] ?? null,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
-                        // 🔄 NEW SYSTEM: Don't touch hypercites/hyperlights columns - leave existing data intact
-                        // 'hypercites' and 'hyperlights' columns intentionally omitted
                         'plainText' => $item['plainText'] ?? null,
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
-                        'created_at' => now(),
-                        'updated_at' => now(),
                     ];
                 }
 
-                // Bulk insert all records at once
-                PgNodeChunk::insert($records);
+                \DB::transaction(function () use ($book, $records, $now) {
+                    PgNodeChunk::where('book', $book)->delete();
+
+                    foreach (array_chunk($records, 500) as $chunk) {
+                        $values = [];
+                        $bindings = [];
+                        foreach ($chunk as $record) {
+                            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                            $bindings[] = $record['book'];
+                            $bindings[] = $record['node_id'];
+                            $bindings[] = $record['startLine'];
+                            $bindings[] = $record['chunk_id'];
+                            $bindings[] = $record['content'];
+                            $bindings[] = $record['footnotes'];
+                            $bindings[] = $record['plainText'];
+                            $bindings[] = $record['type'];
+                            $bindings[] = $record['raw_json'];
+                            $bindings[] = $now;
+                            $bindings[] = $now;
+                        }
+
+                        $sql = '
+                            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+                            VALUES '.implode(', ', $values).'
+                            ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
+                            DO UPDATE SET
+                                "startLine" = EXCLUDED."startLine",
+                                chunk_id = EXCLUDED.chunk_id,
+                                content = EXCLUDED.content,
+                                footnotes = EXCLUDED.footnotes,
+                                "plainText" = EXCLUDED."plainText",
+                                type = EXCLUDED.type,
+                                raw_json = EXCLUDED.raw_json,
+                                updated_at = EXCLUDED.updated_at
+                        ';
+                        \DB::statement($sql, $bindings);
+                    }
+                });
 
                 Log::info('Upsert completed', [
                     'book' => $book,
-                    'records_inserted' => count($records),
+                    'records_upserted' => count($records),
                     'records_deleted' => $deletedCount,
                 ]);
 
