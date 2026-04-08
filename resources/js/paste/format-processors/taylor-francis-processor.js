@@ -46,7 +46,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
           if (nextElement.tagName === 'P') {
             const pText = nextElement.textContent.trim();
             // Check if it starts with a number (footnote pattern)
-            const match = pText.match(/^(\d+)[\.\)\s]/);
+            const match = pText.match(/^\[?(\d+)\]?[\.\)\s]/);
             if (match) {
               const identifier = match[1];
               nextElement.classList.add('footnote');
@@ -57,7 +57,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
               htmlContent = htmlContent
                 .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
-                .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
+                .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '') // <span>24.</span> or plain "24."
+                .replace(/^\s*\[\d+\]\s*/, ''); // [1] bracket format
 
               // Clean up T&F citation links in footnote content
               htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -81,7 +82,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               const paragraphs = nextElement.querySelectorAll('p');
               paragraphs.forEach(p => {
                 const pText = p.textContent.trim();
-                const match = pText.match(/^(\d+)[\.\)\s]/);
+                const match = pText.match(/^\[?(\d+)\]?[\.\)\s]/);
                 if (match) {
                   const identifier = match[1];
                   p.classList.add('footnote');
@@ -92,7 +93,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                   // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
                   htmlContent = htmlContent
                     .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
-                    .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
+                    .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '') // <span>24.</span> or plain "24."
+                    .replace(/^\s*\[\d+\]\s*/, ''); // [1] bracket format
 
                   // Clean up T&F citation links in footnote content
                   htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -122,7 +124,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 const paragraphs = childDiv.querySelectorAll('p');
                 paragraphs.forEach(p => {
                   const pText = p.textContent.trim();
-                  const match = pText.match(/^(\d+)[\.\)\s]/);
+                  const match = pText.match(/^\[?(\d+)\]?[\.\)\s]/);
                   if (match) {
                     const identifier = match[1];
                     p.classList.add('footnote');
@@ -133,7 +135,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
                     htmlContent = htmlContent
                       .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
-                      .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
+                      .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '') // <span>24.</span> or plain "24."
+                      .replace(/^\s*\[\d+\]\s*/, ''); // [1] bracket format
 
                     // Clean up T&F citation links in footnote content
                     htmlContent = cleanTFFootnoteContent(htmlContent);
@@ -171,7 +174,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       const paragraphs = section.querySelectorAll('p');
       paragraphs.forEach(p => {
         const pText = p.textContent.trim();
-        const match = pText.match(/^(\d+)[\.\)\s]/);
+        const match = pText.match(/^\[?(\d+)\]?[\.\)\s]/);
         if (match) {
           const identifier = match[1];
           p.classList.add('footnote');
@@ -184,7 +187,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             // Remove leading number (handles both plain text and HTML, including <sup>X</sup>)
             htmlContent = htmlContent
               .replace(/^\s*<sup[^>]*>\s*\d+\s*<\/sup>\s*/i, '') // <sup>24</sup>
-              .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, ''); // <span>24.</span> or plain "24."
+              .replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '') // <span>24.</span> or plain "24."
+              .replace(/^\s*\[\d+\]\s*/, ''); // [1] bracket format
 
             // Clean up T&F citation links in footnote content
             htmlContent = cleanTFFootnoteContent(htmlContent);
