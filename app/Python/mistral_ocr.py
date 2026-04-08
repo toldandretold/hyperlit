@@ -506,6 +506,7 @@ def classify_footnotes(response_dict):
     elif (ref_number_max_page_spread >= 3
           and co_location_ratio < 0.2
           and notes_page_count == 0
+          and reset_count <= 3
           and (reset_frequency < 0.2 or max_ref_number > 50)):
         classification = "wackSTEMbibliographyNotes"
 
@@ -528,6 +529,12 @@ def classify_footnotes(response_dict):
     elif (co_location_ratio < 0.3
           and pages_with_defs > 0
           and reset_frequency > 0.3):
+        classification = "chapter_endnotes"
+
+    # Chapter endnotes with well-separated defs/refs and multiple number resets
+    elif (co_location_ratio < 0.15
+          and pages_with_defs > 5
+          and reset_count >= 3):
         classification = "chapter_endnotes"
 
     elif (co_location_ratio < 0.15
@@ -870,11 +877,19 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     global_fn_counter = 1  # For page_bottom renumbering
     fn_defs_parts = []  # Collected footnote definitions for page_bottom
 
+    # Build set of definition-heavy page indices from footnote_meta
+    def_heavy_pages = set()
+    if footnote_meta and classification == "chapter_endnotes":
+        for entry in footnote_meta.get('page_summary', []):
+            if len(entry.get('defs', [])) >= 5:
+                def_heavy_pages.add(entry['index'])
+
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
         header = page.get("header") or ""
         md_stripped = md.strip()
-        is_notes_page = "Notes" in header or "NOTES" in header
+        is_notes_page = ("Notes" in header or "NOTES" in header
+                          or i in def_heavy_pages)
 
         # Replace trailing page number with inline anchor tag
         if page_number_offset is not None:
