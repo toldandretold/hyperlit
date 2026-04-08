@@ -398,9 +398,11 @@ def classify_footnotes(response_dict):
                 continue
             refs.add(num)
 
-        # Definitions: [^N] at start of line, or numbered list "1. Text" format
+        # Definitions: [^N] at start of line, or numbered list "1. Text" format,
+        # or "N Text" format (no period — common in document endnotes)
         defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
         defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
+        defs |= set(int(n) for n in re.findall(r'^(\d{1,3}) [A-Z\u2018\u201c\'"]', md, re.MULTILINE))
 
         # Trailing standalone number (page number candidate)
         trailing_num = None
@@ -895,6 +897,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # Pre-compute chapter offsets for chapter_endnotes renumbering.
     # Each chapter restarts footnote numbering at 1; we offset them to be globally unique.
     chapter_fn_offsets = None
+    notes_transition_pages = {}  # page_idx → (threshold, old_offset, new_offset)
     if classification == "chapter_endnotes" and footnote_meta:
         chapter_fn_offsets = [0] * len(pages)
         cumulative = 0
@@ -921,12 +924,85 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                     ch_max = max(ch_max, ref_max)
                     ref_ch_max = max(ref_ch_max, ref_max)
 
+        # --- Extend offsets into the notes section ---
+        # Build ordered list of body chapter offsets
+        body_offsets = sorted(set(chapter_fn_offsets))
+
+        # Find last page with refs (notes section starts after this)
+        last_ref_page = 0
+        for entry in footnote_meta.get('page_summary', []):
+            if entry.get('refs'):
+                last_ref_page = max(last_ref_page, entry['index'])
+
+        # In notes section, detect def resets and assign matching body chapter offsets.
+        # Transition pages (where one chapter ends and the next begins) need per-def
+        # offsets since they contain defs from two different chapters.
+        notes_ch_idx = 0
+        notes_def_max = 0
+        for entry in footnote_meta.get('page_summary', []):
+            if entry['index'] <= last_ref_page:
+                continue
+            defs = entry.get('defs', [])
+            if not defs:
+                continue
+            def_max = max(defs)
+            def_min = min(defs)
+            if notes_def_max > 5 and def_min < notes_def_max * 0.3:
+                # Record old offset before advancing chapter
+                old_offset = body_offsets[notes_ch_idx] if notes_ch_idx < len(body_offsets) else 0
+                threshold = notes_def_max * 0.5
+                notes_ch_idx += 1
+                # On transition pages, old chapter defs may still appear.
+                # Only track new chapter's defs (below the reset threshold).
+                new_ch_defs = [d for d in defs if d < threshold]
+                notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
+
+                if notes_ch_idx < len(body_offsets):
+                    new_offset = body_offsets[notes_ch_idx]
+                    # Mark this as a transition page for per-def offsetting
+                    notes_transition_pages[entry['index']] = (threshold, old_offset, new_offset)
+                    # Start new offset on the NEXT page (transition page handled specially)
+                    for j in range(entry['index'] + 1, len(pages)):
+                        chapter_fn_offsets[j] = new_offset
+            else:
+                notes_def_max = max(notes_def_max, def_max)
+
+                if notes_ch_idx < len(body_offsets):
+                    offset = body_offsets[notes_ch_idx]
+                    for j in range(entry['index'], len(pages)):
+                        chapter_fn_offsets[j] = offset
+
+    # Sticky notes section tracking: once we enter "Notes" at the end of the
+    # book, stay in notes mode until we hit Acknowledgements/Bibliography/etc.
+    in_notes_section = False
+    last_ref_page_idx = 0
+    if footnote_meta:
+        for entry in footnote_meta.get('page_summary', []):
+            if entry.get('refs'):
+                last_ref_page_idx = max(last_ref_page_idx, entry['index'])
+
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
         header = page.get("header") or ""
         md_stripped = md.strip()
+
+        # Sticky notes section — only triggers AFTER all body refs are done.
+        # This prevents mid-book "Notes" headings (in chapter-endnote books like
+        # Road from Mont Pelerin) from accidentally flagging body pages.
+        if not in_notes_section and i > last_ref_page_idx:
+            if "Notes" in header or "NOTES" in header or "Footnotes" in header:
+                in_notes_section = True
+            elif re.search(r'^#+ *(Foot)?[Nn]otes\b', md_stripped):
+                in_notes_section = True
+
+        # Detect leaving notes section (Acknowledgements, Bibliography, Index, etc.)
+        if in_notes_section:
+            if re.search(r'^#+ *(Acknowledg|Bibliograph|Index|Appendi|General Bibliography)', md_stripped):
+                in_notes_section = False
+
         is_notes_page = ("Notes" in header or "NOTES" in header
-                          or i in def_heavy_pages)
+                          or i in def_heavy_pages
+                          or in_notes_section)
 
         # Replace trailing page number with inline anchor tag
         if page_number_offset is not None:
@@ -967,6 +1043,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # Convert numbered notes to footnote definitions on Notes pages
         if is_notes_page and classification != "wackSTEMbibliographyNotes":
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
+            # Also handle N text format (no period) — common in document endnotes
+            md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)
 
         # Renumber footnotes per-page for page_bottom classification
         if classification == "page_bottom":
@@ -1007,13 +1085,22 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
             # Apply chapter offset for global uniqueness
             if chapter_fn_offsets:
-                offset = chapter_fn_offsets[i]
-                if offset > 0:
-                    md = re.sub(
-                        r'\[\^(\d+)\]',
-                        lambda m: f'[^{int(m.group(1)) + offset}]',
-                        md
-                    )
+                if i in notes_transition_pages:
+                    # Transition page: old chapter tail + new chapter start need different offsets
+                    threshold, old_off, new_off = notes_transition_pages[i]
+                    def _apply_transition(m, _thr=threshold, _old=old_off, _new=new_off):
+                        num = int(m.group(1))
+                        off = _old if num >= _thr else _new
+                        return f'[^{num + off}]' if off > 0 else m.group(0)
+                    md = re.sub(r'\[\^(\d+)\]', _apply_transition, md)
+                else:
+                    offset = chapter_fn_offsets[i]
+                    if offset > 0:
+                        md = re.sub(
+                            r'\[\^(\d+)\]',
+                            lambda m: f'[^{int(m.group(1)) + offset}]',
+                            md
+                        )
 
             if md_stripped:
                 md_parts.append(md)
