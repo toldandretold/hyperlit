@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,7 @@ class CitationPipelineJob implements ShouldQueue
         private string $bookId,
         private string $pipelineId,
         private bool $force = false,
+        private ?User $user = null,
     ) {
         $this->onQueue('citation-pipeline');
     }
@@ -48,6 +50,9 @@ class CitationPipelineJob implements ShouldQueue
             ];
             if ($this->force) {
                 $args['--force'] = true;
+            }
+            if ($this->user) {
+                $args['--user-id'] = $this->user->id;
             }
 
             $exitCode = Artisan::call('citation:pipeline', $args);

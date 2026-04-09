@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CitationReviewCommand extends Command
 {
-    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)} {--pipeline-id= : Pipeline tracking ID for appendix diagnostics}';
+    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)} {--pipeline-id= : Pipeline tracking ID for appendix diagnostics} {--user-id= : User ID for billing}';
     protected $description = 'Review in-text citations: extract truth claims, search source material, verify with LLM';
 
     public function handle(CitationReviewService $reviewService): int
@@ -221,14 +221,25 @@ class CitationReviewCommand extends Command
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
-        // Bill the book creator for this review
-        $creator = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
+        // Bill the requesting user (passed from controller via --user-id) or the book creator
+        $billingUser = null;
+        if ($this->option('user-id')) {
+            $billingUser = \App\Models\User::find($this->option('user-id'));
+        }
+        // Fallback: book creator (manual artisan runs)
+        if (!$billingUser) {
+            $billingUser = \App\Models\User::where('name', $book->creator)->first();
+        }
 
-        if ($creator) {
-            $this->billReview($creator, $bookId, $book->title ?? $bookId, $stats);
+        if ($billingUser) {
+            $this->billReview($billingUser, $bookId, $book->title ?? $bookId, $stats);
         }
 
         // Send completion email to book creator
+        $creator = $billingUser;
+        if (!$creator || $creator->name !== ($book->creator ?? null)) {
+            $creator = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
+        }
         if ($creator?->email) {
             $appUrl = config('app.url');
             \Illuminate\Support\Facades\Mail::send('emails.citation-review', [

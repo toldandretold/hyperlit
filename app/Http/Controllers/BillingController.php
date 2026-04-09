@@ -68,7 +68,7 @@ class BillingController extends Controller
     public function addCredits(Request $request): JsonResponse
     {
         $request->validate([
-            'user_id'     => 'required|integer|exists:users,id',
+            'user_id'     => 'required|integer',
             'amount'      => 'required|numeric|min:0.01',
             'description' => 'sometimes|string|max:255',
         ]);
@@ -78,15 +78,24 @@ class BillingController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $user = \App\Models\User::findOrFail($request->input('user_id'));
-        $description = $request->input('description', 'Admin top-up');
+        // Look up target user via SECURITY DEFINER function (safe RLS bypass)
+        $target = \Illuminate\Support\Facades\DB::selectOne('SELECT * FROM auth_lookup_user_by_id(?)', [$request->input('user_id')]);
+        if (!$target) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
 
+        $user = new \App\Models\User();
+        $user->id = $target->id;
+        $user->name = $target->name;
+        $user->exists = true;
+
+        $description = $request->input('description', 'Admin top-up');
         $entry = $this->billing->addCredits($user, $request->input('amount'), $description);
 
         return response()->json([
             'success' => true,
             'entry'   => $entry,
-            'balance' => $user->fresh()->balance,
+            'balance' => $entry->balance_after,
         ]);
     }
 }

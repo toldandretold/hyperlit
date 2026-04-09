@@ -177,18 +177,10 @@ class ImportController extends Controller
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
                 }
 
-                // PDF uploads require premium status
-                if ($extension === 'pdf' && !Auth::user()?->isPremium()) {
-                    if ($request->expectsJson()) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'PDF import requires a premium account'
-                        ], 403);
-                    }
-                    return redirect()->back()->with('error', 'PDF import requires a premium account.');
+                // Pay-as-you-go users need positive balance (refresh to get current credits/debits)
+                if ($extension === 'pdf') {
+                    Auth::user()?->refresh();
                 }
-
-                // Pay-as-you-go users need positive balance
                 if ($extension === 'pdf' && !$this->billing->canProceed(Auth::user())) {
                     if ($request->expectsJson()) {
                         return response()->json([
@@ -524,10 +516,9 @@ class ImportController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unsupported file type. Allowed: md, doc, docx, epub, html, pdf'], 422);
             }
 
-            if ($ext === 'pdf' && !Auth::user()?->isPremium()) {
-                return response()->json(['success' => false, 'message' => 'PDF import requires a premium account'], 403);
+            if ($ext === 'pdf') {
+                Auth::user()?->refresh();
             }
-
             if ($ext === 'pdf' && !$this->billing->canProceed(Auth::user())) {
                 return response()->json(['success' => false, 'message' => 'Insufficient balance. Please top up your credits to continue.'], 402);
             }

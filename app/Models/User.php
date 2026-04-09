@@ -112,6 +112,6 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $tier = config("services.billing_tiers.{$this->status}");
 
-        return $tier['multiplier'] ?? 1.0;
+        return $tier['multiplier'] ?? config('services.billing_tiers.budget.multiplier', 1.5);
     }
 }

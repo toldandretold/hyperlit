@@ -264,13 +264,6 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
             AI Citation Review
           </button>
           <p style="font-size: 11px; color: #666; margin-top: 6px;">Must be logged in.</p>`;
-      } else if (!isPremium) {
-        btnHtml = `
-          <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: #888; border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            AI Citation Review
-          </button>
-          <p style="font-size: 11px; color: #666; margin-top: 6px;">Currently only for premium users. Email <a href="mailto:team@hyperlit.io" style="color: #4EACAE;">team@hyperlit.io</a> if you are interested.</p>`;
       } else {
         btnHtml = `
           <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -279,6 +272,10 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
           </button>
           <div id="ai-review-info" style="display: none; margin-top: 10px;">
             <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0; line-height: 1.5;">AI Citation Review compares all citations in this text to open databases, pulling any available data. It then compares the truth claim of each citation to the source material. The review takes 10-15 minutes. You will be emailed on completion.</p>
+            <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0;">${isPremium
+              ? 'Cost: <strong>Included with Premium</strong>'
+              : `Estimated cost: <strong>around $1.00</strong> <span style="opacity:0.7">(varies by book length)</span> <span class="ai-review-cost-info-toggle" tabindex="0" role="button" aria-label="Pricing info" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:4px;">?</span><span class="ai-review-cost-info-detail" style="display:none;"> AI Citation Review uses OCR and multiple LLMs to verify each citation. Cost depends on the number of citations and source length. For no markup, <a href="https://github.com/toldandretold/hyperlit" target="_blank" style="color:inherit;text-decoration:underline;">clone Hyperlit from GitHub</a> (it's free software) and use your own API keys.</span>`
+            }</p>
             <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aaa; margin-bottom: 10px; cursor: pointer;">
               <input type="checkbox" id="ai-review-force" style="accent-color: #EF8D34;" />
               Rescan all sources from scratch
@@ -571,6 +568,16 @@ export class SourceContainerManager extends ContainerManager {
       });
     }
 
+    const aiCostToggle = this.container.querySelector('.ai-review-cost-info-toggle');
+    if (aiCostToggle) {
+      const detail = this.container.querySelector('.ai-review-cost-info-detail');
+      if (detail) {
+        const toggle = () => { detail.style.display = detail.style.display === 'none' ? 'inline' : 'none'; };
+        aiCostToggle.addEventListener('click', toggle);
+        aiCostToggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      }
+    }
+
     const aiReviewGenerate = this.container.querySelector("#ai-review-generate");
     if (aiReviewGenerate) {
       aiReviewGenerate.addEventListener("click", (e) => {
@@ -813,15 +820,6 @@ export class SourceContainerManager extends ContainerManager {
       return;
     }
 
-    // PDF requires premium
-    if (ext === 'pdf') {
-      const authCtx = getAuthContextSync();
-      if (authCtx?.user?.status !== 'premium') {
-        showError('PDF import requires a premium account.');
-        return;
-      }
-    }
-
     // Validate size (50MB)
     if (file.size > 50 * 1024 * 1024) {
       showError('File must be less than 50MB.');
@@ -1007,6 +1005,24 @@ export class SourceContainerManager extends ContainerManager {
       const data = await resp.json().catch(() => ({}));
 
       if (!resp.ok) {
+        if (resp.status === 402) {
+          const infoPanel = this.container.querySelector('#ai-review-info');
+          if (infoPanel) {
+            let banner = infoPanel.querySelector('.ai-review-balance-error');
+            if (!banner) {
+              banner = document.createElement('p');
+              banner.className = 'ai-review-balance-error';
+              banner.style.cssText = 'font-size: 12px; color: #EF8D34; margin: 0 0 10px 0; line-height: 1.5;';
+              infoPanel.insertBefore(banner, generateBtn);
+            }
+            banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5 }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: #4EACAE; text-decoration: underline;">Top Up Balance</a>';
+          }
+          if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Review';
+          }
+          return;
+        }
         throw new Error(data.message || `Request failed: ${resp.status}`);
       }
 
@@ -1026,7 +1042,7 @@ export class SourceContainerManager extends ContainerManager {
   async loadAiReviewStatus() {
     const section = this.container.querySelector('#ai-review-section');
     const aiBtn = this.container.querySelector('#ai-review-btn');
-    if (!section || !aiBtn || aiBtn.disabled) return; // not premium or no section
+    if (!section || !aiBtn || aiBtn.disabled) return; // not logged in or no section
 
     try {
       // 1. Check if a completed AIreview sub-book already exists

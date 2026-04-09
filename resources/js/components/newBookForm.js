@@ -15,6 +15,18 @@ let allowedResubmitBookId = null;
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
 const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
 
+const BILLING_TIERS = {
+    premium:    { multiplier: 1.0, label: 'Premium' },
+    budget:     { multiplier: 1.5, label: 'Budget' },
+    solidarity: { multiplier: 2.0, label: 'Solidarity' },
+    capitalist: { multiplier: 5.0, label: 'Capitalist' },
+};
+
+function getUserTier() {
+    const status = getCurrentUserInfo()?.status;
+    return BILLING_TIERS[status] || BILLING_TIERS.budget;
+}
+
 let _pdfjsPromise = null;
 function loadPdfJs() {
     if (!_pdfjsPromise) {
@@ -55,8 +67,35 @@ async function showPdfCostEstimate(file) {
         const numPages = pdf.numPages;
         pdf.destroy();
 
-        const cost = (numPages / 1000) * MISTRAL_OCR_COST_PER_1K_PAGES;
-        el.textContent = `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — Estimated OCR cost: $${cost.toFixed(2)}`;
+        const tier = getUserTier();
+        const baseCost = (numPages / 1000) * MISTRAL_OCR_COST_PER_1K_PAGES;
+        const userCost = baseCost * tier.multiplier;
+
+        const userStatus = getCurrentUserInfo()?.status || 'budget';
+        const tierList = Object.entries(BILLING_TIERS)
+            .map(([key, t]) => {
+                const display = key === 'premium' ? `${t.label}: unlimited` : `${t.label}: ${t.multiplier}x`;
+                return key === userStatus ? `<strong>${display} (you)</strong>` : display;
+            })
+            .join(' · ');
+
+        const isPremium = userStatus === 'premium';
+        el.innerHTML = isPremium
+            ? `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — <strong>Included with Premium</strong>`
+            : `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — Estimated cost: <strong>$${userCost.toFixed(2)}</strong>`
+                + ` <span style="opacity:0.7">(${tier.multiplier}x ${tier.label})</span>`
+                + ` <span class="pdf-cost-info-toggle" tabindex="0" role="button" aria-label="Pricing info" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(0,188,212,0.5);font-size:10px;vertical-align:middle;margin-left:4px;">?</span>`
+                + `<span class="pdf-cost-info-detail" style="display:none;"> Mistral OCR costs $1.00/1k pages, multiplied by your tier: ${tierList}. For no markup, <a href="https://github.com/toldandretold/hyperlit" target="_blank" style="color:inherit;text-decoration:underline;">clone Hyperlit from GitHub</a> (it's free software) and use your own API key.</span>`;
+
+        const toggle = el.querySelector('.pdf-cost-info-toggle');
+        const detail = el.querySelector('.pdf-cost-info-detail');
+        if (toggle && detail) {
+            toggle.addEventListener('click', () => {
+                const open = detail.style.display === 'none';
+                detail.style.display = open ? 'inline' : 'none';
+                toggle.textContent = open ? '?' : '?';
+            });
+        }
     } catch (err) {
         console.warn('PDF cost estimate failed:', err);
         el.style.color = '#EF8D34';
@@ -72,6 +111,28 @@ function hidePdfCostEstimate() {
         el.style.display = 'none';
         el.textContent = '';
     }
+}
+
+function showInsufficientBalanceBanner() {
+    // Remove any existing banner
+    document.getElementById('insufficient-balance-banner')?.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'insufficient-balance-banner';
+    banner.style.cssText = 'display:block; color:#d63384; font-size:13px; margin-top:8px; padding:10px 12px; border-radius:4px; background:rgba(214,51,132,0.08); border:1px solid rgba(214,51,132,0.3);';
+    banner.innerHTML =
+        '<strong>Insufficient balance.</strong> PDF import is billed per page. Please top up your credits to continue.' +
+        '<br><a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5 }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="display:inline-block; margin-top:8px; padding:6px 14px; background:#d63384; color:#fff; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500;">Top Up Balance</a>';
+
+    // Insert after the pdf-cost-estimate div, or after the file validation div
+    const anchor = document.getElementById('pdf-cost-estimate') || document.getElementById('file-validation');
+    if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(banner, anchor.nextSibling);
+    }
+}
+
+function hideInsufficientBalanceBanner() {
+    document.getElementById('insufficient-balance-banner')?.remove();
 }
 
 function handlePdfCostEstimate(fileInput) {
@@ -652,17 +713,12 @@ function validateFileInput() {
     // Handle single file upload
     const file = fileInput.files[0];
     const fileName = file.name.toLowerCase();
-    const isPremium = getCurrentUserInfo()?.status === 'premium';
-    const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', ...(isPremium ? ['.pdf'] : [])];
+    const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', '.pdf'];
     const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (!isValidType) {
-        if (fileName.endsWith('.pdf') && !isPremium) {
-            errorMsg.textContent = 'PDF import requires a premium account';
-        } else {
-            const extList = validExtensions.join(', ');
-            errorMsg.textContent = `Please select a valid file (${extList})`;
-        }
+        const extList = validExtensions.join(', ');
+        errorMsg.textContent = `Please select a valid file (${extList})`;
         errorMsg.style.display = 'block';
         return false;
     }
@@ -1166,21 +1222,25 @@ async function submitToLaravelAndLoad(formData, submitButton) {
     
   } catch (error) {
     console.error("❌ Import failed:", error);
-    
-    // Show more helpful error messages based on error type
-    let userMessage = "Import failed: " + error.message;
-    
-    if (error.isProcessingError) {
-      userMessage = "Document processing failed. This is likely a backend issue.\n\n" + 
-                   "Please check:\n" +
-                   "• Document format and complexity\n" +
-                   "• Backend processing logs\n" +
-                   "• Try with a simpler test document\n\n" +
-                   "Technical details:\n" + error.message;
+
+    // Insufficient balance — show inline banner instead of alert
+    if (error.status === 402) {
+      showInsufficientBalanceBanner();
+    } else {
+      let userMessage = "Import failed: " + error.message;
+
+      if (error.isProcessingError) {
+        userMessage = "Document processing failed. This is likely a backend issue.\n\n" +
+                     "Please check:\n" +
+                     "• Document format and complexity\n" +
+                     "• Backend processing logs\n" +
+                     "• Try with a simpler test document\n\n" +
+                     "Technical details:\n" + error.message;
+      }
+
+      alert(userMessage);
     }
-    
-    alert(userMessage);
-    
+
     // Re-enable the button only on failure, since on success we navigate away.
     if (submitButton) {
       submitButton.disabled = false;
@@ -1201,8 +1261,9 @@ function setupClearButton() {
             // Reset inputs
             form.reset();
 
-            // Hide PDF cost estimate
+            // Hide PDF cost estimate and balance banner
             hidePdfCostEstimate();
+            hideInsufficientBalanceBanner();
 
             // Hide optional fields (labels and inputs)
             document.querySelectorAll('.optional-field').forEach(field => {
@@ -1326,15 +1387,11 @@ function setupRealTimeValidation() {
             }
 
             const file = fileInput.files[0];
-            const isPremium = getCurrentUserInfo()?.status === 'premium';
-            const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', ...(isPremium ? ['.pdf'] : [])];
+            const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html', '.pdf'];
             const fileName = file.name.toLowerCase();
             const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
 
             if (!isValidType) {
-                if (fileName.endsWith('.pdf') && !isPremium) {
-                    return { valid: false, message: 'PDF import requires a premium account' };
-                }
                 const extList = validExtensions.join(', ');
                 return { valid: false, message: `Please select a valid file (${extList})` };
             }
@@ -1500,6 +1557,7 @@ function setupRealTimeValidation() {
     const fileField = document.getElementById('markdown_file');
     if (fileField) {
         fileField.addEventListener('change', function() {
+            hideInsufficientBalanceBanner();
             const result = validators.validateFile(this);
             // Pass field base id 'file' so showValidationMessage targets #file-validation
             showValidationMessage('file', result);

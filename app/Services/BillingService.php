@@ -12,8 +12,9 @@ class BillingService
     /**
      * Charge a user (create a debit ledger entry).
      *
-     * Premium users: logs usage for tracking but doesn't debit.
-     * Pay-as-you-go tiers: scales raw cost by tier multiplier and debits.
+     * All tiers: logs real cost to ledger for usage tracking.
+     * Pay-as-you-go: also increments users.debits (for balance gating).
+     * Premium: skips debits increment (ledger-only) so balance stays clean on downgrade.
      */
     public function charge(
         User $user,
@@ -24,10 +25,11 @@ class BillingService
         ?array $metadata = null,
     ): BillingLedger {
         return DB::transaction(function () use ($user, $amount, $description, $category, $lineItems, $metadata) {
+            DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+
             $user = User::lockForUpdate()->find($user->id);
 
             $multiplier = $user->getBillingMultiplier();
-            $isPremiumSub = $user->status === 'premium';
 
             $metadata = array_merge($metadata ?? [], [
                 'raw_cost'   => round($amount, 4),
@@ -35,24 +37,12 @@ class BillingService
                 'tier'       => $user->status,
             ]);
 
-            if ($isPremiumSub) {
-                // Premium: log usage for data/analytics, zero debit
-                return BillingLedger::create([
-                    'user_id'       => $user->id,
-                    'type'          => 'debit',
-                    'amount'        => 0,
-                    'description'   => $description,
-                    'category'      => $category,
-                    'line_items'    => !empty($lineItems) ? $lineItems : null,
-                    'metadata'      => $metadata,
-                    'balance_after' => $user->balance,
-                ]);
-            }
-
-            // Pay-as-you-go: apply multiplier and debit
             $chargedAmount = round($amount * $multiplier, 4);
+            $isPremium = $user->status === 'premium';
 
-            $user->increment('debits', $chargedAmount);
+            if (!$isPremium) {
+                $user->increment('debits', $chargedAmount);
+            }
             $user->refresh();
 
             return BillingLedger::create([
@@ -92,6 +82,8 @@ class BillingService
         ?array $metadata = null,
     ): BillingLedger {
         return DB::transaction(function () use ($user, $amount, $description, $category, $metadata) {
+            DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+
             $user = User::lockForUpdate()->find($user->id);
 
             $user->increment('credits', $amount);

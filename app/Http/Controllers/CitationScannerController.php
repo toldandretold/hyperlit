@@ -123,13 +123,14 @@ class CitationScannerController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user || !$user->isPremium()) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'This feature is available to premium users only.',
-            ], 403);
+                'message' => 'You must be logged in to use this feature.',
+            ], 401);
         }
 
+        $user->refresh();
         if (!app(BillingService::class)->canProceed($user)) {
             return response()->json([
                 'success' => false,
@@ -168,12 +169,13 @@ class CitationScannerController extends Controller
         $db->table('citation_pipelines')->insert([
             'id'         => $pipelineId,
             'book'       => $bookId,
+            'user_id'    => Auth::id(),
             'status'     => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        CitationPipelineJob::dispatch($bookId, $pipelineId, $force);
+        CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user);
 
         return response()->json([
             'success'     => true,

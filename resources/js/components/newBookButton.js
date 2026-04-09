@@ -1,7 +1,7 @@
 import { ContainerManager } from "../containerManager.js";
 import { openDatabase } from "../indexedDB/index.js";
 // Navigation imports moved to new system - see createBookHandler function
-import { ensureAuthInitialized, getCurrentUserInfo } from "../utilities/auth.js";
+import { ensureAuthInitialized } from "../utilities/auth.js";
 import { log, verbose } from "../utilities/logger.js";
 
 import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
@@ -247,10 +247,7 @@ export class NewBookContainerManager extends ContainerManager {
   // Detect mobile to conditionally enable folder upload (not supported on mobile)
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  // Check if user is premium to allow PDF uploads
-  const userInfo = getCurrentUserInfo();
-  const isPremium = userInfo && userInfo.status === 'premium';
-  const pdfAccept = isPremium ? ',.pdf,application/pdf' : '';
+  const pdfAccept = ',.pdf,application/pdf';
 
   // The form HTML content:
   const formHTML = `

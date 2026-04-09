@@ -58,6 +58,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/password/reset',
             'api/search/*',            // Public search endpoints
             'api/database-to-indexeddb/*',  // Public read-only data endpoints
+            'api/stripe/webhook',          // Stripe webhook (signature-verified)
         ]);
         
         $middleware->alias([

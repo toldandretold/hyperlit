@@ -12,7 +12,8 @@ class CitationPipelineCommand extends Command
                             {--skip-fetch : Skip vacuum + OCR steps}
                             {--skip-review : Stop after fetching content (no LLM review)}
                             {--force : Re-resolve all bibliography entries from scratch (ignore existing source links)}
-                            {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}';
+                            {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}
+                            {--user-id= : User ID for billing}';
 
     protected $description = 'Run the full citation pipeline: bibliography scan → content scan → vacuum → OCR → review';
 
@@ -184,6 +185,9 @@ class CitationPipelineCommand extends Command
             $reviewArgs = ['bookId' => $bookId];
             if ($this->option('pipeline-id')) {
                 $reviewArgs['--pipeline-id'] = $this->option('pipeline-id');
+            }
+            if ($this->option('user-id')) {
+                $reviewArgs['--user-id'] = $this->option('user-id');
             }
             $exit = $this->call('citation:review', $reviewArgs);
             if ($exit !== 0) {

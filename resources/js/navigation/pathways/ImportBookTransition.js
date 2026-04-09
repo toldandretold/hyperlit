@@ -343,6 +343,7 @@ export class ImportBookTransition {
         // Create a more specific error for processing failures
         const error = new Error(`Server responded with ${response.status}: ${errorDetails}`);
         error.isProcessingError = isProcessingError;
+        error.status = response.status;
         throw error;
       }
 

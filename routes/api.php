@@ -21,8 +21,11 @@ use App\Http\Controllers\OpenAlexController;
 use App\Http\Controllers\CitationScannerController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\StripeController;
 
 
+// Stripe webhook — must be outside auth (Stripe calls it directly)
+Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 
 // Public routes with rate limiting to prevent brute force and spam
 Route::post('/login', [AuthController::class, 'login'])
@@ -53,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/billing/ledger', [BillingController::class, 'ledger']);
     Route::get('/billing/ledger/{id}', [BillingController::class, 'show']);
     Route::post('/billing/credits', [BillingController::class, 'addCredits']);
+    Route::post('/billing/checkout', [StripeController::class, 'createCheckoutSession']);
 
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);
