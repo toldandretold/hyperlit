@@ -77,6 +77,7 @@
         <!-- Only visible to page owner -->
         <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
         <button class="arranger-button" data-content="{{ $book }}Private" data-filter="private">Private</button>
+        <button class="arranger-button" data-content="{{ $book }}Account" data-filter="account">Account</button>
       </div>
       @endif
     </div>

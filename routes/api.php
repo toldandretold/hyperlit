@@ -22,6 +22,7 @@ use App\Http\Controllers\CitationScannerController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\StripeController;
+use App\Http\Controllers\UserHomeServerController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -57,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/billing/ledger/{id}', [BillingController::class, 'show']);
     Route::post('/billing/credits', [BillingController::class, 'addCredits']);
     Route::post('/billing/checkout', [StripeController::class, 'createCheckoutSession']);
+    Route::post('/billing/tier', [UserHomeServerController::class, 'updateTier']);
 
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);

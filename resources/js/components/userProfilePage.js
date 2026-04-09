@@ -22,7 +22,30 @@ export function initializeUserProfilePage() {
     }
     
     userProfilePageInitialized = true;
-    
+
+    // Stripe top-up button handler (delegated — survives DOMPurify sanitization)
+    document.addEventListener('click', async (e) => {
+        const topup = e.target.closest('.stripe-topup');
+        if (!topup) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const amount = topup.dataset.topupAmount || 5;
+        try {
+            const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
+            const resp = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
+                credentials: 'include',
+                body: JSON.stringify({ amount: Number(amount), return_url: window.location.href }),
+            });
+            const data = await resp.json();
+            if (data.checkout_url) window.location.href = data.checkout_url;
+        } catch (err) {
+            console.error('Stripe checkout failed:', err);
+        }
+    });
+
     document.addEventListener('click', async (e) => {
         const target = e.target.closest('.delete-book');
         if (!target) return;

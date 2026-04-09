@@ -1015,7 +1015,7 @@ export class SourceContainerManager extends ContainerManager {
               banner.style.cssText = 'font-size: 12px; color: #EF8D34; margin: 0 0 10px 0; line-height: 1.5;';
               infoPanel.insertBefore(banner, generateBtn);
             }
-            banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5 }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: #4EACAE; text-decoration: underline;">Top Up Balance</a>';
+            banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: #4EACAE; text-decoration: underline;">Top Up Balance</a>';
           }
           if (generateBtn) {
             generateBtn.disabled = false;

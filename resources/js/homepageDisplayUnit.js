@@ -12,13 +12,8 @@ const buttonHandlers = new Map();
 
 // Fix header spacing dynamically based on actual header height
 export function fixHeaderSpacing() {
-  // Skip for user page - CSS handles it, JS adjustment causes scroll issues
-  if (document.body.dataset.page === 'user') {
-    return;
-  }
-
   const header = document.querySelector('.fixed-header');
-  const wrapper = document.querySelector('.home-content-wrapper');
+  const wrapper = document.querySelector('.home-content-wrapper') || document.querySelector('.user-content-wrapper');
 
   if (header && wrapper) {
     const headerHeight = header.offsetHeight;

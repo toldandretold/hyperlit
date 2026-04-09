@@ -7,6 +7,44 @@
 .libraryCard .delete-book { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
 .libraryCard .delete-book svg { width: 16px; height: 16px; stroke: currentColor; display: inline-block; vertical-align: middle; }
 
+/* Account page — balance header */
+.totalCredit {
+  position: relative;
+  padding: 14px 16px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  background: rgba(78, 172, 174, 0.1);
+  border: 1px solid rgba(78, 172, 174, 0.3);
+  border-radius: 6px;
+}
+.totalCredit.totalCredit-negative {
+  background: rgba(239, 83, 80, 0.1);
+  border-color: rgba(239, 83, 80, 0.3);
+}
+.totalCredit .balance-positive { color: #4caf50; }
+.totalCredit .balance-negative { color: #ef5350; }
+
+/* Account page — top up button */
+.stripe-topup {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 4px 12px;
+  background: #4EACAE;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Account page — ledger rows */
+.ledgerEntry {
+  position: relative;
+  padding-right: 28px;
+}
+.ledgerEntry .ledger-credit { color: #4caf50; }
+.ledgerEntry .ledger-debit { color: #ef5350; }
+
 /* Video Embed Styling */
 .video-embed {
   position: relative;

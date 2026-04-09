@@ -171,6 +171,7 @@ export class LinkNavigationHandler {
     const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target');
     const isTocLink = link.closest('#toc-container');
     const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
+    const isStripeTopup = link.classList.contains('stripe-topup') || link.closest('.stripe-topup');
 
     // Skip footnote links - handled by footnotesCitations.js
     const isFootnoteLink = link.classList.contains('footnote-ref') || link.closest('sup[fn-count-id]');
@@ -178,7 +179,7 @@ export class LinkNavigationHandler {
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
 
-    if (isHypercite || isTocLink || isDeleteButton || isBlobUrl || isFootnoteLink) {
+    if (isHypercite || isTocLink || isDeleteButton || isStripeTopup || isBlobUrl || isFootnoteLink) {
       return true;
     }
 

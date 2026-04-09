@@ -25,11 +25,13 @@ class StripeController extends Controller
     public function createCheckoutSession(Request $request): JsonResponse
     {
         $request->validate([
-            'amount' => 'required|numeric|min:1|max:500',
+            'amount'     => 'required|numeric|min:1|max:500',
+            'return_url' => 'sometimes|string|max:2048',
         ]);
 
         $user = Auth::user();
         $amount = (float) $request->input('amount');
+        $returnUrl = $request->input('return_url', config('app.url'));
 
         $stripe = new StripeClient(config('services.stripe.secret'));
 
@@ -49,8 +51,8 @@ class StripeController extends Controller
                 'user_id'       => $user->id,
                 'credit_amount' => $amount,
             ],
-            'success_url' => config('app.url') . '?checkout=success',
-            'cancel_url'  => config('app.url') . '?checkout=cancel',
+            'success_url' => $returnUrl . (str_contains($returnUrl, '?') ? '&' : '?') . 'checkout=success',
+            'cancel_url'  => $returnUrl . (str_contains($returnUrl, '?') ? '&' : '?') . 'checkout=cancel',
         ]);
 
         return response()->json([

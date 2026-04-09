@@ -7,9 +7,39 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\PgLibrary;
+use Illuminate\Http\Request;
 
 class UserHomeServerController extends Controller
 {
+    /**
+     * Update the user's billing tier (status) in the database.
+     */
+    public function updateTier(Request $request)
+    {
+        $request->validate([
+            'tier' => 'required|string|in:budget,solidarity,capitalist',
+        ]);
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        DB::connection('pgsql_admin')->table('users')
+            ->where('id', $user->id)
+            ->update(['status' => $request->tier]);
+
+        $tiers = config('services.billing_tiers', []);
+        $tier = $tiers[$request->tier] ?? ['multiplier' => 1.5, 'label' => ucfirst($request->tier)];
+
+        return response()->json([
+            'success' => true,
+            'tier' => $request->tier,
+            'label' => $tier['label'],
+            'multiplier' => $tier['multiplier'],
+        ]);
+    }
+
     /**
      * Sanitize username by removing all spaces
      * Allows URLs like /u/MrJohns to work with DB username "Mr Johns"
@@ -42,9 +72,10 @@ class UserHomeServerController extends Controller
         // Generate user home books - RLS allows this via user_home type exception
         $this->generateUserHomeBook($actualUsername, $isOwner, 'public');
 
-        // Only generate private book if owner
+        // Only generate private book and account book if owner
         if ($isOwner) {
             $this->generateUserHomeBook($actualUsername, $isOwner, 'private');
+            $this->generateAccountBook($actualUsername);
         }
 
         // Fetch library record for title and bio (use sanitized for book ID)
@@ -201,6 +232,119 @@ class UserHomeServerController extends Controller
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * Generate the Account book with balance, tier, and transaction history.
+     */
+    public function generateAccountBook(string $username): array
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $bookName = $sanitizedUsername . 'Account';
+        $now = Carbon::now();
+        $admin = DB::connection('pgsql_admin');
+
+        // Upsert library record
+        $admin->table('library')->updateOrInsert(
+            ['book' => $bookName],
+            [
+                'author' => null, 'title' => $username . "'s account", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
+                'creator_token' => null,
+                'raw_json' => json_encode(['type' => 'user_account', 'username' => $username, 'sanitized_username' => $sanitizedUsername]),
+                'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
+            ]
+        );
+
+        // Clear existing nodes
+        $admin->table('nodes')->where('book', $bookName)->delete();
+
+        // Fetch user billing data
+        $user = $admin->table('users')->where('name', $username)->first();
+        $credits = (float) ($user->credits ?? 0);
+        $debits = (float) ($user->debits ?? 0);
+        $balance = $credits - $debits;
+
+        // Tier info
+        $status = $user->status ?? 'budget';
+        $tiers = config('services.billing_tiers', []);
+        $tier = $tiers[$status] ?? $tiers['budget'] ?? ['multiplier' => 1.5, 'label' => 'Budget'];
+        $tierLabel = $tier['label'] ?? ucfirst($status);
+        $multiplier = $tier['multiplier'] ?? 1.5;
+
+        // Fetch ledger entries
+        $ledgerEntries = $admin->table('billing_ledger')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $chunks = [];
+        $positionId = 100;
+
+        // Chunk 1 — Balance header
+        $balanceClass = $balance >= 0 ? 'balance-positive' : 'balance-negative';
+        $balanceFormatted = number_format(abs($balance), 2);
+        $balanceSign = $balance < 0 ? '-' : '';
+        $creditsFormatted = number_format($credits, 2);
+        $debitsFormatted = number_format($debits, 2);
+        $balanceNodeId = $bookName . '_balance_card';
+        $chunks[] = [
+            'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'card' => 'balance']),
+            'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $balanceNodeId, 'footnotes' => null,
+            'content' => '<p class="totalCredit' . ($balance < 0 ? ' totalCredit-negative' : '') . '" id="' . $positionId . '" data-node-id="' . $balanceNodeId . '">'
+                . '<strong class="' . $balanceClass . '">Balance: ' . $balanceSign . '&pound;' . $balanceFormatted . '</strong>'
+                . '<br><span class="balance-negative">Debits: &pound;' . $debitsFormatted . '</span>'
+                . '<br><span class="balance-positive">Credits: &pound;' . $creditsFormatted . '</span>'
+                . '<br><strong>Tier:</strong> ' . e($tierLabel) . ' (' . e($multiplier) . 'x)'
+                . ' <a href="#" class="stripe-topup" data-topup-amount="5">Top Up</a>'
+                . '</p>',
+            'plainText' => "Balance: {$balanceSign}£{$balanceFormatted} Credits: £{$creditsFormatted} Debits: £{$debitsFormatted} Tier: {$tierLabel} ({$multiplier}x)",
+            'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
+        ];
+        $positionId++;
+
+        // Chunks 3+ — Transaction history
+        if ($ledgerEntries->isEmpty()) {
+            $emptyNodeId = $bookName . '_empty_ledger';
+            $chunks[] = [
+                'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'card' => 'empty']),
+                'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $emptyNodeId, 'footnotes' => null,
+                'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $emptyNodeId . '"><em>No transactions yet.</em></p>',
+                'plainText' => 'No transactions yet.', 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
+            ];
+        } else {
+            foreach ($ledgerEntries as $entry) {
+                $isCredit = $entry->type === 'credit';
+                $amtClass = $isCredit ? 'ledger-credit' : 'ledger-debit';
+                $sign = $isCredit ? '+' : '-';
+                $amt = number_format((float) $entry->amount, 2);
+                $desc = e($entry->description);
+                $cat = e($entry->category);
+                $date = Carbon::parse($entry->created_at)->format('j M Y, H:i');
+                $entryNodeId = $bookName . '_' . $entry->id;
+
+                $chunks[] = [
+                    'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'ledger_id' => $entry->id]),
+                    'book' => $bookName, 'chunk_id' => floor(count($chunks) / 100), 'startLine' => $positionId, 'node_id' => $entryNodeId, 'footnotes' => null,
+                    'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $entryNodeId . '">'
+                        . '<span class="' . $amtClass . '">' . $sign . '&pound;' . $amt . '</span>'
+                        . ' &middot; ' . $desc
+                        . ' &middot; ' . $cat
+                        . ' &middot; ' . e($date)
+                        . '</p>',
+                    'plainText' => "{$sign}£{$amt} · {$entry->description} · {$entry->category} · {$date}",
+                    'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
+                ];
+                $positionId++;
+            }
+        }
+
+        // Batch insert
+        foreach (array_chunk($chunks, 500) as $batch) {
+            $admin->table('nodes')->insert($batch);
+        }
+
+        return ['success' => true, 'count' => count($chunks)];
     }
 
     private function generateLibraryCardChunk($record, string $bookName, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0, string $visibility = 'public')
