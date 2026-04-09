@@ -23,6 +23,74 @@ export function initializeUserProfilePage() {
     
     userProfilePageInitialized = true;
 
+    // Tier selector toggle (delegated — survives DOMPurify sanitization)
+    document.addEventListener('click', (e) => {
+        const selector = e.target.closest('.tier-selector');
+        if (!selector) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const dropdown = selector.nextElementSibling; // .tier-dropdown
+        if (dropdown) dropdown.classList.toggle('hidden');
+    });
+
+    // Tier option selection
+    document.addEventListener('click', async (e) => {
+        const option = e.target.closest('.tier-option');
+        if (!option) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const tier = option.dataset.tier;
+        if (!tier) return;
+
+        try {
+            const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
+            const resp = await fetch('/api/billing/tier', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
+                credentials: 'include',
+                body: JSON.stringify({ tier }),
+            });
+            const data = await resp.json();
+            if (data.success) {
+                // Update the tier label in DOM
+                const totalCredit = option.closest('.totalCredit');
+                if (totalCredit) {
+                    // Find the <strong>Tier:</strong> and replace the text node after it
+                    for (const strong of totalCredit.querySelectorAll('strong')) {
+                        if (strong.textContent.trim() === 'Tier:') {
+                            const textAfter = strong.nextSibling;
+                            if (textAfter && textAfter.nodeType === Node.TEXT_NODE) {
+                                textAfter.textContent = ` ${data.label} (${data.multiplier}x) `;
+                            }
+                            break;
+                        }
+                    }
+                    // Update selector data attribute
+                    const selector = totalCredit.querySelector('.tier-selector');
+                    if (selector) selector.dataset.currentTier = tier;
+
+                    // Update active class on options
+                    totalCredit.querySelectorAll('.tier-option').forEach(opt => opt.classList.remove('active'));
+                    option.classList.add('active');
+                }
+
+                // Close dropdown
+                const dropdown = option.closest('.tier-dropdown');
+                if (dropdown) dropdown.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error('Tier update failed:', err);
+        }
+    });
+
+    // Close tier dropdown on outside click
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.tier-dropdown') && !e.target.closest('.tier-selector')) {
+            document.querySelectorAll('.tier-dropdown').forEach(d => d.classList.add('hidden'));
+        }
+    });
+
     // Stripe top-up button handler (delegated — survives DOMPurify sanitization)
     document.addEventListener('click', async (e) => {
         const topup = e.target.closest('.stripe-topup');

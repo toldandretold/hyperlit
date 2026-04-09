@@ -19,7 +19,7 @@ const BILLING_TIERS = {
     premium:    { multiplier: 1.0, label: 'Premium' },
     budget:     { multiplier: 1.5, label: 'Budget' },
     solidarity: { multiplier: 2.0, label: 'Solidarity' },
-    capitalist: { multiplier: 5.0, label: 'Capitalist' },
+    capitalist: { multiplier: 5.0, label: 'Honest Capitalist' },
 };
 
 function getUserTier() {

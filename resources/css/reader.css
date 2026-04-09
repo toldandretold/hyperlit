@@ -26,16 +26,53 @@
 
 /* Account page — top up button */
 .stripe-topup {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 4px 12px;
+  display: block;
+  margin-top: 10px;
+  padding: 10px 20px;
   background: #4EACAE;
   color: #fff;
-  border-radius: 4px;
+  border-radius: 6px;
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
 }
+.stripe-topup:hover { background: #3d9496; }
+
+/* Account page — tier selector arrow */
+.tier-selector {
+  cursor: pointer;
+  color: #4EACAE;
+  font-size: 12px;
+  margin-left: 4px;
+  user-select: none;
+}
+.tier-selector:hover { color: #EF8D34; }
+
+/* Account page — tier dropdown panel */
+.tier-dropdown {
+  display: block;
+  margin-top: 8px;
+  padding: 4px 0;
+  background: rgba(34, 31, 32, 0.95);
+  border: 1px solid rgba(78, 172, 174, 0.4);
+  border-radius: 6px;
+  font-size: 0.85em;
+}
+.tier-dropdown.hidden { display: none; }
+
+/* Account page — tier option */
+.tier-option {
+  display: block;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tier-option:last-child { border-bottom: none; }
+.tier-option:hover { background: rgba(78, 172, 174, 0.15); }
+.tier-option.active { background: rgba(78, 172, 174, 0.25); }
+.tier-option em { font-size: 0.85em; opacity: 0.8; }
+.tier-explainer { display: block; padding: 8px 14px 4px; opacity: 0.7; font-size: 0.75em; }
 
 /* Account page — ledger rows */
 .ledgerEntry {
