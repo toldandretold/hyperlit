@@ -13,5 +13,6 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'api/database-to-indexeddb/books/*/reading-position',
+        'api/stripe/webhook',
     ];
 }
