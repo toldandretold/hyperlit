@@ -56,18 +56,23 @@ export function initializeUserProfilePage() {
                 // Update the tier label in DOM
                 const totalCredit = option.closest('.totalCredit');
                 if (totalCredit) {
-                    // Find the <strong>Tier:</strong> and replace the text node after it
-                    for (const strong of totalCredit.querySelectorAll('strong')) {
-                        if (strong.textContent.trim() === 'Tier:') {
-                            const textAfter = strong.nextSibling;
-                            if (textAfter && textAfter.nodeType === Node.TEXT_NODE) {
-                                textAfter.textContent = ` ${data.label} (${data.multiplier}x) `;
+                    // Remove all text/nodes between <strong>Tier:</strong> and .tier-selector
+                    const selector = totalCredit.querySelector('.tier-selector');
+                    if (selector) {
+                        let tierStrong = null;
+                        for (const s of totalCredit.querySelectorAll('strong')) {
+                            if (s.textContent.trim() === 'Tier:') { tierStrong = s; break; }
+                        }
+                        if (tierStrong) {
+                            // Remove everything between the strong and the selector
+                            while (tierStrong.nextSibling && tierStrong.nextSibling !== selector) {
+                                tierStrong.nextSibling.remove();
                             }
-                            break;
+                            // Insert fresh text node
+                            tierStrong.after(` ${data.label} (${data.multiplier}×) `);
                         }
                     }
                     // Update selector data attribute
-                    const selector = totalCredit.querySelector('.tier-selector');
                     if (selector) selector.dataset.currentTier = tier;
 
                     // Update active class on options

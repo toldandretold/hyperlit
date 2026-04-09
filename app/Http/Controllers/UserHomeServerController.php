@@ -292,29 +292,29 @@ class UserHomeServerController extends Controller
             'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'card' => 'balance']),
             'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $balanceNodeId, 'footnotes' => null,
             'content' => '<p class="totalCredit' . ($balance < 0 ? ' totalCredit-negative' : '') . '" id="' . $positionId . '" data-node-id="' . $balanceNodeId . '">'
-                . '<strong class="' . $balanceClass . '">Balance: ' . $balanceSign . '&pound;' . $balanceFormatted . '</strong>'
-                . '<br><span class="balance-negative">Debits: &pound;' . $debitsFormatted . '</span>'
-                . '<br><span class="balance-positive">Credits: &pound;' . $creditsFormatted . '</span>'
-                . '<br><strong>Tier:</strong> ' . e($tierLabel) . ' (' . e($multiplier) . 'x)'
+                . '<strong class="' . $balanceClass . '">Balance: ' . $balanceSign . '$' . $balanceFormatted . '</strong>'
+                . '<br><span class="balance-negative">Debits: $' . $debitsFormatted . '</span>'
+                . '<br><span class="balance-positive">Credits: $' . $creditsFormatted . '</span>'
+                . '<br><strong>Tier:</strong> ' . e($tierLabel) . ' (' . e($multiplier) . '&times;)'
                 . ' <span class="tier-selector" data-current-tier="' . e($status) . '">&#9660;</span>'
                 . '<span class="tier-dropdown hidden">'
                 .   '<span class="tier-explainer"><em>By self-selecting your tier, you choose how much each PDF-conversion or Citation Review will cost. There are NO automatic payment renewals. Simply top up credits, and renew when needed. Why? Coz fuck having to remember all the stupid subscriptions you signed up for.</em></span>'
                 .   '<span class="tier-option' . ($status === 'budget' ? ' active' : '') . '" data-tier="budget">'
-                .     '<strong>Budget</strong> (1.5x)'
+                .     '<strong>Budget</strong> (1.5&times;)'
                 .     '<br><em>Cover the cost of OCR API for PDF conversion, LLM compute for Citation Reviews, plus some web-hosting.</em>'
                 .   '</span>'
                 .   '<span class="tier-option' . ($status === 'solidarity' ? ' active' : '') . '" data-tier="solidarity">'
-                .     '<strong>Solidarity</strong> (2x)'
+                .     '<strong>Solidarity</strong> (2&times;)'
                 .     '<br><em>Cover costs and help me eat.</em>'
                 .   '</span>'
                 .   '<span class="tier-option' . ($status === 'capitalist' ? ' active' : '') . '" data-tier="capitalist">'
-                .     '<strong>Honest Capitalist (rare)</strong> (5x)'
+                .     '<strong>Honest Capitalist (rare)</strong> (5&times;)'
                 .     '<br><em>If you are a capitalist firm or large institution, please pay accordingly. Or if you just wanna support more, that&#39;s based AF comrade &#129297;&#129297;&#129297;&#9994;&#9994;&#9994;</em>'
                 .   '</span>'
                 . '</span>'
-                . '<br><a href="#" class="stripe-topup" data-topup-amount="5">Top Up &pound;5</a>'
+                . '<br><a href="#" class="stripe-topup" data-topup-amount="5">Top Up</a>'
                 . '</p>',
-            'plainText' => "Balance: {$balanceSign}£{$balanceFormatted} Credits: £{$creditsFormatted} Debits: £{$debitsFormatted} Tier: {$tierLabel} ({$multiplier}x)",
+            'plainText' => "Balance: {$balanceSign}\${$balanceFormatted} Credits: \${$creditsFormatted} Debits: \${$debitsFormatted} Tier: {$tierLabel} ({$multiplier}×)",
             'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
         ];
         $positionId++;
@@ -343,12 +343,12 @@ class UserHomeServerController extends Controller
                     'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'ledger_id' => $entry->id]),
                     'book' => $bookName, 'chunk_id' => floor(count($chunks) / 100), 'startLine' => $positionId, 'node_id' => $entryNodeId, 'footnotes' => null,
                     'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $entryNodeId . '">'
-                        . '<span class="' . $amtClass . '">' . $sign . '&pound;' . $amt . '</span>'
+                        . '<span class="' . $amtClass . '">' . $sign . '$' . $amt . '</span>'
                         . ' &middot; ' . $desc
                         . ' &middot; ' . $cat
                         . ' &middot; ' . e($date)
                         . '</p>',
-                    'plainText' => "{$sign}£{$amt} · {$entry->description} · {$entry->category} · {$date}",
+                    'plainText' => "{$sign}\${$amt} · {$entry->description} · {$entry->category} · {$date}",
                     'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
                 ];
                 $positionId++;

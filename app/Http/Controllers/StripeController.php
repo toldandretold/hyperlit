@@ -25,7 +25,7 @@ class StripeController extends Controller
     public function createCheckoutSession(Request $request): JsonResponse
     {
         $request->validate([
-            'amount'     => 'required|numeric|min:1|max:500',
+            'amount'     => 'required|numeric|min:5|max:500',
             'return_url' => 'sometimes|string|max:2048',
         ]);
 
@@ -39,8 +39,8 @@ class StripeController extends Controller
             'mode'        => 'payment',
             'line_items'  => [[
                 'price_data' => [
-                    'currency'     => 'gbp',
-                    'unit_amount'  => (int) ($amount * 100), // pence
+                    'currency'     => 'usd',
+                    'unit_amount'  => (int) ($amount * 100), // cents
                     'product_data' => [
                         'name' => 'Hyperlit Credits',
                     ],
