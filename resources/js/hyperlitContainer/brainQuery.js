@@ -127,14 +127,51 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
       if (!response.ok || !data.success) {
         const msg = data.message || 'AI query failed';
-        statusEl.textContent = msg;
+        if (response.status === 402) {
+          statusEl.innerHTML = '';
+          statusEl.textContent = msg;
+          const topUpBtn = document.createElement('a');
+          topUpBtn.href = '#';
+          topUpBtn.textContent = 'Top Up Balance';
+          topUpBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;font-weight:500;';
+          topUpBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              const resp = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
+                },
+                credentials: 'include',
+                body: JSON.stringify({ amount: 5, return_url: window.location.href }),
+              });
+              const d = await resp.json();
+              if (d.checkout_url) window.location.href = d.checkout_url;
+            } catch (err) {
+              console.warn('Top-up checkout failed:', err);
+            }
+          });
+          statusEl.appendChild(document.createElement('br'));
+          statusEl.appendChild(topUpBtn);
+        } else {
+          statusEl.textContent = msg;
+        }
         annotation.contentEditable = 'true';
         submitBtn.disabled = false;
         cancelBtn.style.display = '';
         return;
       }
 
-      // Success — clear scroller for sub-book content
+      // Success — turn off edit mode (this is AI-generated content, not user-editable)
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      const tb = getToolbar();
+      if (tb) {
+        tb.setEditMode(false);
+      }
+
+      // Clear scroller for sub-book content
       scroller.innerHTML = '';
 
       // Write records to IndexedDB

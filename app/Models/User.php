@@ -88,8 +88,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'credits' => 'decimal:2',
-            'debits' => 'decimal:2',
+            'credits' => 'decimal:4',
+            'debits' => 'decimal:4',
         ];
     }
 

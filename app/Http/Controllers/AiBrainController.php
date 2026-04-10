@@ -282,6 +282,11 @@ class AiBrainController extends Controller
             );
             Log::info('AiBrain: hyperlight record upserted', ['highlightId' => $highlightId]);
 
+            // 10b. Update annotations_updated_at on parent book so other clients sync
+            $nowMs = round(microtime(true) * 1000);
+            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $nowMs]);
+            Log::info('AiBrain: annotations_updated_at updated', ['book' => $bookId]);
+
             // 11. Bill user (cost already calculated in step 9b)
             $billingService->charge(
                 $user,
