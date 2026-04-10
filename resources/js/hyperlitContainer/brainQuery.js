@@ -79,18 +79,23 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     submitBtn.disabled = true;
     cancelBtn.style.display = 'none';
 
-    // Show status
+    // Show progressive status messages
     statusEl.style.display = 'block';
-    statusEl.textContent = 'Extracting relevant hypertext source material...';
-
-    // Update status after delay
-    const statusTimer = setTimeout(() => {
-      statusEl.textContent = 'Requesting analysis from DeepSeek...';
-    }, 3000);
+    statusEl.textContent = 'Analysing your question...';
+    const statusTimers = [];
+    statusTimers.push(setTimeout(() => {
+      statusEl.textContent = 'Searching for relevant source material...';
+    }, 2000));
+    statusTimers.push(setTimeout(() => {
+      statusEl.textContent = 'Generating scholarly analysis...';
+    }, 5000));
+    statusTimers.push(setTimeout(() => {
+      statusEl.textContent = 'Still working — synthesizing sources...';
+    }, 12000));
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     if (!csrfToken) {
-      clearTimeout(statusTimer);
+      statusTimers.forEach(t => clearTimeout(t));
       statusEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
@@ -116,7 +121,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         }),
       });
 
-      clearTimeout(statusTimer);
+      statusTimers.forEach(t => clearTimeout(t));
 
       const data = await response.json();
 
@@ -155,7 +160,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       });
 
     } catch (error) {
-      clearTimeout(statusTimer);
+      statusTimers.forEach(t => clearTimeout(t));
       console.error('BrainQuery: Fetch error:', error);
       statusEl.textContent = 'Network error. Try again.';
       annotation.contentEditable = 'true';

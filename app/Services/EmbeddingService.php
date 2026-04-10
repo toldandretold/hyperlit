@@ -118,6 +118,49 @@ class EmbeddingService
     }
 
     /**
+     * Search for similar nodes by the same author using cosine similarity.
+     * Identical to searchSimilar() but filtered to books by a specific author.
+     */
+    public function searchSimilarByAuthor(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $author = ''): array
+    {
+        if (empty($author)) {
+            return [];
+        }
+
+        $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
+
+        $query = DB::table('nodes AS n')
+            ->join('library AS l', 'n.book', '=', 'l.book')
+            ->selectRaw('
+                n.id,
+                n.book,
+                n."node_id",
+                n."plainText",
+                n.content,
+                l.title AS book_title,
+                l.author AS book_author,
+                l.year AS book_year,
+                l.bibtex,
+                (n.embedding <=> ?::vector) AS distance
+            ', [$vectorStr])
+            ->whereNotNull('n.embedding')
+            ->where('l.visibility', 'public')
+            ->where('l.type', '!=', 'sub_book')
+            ->where('l.author', $author)
+            ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
+            ->limit($limit);
+
+        if ($excludeBook) {
+            $query->where('n.book', '!=', $excludeBook);
+        }
+
+        return $query->get()->map(function ($row) {
+            $row->similarity = 1 - $row->distance;
+            return $row;
+        })->toArray();
+    }
+
+    /**
      * Get token usage estimate for billing.
      * Rough estimate: 1 token ≈ 4 chars.
      */
