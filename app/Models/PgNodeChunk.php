@@ -40,5 +40,12 @@ class PgNodeChunk extends Model
                 }
             }
         });
+
+        static::saved(function (PgNodeChunk $node) {
+            // Queue embedding generation when plainText changes
+            if ($node->wasChanged('plainText') && !empty($node->plainText) && strlen(trim($node->plainText)) >= 20) {
+                \App\Jobs\GenerateNodeEmbedding::dispatch($node->id);
+            }
+        });
     }
 }

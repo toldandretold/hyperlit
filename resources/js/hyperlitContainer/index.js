@@ -616,7 +616,7 @@ function attachSubBookFocusSwitcher() {
  * @param {string} directHyperciteId - Optional direct hypercite ID
  * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  */
-export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null, isNewFootnote = false) {
+export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null, isNewFootnote = false, options = {}) {
   const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
   console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId, isProcessingClick });
 
@@ -849,7 +849,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // This avoids the "open empty then expand" jank since content may be a
     // skeleton until the async sub-book loads.
     prepareHyperlitContainer(unifiedContent, isBackNavigation);
-    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db);
+    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db, options);
     animateHyperlitContainerOpen();
 
     // Release the guard after container open is complete
@@ -1088,7 +1088,7 @@ export async function buildUnifiedContent(contentTypes, newHighlightIds = [], db
  * @param {boolean} skipAutoFocus - Skip auto-focus (used when edit button handles focus separately)
  * @param {IDBDatabase|null} db - Optional reused database connection
  */
-export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false, hasAnyEditPermission = false, skipAutoFocus = false, db = null) {
+export async function handlePostOpenActions(contentTypes, newHighlightIds = [], focusPreserver = null, isNewFootnote = false, hasAnyEditPermission = false, skipAutoFocus = false, db = null, options = {}) {
   const editModeEnabled = getHyperlitEditMode();
 
   // Only attach note listeners if edit mode is enabled
@@ -1214,6 +1214,13 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           const targetEl = scroller.querySelector(
             `.highlight-annotation[data-highlight-id="${highlight.hyperlight_id}"]`
           );
+
+          // Brain mode: inject question input instead of loading sub-book
+          if (options.brainModeHighlightId && highlight.hyperlight_id === options.brainModeHighlightId) {
+            const { injectBrainInput } = await import('./brainQuery.js');
+            await injectBrainInput(targetEl, highlight, scroller);
+            continue;
+          }
 
           // Determine if we need to attach the editor (only for user-owned highlights)
           const needsEditor = isOwnerOrNew && editModeEnabled && !subBookEditorAttached;

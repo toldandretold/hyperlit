@@ -16,6 +16,7 @@ import { withPending, setProgrammaticUpdateInProgress, addNewlyCreatedHighlight,
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
 import { isStackPopping } from '../hyperlitContainer/stack.js';
 
+
 // Track whether document listeners are attached
 let documentListenersAttached = false;
 
@@ -289,6 +290,18 @@ export function handleSelection() {
       console.log("No user highlight or content link selected - hiding delete button");
       document.getElementById("delete-hyperlight").style.display = "none";
     }
+
+    // Dim brain button if selection is too short for AI query
+    const brainBtn = document.getElementById("brain-hyperlight");
+    if (brainBtn) {
+      if (selectedText.trim().length < 5) {
+        brainBtn.style.opacity = "0.3";
+        brainBtn.style.pointerEvents = "none";
+      } else {
+        brainBtn.style.opacity = "";
+        brainBtn.style.pointerEvents = "";
+      }
+    }
   } else {
     verbose.content("No text selected. Hiding buttons.", 'hyperlights/selection.js');
     document.getElementById("hyperlight-buttons").style.display = "none";
@@ -300,6 +313,89 @@ export function handleSelection() {
       editToolbar.classList.remove("hyperlight-selection-active");
     }
   }
+}
+
+/**
+ * Open brain mode from the selection popup.
+ * Creates a real highlight from the selection, then opens the hyperlit container
+ * with the brain query input injected inside it.
+ */
+async function openBrainFromSelection(event) {
+  const selection = window.getSelection();
+  console.log('🧠 openBrainFromSelection called, selection:', selection?.toString()?.substring(0, 50), 'collapsed:', selection?.isCollapsed);
+
+  if (!selection || selection.isCollapsed) {
+    console.warn('🧠 BrainMode: No selection or selection collapsed');
+    return;
+  }
+
+  const selectedText = selection.toString().trim();
+  if (!selectedText || selectedText.length < 5) {
+    console.warn('🧠 BrainMode: Selected text too short (min 5 chars), got:', selectedText?.length);
+    return;
+  }
+
+  // Resolve bookId from selection DOM position (sub-book aware)
+  const range = selection.getRangeAt(0);
+  const rangeEl = range?.commonAncestorContainer;
+  const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
+  const subBookEl = containerEl?.closest('[data-book-id]');
+  const bookId = subBookEl?.dataset?.bookId
+    || document.querySelector('.main-content')?.id;
+
+  if (!bookId) {
+    console.warn('🧠 BrainMode: Could not determine book ID');
+    return;
+  }
+
+  console.log('🧠 BrainMode: Creating highlight for bookId:', bookId, 'selectedText:', selectedText.substring(0, 50));
+
+  // Hide the hyperlight-buttons popup
+  const hlButtons = document.getElementById('hyperlight-buttons');
+  if (hlButtons) hlButtons.style.display = 'none';
+
+  // Create a real highlight but skip opening the container
+  const result = await createHighlightHandler(event, bookId, { skipOpen: true });
+  if (!result || !result.highlightId) {
+    console.warn('🧠 BrainMode: Failed to create highlight');
+    return;
+  }
+
+  const { highlightId } = result;
+  console.log('🧠 BrainMode: Highlight created:', highlightId);
+
+  // Update creator to LLM-data-pipeline in IndexedDB
+  try {
+    const { openDatabase } = await import('../indexedDB/index.js');
+    const db = await openDatabase();
+    const tx = db.transaction('hyperlights', 'readwrite');
+    const store = tx.objectStore('hyperlights');
+    const idx = store.index('hyperlight_id');
+    const existing = await new Promise(r => { const req = idx.get(highlightId); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
+    if (existing) {
+      existing.creator = 'LLM-data-pipeline';
+      store.put(existing);
+      await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    }
+  } catch (e) {
+    console.warn('🧠 BrainMode: Failed to update creator (non-fatal):', e);
+  }
+
+  // Find the mark element for the newly created highlight
+  const markElement = document.querySelector(`mark.${highlightId}`);
+
+  // Open hyperlit container with brain mode flag
+  const { handleUnifiedContentClick } = await import('../hyperlitContainer/index.js');
+  await handleUnifiedContentClick(
+    markElement,
+    [highlightId],
+    [highlightId],
+    false,
+    false,
+    null,
+    false,
+    { brainModeHighlightId: highlightId }
+  );
 }
 
 /**
@@ -338,6 +434,18 @@ export function initializeHighlightingControls(currentBookId) {
     deleteHighlightHandler(event, getActiveBook())
   );
 
+  // Brain button — opens AI brain mode with current selection
+  const brainButton = document.getElementById("brain-hyperlight");
+  if (brainButton) {
+    addTouchAndClickListener(brainButton, (event) => {
+      event.preventDefault();
+      console.log('🧠 Brain button pressed');
+      openBrainFromSelection(event);
+    });
+  } else {
+    console.warn('🧠 Brain button #brain-hyperlight not found in DOM');
+  }
+
   // Prevent iOS from cancelling selection
   buttonsContainer.addEventListener("touchstart", function (event) {
     event.preventDefault();
@@ -361,7 +469,8 @@ export function cleanupHighlightingControls() {
   // Actually remove button listeners, then reset guards so reinit can re-attach
   const copyButton = document.getElementById("copy-hyperlight");
   const deleteButton = document.getElementById("delete-hyperlight");
-  [copyButton, deleteButton].forEach(btn => {
+  const brainBtn = document.getElementById("brain-hyperlight");
+  [copyButton, deleteButton, brainBtn].forEach(btn => {
     if (!btn) return;
     if (btn._wrappedHandler) {
       btn.removeEventListener("mousedown", btn._wrappedHandler);
@@ -377,7 +486,7 @@ export function cleanupHighlightingControls() {
  * @param {Event} event - The triggering event
  * @param {string} bookId - The current book ID
  */
-export async function createHighlightHandler(event, bookId) {
+export async function createHighlightHandler(event, bookId, options = {}) {
   let selection = window.getSelection();
   let range;
   try {
@@ -621,7 +730,11 @@ export async function createHighlightHandler(event, bookId) {
     removeNewlyCreatedHighlight(highlightId);
   }, 10000); // 10 seconds should be enough for backend processing
 
-  await openHighlightById(highlightId, true, [highlightId]);
+  if (!options.skipOpen) {
+    await openHighlightById(highlightId, true, [highlightId]);
+  }
+
+  return { highlightId, charData: charDataByNode, nodeIds: Object.keys(charDataByNode), selectedText };
 }
 
 /**

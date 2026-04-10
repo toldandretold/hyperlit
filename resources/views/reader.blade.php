@@ -118,6 +118,21 @@
   <path class="st0" d="M30.34,2.51h-13.47c-2.97,0-5.39,2.42-5.39,5.39-2.97,0-5.39,2.42-5.39,5.39v13.47c0,2.97,2.42,5.39,5.39,5.39h13.47c2.97,0,5.39-2.42,5.39-5.39,2.97,0,5.39-2.42,5.39-5.39V7.9c0-2.97-2.42-5.39-5.39-5.39ZM27.65,26.76c0,1.49-1.21,2.69-2.69,2.69h-13.47c-1.49,0-2.69-1.21-2.69-2.69v-13.47c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47ZM33.04,21.37c0,1.49-1.21,2.69-2.69,2.69v-10.78c0-2.97-2.42-5.39-5.39-5.39h-10.78c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47Z"/>
     </svg>
   </button>
+
+  <!-- Brain Button -->
+  <button id="brain-hyperlight" type="button">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path class="brain-icon-path" d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+      <path class="brain-icon-path" d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+      <path class="brain-icon-path" d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+      <path class="brain-icon-path" d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+      <path class="brain-icon-path" d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+      <path class="brain-icon-path" d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+      <path class="brain-icon-path" d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+      <path class="brain-icon-path" d="M6 18a4 4 0 0 1-1.967-.516"/>
+      <path class="brain-icon-path" d="M19.967 17.484A4 4 0 0 1 18 18"/>
+    </svg>
+  </button>
 </div>
 
   <div id="bottom-left-buttons" class="loading"> <!-- bottom left buttons -->

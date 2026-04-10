@@ -67,8 +67,8 @@ class KeyboardManager {
 
     this.state.focusedElement = e.target;
 
-    // CITATION INPUT FIX: Prevent iOS from scrolling when citation input focuses
-    if (e.target.id === 'citation-search-input' && this.isKeyboardOpen) {
+    // CITATION/BRAIN INPUT FIX: Prevent iOS from scrolling when citation/brain input focuses
+    if ((e.target.id === 'citation-search-input' || e.target.id === 'brain-search-input') && this.isKeyboardOpen) {
       console.log('🚫 Preventing iOS scroll for citation input - forcing scroll position to stay put');
       const vv = window.visualViewport;
       const currentOffsetTop = vv.offsetTop;
@@ -222,6 +222,13 @@ class KeyboardManager {
       return; // Don't prevent - allow input interaction
     }
 
+    // Allow interaction with brain search input and container
+    const brainInput = e.target.closest('#brain-search-input');
+    const brainContainer = e.target.closest('#brain-mode-container');
+    if (brainInput || brainContainer) {
+      return; // Don't prevent - allow input interaction
+    }
+
     // Allow interaction with search input (paste context menu on iOS)
     if (e.target.closest('#search-input')) {
       return;
@@ -275,12 +282,14 @@ processViewportChange() {
     return;
   }
 
-  // CITATION MODE FIX: If citation mode is active, NEVER reposition - toolbar is locked
+  // CITATION/BRAIN MODE FIX: If citation or brain mode is active, NEVER reposition - toolbar is locked
   const editToolbar = document.querySelector('#edit-toolbar');
   const isCitationMode = editToolbar && editToolbar.classList.contains('citation-mode-active');
-  if (isCitationMode && this.isKeyboardOpen) {
-    console.log(`🔒 Citation mode active - LOCKING toolbar position, ignoring all viewport changes`);
-    return; // Don't process any viewport changes while in citation mode
+  const brainContainer = document.getElementById('brain-mode-container');
+  const isBrainMode = brainContainer && !brainContainer.classList.contains('hidden');
+  if ((isCitationMode || isBrainMode) && this.isKeyboardOpen) {
+    console.log(`🔒 Citation/Brain mode active - LOCKING toolbar position, ignoring all viewport changes`);
+    return;
   }
 
   // REFOCUS FIX: Detect when offsetTop changes significantly while keyboard is already open
@@ -480,13 +489,15 @@ scrollCaretIntoView(element) {
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
-    // CITATION MODE LOCK: If citation mode is active and keyboard WAS already open,
+    // CITATION/BRAIN MODE LOCK: If citation or brain mode is active and keyboard WAS already open,
     // REFUSE to adjust anything - toolbar position is locked
     // BUT allow repositioning when keyboard is OPENING (wasKeyboardOpen=false)
     const isCitationMode = editToolbar && editToolbar.classList.contains('citation-mode-active');
+    const brainContainer2 = document.getElementById('brain-mode-container');
+    const isBrainMode = brainContainer2 && !brainContainer2.classList.contains('hidden');
     const keyboardWasAlreadyOpen = wasKeyboardOpen !== null ? wasKeyboardOpen : this.isKeyboardOpen;
-    if (isCitationMode && keyboardWasAlreadyOpen && keyboardOpen) {
-      console.log(`🔒 Citation mode active + keyboard WAS already open - REFUSING to adjust layout`);
+    if ((isCitationMode || isBrainMode) && keyboardWasAlreadyOpen && keyboardOpen) {
+      console.log(`🔒 Citation/Brain mode active + keyboard WAS already open - REFUSING to adjust layout`);
       return; // Don't touch anything!
     }
 

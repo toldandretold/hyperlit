@@ -23,6 +23,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UserHomeServerController;
+use App\Http\Controllers\AiBrainController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -67,6 +68,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/citation-pipeline/trigger', [CitationScannerController::class, 'triggerPipeline']);
     Route::get('/citation-pipeline/status/{pipelineId}', [CitationScannerController::class, 'pipelineStatus']);
     Route::get('/citation-pipeline/running/{book}', [CitationScannerController::class, 'pipelineRunning']);
+
+    // AI Brain
+    Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
 });
 
 // Password reset routes (throttled to prevent abuse)

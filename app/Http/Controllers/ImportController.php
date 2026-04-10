@@ -446,6 +446,9 @@ class ImportController extends Controller
                 $totalInserted += count($batch);
             }
 
+            // Queue embedding generation for imported nodes
+            \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
+
             // Update JSON file with renumbered values
             $renumberedJson = [];
             foreach ($insertData as $record) {
