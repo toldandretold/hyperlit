@@ -293,8 +293,8 @@ class UserHomeServerController extends Controller
             'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $balanceNodeId, 'footnotes' => null,
             'content' => '<p class="totalCredit' . ($balance < 0 ? ' totalCredit-negative' : '') . '" id="' . $positionId . '" data-node-id="' . $balanceNodeId . '">'
                 . '<strong class="' . $balanceClass . '">Balance: ' . $balanceSign . '$' . $balanceFormatted . '</strong>'
-                . '<br><span class="balance-negative">Debits: $' . $debitsFormatted . '</span>'
-                . '<br><span class="balance-positive">Credits: $' . $creditsFormatted . '</span>'
+                . '<br><span>Debits: $' . $debitsFormatted . '</span>'
+                . '<br><span>Credits: $' . $creditsFormatted . '</span>'
                 . '<br><strong>Tier:</strong> ' . e($tierLabel) . ' (' . e($multiplier) . '&times;)'
                 . ' <span class="tier-selector" data-current-tier="' . e($status) . '">&#9660;</span>'
                 . '<span class="tier-dropdown hidden">'
@@ -331,7 +331,6 @@ class UserHomeServerController extends Controller
         } else {
             foreach ($ledgerEntries as $entry) {
                 $isCredit = $entry->type === 'credit';
-                $amtClass = $isCredit ? 'ledger-credit' : 'ledger-debit';
                 $sign = $isCredit ? '+' : '-';
                 $amt = number_format((float) $entry->amount, 2);
                 $desc = e($entry->description);
@@ -343,7 +342,7 @@ class UserHomeServerController extends Controller
                     'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'ledger_id' => $entry->id]),
                     'book' => $bookName, 'chunk_id' => floor(count($chunks) / 100), 'startLine' => $positionId, 'node_id' => $entryNodeId, 'footnotes' => null,
                     'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $entryNodeId . '">'
-                        . '<span class="' . $amtClass . '">' . $sign . '$' . $amt . '</span>'
+                        . '<span>' . $sign . '$' . $amt . '</span>'
                         . ' &middot; ' . $desc
                         . ' &middot; ' . $cat
                         . ' &middot; ' . e($date)

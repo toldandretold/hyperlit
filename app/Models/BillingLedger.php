@@ -30,7 +30,7 @@ class BillingLedger extends Model
     {
         return [
             'amount'        => 'decimal:4',
-            'balance_after' => 'decimal:2',
+            'balance_after' => 'decimal:4',
             'line_items'    => 'array',
             'metadata'      => 'array',
         ];

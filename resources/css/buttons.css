@@ -122,6 +122,18 @@ black #221F20;
   fill: var(--icon-hover-fill);
 }
 
+/* Brain button - stroked icon (lucide brain) */
+#hyperlight-buttons #brain-hyperlight svg .brain-icon-path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+#hyperlight-buttons #brain-hyperlight:hover {
+  background: var(--icon-hover-background);
+}
+#hyperlight-buttons #brain-hyperlight:hover svg .brain-icon-path {
+  stroke: var(--icon-hover-stroke);
+}
+
 /* ===== EDIT TOOLBAR BUTTONS ===== */
 /* Background rects for all toolbar buttons */
 #edit-toolbar button svg rect {
@@ -472,8 +484,17 @@ black #221F20;
   justify-content: center;
 
   overflow: hidden;
+}
 
-
+#brain-hyperlight {
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #delete-hyperlight {
@@ -1436,6 +1457,325 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
 }
 
 /* end citation mode */
+
+/*
+  =====================================================================
+  BRAIN MODE STYLES
+  =====================================================================
+*/
+
+/* Brain mode container - fixed bar at bottom of screen */
+#brain-mode-container {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10001;
+  background: var(--color-background);
+  border-top: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+}
+
+#brain-mode-container:not(.hidden) {
+  display: flex;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+#brain-mode-container.hidden {
+  display: none !important;
+}
+
+/* Brain input wrapper */
+.brain-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+/* Brain search input */
+#brain-search-input {
+  flex: 1;
+  padding: 6px 12px;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  position: relative;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* MOBILE: Extend tap area for brain search input */
+@media (max-width: 768px) {
+  #brain-search-input::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    bottom: -100px;
+    left: -10px;
+    right: -10px;
+    z-index: 1;
+    pointer-events: auto;
+  }
+}
+
+#brain-search-input:focus {
+  border-color: var(--icon-stroke-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+}
+
+#brain-search-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Submit button */
+.brain-submit-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--icon-stroke-primary);
+  border: none;
+  border-radius: 6px;
+  color: var(--color-background);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.brain-submit-btn:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.brain-submit-btn:active {
+  transform: scale(0.95);
+}
+
+.brain-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.brain-submit-btn.hidden {
+  display: none;
+}
+
+/* Close button */
+.brain-close-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* MOBILE: Extend close button tap area */
+@media (max-width: 768px) {
+  .brain-close-btn::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    bottom: -100px;
+    left: -8px;
+    right: -8px;
+  }
+}
+
+.brain-close-btn:hover {
+  background-color: var(--icon-hover-background);
+  transform: scale(1.1);
+}
+
+.brain-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Loading indicator */
+.brain-loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.brain-loading-indicator.hidden {
+  display: none;
+}
+
+.brain-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--icon-stroke-primary);
+  animation: brainPulse 1.4s ease-in-out infinite;
+}
+
+.brain-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.brain-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes brainPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Toast notification for async responses */
+.brain-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--icon-stroke-primary);
+  color: var(--color-background);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 999999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: brainToastIn 0.3s ease forwards;
+}
+
+.brain-toast-fade-out {
+  animation: brainToastOut 0.5s ease forwards;
+}
+
+@keyframes brainToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes brainToastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+}
+
+/* Mobile adjustments for brain mode */
+@media (max-width: 768px) {
+  #brain-search-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* end brain mode */
+
+/*
+  =====================================================================
+  BRAIN QUERY (inside hyperlit container)
+  =====================================================================
+*/
+.brain-query-section {
+  padding: 1em 1.2em;
+}
+.brain-query-section h1 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0 0 0.75em 0;
+  color: var(--color-text);
+}
+/* Contenteditable annotation-style input */
+.brain-query-annotation {
+  min-height: 2.5em;
+  padding: 0.6em 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  transition: border-color 0.2s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.brain-query-annotation:focus {
+  border-bottom-color: var(--icon-stroke-primary);
+}
+.brain-query-annotation[contenteditable="false"] {
+  opacity: 0.5;
+}
+/* Placeholder via data attribute */
+.brain-query-annotation.empty::before {
+  content: attr(data-placeholder);
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
+  pointer-events: none;
+  font-style: italic;
+}
+/* Action row: Ask + Cancel side by side */
+.brain-action-row {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.75em;
+}
+.brain-query-section .brain-submit-btn {
+  padding: 0.4em 1.2em;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  background: var(--icon-stroke-primary);
+  color: var(--color-background);
+  font-size: 13px;
+  font-weight: 500;
+  transition: filter 0.2s ease;
+}
+.brain-query-section .brain-submit-btn:hover {
+  filter: brightness(1.1);
+}
+.brain-query-section .brain-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.brain-query-section .brain-cancel-btn {
+  padding: 0.4em 1.2em;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+.brain-query-section .brain-cancel-btn:hover {
+  color: var(--color-text);
+}
+.brain-status {
+  padding: 0.75em 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-style: italic;
+  font-size: 13px;
+}
+/* end brain query */
 
 /*
   =====================================================================

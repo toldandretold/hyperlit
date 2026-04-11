@@ -199,16 +199,17 @@ class DbNodeChunkController extends Controller
                 $records = [];
 
                 foreach ($data['data'] as $item) {
+                    $content = $item['content'] ?? null;
                     $records[] = [
                         'book' => $item['book'] ?? null,
                         'chunk_id' => $item['chunk_id'] ?? 0,
                         'startLine' => $item['startLine'] ?? null,
                         'node_id' => $item['node_id'] ?? null,
-                        'content' => $item['content'] ?? null,
+                        'content' => $content,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
                         // 🔄 NEW SYSTEM: Don't touch hypercites/hyperlights columns - leave existing data intact
                         // 'hypercites' and 'hyperlights' columns intentionally omitted
-                        'plainText' => $item['plainText'] ?? null,
+                        'plainText' => $item['plainText'] ?? ($content ? strip_tags($content) : null),
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
                         'created_at' => now(),
@@ -222,6 +223,9 @@ class DbNodeChunkController extends Controller
                     'book' => $bookId,
                     'records_inserted' => count($records),
                 ]);
+
+                // Queue embedding generation for new nodes
+                \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
 
                 // Update preview_nodes for sub-books (best-effort, don't fail the request)
                 if (str_contains($bookId, '/')) {
@@ -298,14 +302,15 @@ class DbNodeChunkController extends Controller
 
                 $records = [];
                 foreach ($data['data'] as $item) {
+                    $content = $item['content'] ?? null;
                     $records[] = [
                         'book' => $item['book'] ?? $book,
                         'chunk_id' => $item['chunk_id'] ?? 0,
                         'startLine' => $item['startLine'] ?? null,
                         'node_id' => $item['node_id'] ?? null,
-                        'content' => $item['content'] ?? null,
+                        'content' => $content,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
-                        'plainText' => $item['plainText'] ?? null,
+                        'plainText' => $item['plainText'] ?? ($content ? strip_tags($content) : null),
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
                     ];
@@ -355,6 +360,9 @@ class DbNodeChunkController extends Controller
                     'records_upserted' => count($records),
                     'records_deleted' => $deletedCount,
                 ]);
+
+                // Queue embedding generation for upserted nodes
+                \App\Jobs\QueueBookEmbeddings::dispatch($book);
 
                 // Update preview_nodes for sub-books (best-effort, don't fail the request)
                 if (str_contains($book, '/')) {
@@ -480,12 +488,13 @@ class DbNodeChunkController extends Controller
                     $updateData = [];
                     // For owners, prepare all possible updatable fields.
                     if ($hasPermission) {
+                        $updatedContent = $item['content'] ?? ($existingChunk ? $existingChunk->content : null);
                         $updateData = [
                             'chunk_id' => $item['chunk_id'] ?? ($existingChunk ? $existingChunk->chunk_id : 0),
                             'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
-                            'content' => $item['content'] ?? ($existingChunk ? $existingChunk->content : null),
+                            'content' => $updatedContent,
                             'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
-                            'plainText' => $item['plainText'] ?? ($existingChunk ? $existingChunk->plainText : null),
+                            'plainText' => $item['plainText'] ?? ($updatedContent ? strip_tags($updatedContent) : ($existingChunk ? $existingChunk->plainText : null)),
                             'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
                         ];
                     }
@@ -825,6 +834,11 @@ class DbNodeChunkController extends Controller
                 'deleted' => $totalDeleted,
                 'upserted' => $totalUpserted,
             ]);
+
+            // Queue embedding generation for all affected books
+            foreach (array_keys($itemsByBook) as $affectedBookId) {
+                \App\Jobs\QueueBookEmbeddings::dispatch($affectedBookId);
+            }
 
             return response()->json([
                 'success' => true,

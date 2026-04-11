@@ -41,10 +41,12 @@ return [
         'model'              => 'accounts/fireworks/models/qwen3-8b',
         'extraction_model'   => 'accounts/fireworks/models/qwen3-8b',
         'verification_model' => 'accounts/fireworks/models/deepseek-v3p2',
+        'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
         'pricing' => [
             // Fireworks AI — cost per 1M tokens (USD)
             'accounts/fireworks/models/qwen3-8b'     => ['input' => 0.20, 'output' => 0.20],
             'accounts/fireworks/models/deepseek-v3p2' => ['input' => 0.56, 'output' => 1.68],
+            'nomic-ai/nomic-embed-text-v1.5'          => ['input' => 0.008, 'output' => 0.0],
             // Mistral OCR — cost per 1K pages (USD)
             'mistral-ocr-latest' => ['per_1k_pages' => 1.00],
         ],
