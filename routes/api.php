@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
+    Route::get('/ai-brain/status/{highlightId}', [AiBrainController::class, 'status']);
 });
 
 // Password reset routes (throttled to prevent abuse)

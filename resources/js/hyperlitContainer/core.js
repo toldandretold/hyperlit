@@ -474,6 +474,14 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
       }
     }
 
+    // Clean up abandoned brain query highlights (no-op when no brain query is pending)
+    try {
+      const { cleanupPendingBrainHighlight } = await import('./brainQuery.js');
+      await cleanupPendingBrainHighlight();
+    } catch (e) {
+      console.warn('Brain query cleanup failed:', e);
+    }
+
     if (hyperlitManager && hyperlitManager.closeContainer) {
       try {
         // 🔑 CRITICAL: Prepare for close - save if in edit mode

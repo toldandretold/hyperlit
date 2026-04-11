@@ -1195,6 +1195,24 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
 
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
 
+          // Reopening a brain highlight that hasn't completed yet — poll for result.
+          // Must check BEFORE the skip condition below (no annotation/preview_nodes yet).
+          // Skip when brainModeHighlightId is set — that's the initial open, not a reopen.
+          if (highlight.creator === 'LLM-data-pipeline' && !highlight.sub_book_id
+              && !(options.brainModeHighlightId && highlight.hyperlight_id === options.brainModeHighlightId)) {
+            // Brain results are AI-generated, always read-only
+            const { setHyperlitEditMode: setEditOff } = await import('./core.js');
+            setEditOff(false);
+            const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+            getToolbar()?.setEditMode(false);
+
+            const { injectBrainPolling } = await import('./brainQuery.js');
+            // Fire-and-forget: UI is injected synchronously, polling runs in background.
+            // Do NOT await — the fetch can hang and block animateHyperlitContainerOpen().
+            injectBrainPolling(highlight, scroller);
+            continue;
+          }
+
           // Skip highlights without annotations — no sub-book to load
           // (but allow newly created highlights through so we can create their sub-book)
           if (!highlight.annotation && !highlight.preview_nodes && !highlightsWithNodes.has(highlight.hyperlight_id) && !isNewlyCreated) continue;

@@ -15,6 +15,33 @@ use Illuminate\Support\Str;
 
 class AiBrainController extends Controller
 {
+    public function status(string $highlightId): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['status' => 'error'], 401);
+        }
+
+        $highlight = DB::connection('pgsql_admin')->table('hyperlights')
+            ->where('hyperlight_id', $highlightId)
+            ->select('sub_book_id', 'preview_nodes')
+            ->first();
+
+        if (!$highlight) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        if ($highlight->sub_book_id) {
+            return response()->json([
+                'status' => 'completed',
+                'sub_book_id' => $highlight->sub_book_id,
+                'preview_nodes' => json_decode($highlight->preview_nodes, true),
+            ]);
+        }
+
+        return response()->json(['status' => 'processing']);
+    }
+
     public function query(Request $request, EmbeddingService $embeddingService, LlmService $llmService, BillingService $billingService): JsonResponse
     {
         try {

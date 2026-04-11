@@ -5,6 +5,32 @@
 
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
+// Track whether a brain highlight is pending (created but not yet backed by a successful query).
+// Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
+let pendingBrainHighlightId = null;
+
+// True while the fetch to /api/ai-brain/query is in-flight.
+// When in-flight, the highlight must persist — the server is processing and a
+// result will appear on next page load even if the user closes now.
+let brainRequestInFlight = false;
+
+/**
+ * Clean up a pending brain highlight that was never completed.
+ * Called from core.js during closeHyperlitContainer().
+ * No-op when no brain query is pending, already succeeded, or request is in-flight.
+ */
+export async function cleanupPendingBrainHighlight() {
+    if (!pendingBrainHighlightId || brainRequestInFlight) return;
+    const id = pendingBrainHighlightId;
+    pendingBrainHighlightId = null;
+    try {
+        const { deleteHighlightById } = await import('../hyperlights/deletion.js');
+        await deleteHighlightById(id);
+    } catch (e) {
+        console.warn('BrainQuery: cleanup of pending highlight failed:', e);
+    }
+}
+
 /**
  * Inject the brain query UI into the hyperlit container scroller.
  * Replaces the normal highlight content with a clean "Consult LLM" layout.
@@ -23,6 +49,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   const charData = highlight.charData || {};
   const nodeIds = highlight.node_id ? (Array.isArray(highlight.node_id) ? highlight.node_id : JSON.parse(highlight.node_id || '[]')) : [];
   const highlightId = highlight.hyperlight_id;
+
+  // Mark this highlight as pending — will be cleaned up on container close
+  // unless the query succeeds (at which point we clear it).
+  pendingBrainHighlightId = highlightId;
 
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
@@ -103,6 +133,8 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       return;
     }
 
+    brainRequestInFlight = true;
+
     try {
       const response = await fetch('/api/ai-brain/query', {
         method: 'POST',
@@ -121,6 +153,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         }),
       });
 
+      brainRequestInFlight = false;
       statusTimers.forEach(t => clearTimeout(t));
 
       const data = await response.json();
@@ -196,7 +229,11 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         mode: 'read',
       });
 
+      // Success — highlight now has content, so it must persist.
+      pendingBrainHighlightId = null;
+
     } catch (error) {
+      brainRequestInFlight = false;
       statusTimers.forEach(t => clearTimeout(t));
       console.error('BrainQuery: Fetch error:', error);
       statusEl.textContent = 'Network error. Try again.';
@@ -208,13 +245,86 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   submitBtn.addEventListener('click', handleSubmit);
 
-  // Cancel handler — delete the highlight and close container
+  // Cancel handler — just close the container; the close flow handles cleanup
   cancelBtn.addEventListener('click', async () => {
-    const { deleteHighlightById } = await import('../hyperlights/deletion.js');
-    await deleteHighlightById(highlightId);
     const { closeHyperlitContainer } = await import('./core.js');
     await closeHyperlitContainer();
   });
+}
+
+/**
+ * Poll the server for a brain query result when reopening a highlight
+ * that was submitted but closed before the response arrived.
+ * Shows a "processing" status and loads the sub-book when ready.
+ * @param {Object} highlight - The hyperlight record from IndexedDB
+ * @param {HTMLElement} scroller - The container scroller element
+ */
+export async function injectBrainPolling(highlight, scroller) {
+    const highlightId = highlight.hyperlight_id;
+    const bookId = highlight.book;
+    console.log('BrainPolling: starting for', highlightId);
+
+    scroller.innerHTML = `
+        <div class="brain-query-section">
+            <h1>Brain query in progress</h1>
+            <div class="brain-status">Checking for results...</div>
+        </div>
+    `;
+    const statusEl = scroller.querySelector('.brain-status');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    let attempts = 0;
+    const maxAttempts = 60; // 3s × 60 = 3 min
+
+    const poll = async () => {
+        attempts++;
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const resp = await fetch(`/api/ai-brain/status/${highlightId}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            const data = await resp.json();
+
+            if (data.status === 'completed') {
+                statusEl.textContent = 'Result ready — loading...';
+                await updateHyperlightInIndexedDB(highlightId, data.sub_book_id, data.preview_nodes || []);
+
+                scroller.innerHTML = '';
+                const subBookTarget = document.createElement('div');
+                subBookTarget.className = 'highlight-annotation';
+                subBookTarget.setAttribute('data-highlight-id', highlightId);
+                scroller.appendChild(subBookTarget);
+
+                const { loadSubBook } = await import('./subBookLoader.js');
+                await loadSubBook(data.sub_book_id, bookId, highlightId, 'hyperlight', scroller, {
+                    previewNodes: data.preview_nodes || null,
+                    targetElement: subBookTarget,
+                    mode: 'read',
+                });
+                return;
+            }
+
+            if (data.status === 'not_found') {
+                statusEl.textContent = 'Brain query not found. It may have been removed.';
+                return;
+            }
+
+            statusEl.textContent = 'Brain query still processing...';
+        } catch (e) {
+            statusEl.textContent = 'Checking server...';
+        }
+
+        if (attempts < maxAttempts) {
+            setTimeout(poll, 3000);
+        } else {
+            statusEl.textContent = 'Taking longer than expected. Close and reopen to check again.';
+        }
+    };
+
+    await poll();
 }
 
 /**
