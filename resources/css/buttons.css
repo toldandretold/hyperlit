@@ -1733,8 +1733,8 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   overflow: hidden;
 }
 .brain-scope-btn {
-  flex: 1;
-  padding: 0.35em 0;
+  padding: 0.35em 0.45em;
+  white-space: nowrap;
   border: none;
   background: transparent;
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
