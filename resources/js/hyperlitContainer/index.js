@@ -667,7 +667,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
       if (sourceContainer) {
         console.log(`📚 Click from inside container at depth ${getDepth()}, pushing stacked layer`);
         if (focusPreserver) focusPreserver.remove();
-        await pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote);
+        await pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote, options);
         isProcessingClick = false;
         return;
       }
@@ -1198,7 +1198,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           // Reopening a brain highlight that hasn't completed yet — poll for result.
           // Must check BEFORE the skip condition below (no annotation/preview_nodes yet).
           // Skip when brainModeHighlightId is set — that's the initial open, not a reopen.
-          if (highlight.creator === 'LLM-data-pipeline' && !highlight.sub_book_id
+          const rawMeta = typeof highlight.raw_json === 'string'
+              ? (() => { try { return JSON.parse(highlight.raw_json); } catch { return {}; } })()
+              : (highlight.raw_json || {});
+          if (rawMeta.brain_query === true && !highlight.sub_book_id
+              && !highlight.preview_nodes && !highlightsWithNodes.has(highlight.hyperlight_id)
               && !(options.brainModeHighlightId && highlight.hyperlight_id === options.brainModeHighlightId)) {
             // Brain results are AI-generated, always read-only
             const { setHyperlitEditMode: setEditOff } = await import('./core.js');
@@ -1509,7 +1513,7 @@ export function resetModuleState() {
  * Push a new stacked container layer when a click originates from inside
  * an existing hyperlit container.
  */
-async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote) {
+async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote, options = {}) {
   const {
     pushLayer, getDepth, getTopLayer, createStackedContainerDOM,
     getCurrentContainer: getContainer, getCurrentScroller: getScroller,
@@ -1660,7 +1664,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
 
   if (isFootnoteStacked) {
     // Load content while container is off-screen
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, options);
 
     // Now animate the container in at full height
     requestAnimationFrame(() => {
@@ -1676,7 +1680,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
       });
     });
 
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission);
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, options);
   }
 
   // Set contentMetadata on the new stacked layer for serialization

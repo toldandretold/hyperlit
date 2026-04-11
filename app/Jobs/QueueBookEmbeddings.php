@@ -23,12 +23,12 @@ class QueueBookEmbeddings implements ShouldQueue
 
     public function handle(): void
     {
-        // Only embed nodes from public, non-sub-book library records
+        // Skip sub-books (their content belongs to the parent)
         $library = DB::table('library')
             ->where('book', $this->bookId)
             ->first();
 
-        if (!$library || $library->visibility !== 'public' || $library->type === 'sub_book') {
+        if (!$library || $library->type === 'sub_book') {
             return;
         }
 

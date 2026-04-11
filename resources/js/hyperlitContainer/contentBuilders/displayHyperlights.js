@@ -129,6 +129,11 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       // Sanitize user-controlled content to prevent XSS
       const authorName = DOMPurify.sanitize(h.creator || "Anon", { ALLOWED_TAGS: [] });
       const relativeTime = formatRelativeTime(h.time_since);
+      let rawMeta = {};
+      try {
+        rawMeta = typeof h.raw_json === 'string' ? JSON.parse(h.raw_json) : (h.raw_json || {});
+      } catch {}
+      const isBrainQuery = rawMeta.brain_query === true;
       const rawTruncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
       const truncatedText = DOMPurify.sanitize(rawTruncatedText, { ALLOWED_TAGS: [] });
 
@@ -166,11 +171,11 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 `;
           html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
 `;
-        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
 `;
-        html += `        </svg>
+          html += `        </svg>
 `;
-        html += `      </button>
+          html += `      </button>
 `;
         }
       }
@@ -180,17 +185,22 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
       html += `  </div>
 `;
-      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" data-user-can-edit="${hasPermission}" `;
-      html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
+
+      if (!isBrainQuery) {
+        const blockquoteEditable = isEditable;
+        const blockquoteCanEdit = hasPermission;
+        html += `  <blockquote class="highlight-text" contenteditable="${blockquoteEditable}" data-user-can-edit="${blockquoteCanEdit}" `;
+        html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
-      html += `    "${truncatedText}"
+        html += `    "${truncatedText}"
 `;
-      html += `  </blockquote>
+        html += `  </blockquote>
 `;
+      }
 
       // Add annotation target container for highlights that have annotations
       // This gives loadSubBook() a target element (same pattern as .footnotes-section)
-      if (h.annotation || h.preview_nodes || highlightsWithNodes.has(h.hyperlight_id) || newHighlightIds.includes(h.hyperlight_id)) {
+      if (h.annotation || h.preview_nodes || isBrainQuery || highlightsWithNodes.has(h.hyperlight_id) || newHighlightIds.includes(h.hyperlight_id)) {
         html += `  <div class="highlight-annotation" data-highlight-id="${h.hyperlight_id}">
 `;
         html += `  </div>

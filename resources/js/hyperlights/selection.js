@@ -364,7 +364,7 @@ async function openBrainFromSelection(event) {
   const { highlightId } = result;
   console.log('🧠 BrainMode: Highlight created:', highlightId);
 
-  // Update creator to LLM-data-pipeline in IndexedDB
+  // Mark as brain query in IndexedDB (keep creator as the user's name for proper delete permissions)
   try {
     const { openDatabase } = await import('../indexedDB/index.js');
     const db = await openDatabase();
@@ -373,12 +373,12 @@ async function openBrainFromSelection(event) {
     const idx = store.index('hyperlight_id');
     const existing = await new Promise(r => { const req = idx.get(highlightId); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
     if (existing) {
-      existing.creator = 'LLM-data-pipeline';
+      existing.raw_json = { brain_query: true };
       store.put(existing);
       await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
     }
   } catch (e) {
-    console.warn('🧠 BrainMode: Failed to update creator (non-fatal):', e);
+    console.warn('🧠 BrainMode: Failed to set brain_query flag (non-fatal):', e);
   }
 
   // Find the mark element for the newly created highlight

@@ -24,7 +24,7 @@ class AiBrainController extends Controller
 
         $highlight = DB::connection('pgsql_admin')->table('hyperlights')
             ->where('hyperlight_id', $highlightId)
-            ->select('sub_book_id', 'preview_nodes')
+            ->select('sub_book_id', 'preview_nodes', 'raw_json')
             ->first();
 
         if (!$highlight) {
@@ -36,6 +36,7 @@ class AiBrainController extends Controller
                 'status' => 'completed',
                 'sub_book_id' => $highlight->sub_book_id,
                 'preview_nodes' => json_decode($highlight->preview_nodes, true),
+                'raw_json' => $highlight->raw_json,
             ]);
         }
 
@@ -65,11 +66,29 @@ class AiBrainController extends Controller
                 'highlightId'  => 'required|string',
                 'nodeIds'      => 'required|array',
                 'charData'     => 'required|array',
+                'model'        => 'nullable|string|max:100',
+                'sourceScope'  => 'nullable|string|in:public,mine,all,this',
             ]);
+
+            $allowedModels = [
+                'accounts/fireworks/models/deepseek-v3p2',
+                'accounts/fireworks/models/deepseek-v3p1',
+                'accounts/fireworks/models/qwen3p6-plus',
+                'accounts/fireworks/models/kimi-k2p5',
+                'accounts/fireworks/models/kimi-k2-instruct',
+                'accounts/cogito/models/cogito-671b-v2-p1',
+                'accounts/fireworks/models/llama-v3p3-70b-instruct',
+                'accounts/fireworks/models/minimax-m2p5',
+            ];
+            $brainModel = in_array($validated['model'] ?? null, $allowedModels)
+                ? $validated['model']
+                : 'accounts/fireworks/models/deepseek-v3p2';
 
             $selectedText = $validated['selectedText'];
             $question = $validated['question'];
             $bookId = $validated['bookId'];
+            $sourceScope = $validated['sourceScope'] ?? 'public';
+            $creatorName = $user->name;
 
             Log::info('AiBrain: query started', [
                 'user' => $user->name,
@@ -96,6 +115,7 @@ class AiBrainController extends Controller
                 'router_reasoning' => $routerResult['reasoning'],
                 'book_title' => $bookTitle,
                 'book_author' => $authorName,
+                'source_scope' => $sourceScope,
             ];
 
             // 4. Strategy-specific retrieval
@@ -125,17 +145,18 @@ class AiBrainController extends Controller
                         return response()->json(['success' => false, 'message' => 'Failed to generate query embedding'], 500);
                     }
 
-                    $matches = $embeddingService->searchSimilarByAuthor($queryEmbedding, 10, $bookId, $authorName);
+                    $matches = $embeddingService->searchSimilarByAuthor($queryEmbedding, 10, $bookId, $authorName, $sourceScope, $creatorName);
 
                     // Fall through to full_search if <3 results
                     if (count($matches) < 3) {
                         Log::info('AiBrain: same_author fallback to full_search — only ' . count($matches) . ' results');
-                        $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId);
+                        $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId, $sourceScope, $creatorName);
                         $strategy = 'full_search';
                         $pipelineLog['strategy'] = 'full_search';
                         $pipelineLog['router_reasoning'] .= ' (fallback: <3 same-author results)';
                     } else {
-                        $pipelineLog['retrieval_method'] = "Selected text was vector-embedded and compared against books by {$authorName}";
+                        $pipelineLog['retrieval_method'] = "Selected text was vector-embedded and compared against books by {$authorName}"
+                            . $this->scopeSuffix($sourceScope);
                     }
                 }
             }
@@ -151,9 +172,16 @@ class AiBrainController extends Controller
                     }
                 }
                 if (empty($matches)) {
-                    $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId);
+                    $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId, $sourceScope, $creatorName);
                 }
-                $pipelineLog['retrieval_method'] = 'Selected text was vector-embedded and compared against all public books in the library';
+                $scopeDescriptions = [
+                    'public' => 'all public books in the library',
+                    'mine'   => 'your books',
+                    'all'    => 'all public books and your books',
+                    'this'   => 'this book only',
+                ];
+                $pipelineLog['retrieval_method'] = 'Selected text was vector-embedded and compared against '
+                    . ($scopeDescriptions[$sourceScope] ?? 'all public books in the library');
             }
 
             // Check for matches in search strategies
@@ -200,21 +228,24 @@ class AiBrainController extends Controller
                     break;
             }
 
-            // 6. Call DeepSeek via LlmService
-            Log::info('AiBrain: calling LLM...', ['strategy' => $strategy]);
+            // 6. Call LLM via LlmService (model chosen by user)
+            Log::info('AiBrain: calling LLM...', ['strategy' => $strategy, 'model' => $brainModel]);
             $llmResponse = $llmService->chat(
                 $systemPrompt,
                 $userMessage,
                 0.3,      // temperature
                 4096,     // max tokens
-                'accounts/fireworks/models/deepseek-v3p2',
-                120,      // timeout
+                $brainModel,
+                180,      // timeout
                 null      // reasoning_effort (let model decide)
             );
 
             if (!$llmResponse) {
                 Log::warning('AiBrain: LLM returned empty response');
-                return response()->json(['success' => false, 'message' => 'AI generation failed'], 500);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The AI took too long to respond. Please try again.',
+                ], 504);
             }
 
             Log::info('AiBrain: LLM response received', ['raw_length' => strlen($llmResponse)]);
@@ -252,7 +283,7 @@ class AiBrainController extends Controller
             DB::connection('pgsql_admin')->table('library')->updateOrInsert(
                 ['book' => $subBookId],
                 [
-                    'creator'       => 'LLM-data-pipeline',
+                    'creator'       => $user->name,
                     'creator_token' => null,
                     'visibility'    => 'public',
                     'listed'        => false,
@@ -267,13 +298,19 @@ class AiBrainController extends Controller
 
             // 9. Clear existing nodes for this sub-book (synced from highlight creation) and replace with LLM response
             DB::connection('pgsql_admin')->table('nodes')->where('book', $subBookId)->delete();
-            $nodes = $this->createResponseNodes($processedHtml, $subBookId);
+
+            // Build conversational format: Username asks, AI Archivist answers
+            $questionNode = '<p><b>Prompt</b>: "' . e(Str::limit($question, 1000)) . '"</p>';
+            $aiLabel = '<p><b>AI Archivist</b>:</p>';
+            $conversationHtml = $questionNode . $aiLabel . $processedHtml;
+
+            $nodes = $this->createResponseNodes($conversationHtml, $subBookId);
 
             // 9b. Build and append pipeline appendix
             $usageStats = $llmService->getUsageStats();
             $totalCost = $this->calculateCost($usageStats, $embeddingService, $queryText);
             $pipelineLog['cost'] = $totalCost;
-            $pipelineLog['llm_model'] = 'deepseek-v3p2';
+            $pipelineLog['llm_model'] = basename($brainModel);
 
             $appendixHtml = $this->buildAppendixHtml($pipelineLog);
             $appendixNodes = $this->createResponseNodes($appendixHtml, $subBookId, count($nodes));
@@ -282,6 +319,9 @@ class AiBrainController extends Controller
             // 10. Upsert hyperlight record with full data + preview_nodes (via pgsql_admin to bypass RLS)
             $previewNodes = array_map(function ($node) {
                 return [
+                    'book'      => $node['book'],
+                    'chunk_id'  => $node['chunk_id'],
+                    'startLine' => $node['startLine'],
                     'node_id'   => $node['node_id'],
                     'content'   => $node['content'],
                     'plainText' => $node['plainText'],
@@ -296,11 +336,11 @@ class AiBrainController extends Controller
                 'charData'        => json_encode($validated['charData']),
                 'annotation'      => null,
                 'highlightedText' => Str::limit($selectedText, 500),
-                'creator'         => 'LLM-data-pipeline',
+                'creator'         => $user->name,
                 'creator_token'   => null,
                 'time_since'      => $timestamp,
                 'preview_nodes'   => json_encode($previewNodes),
-                'raw_json'        => json_encode([]),
+                'raw_json'        => json_encode(['brain_query' => true, 'question' => Str::limit($question, 1000)]),
                 'hidden'          => false,
             ];
             DB::connection('pgsql_admin')->table('hyperlights')->updateOrInsert(
@@ -355,6 +395,7 @@ class AiBrainController extends Controller
                     'type'       => 'sub_book',
                     'visibility' => 'public',
                     'has_nodes'  => true,
+                    'creator'    => $user->name,
                 ],
                 'hyperlight'  => $hyperlightData,
                 'hypercites'  => $hypercites,
@@ -383,7 +424,7 @@ class AiBrainController extends Controller
     private function buildSystemPrompt(): string
     {
         return <<<'PROMPT'
-You are a scholarly research assistant embedded within a reading platform. The user has selected a passage from a text and is asking a question about it.
+You are an AI Archivist — a scholarly research assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking a question about it.
 
 Your task:
 1. Answer the question in relation to the selected passage
@@ -700,7 +741,7 @@ PROMPT;
     {
         return match ($strategy) {
             'direct' => <<<'PROMPT'
-You are a scholarly reading assistant embedded within a reading platform. The user has selected a passage from a text and is asking a question about it.
+You are an AI Archivist — a scholarly reading assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking a question about it.
 
 Your task:
 1. Answer the question using ONLY the selected passage and its surrounding context
@@ -716,7 +757,7 @@ Rules:
 - Do NOT invent citations or reference works not in the provided context
 PROMPT,
             'same_author' => <<<'PROMPT'
-You are a scholarly research assistant embedded within a reading platform. The user has selected a passage from a text and is asking about other work by the same author.
+You are an AI Archivist — a scholarly research assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking about other work by the same author.
 
 Your task:
 1. Answer the question in relation to the selected passage
@@ -803,10 +844,14 @@ EOT;
         $retrieval = e($log['retrieval_method'] ?? '');
         $cost = number_format($log['cost'] ?? 0, 5);
 
+        $scopeLabels = ['public' => 'Public library', 'mine' => 'My books', 'all' => 'Public + my books', 'this' => 'This book only'];
+
         $html = '<p data-appendix="true"><strong>Appendix</strong></p>';
 
         $html .= '<p data-appendix="true"><strong>Router (Qwen 3-8B):</strong> Classified this as a <em>'
             . e($strategy) . '</em> query — "' . $reasoning . '"</p>';
+
+        $html .= '<p data-appendix="true"><strong>Source scope:</strong> ' . e($scopeLabels[$log['source_scope'] ?? 'public'] ?? 'Public library') . '</p>';
 
         $html .= '<p data-appendix="true"><strong>Retrieval:</strong> ' . $retrieval . '</p>';
 
@@ -828,11 +873,22 @@ EOT;
                 . (int)$log['context_nodes'] . ' surrounding nodes from the same book.</p>';
         }
 
-        $html .= '<p data-appendix="true"><strong>Sent to DeepSeek v3p2:</strong> '
+        $llmModel = e($log['llm_model'] ?? 'deepseek-v3p2');
+        $html .= '<p data-appendix="true"><strong>Sent to ' . $llmModel . ':</strong> '
             . e($log['prompt_summary'] ?? 'Selected passage + question') . '</p>';
 
         $html .= '<p data-appendix="true"><strong>Cost:</strong> $' . $cost . '</p>';
 
         return $html;
+    }
+
+    private function scopeSuffix(string $sourceScope): string
+    {
+        return match ($sourceScope) {
+            'mine'  => ' (scoped to your books)',
+            'all'   => ' (scoped to public + your books)',
+            'this'  => ' (scoped to this book only)',
+            default => '',
+        };
     }
 }

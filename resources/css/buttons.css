@@ -1704,6 +1704,57 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   margin: 0 0 0.75em 0;
   color: var(--color-text);
 }
+.brain-model-select {
+  width: 100%;
+  padding: 0.4em 0.6em;
+  margin-top: 0.75em;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.brain-model-select:focus {
+  border-color: var(--icon-stroke-primary);
+}
+.brain-model-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.brain-scope-toggle {
+  display: flex;
+  gap: 0;
+  margin-top: 0.5em;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.brain-scope-btn {
+  flex: 1;
+  padding: 0.35em 0;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.brain-scope-btn:not(:last-child) {
+  border-right: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+}
+.brain-scope-btn.active {
+  background: color-mix(in srgb, var(--icon-stroke-primary) 15%, transparent);
+  color: var(--color-text);
+  font-weight: 600;
+}
+.brain-scope-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /* Contenteditable annotation-style input */
 .brain-query-annotation {
   min-height: 2.5em;

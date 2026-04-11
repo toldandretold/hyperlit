@@ -68,9 +68,25 @@ class LlmService
                 $body['reasoning_effort'] = $reasoningEffort;
             }
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-            ])->timeout($timeout)->post($this->baseUrl . '/chat/completions', $body);
+            // Retry once on timeout (cURL error 28)
+            $attempts = 0;
+            $maxAttempts = 2;
+            $response = null;
+
+            while ($attempts < $maxAttempts) {
+                try {
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $this->apiKey,
+                    ])->timeout($timeout)->post($this->baseUrl . '/chat/completions', $body);
+                    break; // success, exit loop
+                } catch (\Exception $e) {
+                    $attempts++;
+                    if ($attempts >= $maxAttempts || !str_contains($e->getMessage(), 'cURL error 28')) {
+                        throw $e; // re-throw for outer catch
+                    }
+                    Log::warning('LLM API timeout, retrying...', ['attempt' => $attempts]);
+                }
+            }
 
             $this->totalRequests++;
 
@@ -87,7 +103,16 @@ class LlmService
                 $this->trackUsage($body['model'], $usage);
             }
 
-            return $response->json('choices.0.message.content');
+            $content = $response->json('choices.0.message.content');
+            if (!$content) {
+                Log::warning('LLM API returned empty content', [
+                    'model' => $body['model'],
+                    'status' => $response->status(),
+                    'finish_reason' => $response->json('choices.0.finish_reason'),
+                    'body' => Str::limit($response->body(), 2000),
+                ]);
+            }
+            return $content;
         } catch (\Exception $e) {
             $this->totalRequests++;
             $this->failedRequests++;

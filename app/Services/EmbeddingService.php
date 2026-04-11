@@ -89,7 +89,7 @@ class EmbeddingService
      * @param string|null $excludeBook Book ID to exclude from results
      * @return array Array of matching rows with similarity score
      */
-    public function searchSimilar(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null): array
+    public function searchSimilar(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $sourceScope = 'public', ?string $creatorName = null): array
     {
         $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
 
@@ -108,10 +108,24 @@ class EmbeddingService
                 (n.embedding <=> ?::vector) AS distance
             ', [$vectorStr])
             ->whereNotNull('n.embedding')
-            ->where('l.visibility', 'public')
             ->where('l.type', '!=', 'sub_book')
             ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
             ->limit($limit);
+
+        // Scope filtering
+        if ($sourceScope === 'this' && $excludeBook) {
+            $query->where('n.book', $excludeBook);
+            $excludeBook = null;
+        } elseif ($sourceScope === 'mine' && $creatorName) {
+            $query->where('l.creator', $creatorName);
+        } elseif ($sourceScope === 'all' && $creatorName) {
+            $query->where(function ($q) use ($creatorName) {
+                $q->where('l.visibility', 'public')
+                  ->orWhere('l.creator', $creatorName);
+            });
+        } else {
+            $query->where('l.visibility', 'public');
+        }
 
         if ($excludeBook) {
             $query->where('n.book', '!=', $excludeBook);
@@ -127,7 +141,7 @@ class EmbeddingService
      * Search for similar nodes by the same author using cosine similarity.
      * Identical to searchSimilar() but filtered to books by a specific author.
      */
-    public function searchSimilarByAuthor(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $author = ''): array
+    public function searchSimilarByAuthor(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $author = '', string $sourceScope = 'public', ?string $creatorName = null): array
     {
         if (empty($author)) {
             return [];
@@ -150,11 +164,25 @@ class EmbeddingService
                 (n.embedding <=> ?::vector) AS distance
             ', [$vectorStr])
             ->whereNotNull('n.embedding')
-            ->where('l.visibility', 'public')
             ->where('l.type', '!=', 'sub_book')
             ->where('l.author', $author)
             ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
             ->limit($limit);
+
+        // Scope filtering
+        if ($sourceScope === 'this' && $excludeBook) {
+            $query->where('n.book', $excludeBook);
+            $excludeBook = null;
+        } elseif ($sourceScope === 'mine' && $creatorName) {
+            $query->where('l.creator', $creatorName);
+        } elseif ($sourceScope === 'all' && $creatorName) {
+            $query->where(function ($q) use ($creatorName) {
+                $q->where('l.visibility', 'public')
+                  ->orWhere('l.creator', $creatorName);
+            });
+        } else {
+            $query->where('l.visibility', 'public');
+        }
 
         if ($excludeBook) {
             $query->where('n.book', '!=', $excludeBook);

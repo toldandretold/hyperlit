@@ -35,12 +35,12 @@ class GenerateNodeEmbedding implements ShouldQueue
             return;
         }
 
-        // Check if the parent book is public (only embed public content)
+        // Skip sub-books (their content belongs to the parent)
         $library = DB::table('library')
             ->where('book', $node->book)
             ->first();
 
-        if (!$library || $library->visibility !== 'public' || $library->type === 'sub_book') {
+        if (!$library || $library->type === 'sub_book') {
             return;
         }
 

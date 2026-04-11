@@ -5,6 +5,17 @@
 
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
+const BRAIN_MODELS = [
+  { id: 'accounts/fireworks/models/deepseek-v3p2',          label: 'DeepSeek v3.2 \u00b7 Default', cost: '$0.56/$1.68' },
+  { id: 'accounts/fireworks/models/deepseek-v3p1',          label: 'DeepSeek V3.1',                cost: '$0.56/$1.68' },
+  { id: 'accounts/fireworks/models/qwen3p6-plus',           label: 'Qwen3.6 Plus',                 cost: '$0.50/$3.00' },
+  { id: 'accounts/fireworks/models/kimi-k2p5',              label: 'Kimi K2.5',                    cost: '$0.60/$3.00' },
+  { id: 'accounts/fireworks/models/kimi-k2-instruct',       label: 'Kimi K2 Instruct',             cost: '$0.60/$2.50' },
+  { id: 'accounts/cogito/models/cogito-671b-v2-p1',         label: 'Cogito 671B \u00b7 Smartest',  cost: '$1.20/$1.20' },
+  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \u00b7 Fastest', cost: '$0.90/$0.90' },
+  { id: 'accounts/fireworks/models/minimax-m2p5',           label: 'MiniMax M2.5',                 cost: '$0.30/$1.20' },
+];
+
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
 let pendingBrainHighlightId = null;
@@ -57,8 +68,17 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
     <div class="brain-query-section">
-      <h1>Consult LLM data pipeline</h1>
+      <h1>Ask AI Archivist</h1>
       <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
+      <select class="brain-model-select">
+        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label} (${m.cost})</option>`).join('\n        ')}
+      </select>
+      <div class="brain-scope-toggle">
+        <button type="button" class="brain-scope-btn active" data-scope="public">Public</button>
+        <button type="button" class="brain-scope-btn" data-scope="mine">My Books</button>
+        <button type="button" class="brain-scope-btn" data-scope="all">All</button>
+        <button type="button" class="brain-scope-btn" data-scope="this">This Book</button>
+      </div>
       <div class="brain-action-row">
         <button type="button" class="brain-submit-btn">Ask</button>
         <button type="button" class="brain-cancel-btn">Cancel</button>
@@ -69,9 +89,22 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   const section = scroller.querySelector('.brain-query-section');
   const annotation = section.querySelector('.brain-query-annotation');
+  const modelSelect = section.querySelector('.brain-model-select');
   const submitBtn = section.querySelector('.brain-submit-btn');
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
+  const scopeBtns = section.querySelectorAll('.brain-scope-btn');
+
+  // Return focus to text input after model selection
+  modelSelect.addEventListener('change', () => annotation.focus());
+
+  // Scope toggle — only one active at a time
+  scopeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      scopeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
 
   // Placeholder behaviour for contenteditable
   const updatePlaceholder = () => {
@@ -105,9 +138,13 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     if (!question) return;
 
     // Disable input
+    const selectedModel = modelSelect.value;
+    const sourceScope = section.querySelector('.brain-scope-btn.active').dataset.scope;
     annotation.contentEditable = 'false';
+    modelSelect.disabled = true;
     submitBtn.disabled = true;
     cancelBtn.style.display = 'none';
+    scopeBtns.forEach(b => b.disabled = true);
 
     // Show progressive status messages
     statusEl.style.display = 'block';
@@ -128,8 +165,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       statusTimers.forEach(t => clearTimeout(t));
       statusEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
+      modelSelect.disabled = false;
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
+      scopeBtns.forEach(b => b.disabled = false);
       return;
     }
 
@@ -150,6 +189,8 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
           highlightId,
           nodeIds: Array.isArray(nodeIds) ? nodeIds : Object.keys(charData),
           charData,
+          model: selectedModel,
+          sourceScope,
         }),
       });
 
@@ -160,7 +201,9 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
       if (!response.ok || !data.success) {
         const msg = data.message || 'AI query failed';
-        if (response.status === 402) {
+        if (response.status === 504) {
+          statusEl.textContent = 'The AI took too long. Please try again.';
+        } else if (response.status === 402) {
           statusEl.innerHTML = '';
           statusEl.textContent = msg;
           const topUpBtn = document.createElement('a');
@@ -192,8 +235,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
           statusEl.textContent = msg;
         }
         annotation.contentEditable = 'true';
+        modelSelect.disabled = false;
         submitBtn.disabled = false;
         cancelBtn.style.display = '';
+        scopeBtns.forEach(b => b.disabled = false);
         return;
       }
 
@@ -238,8 +283,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       console.error('BrainQuery: Fetch error:', error);
       statusEl.textContent = 'Network error. Try again.';
       annotation.contentEditable = 'true';
+      modelSelect.disabled = false;
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
+      scopeBtns.forEach(b => b.disabled = false);
     }
   };
 
@@ -283,14 +330,28 @@ export async function injectBrainPolling(highlight, scroller) {
             const timeout = setTimeout(() => controller.abort(), 8000);
             const resp = await fetch(`/api/ai-brain/status/${highlightId}`, {
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                credentials: 'same-origin',
                 signal: controller.signal,
             });
             clearTimeout(timeout);
+
+            if (!resp.ok) {
+                if (resp.status === 401) {
+                    // Auth failed — the query may already be complete.
+                    // Try loading the sub-book directly; on page reload
+                    // Fix 1 (broadened gate) will skip polling if data exists.
+                    statusEl.textContent = 'Session expired — please refresh the page.';
+                    return;
+                }
+                statusEl.textContent = 'Error checking brain query status.';
+                return;
+            }
+
             const data = await resp.json();
 
             if (data.status === 'completed') {
                 statusEl.textContent = 'Result ready — loading...';
-                await updateHyperlightInIndexedDB(highlightId, data.sub_book_id, data.preview_nodes || []);
+                await updateHyperlightInIndexedDB(highlightId, data.sub_book_id, data.preview_nodes || [], data.raw_json || null);
 
                 scroller.innerHTML = '';
                 const subBookTarget = document.createElement('div');
@@ -392,7 +453,7 @@ async function writeRecordsToIndexedDB(data) {
         creator: hyperlight.creator,
         time_since: hyperlight.time_since,
         preview_nodes: hyperlight.preview_nodes || null,
-        raw_json: '{}',
+        raw_json: hyperlight.raw_json || { brain_query: true },
         hidden: false,
       });
       await new Promise((resolve, reject) => {
@@ -432,7 +493,7 @@ async function writeRecordsToIndexedDB(data) {
 /**
  * Update the existing hyperlight record in IndexedDB with sub_book_id and preview_nodes.
  */
-async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes) {
+async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes, rawJson = null) {
   try {
     const { openDatabase } = await import('../indexedDB/index.js');
     const db = await openDatabase();
@@ -450,6 +511,9 @@ async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes)
     if (existing) {
       existing.sub_book_id = subBookId;
       existing.preview_nodes = previewNodes;
+      if (rawJson !== null) {
+        existing.raw_json = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+      }
       store.put(existing);
       await new Promise((resolve, reject) => {
         tx.oncomplete = resolve;
