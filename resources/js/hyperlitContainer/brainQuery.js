@@ -75,7 +75,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       </select>
       <div class="brain-scope-toggle">
         <button type="button" class="brain-scope-btn active" data-scope="public">Public</button>
-        <button type="button" class="brain-scope-btn" data-scope="mine">My Books</button>
+        <button type="button" class="brain-scope-btn" data-scope="mine">Personal</button>
         <button type="button" class="brain-scope-btn" data-scope="all">All</button>
         <button type="button" class="brain-scope-btn" data-scope="this">This Book</button>
       </div>
