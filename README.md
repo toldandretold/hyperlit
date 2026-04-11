@@ -22,7 +22,8 @@ You might want to use it for something else.
 - **markdown .md** import and export conversion (with dynamic footnotes and citations)
 - **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
 
-### Costs (These cost money for tokens, or compute. You can also run this locally and use your own APIs or local LLMs though)
+### Costs 
+*These cost money for tokens, or compute. You can also run this locally and use your own APIs or local LLMs though.*
 
 - **PDF conversion**: Mistral OCR converts PDF, and the resulting .json is converted to markdwon preserving academic referencing (being ironed out as I read more. Not perfect by any means. But once converted can easily download all raw files including markdown)
 - **AI Archivist**: Select text to request archival research assistance. The selected text is turned into a vector embedding (numbers), and compared to vector embeddings of public text nodes in the hyperlit database. A small Qwen model is used to determine the scope of the vector search. For example: if user is just asking about the specific statement, might only draw vector comparisons on nodes in that book. But if user asks about a literature review of sources related to the content of the selected text, then vector comparison will be drawn on all nodes in the database. The results are sent to DeepSeek (hosted with no data capture on fireworks.ai). Because DeepSeek is prompted to use these known sources, it is able to respond with analysis that hypercites back to the original source material.
