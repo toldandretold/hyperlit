@@ -15,11 +15,18 @@ This means readers of my work can be taken directly to the cited passages in the
 You might want to use it for something else.
 
 ## Features
+### Free 
 - **hypercites**: automatic, two-way hyperlink citations (Copy text with hypercite button. Paste it. Hypercited!)
 - **hyperlights**: any-user can highlight any word
 - **word .doc** import and export conversion (with dynamic footnotes and citations)
 - **markdown .md** import and export conversion (with dynamic footnotes and citations)
 - **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
+
+### Costs (These cost money for tokens, or compute. You can also run this locally and use your own APIs or local LLMs though)
+
+- **PDF conversion**: Mistral OCR converts PDF, and the resulting .json is converted to markdwon preserving academic referencing (being ironed out as I read more. Not perfect by any means. But once converted can easily download all raw files including markdown)
+- **AI Archivist**: Select text to request archival research assistance. The selected text is turned into a vector embedding (numbers), and compared to vector embeddings of public text nodes in the hyperlit database. A small Qwen model is used to determine the scope of the vector search. For example: if user is just asking about the specific statement, might only draw vector comparisons on nodes in that book. But if user asks about a literature review of sources related to the content of the selected text, then vector comparison will be drawn on all nodes in the database. The results are sent to DeepSeek (hosted with no data capture on fireworks.ai). Because DeepSeek is prompted to use these known sources, it is able to respond with analysis that hypercites back to the original source material.
+- **AI Citation Review**: a small open-weight LLM extracts citation data and truth claims for each in-text citation. Relevant data from the sources is vacuumed up via APIs to open access research metadata (OpenAlex, Open Library, Semantic Scholar, etc). Any pdfs available are fetched and converted with Mistral OCR. Then, text search is used to pull relevant text for each source, and this is sent to DeepSeek (hosted with no data capture on Fireworks.ai), which assesses the likelihood that each truth claim is supported by the source. A report is generated, and highlights are added to the reviewed text. An email is sent to notify when review is complete.
 
 ## How to use?
 
