@@ -36,42 +36,48 @@ class EmbeddingService
      * Texts should already include their prefix.
      * @return array Array of embedding vectors (null entries for failures)
      */
-    public function embedBatch(array $texts): array
+    public function embedBatch(array $texts, int $maxRetries = 3): array
     {
         if (empty($texts) || !$this->apiKey || !$this->baseUrl) {
             return array_fill(0, count($texts), null);
         }
 
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-            ])->timeout(60)->post($this->baseUrl . '/embeddings', [
-                'model' => $this->model,
-                'input' => array_values($texts),
-            ]);
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                ])->timeout(60)->post($this->baseUrl . '/embeddings', [
+                    'model' => $this->model,
+                    'input' => array_values($texts),
+                ]);
 
-            if (!$response->successful()) {
-                Log::warning('Embedding API returned ' . $response->status(), [
+                if ($response->successful()) {
+                    $data = $response->json('data', []);
+                    $results = array_fill(0, count($texts), null);
+
+                    foreach ($data as $item) {
+                        $idx = $item['index'] ?? null;
+                        if ($idx !== null && isset($item['embedding'])) {
+                            $results[$idx] = $item['embedding'];
+                        }
+                    }
+
+                    return $results;
+                }
+
+                Log::warning("Embedding API returned {$response->status()} (attempt {$attempt}/{$maxRetries})", [
                     'body' => $response->body(),
                 ]);
-                return array_fill(0, count($texts), null);
+            } catch (\Exception $e) {
+                Log::warning("Embedding API request failed (attempt {$attempt}/{$maxRetries}): " . $e->getMessage());
             }
 
-            $data = $response->json('data', []);
-            $results = array_fill(0, count($texts), null);
-
-            foreach ($data as $item) {
-                $idx = $item['index'] ?? null;
-                if ($idx !== null && isset($item['embedding'])) {
-                    $results[$idx] = $item['embedding'];
-                }
+            if ($attempt < $maxRetries) {
+                sleep($attempt * 2); // 2s, 4s backoff
             }
-
-            return $results;
-        } catch (\Exception $e) {
-            Log::warning('Embedding API request failed: ' . $e->getMessage());
-            return array_fill(0, count($texts), null);
         }
+
+        return array_fill(0, count($texts), null);
     }
 
     /**
