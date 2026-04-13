@@ -5,6 +5,7 @@
     <button type="button" id="darkModeButton" class="settings-button active">Dark</button>
     <button type="button" id="lightModeButton" class="settings-button">Light</button>
     <button type="button" id="sepiaModeButton" class="settings-button">Sepia</button>
+    <button type="button" id="vibeCSSButton" class="settings-button">Vibe</button>
     <button type="button" id="searchButton" class="settings-button">
       <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
         <path d="M221.09,64A157.09,157.09,0,1,0,378.18,221.09,157.1,157.1,0,0,0,221.09,64Z" />

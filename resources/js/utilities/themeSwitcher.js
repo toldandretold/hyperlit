@@ -7,7 +7,8 @@ const THEME_STORAGE_KEY = 'hyperlit_theme_preference';
 const THEMES = {
   DARK: 'dark',
   LIGHT: 'light',
-  SEPIA: 'sepia'
+  SEPIA: 'sepia',
+  VIBE: 'vibe'
 };
 
 // Single source of truth for current theme
@@ -29,7 +30,7 @@ function applyThemeClass(themeName) {
   const body = document.body;
 
   // Remove all theme classes
-  body.classList.remove('theme-dark', 'theme-light', 'theme-sepia');
+  body.classList.remove('theme-dark', 'theme-light', 'theme-sepia', 'theme-vibe');
 
   // Add the new theme class
   body.classList.add(`theme-${themeName}`);
@@ -52,6 +53,13 @@ export function switchTheme(theme) {
   // Apply theme class to body
   applyThemeClass(theme);
 
+  // Handle vibe CSS overrides
+  if (theme === THEMES.VIBE) {
+    import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
+  } else {
+    import('../components/vibeCSS.js').then(m => m.removeVibeCSS());
+  }
+
   // Save preference to localStorage
   localStorage.setItem(THEME_STORAGE_KEY, theme);
 
@@ -68,6 +76,9 @@ export function initializeTheme() {
   if (savedTheme && Object.values(THEMES).includes(savedTheme)) {
     currentTheme = savedTheme;
     applyThemeClass(savedTheme);
+    if (savedTheme === THEMES.VIBE) {
+      import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
+    }
   } else {
     currentTheme = THEMES.DARK;
     applyThemeClass(THEMES.DARK);

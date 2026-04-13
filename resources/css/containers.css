@@ -2160,3 +2160,134 @@ body[data-page="timemachine"] #main-content {
     max-height: 35vh;
   }
 }
+
+/* ========================================
+   VIBE CSS — Theme generator UI
+   Injected into bottom-up-container
+   ======================================== */
+
+.vibe-query-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 100%;
+  align-items: center;
+}
+
+.vibe-title {
+  font-size: 16px;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.vibe-text-input {
+  width: 100%;
+  min-height: 2.5em;
+  max-height: 6em;
+  overflow-y: auto;
+  padding: 0.75em 1em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5em;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: var(--color-text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.vibe-text-input:focus {
+  border-color: var(--hyperlit-aqua);
+}
+
+.vibe-text-input.empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.vibe-text-input:focus.empty::before {
+  display: none;
+}
+
+.vibe-action-row {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.vibe-submit-btn {
+  padding: 0.6em 1.2em;
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  border: none;
+  border-radius: 0.5em;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.vibe-submit-btn:hover {
+  background-color: #5FBCC0;
+}
+
+.vibe-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vibe-cancel-btn,
+.vibe-reset-btn {
+  padding: 0.6em 1.2em;
+  background-color: rgba(75, 75, 75, 0.6);
+  color: var(--color-text);
+  border: none;
+  border-radius: 0.5em;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.vibe-cancel-btn:hover,
+.vibe-reset-btn:hover {
+  background-color: rgba(95, 95, 95, 0.8);
+}
+
+.vibe-reset-btn {
+  background-color: rgba(220, 53, 69, 0.3);
+}
+
+.vibe-reset-btn:hover {
+  background-color: rgba(220, 53, 69, 0.5);
+}
+
+.vibe-topup-btn {
+  background-color: #d63384;
+  color: #fff;
+}
+
+.vibe-topup-btn:hover {
+  background-color: #c22877;
+}
+
+.vibe-status {
+  font-size: 13px;
+  color: var(--color-text);
+  opacity: 0.7;
+  text-align: center;
+}
+
+/* Vibe button inactive — gradient preview */
+#vibeCSSButton:not(.active) {
+  background: linear-gradient(135deg, #EE4A95, #EF8D34, #4EACAE);
+  color: #fff;
+  border: none;
+}
+
+#vibeCSSButton:not(.active):hover {
+  opacity: 0.85;
+}

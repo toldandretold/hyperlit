@@ -4,6 +4,7 @@ import { ContainerManager } from "../containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
+import { hasVibeCSS, showVibeInput, showTopUpUI } from "./vibeCSS.js";
 
 const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };
@@ -77,6 +78,14 @@ export class SettingsContainerManager extends ContainerManager {
       return;
     }
 
+    if (e.target.closest("#vibeCSSButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Vibe CSS clicked via delegation', '/components/settingsContainer.js');
+      this.handleVibeClick();
+      return;
+    }
+
     // Handle full-width toggle click
     if (e.target.closest("#fullWidthToggle")) {
       e.preventDefault();
@@ -114,11 +123,13 @@ export class SettingsContainerManager extends ContainerManager {
     const darkButton = document.getElementById("darkModeButton");
     const lightButton = document.getElementById("lightModeButton");
     const sepiaButton = document.getElementById("sepiaModeButton");
+    const vibeButton = document.getElementById("vibeCSSButton");
 
     // Remove all active classes
     darkButton?.classList.remove("active");
     lightButton?.classList.remove("active");
     sepiaButton?.classList.remove("active");
+    vibeButton?.classList.remove("active");
 
     // Add active class to current theme
     switch (currentTheme) {
@@ -131,8 +142,99 @@ export class SettingsContainerManager extends ContainerManager {
       case THEMES.SEPIA:
         sepiaButton?.classList.add("active");
         break;
+      case THEMES.VIBE:
+        vibeButton?.classList.add("active");
+        break;
     }
 
+  }
+
+  /**
+   * Handle vibe button click.
+   * - Saved + not active: apply vibe instantly
+   * - Saved + active: re-open input to change vibe
+   * - No saved vibe: check balance → show input or top-up
+   */
+  async handleVibeClick() {
+    const currentTheme = getCurrentTheme();
+    const saved = hasVibeCSS();
+
+    if (saved && currentTheme !== THEMES.VIBE) {
+      // Apply saved vibe and close settings
+      switchTheme(THEMES.VIBE);
+      this.closeContainer();
+      return;
+    }
+
+    if (saved && currentTheme === THEMES.VIBE) {
+      // Re-open input to change vibe
+      this._openVibeUI();
+      return;
+    }
+
+    // No saved vibe — check balance first
+    const container = document.getElementById('bottom-up-container');
+    if (!container) return;
+
+    // Save current content
+    const savedHTML = container.innerHTML;
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const resp = await fetch('/api/vibe-css/can-proceed', {
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
+        credentials: 'same-origin',
+      });
+
+      if (!resp.ok) {
+        // Auth issue or server error — just open input, generate will handle 402
+        this._openVibeUI();
+        return;
+      }
+
+      const data = await resp.json();
+
+      if (data.canProceed) {
+        this._openVibeUI();
+      } else {
+        showTopUpUI(container, () => {
+          container.innerHTML = savedHTML;
+          this.syncSliderUI();
+          this.updateButtonStates();
+        });
+      }
+    } catch {
+      // Network error — just open the input, the submit will handle 402
+      this._openVibeUI();
+    }
+  }
+
+  /**
+   * Replace settings panel content with vibe input UI.
+   */
+  _openVibeUI() {
+    const container = document.getElementById('bottom-up-container');
+    if (!container) return;
+
+    const savedHTML = container.innerHTML;
+
+    showVibeInput(
+      container,
+      // onComplete
+      () => {
+        container.innerHTML = savedHTML;
+        this.syncSliderUI();
+        switchTheme(THEMES.VIBE);
+        this.updateButtonStates();
+        this.closeContainer();
+      },
+      // onCancel
+      () => {
+        container.innerHTML = savedHTML;
+        this.syncSliderUI();
+        this.updateButtonStates();
+      }
+    );
   }
 
   /**

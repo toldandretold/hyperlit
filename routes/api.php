@@ -24,6 +24,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UserHomeServerController;
 use App\Http\Controllers\AiBrainController;
+use App\Http\Controllers\VibeCSSController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -72,6 +73,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
     Route::get('/ai-brain/status/{highlightId}', [AiBrainController::class, 'status']);
+
+    // Vibe CSS
+    Route::post('/vibe-css/generate', [VibeCSSController::class, 'generate']);
+    Route::get('/vibe-css/can-proceed', [VibeCSSController::class, 'canProceed']);
 });
 
 // Password reset routes (throttled to prevent abuse)
