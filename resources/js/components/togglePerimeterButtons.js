@@ -1,6 +1,7 @@
 import { cancelForcedVisibility, isProcessing } from './editIndicator.js';
 import { log, verbose } from '../utilities/logger.js';
 import { setPerimeterButtonsHidden } from '../utilities/operationState.js';
+import { hasFootnoteTapTarget } from '../footnoteTapExtender.js';
 
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {
@@ -282,6 +283,14 @@ shouldIgnoreEvent(event) {
 
     // Only proceed if we have stored start coordinates
     if (this.startX === undefined || this.startY === undefined) return;
+
+    // If footnoteTapExtender detected a nearby footnote on touchstart, don't toggle
+    if (hasFootnoteTapTarget()) {
+      this.startX = undefined;
+      this.startY = undefined;
+      this.touchStartTime = undefined;
+      return;
+    }
 
     const touch = event.changedTouches[0];
     const deltaX = Math.abs(touch.clientX - this.startX);

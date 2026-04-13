@@ -11,6 +11,14 @@ const TAP_MAX_MOVEMENT = 10;   // px
 const ZONE_MAIN = 8;           // matches disabled CSS ::before inset
 const ZONE_CONTAINER = 16;     // matches disabled container CSS ::before inset
 
+// Flag set during touchstart when a footnote/citation is nearby (direct hit or expanded zone).
+// Consumed by togglePerimeterButtons to avoid toggling buttons on near-miss footnote taps.
+let _nearbyFootnoteDetected = false;
+
+export function hasFootnoteTapTarget() {
+  return _nearbyFootnoteDetected;
+}
+
 export function initFootnoteTapExtender() {
   const isTouchDevice = matchMedia('(hover: none) and (pointer: coarse)').matches;
   if (!isTouchDevice) return { destroy() {} };
@@ -55,6 +63,8 @@ export function initFootnoteTapExtender() {
   }
 
   function onTouchStart(e) {
+    _nearbyFootnoteDetected = false;
+
     // Only track single-finger taps
     if (e.touches.length !== 1) {
       touchState = null;
@@ -67,6 +77,7 @@ export function initFootnoteTapExtender() {
     // click handler in footnotesCitations.js deal with it — return null target.
     const directHit = touch.target?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');
     if (directHit) {
+      _nearbyFootnoteDetected = true;
       touchState = null;
       return;
     }
@@ -76,6 +87,8 @@ export function initFootnoteTapExtender() {
       touchState = null;
       return;
     }
+
+    _nearbyFootnoteDetected = true;
 
     // Do NOT call preventDefault — allow text selection to proceed
     touchState = {

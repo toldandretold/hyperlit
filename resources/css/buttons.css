@@ -295,7 +295,7 @@ black #221F20;
 }
 
 #editButton.inverted {
-  background: var(--color-text);
+  background: var(--color-text) !important;
   width: 24px;
   height: 24px;
   border-radius: 4px;
@@ -311,7 +311,7 @@ black #221F20;
 /* Hover and active states for proper color inversion - but NOT when inverted */
 #editButton:hover:not(.inverted),
 #editButton.active:not(.inverted) {
-  background-color: var(--icon-hover-background);
+  background-color: var(--icon-hover-background) !important;
   border-radius: 4px;
 }
 
@@ -2342,7 +2342,7 @@ mark.search-highlight.current {
   }
 
   #editButton.inverted {
-    background: var(--color-text);
+    background: var(--color-text) !important;
     width: 22px;
     height: 22px;
     border-radius: 4px;
@@ -2356,7 +2356,7 @@ mark.search-highlight.current {
   /* Hover and active states for proper color inversion (mobile) - but NOT when inverted */
   #editButton:hover:not(.inverted),
   #editButton.active:not(.inverted) {
-    background-color: var(--icon-hover-background);
+    background-color: var(--icon-hover-background) !important;
     border-radius: 4px;
   }
 
