@@ -168,8 +168,8 @@ export class SettingsContainerManager extends ContainerManager {
     const savedWidth = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
 
     if (savedSize) {
-      // Set directly on body to bypass mobile media-query override of --font-size-base
-      document.body.style.fontSize = `${savedSize}px`;
+      // Scope to .main-content so logo, search bar, arranger buttons etc. stay fixed size
+      document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${savedSize}px`);
     }
     if (savedWidth) {
       document.documentElement.style.setProperty('--content-width', `${savedWidth}ch`);
@@ -229,14 +229,14 @@ export class SettingsContainerManager extends ContainerManager {
       const isMobile = window.innerWidth <= 500;
       const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
 
-      // Set directly on body — bypasses mobile media-query override of --font-size-base
-      document.body.style.fontSize = `${val}px`;
+      // Scope to .main-content so only book content resizes
+      document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${val}px`);
       const display = document.getElementById('textSizeValue');
       if (display) display.textContent = `${val}px`;
 
       if (val === defaultSize) {
         localStorage.removeItem(STORAGE_KEYS.TEXT_SIZE);
-        document.body.style.removeProperty('font-size');
+        document.querySelectorAll('.main-content').forEach(el => el.style.removeProperty('font-size'));
       } else {
         localStorage.setItem(STORAGE_KEYS.TEXT_SIZE, val);
       }
