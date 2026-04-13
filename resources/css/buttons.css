@@ -21,9 +21,9 @@ black #221F20;
  */
 
 /* ===== CLOUD/SOURCE BUTTON (cloudRef) ===== */
-/* Background rect */
+/* Background rect — transparent so glass backdrop shows through */
 #cloudRef-svg rect {
-  fill: var(--icon-background);
+  fill: transparent;
 }
 
 /* Cloud paths - default to ready state, JS overrides for status */
@@ -50,7 +50,7 @@ black #221F20;
 
 /* ===== TOC TOGGLE BUTTON ===== */
 #toc-toggle-button svg rect {
-  fill: var(--icon-background);
+  fill: transparent;
 }
 
 #toc-toggle-button svg g path {
@@ -573,6 +573,31 @@ black #221F20;
   position: relative; /* Enable positioning for pseudo-element */
 }
 
+/* Glass circle on user button */
+#userButtonContainer::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+#userButton {
+  background-color: transparent !important;
+}
+
+/* No double glass when user button is inside logo nav */
+#logoNavWrapper #userButtonContainer::after {
+  display: none;
+}
+
 /* Expanded clickable area for user button */
 #userButtonContainer::before {
   content: '';
@@ -616,6 +641,88 @@ black #221F20;
   gap: 8px;
   transition: opacity 0.3s ease, right 0.3s ease;
   z-index: 999;
+}
+
+/* Glass circle backdrop for perimeter buttons.
+   Against a solid background blur(solid) = solid → invisible.
+   When text scrolls behind, frosted glass circle appears. */
+/* Glass circle backdrop for perimeter buttons */
+#bottom-left-buttons button {
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+}
+
+/* Transparent button backgrounds so glass shows through */
+#bottom-right-buttons button {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Glass pill on bottom-right — rounded rectangle behind edit + toc buttons */
+#bottom-right-buttons::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 999px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glass on logo nav — ::after pseudo-element avoids layout issues
+   (menu uses visibility:hidden so wrapper is always tall) */
+#logoNavWrapper::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  right: -4px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Open: glass pill stretches to cover all nav items */
+#logoNavWrapper:has(.logo-nav-menu:not(.hidden))::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  right: -4px;
+  height: 94px;
+  border-radius: 10px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glass circle on top-right container (cloudRef / newBook) */
+#topRightContainer::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .disable-right-transition {

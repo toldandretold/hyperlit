@@ -269,7 +269,6 @@ blockquote {
     padding-left: 1rem;
     overflow: auto; /* or display: flow-root; */
     font-style: normal;
-    font-size: 16px;
   }
 
    body {
@@ -302,18 +301,10 @@ blockquote {
   }
   
   code {
-    font-size: 16px; /* Reduced from 20px */
     word-break: break-all;
     white-space: pre-wrap;
   }
   
-  sup {
-    font-size: 12px; /* Reduced from 14px */
-  }
-  
-  sup.open-icon {
-    font-size: 12px; /* Reduced from 14px */
-  }
 
   ol, ul {
     font-size: 1em; /* Match paragraph font size on mobile */

@@ -5,7 +5,7 @@ import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
 
-const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width' };
+const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };
 
 /**
@@ -77,6 +77,14 @@ export class SettingsContainerManager extends ContainerManager {
       return;
     }
 
+    // Handle full-width toggle click
+    if (e.target.closest("#fullWidthToggle")) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleFullWidth();
+      return;
+    }
+
     // Handle search button click
     if (e.target.closest("#searchButton")) {
       e.preventDefault();
@@ -128,6 +136,30 @@ export class SettingsContainerManager extends ContainerManager {
   }
 
   /**
+   * Toggle full-width mode — reduces main-content padding to near-edge-to-edge.
+   * Perimeter buttons stay in place but get transparent backgrounds.
+   */
+  toggleFullWidth() {
+    const allMainContent = document.querySelectorAll('.main-content');
+    if (!allMainContent.length) return;
+
+    // Determine new state from first element
+    const isActive = !allMainContent[0].classList.contains('full-width-mode');
+    allMainContent.forEach(el => el.classList.toggle('full-width-mode', isActive));
+
+    // Update button text
+    const btn = document.getElementById('fullWidthToggle');
+    if (btn) btn.textContent = isActive ? '>full<' : '<full>';
+
+    // Persist
+    if (isActive) {
+      localStorage.setItem(STORAGE_KEYS.FULL_WIDTH, 'true');
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.FULL_WIDTH);
+    }
+  }
+
+  /**
    * Apply saved text size and content width from localStorage.
    * Only sets inline CSS variables if user has explicitly changed from defaults.
    */
@@ -144,6 +176,15 @@ export class SettingsContainerManager extends ContainerManager {
       // Also set inline max-width on wrapper to override global * { max-width: 100% }
       const wrapper = document.querySelector('.reader-content-wrapper');
       if (wrapper) wrapper.style.maxWidth = `${savedWidth}ch`;
+    }
+
+    // Restore full-width mode
+    if (localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true') {
+      const allMainContent = document.querySelectorAll('.main-content');
+      allMainContent.forEach(el => el.classList.add('full-width-mode'));
+
+      const btn = document.getElementById('fullWidthToggle');
+      if (btn) btn.textContent = '>full<';
     }
   }
 
@@ -171,6 +212,11 @@ export class SettingsContainerManager extends ContainerManager {
     if (sizeValue) sizeValue.textContent = `${textSize}px`;
     if (widthSlider) widthSlider.value = contentWidth;
     if (widthValue) widthValue.textContent = `${contentWidth}ch`;
+
+    // Sync full-width button text
+    const fullWidthBtn = document.getElementById('fullWidthToggle');
+    const isFullWidth = document.querySelector('.main-content')?.classList.contains('full-width-mode');
+    if (fullWidthBtn) fullWidthBtn.textContent = isFullWidth ? '>full<' : '<full>';
   }
 
   /**

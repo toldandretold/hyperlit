@@ -1614,6 +1614,23 @@ body.hyperlit-container-open .reader-content-wrapper {
   }
 }
 
+/* Full-width toggle — only visible on narrow screens */
+.settings-fullwidth-row {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .settings-fullwidth-row {
+    display: flex;
+  }
+}
+
+.settings-fullwidth-btn {
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+
 /* Perimeter button transparency when overlapping content */
 .perimeter-transparent {
   background-color: transparent !important;

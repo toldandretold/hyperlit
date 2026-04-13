@@ -171,29 +171,7 @@
 <div id="ref-overlay"></div>
 <div id="user-overlay"></div>
 
-<!-- Settings container - slides up from bottom -->
-<div id="bottom-up-container" class="hidden">
-  <!-- Dark Mode Button (active by default) -->
-  <button type="button" id="darkModeButton" class="settings-button active">
-    Dark Mode
-  </button>
-
-  <!-- Light Mode Button -->
-  <button type="button" id="lightModeButton" class="settings-button">
-    Light Mode
-  </button>
-
-  <!-- Sepia Mode Button -->
-  <button type="button" id="sepiaModeButton" class="settings-button">
-    Sepia Mode
-  </button>
-
-  <!-- Search Button -->
-  <button type="button" id="searchButton" class="settings-button">
-    Search
-  </button>
-</div>
-<div id="settings-overlay"></div>
+<x-settings-panel />
 
 @endsection
 
