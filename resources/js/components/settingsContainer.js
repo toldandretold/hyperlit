@@ -5,6 +5,9 @@ import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
 
+const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width' };
+const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };
+
 /**
  * SettingsContainerManager - Extends ContainerManager with event delegation
  * Uses the same robust pattern as userContainer.js
@@ -15,11 +18,14 @@ export class SettingsContainerManager extends ContainerManager {
 
     this.boundClickHandler = this.handleDocumentClick.bind(this);
     this.boundThemeChangeHandler = this.updateButtonStates.bind(this);
+    this.boundInputHandler = this.handleSliderInput.bind(this);
+    this._resizeDebounce = null;
 
     this.setupSettingsListeners();
 
-    // Set initial button states
+    // Set initial button states and apply saved text adjustments
     this.updateButtonStates();
+    this.applyTextAdjustments();
   }
 
   /**
@@ -28,6 +34,7 @@ export class SettingsContainerManager extends ContainerManager {
    */
   setupSettingsListeners() {
     document.addEventListener("click", this.boundClickHandler);
+    document.addEventListener("input", this.boundInputHandler);
     window.addEventListener('themechange', this.boundThemeChangeHandler);
     verbose.init('Settings event listeners attached', '/components/settingsContainer.js');
   }
@@ -83,27 +90,6 @@ export class SettingsContainerManager extends ContainerManager {
       return;
     }
 
-    // Handle latency monitor toggle button
-    if (e.target.closest("#latencyMonitorButton")) {
-      e.preventDefault();
-      e.stopPropagation();
-      verbose.init('Latency monitor button clicked via delegation', '/components/settingsContainer.js');
-
-      if (window.latency) {
-        const button = document.getElementById("latencyMonitorButton");
-        const isActive = button?.classList.contains("active");
-
-        if (isActive) {
-          window.latency.stop();
-          button?.classList.remove("active");
-        } else {
-          window.latency.start(true);
-          button?.classList.add("active");
-        }
-      }
-      return;
-    }
-
     // Handle overlay click to close
     if (e.target.closest("#settings-overlay") && this.isOpen) {
       this.closeContainer();
@@ -139,13 +125,113 @@ export class SettingsContainerManager extends ContainerManager {
         break;
     }
 
-    // Update latency monitor button state
-    const latencyButton = document.getElementById("latencyMonitorButton");
-    if (latencyButton && window.latency?.isRunning()) {
-      latencyButton.classList.add("active");
-    } else if (latencyButton) {
-      latencyButton.classList.remove("active");
+  }
+
+  /**
+   * Apply saved text size and content width from localStorage.
+   * Only sets inline CSS variables if user has explicitly changed from defaults.
+   */
+  applyTextAdjustments() {
+    const savedSize = localStorage.getItem(STORAGE_KEYS.TEXT_SIZE);
+    const savedWidth = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
+
+    if (savedSize) {
+      // Set directly on body to bypass mobile media-query override of --font-size-base
+      document.body.style.fontSize = `${savedSize}px`;
     }
+    if (savedWidth) {
+      document.documentElement.style.setProperty('--content-width', `${savedWidth}ch`);
+      // Also set inline max-width on wrapper to override global * { max-width: 100% }
+      const wrapper = document.querySelector('.reader-content-wrapper');
+      if (wrapper) wrapper.style.maxWidth = `${savedWidth}ch`;
+    }
+  }
+
+  /**
+   * Sync slider UI elements with current values.
+   * Called when settings panel opens (sliders may have been destroyed by innerHTML replacement).
+   */
+  syncSliderUI() {
+    const isMobile = window.innerWidth <= 500;
+    const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
+
+    const savedSize = localStorage.getItem(STORAGE_KEYS.TEXT_SIZE);
+    const savedWidth = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
+    const textSize = savedSize ? parseInt(savedSize, 10) : defaultSize;
+    const contentWidth = savedWidth ? parseInt(savedWidth, 10) : DEFAULTS.CONTENT_WIDTH;
+
+    const sizeSlider = document.getElementById('textSizeSlider');
+    const sizeValue = document.getElementById('textSizeValue');
+    const widthSlider = document.getElementById('contentWidthSlider');
+    const widthValue = document.getElementById('contentWidthValue');
+
+    if (sizeSlider) {
+      sizeSlider.value = textSize;
+    }
+    if (sizeValue) sizeValue.textContent = `${textSize}px`;
+    if (widthSlider) widthSlider.value = contentWidth;
+    if (widthValue) widthValue.textContent = `${contentWidth}ch`;
+  }
+
+  /**
+   * Delegated input handler for sliders.
+   * Sets CSS variable live, saves to localStorage, dispatches resize for button repositioning.
+   */
+  handleSliderInput(e) {
+    if (e.target.id === 'textSizeSlider') {
+      const val = parseInt(e.target.value, 10);
+      const isMobile = window.innerWidth <= 500;
+      const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
+
+      // Set directly on body — bypasses mobile media-query override of --font-size-base
+      document.body.style.fontSize = `${val}px`;
+      const display = document.getElementById('textSizeValue');
+      if (display) display.textContent = `${val}px`;
+
+      if (val === defaultSize) {
+        localStorage.removeItem(STORAGE_KEYS.TEXT_SIZE);
+        document.body.style.removeProperty('font-size');
+      } else {
+        localStorage.setItem(STORAGE_KEYS.TEXT_SIZE, val);
+      }
+
+      this._debounceResize();
+      return;
+    }
+
+    if (e.target.id === 'contentWidthSlider') {
+      const val = parseInt(e.target.value, 10);
+
+      // Set max-width directly on .reader-content-wrapper — overrides both
+      // the CSS variable and the global * { max-width: 100% } rule
+      const wrapper = document.querySelector('.reader-content-wrapper');
+      if (wrapper) wrapper.style.maxWidth = `${val}ch`;
+
+      document.documentElement.style.setProperty('--content-width', `${val}ch`);
+      const display = document.getElementById('contentWidthValue');
+      if (display) display.textContent = `${val}ch`;
+
+      if (val === DEFAULTS.CONTENT_WIDTH) {
+        localStorage.removeItem(STORAGE_KEYS.CONTENT_WIDTH);
+        document.documentElement.style.removeProperty('--content-width');
+        if (wrapper) wrapper.style.removeProperty('max-width');
+      } else {
+        localStorage.setItem(STORAGE_KEYS.CONTENT_WIDTH, val);
+      }
+
+      this._debounceResize();
+      return;
+    }
+  }
+
+  /**
+   * Debounced resize dispatch — triggers perimeter button repositioning.
+   */
+  _debounceResize() {
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    this._resizeDebounce = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 150);
   }
 
   /**
@@ -158,17 +244,19 @@ export class SettingsContainerManager extends ContainerManager {
   }
 
   /**
-   * Override openContainer to update button states after innerHTML replacement
-   * ContainerManager.openContainer() replaces innerHTML, destroying active classes
+   * Override openContainer to skip innerHTML reset (preserves slider state)
+   * and update button active classes + slider positions
    */
   openContainer(content = null, highlightId = null) {
-    super.openContainer(content, highlightId);
+    // skipContentReset: true — settings panel never receives new content,
+    // and resetting innerHTML would destroy slider positions and values
+    super.openContainer(content, highlightId, { skipContentReset: true });
 
-    // CRITICAL: Update button states after innerHTML is replaced
-    // requestAnimationFrame ensures DOM is ready
+    // Update button states and slider UI after DOM is ready
     requestAnimationFrame(() => {
       this.updateButtonStates();
-      verbose.init('Button states updated after container opened', '/components/settingsContainer.js');
+      this.syncSliderUI();
+      verbose.init('Button states and sliders updated after container opened', '/components/settingsContainer.js');
     });
   }
 
@@ -177,7 +265,9 @@ export class SettingsContainerManager extends ContainerManager {
    */
   destroy() {
     document.removeEventListener("click", this.boundClickHandler);
+    document.removeEventListener("input", this.boundInputHandler);
     window.removeEventListener('themechange', this.boundThemeChangeHandler);
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
     super.destroy();
     verbose.init('Settings event listeners removed', '/components/settingsContainer.js');
   }

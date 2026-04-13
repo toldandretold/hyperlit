@@ -631,7 +631,7 @@ scrollCaretIntoView(element) {
       visibleToolbar.style.setProperty("left", "50%", "important");
       visibleToolbar.style.setProperty("right", "auto", "important");
       visibleToolbar.style.setProperty("transform", "translateX(-50%)", "important");
-      visibleToolbar.style.setProperty("width", "40ch", "important");
+      visibleToolbar.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '40ch', "important");
     } else {
       visibleToolbar.style.setProperty("left", "0", "important");
       visibleToolbar.style.setProperty("right", "0", "important");
@@ -729,7 +729,7 @@ scrollCaretIntoView(element) {
         citationResults.style.setProperty("left", "50%", "important");
         citationResults.style.setProperty("right", "auto", "important");
         citationResults.style.setProperty("transform", "translateX(-50%)", "important");
-        citationResults.style.setProperty("width", "40ch", "important");
+        citationResults.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '40ch', "important");
       } else {
         citationResults.style.setProperty("left", "0", "important");
         citationResults.style.setProperty("right", "0", "important");

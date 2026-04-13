@@ -2350,7 +2350,7 @@ mark.search-highlight.current {
       left: 50% !important;
       right: auto !important;
       transform: translateX(-50%) !important;
-      max-width: 40ch;
+      max-width: var(--content-width, 40ch);
       width: 100%;
     }
   }

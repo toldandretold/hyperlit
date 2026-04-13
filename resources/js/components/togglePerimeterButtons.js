@@ -400,6 +400,12 @@ shouldIgnoreEvent(event) {
 
         const newPos = marginSize - buttonGap - buttonWidth;
 
+        // Toggle transparent background when buttons overlap content column
+        const isOverlapping = newPos < 10;
+        this.loadingElements.forEach((element) => {
+          element.classList.toggle('perimeter-transparent', isOverlapping);
+        });
+
         // Get edit toolbar height to position bottom buttons above it
         const editToolbar = document.getElementById("edit-toolbar");
         const toolbarHeight = editToolbar ? editToolbar.offsetHeight : 0;

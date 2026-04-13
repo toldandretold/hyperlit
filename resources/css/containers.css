@@ -1451,9 +1451,9 @@ body.hyperlit-container-open .reader-content-wrapper {
   padding: 1em 2em;
   border-radius: 1em 1em 0 0;
 
-  /* Flex layout for buttons */
+  /* Column layout for rows */
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.75em;
   align-items: center;
   justify-content: center;
@@ -1532,6 +1532,96 @@ body.hyperlit-container-open .reader-content-wrapper {
   color: var(--hyperlit-black);
 }
 
+
+/* Settings slider rows */
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.settings-theme-row {
+  margin-bottom: 0.5em;
+}
+
+.settings-slider-row {
+  flex-wrap: nowrap;
+  gap: 0.5em;
+  padding: 0.25em 0;
+}
+
+.settings-slider-label {
+  color: var(--color-text);
+  font-size: 14px;
+  min-width: 2em;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.settings-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hyperlit-aqua);
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hyperlit-aqua);
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.settings-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-slider-value {
+  color: var(--color-text);
+  font-size: 12px;
+  min-width: 3.5em;
+  text-align: right;
+  opacity: 0.6;
+  font-family: var(--font-family-mono);
+}
+
+/* Mobile adjustments for settings sliders */
+@media (max-width: 480px) {
+  #bottom-up-container {
+    padding: 0.75em 1em;
+  }
+}
+
+/* Perimeter button transparency when overlapping content */
+.perimeter-transparent {
+  background-color: transparent !important;
+}
+
+.perimeter-transparent button {
+  background-color: transparent !important;
+}
 
 /* Settings Overlay */
 #settings-overlay {

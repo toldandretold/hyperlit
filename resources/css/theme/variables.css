@@ -87,6 +87,9 @@
   --z-clickable: 2;
   --z-overlay: 9999;
 
+  /* Content width */
+  --content-width: 40ch;
+
   /* Gradient */
   --gradient-hyperlit: linear-gradient(to right,
     var(--hyperlit-pink),
