@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SearchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,10 @@ use App\Services\OpenAlexService;
 class SearchController extends Controller
 {
     private const MAX_RESULTS = 50;
+
+    public function __construct(
+        private SearchService $searchService,
+    ) {}
 
     /**
      * Search library (title + author) - Default mode
@@ -448,62 +453,10 @@ class SearchController extends Controller
     }
 
     /**
-     * Convert user query to PostgreSQL tsquery format
-     * Handles phrase search with quotes and joins terms with &
+     * Delegate to shared SearchService for tsquery building.
      */
     private function buildTsQuery(string $query): string
     {
-        // Sanitize the query
-        $query = trim($query);
-
-        if (empty($query)) {
-            return '';
-        }
-
-        // Handle quoted phrases - convert "exact phrase" to 'exact <-> phrase'
-        if (preg_match_all('/"([^"]+)"/', $query, $matches)) {
-            foreach ($matches[1] as $phrase) {
-                $words = preg_split('/\s+/', trim($phrase));
-                $words = array_filter($words, fn($w) => strlen($w) >= 1);
-                if (!empty($words)) {
-                    $phraseQuery = implode(' <-> ', $words);
-                    $query = str_replace('"' . $phrase . '"', '(' . $phraseQuery . ')', $query);
-                }
-            }
-        }
-
-        // Split remaining terms and join with &
-        $terms = preg_split('/\s+/', $query);
-        $terms = array_filter($terms, fn($t) => strlen($t) >= 1);
-
-        if (empty($terms)) {
-            return '';
-        }
-
-        // Clean terms and add prefix matching to last term for autocomplete behavior
-        $lastIndex = count($terms) - 1;
-        $processed = [];
-
-        foreach (array_values($terms) as $index => $term) {
-            // Remove special characters except those used in phrase queries
-            $term = preg_replace('/[^\w\s\-<>()]/', '', $term);
-
-            if (empty($term)) {
-                continue;
-            }
-
-            // Add prefix matching to last term for autocomplete-like behavior
-            if ($index === $lastIndex && !str_contains($term, '<->')) {
-                $processed[] = $term . ':*';
-            } else {
-                $processed[] = $term;
-            }
-        }
-
-        if (empty($processed)) {
-            return '';
-        }
-
-        return implode(' & ', $processed);
+        return $this->searchService->buildTsQuery($query);
     }
 }

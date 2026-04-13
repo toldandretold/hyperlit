@@ -332,6 +332,11 @@ black #221F20;
   color: #666666; /* Muted gray color for the lock */
 }
 
+/* Hide lock icon entirely — glass pill auto-sizes to remaining buttons */
+#editButton[data-is-locked="true"] {
+  display: none !important;
+}
+
 /* ===== HYPERLIT CONTAINER EDIT BUTTON ===== */
 /* Edit button inside hyperlit-container for toggling edit mode */
 #hyperlit-edit-btn {
@@ -568,7 +573,6 @@ black #221F20;
 
 #userButtonContainer {
   z-index: 999;
-  transition: opacity 0.3s ease;
   flex-shrink: 0;
   position: relative; /* Enable positioning for pseudo-element */
 }
@@ -616,7 +620,7 @@ black #221F20;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
-  transition: opacity 0.3s ease, right 0.3s ease;
+  transition: right 0.3s ease;
 }
 
 #bottom-left-buttons {
@@ -627,7 +631,7 @@ black #221F20;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  transition: opacity 0.3s ease, left 0.3s ease;
+  transition: left 0.3s ease;
   z-index: 999;
 }
 
@@ -639,7 +643,7 @@ black #221F20;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  transition: opacity 0.3s ease, right 0.3s ease;
+  transition: right 0.3s ease;
   z-index: 999;
 }
 
@@ -684,7 +688,7 @@ black #221F20;
   top: -8px;
   left: -4px;
   right: -4px;
-  height: 38px;
+  height: 34px;
   border-radius: 10px;
   background-color: transparent;
   backdrop-filter: blur(8px);
@@ -725,8 +729,11 @@ black #221F20;
   pointer-events: none;
 }
 
-.disable-right-transition {
-  transition: opacity 0.3s ease !important;
+/* Home page: no text scrolls behind buttons, so blur picks up dark theme
+   and creates visible dark circles against the solid background. Hide glass. */
+body[data-page="home"] #userButtonContainer::after,
+body[data-page="home"] #topRightContainer::after {
+  display: none;
 }
 
 .icon {
@@ -2294,7 +2301,6 @@ mark.search-highlight.current {
     height: 36px;
     width: 36px;
     z-index: 999;
-    transition: opacity 0.3s ease;
   }
 
   #toc-toggle-button {

@@ -6,6 +6,7 @@ use App\Helpers\SubBookIdHelper;
 use App\Services\BillingService;
 use App\Services\EmbeddingService;
 use App\Services\LlmService;
+use App\Services\RetrievalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,10 @@ use Illuminate\Support\Str;
 
 class AiBrainController extends Controller
 {
+    public function __construct(
+        private RetrievalService $retrievalService,
+    ) {}
+
     public function status(string $highlightId): JsonResponse
     {
         $user = Auth::user();
@@ -97,96 +102,54 @@ class AiBrainController extends Controller
                 'selectedText_len' => strlen($selectedText),
             ]);
 
-            // 3. Classify the query via Qwen 3-8B router
-            $routerResult = $this->classifyQuery($llmService, $selectedText, $question, $bookId);
-            $strategy = $routerResult['strategy'];
-            $authorName = $routerResult['author_name'];
-            $bookTitle = $routerResult['book_title'];
+            // 3. Plan retrieval via DeepSeek v3 router
+            $planResult = $this->planRetrieval($llmService, $selectedText, $question, $bookId);
+            $plan = $planResult['plan'];
+            $authorName = $planResult['author_name'];
+            $bookTitle = $planResult['book_title'];
 
-            Log::info('AiBrain: router classified', [
-                'strategy' => $strategy,
-                'reasoning' => $routerResult['reasoning'],
+            Log::info('AiBrain: router planned', [
+                'tools' => $plan['tools'],
+                'reasoning' => $plan['reasoning'] ?? '',
+                'keywords' => $plan['keywords'] ?? '',
                 'author' => $authorName,
             ]);
 
             $pipelineLog = [
-                'router_model' => 'qwen3-8b',
-                'strategy' => $strategy,
-                'router_reasoning' => $routerResult['reasoning'],
+                'router_model' => 'deepseek-v3',
+                'tools' => $plan['tools'],
+                'router_reasoning' => $plan['reasoning'] ?? '',
+                'keywords' => $plan['keywords'] ?? '',
                 'book_title' => $bookTitle,
                 'book_author' => $authorName,
                 'source_scope' => $sourceScope,
             ];
 
-            // 4. Strategy-specific retrieval
-            $queryText = null;
-            $queryEmbedding = null;
-            $matches = [];
-            $localContext = [];
+            // 4. Execute retrieval plan
+            $context = [
+                'bookId' => $bookId,
+                'nodeIds' => $validated['nodeIds'],
+                'selectedText' => $selectedText,
+                'question' => $question,
+                'authorName' => $authorName,
+                'bookTitle' => $bookTitle,
+                'sourceScope' => $sourceScope,
+                'creatorName' => $creatorName,
+            ];
 
-            if ($strategy === 'direct') {
-                $localContext = $this->fetchSurroundingContext($bookId, $validated['nodeIds']);
-                $pipelineLog['retrieval_method'] = 'Fetched surrounding nodes from same book (no embedding)';
-                $pipelineLog['context_nodes'] = count($localContext);
-                Log::info('AiBrain: direct strategy — local context', ['nodes' => count($localContext)]);
-            } elseif ($strategy === 'same_author') {
-                // Fall through to full_search if no author
-                if (empty($authorName)) {
-                    $strategy = 'full_search';
-                    $pipelineLog['strategy'] = 'full_search';
-                    $pipelineLog['router_reasoning'] .= ' (fallback: no author found)';
-                    Log::info('AiBrain: same_author fallback to full_search — no author');
-                } else {
-                    $queryText = $selectedText . "\n\n" . $question;
-                    $queryEmbedding = $embeddingService->embed($queryText, 'search_query: ');
+            $result = $this->retrievalService->execute($plan, $context);
+            $matches = $result['matches'];
+            $localContext = $result['localContext'];
+            $queryText = $result['queryText'];
+            $toolsUsed = $result['toolsUsed'];
 
-                    if (!$queryEmbedding) {
-                        Log::warning('AiBrain: embedding failed');
-                        return response()->json(['success' => false, 'message' => 'Failed to generate query embedding'], 500);
-                    }
+            $pipelineLog['retrieval_log'] = $result['log'];
+            $pipelineLog['tools_used'] = $toolsUsed;
 
-                    $matches = $embeddingService->searchSimilarByAuthor($queryEmbedding, 10, $bookId, $authorName, $sourceScope, $creatorName);
-
-                    // Fall through to full_search if <3 results
-                    if (count($matches) < 3) {
-                        Log::info('AiBrain: same_author fallback to full_search — only ' . count($matches) . ' results');
-                        $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId, $sourceScope, $creatorName);
-                        $strategy = 'full_search';
-                        $pipelineLog['strategy'] = 'full_search';
-                        $pipelineLog['router_reasoning'] .= ' (fallback: <3 same-author results)';
-                    } else {
-                        $pipelineLog['retrieval_method'] = "Selected text was vector-embedded and compared against books by {$authorName}"
-                            . $this->scopeSuffix($sourceScope);
-                    }
-                }
-            }
-
-            // full_search: either originally classified or fell through from same_author
-            if ($strategy === 'full_search') {
-                $queryText = $queryText ?? ($selectedText . "\n\n" . $question);
-                if (!$queryEmbedding) {
-                    $queryEmbedding = $embeddingService->embed($queryText, 'search_query: ');
-                    if (!$queryEmbedding) {
-                        Log::warning('AiBrain: embedding failed');
-                        return response()->json(['success' => false, 'message' => 'Failed to generate query embedding'], 500);
-                    }
-                }
-                if (empty($matches)) {
-                    $matches = $embeddingService->searchSimilar($queryEmbedding, 10, $bookId, $sourceScope, $creatorName);
-                }
-                $scopeDescriptions = [
-                    'public' => 'all public books in the library',
-                    'mine'   => 'your books',
-                    'all'    => 'all public books and your books',
-                    'this'   => 'this book only',
-                ];
-                $pipelineLog['retrieval_method'] = 'Selected text was vector-embedded and compared against '
-                    . ($scopeDescriptions[$sourceScope] ?? 'all public books in the library');
-            }
-
-            // Check for matches in search strategies
-            if ($strategy !== 'direct' && empty($matches)) {
-                Log::info('AiBrain: no matches found', ['strategy' => $strategy]);
+            // Check for matches when search tools were used
+            $hasSearchTools = !empty(array_intersect($toolsUsed, ['embedding_search', 'keyword_search', 'library_search']));
+            if ($hasSearchTools && empty($matches)) {
+                Log::info('AiBrain: no matches found', ['tools' => $toolsUsed]);
                 return response()->json(['success' => false, 'message' => 'No relevant passages found in the library'], 404);
             }
 
@@ -199,8 +162,8 @@ class AiBrainController extends Controller
                     'excerpt' => Str::limit($m->plainText ?? '', 80),
                 ], array_slice($matches, 0, 10));
 
-                Log::info('AiBrain: vector search results', [
-                    'strategy' => $strategy,
+                Log::info('AiBrain: search results', [
+                    'tools' => $toolsUsed,
                     'match_count' => count($matches),
                     'top_similarity' => round($matches[0]->similarity * 100, 1) . '%',
                     'top_book' => $matches[0]->book ?? 'unknown',
@@ -208,28 +171,23 @@ class AiBrainController extends Controller
                 ]);
             }
 
-            // 5. Build strategy-specific LLM prompts
-            $systemPrompt = $this->buildSystemPromptForStrategy($strategy);
+            // 5. Build unified LLM prompts
+            $allSameAuthor = !empty($matches) && !empty($authorName)
+                && count(array_unique(array_map(fn($m) => $m->book_author ?? '', $matches))) === 1
+                && ($matches[0]->book_author ?? '') === $authorName;
 
-            switch ($strategy) {
-                case 'direct':
-                    $userMessage = $this->buildDirectUserMessage($selectedText, $question, $localContext);
-                    $pipelineLog['prompt_summary'] = 'Selected passage + question + ' . count($localContext) . ' surrounding nodes';
-                    break;
-                case 'same_author':
-                    $passageContext = $this->buildPassageContext($matches);
-                    $userMessage = $this->buildSameAuthorUserMessage($selectedText, $question, $passageContext, $authorName, $bookTitle);
-                    $pipelineLog['prompt_summary'] = 'Selected passage + question + ' . count($matches) . ' source passages from same author';
-                    break;
-                default:
-                    $passageContext = $this->buildPassageContext($matches);
-                    $userMessage = $this->buildUserMessage($selectedText, $question, $passageContext);
-                    $pipelineLog['prompt_summary'] = 'Selected passage + question + ' . count($matches) . ' source passages from library';
-                    break;
-            }
+            $systemPrompt = $this->buildSystemPrompt($hasSearchTools, $allSameAuthor);
+            $userMessage = $this->buildUserMessage(
+                $selectedText, $question, $localContext, $matches, $authorName, $bookTitle
+            );
+
+            $promptParts = [];
+            if (!empty($localContext)) $promptParts[] = count($localContext) . ' surrounding nodes';
+            if (!empty($matches)) $promptParts[] = count($matches) . ' source passages';
+            $pipelineLog['prompt_summary'] = 'Selected passage + question' . (!empty($promptParts) ? ' + ' . implode(' + ', $promptParts) : '');
 
             // 6. Call LLM via LlmService (model chosen by user)
-            Log::info('AiBrain: calling LLM...', ['strategy' => $strategy, 'model' => $brainModel]);
+            Log::info('AiBrain: calling LLM...', ['tools' => $toolsUsed, 'model' => $brainModel]);
             $llmResponse = $llmService->chat(
                 $systemPrompt,
                 $userMessage,
@@ -257,14 +215,14 @@ class AiBrainController extends Controller
             }
             $llmResponse = trim($llmResponse);
 
-            // 7. Parse citations and create hypercites (skip for 'direct' — no external sources)
+            // 7. Parse citations and create hypercites (skip if no external matches)
             $timestamp = now()->timestamp;
             $highlightId = $validated['highlightId'];
             $subBookId = SubBookIdHelper::build($bookId, $highlightId);
             $hypercites = [];
             $processedHtml = $llmResponse;
 
-            if ($strategy !== 'direct' && !empty($matches)) {
+            if (!empty($matches)) {
                 [$processedHtml, $hypercites] = $this->processCitationsInResponse(
                     $llmResponse,
                     $matches,
@@ -274,7 +232,7 @@ class AiBrainController extends Controller
             }
 
             Log::info('AiBrain: citations processed', [
-                'strategy' => $strategy,
+                'tools' => $toolsUsed,
                 'hypercites_count' => count($hypercites),
                 'html_length' => strlen($processedHtml),
             ]);
@@ -380,6 +338,7 @@ class AiBrainController extends Controller
                 'nodes_count' => count($nodes),
                 'hypercites_count' => count($hypercites),
                 'cost' => $totalCost,
+                'tools_used' => $toolsUsed,
             ]);
 
             // 12. Return everything
@@ -399,7 +358,7 @@ class AiBrainController extends Controller
                 ],
                 'hyperlight'  => $hyperlightData,
                 'hypercites'  => $hypercites,
-                'strategy'    => $strategy,
+                'tools_used'  => $toolsUsed,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -421,9 +380,103 @@ class AiBrainController extends Controller
         }
     }
 
-    private function buildSystemPrompt(): string
+    /**
+     * Plan which retrieval tools to use via DeepSeek v3 router.
+     */
+    private function planRetrieval(LlmService $llmService, string $selectedText, string $question, string $bookId): array
     {
-        return <<<'PROMPT'
+        $bookMeta = DB::table('library')->where('book', $bookId)->select('author', 'title', 'year')->first();
+        $authorName = $bookMeta->author ?? null;
+        $bookTitle = $bookMeta->title ?? 'Unknown';
+
+        $systemPrompt = <<<'PROMPT'
+You are a retrieval planner for a scholarly archive. The user selected a passage from a book and asked a question. Choose which retrieval tools to use (1-3 tools):
+
+- "local_context" — surrounding paragraphs from the same book. Use when the question is about understanding/explaining the selected text itself.
+- "embedding_search" — semantic search across the library. Use when the question asks about related ideas, themes, or arguments.
+- "keyword_search" — keyword search of book content. Use when the question mentions specific names, terms, or concepts that would appear verbatim.
+- "library_search" — search book titles/authors. Use when the question asks about a specific book or author.
+
+If using embedding_search, set embedding_scope:
+- "same_author" — only books by the same author
+- "all_books" — all books in the library
+
+If using keyword_search or library_search, extract search terms into "keywords".
+
+Return ONLY valid JSON:
+{"tools": [...], "embedding_scope": "...", "keywords": "...", "reasoning": "..."}
+PROMPT;
+
+        $userMessage = "BOOK: \"{$bookTitle}\" by {$authorName}\nPASSAGE (excerpt): "
+            . Str::limit($selectedText, 300) . "\nQUESTION: {$question}";
+
+        $result = $llmService->chat($systemPrompt, $userMessage, 0.0, 150,
+            'accounts/fireworks/models/deepseek-v3p2', 15, 'none');
+
+        if ($result) {
+            $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
+            $result = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($result)));
+            $parsed = json_decode($result, true);
+
+            if (is_array($parsed) && !empty($parsed['tools']) && is_array($parsed['tools'])) {
+                // Validate tool names
+                $validTools = ['local_context', 'embedding_search', 'keyword_search', 'library_search'];
+                $tools = array_values(array_intersect($parsed['tools'], $validTools));
+
+                if (!empty($tools)) {
+                    return [
+                        'plan' => [
+                            'tools' => $tools,
+                            'embedding_scope' => $parsed['embedding_scope'] ?? 'all_books',
+                            'keywords' => $parsed['keywords'] ?? '',
+                            'reasoning' => $parsed['reasoning'] ?? '',
+                        ],
+                        'author_name' => $authorName,
+                        'book_title' => $bookTitle,
+                    ];
+                }
+            }
+        }
+
+        Log::warning('AiBrain: router planning failed, using fallback', ['raw' => $result]);
+        return [
+            'plan' => [
+                'tools' => ['local_context', 'embedding_search'],
+                'embedding_scope' => 'all_books',
+                'keywords' => '',
+                'reasoning' => 'fallback — router parse failure',
+            ],
+            'author_name' => $authorName,
+            'book_title' => $bookTitle,
+        ];
+    }
+
+    /**
+     * Build adaptive system prompt based on what retrieval results are available.
+     */
+    private function buildSystemPrompt(bool $hasExternalSources, bool $allSameAuthor): string
+    {
+        if (!$hasExternalSources) {
+            // Local context only — no external sources
+            return <<<'PROMPT'
+You are an AI Archivist — a scholarly reading assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking a question about it.
+
+Your task:
+1. Answer the question using ONLY the selected passage and its surrounding context
+2. Do NOT cite or reference external sources — everything you need is in the provided text
+3. Format your response as HTML paragraphs using <p> tags
+
+Rules:
+- Focus on explaining, interpreting, or summarizing what the text says
+- Use <em> for emphasis and <blockquote> for longer quotes from the passage
+- Keep your response focused and substantive (2-6 paragraphs)
+- Do NOT include headings (h1-h6) — the response will appear in a sub-book context
+- Do NOT wrap the entire response in a container div
+- Do NOT invent citations or reference works not in the provided context
+PROMPT;
+        }
+
+        $base = <<<'PROMPT'
 You are an AI Archivist — a scholarly research assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking a question about it.
 
 Your task:
@@ -441,20 +494,70 @@ Rules:
 - Do NOT include headings (h1-h6) — the response will appear in a sub-book context
 - Do NOT wrap the entire response in a container div
 PROMPT;
+
+        if ($allSameAuthor) {
+            $base .= "\n- Highlight connections, developments, and continuities across the author's works";
+        }
+
+        return $base;
     }
 
-    private function buildUserMessage(string $selectedText, string $question, string $passageContext): string
-    {
-        return <<<EOT
-SELECTED PASSAGE:
-{$selectedText}
+    /**
+     * Build unified user message that includes whichever sections are populated.
+     */
+    private function buildUserMessage(
+        string $selectedText,
+        string $question,
+        array $localContext,
+        array $matches,
+        ?string $authorName,
+        string $bookTitle
+    ): string {
+        $msg = '';
+        $preceding = '';
+        $following = '';
 
-QUESTION:
-{$question}
+        // Local context: split into preceding/following paragraphs
+        if (!empty($localContext)) {
+            $passedSelected = false;
 
-SOURCE PASSAGES FROM LIBRARY:
-{$passageContext}
-EOT;
+            foreach ($localContext as $node) {
+                $text = $node->plainText ?? '';
+                if (empty(trim($text))) continue;
+
+                if ($node->is_selected) {
+                    $passedSelected = true;
+                    continue;
+                }
+
+                if (!$passedSelected) {
+                    $preceding .= $text . "\n";
+                } else {
+                    $following .= $text . "\n";
+                }
+            }
+        }
+
+        if (trim($preceding)) {
+            $msg .= "PRECEDING CONTEXT:\n" . trim($preceding) . "\n\n";
+        }
+
+        $sourceLabel = $authorName ? " (from \"{$bookTitle}\" by {$authorName})" : '';
+        $msg .= "SELECTED PASSAGE{$sourceLabel}:\n{$selectedText}\n\n";
+
+        if (trim($following)) {
+            $msg .= "FOLLOWING CONTEXT:\n" . trim($following) . "\n\n";
+        }
+
+        $msg .= "QUESTION:\n{$question}";
+
+        // Source passages from search results
+        if (!empty($matches)) {
+            $msg .= "\n\nSOURCE PASSAGES FROM LIBRARY:\n";
+            $msg .= $this->buildPassageContext($matches);
+        }
+
+        return $msg;
     }
 
     private function buildPassageContext(array $matches): string
@@ -486,11 +589,10 @@ EOT;
     {
         $hypercites = [];
 
-        // Build a lookup: surname → match data
+        // Build a lookup: surname -> match data
         $authorLookup = [];
         foreach ($matches as $match) {
             $author = $match->book_author ?? '';
-            // Extract surname (first word, or last part before comma)
             $surname = $this->extractSurname($author);
             if ($surname) {
                 $key = strtolower($surname);
@@ -509,14 +611,12 @@ EOT;
                 $key = strtolower($surname);
 
                 if (!isset($authorLookup[$key])) {
-                    // No matching source — keep the citation text as-is
                     return $m[0];
                 }
 
                 $match = $authorLookup[$key];
                 $hyperciteId = 'hypercite_' . Str::random(8);
 
-                // Create hypercite record — whole-node position (via pgsql_admin to bypass RLS)
                 $plainText = $match->plainText ?? '';
                 $hyperciteData = [
                     'book'               => $match->book,
@@ -541,7 +641,6 @@ EOT;
 
                 $hypercites[] = $hyperciteData;
 
-                // Build the clickable link
                 $linkHref = "/{$match->book}#{$hyperciteId}";
                 return '<a href="' . e($linkHref) . '">' . e("{$surname} {$year}") . '<sup class="open-icon">&nearr;</sup></a>';
             },
@@ -551,10 +650,6 @@ EOT;
         return [$processedHtml, $hypercites];
     }
 
-    /**
-     * Extract the primary surname from an author string.
-     * Handles "Surname, Firstname", "Firstname Surname", "Surname" formats.
-     */
     private function extractSurname(string $author): ?string
     {
         $author = trim($author);
@@ -562,12 +657,10 @@ EOT;
             return null;
         }
 
-        // "Surname, Firstname" format
         if (str_contains($author, ',')) {
             return trim(explode(',', $author)[0]);
         }
 
-        // "Firstname Surname" format — take last word
         $parts = preg_split('/\s+/', $author);
         return end($parts) ?: null;
     }
@@ -577,12 +670,10 @@ EOT;
      */
     private function createResponseNodes(string $html, string $subBookId, int $startLineOffset = 0): array
     {
-        // Split on </p> boundaries, keeping the tags
         $paragraphs = preg_split('/(?<=<\/p>)\s*/', $html);
         $paragraphs = array_filter($paragraphs, fn($p) => trim(strip_tags($p)) !== '');
         $paragraphs = array_values($paragraphs);
 
-        // If the response wasn't already in <p> tags, wrap it
         if (empty($paragraphs)) {
             $paragraphs = ['<p>' . $html . '</p>'];
         }
@@ -596,9 +687,7 @@ EOT;
 
             $nodeId = (string) Str::uuid();
 
-            // Ensure paragraph has a data-node-id attribute
             if (!str_contains($paragraph, 'data-node-id')) {
-                // Wrap in a <p> with data-node-id if not already a <p>
                 if (preg_match('/^<p[\s>]/i', $paragraph)) {
                     $paragraph = preg_replace('/^<p/i', '<p data-node-id="' . $nodeId . '"', $paragraph, 1);
                 } elseif (preg_match('/^<blockquote[\s>]/i', $paragraph)) {
@@ -643,7 +732,7 @@ EOT;
         $pricing = config('services.llm.pricing');
         $totalCost = 0.0;
 
-        // LLM cost (includes router + DeepSeek — both tracked by LlmService)
+        // LLM cost (includes router + main model — both tracked by LlmService)
         foreach ($usageStats['by_model'] as $model => $usage) {
             $modelPricing = $pricing[$model] ?? null;
             if ($modelPricing) {
@@ -653,7 +742,7 @@ EOT;
             }
         }
 
-        // Embedding cost (skipped for 'direct' strategy where no embedding is generated)
+        // Embedding cost (skipped when no embedding search was used)
         if ($queryText !== null) {
             $embeddingPricing = $pricing['nomic-ai/nomic-embed-text-v1.5'] ?? null;
             if ($embeddingPricing) {
@@ -662,200 +751,48 @@ EOT;
             }
         }
 
-        return max($totalCost, 0.0001); // Minimum charge
+        return max($totalCost, 0.0001);
     }
 
     /**
-     * Classify the user's question into a retrieval strategy using Qwen 3-8B.
-     */
-    private function classifyQuery(LlmService $llmService, string $selectedText, string $question, string $bookId): array
-    {
-        $bookMeta = DB::table('library')->where('book', $bookId)->select('author', 'title', 'year')->first();
-        $authorName = $bookMeta->author ?? null;
-        $bookTitle = $bookMeta->title ?? 'Unknown';
-
-        $systemPrompt = <<<'PROMPT'
-You are a query classifier. The user selected a passage from a book and asked a question. Classify into ONE strategy:
-
-1. "direct" — Question is about understanding/explaining/summarizing the selected text itself. No external sources needed.
-2. "same_author" — Question asks about other work by the SAME author, or whether this author discussed a topic elsewhere.
-3. "full_search" — Question asks what OTHER authors/sources say, or requests broad scholarly context.
-
-Return ONLY valid JSON: {"strategy": "direct|same_author|full_search", "reasoning": "one sentence"}
-PROMPT;
-
-        $userMessage = "BOOK: \"{$bookTitle}\" by {$authorName}\nPASSAGE (excerpt): "
-            . Str::limit($selectedText, 300) . "\nQUESTION: {$question}";
-
-        $result = $llmService->chat($systemPrompt, $userMessage, 0.0, 80,
-            'accounts/fireworks/models/qwen3-8b', 10, 'none');
-
-        if ($result) {
-            $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
-            $result = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($result)));
-            $parsed = json_decode($result, true);
-            if (is_array($parsed) && in_array($parsed['strategy'] ?? '', ['direct', 'same_author', 'full_search'])) {
-                return ['strategy' => $parsed['strategy'], 'reasoning' => $parsed['reasoning'] ?? '',
-                        'author_name' => $authorName, 'book_title' => $bookTitle];
-            }
-        }
-
-        Log::warning('AiBrain: router classification failed, defaulting to full_search', ['raw' => $result]);
-        return ['strategy' => 'full_search', 'reasoning' => 'fallback', 'author_name' => $authorName, 'book_title' => $bookTitle];
-    }
-
-    /**
-     * Fetch surrounding context nodes for the 'direct' strategy.
-     */
-    private function fetchSurroundingContext(string $bookId, array $nodeIds, int $radius = 5): array
-    {
-        $selectedNodes = DB::table('nodes')->where('book', $bookId)
-            ->whereIn('node_id', $nodeIds)->orderBy('startLine')->get();
-
-        if ($selectedNodes->isEmpty()) return [];
-
-        $minLine = $selectedNodes->min('startLine');
-        $maxLine = $selectedNodes->max('startLine');
-
-        $lowerBound = DB::table('nodes')->where('book', $bookId)
-            ->where('startLine', '<', $minLine)->orderByDesc('startLine')
-            ->limit($radius)->pluck('startLine')->min();
-
-        $upperBound = DB::table('nodes')->where('book', $bookId)
-            ->where('startLine', '>', $maxLine)->orderBy('startLine')
-            ->limit($radius)->pluck('startLine')->max();
-
-        return DB::table('nodes')->where('book', $bookId)
-            ->where('startLine', '>=', $lowerBound ?? $minLine)
-            ->where('startLine', '<=', $upperBound ?? $maxLine)
-            ->orderBy('startLine')
-            ->get()
-            ->map(fn($row) => tap($row, fn($r) => $r->is_selected = in_array($r->node_id, $nodeIds)))
-            ->toArray();
-    }
-
-    /**
-     * Build strategy-specific system prompt.
-     */
-    private function buildSystemPromptForStrategy(string $strategy): string
-    {
-        return match ($strategy) {
-            'direct' => <<<'PROMPT'
-You are an AI Archivist — a scholarly reading assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking a question about it.
-
-Your task:
-1. Answer the question using ONLY the selected passage and its surrounding context
-2. Do NOT cite or reference external sources — everything you need is in the provided text
-3. Format your response as HTML paragraphs using <p> tags
-
-Rules:
-- Focus on explaining, interpreting, or summarizing what the text says
-- Use <em> for emphasis and <blockquote> for longer quotes from the passage
-- Keep your response focused and substantive (2-6 paragraphs)
-- Do NOT include headings (h1-h6) — the response will appear in a sub-book context
-- Do NOT wrap the entire response in a container div
-- Do NOT invent citations or reference works not in the provided context
-PROMPT,
-            'same_author' => <<<'PROMPT'
-You are an AI Archivist — a scholarly research assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has selected a passage from a text and is asking about other work by the same author.
-
-Your task:
-1. Answer the question in relation to the selected passage
-2. Draw on the provided source passages — all from the same author — to support your answer
-3. When you reference a source, include the citation in [Title Year] format (e.g. [Unequal Development 1976], [Delinking 1990])
-4. Include actual brief quotes from the source passages where relevant, followed by the citation
-5. Highlight connections, developments, and continuities across the author's works
-6. Format your response as HTML paragraphs using <p> tags
-
-Rules:
-- Only cite sources from the provided passages — do not invent citations
-- Use the book title and year provided in the passage metadata
-- Keep your response focused and substantive (3-8 paragraphs)
-- Use <em> for emphasis and <blockquote> for longer quotes
-- Do NOT include headings (h1-h6) — the response will appear in a sub-book context
-- Do NOT wrap the entire response in a container div
-PROMPT,
-            default => $this->buildSystemPrompt(),
-        };
-    }
-
-    /**
-     * Build user message for the 'direct' strategy with surrounding context.
-     */
-    private function buildDirectUserMessage(string $selectedText, string $question, array $surroundingNodes): string
-    {
-        $preceding = '';
-        $following = '';
-        $passedSelected = false;
-
-        foreach ($surroundingNodes as $node) {
-            $text = $node->plainText ?? '';
-            if (empty(trim($text))) continue;
-
-            if ($node->is_selected) {
-                $passedSelected = true;
-                continue; // Skip selected nodes — they're in $selectedText
-            }
-
-            if (!$passedSelected) {
-                $preceding .= $text . "\n";
-            } else {
-                $following .= $text . "\n";
-            }
-        }
-
-        $msg = '';
-        if (trim($preceding)) {
-            $msg .= "PRECEDING CONTEXT:\n" . trim($preceding) . "\n\n";
-        }
-        $msg .= "SELECTED PASSAGE:\n{$selectedText}\n\n";
-        if (trim($following)) {
-            $msg .= "FOLLOWING CONTEXT:\n" . trim($following) . "\n\n";
-        }
-        $msg .= "QUESTION:\n{$question}";
-
-        return $msg;
-    }
-
-    /**
-     * Build user message for the 'same_author' strategy.
-     */
-    private function buildSameAuthorUserMessage(string $selectedText, string $question, string $passageContext, string $authorName, string $bookTitle): string
-    {
-        return <<<EOT
-SELECTED PASSAGE (from "{$bookTitle}" by {$authorName}):
-{$selectedText}
-
-QUESTION:
-{$question}
-
-OTHER WORKS BY {$authorName}:
-{$passageContext}
-EOT;
-    }
-
-    /**
-     * Build the pipeline appendix HTML showing router decision, retrieval, and cost.
+     * Build the pipeline appendix HTML showing router decision, retrieval tools, and cost.
      */
     private function buildAppendixHtml(array $log): string
     {
-        $strategy = $log['strategy'] ?? 'unknown';
         $reasoning = e($log['router_reasoning'] ?? '');
-        $retrieval = e($log['retrieval_method'] ?? '');
         $cost = number_format($log['cost'] ?? 0, 5);
+        $toolsUsed = $log['tools_used'] ?? [];
+        $keywords = $log['keywords'] ?? '';
 
         $scopeLabels = ['public' => 'Public library', 'mine' => 'My books', 'all' => 'Public + my books', 'this' => 'This book only'];
 
         $html = '<p data-appendix="true"><strong>Appendix</strong></p>';
 
-        $html .= '<p data-appendix="true"><strong>Router (Qwen 3-8B):</strong> Classified this as a <em>'
-            . e($strategy) . '</em> query — "' . $reasoning . '"</p>';
+        // Router decision
+        $toolLabels = [
+            'local_context' => 'Local context',
+            'embedding_search' => 'Embedding search',
+            'keyword_search' => 'Keyword search',
+            'library_search' => 'Library search',
+        ];
+        $toolNames = array_map(fn($t) => $toolLabels[$t] ?? $t, $toolsUsed);
+        $html .= '<p data-appendix="true"><strong>Router (DeepSeek v3):</strong> '
+            . e(implode(' + ', $toolNames))
+            . ' — "' . $reasoning . '"</p>';
 
         $html .= '<p data-appendix="true"><strong>Source scope:</strong> ' . e($scopeLabels[$log['source_scope'] ?? 'public'] ?? 'Public library') . '</p>';
 
-        $html .= '<p data-appendix="true"><strong>Retrieval:</strong> ' . $retrieval . '</p>';
+        if (!empty($keywords)) {
+            $html .= '<p data-appendix="true"><strong>Keywords:</strong> ' . e($keywords) . '</p>';
+        }
 
-        // Sources consulted (for same_author and full_search)
+        // Per-tool retrieval results
+        if (!empty($log['retrieval_log'])) {
+            $retrievalLines = implode('<br>', array_map('e', $log['retrieval_log']));
+            $html .= '<p data-appendix="true"><strong>Retrieval:</strong><br>' . $retrievalLines . '</p>';
+        }
+
+        // Sources consulted
         if (!empty($log['sources_consulted'])) {
             $sourceLines = '';
             foreach ($log['sources_consulted'] as $src) {
@@ -880,15 +817,5 @@ EOT;
         $html .= '<p data-appendix="true"><strong>Cost:</strong> $' . $cost . '</p>';
 
         return $html;
-    }
-
-    private function scopeSuffix(string $sourceScope): string
-    {
-        return match ($sourceScope) {
-            'mine'  => ' (scoped to your books)',
-            'all'   => ' (scoped to public + your books)',
-            'this'  => ' (scoped to this book only)',
-            default => '',
-        };
     }
 }
