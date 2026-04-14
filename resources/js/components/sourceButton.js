@@ -370,7 +370,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
           <!-- BibTeX Section -->
           <div class="form-section">
             <label for="edit-bibtex">BibTeX</label>
-            <textarea id="edit-bibtex" name="bibtex" placeholder="Auto-generated from form data..."></textarea>
+            <textarea id="edit-bibtex" name="bibtex" placeholder="Paste or drop a .bib file here..."></textarea>
           </div>
 
           <!-- Type Selection -->
@@ -1640,19 +1640,66 @@ export class SourceContainerManager extends ContainerManager {
         bibtexField.debounceTimer = setTimeout(() => {
           const bibtexText = bibtexField.value;
           const typeMatch = bibtexText.match(/@(\w+)\s*\{/i);
-          
+
           if (typeMatch) {
             const bibType = typeMatch[1].toLowerCase();
             const radio = this.container.querySelector(`input[name="type"][value="${bibType}"]`);
-            
+
             if (radio) {
               radio.checked = true;
               this.showOptionalFieldsForType(bibType, record);
-              this.populateFieldsFromBibtex();
-              triggerAutoValidation();
             }
           }
+
+          // Always populate fields if there's any BibTeX-like content
+          this.populateFieldsFromBibtex();
+          triggerAutoValidation();
         }, 300);
+      });
+
+      // Drag-and-drop .bib file support
+      bibtexField.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        bibtexField.style.borderColor = '#EF8D34';
+      });
+
+      bibtexField.addEventListener('dragleave', () => {
+        bibtexField.style.borderColor = '';
+      });
+
+      bibtexField.addEventListener('drop', (e) => {
+        e.preventDefault();
+        bibtexField.style.borderColor = '';
+        const file = e.dataTransfer.files[0];
+        if (file && (file.name.endsWith('.bib') || file.type === 'text/plain' || file.type === 'application/x-bibtex')) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            bibtexField.value = reader.result.trim();
+            // Auto-resize
+            bibtexField.style.height = 'auto';
+            bibtexField.style.height = bibtexField.scrollHeight + 'px';
+            // Trigger the same paste-like flow
+            const bibtexText = bibtexField.value;
+            const typeMatch = bibtexText.match(/@(\w+)\s*\{/i);
+            if (typeMatch) {
+              const bibType = typeMatch[1].toLowerCase();
+              const radio = this.container.querySelector(`input[name="type"][value="${bibType}"]`);
+              if (radio) {
+                radio.checked = true;
+                this.showOptionalFieldsForType(bibType, record);
+              } else {
+                const miscRadio = this.container.querySelector('input[name="type"][value="misc"]');
+                if (miscRadio) {
+                  miscRadio.checked = true;
+                  this.showOptionalFieldsForType('misc', record);
+                }
+              }
+            }
+            this.populateFieldsFromBibtex();
+            triggerAutoValidation();
+          };
+          reader.readAsText(file);
+        }
       });
     }
     
