@@ -602,7 +602,7 @@ Your task:
 2. Draw on the provided source passages from the user's library to support your answer
 3. When referencing a source, use the author's name naturally (e.g. "As Smith argues [1]", "Hayek's intervention [3]") — never write "Source [N]"
 4. Include actual brief quotes from the source passages where relevant, followed by the citation number
-5. Cite each source passage only once — on its first mention. You may refer back to it later without repeating the [N] citation.
+5. When multiple source passages support one claim, cite only the single most relevant one — never stack citations like [1][2][3]. Each [N] should appear at most once in your entire response.
 6. Format your response as HTML paragraphs using <p> tags
 
 Rules:
