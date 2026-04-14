@@ -223,6 +223,8 @@ public function upsert(Request $request)
                     'booktitle' => $data['booktitle'] ?? $libraryRecord->booktitle,
                     'chapter' => $data['chapter'] ?? $libraryRecord->chapter,
                     'editor' => $data['editor'] ?? $libraryRecord->editor,
+                    'license' => $data['license'] ?? $libraryRecord->license,
+                    'custom_license_text' => $data['custom_license_text'] ?? $libraryRecord->custom_license_text,
                     'visibility' => $visibility,
                     'listed' => $data['listed'] ?? $libraryRecord->listed,
                     'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),

@@ -128,36 +128,38 @@ form b {
 #edit-source-form {
   background-color: var(--color-background);
   color: var(--color-text);
-  padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
+  padding: 6px 8px 15px 8px;
 }
 
+/* Remove default input styles and have a transparent background */
 /* Remove default input styles and have a transparent background */
 #edit-source-form input[type="text"],
 #edit-source-form input[type="number"],
 #edit-source-form input[type="url"],
-#edit-source-form textarea {
+#edit-source-form textarea,
+#edit-source-form select {
   background-color: transparent;
   color: var(--color-text);
   border: none;
   outline: none;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 14px;
   width: 100%;
   box-sizing: border-box;
 }
 
-/* Style textarea to mimic a notepad look */
+/* Style textarea to auto-expand */
 #edit-source-form textarea {
-  resize: none;
-  min-height: 26px;
+  min-height: 22px;
 }
 
 /* Remove default styles for labels and radio buttons */
 #edit-source-form label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   cursor: text;
   font-weight: normal;
+  font-size: 13px;
 }
 
 #edit-source-form input[type="radio"] {
@@ -200,7 +202,7 @@ form b {
 #edit-source-form input[type="url"],
 #edit-source-form textarea {
   border-bottom: 1px solid rgba(203, 204, 204, 0.2);
-  margin-bottom: 15px;
+  margin-bottom: 8px;
 }
 
 /* Remove outlines on focus to keep the notepad look */

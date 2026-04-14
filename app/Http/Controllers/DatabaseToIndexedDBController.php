@@ -621,6 +621,8 @@ class DatabaseToIndexedDBController extends Controller
             'is_owner' => $isOwner,
             'visibility' => $library->visibility ?? 'public',
             'listed' => $library->listed ?? true,
+            'license' => $library->license ?? null,
+            'custom_license_text' => $library->custom_license_text ?? null,
             'raw_json' => $rawJson,
         ];
     }

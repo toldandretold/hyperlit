@@ -46,6 +46,7 @@ black #221F20;
   height: 400px; /* Fixed height for citation display */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
   width: 300px; /* Fixed width, narrower than hyperlit */
+  font-size: 14px; /* Base size — everything inside scales from this */
   background-color: var(--container-glass-bg); /* Use theme-aware glass background */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -56,6 +57,21 @@ black #221F20;
   border-radius: 1em;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+#source-container .citation {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+#source-container .license-line {
+  padding-left: 1.25em;
+}
+
+
+#source-container .icon-wrapper {
+  width: 2.2em;
+  height: 2.2em;
 }
 
 #source-container.open {
@@ -75,7 +91,46 @@ black #221F20;
   bottom: 0;
   overflow: auto;
   padding: 1em;
+  padding-left: 1.5em;
   border-radius: 1em 1em;
+}
+
+/* Glass circle backdrop for source-container corner buttons
+   Matches perimeter buttons: transparent bg + blur = invisible on solid,
+   frosted glass when text scrolls behind */
+#source-container #privacy-toggle,
+#source-container #edit-source {
+  position: absolute;
+}
+
+#source-container #privacy-toggle::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+#source-container #edit-source::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 10px;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Privacy toggle button */
@@ -1207,12 +1262,16 @@ body[data-page="user"] #userLibraryContainer {
 #source-container input[type="number"],
 #source-container input[type="url"],
 #source-container textarea {
+  width: 100%;
+  box-sizing: border-box;
   margin-bottom: 0.25em;
   background-color: var(--container-solid-bg) !important;
   border: 1px solid #444 !important;
   color: var(--color-text) !important;
   padding: 8px !important;
   border-radius: 4px !important;
+  resize: none !important;
+  overflow: hidden;
 }
 
 #source-container input[type="text"]:focus,
@@ -1226,10 +1285,10 @@ body[data-page="user"] #userLibraryContainer {
 
 /* Radio button group spacing */
 #source-container .radio-group {
-  margin: 0.5em 0;
+  margin: 0.3em 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75em;
+  gap: 0.5em;
 }
 
 #source-container .radio-group label {
@@ -1245,12 +1304,12 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 #source-container h2 {
-  font-size: 20px;
+  font-size: 18px;
   margin-bottom: 0.5em;
 }
 
 #source-container h3 {
-  font-size: 18px;
+  font-size: 16px;
   color: #4EACAE;
   margin: 1em 0 0.5em 0;
   border-bottom: 1px solid #444;
@@ -1260,24 +1319,24 @@ body[data-page="user"] #userLibraryContainer {
 /* Form structure and validation styles */
 #source-container .form-header {
   text-align: left;
-  margin-bottom: 1em;
+  margin-bottom: 0.75em;
 }
 
 #source-container .form-header h2 {
-  margin-top: 0; /* Remove default browser margin */
-  margin-bottom: 0.5em; /* Reduce bottom margin */
+  margin-top: 0;
+  margin-bottom: 0.3em;
 }
 
 #source-container .form-subtitle {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--color-text);
   opacity: 0.7;
-  margin: 0.25em 0;
+  margin: 0.2em 0;
 }
 
 #source-container .form-section {
-  margin-bottom: 0.5em;
-  padding-bottom: 0.25em;
+  margin-bottom: 0.4em;
+  padding-bottom: 0.2em;
 }
 
 #source-container .form-section:not(:last-of-type) {
@@ -1296,11 +1355,11 @@ body[data-page="user"] #userLibraryContainer {
 
 /* Field hints */
 #source-container .field-hint {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--color-text);
   opacity: 0.6;
   margin-top: 0.1em;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.3em;
   font-style: italic;
 }
 
@@ -1375,14 +1434,6 @@ body[data-page="user"] #userLibraryContainer {
 #source-container .formButton:hover {
   background-color: #4EACAE !important;
   color: #221F20 !important;
-}
-
-/* Form actions button spacing */
-#source-container .form-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 1em;
-
 }
 
 /* Delete button in highlight containers */

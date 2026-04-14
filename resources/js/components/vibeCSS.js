@@ -6,10 +6,19 @@
 const VIBE_STORAGE_KEY = 'hyperlit_vibe_css';
 const STYLE_ELEMENT_ID = 'vibe-css-overrides';
 
+// Keys that get applied as direct CSS on body.theme-vibe instead of :root variables.
+// Allows gradients, animations, etc. that don't work inside CSS variable values.
+const BODY_DIRECT_KEYS = {
+  '--vibe-body-background': 'background',
+  '--vibe-body-background-size': 'background-size',
+  '--vibe-body-background-attachment': 'background-attachment',
+};
+
 // ─── Storage & injection ───
 
 /**
  * Read stored overrides from localStorage and inject them into a <style> element.
+ * Splits overrides into :root variables and direct body.theme-vibe rules.
  */
 export function applyVibeCSS() {
   const overrides = getVibeCSS();
@@ -22,10 +31,26 @@ export function applyVibeCSS() {
     document.head.appendChild(styleEl);
   }
 
-  const rules = Object.entries(overrides)
-    .map(([prop, val]) => `  ${prop}: ${val};`)
-    .join('\n');
-  styleEl.textContent = `:root {\n${rules}\n}`;
+  const varRules = [];
+  const bodyRules = [];
+
+  for (const [prop, val] of Object.entries(overrides)) {
+    if (BODY_DIRECT_KEYS[prop]) {
+      bodyRules.push(`  ${BODY_DIRECT_KEYS[prop]}: ${val};`);
+    } else {
+      varRules.push(`  ${prop}: ${val};`);
+    }
+  }
+
+  let css = '';
+  if (varRules.length) {
+    css += `:root {\n${varRules.join('\n')}\n}\n`;
+  }
+  if (bodyRules.length) {
+    css += `body.theme-vibe {\n${bodyRules.join('\n')}\n}\n`;
+  }
+
+  styleEl.textContent = css;
 }
 
 /**

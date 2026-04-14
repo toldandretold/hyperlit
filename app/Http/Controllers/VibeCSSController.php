@@ -86,6 +86,12 @@ class VibeCSSController extends Controller
         '--status-saving',
         '--status-success',
         '--status-error',
+
+        // Special body-level keys — applied as direct CSS on body.theme-vibe
+        // (not as :root variables). Allows gradients, animations, etc.
+        '--vibe-body-background',
+        '--vibe-body-background-size',
+        '--vibe-body-background-attachment',
     ];
 
     /**
@@ -135,7 +141,7 @@ class VibeCSSController extends Controller
                 $systemPrompt,
                 $userMessage,
                 0.7,      // temperature — creative task
-                1000,     // max tokens
+                2000,     // max tokens — complex gradients need room
                 'accounts/fireworks/models/llama-v3p3-70b-instruct',
                 30,       // timeout
                 'none'    // reasoning_effort
@@ -206,22 +212,42 @@ class VibeCSSController extends Controller
         $variablesList = implode("\n", array_map(fn($v) => "  {$v}", self::ALLOWED_VARIABLES));
 
         return <<<PROMPT
-You are a CSS theme generator. The user will describe a visual theme/mood. You must return ONLY a valid JSON object mapping CSS custom property names to values.
+You are a creative CSS theme designer. Go wild. The user will describe a vibe/mood/aesthetic and you generate a stunning, expressive theme. Return ONLY a valid JSON object mapping property names to CSS values.
 
-Rules:
-- Only use property names from the following whitelist:
+ALLOWED PROPERTY NAMES (use only these):
 {$variablesList}
-- Return ONLY a JSON object. No markdown, no explanation, no code fences.
-- Focus on color-related variables. Only override variables that help express the described theme.
-- Use valid CSS values (hex colors, rgba, etc.)
-- Ensure sufficient contrast between --color-background and --color-text for readability.
-- --container-glass-bg should be a semi-transparent rgba value.
-- --container-solid-bg should be a solid color slightly lighter or darker than --color-background.
-- --editable-bg should be a subtle semi-transparent value.
-- Override 8-20 variables typically. Don't override font families or spacing unless specifically requested.
 
-Example output:
-{"--color-background": "#0a0a0a", "--color-text": "#00ff41", "--color-primary": "#ff0080", "--color-accent": "#00ff41", "--container-glass-bg": "rgba(10, 10, 10, 0.6)", "--container-solid-bg": "#1a1a1a", "--editable-bg": "rgba(0, 255, 65, 0.08)"}
+SPECIAL BACKGROUND PROPERTIES:
+--vibe-body-background accepts ANY valid CSS `background` value. This is your canvas — go crazy:
+  - Multi-stop gradients: linear-gradient, radial-gradient, conic-gradient
+  - Layered gradients: combine multiple gradients with commas
+  - Repeating patterns: repeating-linear-gradient, repeating-conic-gradient
+  - Use --vibe-body-background-size for gradient sizing (e.g. "400% 400%" for animated feel, or pattern tile sizes)
+  - Use --vibe-body-background-attachment for "fixed" if the background should stay still while content scrolls
+
+--color-background must STILL be set to a simple solid color (used by buttons, icons, etc.)
+Think of --color-background as the "base color" that matches the dominant tone of --vibe-body-background.
+
+RULES:
+- Return ONLY a JSON object. No markdown, no code fences, no explanation.
+- Be bold and creative with colors. Match the energy of the description.
+- Ensure readable contrast between --color-background and --color-text.
+- --container-glass-bg should be semi-transparent rgba matching the vibe.
+- --container-solid-bg should be a solid color near --color-background.
+- --editable-bg should be a subtle semi-transparent value.
+- --gradient-hyperlit can be a wild multi-color gradient for the app's accent bar.
+- Override 10-25 variables. Don't touch font families or spacing unless asked.
+
+EXAMPLES:
+
+Cyberpunk neon:
+{"--color-background": "#0a0014", "--color-text": "#00ff41", "--vibe-body-background": "linear-gradient(135deg, #0a0014 0%, #1a0033 40%, #0d001a 60%, #0a0014 100%)", "--color-primary": "#ff0080", "--color-accent": "#00ff41", "--container-glass-bg": "rgba(10, 0, 20, 0.7)", "--container-solid-bg": "#1a0033", "--editable-bg": "rgba(0, 255, 65, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #ff0080, #00ff41, #ff0080)"}
+
+Sunset ocean:
+{"--color-background": "#1a0a2e", "--color-text": "#ffecd2", "--vibe-body-background": "linear-gradient(180deg, #ff6b35 0%, #f7c59f 15%, #e8a87c 30%, #d4789c 50%, #7b2d8e 70%, #1a0a2e 100%)", "--vibe-body-background-attachment": "fixed", "--color-primary": "#ff6b35", "--color-accent": "#f7c59f", "--container-glass-bg": "rgba(26, 10, 46, 0.75)", "--container-solid-bg": "#2a1a3e", "--editable-bg": "rgba(255, 107, 53, 0.08)"}
+
+Psychedelic swirl:
+{"--color-background": "#120024", "--color-text": "#f0e6ff", "--vibe-body-background": "conic-gradient(from 45deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)", "--vibe-body-background-size": "400% 400%", "--color-primary": "#ff006e", "--color-accent": "#06d6a0", "--color-secondary": "#ffbe0b", "--container-glass-bg": "rgba(18, 0, 36, 0.8)", "--container-solid-bg": "#1a0030", "--editable-bg": "rgba(131, 56, 236, 0.1)", "--gradient-hyperlit": "linear-gradient(to right, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)"}
 PROMPT;
     }
 
@@ -233,10 +259,13 @@ PROMPT;
         // Try direct JSON parse first
         $parsed = json_decode($response, true);
 
-        // Try extracting JSON from markdown fences
+        // Try extracting JSON from surrounding text/markdown fences
         if (!is_array($parsed)) {
-            if (preg_match('/\{[^}]+\}/s', $response, $matches)) {
-                $parsed = json_decode($matches[0], true);
+            // Find first { to last } — flat JSON object, values may contain ()
+            $start = strpos($response, '{');
+            $end = strrpos($response, '}');
+            if ($start !== false && $end !== false && $end > $start) {
+                $parsed = json_decode(substr($response, $start, $end - $start + 1), true);
             }
         }
 

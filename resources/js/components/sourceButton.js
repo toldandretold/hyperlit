@@ -159,21 +159,22 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   let licenseHtml = '';
 
   if (licenseInfo.url) {
-    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: #888; text-decoration: underline;">${licenseInfo.short}</a></p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: #888; text-decoration: underline;">${licenseInfo.short}</a></p>`;
   } else if (license === 'custom' && record?.custom_license_text) {
     const escapedText = record.custom_license_text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
   } else {
-    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
   }
 
   return `
     <div class="scroller" id="source-content">
-    <p class="citation">${citation}</p>
+    <blockquote class="citation">${citation}</blockquote>
     ${licenseHtml}
 
-    <br/>
-    
+    <div style="margin-top: 15px; padding-top: 15px;">
+      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Downloads</h3>
+
     <button type="button" id="download-md" class="download-btn">
   <div class="icon-wrapper">
     <svg
@@ -250,6 +251,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </svg>
     </div>
   </button>` : ''}
+    </div>
 
     ${canEdit ? (() => {
       const authCtx = getAuthContextSync();
@@ -260,14 +262,14 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       if (!isLoggedIn) {
         btnHtml = `
           <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: #888; border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
             AI Citation Review
           </button>
           <p style="font-size: 11px; color: #666; margin-top: 6px;">Must be logged in.</p>`;
       } else {
         btnHtml = `
           <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
             AI Citation Review
           </button>
           <div id="ai-review-info" style="display: none; margin-top: 10px;">
@@ -284,14 +286,14 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
           </div>`;
       }
 
-      return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">AI Citation Review</h3>
+      return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; padding-top: 15px;">
+        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">AI Citation Review</h3>
         ${btnHtml}
       </div>`;
     })() : ''}
 
-    ${canEdit ? `<div id="version-history-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Version History</h3>
+    ${canEdit ? `<div id="version-history-section" style="margin-top: 20px; padding-top: 15px;">
+      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Version History</h3>
       <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
     </div>` : ''}
 
@@ -304,7 +306,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
         if (!info.canReconvert) return '';
         const label = info.hasOcrCache ? 'Reconvert from OCR cache' : 'Reconvert from source';
         return `
-          <div id="reconvert-section" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+          <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px;">
             <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="1 4 1 10 7 10"></polyline>
@@ -322,8 +324,8 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     })()}
 
     ${(canEdit && !accessDenied) ? `
-    <div id="reupload-section" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Re-upload Source</h3>
+    <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
+      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Re-upload Source</h3>
       <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -338,7 +340,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>` : ''}
 
     ${(canEdit && !accessDenied && record) ? `
-    <div id="delete-book-section" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+    <div id="delete-book-section" style="margin-top: 20px; padding-top: 15px;">
       <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"></polyline>
@@ -361,20 +363,19 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       <div class="scroller">
         <form id="edit-source-form">
           <div class="form-header">
-            <h2 style="color: #EF8D34;">Edit Library Record</h2>
-            <p class="form-subtitle">Update the details for this book</p>
+            <h2 style="color: #EF8D34;">Edit Library Card</h2>
+            <p class="form-subtitle">Update the citation details for this book</p>
           </div>
 
           <!-- BibTeX Section -->
           <div class="form-section">
-            <label for="edit-bibtex">BibTeX Details (optional)</label>
+            <label for="edit-bibtex">BibTeX</label>
             <textarea id="edit-bibtex" name="bibtex" placeholder="Auto-generated from form data..."></textarea>
-            <div class="field-hint">Auto-updated when you save changes</div>
           </div>
 
           <!-- Type Selection -->
           <div class="form-section">
-            <label>Document Type:</label>
+            <label>Type:</label>
             <div class="radio-group">
               <label><input type="radio" name="type" value="article"> Article</label>
               <label><input type="radio" name="type" value="book" checked> Book</label>
@@ -449,10 +450,6 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
             <div class="field-hint">Choose how others can use your content. <a href="/LICENSE-CONTENT.md" target="_blank">Learn more</a></div>
           </div>
 
-          <div class="form-actions">
-            <button type="submit" id="save-edit" class="formButton">Save Changes</button>
-            <button type="button" id="cancel-edit" class="formButton">Cancel</button>
-          </div>
         </form>
       </div>
       <div class="mask-top"></div>
@@ -478,13 +475,9 @@ export class SourceContainerManager extends ContainerManager {
     this.setupSourceContainerStyles();
   }
 
-  // Override parent's closeOnOverlayClick to handle edit mode
-  closeOnOverlayClick() {
-    if (this.isInEditMode) {
-      this.hideEditForm();
-    } else {
-      this.closeContainer();
-    }
+  // Override parent's closeOnOverlayClick — always close (auto-save handled by closeContainer)
+  async closeOnOverlayClick() {
+    await this.closeContainer();
   }
 
   setupSourceContainerStyles() {
@@ -656,8 +649,14 @@ export class SourceContainerManager extends ContainerManager {
     }, { once: true });
   }
 
-  closeContainer() {
+  async closeContainer() {
     if (this.isAnimating || !this.container) return;
+
+    if (this.isInEditMode) {
+      await this.saveEditForm();
+      this.hideEditForm();
+    }
+
     this.isAnimating = true;
 
     this.stopAiReviewPolling();
@@ -673,6 +672,13 @@ export class SourceContainerManager extends ContainerManager {
 
   async handleEditClick() {
     console.log("Edit button clicked");
+
+    // Toggle: if already editing, save then close
+    if (this.isInEditMode) {
+      await this.saveEditForm();
+      this.hideEditForm();
+      return;
+    }
 
     // Check if user can edit this book
     const canEdit = await canUserEditBook(book);
@@ -1230,23 +1236,30 @@ export class SourceContainerManager extends ContainerManager {
   async showEditForm() {
     const db = await openDatabase();
     const record = await getRecord(db, "library", book);
-    
+
     if (!record) {
       alert("Library record not found.");
       return;
     }
 
+    // Store the editing record so auto-save can access it later
+    this.editingRecord = record;
+
     // Hide the main content and show the edit form
     const sourceContent = this.container.querySelector("#source-content");
     const editFormContainer = this.container.querySelector("#edit-form-container");
-    
+
     if (sourceContent && editFormContainer) {
       sourceContent.style.display = "none";
       editFormContainer.style.display = "block";
       editFormContainer.classList.remove("hidden");
-      
+
       // SET EDIT MODE FLAG
       this.isInEditMode = true;
+
+      // Invert edit button to show it's active
+      const editBtn = this.container.querySelector("#edit-source");
+      if (editBtn) editBtn.classList.add("inverted");
       
       // Pre-fill the form with current data
       this.populateEditForm(record);
@@ -1282,7 +1295,16 @@ export class SourceContainerManager extends ContainerManager {
     if (authorField) authorField.value = record.author || record.creator || "";
     if (yearField) yearField.value = record.year || "";
     if (urlField) urlField.value = record.url || "";
-    if (bibtexField) bibtexField.value = record.bibtex || "";
+    if (bibtexField) {
+      bibtexField.value = record.bibtex || "";
+      // Auto-resize textarea to fit content
+      bibtexField.style.height = "auto";
+      bibtexField.style.height = bibtexField.scrollHeight + "px";
+      bibtexField.addEventListener("input", () => {
+        bibtexField.style.height = "auto";
+        bibtexField.style.height = bibtexField.scrollHeight + "px";
+      });
+    }
     if (volumeField) volumeField.value = record.volume || "";
     if (issueField2) issueField2.value = record.issue || "";
     if (booktitleField) booktitleField.value = record.booktitle || "";
@@ -1291,7 +1313,7 @@ export class SourceContainerManager extends ContainerManager {
 
     // License fields
     if (licenseField) {
-      licenseField.value = record.license || 'CC-BY-SA-4.0-NO-AI';
+      licenseField.value = record.license || '';
       // Show custom license textarea if license is custom
       if (record.license === 'custom' && customLicenseField) {
         customLicenseField.style.display = 'block';
@@ -1519,17 +1541,24 @@ export class SourceContainerManager extends ContainerManager {
 
   expandForEditForm() {
     // Expand container for edit form (override CSS width temporarily)
-    const isMobile = window.innerWidth <= 480;
-    const w = isMobile ? Math.min(window.innerWidth - 30, 400) : 400;
+    const vw = window.innerWidth;
+    let w;
+    if (vw <= 480) {
+      w = vw - 16;                // phone: near full width
+    } else if (vw <= 1024) {
+      w = Math.min(vw - 40, 600); // tablet: up to 600px
+    } else {
+      w = 600;                    // desktop
+    }
     const h = Math.min(window.innerHeight * 0.9, 700);
 
     this.container.style.width = `${w}px`;
     this.container.style.height = `${h}px`;
+
   }
 
   setupEditFormListeners(record) {
     const form = this.container.querySelector("#edit-source-form");
-    const cancelBtn = this.container.querySelector("#cancel-edit");
     const typeRadios = this.container.querySelectorAll('input[name="type"]');
 
     const bibtexField = this.container.querySelector("#edit-bibtex");
@@ -1628,15 +1657,6 @@ export class SourceContainerManager extends ContainerManager {
     }
     
 
-    // Cancel button
-    if (cancelBtn) {
-      cancelBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.hideEditForm();
-      });
-    }
-    
     // Form submission
     if (form) {
       form.addEventListener("submit", async (e) => {
@@ -1646,10 +1666,41 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+  async saveEditForm() {
+    if (!this.isInEditMode || !this.editingRecord) return;
+    try {
+      const formData = this.collectFormData();
+      formData.book = this.editingRecord.book;
+      const finalBibtex = await generateBibtexFromForm(formData);
+      const updatedRecord = {
+        ...this.editingRecord,
+        ...formData,
+        bibtex: finalBibtex,
+        timestamp: Date.now(),
+        book: this.editingRecord.book,
+      };
+      const cleanedRecord = prepareLibraryForIndexedDB(updatedRecord);
+      const db = await openDatabase();
+      const tx = db.transaction("library", "readwrite");
+      const store = tx.objectStore("library");
+      await store.put(cleanedRecord);
+      try {
+        await this.syncLibraryRecordToBackend(cleanedRecord);
+      } catch (syncError) {
+        console.warn("Backend sync failed, local update succeeded:", syncError);
+      }
+      // Refresh the citation display after saving
+      await this.refreshCitationDisplay();
+    } catch (error) {
+      console.error("Error auto-saving library record:", error);
+    }
+  }
+
   hideEditForm() {
     // CLEAR EDIT MODE FLAG
     this.isInEditMode = false;
-    
+    this.editingRecord = null;
+
     const sourceContent = this.container.querySelector("#source-content");
     const editFormContainer = this.container.querySelector("#edit-form-container");
     
@@ -1657,10 +1708,21 @@ export class SourceContainerManager extends ContainerManager {
       sourceContent.style.display = "block";
       editFormContainer.style.display = "none";
       editFormContainer.classList.add("hidden");
-      
+
+      // Remove inverted state from edit button
+      const editBtn = this.container.querySelector("#edit-source");
+      if (editBtn) editBtn.classList.remove("inverted");
+
       // Reset to CSS dimensions by removing inline width/height
       this.container.style.width = "";
       this.container.style.height = "";
+
+      // Clean up any stale inline styles on source-content from previous bug
+      const sourceScroller = this.container.querySelector('#source-content');
+      if (sourceScroller) {
+        sourceScroller.style.paddingLeft = '';
+        sourceScroller.style.paddingRight = '';
+      }
       
       // RE-ATTACH EVENT LISTENERS: Make sure buttons work after returning from edit form
       this.attachInternalListeners();

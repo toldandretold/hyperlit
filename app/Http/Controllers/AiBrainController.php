@@ -176,7 +176,8 @@ class AiBrainController extends Controller
                 && count(array_unique(array_map(fn($m) => $m->book_author ?? '', $matches))) === 1
                 && ($matches[0]->book_author ?? '') === $authorName;
 
-            $systemPrompt = $this->buildSystemPrompt($hasSearchTools, $allSameAuthor);
+            $hasLocalContext = !empty($localContext);
+            $systemPrompt = $this->buildSystemPrompt($hasSearchTools, $allSameAuthor, $hasLocalContext);
             $userMessage = $this->buildUserMessage(
                 $selectedText, $question, $localContext, $matches, $authorName, $bookTitle
             );
@@ -454,7 +455,7 @@ PROMPT;
     /**
      * Build adaptive system prompt based on what retrieval results are available.
      */
-    private function buildSystemPrompt(bool $hasExternalSources, bool $allSameAuthor): string
+    private function buildSystemPrompt(bool $hasExternalSources, bool $allSameAuthor, bool $hasLocalContext = false): string
     {
         if (!$hasExternalSources) {
             // Local context only — no external sources
@@ -494,6 +495,10 @@ Rules:
 - Do NOT include headings (h1-h6) — the response will appear in a sub-book context
 - Do NOT wrap the entire response in a container div
 PROMPT;
+
+        if ($hasLocalContext) {
+            $base .= "\n\nIMPORTANT — The user message includes PRECEDING CONTEXT and/or FOLLOWING CONTEXT from the same book as the selected passage. First, use this surrounding context to understand and directly answer the question in relation to the passage and the book it comes from. Then, supplement your answer with relevant source passages from the library.";
+        }
 
         if ($allSameAuthor) {
             $base .= "\n- Highlight connections, developments, and continuities across the author's works";

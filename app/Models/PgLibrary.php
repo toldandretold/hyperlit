@@ -34,6 +34,8 @@ class PgLibrary extends Model
         'booktitle',
         'chapter',
         'editor',
+        'license',
+        'custom_license_text',
         'timestamp',
         'annotations_updated_at',
         'title',

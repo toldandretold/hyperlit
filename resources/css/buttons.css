@@ -294,7 +294,8 @@ black #221F20;
   pointer-events: none !important; /* Prevent path elements from blocking clicks */
 }
 
-#editButton.inverted {
+#editButton.inverted,
+#edit-source.inverted {
   background: var(--color-text) !important;
   width: 24px;
   height: 24px;
@@ -304,8 +305,14 @@ black #221F20;
   cursor: pointer !important;
 }
 
-#editButton.inverted svg path {
+#editButton.inverted svg path,
+#edit-source.inverted svg path {
   stroke: var(--color-background) !important;
+}
+
+/* Hide the glass backdrop when edit button is inverted */
+#edit-source.inverted::before {
+  display: none;
 }
 
 /* Hover and active states for proper color inversion - but NOT when inverted */
