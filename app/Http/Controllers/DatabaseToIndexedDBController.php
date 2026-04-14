@@ -825,7 +825,9 @@ class DatabaseToIndexedDBController extends Controller
             }
 
             // Determine target chunk via priority chain
-            $targetChunkId = $this->resolveTargetChunkId($request, $bookId);
+            $resolveResult = $this->resolveTargetChunkId($request, $bookId);
+            $targetChunkId = $resolveResult['chunk_id'];
+            $targetResolved = $resolveResult['resolved'];
 
             // Build chunk manifest
             $chunkManifest = DB::table('nodes')
@@ -898,6 +900,7 @@ class DatabaseToIndexedDBController extends Controller
                 'initial_chunk' => $initialNodes,
                 'chunk_manifest' => $chunkManifest,
                 'target_chunk_id' => $targetChunkId,
+                'target_resolved' => $targetResolved,
                 'footnotes' => $footnotes,
                 'library' => $library,
                 'hyperlights' => $hyperlights,
@@ -977,8 +980,10 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Resolve which chunk_id to load first, based on request params.
+     * Returns ['chunk_id' => int, 'resolved' => bool].
+     * resolved=false means a target param was provided but couldn't be found.
      */
-    private function resolveTargetChunkId(Request $request, string $bookId): int
+    private function resolveTargetChunkId(Request $request, string $bookId): array
     {
         $target = $request->query('target');
         $elementId = $request->query('element_id');
@@ -987,7 +992,7 @@ class DatabaseToIndexedDBController extends Controller
 
         // Direct chunk_id param (for on-demand fetch)
         if ($chunkId !== null) {
-            return (int) $chunkId;
+            return ['chunk_id' => (int) $chunkId, 'resolved' => true];
         }
 
         // Hypercite target → look up node → get chunk_id
@@ -1006,7 +1011,7 @@ class DatabaseToIndexedDBController extends Controller
                         ->where('node_id', $nodeIds[0])
                         ->first();
                     if ($node) {
-                        return (int) $node->chunk_id;
+                        return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
                     }
                 }
             }
@@ -1027,7 +1032,7 @@ class DatabaseToIndexedDBController extends Controller
                         ->where('node_id', $nodeIds[0])
                         ->first();
                     if ($node) {
-                        return (int) $node->chunk_id;
+                        return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
                     }
                 }
             }
@@ -1041,8 +1046,28 @@ class DatabaseToIndexedDBController extends Controller
                 ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
                 ->first();
             if ($node) {
-                return (int) $node->chunk_id;
+                return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
             }
+        }
+
+        // If a target was provided but none of the above resolved it,
+        // try the fallback_target (e.g. hyperlight/footnote when hypercite not found)
+        // so the correct chunk still gets loaded for navigation to the parent item
+        if ($target) {
+            $fallbackTarget = $request->query('fallback_target');
+            if ($fallbackTarget) {
+                $fallbackChunkId = $this->resolveTargetToChunkId($bookId, $fallbackTarget);
+                if ($fallbackChunkId !== null) {
+                    return ['chunk_id' => $fallbackChunkId, 'resolved' => false];
+                }
+            }
+
+            // Last resort: bookmark, then chunk 0
+            $bookmark = $this->getBookmarkData($request, $bookId);
+            if ($bookmark) {
+                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => false];
+            }
+            return ['chunk_id' => 0, 'resolved' => false];
         }
 
         // Element ID (startLine) → find chunk
@@ -1052,7 +1077,7 @@ class DatabaseToIndexedDBController extends Controller
                 ->where('startLine', $elementId)
                 ->first();
             if ($node) {
-                return (int) $node->chunk_id;
+                return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
             }
         }
 
@@ -1060,12 +1085,57 @@ class DatabaseToIndexedDBController extends Controller
         if ($resume === 'true') {
             $bookmark = $this->getBookmarkData($request, $bookId);
             if ($bookmark) {
-                return (int) $bookmark['chunk_id'];
+                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => true];
             }
         }
 
         // Default: chunk 0
-        return 0;
+        return ['chunk_id' => 0, 'resolved' => true];
+    }
+
+    /**
+     * Try to resolve a single target identifier (HL_, hypercite_, Fn) to a chunk_id.
+     * Returns the chunk_id or null if the target doesn't exist.
+     */
+    private function resolveTargetToChunkId(string $bookId, string $target): ?int
+    {
+        if (str_starts_with($target, 'hypercite_')) {
+            $hypercite = DB::table('hypercites')
+                ->where('book', $bookId)
+                ->where('hyperciteId', $target)
+                ->first();
+            if ($hypercite) {
+                $nodeIds = json_decode($hypercite->node_id ?? '[]', true);
+                if (!empty($nodeIds)) {
+                    $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
+                    if ($node) return (int) $node->chunk_id;
+                }
+            }
+        }
+
+        if (str_starts_with($target, 'HL_')) {
+            $hyperlight = DB::table('hyperlights')
+                ->where('book', $bookId)
+                ->where('hyperlight_id', $target)
+                ->first();
+            if ($hyperlight) {
+                $nodeIds = json_decode($hyperlight->node_id ?? '[]', true);
+                if (!empty($nodeIds)) {
+                    $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
+                    if ($node) return (int) $node->chunk_id;
+                }
+            }
+        }
+
+        if (str_starts_with($target, 'Fn') || str_contains($target, '_Fn')) {
+            $node = DB::table('nodes')
+                ->where('book', $bookId)
+                ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
+                ->first();
+            if ($node) return (int) $node->chunk_id;
+        }
+
+        return null;
     }
 
     /**

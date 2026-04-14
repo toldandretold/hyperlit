@@ -341,6 +341,17 @@ export async function loadHyperText(bookId, progressCallback = null) {
       window.nodes = initialResult.nodes;
       window.chunkManifest = initialResult.chunkManifest;
 
+      // Store resolution status so BookToBookTransition can check it
+      window._targetResolved = initialResult.targetResolved;
+
+      // Fresh page load: if target wasn't resolved and there's a hash, clean it and notify
+      if (!initialResult.targetResolved && window.location.hash) {
+        history.replaceState(null, '', window.location.pathname);
+        import('./utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+          showTargetNotFoundToast();
+        });
+      }
+
       // Seed sessionStorage with server bookmark so restoreScrollPosition finds it.
       // On a fresh device/browser there's no localStorage — the server bookmark is
       // the only source of truth for where to resume. Without this, scroll restoration

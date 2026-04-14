@@ -16,100 +16,79 @@ class RetrievalService
     /**
      * Execute a retrieval plan and return merged results.
      *
-     * @param array $plan {tools: string[], embedding_scope?: string, keywords?: string, reasoning?: string}
+     * @param array $plan {keywords?: string, library_keywords?: string, embedding_query?: string, reasoning?: string}
      * @param array $context {bookId, nodeIds, selectedText, question, authorName, bookTitle, sourceScope, creatorName}
-     * @return array {matches, localContext, queryText, toolsUsed, log}
+     * @return array {matches, queryText, toolsUsed, log}
      */
     public function execute(array $plan, array $context): array
     {
-        $tools = $plan['tools'] ?? ['local_context', 'embedding_search'];
-        $embeddingScope = $plan['embedding_scope'] ?? 'all_books';
         $keywords = $plan['keywords'] ?? '';
+        $libraryKeywords = $plan['library_keywords'] ?? '';
+        $embeddingQuery = $plan['embedding_query'] ?? '';
 
         $allMatches = [];
-        $localContext = [];
         $queryText = null;
         $queryEmbedding = null;
         $toolsUsed = [];
         $log = [];
 
-        foreach ($tools as $tool) {
-            switch ($tool) {
-                case 'local_context':
-                    $localContext = $this->executeLocalContext(
-                        $context['bookId'],
-                        $context['nodeIds']
+        // Embedding search
+        if (!empty($embeddingQuery)) {
+            $queryText = $embeddingQuery;
+            $queryEmbedding = $this->embeddingService->embed($queryText, 'search_query: ');
+
+            if (!$queryEmbedding) {
+                Log::warning('RetrievalService: embedding failed');
+                $log[] = 'Embedding search: FAILED (embedding generation error)';
+            } else {
+                // Try same-author first if author is known
+                $embeddingScope = !empty($context['authorName']) ? 'same_author' : 'all_books';
+                $embeddingMatches = $this->executeEmbeddingSearch(
+                    $queryEmbedding,
+                    $embeddingScope,
+                    $context
+                );
+
+                // Fallback: if same_author returned <3 results, widen to all books
+                if ($embeddingScope === 'same_author' && count($embeddingMatches) < 3) {
+                    $widerMatches = $this->embeddingService->searchSimilar(
+                        $queryEmbedding, 10, $context['bookId'],
+                        $context['sourceScope'], $context['creatorName']
                     );
-                    $toolsUsed[] = 'local_context';
-                    $log[] = 'Local context: ' . count($localContext) . ' surrounding nodes';
-                    break;
-
-                case 'embedding_search':
-                    $queryText = $context['selectedText'] . "\n\n" . $context['question'];
-                    $queryEmbedding = $this->embeddingService->embed($queryText, 'search_query: ');
-
-                    if (!$queryEmbedding) {
-                        Log::warning('RetrievalService: embedding failed');
-                        $log[] = 'Embedding search: FAILED (embedding generation error)';
-                        break;
+                    foreach ($widerMatches as &$m) {
+                        $m->_source = 'embedding';
                     }
+                    $embeddingMatches = array_merge($embeddingMatches, $widerMatches);
+                    $log[] = 'Embedding fallback (widened to all books): ' . count($widerMatches) . ' results';
+                }
 
-                    $embeddingMatches = $this->executeEmbeddingSearch(
-                        $queryEmbedding,
-                        $embeddingScope,
-                        $context
-                    );
-                    $allMatches = array_merge($allMatches, $embeddingMatches);
-                    $toolsUsed[] = 'embedding_search';
-                    $scopeLabel = $embeddingScope === 'same_author' ? "same author ({$context['authorName']})" : 'all books';
-                    $log[] = "Embedding search ({$scopeLabel}): " . count($embeddingMatches) . ' results';
-                    break;
-
-                case 'keyword_search':
-                    if (empty($keywords)) {
-                        $log[] = 'Keyword search: skipped (no keywords)';
-                        break;
-                    }
-                    $keywordMatches = $this->executeKeywordSearch($keywords, $context);
-                    $allMatches = array_merge($allMatches, $keywordMatches);
-                    $toolsUsed[] = 'keyword_search';
-                    $log[] = 'Keyword search ("' . Str::limit($keywords, 40) . '"): ' . count($keywordMatches) . ' results';
-                    break;
-
-                case 'library_search':
-                    if (empty($keywords)) {
-                        $log[] = 'Library search: skipped (no keywords)';
-                        break;
-                    }
-                    $libraryMatches = $this->executeLibrarySearch($keywords, $context);
-                    $allMatches = array_merge($allMatches, $libraryMatches);
-                    $toolsUsed[] = 'library_search';
-                    $log[] = 'Library search ("' . Str::limit($keywords, 40) . '"): ' . count($libraryMatches) . ' results';
-                    break;
+                $allMatches = array_merge($allMatches, $embeddingMatches);
+                $toolsUsed[] = 'embedding_search';
+                $scopeLabel = $embeddingScope === 'same_author' ? "same author ({$context['authorName']})" : 'all books';
+                $log[] = "Embedding search ({$scopeLabel}): " . count($embeddingMatches) . ' results';
             }
         }
 
-        // Embedding fallback: if same_author returned <3 results, widen to all books
-        if (in_array('embedding_search', $toolsUsed) && $embeddingScope === 'same_author') {
-            $embeddingOnly = array_filter($allMatches, fn($m) => ($m->_source ?? '') === 'embedding');
-            if (count($embeddingOnly) < 3 && $queryEmbedding) {
-                $widerMatches = $this->embeddingService->searchSimilar(
-                    $queryEmbedding, 10, $context['bookId'],
-                    $context['sourceScope'], $context['creatorName']
-                );
-                foreach ($widerMatches as &$m) {
-                    $m->_source = 'embedding';
-                }
-                $allMatches = array_merge($allMatches, $widerMatches);
-                $log[] = 'Embedding fallback (widened to all books): ' . count($widerMatches) . ' results';
-            }
+        // Keyword search
+        if (!empty($keywords)) {
+            $keywordMatches = $this->executeKeywordSearch($keywords, $context);
+            $allMatches = array_merge($allMatches, $keywordMatches);
+            $toolsUsed[] = 'keyword_search';
+            $log[] = 'Keyword search ("' . Str::limit($keywords, 40) . '"): ' . count($keywordMatches) . ' results';
+        }
+
+        // Library search
+        if (!empty($libraryKeywords)) {
+            $libraryMatches = $this->executeLibrarySearch($libraryKeywords, $context);
+            $allMatches = array_merge($allMatches, $libraryMatches);
+            $toolsUsed[] = 'library_search';
+            $log[] = 'Library search ("' . Str::limit($libraryKeywords, 40) . '"): ' . count($libraryMatches) . ' results';
         }
 
         $matches = $this->mergeMatches($allMatches);
 
         return [
             'matches' => $matches,
-            'localContext' => $localContext,
             'queryText' => $queryText,
             'toolsUsed' => $toolsUsed,
             'log' => $log,
@@ -119,7 +98,7 @@ class RetrievalService
     /**
      * Fetch surrounding context nodes for local_context tool.
      */
-    private function executeLocalContext(string $bookId, array $nodeIds, int $radius = 5): array
+    public function executeLocalContext(string $bookId, array $nodeIds, int $radius = 5): array
     {
         $selectedNodes = DB::table('nodes')->where('book', $bookId)
             ->whereIn('node_id', $nodeIds)->orderBy('startLine')->get();

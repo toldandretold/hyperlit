@@ -101,6 +101,12 @@ export class BookToBookTransition {
         const navigationTarget = hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null;
         window._pendingChunkTarget = navigationTarget;
 
+        // When hash (hypercite) takes priority but a hyperlight/footnote also exists,
+        // set it as fallback so the backend can load the right chunk if the hypercite is stale
+        if (hash && (hyperlightId || footnoteId)) {
+          window._pendingChunkFallbackTarget = hyperlightId || footnoteId;
+        }
+
         // Initialize the new reader view
         // Pass hash navigation flag to prevent scroll position interference
         const hasHashNavigation = !!(hash || hyperlightId || hyperciteId || footnoteId);
@@ -350,6 +356,38 @@ export class BookToBookTransition {
     console.log('🎯 BookToBookTransition: Handling hash navigation', {
       hash, hyperlightId, hyperciteId, footnoteId
     });
+
+    // If the backend couldn't resolve the target (e.g. stale hypercite),
+    // check whether the parent hyperlight/footnote still exists — if so,
+    // navigate to that and just toast about the missing citation.
+    if (window._targetResolved === false) {
+      window._targetResolved = undefined; // Consume
+      console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
+
+      // Show toast for the missing citation
+      import('../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        showTargetNotFoundToast();
+      });
+
+      // Clean the stale hypercite hash from URL
+      history.replaceState(null, '', window.location.pathname);
+
+      // If there's a parent hyperlight or footnote, navigate to that instead
+      if (hyperlightId) {
+        console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to hyperlight ${hyperlightId} instead`);
+        await this.navigateToInternalId(hyperlightId, progress);
+        return true;
+      }
+      if (footnoteId) {
+        console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to footnote ${footnoteId} instead`);
+        await navigateToFootnoteTarget(footnoteId, null, currentLazyLoader);
+        return true;
+      }
+
+      // No parent hyperlight/footnote — full fallback
+      await this.ensureInitialContentLoaded(bookId);
+      return false;
+    }
 
     try {
       // Wait for content to be fully loaded — but only if a chunk was pre-loaded

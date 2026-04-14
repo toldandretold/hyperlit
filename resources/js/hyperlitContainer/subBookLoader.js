@@ -14,6 +14,12 @@ import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 
+/** Map of subBookId -> { loader, containerDiv } for all currently-active sub-books. */
+export const subBookLoaders = new Map();
+
+/** Sub-books fully synced from the DB this session — skip re-fetch on repeated opens. */
+const enrichedSubBooks = new Set();
+
 /**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
  * Called when user clicks "[read more]" button.
@@ -219,12 +225,6 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   // Update stored nodes
   subBookState.nodes = freshNodes;
 }
-
-/** Map of subBookId -> { loader, containerDiv } for all currently-active sub-books. */
-export const subBookLoaders = new Map();
-
-/** Sub-books fully synced from the DB this session — skip re-fetch on repeated opens. */
-const enrichedSubBooks = new Set();
 
 async function enrichSubBookFromDB(subBookId, subBookState) {
   if (enrichedSubBooks.has(subBookId)) return;

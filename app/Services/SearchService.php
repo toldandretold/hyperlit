@@ -19,51 +19,47 @@ class SearchService
             return '';
         }
 
-        // Handle quoted phrases - convert "exact phrase" to 'exact <-> phrase'
-        if (preg_match_all('/"([^"]+)"/', $query, $matches)) {
-            foreach ($matches[1] as $phrase) {
-                $words = preg_split('/\s+/', trim($phrase));
-                $words = array_filter($words, fn($w) => strlen($w) >= 1);
-                if (!empty($words)) {
-                    $phraseQuery = implode(' <-> ', $words);
-                    $query = str_replace('"' . $phrase . '"', '(' . $phraseQuery . ')', $query);
+        $parts = [];
+
+        // 1. Extract quoted phrases → "(word1 <-> word2 <-> ...)"
+        $remaining = preg_replace_callback('/"([^"]+)"/', function ($match) use (&$parts) {
+            $words = preg_split('/[\s\-]+/', trim($match[1]));
+            $words = array_map(fn($w) => preg_replace('/[^\w]/', '', $w), $words);
+            $words = array_filter($words, fn($w) => strlen($w) >= 1);
+            if (count($words) === 1) {
+                $parts[] = reset($words);
+            } elseif (count($words) > 1) {
+                $parts[] = '(' . implode(' <-> ', $words) . ')';
+            }
+            return '';
+        }, $query);
+
+        // 2. Extract remaining unquoted terms
+        $remaining = trim($remaining);
+        if (!empty($remaining)) {
+            $terms = preg_split('/\s+/', $remaining);
+            foreach ($terms as $term) {
+                $term = preg_replace('/[^\w]/', '', $term);
+                if (strlen($term) >= 1) {
+                    $parts[] = $term;
                 }
             }
         }
 
-        // Split remaining terms and join with &
-        $terms = preg_split('/\s+/', $query);
-        $terms = array_filter($terms, fn($t) => strlen($t) >= 1);
-
-        if (empty($terms)) {
+        if (empty($parts)) {
             return '';
         }
 
-        // Clean terms and add prefix matching to last term for autocomplete behavior
-        $lastIndex = count($terms) - 1;
-        $processed = [];
+        // 3. Cap at 6 parts to prevent overly complex queries
+        $parts = array_slice($parts, 0, 6);
 
-        foreach (array_values($terms) as $index => $term) {
-            // Remove special characters except those used in phrase queries
-            $term = preg_replace('/[^\w\s\-<>()]/', '', $term);
-
-            if (empty($term)) {
-                continue;
-            }
-
-            // Add prefix matching to last term for autocomplete-like behavior
-            if ($index === $lastIndex && !str_contains($term, '<->')) {
-                $processed[] = $term . ':*';
-            } else {
-                $processed[] = $term;
-            }
+        // 4. Add prefix matching to last part (if it's a plain term, not a phrase group)
+        $lastIndex = count($parts) - 1;
+        if (!str_contains($parts[$lastIndex], '<->')) {
+            $parts[$lastIndex] .= ':*';
         }
 
-        if (empty($processed)) {
-            return '';
-        }
-
-        return implode(' & ', $processed);
+        return implode(' & ', $parts);
     }
 
     /**

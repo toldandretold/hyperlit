@@ -54,6 +54,7 @@ export async function fetchInitialChunk(bookId) {
             nodes: data.initial_chunk || [],
             chunkManifest: data.chunk_manifest || [],
             targetChunkId: data.target_chunk_id,
+            targetResolved: data.target_resolved !== false, // default true for backward compat
             bookmark: data.bookmark,
             library: data.library,
             footnotes: data.footnotes,
@@ -92,16 +93,23 @@ function buildInitialChunkParams() {
     // Priority 0: SPA navigation target (set by BookToBookTransition before loadHyperText)
     // During SPA transitions, window.location.hash hasn't been updated yet
     const spaTarget = window._pendingChunkTarget;
+    const spaFallback = window._pendingChunkFallbackTarget;
     if (spaTarget) {
         window._pendingChunkTarget = null; // Consume it
+        window._pendingChunkFallbackTarget = null;
         if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
             params.set('target', spaTarget);
+            if (spaFallback) {
+                params.set('fallback_target', spaFallback);
+            }
             return params;
         }
         if (/^\d+(\.\d+)?$/.test(spaTarget)) {
             params.set('element_id', spaTarget);
             return params;
         }
+    } else {
+        window._pendingChunkFallbackTarget = null; // Clean up even if no SPA target
     }
 
     // Priority 1: URL hash target
@@ -109,6 +117,13 @@ function buildInitialChunkParams() {
     if (hash) {
         if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || hash.startsWith('Fn') || hash.includes('_Fn')) {
             params.set('target', hash);
+            // If hash took priority but a hyperlight/footnote exists from the path,
+            // send it as fallback so the backend loads the right chunk if hash target is stale
+            if (OpenHyperlightID) {
+                params.set('fallback_target', OpenHyperlightID);
+            } else if (OpenFootnoteID) {
+                params.set('fallback_target', OpenFootnoteID);
+            }
             return params;
         }
         // Numeric hash = element ID (startLine)

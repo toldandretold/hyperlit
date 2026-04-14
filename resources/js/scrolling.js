@@ -1220,6 +1220,8 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       } else {
         console.warn(`❌ Could not locate target element: ${targetId}`);
         hideNavigationLoading();
+        // Complete the barrier so it doesn't leak for 10 seconds
+        NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, false);
         fallbackScrollPosition(lazyLoader);
         lazyLoader.isNavigatingToInternalId = false;
         lazyLoader.pendingNavigationTarget = null;
