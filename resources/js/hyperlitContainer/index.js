@@ -783,7 +783,10 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           history.replaceState(newState, '', newUrl);
         } else {
           // Hash-based URL (for hypercites, highlights, citations)
-          const newUrl = `${window.location.pathname}${window.location.search}#${urlUpdate.value}`;
+          // Strip any stale cascade segments from pathname
+          const segments = window.location.pathname.split('/').filter(Boolean);
+          const cleanPath = `/${segments[0] || ''}`;
+          const newUrl = `${cleanPath}#${urlUpdate.value}`;
           console.log(`📊 Updating URL for single content: ${newUrl}`);
           history.replaceState(newState, '', newUrl);
         }
@@ -798,7 +801,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // EDIT MODE: Auto-enable for newly created items
     // =========================================================================
     const hasJustCreatedItem = isNewFootnote || (newHighlightIds && newHighlightIds.length > 0);
-    if (hasJustCreatedItem && !isBackNavigation) {
+    if (hasJustCreatedItem && !isBackNavigation && !options.brainModeHighlightId) {
       console.log('✏️ Just-created item detected, auto-enabling edit mode');
       setHyperlitEditMode(true);
     }
@@ -1447,7 +1450,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
 
     // Insert edit button as direct child of container (NOT inside scroller)
     // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch
-    if (hasAnyEditPermission) {
+    if (hasAnyEditPermission && !options.brainModeHighlightId) {
       const container = getCurrentContainer();
       if (container) {
         const existing = container.querySelector('#hyperlit-edit-btn');

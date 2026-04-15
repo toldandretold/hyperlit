@@ -168,7 +168,7 @@ export class LinkNavigationHandler {
    */
   static shouldSkipLinkHandling(link, linkUrl, currentUrl) {
     // Skip hypercites and TOC links - they have their own handlers
-    const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target');
+    const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target') || link.querySelector(':scope > u.couple, :scope > u.poly');
     const isTocLink = link.closest('#toc-container');
     const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
     const isStripeTopup = link.classList.contains('stripe-topup') || link.closest('.stripe-topup');

@@ -162,7 +162,8 @@ class RetrievalService
             10,
             $context['bookId'],
             $context['sourceScope'],
-            $context['creatorName']
+            $context['creatorName'],
+            '|'  // OR mode for AI Brain — surfaces nodes matching any term, ranked by relevance
         );
 
         // Tag source

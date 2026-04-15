@@ -515,7 +515,7 @@ Follow these rules:
 OPTION B — If you need external sources from the library:
 Respond with a JSON search plan wrapped in <search>...</search> tags:
 {
-  "keywords": "specific terms for full-text keyword search across library nodes",
+  "keywords": "3-5 distinctive terms for full-text search (terms are OR'd — each should be specific enough to find relevant passages on its own, e.g. 'counterfactual NIEO dependency' not a long list)",
   "library_keywords": "author names or book titles mentioned/implied for library metadata search",
   "embedding_query": "the best sentence to use as a vector embedding for semantic similarity search",
   "reasoning": "brief explanation of what you're looking for"

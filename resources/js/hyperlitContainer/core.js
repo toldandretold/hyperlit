@@ -526,9 +526,14 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
           const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
           const bookSlug = pathSegments[0] || '';
 
-          // Check if any path segments after the book slug are cascade segments (HL_ or Fn)
+          // Check if any path segments after the book slug are cascade segments (HL_, Fn, Fnref, etc.)
           const hasCascadeSegments = pathSegments.slice(1).some(seg =>
-            seg.startsWith('HL_') || seg.includes('_Fn') || /^Fn\d/.test(seg)
+            seg.startsWith('HL_') ||
+            seg.includes('_Fn') ||
+            /^Fn\d/.test(seg) ||
+            /Fnref/.test(seg) ||
+            /^\d+$/.test(seg) ||
+            (bookSlug && seg.startsWith(bookSlug) && seg.length > bookSlug.length)
           );
 
           // Check for hyperlit-related hash or container-stack query param

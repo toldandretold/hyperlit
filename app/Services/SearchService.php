@@ -11,7 +11,7 @@ class SearchService
      * Convert user query to PostgreSQL tsquery format.
      * Handles phrase search with quotes and joins terms with &.
      */
-    public function buildTsQuery(string $query): string
+    public function buildTsQuery(string $query, string $operator = '&'): string
     {
         $query = trim($query);
 
@@ -59,7 +59,7 @@ class SearchService
             $parts[$lastIndex] .= ':*';
         }
 
-        return implode(' & ', $parts);
+        return implode(" {$operator} ", $parts);
     }
 
     /**
@@ -71,9 +71,10 @@ class SearchService
         int $limit = 10,
         ?string $excludeBook = null,
         string $sourceScope = 'public',
-        ?string $creatorName = null
+        ?string $creatorName = null,
+        string $tsOperator = '&'
     ): array {
-        $tsQuery = $this->buildTsQuery($query);
+        $tsQuery = $this->buildTsQuery($query, $tsOperator);
 
         if (empty($tsQuery)) {
             return [];
@@ -140,6 +141,11 @@ class SearchService
             $excludeParams = [$excludeBook];
         }
 
+        $orderClause = $tsOperator === '|'
+            ? "ORDER BY ts_rank(nodes.{$vectorColumn}, to_tsquery('{$config}', ?)) DESC"
+            : "ORDER BY library.created_at DESC";
+        $rankParams = $tsOperator === '|' ? [$tsQuery] : [];
+
         $sql = "
             SELECT
                 sub.id,
@@ -175,7 +181,7 @@ class SearchService
                     AND {$visibilityClause}
                     {$bookFilter}
                     {$excludeClause}
-                ORDER BY library.created_at DESC
+                {$orderClause}
                 LIMIT ?
             ) sub
         ";
@@ -185,6 +191,7 @@ class SearchService
             $visibilityParams,
             $bookParams,
             $excludeParams,
+            $rankParams,
             [$limit]
         );
 
