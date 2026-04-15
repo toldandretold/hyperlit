@@ -877,11 +877,39 @@ PROMPT;
                 $hypercitedText = Str::limit($plainText, 300);
 
                 if (isset($quotedTextMap[$citationNum]) && $plainText !== '') {
-                    $quoted = $quotedTextMap[$citationNum];
-                    $pos = mb_strpos($plainText, $quoted);
-                    if ($pos !== false) {
-                        $charStart = $pos;
-                        $charEnd = $pos + mb_strlen($quoted);
+                    $quoteInfo = $quotedTextMap[$citationNum];
+                    $quoted = $quoteInfo['text'];
+
+                    // Tokenize LLM surrounding context into words (skip short words)
+                    $llmContext = $quoteInfo['contextBefore'] . ' ' . $quoteInfo['contextAfter'];
+                    $llmWords = array_unique(array_filter(
+                        preg_split('/\W+/u', mb_strtolower($llmContext)),
+                        fn($w) => mb_strlen($w) > 3
+                    ));
+
+                    // Find ALL occurrences in source and pick best by context overlap
+                    $bestPos = null;
+                    $bestScore = -1;
+                    $searchStart = 0;
+                    while (($pos = mb_strpos($plainText, $quoted, $searchStart)) !== false) {
+                        $srcBefore = mb_substr($plainText, max(0, $pos - 80), min($pos, 80));
+                        $srcAfter = mb_substr($plainText, $pos + mb_strlen($quoted), 80);
+                        $srcWords = array_unique(array_filter(
+                            preg_split('/\W+/u', mb_strtolower($srcBefore . ' ' . $srcAfter)),
+                            fn($w) => mb_strlen($w) > 3
+                        ));
+
+                        $score = count(array_intersect($srcWords, $llmWords));
+                        if ($score > $bestScore) {
+                            $bestScore = $score;
+                            $bestPos = $pos;
+                        }
+                        $searchStart = $pos + 1;
+                    }
+
+                    if ($bestPos !== null) {
+                        $charStart = $bestPos;
+                        $charEnd = $bestPos + mb_strlen($quoted);
                         $hypercitedText = Str::limit($quoted, 300);
                     }
                 }
@@ -939,9 +967,9 @@ PROMPT;
             }
         }
 
-        // Find all quoted strings (straight or curly quotes, min 10 chars)
+        // Find all quoted strings (straight or curly quotes, min 30 chars)
         $quotes = [];
-        if (preg_match_all('/["\x{201C}](.{10,}?)["\x{201D}]/u', $text, $qMatches, PREG_OFFSET_CAPTURE)) {
+        if (preg_match_all('/["\x{201C}](.{30,}?)["\x{201D}]/u', $text, $qMatches, PREG_OFFSET_CAPTURE)) {
             foreach ($qMatches[1] as $qMatch) {
                 $byteOffset = $qMatch[1];
                 $charOffset = mb_strlen(substr($text, 0, $byteOffset));
@@ -987,9 +1015,28 @@ PROMPT;
                 }
             }
 
-            // Verify quote exists in the source passage
+            // Verify quote exists in the source passage, and capture LLM context
             if ($bestQuote !== null && mb_strpos($sourcePlainText, $bestQuote) !== false) {
-                $map[$num] = $bestQuote;
+                // Grab ~80 chars of LLM text before/after the quote for disambiguation
+                $bestQuotePos = null;
+                foreach ($quotes as $q) {
+                    if ($q['text'] === $bestQuote) {
+                        $bestQuotePos = $q['pos'];
+                        break;
+                    }
+                }
+                $contextBefore = $bestQuotePos !== null
+                    ? mb_substr($text, max(0, $bestQuotePos - 80), min($bestQuotePos, 80))
+                    : '';
+                $contextAfter = $bestQuotePos !== null
+                    ? mb_substr($text, $bestQuotePos + mb_strlen($bestQuote), 80)
+                    : '';
+
+                $map[$num] = [
+                    'text' => $bestQuote,
+                    'contextBefore' => $contextBefore,
+                    'contextAfter' => $contextAfter,
+                ];
             }
         }
 
