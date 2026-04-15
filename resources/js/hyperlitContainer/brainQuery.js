@@ -7,14 +7,9 @@ import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 import { isLoggedIn } from '../utilities/auth.js';
 
 const BRAIN_MODELS = [
-  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek v3.2 \u00b7 Default',  cost: '<1\u00a2' },
-  { id: 'accounts/fireworks/models/deepseek-v3p1',           label: 'DeepSeek V3.1',             cost: '<1\u00a2' },
-  { id: 'accounts/fireworks/models/qwen3p6-plus',            label: 'Qwen3.6 Plus',              cost: '\u22641\u00a2' },
-  { id: 'accounts/fireworks/models/kimi-k2p5',               label: 'Kimi K2.5',                 cost: '\u22641\u00a2' },
-  { id: 'accounts/fireworks/models/kimi-k2-instruct',        label: 'Kimi K2 Instruct',          cost: '\u22641\u00a2' },
-  { id: 'accounts/cogito/models/cogito-671b-v2-p1',          label: 'Cogito 671B \ud83e\uddbe',            cost: '<1\u00a2' },
-  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',          cost: '<1\u00a2' },
-  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5',              cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek V3.2 \ud83e\uddbe \u00b7 Default', cost: '\u22641\u00a2' },
+  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',               cost: '\u22641\u00a2' },
+  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5 \ud83e\udd11',                cost: '<1\u00a2' },
 ];
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
@@ -301,6 +296,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       let buffer = '';
       let data = null;
       let streamError = null;
+      let eventType = 'message';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -309,8 +305,6 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
         const lines = buffer.split('\n');
         buffer = lines.pop(); // keep incomplete line
-
-        let eventType = 'message';
         for (const line of lines) {
           if (line.startsWith('event: ')) {
             eventType = line.slice(7).trim();

@@ -84,11 +84,6 @@ class AiBrainController extends Controller
 
         $allowedModels = [
             'accounts/fireworks/models/deepseek-v3p2',
-            'accounts/fireworks/models/deepseek-v3p1',
-            'accounts/fireworks/models/qwen3p6-plus',
-            'accounts/fireworks/models/kimi-k2p5',
-            'accounts/fireworks/models/kimi-k2-instruct',
-            'accounts/cogito/models/cogito-671b-v2-p1',
             'accounts/fireworks/models/llama-v3p3-70b-instruct',
             'accounts/fireworks/models/minimax-m2p5',
         ];
@@ -98,12 +93,7 @@ class AiBrainController extends Controller
 
         // Model label lookup for status messages
         $modelLabels = [
-            'accounts/fireworks/models/deepseek-v3p2' => 'DeepSeek V3',
-            'accounts/fireworks/models/deepseek-v3p1' => 'DeepSeek V3.1',
-            'accounts/fireworks/models/qwen3p6-plus' => 'Qwen3.6 Plus',
-            'accounts/fireworks/models/kimi-k2p5' => 'Kimi K2.5',
-            'accounts/fireworks/models/kimi-k2-instruct' => 'Kimi K2',
-            'accounts/cogito/models/cogito-671b-v2-p1' => 'Cogito 671B',
+            'accounts/fireworks/models/deepseek-v3p2' => 'DeepSeek V3.2',
             'accounts/fireworks/models/llama-v3p3-70b-instruct' => 'Llama 3.3 70B',
             'accounts/fireworks/models/minimax-m2p5' => 'MiniMax M2.5',
         ];
