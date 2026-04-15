@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SubBookIdHelper;
 use App\Models\PgFootnote;
+use App\Services\BookDeletionService;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -121,6 +122,82 @@ class DbFootnoteController extends Controller
                 'success' => false,
                 'message' => 'Failed to sync footnotes',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delink orphaned hypercites that reference a footnote's sub-book.
+     * Does NOT delete the PgFootnote record or sub-book content — those are
+     * preserved so a cut+paste can restore the footnote.
+     */
+    public function delink(Request $request)
+    {
+        try {
+            $data = $request->all();
+
+            Log::info('DbFootnoteController::delink - Received data', [
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+            ]);
+
+            if (isset($data['data']) && is_array($data['data'])) {
+                $delinkedCount = 0;
+
+                $deletionService = new BookDeletionService();
+
+                foreach ($data['data'] as $index => $item) {
+                    $book = $item['book'] ?? null;
+                    $footnoteId = $item['footnoteId'] ?? null;
+
+                    if (!$book || !$footnoteId) {
+                        Log::warning("Missing book or footnoteId at index {$index}");
+                        continue;
+                    }
+
+                    // Look up the sub_book_id from the footnote record
+                    $existingRecord = PgFootnote::where('book', $book)
+                        ->where('footnoteId', $footnoteId)
+                        ->first();
+
+                    $subBookId = $existingRecord->sub_book_id
+                        ?? SubBookIdHelper::build($book, $footnoteId);
+
+                    try {
+                        $deletionService->delinkOrphanedHypercites($subBookId);
+                        $delinkedCount++;
+                    } catch (\Exception $e) {
+                        Log::warning('Footnote hypercite delink failed (non-fatal)', [
+                            'sub_book_id' => $subBookId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                Log::info('DbFootnoteController::delink - Success', [
+                    'delinked_count' => $delinkedCount,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Footnote hypercites delinked successfully',
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format',
+            ], 400);
+
+        } catch (\Exception $e) {
+            Log::error('DbFootnoteController::delink - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delink footnote hypercites',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

@@ -161,6 +161,37 @@ class BookDeletionService
     }
 
     /**
+     * Delete a sub-book's content (nodes, footnotes, bibliography, library)
+     * without starting its own transaction — safe to call inside UnifiedSyncController's transaction.
+     *
+     * @param string $subBookId - Sub-book ID to clean up (e.g. "TheBible/HL_abc123")
+     * @return array - Stats about what was deleted
+     */
+    public function deleteSubBookContent(string $subBookId): array
+    {
+        $db = $this->db();
+
+        $stats = [
+            'nodes_deleted' => $db->table('nodes')->where('book', $subBookId)->delete(),
+            'footnotes_deleted' => $db->table('footnotes')->where('book', $subBookId)->delete(),
+            'bibliography_deleted' => $db->table('bibliography')->where('book', $subBookId)->delete(),
+        ];
+
+        // Soft-delete library record (if it exists)
+        $libraryUpdated = $db->table('library')
+            ->where('book', $subBookId)
+            ->update(['visibility' => 'deleted']);
+        $stats['library_action'] = $libraryUpdated ? 'soft_deleted' : 'not_found';
+
+        Log::info('BookDeletionService: Sub-book content deleted', [
+            'sub_book_id' => $subBookId,
+            'stats' => $stats,
+        ]);
+
+        return $stats;
+    }
+
+    /**
      * De-link orphaned hypercites in other books that referenced the deleted book
      * Updates citedIN array and relationshipStatus
      */
@@ -169,19 +200,20 @@ class BookDeletionService
         $db = $this->db();
 
         // Find hypercites where citedIN contains references to deleted book
-        // citedIN format: ["bookId#hypercite_xyz", ...]
+        // citedIN format: ["/bookId#hypercite_xyz", ...] (leading slash from hyperciteHandler.js)
         $hypercites = $db->table('hypercites')
-            ->whereRaw('"citedIN"::text LIKE ?', ['%"' . $deletedBook . '#%'])
+            ->whereRaw('"citedIN"::text LIKE ?', ['%"/' . $deletedBook . '#%'])
             ->get();
 
         $delinkedCount = 0;
+        $affectedBooks = [];
 
         foreach ($hypercites as $hypercite) {
             $citedIN = json_decode($hypercite->citedIN, true) ?? [];
 
-            // Filter out references to deleted book
+            // Filter out references to deleted book (citedIN entries have leading slash)
             $filtered = array_values(array_filter($citedIN, function($ref) use ($deletedBook) {
-                return !str_starts_with($ref, $deletedBook . '#');
+                return !str_starts_with($ref, '/' . $deletedBook . '#');
             }));
 
             // Update if changed
@@ -201,7 +233,21 @@ class BookDeletionService
                         'relationshipStatus' => $newStatus
                     ]);
                 $delinkedCount++;
+
+                if ($hypercite->book) {
+                    $affectedBooks[] = $hypercite->book;
+                }
             }
+        }
+
+        // Bump annotations_updated_at on affected books so clients re-fetch
+        $uniqueBooks = array_unique($affectedBooks);
+        if (!empty($uniqueBooks)) {
+            $now = round(microtime(true) * 1000);
+            foreach ($uniqueBooks as $bookId) {
+                DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+            }
+            Log::info('Delink: bumped annotations_updated_at', ['books' => $uniqueBooks]);
         }
 
         return $delinkedCount;

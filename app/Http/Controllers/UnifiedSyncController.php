@@ -42,6 +42,7 @@ class UnifiedSyncController extends Controller
                 'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
                 'footnotes_count' => isset($data['footnotes']) ? count($data['footnotes']) : 0,
+                'footnoteDeletions_count' => isset($data['footnoteDeletions']) ? count($data['footnoteDeletions']) : 0,
                 'bibliography_count' => isset($data['bibliography']) ? count($data['bibliography']) : 0,
                 'bibliographyDeletions_count' => isset($data['bibliographyDeletions']) ? count($data['bibliographyDeletions']) : 0,
                 'has_library' => isset($data['library']),
@@ -122,6 +123,7 @@ class UnifiedSyncController extends Controller
                     'hyperlights' => null,
                     'hyperlightDeletions' => null,
                     'footnotes' => null,
+                    'footnoteDeletions' => null,
                     'bibliography' => null,
                     'bibliographyDeletions' => null,
                     'library' => null,
@@ -261,6 +263,31 @@ class UnifiedSyncController extends Controller
                     }
 
                     $results['footnotes'] = ['success' => true, 'message' => 'Footnotes synced successfully'];
+                }
+
+                // 5.1. Handle footnote deletions — delink orphaned hypercites only
+                // (footnote record + sub-book content are preserved for cut+paste)
+                if (! empty($data['footnoteDeletions'])) {
+                    $footnoteController = new DbFootnoteController;
+
+                    foreach ($data['footnoteDeletions'] as $item) {
+                        $delinkRequest = new Request(['data' => [$item]]);
+                        $delinkRequest->setUserResolver(function () use ($request) {
+                            return $request->user();
+                        });
+                        foreach ($request->cookies as $key => $value) {
+                            $delinkRequest->cookies->set($key, $value);
+                        }
+
+                        $response = $footnoteController->delink($delinkRequest);
+                        $delinkResult = json_decode($response->getContent(), true);
+
+                        if (! ($delinkResult['success'] ?? false)) {
+                            throw new \Exception('Footnote delink failed: '.($delinkResult['message'] ?? 'Unknown error'));
+                        }
+                    }
+
+                    $results['footnoteDeletions'] = ['success' => true];
                 }
 
                 // 5.5. Sync bibliography/references (if present)

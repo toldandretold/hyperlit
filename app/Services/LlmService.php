@@ -48,7 +48,7 @@ class LlmService
     /**
      * Send a chat completion request (OpenAI-compatible format).
      */
-    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null, int $timeout = 30, ?string $reasoningEffort = 'none'): ?string
+    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null, int $timeout = 30, ?string $reasoningEffort = 'none', ?\Closure $onRetry = null): ?string
     {
         if (!$this->apiKey || !$this->baseUrl) {
             return null;
@@ -68,23 +68,46 @@ class LlmService
                 $body['reasoning_effort'] = $reasoningEffort;
             }
 
-            // Retry once on timeout (cURL error 28)
+            // Retry on cURL timeout (error 28) and 5xx responses with backoff
             $attempts = 0;
-            $maxAttempts = 2;
+            $maxAttempts = 3;
             $response = null;
 
             while ($attempts < $maxAttempts) {
+                $attempts++;
                 try {
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $this->apiKey,
                     ])->timeout($timeout)->post($this->baseUrl . '/chat/completions', $body);
-                    break; // success, exit loop
+
+                    // Success or client error (4xx) — don't retry
+                    if ($response->successful() || $response->status() < 500) {
+                        break;
+                    }
+
+                    // 5xx — retry with backoff
+                    if ($attempts < $maxAttempts) {
+                        Log::warning("LLM API returned {$response->status()}, retrying ({$attempts}/{$maxAttempts})...", [
+                            'body' => Str::limit($response->body(), 200),
+                        ]);
+                        if ($onRetry) {
+                            $onRetry($attempts, $maxAttempts, $response->status());
+                        }
+                        sleep($attempts * 2); // 2s, 4s
+                    } else {
+                        Log::warning("LLM API returned {$response->status()}, all {$maxAttempts} attempts exhausted", [
+                            'body' => Str::limit($response->body(), 200),
+                        ]);
+                    }
                 } catch (\Exception $e) {
-                    $attempts++;
                     if ($attempts >= $maxAttempts || !str_contains($e->getMessage(), 'cURL error 28')) {
                         throw $e; // re-throw for outer catch
                     }
                     Log::warning('LLM API timeout, retrying...', ['attempt' => $attempts]);
+
+                    if ($onRetry) {
+                        $onRetry($attempts, $maxAttempts, 0);
+                    }
                 }
             }
 

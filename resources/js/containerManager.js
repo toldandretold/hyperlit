@@ -1,4 +1,3 @@
-// PASTE THIS ENTIRE CODE BLOCK INTO YOUR containerManager.js FILE
 
 import { saveAnnotationToIndexedDB } from "./hyperlights/index.js";
 import { navigateToInternalId } from "./scrolling.js";

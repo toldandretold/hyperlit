@@ -8,6 +8,7 @@
  */
 
 import { queueNodeForSave, queueNodeForDeletion } from './index.js';
+import { queueForSync } from '../indexedDB/syncQueue/queue.js';
 
 export class SupTagHandler {
   constructor(editableDiv) {
@@ -557,6 +558,17 @@ export class SupTagHandler {
               // If element gone, cursor stays wherever browser put it
             }, 10);
             return;
+          }
+
+          // User confirmed footnote removal — queue delink so server cleans up
+          // orphaned citedIN refs. Footnote record + sub-book content are preserved
+          // (user may cut+paste the footnote back).
+          const footnoteId = supElement.id || supElement.getAttribute('fn-count-id');
+          const fnBook = supElement.closest('[data-book-id]')?.getAttribute('data-book-id')
+            || document.querySelector('.main-content')?.id;
+
+          if (footnoteId && fnBook) {
+            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
           }
         }
         // HYPERCITE LINK DELETION: Handle <sup class="open-icon"> inside hypercite <a> tags

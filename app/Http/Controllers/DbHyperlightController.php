@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
+use App\Services\BookDeletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -388,6 +389,7 @@ class DbHyperlightController extends Controller
             if (isset($data['data']) && is_array($data['data'])) {
                 $deletedCount = 0;
                 $deletedBookIds = [];
+                $deletedSubBookIds = [];
 
                 foreach ($data['data'] as $index => $item) {
                     // Find the existing record to check permissions
@@ -419,16 +421,38 @@ class DbHyperlightController extends Controller
                         continue; // Skip this item
                     }
 
+                    // Capture sub_book_id before deleting
+                    $subBookId = $existingRecord->sub_book_id;
                     $bookId = $existingRecord->book;
                     $existingRecord->delete();
                     $deletedCount++;
                     if ($bookId) {
                         $deletedBookIds[] = $bookId;
                     }
+                    if ($subBookId) {
+                        $deletedSubBookIds[] = $subBookId;
+                    }
+                }
+
+                // Clean up sub-book content and delink orphaned hypercites
+                if (!empty($deletedSubBookIds)) {
+                    $deletionService = new BookDeletionService();
+                    foreach ($deletedSubBookIds as $subBookId) {
+                        try {
+                            $deletionService->deleteSubBookContent($subBookId);
+                            $deletionService->delinkOrphanedHypercites($subBookId);
+                        } catch (\Exception $e) {
+                            Log::warning('Sub-book cleanup failed (non-fatal)', [
+                                'sub_book_id' => $subBookId,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
                 }
 
                 Log::info('DbHyperlightController::delete - Success', [
-                    'records_deleted' => $deletedCount
+                    'records_deleted' => $deletedCount,
+                    'sub_books_cleaned' => count($deletedSubBookIds),
                 ]);
 
                 return response()->json([

@@ -127,6 +127,7 @@ export async function executeSyncPayload(payload) {
     hyperlights: payload.updates.hyperlights || [],
     hyperlightDeletions: payload.deletions.hyperlights || [],
     footnotes: payload.updates.footnotes || [],
+    footnoteDeletions: payload.deletions.footnotes || [],
     bibliography: payload.updates.bibliography || [],
     bibliographyDeletions: payload.deletions.bibliography || [],
     library: payload.updates.library || null,
@@ -139,6 +140,7 @@ export async function executeSyncPayload(payload) {
   if (unifiedPayload.hyperlights.length > 0) syncSummary.push(`${unifiedPayload.hyperlights.length} hyperlights`);
   if (unifiedPayload.hyperlightDeletions.length > 0) syncSummary.push(`${unifiedPayload.hyperlightDeletions.length} hyperlight deletions`);
   if (unifiedPayload.footnotes.length > 0) syncSummary.push(`${unifiedPayload.footnotes.length} footnotes`);
+  if (unifiedPayload.footnoteDeletions.length > 0) syncSummary.push(`${unifiedPayload.footnoteDeletions.length} footnote deletions`);
   if (unifiedPayload.bibliography.length > 0) syncSummary.push(`${unifiedPayload.bibliography.length} bibliography entries`);
   if (unifiedPayload.bibliographyDeletions.length > 0) syncSummary.push(`${unifiedPayload.bibliographyDeletions.length} bibliography deletions`);
   if (unifiedPayload.library) syncSummary.push('library record');
@@ -212,7 +214,7 @@ async function syncItemsForBook(bookId, bookItems) {
   const historyLogPayload = {
     book: bookId,
     updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], bibliography: [], library: null },
-    deletions: { nodes: [], hyperlights: [], hypercites: [], bibliography: [], library: null },
+    deletions: { nodes: [], hyperlights: [], hypercites: [], footnotes: [], bibliography: [], library: null },
   };
 
   // Populate the history payload directly from the queued items
@@ -301,7 +303,7 @@ async function syncItemsForBook(bookId, bookItems) {
     const syncPayload = {
       book: bookId,
       updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], bibliography: [], library: null },
-      deletions: { nodes: [], hyperlights: [], hypercites: [], bibliography: [] },
+      deletions: { nodes: [], hyperlights: [], hypercites: [], footnotes: [], bibliography: [] },
     };
     for (const item of bookItems.values()) {
       if (item.type === "update" && item.data) {
@@ -318,6 +320,7 @@ async function syncItemsForBook(bookId, bookItems) {
           case "nodes": syncPayload.deletions.nodes.push({ ...item.data, _action: "delete" }); break;
           case "hyperlights": syncPayload.deletions.hyperlights.push({ ...item.data, _action: "delete" }); break;
           case "hypercites": syncPayload.deletions.hypercites.push({ ...item.data, _action: "delete" }); break;
+          case "footnotes": syncPayload.deletions.footnotes.push({ ...item.data, _action: "delete" }); break;
           case "bibliography": syncPayload.deletions.bibliography.push({ ...item.data, _action: "delete" }); break;
         }
       } else if (item.type === "hide" && item.data) {

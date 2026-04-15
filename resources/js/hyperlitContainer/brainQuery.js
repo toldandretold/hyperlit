@@ -146,23 +146,11 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     cancelBtn.style.display = 'none';
     scopeBtns.forEach(b => b.disabled = true);
 
-    // Show progressive status messages
     statusEl.style.display = 'block';
-    statusEl.textContent = 'Analysing your question...';
-    const statusTimers = [];
-    statusTimers.push(setTimeout(() => {
-      statusEl.textContent = 'Searching for relevant source material...';
-    }, 2000));
-    statusTimers.push(setTimeout(() => {
-      statusEl.textContent = 'Generating scholarly analysis...';
-    }, 5000));
-    statusTimers.push(setTimeout(() => {
-      statusEl.textContent = 'Still working — synthesizing sources...';
-    }, 12000));
+    statusEl.textContent = 'Sending to archivist...';
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     if (!csrfToken) {
-      statusTimers.forEach(t => clearTimeout(t));
       statusEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
       modelSelect.disabled = false;
@@ -174,13 +162,51 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
     brainRequestInFlight = true;
 
+    const resetInputs = () => {
+      annotation.contentEditable = 'true';
+      modelSelect.disabled = false;
+      submitBtn.disabled = false;
+      cancelBtn.style.display = '';
+      scopeBtns.forEach(b => b.disabled = false);
+    };
+
+    const showBillingError = (msg) => {
+      statusEl.innerHTML = '';
+      statusEl.textContent = msg;
+      const topUpBtn = document.createElement('a');
+      topUpBtn.href = '#';
+      topUpBtn.textContent = 'Top Up Balance';
+      topUpBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;font-weight:500;';
+      topUpBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const resp = await fetch('/api/billing/checkout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
+            },
+            credentials: 'include',
+            body: JSON.stringify({ amount: 5, return_url: window.location.href }),
+          });
+          const d = await resp.json();
+          if (d.checkout_url) window.location.href = d.checkout_url;
+        } catch (err) {
+          console.warn('Top-up checkout failed:', err);
+        }
+      });
+      statusEl.appendChild(document.createElement('br'));
+      statusEl.appendChild(topUpBtn);
+    };
+
     try {
       const response = await fetch('/api/ai-brain/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-TOKEN': csrfToken,
-          'Accept': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           selectedText,
@@ -194,51 +220,72 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         }),
       });
 
-      brainRequestInFlight = false;
-      statusTimers.forEach(t => clearTimeout(t));
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      // Pre-stream errors (auth, billing, validation) come back as JSON
+      if (!response.ok) {
+        brainRequestInFlight = false;
+        let data;
+        try { data = await response.json(); } catch { data = {}; }
         const msg = data.message || 'AI query failed';
-        if (response.status === 504) {
+        if (response.status === 402) {
+          showBillingError(msg);
+        } else if (response.status === 504) {
           statusEl.textContent = 'The AI took too long. Please try again.';
-        } else if (response.status === 402) {
-          statusEl.innerHTML = '';
-          statusEl.textContent = msg;
-          const topUpBtn = document.createElement('a');
-          topUpBtn.href = '#';
-          topUpBtn.textContent = 'Top Up Balance';
-          topUpBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;font-weight:500;';
-          topUpBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-              const resp = await fetch('/api/billing/checkout', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                  'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
-                },
-                credentials: 'include',
-                body: JSON.stringify({ amount: 5, return_url: window.location.href }),
-              });
-              const d = await resp.json();
-              if (d.checkout_url) window.location.href = d.checkout_url;
-            } catch (err) {
-              console.warn('Top-up checkout failed:', err);
-            }
-          });
-          statusEl.appendChild(document.createElement('br'));
-          statusEl.appendChild(topUpBtn);
         } else {
           statusEl.textContent = msg;
         }
-        annotation.contentEditable = 'true';
-        modelSelect.disabled = false;
-        submitBtn.disabled = false;
-        cancelBtn.style.display = '';
-        scopeBtns.forEach(b => b.disabled = false);
+        resetInputs();
+        return;
+      }
+
+      // Read SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let data = null;
+      let streamError = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        let eventType = 'message';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (eventType === 'status') {
+                statusEl.textContent = parsed.message;
+              } else if (eventType === 'error') {
+                streamError = parsed.message || 'AI query failed';
+              } else if (eventType === 'result') {
+                data = parsed;
+              }
+            } catch (e) {
+              console.warn('BrainQuery: failed to parse SSE data:', line);
+            }
+            eventType = 'message';
+          }
+        }
+      }
+
+      brainRequestInFlight = false;
+
+      // Handle stream-level errors
+      if (streamError) {
+        statusEl.textContent = streamError;
+        resetInputs();
+        return;
+      }
+
+      if (!data || !data.success) {
+        statusEl.textContent = (data && data.message) || 'AI query failed';
+        resetInputs();
         return;
       }
 
@@ -279,14 +326,9 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
     } catch (error) {
       brainRequestInFlight = false;
-      statusTimers.forEach(t => clearTimeout(t));
       console.error('BrainQuery: Fetch error:', error);
       statusEl.textContent = 'Network error. Try again.';
-      annotation.contentEditable = 'true';
-      modelSelect.disabled = false;
-      submitBtn.disabled = false;
-      cancelBtn.style.display = '';
-      scopeBtns.forEach(b => b.disabled = false);
+      resetInputs();
     }
   };
 

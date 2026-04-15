@@ -7,6 +7,8 @@ import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHi
 import { attachMarkListeners } from './listeners.js';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
 import { getCascadeOriginId } from '../scrolling.js';
+import { buildSubBookId } from '../utilities/subBookIdHelper.js';
+import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup.js';
 
 /**
  * Unwrap a mark element, preserving its content
@@ -140,6 +142,15 @@ export async function deleteHighlightById(highlightId) {
     // Queue for server sync
     if (deletedHyperlight) {
       queueForSync("hyperlights", highlightId, "delete", deletedHyperlight);
+    }
+
+    // Clean up sub-book content from IndexedDB
+    try {
+      const subBookId = buildSubBookId(bookId, highlightId);
+      await deleteBookFromIndexedDB(subBookId);
+      console.log(`🧹 Cleaned up sub-book: ${subBookId}`);
+    } catch (e) {
+      console.warn(`Sub-book cleanup failed (non-fatal):`, e);
     }
 
     // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
