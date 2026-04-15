@@ -82,10 +82,12 @@ class AiBrainController extends Controller
             ], 422);
         }
 
+        // Fireworks model addresses:
+        // accounts/fireworks/models/deepseek-v3p2
+        // accounts/fireworks/models/llama-v3p3-70b-instruct
+        // accounts/fireworks/models/minimax-m2p5
         $allowedModels = [
             'accounts/fireworks/models/deepseek-v3p2',
-            'accounts/fireworks/models/llama-v3p3-70b-instruct',
-            'accounts/fireworks/models/minimax-m2p5',
         ];
         $brainModel = in_array($validated['model'] ?? null, $allowedModels)
             ? $validated['model']
@@ -94,8 +96,6 @@ class AiBrainController extends Controller
         // Model label lookup for status messages
         $modelLabels = [
             'accounts/fireworks/models/deepseek-v3p2' => 'DeepSeek V3.2',
-            'accounts/fireworks/models/llama-v3p3-70b-instruct' => 'Llama 3.3 70B',
-            'accounts/fireworks/models/minimax-m2p5' => 'MiniMax M2.5',
         ];
         $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
 
@@ -837,31 +837,67 @@ PROMPT;
     {
         $hypercites = [];
 
+        // Strip hallucinated citation markup the LLM sometimes copies into its output
+        $html = preg_replace('/<sup[^>]*class=["\']open-icon["\'][^>]*>.*?<\/sup>/i', '', $html);
+        $html = preg_replace('/\x{2197}|&nearr;/u', '', $html);
+
+        // Deduplicate consecutive identical citations: [1][1][1] → [1]
+        $html = preg_replace('/(\[\d+\])(?:\s*\1)+/', '$1', $html);
+
+        // Extract quoted text near each citation for smart charData
+        $quotedTextMap = $this->extractQuotesNearCitations($html, $matches);
+
+        // Track seen citations globally so non-consecutive dupes are also removed
+        $seenCitations = [];
+
         $processedHtml = preg_replace_callback(
             '/\[(\d+)\]/',
-            function ($m) use (&$hypercites, $matches, $subBookId, $user) {
-                $index = (int) $m[1] - 1; // LLM uses 1-indexed, array is 0-indexed
+            function ($m) use (&$hypercites, &$seenCitations, $matches, $subBookId, $user, $quotedTextMap) {
+                $citationNum = (int) $m[1];
+                $index = $citationNum - 1; // LLM uses 1-indexed, array is 0-indexed
 
                 if ($index < 0 || $index >= count($matches)) {
                     return $m[0];
                 }
 
+                // Global dedup: first occurrence wins, subsequent ones are burned
+                if (isset($seenCitations[$citationNum])) {
+                    return '';
+                }
+                $seenCitations[$citationNum] = true;
+
                 $match = $matches[$index];
                 $hyperciteId = 'hypercite_' . Str::random(8);
 
                 $plainText = $match->plainText ?? '';
+
+                // Smart charData: use quoted text range if available, else full node
+                $charStart = 0;
+                $charEnd = mb_strlen($plainText);
+                $hypercitedText = Str::limit($plainText, 300);
+
+                if (isset($quotedTextMap[$citationNum]) && $plainText !== '') {
+                    $quoted = $quotedTextMap[$citationNum];
+                    $pos = mb_strpos($plainText, $quoted);
+                    if ($pos !== false) {
+                        $charStart = $pos;
+                        $charEnd = $pos + mb_strlen($quoted);
+                        $hypercitedText = Str::limit($quoted, 300);
+                    }
+                }
+
                 $hyperciteData = [
                     'book'               => $match->book,
                     'hyperciteId'        => $hyperciteId,
                     'node_id'            => json_encode([$match->node_id]),
                     'charData'           => json_encode([
                         $match->node_id => [
-                            'charStart' => 0,
-                            'charEnd'   => mb_strlen($plainText),
+                            'charStart' => $charStart,
+                            'charEnd'   => $charEnd,
                         ],
                     ]),
                     'citedIN'            => json_encode(["/{$subBookId}#{$hyperciteId}"]),
-                    'hypercitedText'     => Str::limit($plainText, 300),
+                    'hypercitedText'     => $hypercitedText,
                     'relationshipStatus' => 'couple',
                     'creator'            => 'AIarchivist',
                     'access_granted'     => json_encode([$user->name => 'co-author']),
@@ -881,6 +917,83 @@ PROMPT;
         );
 
         return [$processedHtml, $hypercites];
+    }
+
+    /**
+     * Find quoted text near each [N] citation in the LLM output.
+     * Returns a map: citation_number => quoted_string (verified to exist in source plainText).
+     */
+    private function extractQuotesNearCitations(string $html, array $matches): array
+    {
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Find all [N] positions in the plain text
+        $citationPositions = [];
+        if (preg_match_all('/\[(\d+)\]/', $text, $cMatches, PREG_OFFSET_CAPTURE)) {
+            foreach ($cMatches[0] as $i => $fullMatch) {
+                $num = (int) $cMatches[1][$i][0];
+                // Use mb-safe offset: convert byte offset to character offset
+                $byteOffset = $fullMatch[1];
+                $charOffset = mb_strlen(substr($text, 0, $byteOffset));
+                $citationPositions[] = ['num' => $num, 'pos' => $charOffset];
+            }
+        }
+
+        // Find all quoted strings (straight or curly quotes, min 10 chars)
+        $quotes = [];
+        if (preg_match_all('/["\x{201C}](.{10,}?)["\x{201D}]/u', $text, $qMatches, PREG_OFFSET_CAPTURE)) {
+            foreach ($qMatches[1] as $qMatch) {
+                $byteOffset = $qMatch[1];
+                $charOffset = mb_strlen(substr($text, 0, $byteOffset));
+                $quoteText = $qMatch[0];
+                $quotes[] = ['text' => $quoteText, 'pos' => $charOffset, 'len' => mb_strlen($quoteText)];
+            }
+        }
+
+        if (empty($quotes)) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($citationPositions as $citation) {
+            $num = $citation['num'];
+            $cPos = $citation['pos'];
+
+            // Skip if already mapped (first occurrence wins)
+            if (isset($map[$num])) {
+                continue;
+            }
+
+            $index = $num - 1;
+            if ($index < 0 || $index >= count($matches)) {
+                continue;
+            }
+
+            $sourcePlainText = $matches[$index]->plainText ?? '';
+            if ($sourcePlainText === '') {
+                continue;
+            }
+
+            // Find the nearest quote within ~150 chars of the citation
+            $bestQuote = null;
+            $bestDist = PHP_INT_MAX;
+            foreach ($quotes as $q) {
+                // Distance from end of quote to citation, or citation to start of quote
+                $quoteEnd = $q['pos'] + $q['len'];
+                $dist = min(abs($cPos - $quoteEnd), abs($q['pos'] - $cPos));
+                if ($dist < $bestDist && $dist <= 150) {
+                    $bestDist = $dist;
+                    $bestQuote = $q['text'];
+                }
+            }
+
+            // Verify quote exists in the source passage
+            if ($bestQuote !== null && mb_strpos($sourcePlainText, $bestQuote) !== false) {
+                $map[$num] = $bestQuote;
+            }
+        }
+
+        return $map;
     }
 
     /**

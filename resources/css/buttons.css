@@ -1967,7 +1967,8 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
 }
 .brain-info-detail {
   display: block;
-  font-size: 11px;
+  font-weight: normal;
+  font-size: 14px;
   color: var(--color-text);
   margin-top: 0.3em;
   line-height: 1.4;

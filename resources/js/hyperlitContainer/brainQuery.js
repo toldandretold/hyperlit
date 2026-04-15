@@ -6,12 +6,6 @@
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 import { isLoggedIn } from '../utilities/auth.js';
 
-const BRAIN_MODELS = [
-  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek V3.2 \ud83e\uddbe \u00b7 Default', cost: '\u22643\u00a2' },
-  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',               cost: '\u22643\u00a2' },
-  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5 \ud83e\udd11',                cost: '\u22642\u00a2' },
-];
-
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
 let pendingBrainHighlightId = null;
@@ -92,18 +86,11 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
     <div class="brain-query-section">
-      <h1>Ask AI Archivist</h1>
-      <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
-      <div class="brain-section-label">
-        Choose AI Slave
-        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="AI Slave info">?</span>
-        <span class="brain-info-detail" style="display:none;">
-          Your question is first mediated by DeepSeek, which decides whether the prompt, and contextualised text selection, requires further sources. DeepSeek extracts key words and text for vector embeddings, which are used to pull related content from the hyperlit library. The results of this archival work are analysed by your chosen model. This analysis is then hypercited, so that it connects to the source material.
-        </span>
+      <h1>Ask AI Archivist <span class="brain-info-toggle" tabindex="0" role="button" aria-label="AI Archivist info">?</span></h1>
+      <div class="brain-info-detail brain-archivist-info" style="display:none;">
+        Your question is first mediated by DeepSeek, which decides whether the prompt, and contextualised text selection, requires further sources. If necessary, DeepSeek extracts key words and text for vector embeddings, which are used to pull related content from the hyperlit library. The results of this archival work are analysed and then hypercited, so that it connects to the source material.
       </div>
-      <select class="brain-model-select">
-        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label} \u2248 ${m.cost}</option>`).join('\n        ')}
-      </select>
+      <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
       <div class="brain-section-label">
         Limit archival search to:
         <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Scope info">?</span>
@@ -131,7 +118,6 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   const section = scroller.querySelector('.brain-query-section');
   const annotation = section.querySelector('.brain-query-annotation');
-  const modelSelect = section.querySelector('.brain-model-select');
   const submitBtn = section.querySelector('.brain-submit-btn');
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
@@ -139,7 +125,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   // Wire up all "?" info toggles
   section.querySelectorAll('.brain-info-toggle').forEach(toggle => {
-    const detail = toggle.nextElementSibling;
+    let detail = toggle.nextElementSibling;
+    if (!detail || !detail.classList.contains('brain-info-detail')) {
+      detail = toggle.parentElement.nextElementSibling;
+    }
     if (detail && detail.classList.contains('brain-info-detail')) {
       toggle.addEventListener('click', () => {
         const open = detail.style.display === 'none';
@@ -147,9 +136,6 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       });
     }
   });
-
-  // Return focus to text input after model selection
-  modelSelect.addEventListener('change', () => annotation.focus());
 
   // Scope toggle — only one active at a time
   scopeBtns.forEach(btn => {
@@ -191,10 +177,8 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     if (!question) return;
 
     // Disable input
-    const selectedModel = modelSelect.value;
     const sourceScope = section.querySelector('.brain-scope-btn.active').dataset.scope;
     annotation.contentEditable = 'false';
-    modelSelect.disabled = true;
     submitBtn.disabled = true;
     cancelBtn.style.display = 'none';
     scopeBtns.forEach(b => b.disabled = true);
@@ -206,7 +190,6 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     if (!csrfToken) {
       statusEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
-      modelSelect.disabled = false;
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
       scopeBtns.forEach(b => b.disabled = false);
@@ -217,7 +200,6 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
     const resetInputs = () => {
       annotation.contentEditable = 'true';
-      modelSelect.disabled = false;
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
       scopeBtns.forEach(b => b.disabled = false);
@@ -268,7 +250,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
           highlightId,
           nodeIds: Array.isArray(nodeIds) ? nodeIds : Object.keys(charData),
           charData,
-          model: selectedModel,
+          model: 'accounts/fireworks/models/deepseek-v3p2',
           sourceScope,
         }),
       });
