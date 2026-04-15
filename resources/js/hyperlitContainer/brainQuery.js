@@ -95,8 +95,8 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       <h1>Ask AI Archivist</h1>
       <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
       <div class="brain-section-label">
-        Choose neural engine
-        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Engine info">?</span>
+        Choose AI Slave
+        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="AI Slave info">?</span>
         <span class="brain-info-detail" style="display:none;">
           Your question is first mediated by DeepSeek, which decides whether the prompt, and contextualised text selection, requires further sources. DeepSeek extracts key words and text for vector embeddings, which are used to pull related content from the hyperlit library. The results of this archival work are analysed by your chosen model. This analysis is then hypercited, so that it connects to the source material.
         </span>
