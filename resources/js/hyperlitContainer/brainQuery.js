@@ -4,16 +4,17 @@
  */
 
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
+import { isLoggedIn } from '../utilities/auth.js';
 
 const BRAIN_MODELS = [
-  { id: 'accounts/fireworks/models/deepseek-v3p2',          label: 'DeepSeek v3.2 \u00b7 Default', cost: '$0.56/$1.68' },
-  { id: 'accounts/fireworks/models/deepseek-v3p1',          label: 'DeepSeek V3.1',                cost: '$0.56/$1.68' },
-  { id: 'accounts/fireworks/models/qwen3p6-plus',           label: 'Qwen3.6 Plus',                 cost: '$0.50/$3.00' },
-  { id: 'accounts/fireworks/models/kimi-k2p5',              label: 'Kimi K2.5',                    cost: '$0.60/$3.00' },
-  { id: 'accounts/fireworks/models/kimi-k2-instruct',       label: 'Kimi K2 Instruct',             cost: '$0.60/$2.50' },
-  { id: 'accounts/cogito/models/cogito-671b-v2-p1',         label: 'Cogito 671B \u00b7 Smartest',  cost: '$1.20/$1.20' },
-  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \u00b7 Fastest', cost: '$0.90/$0.90' },
-  { id: 'accounts/fireworks/models/minimax-m2p5',           label: 'MiniMax M2.5',                 cost: '$0.30/$1.20' },
+  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek v3.2 \u00b7 Default',  cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/deepseek-v3p1',           label: 'DeepSeek V3.1',             cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/qwen3p6-plus',            label: 'Qwen3.6 Plus',              cost: '\u22641\u00a2' },
+  { id: 'accounts/fireworks/models/kimi-k2p5',               label: 'Kimi K2.5',                 cost: '\u22641\u00a2' },
+  { id: 'accounts/fireworks/models/kimi-k2-instruct',        label: 'Kimi K2 Instruct',          cost: '\u22641\u00a2' },
+  { id: 'accounts/cogito/models/cogito-671b-v2-p1',          label: 'Cogito 671B \ud83e\uddbe',            cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',          cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5',              cost: '<1\u00a2' },
 ];
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
@@ -55,29 +56,75 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     return;
   }
 
+  const highlightId = highlight.hyperlight_id;
+
+  // Mark this highlight as pending cleanup immediately — before any early returns.
+  // cleanupPendingBrainHighlight() (called from core.js on container close) will
+  // delete it unless a successful query clears the flag later.
+  pendingBrainHighlightId = highlightId;
+
+  // Auth gate — unauthenticated users cannot use the AI Archivist
+  const loggedIn = await isLoggedIn();
+  if (!loggedIn) {
+    scroller.innerHTML = `
+      <div class="brain-query-section">
+        <h1>Ask AI Archivist</h1>
+        <p class="brain-auth-message">You need to <a class="brain-auth-link brain-auth-login-link">log in</a> or <a class="brain-auth-link brain-auth-register-link">register</a> to use the AI Archivist.</p>
+      </div>`;
+
+    scroller.querySelector('.brain-auth-login-link').addEventListener('click', async () => {
+      const { saveAndCloseHyperlitContainer } = await import('./core.js');
+      await saveAndCloseHyperlitContainer();
+      const { initializeUserContainer } = await import('../components/userContainer.js');
+      const mgr = initializeUserContainer();
+      if (mgr) mgr.showLoginForm();
+    });
+    scroller.querySelector('.brain-auth-register-link').addEventListener('click', async () => {
+      const { saveAndCloseHyperlitContainer } = await import('./core.js');
+      await saveAndCloseHyperlitContainer();
+      const { initializeUserContainer } = await import('../components/userContainer.js');
+      const mgr = initializeUserContainer();
+      if (mgr) mgr.showRegisterForm();
+    });
+    return;
+  }
+
   const bookId = highlight.book;
   const selectedText = highlight.highlightedText || '';
   const charData = highlight.charData || {};
   const nodeIds = highlight.node_id ? (Array.isArray(highlight.node_id) ? highlight.node_id : JSON.parse(highlight.node_id || '[]')) : [];
-  const highlightId = highlight.hyperlight_id;
-
-  // Mark this highlight as pending — will be cleaned up on container close
-  // unless the query succeeds (at which point we clear it).
-  pendingBrainHighlightId = highlightId;
 
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
     <div class="brain-query-section">
       <h1>Ask AI Archivist</h1>
       <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
+      <div class="brain-section-label">
+        Choose neural engine
+        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Engine info">?</span>
+        <span class="brain-info-detail" style="display:none;">
+          Your question is first mediated by DeepSeek, which decides whether the prompt, and contextualised text selection, requires further sources. DeepSeek extracts key words and text for vector embeddings, which are used to pull related content from the hyperlit library. The results of this archival work are analysed by your chosen model. This analysis is then hypercited, so that it connects to the source material.
+        </span>
+      </div>
       <select class="brain-model-select">
-        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label} (${m.cost})</option>`).join('\n        ')}
+        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label}: ${m.cost}</option>`).join('\n        ')}
       </select>
+      <div class="brain-section-label">
+        Limit archival search to:
+        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Scope info">?</span>
+        <span class="brain-info-detail" style="display:none;">
+          The Archival Assistant may pull sources from across the hyperlit library. Limit the scope of these searches to:<br>
+          <strong>Public</strong>: All publicly available hypertext<br>
+          <strong>Private</strong>: books you imported into your library, including private ones.<br>
+          <strong>All</strong>: Both public and private books.<br>
+          <strong>Here</strong>: only this hypertext.
+        </span>
+      </div>
       <div class="brain-scope-toggle">
         <button type="button" class="brain-scope-btn active" data-scope="public">Public</button>
         <button type="button" class="brain-scope-btn" data-scope="mine">Personal</button>
         <button type="button" class="brain-scope-btn" data-scope="all">All</button>
-        <button type="button" class="brain-scope-btn" data-scope="this">This Book</button>
+        <button type="button" class="brain-scope-btn" data-scope="this">Here</button>
       </div>
       <div class="brain-action-row">
         <button type="button" class="brain-submit-btn">Ask</button>
@@ -94,6 +141,17 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
   const scopeBtns = section.querySelectorAll('.brain-scope-btn');
+
+  // Wire up all "?" info toggles
+  section.querySelectorAll('.brain-info-toggle').forEach(toggle => {
+    const detail = toggle.nextElementSibling;
+    if (detail && detail.classList.contains('brain-info-detail')) {
+      toggle.addEventListener('click', () => {
+        const open = detail.style.display === 'none';
+        detail.style.display = open ? 'block' : 'none';
+      });
+    }
+  });
 
   // Return focus to text input after model selection
   modelSelect.addEventListener('change', () => annotation.focus());

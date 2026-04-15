@@ -1947,6 +1947,41 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   font-style: italic;
   font-size: 13px;
 }
+.brain-section-label {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  margin-top: 0.75em;
+  margin-bottom: 0.25em;
+}
+.brain-info-toggle {
+  cursor: pointer;
+  display: inline-block;
+  width: 14px; height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 50%, transparent);
+  font-size: 9px;
+  vertical-align: middle;
+  margin-left: 3px;
+}
+.brain-info-detail {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text);
+  margin-top: 0.3em;
+  line-height: 1.4;
+}
+.brain-auth-message {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  line-height: 1.5;
+}
+.brain-auth-message a {
+  color: var(--icon-stroke-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
 /* end brain query */
 
 /*
