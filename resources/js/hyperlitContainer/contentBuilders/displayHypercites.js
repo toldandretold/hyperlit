@@ -9,6 +9,7 @@ import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../../utilities/auth.js";
 import DOMPurify from 'dompurify';
+import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
 
 /**
  * Validate URL to prevent javascript: and other dangerous protocols
@@ -205,15 +206,31 @@ export async function buildHyperciteContent(contentType, db = null) {
         const hasHyperciteInUrl = citationParts.length > 1;
         const hyperciteIdFromUrl = hasHyperciteInUrl ? citationParts[1] : null;
 
-        // Extract content item ID for footnote/hyperlight health checks
+        // Extract content item ID and sub-book ID for footnote/hyperlight health checks
+        // Find the **last** Fn*/HL_* segment — this is the deepest content item
+        const allPathParts = urlPart.split("/").filter(p => p);
+        let lastItemIndex = -1;
+        for (let i = allPathParts.length - 1; i >= 0; i--) {
+          if (allPathParts[i].startsWith("HL_") || /^Fn\d/.test(allPathParts[i])) {
+            lastItemIndex = i;
+            break;
+          }
+        }
+
         let contentType = 'node';
         let contentItemId = '';
-        if (isFootnoteURL) {
+        let subBookId = '';
+
+        if (lastItemIndex >= 0) {
+          const lastItem = allPathParts[lastItemIndex];
+          contentType = lastItem.startsWith("HL_") ? 'hyperlight' : 'footnote';
+          contentItemId = lastItem;
+          const parentBook = allPathParts.slice(0, lastItemIndex).join('/');
+          subBookId = buildSubBookId(parentBook, lastItem);
+        } else if (isFootnoteURL) {
+          // Legacy format: /bookId_FnN (underscore, single segment)
           contentType = 'footnote';
           contentItemId = extractContentIdFromUrl(urlPart, true, false) || '';
-        } else if (isHyperlightURL) {
-          contentType = 'hyperlight';
-          contentItemId = extractContentIdFromUrl(urlPart, false, true) || '';
         }
 
         return {
@@ -225,7 +242,8 @@ export async function buildHyperciteContent(contentType, db = null) {
           hasHyperciteInUrl,
           hyperciteIdFromUrl,
           contentType,
-          contentItemId
+          contentItemId,
+          subBookId
         };
       });
 
@@ -257,7 +275,7 @@ export async function buildHyperciteContent(contentType, db = null) {
       // 🚀 PERFORMANCE: Process all citations with cached library data
       const linksHTML = await Promise.all(
         citationMetadata.map(async (meta) => {
-          const { citationID, hyperciteId, bookID, isHyperlightURL, isFootnoteURL, hasHyperciteInUrl, hyperciteIdFromUrl, contentType, contentItemId } = meta;
+          const { citationID, hyperciteId, bookID, isHyperlightURL, isFootnoteURL, hasHyperciteInUrl, hyperciteIdFromUrl, contentType, contentItemId, subBookId } = meta;
 
           // 🚀 PERFORMANCE: Skip permission check during initial render (deferred to post-render)
           // Add placeholder for management buttons that will be injected asynchronously
@@ -266,7 +284,7 @@ export async function buildHyperciteContent(contentType, db = null) {
             // Use hyperciteId (the actual owner of this citedIN link) not originalHyperciteId (the clicked hypercite)
             // This matters for overlapping hypercites where citations from different sources are displayed together
             managementButtonsHtml = `
-      <span class="hypercite-management-buttons" data-book-id="${bookID}" data-citation-url="${citationID}" data-hypercite-id="${hyperciteIdFromUrl}" data-source-hypercite-id="${hyperciteId}" data-content-type="${contentType}" data-content-item-id="${contentItemId}">
+      <span class="hypercite-management-buttons" data-book-id="${bookID}" data-citation-url="${citationID}" data-hypercite-id="${hyperciteIdFromUrl}" data-source-hypercite-id="${hyperciteId}" data-content-type="${contentType}" data-content-item-id="${contentItemId}" data-sub-book-id="${subBookId}">
         <!-- Buttons will be injected after permission check -->
       </span>
     `;
@@ -359,7 +377,7 @@ ${linksHTML.join("")}
  * @param {string} hyperciteId - The hypercite ID to search for (e.g., "hypercite_zlpx0209")
  * @returns {Promise<{exists: boolean, chunkKey: string|null}>}
  */
-export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'node', contentItemId = null) {
+export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'node', contentItemId = null, subBookId = '') {
   try {
     console.log(`🔍 Checking if hypercite ${hyperciteId} exists in book ${bookId} (type=${contentType}, itemId=${contentItemId})`);
 
@@ -407,11 +425,32 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           console.log(`✅ Found hypercite ${hyperciteId} in active footnote ${contentItemId}`);
           return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
         }
-        console.log(`❌ Hypercite ${hyperciteId} not found in footnote ${contentItemId}`);
-        return { exists: false, chunkKey: null };
+        // Footnote content doesn't contain the hypercite — fall through to sub-book check
       }
 
-      // Fallback to PostgreSQL if footnote not in IndexedDB
+      // Check sub-book nodes in IndexedDB (footnote-as-sub-book)
+      if (subBookId) {
+        console.log(`🔍 Footnote content check missed — checking sub-book nodes for ${subBookId}`);
+        const fnSubBookTx = db.transaction('nodes', 'readonly');
+        const fnSubBookStore = fnSubBookTx.objectStore('nodes');
+        const fnSubBookIndex = fnSubBookStore.index('book');
+        const fnSubBookNodes = await new Promise((resolve, reject) => {
+          const req = fnSubBookIndex.getAll(subBookId);
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+
+        console.log(`📚 Found ${fnSubBookNodes.length} sub-book nodes for footnote ${subBookId}`);
+
+        for (const node of fnSubBookNodes) {
+          if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+            console.log(`✅ Found hypercite ${hyperciteId} in footnote sub-book node (${subBookId})`);
+            return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+          }
+        }
+      }
+
+      // Fallback to PostgreSQL if not found in IndexedDB
       console.log(`📡 Footnote not in IndexedDB, checking PostgreSQL for book ${bookId}`);
       try {
         const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
@@ -447,6 +486,19 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
               return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
             }
           }
+
+          // Check sub-book nodes in PostgreSQL
+          if (subBookId) {
+            const pgNodes = data.nodes || [];
+            const pgFnSubBookNodes = pgNodes.filter(n => n.book === subBookId);
+            console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
+            for (const node of pgFnSubBookNodes) {
+              if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
+                return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching footnote from PostgreSQL:', error);
@@ -478,24 +530,24 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
       // 2. Check sub-book nodes in IndexedDB
       // When a hyperlight's annotation becomes a sub-book, content is stored as nodes
-      // under the sub-book ID (e.g., "BookName/HL_123"), not in the annotation field
-      const subBookId = `${bookId}/${contentItemId}`;
-      console.log(`🔍 Annotation check missed — checking sub-book nodes for ${subBookId}`);
+      // under the sub-book ID — use the passed-in subBookId which handles all nesting depths
+      const hlSubBookId = subBookId || `${bookId}/${contentItemId}`;
+      console.log(`🔍 Annotation check missed — checking sub-book nodes for ${hlSubBookId}`);
 
       const subBookTx = db.transaction('nodes', 'readonly');
       const subBookNodesStore = subBookTx.objectStore('nodes');
       const subBookIndex = subBookNodesStore.index('book');
       const subBookNodes = await new Promise((resolve, reject) => {
-        const req = subBookIndex.getAll(subBookId);
+        const req = subBookIndex.getAll(hlSubBookId);
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
 
-      console.log(`📚 Found ${subBookNodes.length} sub-book nodes for ${subBookId}`);
+      console.log(`📚 Found ${subBookNodes.length} sub-book nodes for ${hlSubBookId}`);
 
       for (const node of subBookNodes) {
         if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-          console.log(`✅ Found hypercite ${hyperciteId} in sub-book node (${subBookId})`);
+          console.log(`✅ Found hypercite ${hyperciteId} in sub-book node (${hlSubBookId})`);
           return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
         }
       }
@@ -526,11 +578,11 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
           // Check sub-book nodes in PostgreSQL data
           const pgNodes = data.nodes || [];
-          const pgSubBookNodes = pgNodes.filter(n => n.book === subBookId);
-          console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${subBookId}`);
+          const pgSubBookNodes = pgNodes.filter(n => n.book === hlSubBookId);
+          console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
           for (const node of pgSubBookNodes) {
             if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${subBookId})`);
+              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${hlSubBookId})`);
               return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
             }
           }
@@ -659,6 +711,7 @@ export async function handleManageCitationsClick(event) {
     const sourceHyperciteId = placeholder.dataset.sourceHyperciteId;
     const contentType = placeholder.dataset.contentType || 'node';
     const contentItemId = placeholder.dataset.contentItemId || '';
+    const subBookId = placeholder.dataset.subBookId || '';
 
     // Everyone gets health check button
     let html = `
@@ -668,6 +721,7 @@ export async function handleManageCitationsClick(event) {
               data-citation-url="${citationUrl}"
               data-content-type="${contentType}"
               data-content-item-id="${contentItemId}"
+              data-sub-book-id="${subBookId}"
               title="Check if citation exists"
               type="button">
         <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
@@ -732,13 +786,14 @@ export async function handleHyperciteHealthCheck(event) {
   const hyperciteId = button.getAttribute('data-hypercite-id');
   const contentType = button.getAttribute('data-content-type') || 'node';
   const contentItemId = button.getAttribute('data-content-item-id') || '';
+  const subBookId = button.getAttribute('data-sub-book-id') || '';
 
   if (!citingBook || !hyperciteId) {
     console.error('Missing data attributes on health check button');
     return;
   }
 
-  console.log(`🏥 Health check: book=${citingBook}, hypercite=${hyperciteId}, type=${contentType}, itemId=${contentItemId}`);
+  console.log(`🏥 Health check: book=${citingBook}, hypercite=${hyperciteId}, type=${contentType}, itemId=${contentItemId}, subBookId=${subBookId}`);
 
   // Find the delete button (sibling)
   const deleteButton = button.parentElement.querySelector('.hypercite-delete-btn');
@@ -747,7 +802,7 @@ export async function handleHyperciteHealthCheck(event) {
   const svg = button.querySelector('svg');
 
   // Check if hypercite exists (in nodes, footnotes, or hyperlights depending on content type)
-  const result = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId);
+  const result = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId, subBookId);
 
   // Add class to disable further interaction
   button.classList.add('health-check-complete');

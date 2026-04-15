@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\SubBookIdHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\ConnectionInterface;
@@ -240,14 +241,24 @@ class BookDeletionService
             }
         }
 
-        // Bump annotations_updated_at on affected books so clients re-fetch
-        $uniqueBooks = array_unique($affectedBooks);
-        if (!empty($uniqueBooks)) {
+        // Bump annotations_updated_at on affected books so clients re-fetch.
+        // For sub-books, also bump the foundation book — the client only checks
+        // the top-level book's timestamp during sync.
+        $booksToBump = [];
+        foreach (array_unique($affectedBooks) as $book) {
+            $booksToBump[] = $book;
+            if (str_contains($book, '/')) {
+                $booksToBump[] = SubBookIdHelper::parse($book)['foundation'];
+            }
+        }
+        $booksToBump = array_unique($booksToBump);
+
+        if (!empty($booksToBump)) {
             $now = round(microtime(true) * 1000);
-            foreach ($uniqueBooks as $bookId) {
+            foreach ($booksToBump as $bookId) {
                 DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
             }
-            Log::info('Delink: bumped annotations_updated_at', ['books' => $uniqueBooks]);
+            Log::info('Delink: bumped annotations_updated_at', ['books' => $booksToBump]);
         }
 
         return $delinkedCount;

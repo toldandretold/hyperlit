@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Auth;
 
 class DatabaseToIndexedDBController extends Controller
 {
+    // NOTE: `library`, `hypercites`, and `hyperlights` tables each have an
+    // `access_granted` jsonb column (nullable, defaults to null) for future
+    // per-content sharing/permissions checks.
+
     /**
      * Check book visibility using SECURITY DEFINER function (bypasses RLS).
      * This allows distinguishing between "book doesn't exist" and "book exists but is private".
