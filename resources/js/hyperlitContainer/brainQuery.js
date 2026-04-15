@@ -7,9 +7,9 @@ import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 import { isLoggedIn } from '../utilities/auth.js';
 
 const BRAIN_MODELS = [
-  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek V3.2 \ud83e\uddbe \u00b7 Default', cost: '\u22641\u00a2' },
-  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',               cost: '\u22641\u00a2' },
-  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5 \ud83e\udd11',                cost: '<1\u00a2' },
+  { id: 'accounts/fireworks/models/deepseek-v3p2',           label: 'DeepSeek V3.2 \ud83e\uddbe \u00b7 Default', cost: '\u22643\u00a2' },
+  { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B \ud83d\udca8',               cost: '\u22643\u00a2' },
+  { id: 'accounts/fireworks/models/minimax-m2p5',            label: 'MiniMax M2.5 \ud83e\udd11',                cost: '\u22642\u00a2' },
 ];
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
@@ -102,7 +102,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         </span>
       </div>
       <select class="brain-model-select">
-        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label}: ${m.cost}</option>`).join('\n        ')}
+        ${BRAIN_MODELS.map((m, i) => `<option value="${m.id}"${i === 0 ? ' selected' : ''}>${m.label} \u2248 ${m.cost}</option>`).join('\n        ')}
       </select>
       <div class="brain-section-label">
         Limit archival search to:
