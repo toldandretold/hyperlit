@@ -468,17 +468,40 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         hlRequest.onerror = () => reject(hlRequest.error);
       });
 
+      // 1. Check annotation field (works for simple hyperlights that aren't sub-books)
       if (hyperlight && hyperlight.annotation && typeof hyperlight.annotation === 'string') {
         if (hyperlight.annotation.includes(idPattern)) {
-          console.log(`✅ Found hypercite ${hyperciteId} in hyperlight ${contentItemId}`);
+          console.log(`✅ Found hypercite ${hyperciteId} in hyperlight ${contentItemId} annotation`);
           return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
         }
-        console.log(`❌ Hypercite ${hyperciteId} not found in hyperlight ${contentItemId}`);
-        return { exists: false, chunkKey: null };
       }
 
-      // Fallback to PostgreSQL if hyperlight not in IndexedDB
-      console.log(`📡 Hyperlight not in IndexedDB, checking PostgreSQL for book ${bookId}`);
+      // 2. Check sub-book nodes in IndexedDB
+      // When a hyperlight's annotation becomes a sub-book, content is stored as nodes
+      // under the sub-book ID (e.g., "BookName/HL_123"), not in the annotation field
+      const subBookId = `${bookId}/${contentItemId}`;
+      console.log(`🔍 Annotation check missed — checking sub-book nodes for ${subBookId}`);
+
+      const subBookTx = db.transaction('nodes', 'readonly');
+      const subBookNodesStore = subBookTx.objectStore('nodes');
+      const subBookIndex = subBookNodesStore.index('book');
+      const subBookNodes = await new Promise((resolve, reject) => {
+        const req = subBookIndex.getAll(subBookId);
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+
+      console.log(`📚 Found ${subBookNodes.length} sub-book nodes for ${subBookId}`);
+
+      for (const node of subBookNodes) {
+        if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+          console.log(`✅ Found hypercite ${hyperciteId} in sub-book node (${subBookId})`);
+          return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+        }
+      }
+
+      // 3. Fallback to PostgreSQL — check annotation and sub-book nodes
+      console.log(`📡 Not found in IndexedDB, checking PostgreSQL for book ${bookId}`);
       try {
         const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
           method: 'GET',
@@ -491,11 +514,23 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
         if (response.ok) {
           const data = await response.json();
+          // Check annotation field in PostgreSQL hyperlights
           const hyperlights = data.hyperlights || [];
           const match = hyperlights.find(hl => hl.hyperlight_id === contentItemId);
           if (match && match.annotation && typeof match.annotation === 'string') {
             if (match.annotation.includes(idPattern)) {
               console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL hyperlight ${contentItemId}`);
+              return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+            }
+          }
+
+          // Check sub-book nodes in PostgreSQL data
+          const pgNodes = data.nodes || [];
+          const pgSubBookNodes = pgNodes.filter(n => n.book === subBookId);
+          console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${subBookId}`);
+          for (const node of pgSubBookNodes) {
+            if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${subBookId})`);
               return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
             }
           }
@@ -675,6 +710,10 @@ export async function handleManageCitationsClick(event) {
 
   console.log(`🔗 Injected management buttons for ${citingPermissionsMap.size} citing books (canEditSource=${canEditSource}, ${Array.from(citingPermissionsMap.values()).filter(Boolean).length} citing editable)`);
   console.log(`🔗 Attached ${healthCheckButtons.length} health check and ${hyperciteDeleteButtons.length} delete button listeners`);
+
+  // Auto-trigger all health checks immediately
+  console.log(`🏥 Auto-triggering ${healthCheckButtons.length} health checks...`);
+  healthCheckButtons.forEach(btn => btn.click());
 
   // Hide the manage SVG after injection
   svg.style.display = 'none';
