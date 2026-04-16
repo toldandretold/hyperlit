@@ -52,6 +52,19 @@ export function applyVibeCSS() {
   const overrides = getVibeCSS();
   if (!overrides) return;
 
+  // Separate canvas params from CSS overrides
+  const canvasParams = {};
+  const cssOverrides = {};
+  const CANVAS_PREFIX = '--vibe-canvas-';
+
+  for (const [prop, val] of Object.entries(overrides)) {
+    if (prop.startsWith(CANVAS_PREFIX)) {
+      canvasParams[prop.slice(CANVAS_PREFIX.length)] = val;
+    } else {
+      cssOverrides[prop] = val;
+    }
+  }
+
   let styleEl = document.getElementById(STYLE_ELEMENT_ID);
   if (!styleEl) {
     styleEl = document.createElement('style');
@@ -63,7 +76,7 @@ export function applyVibeCSS() {
   // Map of selector → array of CSS declarations
   const selectorMap = {};
 
-  for (const [prop, val] of Object.entries(overrides)) {
+  for (const [prop, val] of Object.entries(cssOverrides)) {
     const direct = DIRECT_KEYS[prop];
     if (direct) {
       const { selector, property, compound } = direct;
@@ -87,6 +100,24 @@ export function applyVibeCSS() {
     }
   }
 
+  // ─── Glass panels when canvas is active ───
+  // .main-content already gets glass from DIRECT_KEYS; extend it to .fixed-header
+  // so the homepage header area also has frosted glass over the canvas.
+  if (canvasParams.enabled === '1') {
+    const contentBg = cssOverrides['--vibe-content-background'] || 'rgba(0,0,0,0.85)';
+    const contentBackdrop = cssOverrides['--vibe-content-backdrop-filter'];
+
+    const headerGlass = [
+      `  background: ${contentBg};`,
+      '  border-radius: 12px;',
+    ];
+    if (contentBackdrop) {
+      headerGlass.push(`  backdrop-filter: ${contentBackdrop};`);
+      headerGlass.push(`  -webkit-backdrop-filter: ${contentBackdrop};`);
+    }
+    selectorMap['body.theme-vibe .fixed-header'] = headerGlass;
+  }
+
   let css = '';
   if (varRules.length) {
     css += `:root {\n${varRules.join('\n')}\n}\n`;
@@ -96,6 +127,13 @@ export function applyVibeCSS() {
   }
 
   styleEl.textContent = css;
+
+  // Start or stop canvas feedback loop
+  if (canvasParams.enabled === '1') {
+    import('./vibeCanvas.js').then(m => m.startVibeCanvas(canvasParams));
+  } else {
+    import('./vibeCanvas.js').then(m => m.stopVibeCanvas());
+  }
 }
 
 /**
@@ -104,6 +142,7 @@ export function applyVibeCSS() {
 export function removeVibeCSS() {
   const styleEl = document.getElementById(STYLE_ELEMENT_ID);
   if (styleEl) styleEl.textContent = '';
+  import('./vibeCanvas.js').then(m => m.stopVibeCanvas());
 }
 
 /**

@@ -113,6 +113,15 @@ class VibeCSSController extends Controller
         // Container glow
         '--vibe-container-border',
         '--vibe-container-box-shadow',
+
+        // Canvas feedback loop
+        '--vibe-canvas-enabled',
+        '--vibe-canvas-blur',
+        '--vibe-canvas-rotation',
+        '--vibe-canvas-scale',
+        '--vibe-canvas-fade',
+        '--vibe-canvas-colors',
+        '--vibe-canvas-intensity',
     ];
 
     /**
@@ -285,6 +294,22 @@ This creates a semi-transparent strip behind the text column.
 --vibe-container-border: Neon borders on glass panels (e.g. "1px solid rgba(0, 255, 65, 0.3)")
 --vibe-container-box-shadow: Glow on glass panel edges (e.g. "0 0 15px rgba(0, 255, 65, 0.1), inset 0 0 15px rgba(0, 255, 65, 0.05)")
 
+═══ CANVAS FEEDBACK LOOP ═══
+
+A recursive self-drawing canvas behind all content. Each frame redraws itself with rotation, scale, blur, and fade — creating evolving fractal/psychedelic visuals. Colored seed shapes keep the pattern alive.
+
+WHEN TO USE: Only for psychedelic, trippy, acid, cosmic, or kaleidoscope prompts. NEVER for calm, minimal, elegant, or subtle themes.
+
+--vibe-canvas-enabled: Set to "1" to activate. Omit entirely to skip canvas.
+--vibe-canvas-blur: Blur pixels per frame (0.1–3). Higher = smoother/dreamier. Default "0.5"
+--vibe-canvas-rotation: Degrees of rotation per frame (0.05–1). Creates spiral effect. Default "0.2"
+--vibe-canvas-scale: Scale factor per frame (1.001–1.01). Creates zoom/tunnel effect. Default "1.003"
+--vibe-canvas-fade: Alpha for redraw (0.8–0.98). Lower = faster trail decay. Default "0.92"
+--vibe-canvas-colors: Comma-separated hex colors for seed shapes. Falls back to --color-primary, --color-accent, --color-secondary.
+--vibe-canvas-intensity: Number of seed shapes per frame (1–8). More = denser patterns. Default "3"
+
+IMPORTANT: When canvas is enabled, .main-content becomes transparent automatically and --vibe-content-background is applied per-element (each paragraph, list, blockquote gets its own background strip). Use moderate opacity (0.7–0.85) so the canvas peeks through gaps between blocks. Still set --vibe-content-backdrop-filter (blur 12–18px) for frosted glass on each element.
+
 ═══ RULES ═══
 
 - Return ONLY a JSON object. No markdown, no code fences, no explanation.
@@ -297,6 +322,7 @@ This creates a semi-transparent strip behind the text column.
 - --gradient-hyperlit can be a wild multi-color gradient for the app's accent bar.
 - Override 15-30 variables for maximum impact. Don't touch font families or spacing unless asked.
 - For calm/subtle vibes, skip animation and glow effects. For wild vibes, use everything.
+- For psychedelic/trippy/cosmic/acid/kaleidoscope prompts, enable the canvas feedback loop. For everything else, skip it entirely (do NOT set --vibe-canvas-enabled).
 
 ═══ EXAMPLES ═══
 
@@ -308,6 +334,9 @@ Psychedelic rainbow (animated + wild):
 
 Calm ocean (subtle — no animation):
 {"--color-background": "#0a1628", "--color-text": "#c8dce8", "--vibe-body-background": "linear-gradient(180deg, #0a1628 0%, #0d2137 40%, #1a3a5c 70%, #0a1628 100%)", "--vibe-body-background-attachment": "fixed", "--vibe-content-background": "rgba(10, 22, 40, 0.6)", "--vibe-content-border-radius": "8px", "--color-primary": "#4da6c9", "--color-accent": "#7ec8e3", "--color-link": "#7ec8e3", "--container-glass-bg": "rgba(10, 22, 40, 0.7)", "--container-solid-bg": "#0d2137", "--editable-bg": "rgba(77, 166, 201, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #4da6c9, #7ec8e3, #4da6c9)"}
+
+Acid trip (canvas feedback loop):
+{"--color-background": "#0a000f", "--color-text": "#e0d0ff", "--vibe-body-background": "radial-gradient(ellipse at 30% 50%, #1a0033, #0a000f)", "--vibe-content-background": "rgba(10, 0, 15, 0.78)", "--vibe-content-backdrop-filter": "blur(16px)", "--vibe-heading-background": "linear-gradient(90deg, #ff0080, #ff00ff, #00ffff, #00ff41)", "--vibe-heading-text-shadow": "0 0 25px rgba(255, 0, 255, 0.6)", "--vibe-text-shadow": "0 0 8px rgba(200, 100, 255, 0.25)", "--vibe-link-text-shadow": "0 0 12px rgba(0, 255, 255, 0.5)", "--vibe-container-border": "1px solid rgba(255, 0, 255, 0.25)", "--vibe-container-box-shadow": "0 0 20px rgba(255, 0, 128, 0.15)", "--color-primary": "#ff00ff", "--color-accent": "#00ffff", "--color-secondary": "#00ff41", "--container-glass-bg": "rgba(10, 0, 15, 0.85)", "--container-solid-bg": "#1a0033", "--editable-bg": "rgba(255, 0, 255, 0.08)", "--gradient-hyperlit": "linear-gradient(to right, #ff0080, #ff00ff, #00ffff, #00ff41)", "--vibe-canvas-enabled": "1", "--vibe-canvas-blur": "0.8", "--vibe-canvas-rotation": "0.3", "--vibe-canvas-scale": "1.004", "--vibe-canvas-fade": "0.93", "--vibe-canvas-colors": "#ff0080,#ff00ff,#00ffff,#00ff41", "--vibe-canvas-intensity": "4"}
 PROMPT;
     }
 
