@@ -113,6 +113,15 @@ function handleBrokenImages(container) {
     const h = img.getAttribute('height');
     if (w && h) {
       img.style.aspectRatio = `${w} / ${h}`;
+    } else {
+      // Self-healing: capture dimensions on load so they persist on next save
+      img.addEventListener('load', () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          img.setAttribute('width', img.naturalWidth);
+          img.setAttribute('height', img.naturalHeight);
+          img.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        }
+      }, { once: true });
     }
 
     img.addEventListener('error', () => {

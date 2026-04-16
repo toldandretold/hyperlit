@@ -159,8 +159,8 @@ class PandocConversionJob implements ShouldQueue
         // Step 1: Rename image files with underscores to use hyphens
         $this->renameImageFiles($basePath);
         
-        // Step 2: Fix HTML paths to use web routes
-        $this->fixImagePathsInHtml($htmlPath, $citationId);
+        // Step 2: Fix HTML paths to use web routes and inject dimensions
+        $this->fixImagePathsInHtml($htmlPath, $citationId, $basePath);
     }
 
     /**
@@ -205,7 +205,7 @@ class PandocConversionJob implements ShouldQueue
     /**
      * Fix image paths in HTML to use web routes instead of file system paths
      */
-    private function fixImagePathsInHtml(string $htmlPath, string $citationId): void
+    private function fixImagePathsInHtml(string $htmlPath, string $citationId, string $basePath): void
     {
         if (!File::exists($htmlPath)) {
             Log::warning("HTML file not found for image path fixing: {$htmlPath}");
@@ -217,37 +217,50 @@ class PandocConversionJob implements ShouldQueue
 
         // Pattern to match img tags with absolute file system paths
         $pattern = '/<img([^>]*src="[^"]*' . preg_quote($citationId, '/') . '\/media\/[^"]*"[^>]*)>/';
-        
-        $htmlContent = preg_replace_callback($pattern, function($matches) use (&$updatedCount, $citationId) {
+
+        $htmlContent = preg_replace_callback($pattern, function($matches) use (&$updatedCount, $citationId, $basePath) {
             $imgTag = $matches[0];
-            
+            $safeFilenameForSize = null;
+
             // Extract the src attribute and convert to web path
-            $updatedTag = preg_replace_callback('/src="([^"]*)"/', function($srcMatch) use ($citationId) {
+            $updatedTag = preg_replace_callback('/src="([^"]*)"/', function($srcMatch) use ($citationId, &$safeFilenameForSize) {
                 $srcPath = $srcMatch[1];
-                
+
                 // If it contains the full file system path, convert to web route
                 if (strpos($srcPath, '/media/') !== false) {
                     $filename = basename($srcPath);
                     // Also rename files with underscores to hyphens
                     $safeFilename = str_replace('_', '-', $filename);
+                    $safeFilenameForSize = $safeFilename;
                     $newSrc = "/{$citationId}/media/{$safeFilename}";
-                    
+
                     Log::debug('Fixed image path in HTML', [
                         'original' => $srcPath,
                         'fixed' => $newSrc,
                         'citation_id' => $citationId
                     ]);
-                    
+
                     return 'src="' . $newSrc . '"';
                 }
-                
+
                 return $srcMatch[0]; // No change needed
             }, $imgTag);
-            
+
+            // Inject width/height from file on disk to prevent layout shift
+            if ($safeFilenameForSize) {
+                $localPath = $basePath . '/media/' . $safeFilenameForSize;
+                if (file_exists($localPath)) {
+                    $size = @getimagesize($localPath);
+                    if ($size) {
+                        $updatedTag = preg_replace('/\/?>$/', ' width="' . $size[0] . '" height="' . $size[1] . '"$0', $updatedTag);
+                    }
+                }
+            }
+
             if ($updatedTag !== $imgTag) {
                 $updatedCount++;
             }
-            
+
             return $updatedTag;
         }, $htmlContent);
 

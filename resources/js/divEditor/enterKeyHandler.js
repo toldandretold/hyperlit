@@ -238,7 +238,7 @@ export class EnterKeyHandler {
       const selection = document.getSelection();
       if (selection.rangeCount === 0) return;
 
-      const range = selection.getRangeAt(0);
+      let range = selection.getRangeAt(0);
 
       // 🎯 SUP TAG ESCAPE: Prevent Enter inside any <sup> element
       // Sup tags contain generated content (footnote numbers, hypercite arrows) - never user-editable
@@ -279,13 +279,21 @@ export class EnterKeyHandler {
 
         // If at start (before content), move cursor BEFORE sup; otherwise move AFTER
         if (atStart) {
-          newRange.setStartBefore(supElement);
+          // Check if sup is inside a hypercite anchor - escape past anchor
+          const parentAnchor = supElement.closest('a[href*="#hypercite_"]');
+          if (parentAnchor) {
+            newRange.setStartBefore(parentAnchor);
+          } else {
+            newRange.setStartBefore(supElement);
+          }
         } else {
-          // Create zero-width space after the sup if needed
-          let nextNode = supElement.nextSibling;
+          // Check if sup is inside a hypercite anchor - escape past anchor
+          const parentAnchor = supElement.closest('a[href*="#hypercite_"]');
+          const escapeTarget = parentAnchor || supElement;
+          let nextNode = escapeTarget.nextSibling;
           if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
             nextNode = document.createTextNode('\u200B');
-            parent.insertBefore(nextNode, supElement.nextSibling);
+            escapeTarget.parentNode.insertBefore(nextNode, escapeTarget.nextSibling);
           }
           newRange.setStart(nextNode, 0);
         }
@@ -296,6 +304,27 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
+      }
+
+      // 🎯 HYPERCITE ANCHOR ESCAPE: Prevent Enter inside <a href*="#hypercite_">
+      // If cursor is inside a hypercite anchor (but not inside sup), move it outside before proceeding
+      let anchorElement = null;
+      let checkEl = range.startContainer;
+      if (checkEl.nodeType === Node.TEXT_NODE) {
+        anchorElement = checkEl.parentElement?.closest('a[href*="#hypercite_"]');
+      } else {
+        anchorElement = checkEl?.closest('a[href*="#hypercite_"]');
+      }
+
+      if (anchorElement) {
+        // Move cursor after the anchor
+        const newRange = document.createRange();
+        newRange.setStartAfter(anchorElement);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        // Update range reference for subsequent code
+        range = selection.getRangeAt(0);
       }
 
       let currentNode = range.startContainer;

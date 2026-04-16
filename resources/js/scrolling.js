@@ -331,6 +331,25 @@ export function setupUserScrollDetection(scrollableContainer) {
   
 }
 
+// Reusable scroll correction — recalculates offsetTop and snaps if the element drifted
+function correctScrollPosition(targetElement, scrollableContainer, headerOffset) {
+  let elementOffset = 0;
+  let el = targetElement;
+  while (el && el !== scrollableContainer) {
+    elementOffset += el.offsetTop;
+    el = el.offsetParent;
+  }
+
+  const elementRect = targetElement.getBoundingClientRect();
+  const containerRect = scrollableContainer.getBoundingClientRect();
+  const currentElementPosition = elementRect.top - containerRect.top;
+
+  if (Math.abs(currentElementPosition - headerOffset) > 20) {
+    const targetScrollTop = Math.max(0, elementOffset - headerOffset);
+    scrollableContainer.scrollTo({ top: targetScrollTop, behavior: "instant" });
+  }
+}
+
 // Consistent scroll method to be used throughout the application
 function scrollElementWithConsistentMethod(targetElement, scrollableContainer, headerOffset = 192) {
   if (!targetElement || !scrollableContainer) {
@@ -345,12 +364,7 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
 
   // Mark as navigation scroll to prevent user scroll detection interference
   userScrollState.isNavigating = true;
-  
-  // Clear navigation flag after scroll completes
-  setTimeout(() => {
-    userScrollState.isNavigating = false;
-  }, 1000);
-  
+
   // Calculate element's position using offsetTop for stable positioning
   let elementOffset = 0;
   let el = targetElement;
@@ -358,37 +372,77 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
     elementOffset += el.offsetTop;
     el = el.offsetParent;
   }
-  
+
   const targetScrollTop = Math.max(0, elementOffset - headerOffset);
-  
+
   // Apply scroll with instant behavior to avoid animation conflicts
   scrollableContainer.scrollTo({
     top: targetScrollTop,
     behavior: "instant"
   });
-  
-  // Single correction after layout settles
-  setTimeout(() => {
-    if (shouldSkipScrollRestoration("scroll correction")) {
-      return;
+
+  // --- Image-aware scroll correction ---
+  // Collect images inside the container that are above the target element and still loading
+  const allImages = scrollableContainer.querySelectorAll("img");
+  const pendingImages = [];
+  for (const img of allImages) {
+    // Only care about images that appear before the target in document order
+    if (img.compareDocumentPosition(targetElement) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      if (!img.complete) {
+        pendingImages.push(img);
+      }
     }
-    
-    const elementRect = targetElement.getBoundingClientRect();
-    const containerRect = scrollableContainer.getBoundingClientRect();
-    const currentElementPosition = elementRect.top - containerRect.top;
-    
-    // Apply correction if element is significantly off target
-    if (Math.abs(currentElementPosition - headerOffset) > 20) {
-      const correctedOffset = elementOffset - headerOffset + (currentElementPosition - headerOffset);
-      const correctedScrollTop = Math.max(0, correctedOffset);
-      
-      scrollableContainer.scrollTo({
-        top: correctedScrollTop,
-        behavior: "instant"
+  }
+
+  // Always fire a 100ms correction for non-image layout shifts (fonts, etc.)
+  setTimeout(() => {
+    if (shouldSkipScrollRestoration("scroll correction")) return;
+    userScrollState.isNavigating = true;
+    correctScrollPosition(targetElement, scrollableContainer, headerOffset);
+  }, 100);
+
+  if (pendingImages.length === 0) {
+    // No pending images — just clear navigation flag after the 100ms correction settles
+    setTimeout(() => { userScrollState.isNavigating = false; }, 1000);
+  } else {
+    // Track how many images are still pending so we know when all are done
+    let remaining = pendingImages.length;
+    let releaseTimer = null;
+    const cleanupFns = [];
+
+    const onImageSettled = () => {
+      remaining--;
+      if (shouldSkipScrollRestoration("image load correction")) return;
+
+      // Re-assert navigating so the correction scroll isn't treated as user scroll
+      userScrollState.isNavigating = true;
+      requestAnimationFrame(() => {
+        correctScrollPosition(targetElement, scrollableContainer, headerOffset);
+      });
+
+      // Reset the release timer — wait 500ms after the last image event
+      if (releaseTimer) clearTimeout(releaseTimer);
+      releaseTimer = setTimeout(() => { userScrollState.isNavigating = false; }, 500);
+    };
+
+    for (const img of pendingImages) {
+      const onLoad = () => onImageSettled();
+      const onError = () => onImageSettled();
+      img.addEventListener("load", onLoad, { once: true });
+      img.addEventListener("error", onError, { once: true });
+      cleanupFns.push(() => {
+        img.removeEventListener("load", onLoad);
+        img.removeEventListener("error", onError);
       });
     }
-  }, 100);
-  
+
+    // Safety cleanup at 8 seconds — remove any remaining listeners to prevent leaks
+    setTimeout(() => {
+      cleanupFns.forEach(fn => fn());
+      userScrollState.isNavigating = false;
+    }, 8000);
+  }
+
   return targetScrollTop;
 }
 
@@ -1100,6 +1154,41 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }
       if (targetChunkIndex !== -1) {
         console.log(`✅ Target "${targetId}" found after background download`);
+      }
+    }
+
+    // Hypercite rescue: direct IndexedDB lookup + server fallback
+    if (targetChunkIndex === -1 && targetId.startsWith('hypercite_')) {
+      console.log(`🔍 Hypercite rescue: resolveHypercite for "${targetId}"`);
+      try {
+        const { resolveHypercite } = await import('./indexedDB/hypercites/helpers.js');
+        const record = await resolveHypercite(lazyLoader.bookId, targetId);
+
+        if (record && Array.isArray(record.node_id) && record.node_id.length > 0) {
+          // Find matching node in current lazyLoader
+          targetChunkIndex = lazyLoader.nodes.findIndex(
+            node => record.node_id.includes(node.node_id)
+          );
+
+          // If not found, resolveHypercite may have cached fresh nodes to IndexedDB
+          // that aren't in lazyLoader yet — reload and re-hydrate
+          if (targetChunkIndex === -1) {
+            const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+            if (freshNodes && freshNodes.length > 0) {
+              const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+              await rebuildNodeArrays(freshNodes);
+              lazyLoader.nodes = freshNodes;
+              lazyLoader.chunkManifest = null;
+              window.nodes = freshNodes;
+
+              targetChunkIndex = lazyLoader.nodes.findIndex(
+                node => record.node_id.includes(node.node_id)
+              );
+            }
+          }
+        }
+      } catch (e) {
+        console.error('❌ Hypercite rescue failed:', e);
       }
     }
 

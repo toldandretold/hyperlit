@@ -60,6 +60,9 @@ export class SupTagHandler {
       // Only handle text insertion events
       if (!e.inputType || !e.inputType.startsWith('insert')) return;
 
+      // Don't intercept Enter/line break - let enterKeyHandler.js handle these
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') return;
+
       const selection = window.getSelection();
       if (!selection || !selection.rangeCount) return;
 

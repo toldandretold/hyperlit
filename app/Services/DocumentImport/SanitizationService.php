@@ -27,7 +27,7 @@ class SanitizationService
             // but their content is preserved
             $config->set('HTML.Allowed',
                 'div,span,p,h1,h2,h3,h4,h5,h6,br,strong,b,em,i,' .
-                'ul,ol,li,a[href|title],img[src|alt|title],blockquote,code,pre,' .
+                'ul,ol,li,a[href|title],img[src|alt|title|width|height],blockquote,code,pre,' .
                 'table,tr,td,th,thead,tbody,hr,sup,sub,dl,dt,dd,abbr[title],cite,small,u,s'
             );
 
@@ -64,7 +64,7 @@ class SanitizationService
             // Markdown needs fewer HTML elements
             $config->set('HTML.Allowed',
                 'h1,h2,h3,h4,h5,h6,p,br,strong,b,em,i,ul,ol,li,' .
-                'a[href|title],img[src|alt|title],blockquote,code,pre'
+                'a[href|title],img[src|alt|title|width|height],blockquote,code,pre'
             );
 
             // Block dangerous URI schemes

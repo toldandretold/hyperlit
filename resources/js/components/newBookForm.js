@@ -1,7 +1,7 @@
 import { openDatabase } from '../indexedDB/index.js';
 import '../utilities/debugLog.js';
 import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
-import { getCurrentUser, getAnonymousToken, getCurrentUserInfo } from "../utilities/auth.js";
+import { getCurrentUser, getAnonymousToken, getCurrentUserInfo, isLoggedIn } from "../utilities/auth.js";
 import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 import DOMPurify from 'dompurify';
@@ -65,7 +65,46 @@ async function showPdfCostEstimate(file) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const numPages = pdf.numPages;
+
+        // Extract PDF metadata for auto-fill
+        let pdfTitle = '', pdfAuthor = '', pdfYear = '';
+        try {
+            const meta = await pdf.getMetadata();
+            const info = meta?.info || {};
+            pdfTitle = (info.Title || '').trim();
+            pdfAuthor = (info.Author || '').trim();
+            // PDF dates are typically "D:YYYYMMDDHHmmSS" or similar
+            const creationDate = info.CreationDate || '';
+            const yearMatch = creationDate.match(/D:(\d{4})/) || creationDate.match(/(\d{4})/);
+            if (yearMatch) pdfYear = yearMatch[1];
+        } catch (metaErr) {
+            console.warn('PDF metadata extraction failed (non-fatal):', metaErr);
+        }
         pdf.destroy();
+
+        // Auto-fill empty form fields from PDF metadata
+        const setIfEmpty = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && !el.value.trim() && val) {
+                el.value = val;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+        setIfEmpty('title', pdfTitle);
+        setIfEmpty('author', pdfAuthor);
+        setIfEmpty('year', pdfYear);
+
+        // Auto-generate book ID if empty
+        const bookField = document.getElementById('book');
+        if (bookField && !bookField.value.trim() && (pdfTitle || pdfAuthor)) {
+            const generatedId = generateBookIdFromMetadata(null, pdfTitle, pdfAuthor, pdfYear);
+            if (generatedId) {
+                const availableId = await findAvailableBookId(generatedId);
+                bookField.value = availableId;
+                updateBookUrlPreview(availableId);
+                bookField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
 
         const tier = getUserTier();
         const baseCost = (numPages / 1000) * MISTRAL_OCR_COST_PER_1K_PAGES;
@@ -576,19 +615,36 @@ function generateBookIdFromMetadata(bibtex, title, author, year) {
 
 async function findAvailableBookId(baseId) {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    const tryCandidate = async (candidate) => {
+        const resp = await fetch('/api/validate-book-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body: JSON.stringify({ book: candidate })
+        });
+        const data = await resp.json();
+        return data.success && !data.exists;
+    };
+
+    // Phase 1: baseId, then _v2 through _v5
     for (let i = 0; i < 5; i++) {
         const candidate = i === 0 ? baseId : `${baseId}_v${i + 1}`;
         try {
-            const resp = await fetch('/api/validate-book-id', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: JSON.stringify({ book: candidate })
-            });
-            const data = await resp.json();
-            if (data.success && !data.exists) return candidate;
+            if (await tryCandidate(candidate)) return candidate;
         } catch { break; }
     }
-    return baseId;
+
+    // Phase 2: 3 attempts with random 4-digit suffix
+    for (let i = 0; i < 3; i++) {
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const candidate = `${baseId}_${rand}`;
+        try {
+            if (await tryCandidate(candidate)) return candidate;
+        } catch { break; }
+    }
+
+    // Ultimate fallback: timestamp (guaranteed unique)
+    return `${baseId}_${Date.now()}`;
 }
 
 function updateBookUrlPreview(value) {
@@ -819,6 +875,54 @@ function loadFormData() {
     }
 }
 
+// ─── Book ID Sanitization ─────────────────────────────────────────────
+function sanitizeBookIdValue(value, full = false) {
+    let v = value.toLowerCase();
+    if (full) {
+        // Full cleanup: spaces → underscores, strip everything else
+        v = v.replace(/\s+/g, '_');
+    }
+    // Strip any character not in [a-z0-9_-]
+    v = v.replace(/[^a-z0-9_-]/g, '');
+    return v;
+}
+
+function setupBookIdSanitization() {
+    const bookField = document.getElementById('book');
+    if (!bookField) return;
+
+    bookField.addEventListener('paste', () => {
+        // Defer to allow paste content to land in the field
+        setTimeout(() => {
+            const cleaned = sanitizeBookIdValue(bookField.value, true);
+            if (cleaned !== bookField.value) {
+                bookField.value = cleaned;
+                updateBookUrlPreview(cleaned);
+                bookField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }, 0);
+    });
+
+    bookField.addEventListener('blur', () => {
+        const cleaned = sanitizeBookIdValue(bookField.value, true);
+        if (cleaned !== bookField.value) {
+            bookField.value = cleaned;
+            updateBookUrlPreview(cleaned);
+            bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    });
+
+    // On input: only strip clearly invalid chars (not spaces) to avoid fighting mid-keystroke
+    bookField.addEventListener('input', () => {
+        const cleaned = sanitizeBookIdValue(bookField.value, false);
+        if (cleaned !== bookField.value) {
+            const pos = bookField.selectionStart - (bookField.value.length - cleaned.length);
+            bookField.value = cleaned;
+            bookField.setSelectionRange(pos, pos);
+        }
+    });
+}
+
 // Main initialization function
 export function initializeCitationFormListeners() {
     // Set up radio button listeners
@@ -901,6 +1005,7 @@ export function initializeCitationFormListeners() {
     setupImportSearch();
     setupBookUrlPreview();
     setupBibtexModeAutoReveal();
+    setupBookIdSanitization();
 }
 
 function setupFormSubmission() {
@@ -933,6 +1038,33 @@ function setupFormSubmission() {
         }
         form._submitting = true;
 
+        // Auth gate — unauthenticated users cannot import books
+        const loggedIn = await isLoggedIn();
+        if (!loggedIn) {
+            const summary = document.getElementById('form-validation-summary');
+            const list = document.getElementById('validation-list');
+            if (summary && list) {
+                list.innerHTML = `<li>You need to <a class="import-auth-link import-auth-login">log in</a> or <a class="import-auth-link import-auth-register">register</a> to import books.</li>`;
+                summary.querySelector('h4').textContent = 'Authentication required';
+                summary.style.display = 'block';
+
+                summary.querySelector('.import-auth-login')?.addEventListener('click', async () => {
+                    window.newBookManager?.closeContainer();
+                    const { initializeUserContainer } = await import('../components/userContainer.js');
+                    const mgr = initializeUserContainer();
+                    if (mgr) mgr.showLoginForm();
+                });
+                summary.querySelector('.import-auth-register')?.addEventListener('click', async () => {
+                    window.newBookManager?.closeContainer();
+                    const { initializeUserContainer } = await import('../components/userContainer.js');
+                    const mgr = initializeUserContainer();
+                    if (mgr) mgr.showRegisterForm();
+                });
+            }
+            form._submitting = false;
+            return false;
+        }
+
         // Force blur active element so any pending validation completes
         try { if (document.activeElement) document.activeElement.blur(); } catch(_) {}
 
@@ -955,26 +1087,22 @@ function setupFormSubmission() {
             if (titleInput) titleInput.value = 'Untitled';
         }
 
-        // Citation ID checks
-        const idVal = bookInput?.value?.trim() || '';
+        // Citation ID — auto-fix instead of blocking
+        let idVal = bookInput?.value?.trim() || '';
+        const randomSuffix = () => '_' + Math.random().toString(36).slice(2, 8);
+
         if (!idVal) {
-            errors.push({ field: 'Book ID', message: 'Book ID is required' });
-            const el = document.getElementById('book-validation');
-            if (el) { el.textContent = 'Book ID is required'; el.className = 'validation-message error'; }
-        } else if (!/^[a-zA-Z0-9_-]+$/.test(idVal)) {
-            errors.push({ field: 'Book ID', message: 'Only letters, numbers, underscores, and hyphens allowed' });
-            const el = document.getElementById('book-validation');
-            if (el) { el.textContent = 'Only letters, numbers, underscores, and hyphens allowed'; el.className = 'validation-message error'; }
-        } else if (idVal.length < 3) {
-            errors.push({ field: 'Book ID', message: 'Book ID must be at least 3 characters' });
-            const el = document.getElementById('book-validation');
-            if (el) { el.textContent = 'Book ID must be at least 3 characters'; el.className = 'validation-message error'; }
-        } else if (idVal === allowedResubmitBookId) {
-            // Re-submitting to the same book ID after footnote audit — skip uniqueness check
-            const el = document.getElementById('book-validation');
-            if (el) { el.textContent = 'Re-submitting to same book ID'; el.className = 'validation-message success'; }
+            idVal = 'book_' + Date.now();
         } else {
-            // Server availability check
+            // Strip invalid characters
+            idVal = idVal.replace(/[^a-zA-Z0-9_-]/g, '');
+            if (!idVal) idVal = 'book_' + Date.now();
+        }
+        // Ensure minimum length
+        if (idVal.length < 3) idVal += randomSuffix();
+
+        if (idVal !== allowedResubmitBookId) {
+            // Server availability check — append suffix if taken
             try {
                 const resp = await fetch('/api/validate-book-id', {
                     method: 'POST',
@@ -985,25 +1113,19 @@ function setupFormSubmission() {
                     body: JSON.stringify({ book: idVal })
                 });
                 const data = await resp.json();
-                if (!data.success) {
-                    errors.push({ field: 'Book ID', message: 'Error checking book ID availability' });
-                    const el = document.getElementById('book-validation');
-                    if (el) { el.textContent = 'Error checking book ID availability'; el.className = 'validation-message error'; }
-                } else if (data.exists) {
-                    errors.push({ field: 'Book ID', message: `Book ID "${idVal}" is already taken` });
-                    const el = document.getElementById('book-validation');
-                    if (el) { el.textContent = `Book ID "${idVal}" is already taken`; el.className = 'validation-message error'; }
-                } else {
-                    const el = document.getElementById('book-validation');
-                    if (el) { el.textContent = 'Book ID is available'; el.className = 'validation-message success'; }
+                if (data.success && data.exists) {
+                    idVal += randomSuffix();
                 }
             } catch (e) {
-                console.warn('Book ID check failed', e);
-                errors.push({ field: 'Book ID', message: 'Unable to verify book ID availability' });
-                const el = document.getElementById('book-validation');
-                if (el) { el.textContent = 'Unable to verify book ID availability'; el.className = 'validation-message error'; }
+                console.warn('Book ID check failed, proceeding with current value', e);
             }
         }
+
+        // Update the input and preview with the final value
+        if (bookInput) bookInput.value = idVal;
+        updateBookUrlPreview(idVal);
+        const bookValidationEl = document.getElementById('book-validation');
+        if (bookValidationEl) { bookValidationEl.textContent = ''; bookValidationEl.className = 'validation-message'; }
 
         // Update summary
         const summary = document.getElementById('form-validation-summary');
@@ -1322,7 +1444,7 @@ function setupRealTimeValidation() {
     // Validation functions
     const validators = {
         validateBookId: async (value) => {
-            if (!value) return { valid: false, message: 'Book ID is required' };
+            if (!value) return { valid: true, message: 'Custom url key recommended' };
             if (!/^[a-zA-Z0-9_-]+$/.test(value)) return { valid: false, message: 'Only letters, numbers, underscores, and hyphens allowed' };
             if (value.length < 3) return { valid: false, message: 'Book ID must be at least 3 characters' };
 
@@ -1480,10 +1602,9 @@ function setupRealTimeValidation() {
         
         // Update validation summary
         updateValidationSummary([
-            { field: 'Title', result: titleResult },
-            { field: 'File', result: fileResult }
+            { field: 'Title', result: titleResult }
         ]);
-        
+
         return isFormValid;
     };
     
@@ -1517,25 +1638,21 @@ function setupRealTimeValidation() {
                 showValidationMessage('book', result);
                 // Also refresh summary with current local field states
                 const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
-                const fileResult = validators.validateFile(document.getElementById('markdown_file'));
                 updateValidationSummary([
                     { field: 'Book ID', result },
-                    { field: 'Title', result: titleResult },
-                    { field: 'File', result: fileResult }
+                    { field: 'Title', result: titleResult }
                 ]);
             }, 500);
         });
-        
+
         bookField.addEventListener('blur', async function() {
             clearTimeout(validationTimeout);
             const result = await validators.validateBookId(this.value);
             showValidationMessage('book', result);
             const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
-            const fileResult = validators.validateFile(document.getElementById('markdown_file'));
             updateValidationSummary([
                 { field: 'Citation ID', result },
-                { field: 'Title', result: titleResult },
-                { field: 'File', result: fileResult }
+                { field: 'Title', result: titleResult }
             ]);
         });
     }

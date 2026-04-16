@@ -8,6 +8,7 @@ import random
 import string
 from collections import Counter
 from bs4 import BeautifulSoup, NavigableString
+from PIL import Image as PILImage
 import bleach
 
 # --- SECURITY: HTML Sanitization ---
@@ -1724,9 +1725,19 @@ def main(html_file_path, output_dir, book_id):
     content_root = soup.body if soup.body else soup
 
     # Rewrite bare image src to servable route path: img-1.jpeg → /{book_id}/media/img-1.jpeg
+    # Also inject width/height from file on disk to prevent layout shift
     for img_tag in content_root.find_all('img'):
         src = img_tag.get('src', '')
         if src and not src.startswith('/') and not src.startswith('http'):
+            # Inject dimensions from file on disk before rewriting src
+            img_path = os.path.join(output_dir, 'media', src)
+            try:
+                with PILImage.open(img_path) as pil_img:
+                    w, h = pil_img.size
+                    img_tag['width'] = str(w)
+                    img_tag['height'] = str(h)
+            except Exception:
+                pass  # image missing or unreadable — skip silently
             img_tag['src'] = f'/{book_id}/media/{src}'
 
     for node in content_root.find_all(recursive=False):

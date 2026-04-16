@@ -310,8 +310,8 @@ export class NewBookContainerManager extends ContainerManager {
 
         <!-- /url field with preview - always visible -->
         <div class="form-section">
-          <label for="book" class="required">/url <span class="required-indicator">*</span></label>
-          <input type="text" id="book" name="book" required
+          <label for="book">/url</label>
+          <input type="text" id="book" name="book"
                  placeholder="e.g., smith2023, doe_2024_book"
                  title="Only letters, numbers, underscores, and hyphens allowed">
           <div class="field-hint">hyperlit.io/<strong id="book-url-preview">your-id</strong></div>
@@ -382,14 +382,14 @@ export class NewBookContainerManager extends ContainerManager {
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="submit" id="createButton" class="formButton">Create Book</button>
-          <button type="button" id="clearButton" class="formButton">Clear</button>
-        </div>
-
         <div id="form-validation-summary" class="validation-summary" style="display:none;">
           <h4>Please fix the following issues:</h4>
           <ul id="validation-list"></ul>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="createButton" class="formButton">Create Book</button>
+          <button type="button" id="clearButton" class="formButton">Clear</button>
         </div>
       </form>
       </div>

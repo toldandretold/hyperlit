@@ -1053,6 +1053,12 @@ body[data-page="user"] #userLibraryContainer {
   font-size: 12px;
 }
 
+.import-auth-link {
+  color: var(--icon-stroke-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Input field states */
 #newbook-container input:invalid:not(:placeholder-shown),
 #newbook-container textarea:invalid:not(:placeholder-shown) {
@@ -1103,11 +1109,25 @@ body[data-page="user"] #userLibraryContainer {
   border: 1px solid var(--color-accent);
 }
 
+/* Validation summary sticks above the buttons */
+#newbook-container .validation-summary {
+  position: sticky;
+  bottom: 3em;
+  background-color: var(--container-glass-bg);
+  padding: 0.5em 0;
+  z-index: 5;
+}
+
 /* Form actions button spacing */
 #newbook-container .form-actions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   gap: 8px;
   margin-top: 1em;
+  padding: 0.75em 0;
+  background-color: var(--container-glass-bg);
+  z-index: 5;
 }
 
 /* Highlights section should take full width */
