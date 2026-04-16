@@ -3,6 +3,8 @@
  * Handles theme switching via body class instead of CSS imports
  */
 
+import { savePreference } from './preferences.js';
+
 const THEME_STORAGE_KEY = 'hyperlit_theme_preference';
 const THEMES = {
   DARK: 'dark',
@@ -60,8 +62,9 @@ export function switchTheme(theme) {
     import('../components/vibeCSS.js').then(m => m.removeVibeCSS());
   }
 
-  // Save preference to localStorage
+  // Save preference to localStorage and backend
   localStorage.setItem(THEME_STORAGE_KEY, theme);
+  savePreference('theme', theme);
 
   // Dispatch custom event so other components can react
   window.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));

@@ -87,11 +87,32 @@ class VibeCSSController extends Controller
         '--status-success',
         '--status-error',
 
-        // Special body-level keys — applied as direct CSS on body.theme-vibe
-        // (not as :root variables). Allows gradients, animations, etc.
+        // Special direct keys — applied as CSS on specific selectors
+        // (not as :root variables). Enables gradients, animations, effects.
+
+        // Body background
         '--vibe-body-background',
         '--vibe-body-background-size',
         '--vibe-body-background-attachment',
+        '--vibe-body-animation',
+
+        // Content readability strip
+        '--vibe-content-background',
+        '--vibe-content-border-radius',
+        '--vibe-content-backdrop-filter',
+        '--vibe-content-box-shadow',
+
+        // Heading effects
+        '--vibe-heading-background',
+        '--vibe-heading-text-shadow',
+
+        // Text / link glow
+        '--vibe-text-shadow',
+        '--vibe-link-text-shadow',
+
+        // Container glow
+        '--vibe-container-border',
+        '--vibe-container-box-shadow',
     ];
 
     /**
@@ -212,42 +233,81 @@ class VibeCSSController extends Controller
         $variablesList = implode("\n", array_map(fn($v) => "  {$v}", self::ALLOWED_VARIABLES));
 
         return <<<PROMPT
-You are a creative CSS theme designer. Go wild. The user will describe a vibe/mood/aesthetic and you generate a stunning, expressive theme. Return ONLY a valid JSON object mapping property names to CSS values.
+You are a creative CSS theme designer. Go WILD. The user will describe a vibe/mood/aesthetic and you generate a stunning, expressive theme with animated backgrounds, glowing text, gradient headings, and frosted glass effects. Return ONLY a valid JSON object mapping property names to CSS values.
 
 ALLOWED PROPERTY NAMES (use only these):
 {$variablesList}
 
-SPECIAL BACKGROUND PROPERTIES:
---vibe-body-background accepts ANY valid CSS `background` value. This is your canvas — go crazy:
+═══ BACKGROUND CANVAS ═══
+
+--vibe-body-background: ANY valid CSS `background` value. This is your canvas — go crazy:
   - Multi-stop gradients: linear-gradient, radial-gradient, conic-gradient
   - Layered gradients: combine multiple gradients with commas
   - Repeating patterns: repeating-linear-gradient, repeating-conic-gradient
-  - Use --vibe-body-background-size for gradient sizing (e.g. "400% 400%" for animated feel, or pattern tile sizes)
-  - Use --vibe-body-background-attachment for "fixed" if the background should stay still while content scrolls
+
+--vibe-body-background-size: Gradient sizing (e.g. "400% 400%" for animated gradients)
+--vibe-body-background-attachment: "fixed" for parallax backgrounds that stay still while content scrolls
+
+--vibe-body-animation: Reference predefined @keyframes by name:
+  - "vibe-gradient-shift 8s ease infinite" — smoothly shifts gradient position (pair with background-size: 400% 400%)
+  - "vibe-hue-rotate 10s linear infinite" — rotates all colors through the spectrum
+  - "vibe-pulse 4s ease-in-out infinite" — gentle opacity breathing effect
+  Combine them: "vibe-gradient-shift 8s ease infinite, vibe-pulse 6s ease-in-out infinite"
 
 --color-background must STILL be set to a simple solid color (used by buttons, icons, etc.)
-Think of --color-background as the "base color" that matches the dominant tone of --vibe-body-background.
+Think of --color-background as the "base color" that matches the dominant tone.
 
-RULES:
+═══ READABILITY LAYER ═══
+
+When the background is wild, you MUST set --vibe-content-background to keep text readable.
+This creates a semi-transparent strip behind the text column.
+
+--vibe-content-background: Semi-transparent bg behind text (e.g. "rgba(10, 0, 20, 0.75)")
+--vibe-content-border-radius: Round the edges (e.g. "12px")
+--vibe-content-backdrop-filter: Frosted glass blur (e.g. "blur(12px)")
+--vibe-content-box-shadow: Glow or shadow on edges (e.g. "0 0 30px rgba(0, 255, 65, 0.15)")
+
+═══ HEADING EFFECTS ═══
+
+--vibe-heading-background: Gradient-filled heading text. Just set the gradient — background-clip: text and transparent fill are applied automatically.
+  Example: "linear-gradient(90deg, #ff0080, #00ff41)"
+
+--vibe-heading-text-shadow: Neon glow behind headings.
+  Example: "0 0 20px rgba(255, 0, 128, 0.5), 0 0 40px rgba(255, 0, 128, 0.2)"
+
+═══ TEXT & LINK GLOW ═══
+
+--vibe-text-shadow: Subtle glow on body text (e.g. "0 0 8px rgba(0, 255, 65, 0.3)")
+--vibe-link-text-shadow: Neon glow on links (e.g. "0 0 10px rgba(0, 255, 65, 0.5)")
+
+═══ CONTAINER GLOW ═══
+
+--vibe-container-border: Neon borders on glass panels (e.g. "1px solid rgba(0, 255, 65, 0.3)")
+--vibe-container-box-shadow: Glow on glass panel edges (e.g. "0 0 15px rgba(0, 255, 65, 0.1), inset 0 0 15px rgba(0, 255, 65, 0.05)")
+
+═══ RULES ═══
+
 - Return ONLY a JSON object. No markdown, no code fences, no explanation.
-- Be bold and creative with colors. Match the energy of the description.
+- Be bold and creative. Match the energy of the description.
 - Ensure readable contrast between --color-background and --color-text.
+- When background is wild (animated, gradient, conic), ALWAYS set --vibe-content-background for readability.
 - --container-glass-bg should be semi-transparent rgba matching the vibe.
 - --container-solid-bg should be a solid color near --color-background.
 - --editable-bg should be a subtle semi-transparent value.
 - --gradient-hyperlit can be a wild multi-color gradient for the app's accent bar.
-- Override 10-25 variables. Don't touch font families or spacing unless asked.
+- Override 15-30 variables for maximum impact. Don't touch font families or spacing unless asked.
+- For calm/subtle vibes, skip animation and glow effects. For wild vibes, use everything.
 
-EXAMPLES:
+═══ EXAMPLES ═══
 
-Cyberpunk neon:
-{"--color-background": "#0a0014", "--color-text": "#00ff41", "--vibe-body-background": "linear-gradient(135deg, #0a0014 0%, #1a0033 40%, #0d001a 60%, #0a0014 100%)", "--color-primary": "#ff0080", "--color-accent": "#00ff41", "--container-glass-bg": "rgba(10, 0, 20, 0.7)", "--container-solid-bg": "#1a0033", "--editable-bg": "rgba(0, 255, 65, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #ff0080, #00ff41, #ff0080)"}
+Cyberpunk neon (full effects):
+{"--color-background": "#0a0014", "--color-text": "#00ff41", "--vibe-body-background": "linear-gradient(135deg, #0a0014 0%, #1a0033 25%, #0d001a 50%, #1a0033 75%, #0a0014 100%)", "--vibe-body-background-size": "400% 400%", "--vibe-body-animation": "vibe-gradient-shift 12s ease infinite", "--vibe-content-background": "rgba(10, 0, 20, 0.8)", "--vibe-content-border-radius": "12px", "--vibe-content-backdrop-filter": "blur(12px)", "--vibe-content-box-shadow": "0 0 30px rgba(0, 255, 65, 0.1)", "--vibe-heading-background": "linear-gradient(90deg, #ff0080, #00ff41, #ff0080)", "--vibe-heading-text-shadow": "0 0 20px rgba(255, 0, 128, 0.5)", "--vibe-text-shadow": "0 0 6px rgba(0, 255, 65, 0.2)", "--vibe-link-text-shadow": "0 0 10px rgba(0, 255, 65, 0.5)", "--vibe-container-border": "1px solid rgba(0, 255, 65, 0.2)", "--vibe-container-box-shadow": "0 0 15px rgba(0, 255, 65, 0.1)", "--color-primary": "#ff0080", "--color-accent": "#00ff41", "--container-glass-bg": "rgba(10, 0, 20, 0.7)", "--container-solid-bg": "#1a0033", "--editable-bg": "rgba(0, 255, 65, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #ff0080, #00ff41, #ff0080)"}
 
-Sunset ocean:
-{"--color-background": "#1a0a2e", "--color-text": "#ffecd2", "--vibe-body-background": "linear-gradient(180deg, #ff6b35 0%, #f7c59f 15%, #e8a87c 30%, #d4789c 50%, #7b2d8e 70%, #1a0a2e 100%)", "--vibe-body-background-attachment": "fixed", "--color-primary": "#ff6b35", "--color-accent": "#f7c59f", "--container-glass-bg": "rgba(26, 10, 46, 0.75)", "--container-solid-bg": "#2a1a3e", "--editable-bg": "rgba(255, 107, 53, 0.08)"}
+Psychedelic rainbow (animated + wild):
+{"--color-background": "#120024", "--color-text": "#f0e6ff", "--vibe-body-background": "conic-gradient(from 45deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)", "--vibe-body-background-size": "400% 400%", "--vibe-body-animation": "vibe-gradient-shift 8s ease infinite, vibe-hue-rotate 20s linear infinite", "--vibe-content-background": "rgba(18, 0, 36, 0.85)", "--vibe-content-border-radius": "16px", "--vibe-content-backdrop-filter": "blur(16px)", "--vibe-heading-background": "linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b)", "--vibe-heading-text-shadow": "0 0 15px rgba(131, 56, 236, 0.4)", "--color-primary": "#ff006e", "--color-accent": "#06d6a0", "--color-secondary": "#ffbe0b", "--container-glass-bg": "rgba(18, 0, 36, 0.8)", "--container-solid-bg": "#1a0030", "--editable-bg": "rgba(131, 56, 236, 0.1)", "--gradient-hyperlit": "linear-gradient(to right, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)"}
 
-Psychedelic swirl:
-{"--color-background": "#120024", "--color-text": "#f0e6ff", "--vibe-body-background": "conic-gradient(from 45deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)", "--vibe-body-background-size": "400% 400%", "--color-primary": "#ff006e", "--color-accent": "#06d6a0", "--color-secondary": "#ffbe0b", "--container-glass-bg": "rgba(18, 0, 36, 0.8)", "--container-solid-bg": "#1a0030", "--editable-bg": "rgba(131, 56, 236, 0.1)", "--gradient-hyperlit": "linear-gradient(to right, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)"}
+Calm ocean (subtle — no animation):
+{"--color-background": "#0a1628", "--color-text": "#c8dce8", "--vibe-body-background": "linear-gradient(180deg, #0a1628 0%, #0d2137 40%, #1a3a5c 70%, #0a1628 100%)", "--vibe-body-background-attachment": "fixed", "--vibe-content-background": "rgba(10, 22, 40, 0.6)", "--vibe-content-border-radius": "8px", "--color-primary": "#4da6c9", "--color-accent": "#7ec8e3", "--color-link": "#7ec8e3", "--container-glass-bg": "rgba(10, 22, 40, 0.7)", "--container-solid-bg": "#0d2137", "--editable-bg": "rgba(77, 166, 201, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #4da6c9, #7ec8e3, #4da6c9)"}
 PROMPT;
     }
 

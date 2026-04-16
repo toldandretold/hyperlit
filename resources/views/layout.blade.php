@@ -36,6 +36,9 @@
         }
     </script>
     
+    @if(isset($userPreferences) && !empty($userPreferences))
+    <script>window.__userPreferences = @json($userPreferences);</script>
+    @endif
     @yield('styles')
 </head>
 

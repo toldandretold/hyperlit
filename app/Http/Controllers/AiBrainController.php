@@ -82,25 +82,34 @@ class AiBrainController extends Controller
             ], 422);
         }
 
-        // Fireworks model addresses:
-        // accounts/fireworks/models/deepseek-v3p2
-        // accounts/fireworks/models/llama-v3p3-70b-instruct
-        // accounts/fireworks/models/minimax-m2p5
-        $allowedModels = [
+        // Fallback chain: if the primary model is down, try each in order
+        $fallbackChain = [
             'accounts/fireworks/models/deepseek-v3p2',
+            'accounts/fireworks/models/deepseek-v3p1',
+            'accounts/fireworks/models/minimax-m2p5',
+            'accounts/fireworks/models/qwen3-235b-a22b',
         ];
+
+        $modelLabels = [
+            'accounts/fireworks/models/deepseek-v3p2'    => 'DeepSeek V3.2',
+            'accounts/fireworks/models/deepseek-v3p1'    => 'DeepSeek V3.1',
+            'accounts/fireworks/models/minimax-m2p5'     => 'MiniMax M2.5',
+            'accounts/fireworks/models/qwen3-235b-a22b'  => 'Qwen3 235B',
+        ];
+
+        // Place user-selected model first in the chain (if valid)
+        $allowedModels = array_keys($modelLabels);
         $brainModel = in_array($validated['model'] ?? null, $allowedModels)
             ? $validated['model']
             : 'accounts/fireworks/models/deepseek-v3p2';
 
-        // Model label lookup for status messages
-        $modelLabels = [
-            'accounts/fireworks/models/deepseek-v3p2' => 'DeepSeek V3.2',
-        ];
+        // Reorder fallback chain: user's chosen model first, then the rest
+        $fallbackChain = array_values(array_unique(array_merge([$brainModel], $fallbackChain)));
+
         $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
 
         // Stream the pipeline as SSE events
-        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $llmService, $embeddingService, $billingService) {
+        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService) {
             $sendEvent = function (string $event, array $data) {
                 echo "event: {$event}\ndata: " . json_encode($data) . "\n\n";
                 if (ob_get_level()) ob_flush();
@@ -132,13 +141,13 @@ class AiBrainController extends Controller
                     $sendEvent('status', ['message' => "Server busy — retrying ({$attempt}/{$maxAttempts})..."]);
                 };
 
-                // 4. Route: answer directly OR plan a search (always use DeepSeek for reliable XML parsing)
+                // 4. Route: answer directly OR plan a search
                 $sendEvent('status', ['message' => 'Considering passage and question...']);
-                $routerModel = 'accounts/fireworks/models/deepseek-v3p2';
-                $onFallback = function () use ($sendEvent) {
-                    $sendEvent('status', ['message' => 'Primary model unavailable — trying backup...']);
+                $onFallback = function (string $modelName) use ($sendEvent, $modelLabels) {
+                    $label = $modelLabels["accounts/fireworks/models/{$modelName}"] ?? $modelName;
+                    $sendEvent('status', ['message' => "Primary model unavailable — trying {$label}..."]);
                 };
-                $routerResult = $this->planRetrieval($llmService, $selectedText, $question, $bookId, $localContext, $routerModel, $onRetry, $onFallback);
+                $routerResult = $this->planRetrieval($llmService, $selectedText, $question, $bookId, $localContext, $fallbackChain, $onRetry, $onFallback);
                 $authorName = $routerResult['author_name'];
                 $bookTitle = $routerResult['book_title'];
                 $routerType = $routerResult['type'];
@@ -264,24 +273,30 @@ class AiBrainController extends Controller
                     if (!empty($matches)) $promptParts[] = count($matches) . ' source passages';
                     $pipelineLog['prompt_summary'] = 'Selected passage + question' . (!empty($promptParts) ? ' + ' . implode(' + ', $promptParts) : '');
 
-                    // 6. Call LLM via LlmService (model chosen by user)
+                    // 6. Call LLM via LlmService with fallback chain
                     Log::info('AiBrain: calling LLM...', ['tools' => $toolsUsed, 'model' => $brainModel]);
-                    $llmResponse = $llmService->chat(
+                    $llmResult = $llmService->chatWithFallback(
                         $systemPrompt,
                         $userMessage,
                         0.3,      // temperature
                         4096,     // max tokens
-                        $brainModel,
+                        $fallbackChain,
                         180,      // timeout
                         null,     // reasoning_effort (let model decide)
-                        $onRetry
+                        $onRetry,
+                        $onFallback
                     );
 
-                    if (!$llmResponse) {
-                        Log::warning('AiBrain: LLM returned empty response');
+                    if (!$llmResult) {
+                        Log::warning('AiBrain: LLM — all models failed');
                         $sendEvent('error', ['message' => 'The AI model failed to respond. Please try again.']);
                         return;
                     }
+
+                    $llmResponse = $llmResult['content'];
+                    // Update model tracking so appendix shows the model that actually responded
+                    $brainModel = $llmResult['model'];
+                    $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
 
                     Log::info('AiBrain: LLM response received', ['raw_length' => strlen($llmResponse)]);
 
@@ -482,7 +497,7 @@ class AiBrainController extends Controller
         string $question,
         string $bookId,
         array $localContext,
-        string $brainModel,
+        array $fallbackChain,
         ?\Closure $onRetry = null,
         ?\Closure $onFallback = null
     ): array {
@@ -550,137 +565,74 @@ PROMPT;
 
         $userMessage .= "QUESTION:\n{$question}";
 
-        $result = $llmService->chat(
+        $llmResult = $llmService->chatWithFallback(
             $systemPrompt,
             $userMessage,
             0.3,      // temperature
             4096,     // max tokens (generous — may produce final answer)
-            $brainModel,
+            $fallbackChain,
             180,      // timeout
             null,     // reasoning_effort
-            $onRetry
+            $onRetry,
+            function (string $modelName) use ($onFallback) {
+                if ($onFallback) {
+                    $onFallback($modelName);
+                }
+            }
         );
 
         $base = [
             'author_name' => $authorName,
             'book_title' => $bookTitle,
-            'router_model' => basename($brainModel),
+            'router_model' => $llmResult ? basename($llmResult['model']) : 'unavailable',
         ];
 
-        if ($result) {
-            // Strip <think> tags
-            $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
-            if (str_contains($result, '<think>')) {
-                $result = preg_replace('/<think>[\s\S]*/i', '', $result);
-            }
-            $result = trim($result);
-
-            // Check for <answer> tag — direct answer path
-            if (preg_match('/<answer>([\s\S]*?)<\/answer>/i', $result, $answerMatch)) {
-                return array_merge($base, [
-                    'type' => 'answer',
-                    'answer' => trim($answerMatch[1]),
-                    'reasoning' => 'Answered directly from context',
-                ]);
-            }
-
-            // Check for <search> tag — search path
-            if (preg_match('/<search>([\s\S]*?)<\/search>/i', $result, $searchMatch)) {
-                $json = trim($searchMatch[1]);
-                $json = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $json));
-                $parsed = json_decode($json, true);
-
-                if (is_array($parsed)) {
-                    return array_merge($base, [
-                        'type' => 'search',
-                        'plan' => [
-                            'keywords' => $parsed['keywords'] ?? '',
-                            'library_keywords' => $parsed['library_keywords'] ?? '',
-                            'embedding_query' => $parsed['embedding_query'] ?? '',
-                        ],
-                        'reasoning' => $parsed['reasoning'] ?? '',
-                    ]);
-                }
-            }
-        }
-
-        // LLM returned null — primary model unavailable, try fallback before giving up
-        if ($result === null) {
-            $fallbackModel = 'accounts/fireworks/models/llama-v3p3-70b-instruct';
-            Log::warning('AiBrain: router primary model unavailable, trying fallback', ['fallback' => $fallbackModel]);
-            if ($onFallback) {
-                $onFallback();
-            }
-
-            $result = $llmService->chat(
-                $systemPrompt,
-                $userMessage,
-                0.3,
-                4096,
-                $fallbackModel,
-                180,
-                null,
-                $onRetry
-            );
-
-            if ($result) {
-                // Strip <think> tags
-                $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
-                if (str_contains($result, '<think>')) {
-                    $result = preg_replace('/<think>[\s\S]*/i', '', $result);
-                }
-                $result = trim($result);
-
-                $base['router_model'] = basename($fallbackModel);
-
-                if (preg_match('/<answer>([\s\S]*?)<\/answer>/i', $result, $answerMatch)) {
-                    return array_merge($base, [
-                        'type' => 'answer',
-                        'answer' => trim($answerMatch[1]),
-                        'reasoning' => 'Answered directly from context (fallback model)',
-                    ]);
-                }
-
-                if (preg_match('/<search>([\s\S]*?)<\/search>/i', $result, $searchMatch)) {
-                    $json = trim($searchMatch[1]);
-                    $json = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $json));
-                    $parsed = json_decode($json, true);
-
-                    if (is_array($parsed)) {
-                        return array_merge($base, [
-                            'type' => 'search',
-                            'plan' => [
-                                'keywords' => $parsed['keywords'] ?? '',
-                                'library_keywords' => $parsed['library_keywords'] ?? '',
-                                'embedding_query' => $parsed['embedding_query'] ?? '',
-                            ],
-                            'reasoning' => ($parsed['reasoning'] ?? '') . ' (fallback model)',
-                        ]);
-                    }
-                }
-
-                // Fallback model returned something unparseable — treat same as primary parse failure
-                Log::warning('AiBrain: fallback router parse failed, using fallback search', ['raw' => Str::limit($result, 200)]);
-                return array_merge($base, [
-                    'type' => 'search',
-                    'plan' => [
-                        'keywords' => '',
-                        'library_keywords' => '',
-                        'embedding_query' => $selectedText . "\n\n" . $question,
-                    ],
-                    'reasoning' => 'fallback — router parse failure (fallback model)',
-                ]);
-            }
-
-            // Both models unavailable — bail
-            Log::warning('AiBrain: router fallback also unavailable, aborting pipeline');
+        if (!$llmResult) {
+            Log::warning('AiBrain: router — all models unavailable, aborting pipeline');
             return array_merge($base, [
                 'type' => 'error',
                 'reasoning' => 'LLM service unavailable',
             ]);
         }
 
-        // Fallback: LLM returned something but it couldn't be parsed
+        $result = $llmResult['content'];
+
+        // Strip <think> tags
+        $result = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $result);
+        if (str_contains($result, '<think>')) {
+            $result = preg_replace('/<think>[\s\S]*/i', '', $result);
+        }
+        $result = trim($result);
+
+        // Check for <answer> tag — direct answer path
+        if (preg_match('/<answer>([\s\S]*?)<\/answer>/i', $result, $answerMatch)) {
+            return array_merge($base, [
+                'type' => 'answer',
+                'answer' => trim($answerMatch[1]),
+                'reasoning' => 'Answered directly from context',
+            ]);
+        }
+
+        // Check for <search> tag — search path
+        if (preg_match('/<search>([\s\S]*?)<\/search>/i', $result, $searchMatch)) {
+            $json = trim($searchMatch[1]);
+            $json = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $json));
+            $parsed = json_decode($json, true);
+
+            if (is_array($parsed)) {
+                return array_merge($base, [
+                    'type' => 'search',
+                    'plan' => [
+                        'keywords' => $parsed['keywords'] ?? '',
+                        'library_keywords' => $parsed['library_keywords'] ?? '',
+                        'embedding_query' => $parsed['embedding_query'] ?? '',
+                    ],
+                    'reasoning' => $parsed['reasoning'] ?? '',
+                ]);
+            }
+        }
+
+        // LLM returned something but it couldn't be parsed — use embedding fallback
         Log::warning('AiBrain: router parse failed, using fallback search', ['raw' => Str::limit($result, 200)]);
         return array_merge($base, [
             'type' => 'search',

@@ -6,6 +6,7 @@ black #221F20;
 "white" #CBCCCC*/
 
 @import url('./theme/variables.css');
+@import url('./vibe-animations.css');
 
 /* Base styles for the TOC */
 #toc-container {

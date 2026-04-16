@@ -1,5 +1,9 @@
 import { log } from './utilities/logger.js';
+import { seedFromServer } from './utilities/preferences.js';
 import { initializeTheme } from './utilities/themeSwitcher.js';
+
+// Seed localStorage from server-injected preferences before theme init
+seedFromServer();
 
 // Initialize theme as early as possible to prevent flash
 initializeTheme();

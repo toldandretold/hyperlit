@@ -5,6 +5,8 @@ import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
 import { hasVibeCSS, showVibeInput, showTopUpUI } from "./vibeCSS.js";
+import { captureScrollAnchor, restoreScrollAnchor } from "../utilities/scrollAnchor.js";
+import { savePreference, clearPreference } from "../utilities/preferences.js";
 
 const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };
@@ -245,9 +247,16 @@ export class SettingsContainerManager extends ContainerManager {
     const allMainContent = document.querySelectorAll('.main-content');
     if (!allMainContent.length) return;
 
+    // Capture scroll anchor before layout change
+    const wrapper = document.querySelector('.reader-content-wrapper');
+    const anchor = wrapper ? captureScrollAnchor(wrapper) : null;
+
     // Determine new state from first element
     const isActive = !allMainContent[0].classList.contains('full-width-mode');
     allMainContent.forEach(el => el.classList.toggle('full-width-mode', isActive));
+
+    // Restore scroll position after reflow
+    if (anchor) restoreScrollAnchor(wrapper, anchor);
 
     // Update button text
     const btn = document.getElementById('fullWidthToggle');
@@ -256,8 +265,10 @@ export class SettingsContainerManager extends ContainerManager {
     // Persist
     if (isActive) {
       localStorage.setItem(STORAGE_KEYS.FULL_WIDTH, 'true');
+      savePreference('full_width', true);
     } else {
       localStorage.removeItem(STORAGE_KEYS.FULL_WIDTH);
+      clearPreference('full_width');
     }
   }
 
@@ -331,6 +342,10 @@ export class SettingsContainerManager extends ContainerManager {
       const isMobile = window.innerWidth <= 500;
       const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
 
+      // Capture scroll anchor before font-size change
+      const wrapper = document.querySelector('.reader-content-wrapper');
+      const anchor = wrapper ? captureScrollAnchor(wrapper) : null;
+
       // Scope to .main-content so only book content resizes
       document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${val}px`);
       const display = document.getElementById('textSizeValue');
@@ -338,10 +353,15 @@ export class SettingsContainerManager extends ContainerManager {
 
       if (val === defaultSize) {
         localStorage.removeItem(STORAGE_KEYS.TEXT_SIZE);
+        clearPreference('text_size');
         document.querySelectorAll('.main-content').forEach(el => el.style.removeProperty('font-size'));
       } else {
         localStorage.setItem(STORAGE_KEYS.TEXT_SIZE, val);
+        savePreference('text_size', val);
       }
+
+      // Restore scroll position after reflow
+      if (anchor) restoreScrollAnchor(wrapper, anchor);
 
       this._debounceResize();
       return;
@@ -353,6 +373,10 @@ export class SettingsContainerManager extends ContainerManager {
       // Set max-width directly on .reader-content-wrapper — overrides both
       // the CSS variable and the global * { max-width: 100% } rule
       const wrapper = document.querySelector('.reader-content-wrapper');
+
+      // Capture scroll anchor before width change
+      const anchor = wrapper ? captureScrollAnchor(wrapper) : null;
+
       if (wrapper) wrapper.style.maxWidth = `${val}ch`;
 
       document.documentElement.style.setProperty('--content-width', `${val}ch`);
@@ -361,11 +385,16 @@ export class SettingsContainerManager extends ContainerManager {
 
       if (val === DEFAULTS.CONTENT_WIDTH) {
         localStorage.removeItem(STORAGE_KEYS.CONTENT_WIDTH);
+        clearPreference('content_width');
         document.documentElement.style.removeProperty('--content-width');
         if (wrapper) wrapper.style.removeProperty('max-width');
       } else {
         localStorage.setItem(STORAGE_KEYS.CONTENT_WIDTH, val);
+        savePreference('content_width', val);
       }
+
+      // Restore scroll position after reflow
+      if (anchor) restoreScrollAnchor(wrapper, anchor);
 
       this._debounceResize();
       return;

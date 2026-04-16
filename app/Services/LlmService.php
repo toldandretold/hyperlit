@@ -68,9 +68,9 @@ class LlmService
                 $body['reasoning_effort'] = $reasoningEffort;
             }
 
-            // Retry on cURL timeout (error 28) and 5xx responses with backoff
+            // Retry on cURL timeout (error 28), 429 rate-limit, and 5xx responses with exponential backoff
             $attempts = 0;
-            $maxAttempts = 3;
+            $maxAttempts = 5;
             $response = null;
 
             while ($attempts < $maxAttempts) {
@@ -80,20 +80,30 @@ class LlmService
                         'Authorization' => 'Bearer ' . $this->apiKey,
                     ])->timeout($timeout)->post($this->baseUrl . '/chat/completions', $body);
 
-                    // Success or client error (4xx) — don't retry
-                    if ($response->successful() || $response->status() < 500) {
+                    // Success or non-retryable client error — don't retry
+                    if ($response->successful() || ($response->status() < 500 && $response->status() !== 429)) {
                         break;
                     }
 
-                    // 5xx — retry with backoff
+                    // 429 or 5xx — retry with exponential backoff
                     if ($attempts < $maxAttempts) {
-                        Log::warning("LLM API returned {$response->status()}, retrying ({$attempts}/{$maxAttempts})...", [
+                        $status = $response->status();
+
+                        // Respect Retry-After header if present (429s from Fireworks)
+                        $retryAfter = $response->header('Retry-After');
+                        if ($retryAfter && is_numeric($retryAfter) && (int) $retryAfter <= 30) {
+                            $backoff = (int) $retryAfter;
+                        } else {
+                            $backoff = min(2 ** $attempts, 16); // 2s, 4s, 8s, 16s
+                        }
+
+                        Log::warning("LLM API returned {$status}, retrying in {$backoff}s ({$attempts}/{$maxAttempts})...", [
                             'body' => Str::limit($response->body(), 200),
                         ]);
                         if ($onRetry) {
-                            $onRetry($attempts, $maxAttempts, $response->status());
+                            $onRetry($attempts, $maxAttempts, $status);
                         }
-                        sleep($attempts * 2); // 2s, 4s
+                        sleep($backoff);
                     } else {
                         Log::warning("LLM API returned {$response->status()}, all {$maxAttempts} attempts exhausted", [
                             'body' => Str::limit($response->body(), 200),
@@ -103,11 +113,14 @@ class LlmService
                     if ($attempts >= $maxAttempts || !str_contains($e->getMessage(), 'cURL error 28')) {
                         throw $e; // re-throw for outer catch
                     }
-                    Log::warning('LLM API timeout, retrying...', ['attempt' => $attempts]);
+
+                    $backoff = min(2 ** $attempts, 16);
+                    Log::warning("LLM API timeout, retrying in {$backoff}s ({$attempts}/{$maxAttempts})...");
 
                     if ($onRetry) {
                         $onRetry($attempts, $maxAttempts, 0);
                     }
+                    sleep($backoff);
                 }
             }
 
@@ -142,6 +155,51 @@ class LlmService
             Log::warning('LLM API request failed: ' . $e->getMessage());
             return null;
         }
+    }
+
+    /**
+     * Try multiple models in order, each getting the full retry loop.
+     * Returns ['content' => string, 'model' => string] or null if all fail.
+     */
+    public function chatWithFallback(
+        string $systemPrompt,
+        string $userMessage,
+        float $temperature,
+        int $maxTokens,
+        array $models,
+        int $timeout = 30,
+        ?string $reasoningEffort = 'none',
+        ?\Closure $onRetry = null,
+        ?\Closure $onFallback = null
+    ): ?array {
+        foreach ($models as $i => $model) {
+            $result = $this->chat(
+                $systemPrompt,
+                $userMessage,
+                $temperature,
+                $maxTokens,
+                $model,
+                $timeout,
+                $reasoningEffort,
+                $onRetry
+            );
+
+            if ($result !== null) {
+                return ['content' => $result, 'model' => $model];
+            }
+
+            // This model failed — try the next one
+            $nextModel = $models[$i + 1] ?? null;
+            if ($nextModel !== null) {
+                Log::warning("LLM chatWithFallback: {$model} failed, falling back to {$nextModel}");
+                if ($onFallback) {
+                    $onFallback(basename($nextModel));
+                }
+            }
+        }
+
+        Log::warning('LLM chatWithFallback: all models exhausted', ['models' => $models]);
+        return null;
     }
 
     /**

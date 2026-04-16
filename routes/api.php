@@ -25,6 +25,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UserHomeServerController;
 use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\VibeCSSController;
+use App\Http\Controllers\UserPreferencesController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -77,6 +78,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vibe CSS
     Route::post('/vibe-css/generate', [VibeCSSController::class, 'generate']);
     Route::get('/vibe-css/can-proceed', [VibeCSSController::class, 'canProceed']);
+
+    // User preferences
+    Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
+    Route::post('/user/preferences', [UserPreferencesController::class, 'update']);
 });
 
 // Password reset routes (throttled to prevent abuse)

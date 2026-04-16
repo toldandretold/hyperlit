@@ -3,22 +3,48 @@
  * Follows containerCustomization.js pattern for style injection.
  */
 
+import { savePreference, clearPreference } from '../utilities/preferences.js';
+
 const VIBE_STORAGE_KEY = 'hyperlit_vibe_css';
 const STYLE_ELEMENT_ID = 'vibe-css-overrides';
 
-// Keys that get applied as direct CSS on body.theme-vibe instead of :root variables.
-// Allows gradients, animations, etc. that don't work inside CSS variable values.
-const BODY_DIRECT_KEYS = {
-  '--vibe-body-background': 'background',
-  '--vibe-body-background-size': 'background-size',
-  '--vibe-body-background-attachment': 'background-attachment',
+// Glass panel selector — all containers that use --container-glass-bg
+const GLASS_PANELS = '#toc-container, #source-container, #hyperlit-container, #newbook-container, .hyperlit-container-stacked, #user-container';
+
+// Keys applied as direct CSS on specific selectors instead of :root variables.
+// Each entry: { selector, property, compound? (extra declarations auto-added) }
+const DIRECT_KEYS = {
+  // Body background
+  '--vibe-body-background':            { selector: 'body.theme-vibe', property: 'background' },
+  '--vibe-body-background-size':       { selector: 'body.theme-vibe', property: 'background-size' },
+  '--vibe-body-background-attachment': { selector: 'body.theme-vibe', property: 'background-attachment' },
+  '--vibe-body-animation':             { selector: 'body.theme-vibe', property: 'animation' },
+
+  // Readability strip on text column
+  '--vibe-content-background':         { selector: '.main-content', property: 'background' },
+  '--vibe-content-border-radius':      { selector: '.main-content', property: 'border-radius' },
+  '--vibe-content-backdrop-filter':    { selector: '.main-content', property: 'backdrop-filter', compound: ['-webkit-backdrop-filter'] },
+  '--vibe-content-box-shadow':         { selector: '.main-content', property: 'box-shadow' },
+
+  // Heading effects — gradient text via compound
+  '--vibe-heading-background':         { selector: 'body.theme-vibe h1, body.theme-vibe h2, body.theme-vibe h3', property: 'background', compound: ['background-clip: text', '-webkit-background-clip: text', '-webkit-text-fill-color: transparent'] },
+  '--vibe-heading-text-shadow':        { selector: 'body.theme-vibe h1, body.theme-vibe h2, body.theme-vibe h3', property: 'text-shadow' },
+
+  // Text and link glow
+  '--vibe-text-shadow':                { selector: 'body.theme-vibe .main-content', property: 'text-shadow' },
+  '--vibe-link-text-shadow':           { selector: 'body.theme-vibe .main-content a', property: 'text-shadow' },
+
+  // Container glow — borders and shadows on glass panels
+  '--vibe-container-border':           { selector: `body.theme-vibe :is(${GLASS_PANELS})`, property: 'border' },
+  '--vibe-container-box-shadow':       { selector: `body.theme-vibe :is(${GLASS_PANELS})`, property: 'box-shadow' },
 };
 
 // ─── Storage & injection ───
 
 /**
  * Read stored overrides from localStorage and inject them into a <style> element.
- * Splits overrides into :root variables and direct body.theme-vibe rules.
+ * Groups overrides: CSS custom properties go into :root {},
+ * direct keys go into their specific selectors.
  */
 export function applyVibeCSS() {
   const overrides = getVibeCSS();
@@ -32,11 +58,28 @@ export function applyVibeCSS() {
   }
 
   const varRules = [];
-  const bodyRules = [];
+  // Map of selector → array of CSS declarations
+  const selectorMap = {};
 
   for (const [prop, val] of Object.entries(overrides)) {
-    if (BODY_DIRECT_KEYS[prop]) {
-      bodyRules.push(`  ${BODY_DIRECT_KEYS[prop]}: ${val};`);
+    const direct = DIRECT_KEYS[prop];
+    if (direct) {
+      const { selector, property, compound } = direct;
+      if (!selectorMap[selector]) selectorMap[selector] = [];
+      selectorMap[selector].push(`  ${property}: ${val};`);
+
+      // Compound: extra declarations auto-added when the key is set
+      if (compound) {
+        for (const extra of compound) {
+          if (extra.includes(':')) {
+            // Full declaration like "background-clip: text"
+            selectorMap[selector].push(`  ${extra};`);
+          } else {
+            // Property name only — mirror the same value (e.g. -webkit-backdrop-filter)
+            selectorMap[selector].push(`  ${extra}: ${val};`);
+          }
+        }
+      }
     } else {
       varRules.push(`  ${prop}: ${val};`);
     }
@@ -46,8 +89,8 @@ export function applyVibeCSS() {
   if (varRules.length) {
     css += `:root {\n${varRules.join('\n')}\n}\n`;
   }
-  if (bodyRules.length) {
-    css += `body.theme-vibe {\n${bodyRules.join('\n')}\n}\n`;
+  for (const [selector, declarations] of Object.entries(selectorMap)) {
+    css += `${selector} {\n${declarations.join('\n')}\n}\n`;
   }
 
   styleEl.textContent = css;
@@ -66,6 +109,7 @@ export function removeVibeCSS() {
  */
 export function clearVibeCSS() {
   localStorage.removeItem(VIBE_STORAGE_KEY);
+  clearPreference('vibe_css');
   removeVibeCSS();
   import('../utilities/themeSwitcher.js').then(m => m.switchTheme(m.THEMES.DARK));
 }
@@ -105,6 +149,7 @@ async function submitVibeRequest(prompt) {
       'X-CSRF-TOKEN': csrfToken,
       'Accept': 'application/json',
     },
+    credentials: 'same-origin',
     body: JSON.stringify({ prompt }),
   });
 
@@ -131,6 +176,7 @@ async function checkBalance() {
         'Accept': 'application/json',
         'X-CSRF-TOKEN': csrfToken || '',
       },
+      credentials: 'same-origin',
     });
     if (!response.ok) return false;
     const data = await response.json();
@@ -254,8 +300,9 @@ export function showVibeInput(container, onComplete, onCancel) {
       const overrides = await submitVibeRequest(prompt);
       timers.forEach(t => clearTimeout(t));
 
-      // Save to localStorage
+      // Save to localStorage and backend
       localStorage.setItem(VIBE_STORAGE_KEY, JSON.stringify(overrides));
+      savePreference('vibe_css', overrides);
 
       // Apply immediately
       applyVibeCSS();

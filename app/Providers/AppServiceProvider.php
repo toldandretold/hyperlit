@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\View;
 use App\Services\DocumentImport\ValidationService;
 use App\Services\DocumentImport\SanitizationService;
 use App\Services\DocumentImport\FileHelpers;
@@ -59,6 +60,14 @@ class AppServiceProvider extends ServiceProvider
         // This uses a SECURITY DEFINER function to bypass RLS during login
         Auth::provider('rls-eloquent', function ($app, array $config) {
             return new RlsUserProvider($app['hash'], $config['model']);
+        });
+
+        // Inject user preferences into layout for synchronous frontend access
+        View::composer('layout', function ($view) {
+            $user = Auth::user();
+            if ($user) {
+                $view->with('userPreferences', $user->preferences ?? []);
+            }
         });
 
         // Register custom session handler that bypasses RLS for session reads.

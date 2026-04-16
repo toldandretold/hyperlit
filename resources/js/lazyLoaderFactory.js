@@ -24,6 +24,7 @@ import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
 import { renderCharts } from './utilities/chartRenderer.js';
 import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
+import { restoreScrollAnchor } from './utilities/scrollAnchor.js';
 
 /**
  * Apply dynamic footnote numbers to rendered HTML element.
@@ -497,6 +498,12 @@ export function createLazyLoader(config) {
     }
 
     if (topVisible) {
+      // Cache anchor for resize handler
+      instance._scrollAnchor = {
+        element: topVisible,
+        offsetFromContainer: topVisible.getBoundingClientRect().top - scrollSourceRect.top,
+      };
+
       const detectedId = topVisible.id;
 
       // The query is specific, but we double-check for a numerical ID.
@@ -708,27 +715,15 @@ export function createLazyLoader(config) {
     }
   };
 
-  // Smart resize handler that ignores DevTools opening/closing
+  // Resize handler — uses cached scroll anchor for instant correction
   let resizeTimeout;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      // Only restore if viewport width changed significantly (not just DevTools)
-      const currentWidth = window.innerWidth;
-      if (!instance.lastViewportWidth) {
-        instance.lastViewportWidth = currentWidth;
-        return; // Skip first measurement
+      if (instance._scrollAnchor?.element?.isConnected) {
+        restoreScrollAnchor(instance.scrollableParent, instance._scrollAnchor);
       }
-      
-      if (Math.abs(currentWidth - instance.lastViewportWidth) > 100) {
-        instance.lastViewportWidth = currentWidth;
-
-        // Check if user is currently scrolling before restoring
-        if (!shouldSkipScrollRestoration("viewport resize")) {
-          instance.restoreScrollPositionAfterResize();
-        }
-      }
-    }, 300); // Longer delay to avoid DevTools flicker
+    }, 50); // Short debounce — fast enough to feel instant
   });
   // --- END SCROLL POSITION LOGIC ---
 

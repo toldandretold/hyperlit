@@ -46,8 +46,10 @@ return [
             // Fireworks AI — cost per 1M tokens (USD)
             'accounts/fireworks/models/qwen3-8b'     => ['input' => 0.20, 'output' => 0.20],
             'accounts/fireworks/models/deepseek-v3p2'           => ['input' => 0.56, 'output' => 1.68],
+            'accounts/fireworks/models/deepseek-v3p1'           => ['input' => 0.56, 'output' => 1.68],
             'accounts/fireworks/models/llama-v3p3-70b-instruct' => ['input' => 0.90, 'output' => 0.90],
             'accounts/fireworks/models/minimax-m2p5'            => ['input' => 0.30, 'output' => 1.20],
+            'accounts/fireworks/models/qwen3-235b-a22b'         => ['input' => 0.50, 'output' => 1.50],
             'nomic-ai/nomic-embed-text-v1.5'                   => ['input' => 0.008, 'output' => 0.0],
             // Mistral OCR — cost per 1K pages (USD)
             'mistral-ocr-latest' => ['per_1k_pages' => 1.00],

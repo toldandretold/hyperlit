@@ -36,9 +36,10 @@ class RlsUserProvider extends EloquentUserProvider
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
+        // Use setRawAttributes (not forceFill) so JSON/cast columns like
+        // 'preferences' aren't double-encoded by the setter cast.
         $user = new User();
-        $user->forceFill((array) $result);
+        $user->setRawAttributes((array) $result, true);
         $user->exists = true;
 
         return $user;
@@ -57,9 +58,10 @@ class RlsUserProvider extends EloquentUserProvider
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
+        // Use setRawAttributes (not forceFill) so JSON/cast columns like
+        // 'preferences' aren't double-encoded by the setter cast.
         $user = new User();
-        $user->forceFill((array) $result);
+        $user->setRawAttributes((array) $result, true);
         $user->exists = true;
 
         return $user;
@@ -104,19 +106,24 @@ class RlsUserProvider extends EloquentUserProvider
             return null;
         }
 
-        // Use forceFill to set ALL attributes including non-fillable ones like 'id'
-        // Note: forceFill triggers the 'hashed' cast, so if the DB has a plaintext
-        // password, $user->password will be a proper bcrypt hash in memory — but
-        // the DB still holds plaintext. Detect and fix that here via the admin connection.
+        // Use setRawAttributes (not forceFill) so JSON/cast columns like
+        // 'preferences' aren't double-encoded by the setter cast.
+        // Note: the 'hashed' cast on password only triggers via forceFill/setAttribute,
+        // so we check for unhashed passwords manually below.
         $user = new User();
-        $user->forceFill((array) $fullUser);
+        $user->setRawAttributes((array) $fullUser, true);
         $user->exists = true;
 
         if (!Hash::isHashed($fullUser->password)) {
+            $hashed = Hash::make($fullUser->password);
+            $user->setRawAttributes(
+                array_merge($user->getAttributes(), ['password' => $hashed]),
+                true
+            );
             DB::connection('pgsql_admin')
                 ->table('users')
                 ->where('id', $fullUser->id)
-                ->update(['password' => $user->password]);
+                ->update(['password' => $hashed]);
         }
 
         return $user;

@@ -65,6 +65,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'status',
         'credits',
         'debits',
+        'preferences',
     ];
 
     /**
@@ -90,6 +91,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'credits' => 'decimal:4',
             'debits' => 'decimal:4',
+            'preferences' => 'array',
         ];
     }
 
