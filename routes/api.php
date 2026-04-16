@@ -26,6 +26,7 @@ use App\Http\Controllers\UserHomeServerController;
 use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\VibeCSSController;
 use App\Http\Controllers\UserPreferencesController;
+use App\Http\Controllers\VibesController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -82,7 +83,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // User preferences
     Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
     Route::post('/user/preferences', [UserPreferencesController::class, 'update']);
+
+    // Saved vibes
+    Route::get('/vibes/mine', [VibesController::class, 'mine']);
+    Route::post('/vibes', [VibesController::class, 'store']);
+    Route::patch('/vibes/{id}', [VibesController::class, 'update']);
+    Route::delete('/vibes/{id}', [VibesController::class, 'destroy']);
 });
+
+// Public vibes gallery — no auth, throttled
+Route::get('/vibes/public', [VibesController::class, 'publicIndex'])
+    ->middleware('throttle:60,1');
 
 // Password reset routes (throttled to prevent abuse)
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])

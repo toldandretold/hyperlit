@@ -4,7 +4,8 @@ import { ContainerManager } from "../containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
-import { hasVibeCSS, showVibeInput, showTopUpUI } from "./vibeCSS.js";
+import { hasVibeCSS, showVibeInput, showVibeGallery, showTopUpUI } from "./vibeCSS.js";
+import { isLoggedIn } from "../utilities/auth.js";
 import { captureScrollAnchor, restoreScrollAnchor } from "../utilities/scrollAnchor.js";
 import { savePreference, clearPreference } from "../utilities/preferences.js";
 
@@ -153,72 +154,64 @@ export class SettingsContainerManager extends ContainerManager {
 
   /**
    * Handle vibe button click.
-   * - Saved + not active: apply vibe instantly
-   * - Saved + active: re-open input to change vibe
-   * - No saved vibe: check balance → show input or top-up
+   * - Saved + not active theme: apply vibe instantly + close
+   * - Otherwise: open gallery
    */
   async handleVibeClick() {
     const currentTheme = getCurrentTheme();
     const saved = hasVibeCSS();
 
     if (saved && currentTheme !== THEMES.VIBE) {
-      // Apply saved vibe and close settings
+      // Quick-apply saved vibe and close settings
       switchTheme(THEMES.VIBE);
       this.closeContainer();
       return;
     }
 
-    if (saved && currentTheme === THEMES.VIBE) {
-      // Re-open input to change vibe
-      this._openVibeUI();
-      return;
-    }
-
-    // No saved vibe — check balance first
-    const container = document.getElementById('bottom-up-container');
-    if (!container) return;
-
-    // Save current content
-    const savedHTML = container.innerHTML;
-
-    try {
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-      const resp = await fetch('/api/vibe-css/can-proceed', {
-        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
-        credentials: 'same-origin',
-      });
-
-      if (!resp.ok) {
-        // Auth issue or server error — just open input, generate will handle 402
-        this._openVibeUI();
-        return;
-      }
-
-      const data = await resp.json();
-
-      if (data.canProceed) {
-        this._openVibeUI();
-      } else {
-        showTopUpUI(container, () => {
-          container.innerHTML = savedHTML;
-          this.syncSliderUI();
-          this.updateButtonStates();
-        });
-      }
-    } catch {
-      // Network error — just open the input, the submit will handle 402
-      this._openVibeUI();
-    }
+    // Open the gallery for all other cases
+    this._openVibeGallery();
   }
 
   /**
-   * Replace settings panel content with vibe input UI.
+   * Replace settings panel content with vibe gallery.
    */
-  _openVibeUI() {
+  async _openVibeGallery() {
     const container = document.getElementById('bottom-up-container');
     if (!container) return;
 
     const savedHTML = container.innerHTML;
+
+    const restorePanel = () => {
+      container.innerHTML = savedHTML;
+      this.syncSliderUI();
+      this.updateButtonStates();
+    };
+
+    const loggedIn = await isLoggedIn();
+
+    showVibeGallery(container, loggedIn, {
+      onApply: () => {
+        restorePanel();
+        switchTheme(THEMES.VIBE);
+        this.updateButtonStates();
+        this.closeContainer();
+      },
+      onClose: restorePanel,
+      onGenerate: () => {
+        this._openVibeUI(savedHTML);
+      },
+    });
+  }
+
+  /**
+   * Replace settings panel content with vibe generation input UI.
+   * @param {string} [fallbackHTML] - HTML to restore on cancel (if called from gallery, use gallery's savedHTML)
+   */
+  _openVibeUI(fallbackHTML) {
+    const container = document.getElementById('bottom-up-container');
+    if (!container) return;
+
+    const savedHTML = fallbackHTML || container.innerHTML;
 
     showVibeInput(
       container,
@@ -230,11 +223,16 @@ export class SettingsContainerManager extends ContainerManager {
         this.updateButtonStates();
         this.closeContainer();
       },
-      // onCancel
+      // onCancel — go back to gallery if we came from there, else restore settings
       () => {
-        container.innerHTML = savedHTML;
-        this.syncSliderUI();
-        this.updateButtonStates();
+        if (fallbackHTML) {
+          // Came from gallery — re-open gallery
+          this._openVibeGallery();
+        } else {
+          container.innerHTML = savedHTML;
+          this.syncSliderUI();
+          this.updateButtonStates();
+        }
       }
     );
   }

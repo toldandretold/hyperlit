@@ -2363,3 +2363,190 @@ body[data-page="timemachine"] #main-content {
 #vibeCSSButton:not(.active):hover {
   opacity: 0.85;
 }
+
+/* ========================================
+   VIBE GALLERY — Saved & Public vibes
+   ======================================== */
+
+.vibe-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 100%;
+  max-height: 60vh;
+}
+
+.vibe-gallery-tabs {
+  display: flex;
+  gap: 0.25em;
+  align-items: center;
+  width: 100%;
+}
+
+.vibe-tab {
+  padding: 0.4em 1em;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.4em;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.vibe-tab:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.vibe-tab.active {
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  border-color: var(--hyperlit-aqua);
+}
+
+.vibe-gallery-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.25em 0;
+  min-height: 80px;
+}
+
+.vibe-gallery-footer {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  padding-top: 0.25em;
+}
+
+/* Vibe card */
+.vibe-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding: 0.6em 0.75em;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vibe-card-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex: 1;
+  min-width: 0;
+}
+
+.vibe-card-name {
+  font-size: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vibe-card-creator {
+  font-size: 12px;
+  color: var(--color-text);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+/* Colour preview dots */
+.vibe-card-preview {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.vibe-card-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.vibe-card-actions {
+  display: flex;
+  gap: 0.3em;
+  flex-shrink: 0;
+}
+
+.vibe-card-actions .vibe-submit-btn,
+.vibe-card-actions .vibe-cancel-btn,
+.vibe-card-actions .vibe-reset-btn {
+  padding: 0.35em 0.7em;
+  font-size: 12px;
+}
+
+/* Save current prompt */
+.vibe-save-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding: 0.6em 0.75em;
+  background-color: rgba(78, 172, 174, 0.12);
+  border: 1px dashed rgba(78, 172, 174, 0.4);
+  border-radius: 0.5em;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.vibe-save-prompt .vibe-submit-btn {
+  padding: 0.35em 0.7em;
+  font-size: 12px;
+}
+
+/* Auth links inside gallery for non-logged-in users */
+.vibe-auth-link {
+  color: var(--hyperlit-aqua);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Sort toggle for public vibes — compact pill switch, right-aligned in tabs row */
+.vibe-sort-toggle {
+  display: flex;
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.4em;
+  overflow: hidden;
+}
+
+.vibe-sort-btn {
+  padding: 0.2em 0.75em;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  border-radius: 0;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.vibe-sort-btn + .vibe-sort-btn {
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.vibe-sort-btn.active {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Load more button at bottom of public gallery */
+.vibe-load-more {
+  align-self: center;
+  margin-top: 0.5em;
+}
+
+/* Generate button in gallery footer */
+.vibe-generate-btn {
+  background: linear-gradient(135deg, #EE4A95, #EF8D34, #4EACAE) !important;
+  color: #fff !important;
+}
