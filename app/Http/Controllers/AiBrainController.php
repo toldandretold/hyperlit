@@ -457,7 +457,12 @@ class AiBrainController extends Controller
                         'has_nodes'  => true,
                         'creator'    => $user->name,
                     ],
-                    'hyperlight'  => $hyperlightData,
+                    'hyperlight'  => array_merge($hyperlightData, [
+                        'node_id'       => $validated['nodeIds'],
+                        'charData'      => $validated['charData'],
+                        'preview_nodes' => $previewNodes,
+                        'raw_json'      => ['brain_query' => true, 'question' => Str::limit($question, 1000)],
+                    ]),
                     'hypercites'  => $hypercites,
                     'tools_used'  => $toolsUsed,
                 ]);

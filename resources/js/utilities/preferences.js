@@ -3,19 +3,43 @@
  *
  * Server-injected `window.__userPreferences` seeds localStorage on page load.
  * Changes are fire-and-forget POSTed back to the backend.
+ *
+ * Font size and content width are device-scoped (mobile vs desktop).
+ * Theme, vibe_css, and full_width are universal across devices.
  */
 
-const KEY_MAP = {
-  theme:         'hyperlit_theme_preference',
-  vibe_css:      'hyperlit_vibe_css',
+const DEVICE_CLASS = window.innerWidth <= 500 ? 'mobile' : 'desktop';
+
+const UNIVERSAL_KEYS = {
+  theme:     'hyperlit_theme_preference',
+  vibe_css:  'hyperlit_vibe_css',
+  full_width:'hyperlit_full_width',
+};
+
+const DEVICE_KEYS = {
   text_size:     'hyperlit_text_size',
   content_width: 'hyperlit_content_width',
-  full_width:    'hyperlit_full_width',
 };
 
 // Queue to prevent concurrent POSTs from overwriting each other
 let pendingUpdate = null;
 let flushTimer = null;
+
+/**
+ * Return the backend key for a given preference.
+ * Device-scoped keys get a _mobile / _desktop suffix.
+ */
+function backendKey(key) {
+  if (key in DEVICE_KEYS) return `${key}_${DEVICE_CLASS}`;
+  return key;
+}
+
+/**
+ * Return the localStorage key for a given preference.
+ */
+function localKey(key) {
+  return UNIVERSAL_KEYS[key] || DEVICE_KEYS[key] || null;
+}
 
 /**
  * Seed localStorage from server-injected preferences.
@@ -34,22 +58,32 @@ export function seedFromServer() {
   }
 
   // Server → localStorage: backend wins when key is present
-  for (const [key, localKey] of Object.entries(KEY_MAP)) {
+  // Universal keys
+  for (const [key, lsKey] of Object.entries(UNIVERSAL_KEYS)) {
     if (!(key in prefs) || prefs[key] === null || prefs[key] === undefined) continue;
 
     const value = prefs[key];
 
     if (key === 'vibe_css') {
-      localStorage.setItem(localKey, JSON.stringify(value));
+      localStorage.setItem(lsKey, JSON.stringify(value));
     } else if (key === 'full_width') {
       if (value) {
-        localStorage.setItem(localKey, 'true');
+        localStorage.setItem(lsKey, 'true');
       } else {
-        localStorage.removeItem(localKey);
+        localStorage.removeItem(lsKey);
       }
     } else {
-      localStorage.setItem(localKey, String(value));
+      localStorage.setItem(lsKey, String(value));
     }
+  }
+
+  // Device-scoped keys: prefer device-specific, fall back to legacy
+  for (const [key, lsKey] of Object.entries(DEVICE_KEYS)) {
+    const deviceKey = `${key}_${DEVICE_CLASS}`;
+    const serverValue = prefs[deviceKey] ?? prefs[key] ?? null;
+
+    if (serverValue === null || serverValue === undefined) continue;
+    localStorage.setItem(lsKey, String(serverValue));
   }
 
   // localStorage → server: upload any keys the server doesn't have yet
@@ -63,11 +97,11 @@ export function seedFromServer() {
 function uploadMissingPreferences(serverPrefs) {
   const missing = {};
 
-  for (const [key, localKey] of Object.entries(KEY_MAP)) {
-    // Skip if server already has this key
+  // Universal keys
+  for (const [key, lsKey] of Object.entries(UNIVERSAL_KEYS)) {
     if (key in serverPrefs && serverPrefs[key] !== null && serverPrefs[key] !== undefined) continue;
 
-    const localValue = localStorage.getItem(localKey);
+    const localValue = localStorage.getItem(lsKey);
     if (localValue === null) continue;
 
     if (key === 'vibe_css') {
@@ -78,12 +112,21 @@ function uploadMissingPreferences(serverPrefs) {
       }
     } else if (key === 'full_width') {
       missing[key] = localValue === 'true';
-    } else if (key === 'text_size' || key === 'content_width') {
-      const num = parseInt(localValue, 10);
-      if (!isNaN(num)) missing[key] = num;
     } else {
       missing[key] = localValue;
     }
+  }
+
+  // Device-scoped keys — upload under the device-specific backend key
+  for (const [key, lsKey] of Object.entries(DEVICE_KEYS)) {
+    const deviceKey = `${key}_${DEVICE_CLASS}`;
+    if (deviceKey in serverPrefs && serverPrefs[deviceKey] !== null && serverPrefs[deviceKey] !== undefined) continue;
+
+    const localValue = localStorage.getItem(lsKey);
+    if (localValue === null) continue;
+
+    const num = parseInt(localValue, 10);
+    if (!isNaN(num)) missing[deviceKey] = num;
   }
 
   if (Object.keys(missing).length > 0) {
@@ -94,12 +137,13 @@ function uploadMissingPreferences(serverPrefs) {
 /**
  * Fire-and-forget POST a preference to the backend.
  * Batches rapid successive calls into a single request to avoid race conditions.
- * @param {string} key - One of the ALLOWED_KEYS (theme, vibe_css, text_size, content_width, full_width)
+ * Device-scoped keys are automatically suffixed with _mobile or _desktop.
+ * @param {string} key - One of: theme, vibe_css, text_size, content_width, full_width
  * @param {*} value - The value to save
  */
 export function savePreference(key, value) {
   if (!pendingUpdate) pendingUpdate = {};
-  pendingUpdate[key] = value;
+  pendingUpdate[backendKey(key)] = value;
 
   // Debounce: flush after a microtask so back-to-back calls batch together
   if (!flushTimer) {
@@ -136,7 +180,13 @@ function postPreferences(payload) {
     },
     credentials: 'same-origin',
     body: JSON.stringify(payload),
-  }).catch(() => {
-    // Fire-and-forget — don't block UI on failure
-  });
+  })
+    .then(res => {
+      if (!res.ok) {
+        console.warn('[preferences] save failed:', res.status, res.statusText);
+      }
+    })
+    .catch(err => {
+      console.warn('[preferences] network error:', err.message);
+    });
 }

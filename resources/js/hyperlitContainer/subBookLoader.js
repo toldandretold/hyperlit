@@ -431,6 +431,9 @@ export async function loadSubBook(
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
     nodes = previewNodes;
+    if (typeof nodes === 'string') {
+      try { nodes = JSON.parse(nodes); } catch { nodes = null; }
+    }
   } else {
     if (existingNodesFromIDB?.length) {
       // We have full nodes, but still need preview nodes for lazy loading

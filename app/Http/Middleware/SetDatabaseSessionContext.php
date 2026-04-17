@@ -65,16 +65,10 @@ class SetDatabaseSessionContext
     private function setSessionVariables(string $username, string $token, string $sessionId): void
     {
         try {
-            // Escape values to prevent SQL injection in the SET commands
-            // Using parameterized set_config is safest
-            $safeUsername = $this->escapeForPostgres($username);
-            $safeToken = $this->escapeForPostgres($token);
-            $safeSessionId = $this->escapeForPostgres($sessionId);
-
-            // Set session variables (is_local = false means connection-wide)
-            DB::statement("SELECT set_config('app.current_user', ?, false)", [$safeUsername]);
-            DB::statement("SELECT set_config('app.current_token', ?, false)", [$safeToken]);
-            DB::statement("SELECT set_config('app.session_id', ?, false)", [$safeSessionId]);
+            // Values are passed as parameterized placeholders — PDO handles escaping
+            DB::statement("SELECT set_config('app.current_user', ?, false)", [$username]);
+            DB::statement("SELECT set_config('app.current_token', ?, false)", [$token]);
+            DB::statement("SELECT set_config('app.session_id', ?, false)", [$sessionId]);
 
         } catch (\Exception $e) {
             Log::error('Failed to set RLS session context', [
@@ -85,15 +79,5 @@ class SetDatabaseSessionContext
             // Don't throw - allow request to continue
             // RLS will block unauthorized access anyway
         }
-    }
-
-    /**
-     * Escape a value for use in PostgreSQL.
-     * Extra safety layer even though we use parameterized queries.
-     */
-    private function escapeForPostgres(string $value): string
-    {
-        // Remove any null bytes and escape single quotes
-        return str_replace(["'", "\0"], ["''", ""], $value);
     }
 }
