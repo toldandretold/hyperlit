@@ -77,7 +77,9 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
         element.addEventListener('animationend', handleAnimationEnd);
 
         // 🎯 Highlight arrow icons and auto-remove when animation ends
-        const arrowIcons = element.querySelectorAll('.open-icon');
+        const arrowIcons = element.matches('.open-icon')
+          ? [element]
+          : element.querySelectorAll('.open-icon');
         arrowIcons.forEach(arrow => {
           arrow.classList.add('arrow-target');
           console.log(`✨ Added arrow highlight to icon in ${targetHyperciteId}`);
