@@ -443,7 +443,10 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     console.log("✅ NEW SYSTEM: Hypercite saved to normalized table");
 
     // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
-    const affectedNodes = await getNodesByDataNodeIDs(nodeIdArray);
+    const allAffectedNodes = await getNodesByDataNodeIDs(nodeIdArray);
+    // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+    // node when the same node_id exists in both parent and sub-book.
+    const affectedNodes = allAffectedNodes.filter(n => n.book === book);
     await rebuildNodeArrays(affectedNodes);
 
     console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);

@@ -419,7 +419,9 @@ async function syncItemsForBook(bookId, bookItems) {
       if (deletionsToRecover.length > 0) {
         const { getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
         const existCheck = await getNodesByDataNodeIDs(deletionsToRecover.map(n => n.node_id));
-        const stillExistIds = new Set(existCheck.map(n => n.node_id));
+        // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+        // node when the same node_id exists in both parent and sub-book.
+        const stillExistIds = new Set(existCheck.filter(n => n.book === bookId).map(n => n.node_id));
         for (const node of deletionsToRecover) {
           if (!stillExistIds.has(node.node_id)) {
             syncPayload.deletions.nodes.push({ ...node, _action: "delete" });

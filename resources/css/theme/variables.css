@@ -57,7 +57,7 @@
   --font-size-h4: 1.2em;
   --font-size-h5: 1em;
   --font-size-code: 0.75em;
-  --font-size-sup: 0.5em;
+  --font-size-sup: 0.6em;
 
   --line-height-base: 1.4;
   --letter-spacing-tight: -0.03em;
@@ -130,6 +130,6 @@
     --font-size-h4: 1.1em;
     --font-size-h5: 1em;
     --font-size-code: 0.85em;
-    --font-size-sup: 0.65em;
+    --font-size-sup: 0.7em;
   }
 }

@@ -815,7 +815,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
         if (affectedDataNodeIDs.length > 0) {
           try {
             const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../hydration/rebuild.js');
-            const nodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+            const allNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+            // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+            // node when the same node_id exists in both parent and sub-book.
+            const nodes = allNodes.filter(n => n.book === bookId);
             if (nodes.length > 0) {
               await rebuildNodeArrays(nodes);
               console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${nodes.length} nodes after batch update`);

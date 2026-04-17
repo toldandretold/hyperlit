@@ -1086,7 +1086,10 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
         console.log(`🔄 Rebuilding arrays for ${visibleDataNodeIDs.length} nodes...`);
 
         if (visibleDataNodeIDs.length > 0) {
-          const nodesToRebuild = await getNodesByDataNodeIDs(visibleDataNodeIDs);
+          const allNodesToRebuild = await getNodesByDataNodeIDs(visibleDataNodeIDs);
+          // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+          // node when the same node_id exists in both parent and sub-book.
+          const nodesToRebuild = allNodesToRebuild.filter(n => n.book === bookId);
           await rebuildNodeArrays(nodesToRebuild);
           console.log(`✅ Rebuilt node arrays with new annotations`);
         }

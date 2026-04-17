@@ -164,9 +164,18 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   }
   
   console.log(`🔄 Hydrating ${previewNodeIds.length} preview nodes with fresh hyperlights`);
-  
+
   // Get fresh data for ONLY the preview nodes
   const previewNodes = freshNodes.filter(n => previewNodeIds.includes(n.node_id));
+
+  // Rebuild node arrays from normalized tables — IDB nodes may have stale/empty
+  // hyperlights arrays (e.g. when getNodesByDataNodeIDs returned the parent's node
+  // at highlight-creation time, leaving the sub-book's node un-updated).
+  if (previewNodes.length > 0) {
+    const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild.js');
+    await rebuildNodeArrays(previewNodes);
+    console.log(`✅ Rebuilt arrays for ${previewNodes.length} preview nodes before hydration`);
+  }
   
   if (previewNodes.length === 0) {
     console.warn(`⚠️ No preview nodes found in fresh data, skipping hydration`);

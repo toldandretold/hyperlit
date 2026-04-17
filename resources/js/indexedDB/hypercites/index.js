@@ -362,7 +362,10 @@ export function updateCitationForExistingHypercite(
     const affectedDataNodeIDs = existingHypercite.node_id || [];
     if (affectedDataNodeIDs.length > 0) {
       const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../hydration/rebuild.js');
-      const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+      const allNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+      // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+      // node when the same node_id exists in both parent and sub-book.
+      const affectedNodes = allNodes.filter(n => n.book === booka);
       await rebuildNodeArrays(affectedNodes);
       console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
     }

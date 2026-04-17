@@ -406,6 +406,8 @@ sup[fn-count-id]:hover,
 a[id^="hypercite_"]:hover {
     background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
     border-radius: 3px;
+    padding: 6px;
+    margin: -6px;
 }
 
 /* Active state for touch feedback */

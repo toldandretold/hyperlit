@@ -300,6 +300,7 @@ export async function handleHypercitePaste(event, targetBookId) {
       // MULTIPLE HYPERCITES: Batch all updates into ONE request
       const updatedHypercites = [];
       const affectedDataNodeIDs = new Set(); // Track affected nodes for rebuild
+      const affectedBooks = new Set(); // Track books that own the affected nodes
       const domUpdates = []; // Store DOM updates to apply after successful sync
 
       // Process all hypercites and collect updates
@@ -350,6 +351,7 @@ export async function handleHypercitePaste(event, targetBookId) {
           // Track affected node UUIDs for rebuild
           if (existingHypercite.node_id && Array.isArray(existingHypercite.node_id)) {
             existingHypercite.node_id.forEach(dataNodeID => affectedDataNodeIDs.add(dataNodeID));
+            affectedBooks.add(booka);
           }
 
           // Get final hypercite record for sync
@@ -388,7 +390,10 @@ export async function handleHypercitePaste(event, targetBookId) {
       if (affectedDataNodeIDs.size > 0) {
         try {
           const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
-          const affectedNodes = await getNodesByDataNodeIDs(Array.from(affectedDataNodeIDs));
+          const allNodes = await getNodesByDataNodeIDs(Array.from(affectedDataNodeIDs));
+          // Filter to correct book(s) — getNodesByDataNodeIDs may return a parent book's
+          // node when the same node_id exists in both parent and sub-book.
+          const affectedNodes = allNodes.filter(n => affectedBooks.has(n.book));
           await rebuildNodeArrays(affectedNodes);
           console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
         } catch (error) {

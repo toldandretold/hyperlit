@@ -685,7 +685,10 @@ export async function createHighlightHandler(event, bookId, options = {}) {
 
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
       const affectedDataNodeIDs = Object.keys(charDataByNode);
-      const affectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+      const allAffectedNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+      // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+      // node when the same node_id exists in both parent and sub-book.
+      const affectedNodes = allAffectedNodes.filter(n => n.book === bookId);
 
       await Promise.all([
         rebuildNodeArrays(affectedNodes),
@@ -704,7 +707,10 @@ export async function createHighlightHandler(event, bookId, options = {}) {
 
     // 🎨 Reprocess highlights to render overlapping segments correctly (outside withPending - DOM only)
     const affectedDataNodeIDs = Object.keys(charDataByNode);
-    const freshNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+    const allFreshNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+    // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+    // node when the same node_id exists in both parent and sub-book.
+    const freshNodes = allFreshNodes.filter(n => n.book === bookId);
     await reprocessHighlightsForNodes(bookId, Array.from(affectedIds), freshNodes);
     console.log(`✅ Reprocessed highlights for ${affectedIds.size} nodes to render overlaps`);
 
