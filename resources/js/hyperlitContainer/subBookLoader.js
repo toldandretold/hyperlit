@@ -294,6 +294,31 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       return;
     }
 
+    // ── Annotations-only check (highlights/hypercites changed, nodes didn't) ──
+    const serverAnnotationsTs = serverRecord?.annotations_updated_at || 0;
+    const localAnnotationsTs  = localRecord?.annotations_updated_at  || 0;
+
+    if (serverAnnotationsTs > localAnnotationsTs) {
+      console.log(`📝 Sub-book "${subBookId}": annotations changed. Syncing annotations only...`);
+
+      const { syncAnnotationsOnly } = await import('../postgreSQL.js');
+      const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library.js');
+
+      await syncAnnotationsOnly(subBookId);
+      await updateLocalAnnotationsTimestamp(subBookId, serverAnnotationsTs);
+
+      // Re-hydrate preview nodes with fresh annotation data
+      if (subBookLoaders.has(subBookId)) {
+        const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
+        if (freshNodes?.length > 0 && previewNodeIds.length > 0) {
+          await hydratePreviewNodes(subBookState, previewNodeIds, freshNodes);
+        }
+      }
+
+      enrichedSubBooks.add(subBookId);
+      return;
+    }
+
     // Server is newer → proceed with sync, but guard against wiping local content.
     // AIreview sub-books are server-managed — server is always the source of truth.
     const isAIReview = subBookState.creator?.startsWith('AIreview:');
