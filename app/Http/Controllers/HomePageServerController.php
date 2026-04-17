@@ -36,6 +36,7 @@ class HomePageServerController extends Controller
 {
     private const CACHE_KEY = 'homepage_books_data';
     private const CACHE_TTL = 900; // 15 minutes
+    private const PINNED_BOOK_ID = 'book_1773824629440';
 
     public function getHomePageBooks(Request $request)
     {
@@ -83,6 +84,29 @@ class HomePageServerController extends Controller
 
         // Calculate rankings
         $rankings = $this->calculateRankings($libraryRecords);
+
+        // Pin book at top of most-recent list
+        $pinnedBookInRecords = $libraryRecords->contains('book', self::PINNED_BOOK_ID);
+        if (!$pinnedBookInRecords) {
+            $pinnedRecord = DB::table('library')
+                ->select([
+                    'book', 'recent', 'total_highlights', 'total_citations',
+                    'total_views', 'created_at', 'bibtex', 'title', 'author',
+                    'year', 'publisher', 'journal'
+                ])
+                ->where('book', self::PINNED_BOOK_ID)
+                ->first();
+
+            if ($pinnedRecord) {
+                $libraryRecords->push($pinnedRecord);
+            }
+        }
+
+        // Shift all mostRecent rankings down by 1 and pin at position 1
+        foreach ($rankings['mostRecent'] as $book => $rank) {
+            $rankings['mostRecent'][$book] = $rank + 1;
+        }
+        $rankings['mostRecent'][self::PINNED_BOOK_ID] = 1;
 
         // Clear existing entries for our special books
         $adminDb->table('nodes')->whereIn('book', [
