@@ -54,15 +54,17 @@ export function attachUnderlineClickListeners(scope = document) {
  * Attach click listeners to hypercite links in contenteditable areas
  */
 function attachHyperciteLinkListeners() {
-  // Select all hypercite links with open-icon class within hyperlit-container
-  const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[id^="hypercite_"] sup.open-icon, #hyperlit-container a[id^="hypercite_"] span.open-icon');
+  // Select all hypercite anchor links within hyperlit-container
+  // New format: <a class="open-icon" id="hypercite_...">, old format: <a id="hypercite_..."> with child sup/span
+  const hyperciteLinks = document.querySelectorAll('#hyperlit-container a.open-icon[id^="hypercite_"], #hyperlit-container a[id^="hypercite_"] span.open-icon');
 
   if (hyperciteLinks.length === 0) return;
 
   console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container to process.`);
 
   hyperciteLinks.forEach((linkElement) => {
-    const anchorElement = linkElement.parentElement;
+    // For new format, the link IS the anchor; for old format (span child), get parent
+    const anchorElement = linkElement.tagName === 'A' ? linkElement : linkElement.parentElement;
     if (!anchorElement || anchorElement.tagName !== 'A') return;
 
     // Prevent attaching duplicate listeners

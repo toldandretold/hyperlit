@@ -77,8 +77,8 @@ export class SupTagHandler {
       // Check if we're inside a <sup> tag
       let supElement = element.closest('sup');
 
-      // Also check if we're inside a hypercite <a> tag (even if outside the sup)
-      // Structure: <a href="...#hypercite_xxx"><sup class="open-icon">↗</sup></a>
+      // Also check if we're inside a hypercite <a> tag
+      // Structure: <a href="...#hypercite_xxx" class="open-icon">↗</a>
       let hyperciteAnchor = element.closest('a[href*="#hypercite_"]');
 
       // Also check if cursor is at parent level right before/after a hypercite anchor
@@ -220,29 +220,15 @@ export class SupTagHandler {
           }
         }
 
-        // If sup is inside a hypercite anchor, insert outside the anchor
-        if (hyperciteAnchor && supElement.closest('a') === hyperciteAnchor) {
-          insertionReference = hyperciteAnchor;
-        } else {
           insertionReference = supElement;
-        }
       } else if (hyperciteAnchor) {
         // Hypercite anchor found - determine if inserting before or after
-
-        // If we found anchor via parent-level detection, use those flags
         if (cursorBeforeAnchor) {
           insertBefore = true;
         } else if (cursorAfterAnchor) {
           insertBefore = false;
         } else {
-          // Inside hypercite anchor - check cursor position relative to sup
-          const supInAnchor = hyperciteAnchor.querySelector('sup');
-          if (supInAnchor) {
-            const cursorBeforeSup = node.compareDocumentPosition(supInAnchor) & Node.DOCUMENT_POSITION_FOLLOWING;
-            insertBefore = cursorBeforeSup;
-          } else {
-            insertBefore = offset === 0;
-          }
+          insertBefore = offset === 0;
         }
 
         insertionReference = hyperciteAnchor;
@@ -305,6 +291,15 @@ export class SupTagHandler {
       const offset = selection.anchorOffset;
       const textLength = node.textContent?.length || 0;
 
+      // Check if cursor is INSIDE a hypercite anchor (new single-element format)
+      // This catches both forward delete and backspace when cursor is within <a class="open-icon">↗</a>
+      if (!supElement) {
+        const insideHypercite = element?.closest('a[href*="#hypercite_"]');
+        if (insideHypercite) {
+          supElement = insideHypercite;
+        }
+      }
+
       // Also check if cursor is RIGHT BEFORE a sup or hypercite anchor
       if (!supElement && offset === 0) {
         // Check if we're in an empty text node before a sup or hypercite anchor
@@ -312,10 +307,6 @@ export class SupTagHandler {
           const nextSib = node.nextSibling;
           if (nextSib && nextSib.nodeName === 'SUP') {
             supElement = nextSib;
-          }
-          // Also check for hypercite anchor containing sup
-          if (!supElement && nextSib?.tagName === 'A' && nextSib.href?.includes('#hypercite_')) {
-            supElement = nextSib.querySelector('sup.open-icon');
           }
         }
         // Check if cursor is at position 0 of parent element and first real child is sup or hypercite
@@ -327,10 +318,6 @@ export class SupTagHandler {
           }
           if (firstChild && firstChild.nodeName === 'SUP') {
             supElement = firstChild;
-          }
-          // Also check for hypercite anchor containing sup
-          if (!supElement && firstChild?.tagName === 'A' && firstChild.href?.includes('#hypercite_')) {
-            supElement = firstChild.querySelector('sup.open-icon');
           }
         }
       }
@@ -371,11 +358,10 @@ export class SupTagHandler {
         }
 
         if (hyperciteAnchor) {
-          const supInAnchor = hyperciteAnchor.querySelector('sup.open-icon');
-          if (supInAnchor) {
-            supElement = supInAnchor;
-            cursorBeforeHyperciteAnchor = true;
-          }
+          // Hypercite anchor IS the open-icon element now (no inner sup)
+          // Set supElement to the anchor itself so deletion logic triggers
+          supElement = hyperciteAnchor;
+          cursorBeforeHyperciteAnchor = true;
         } else if (footnoteSup) {
           supElement = footnoteSup;
           cursorBeforeFootnoteSup = true;
@@ -411,78 +397,70 @@ export class SupTagHandler {
         }
 
         if (hyperciteAnchor) {
-          const supInAnchor = hyperciteAnchor.querySelector('sup.open-icon');
-          if (supInAnchor) {
-            // Check if cursor is actually AFTER the sup (would delete into sup content)
-            // vs BEFORE the sup (should escape left and delete outside anchor)
-            let cursorIsAfterSup = false;
+          // Hypercite anchor IS the open-icon element now (no inner sup)
+          // Distinguish cursor at START (escape left) vs END/AFTER (deletion confirmation)
+          let cursorIsAfterAnchor = false;
 
-            if (node === hyperciteAnchor) {
-              // Cursor is directly in anchor element
-              // Structure: <a>[0: ​][1: <sup>]</a>
-              // offset 0 or 1 = before sup, offset 2+ = after sup
-              const supIndex = Array.from(hyperciteAnchor.childNodes).indexOf(supInAnchor);
-              cursorIsAfterSup = offset > supIndex;
-            } else if (hyperciteAnchor.parentNode === node) {
-              // Cursor is in parent element (P) at an offset position
-              // Check if cursor offset is after the anchor's index
-              const anchorIndex = Array.from(node.childNodes).indexOf(hyperciteAnchor);
-              cursorIsAfterSup = offset > anchorIndex;
-            } else if (supInAnchor.contains(node)) {
-              // Cursor is inside the sup itself
-              cursorIsAfterSup = true;
+          if (node === hyperciteAnchor) {
+            // Cursor is directly in anchor element at child-node offset
+            // offset 0 = before content (escape left), offset > 0 = after content (delete)
+            cursorIsAfterAnchor = offset > 0;
+          } else if (hyperciteAnchor.parentNode === node) {
+            // Cursor is in parent element (P) at an offset position
+            const anchorIndex = Array.from(node.childNodes).indexOf(hyperciteAnchor);
+            cursorIsAfterAnchor = offset > anchorIndex;
+          } else if (hyperciteAnchor.contains(node)) {
+            // Cursor is in a text node inside the anchor
+            // offset 0 = at start of text (escape left), otherwise = at/after content (delete)
+            cursorIsAfterAnchor = offset > 0;
+          } else {
+            // Cursor is in some other node - check document position
+            const position = hyperciteAnchor.compareDocumentPosition(node);
+            cursorIsAfterAnchor = (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+          }
+
+          if (cursorIsAfterAnchor) {
+            supElement = hyperciteAnchor;
+            cursorAfterSupInAnchor = true;
+          } else {
+            // Cursor is BEFORE anchor - escape to left and delete outside anchor
+            e.preventDefault();
+            e.stopPropagation();
+
+            const anchorRef = hyperciteAnchor; // Capture reference
+
+            // Position cursor at end of previous text node
+            let prevNode = hyperciteAnchor.previousSibling;
+            const range = document.createRange();
+            if (prevNode && prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent.length > 0) {
+              range.setStart(prevNode, prevNode.textContent.length);
             } else {
-              // Cursor is in some other node - check document position
-              const position = supInAnchor.compareDocumentPosition(node);
-              // DOCUMENT_POSITION_FOLLOWING means node FOLLOWS sup (so cursor is after sup)
-              // DOCUMENT_POSITION_PRECEDING means node PRECEDES sup (so cursor is before sup)
-              cursorIsAfterSup = (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+              range.setStartBefore(hyperciteAnchor);
             }
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
 
-            if (cursorIsAfterSup) {
-              supElement = supInAnchor;
-              cursorAfterSupInAnchor = true;
-            } else {
-              // Cursor is BEFORE sup - escape to left and delete outside anchor
-              e.preventDefault();
-              e.stopPropagation();
+            // Execute the delete immediately
+            document.execCommand('delete', false, null);
 
-              const anchorRef = hyperciteAnchor; // Capture reference
-
-              // Position cursor at end of previous text node (not just "before" anchor)
-              // This ensures browser sees cursor as being IN the text, not in anchor
-              let prevNode = hyperciteAnchor.previousSibling;
-              const range = document.createRange();
-              if (prevNode && prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent.length > 0) {
-                range.setStart(prevNode, prevNode.textContent.length);
-              } else {
-                range.setStartBefore(hyperciteAnchor);
-              }
-              range.collapse(true);
-              selection.removeAllRanges();
-              selection.addRange(range);
-
-              // Execute the delete immediately
-              document.execCommand('delete', false, null);
-
-              // After DOM settles, position cursor at end of text before anchor
-              requestAnimationFrame(() => {
-                if (anchorRef.parentNode) {
-                  let textBefore = anchorRef.previousSibling;
-                  const sel = window.getSelection();
-                  const newRange = document.createRange();
-                  if (textBefore && textBefore.nodeType === Node.TEXT_NODE && textBefore.textContent.length > 0) {
-                    newRange.setStart(textBefore, textBefore.textContent.length);
-                  } else {
-                    newRange.setStartBefore(anchorRef);
-                  }
-                  newRange.collapse(true);
-                  sel.removeAllRanges();
-                  sel.addRange(newRange);
+            // After DOM settles, position cursor at end of text before anchor
+            requestAnimationFrame(() => {
+              if (anchorRef.parentNode) {
+                let textBefore = anchorRef.previousSibling;
+                const sel = window.getSelection();
+                const newRange = document.createRange();
+                if (textBefore && textBefore.nodeType === Node.TEXT_NODE && textBefore.textContent.length > 0) {
+                  newRange.setStart(textBefore, textBefore.textContent.length);
+                } else {
+                  newRange.setStartBefore(anchorRef);
                 }
-              });
-              return;
-            }
+                newRange.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+              }
+            });
+            return;
           }
         }
       }
@@ -574,34 +552,32 @@ export class SupTagHandler {
             queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
           }
         }
-        // HYPERCITE LINK DELETION: Handle <sup class="open-icon"> inside hypercite <a> tags
-        // Structure: <a href="...#hypercite_xxx"><sup class="open-icon">↗</sup></a>
-        else if (supElement.classList?.contains('open-icon')) {
-          // Check if parent is a hypercite link
-          const parentAnchor = supElement.closest('a[href*="#hypercite_"]');
-          if (parentAnchor) {
+        // HYPERCITE LINK DELETION: Handle hypercite <a> elements
+        // New structure: <a href="...#hypercite_xxx" class="open-icon">↗</a>
+        // Also handles old structure where supElement was inside anchor
+        else if (supElement.classList?.contains('open-icon') || supElement.closest?.('a[href*="#hypercite_"]')) {
+          const hyperciteAnchor = supElement.tagName === 'A' ? supElement : supElement.closest('a[href*="#hypercite_"]');
+          if (hyperciteAnchor) {
             if (!confirm('Delete hypercite citation link?')) {
               e.preventDefault();
               e.stopPropagation();
 
               // Use setTimeout to restore cursor after dialog fully closes
-              const targetAnchor = parentAnchor; // Capture reference
+              const targetAnchor = hyperciteAnchor; // Capture reference
               const wasForwardDelete = e.inputType === 'deleteContentForward';
               setTimeout(() => {
                 const sel = window.getSelection();
                 sel.removeAllRanges();
                 const range = document.createRange();
                 if (targetAnchor && targetAnchor.parentNode) {
-                  // Position based on delete direction
                   if (wasForwardDelete) {
-                    range.setStartBefore(targetAnchor); // fn-delete: cursor before
+                    range.setStartBefore(targetAnchor);
                   } else {
-                    range.setStartAfter(targetAnchor); // backspace: cursor after
+                    range.setStartAfter(targetAnchor);
                   }
                   range.collapse(true);
                   sel.addRange(range);
                 }
-                // If element gone, cursor stays wherever browser put it
               }, 10);
               return;
             }
@@ -610,8 +586,8 @@ export class SupTagHandler {
             // This triggers handleHyperciteRemoval via MutationObserver
             e.preventDefault();
             e.stopPropagation();
-            console.log(`User confirmed hypercite link deletion: ${parentAnchor.id}`);
-            parentAnchor.remove();
+            console.log(`User confirmed hypercite link deletion: ${hyperciteAnchor.id}`);
+            hyperciteAnchor.remove();
             return;
           }
         }
@@ -619,18 +595,25 @@ export class SupTagHandler {
         return;
       }
 
-      // Backspace at position 0 inside/before sup → escape cursor (not trying to delete sup)
+      // Backspace at position 0 inside/before sup/anchor → escape cursor (not trying to delete it)
       if (e.inputType === 'deleteContentBackward' && offset === 0) {
         e.preventDefault();
         e.stopPropagation();
 
-        // If cursor is INSIDE sup, move it before sup
-        if (element?.closest('sup') === supElement) {
+        // If cursor is INSIDE the element (sup or hypercite anchor), move it before
+        const isInsideElement = element?.closest('sup') === supElement
+          || element?.closest('a[href*="#hypercite_"]') === supElement
+          || supElement.contains(node);
+
+        if (isInsideElement) {
           const newRange = document.createRange();
           newRange.setStartBefore(supElement);
           newRange.collapse(true);
           selection.removeAllRanges();
           selection.addRange(newRange);
+
+          // After escaping, execute the backspace so user gets expected behavior
+          document.execCommand('delete', false, null);
         } else {
           // Cursor is already before sup (at start of paragraph)
           // Do manual merge: move all content (including sup) to previous element

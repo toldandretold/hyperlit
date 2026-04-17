@@ -279,21 +279,12 @@ export class EnterKeyHandler {
 
         // If at start (before content), move cursor BEFORE sup; otherwise move AFTER
         if (atStart) {
-          // Check if sup is inside a hypercite anchor - escape past anchor
-          const parentAnchor = supElement.closest('a[href*="#hypercite_"]');
-          if (parentAnchor) {
-            newRange.setStartBefore(parentAnchor);
-          } else {
-            newRange.setStartBefore(supElement);
-          }
+          newRange.setStartBefore(supElement);
         } else {
-          // Check if sup is inside a hypercite anchor - escape past anchor
-          const parentAnchor = supElement.closest('a[href*="#hypercite_"]');
-          const escapeTarget = parentAnchor || supElement;
-          let nextNode = escapeTarget.nextSibling;
+          let nextNode = supElement.nextSibling;
           if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
             nextNode = document.createTextNode('\u200B');
-            escapeTarget.parentNode.insertBefore(nextNode, escapeTarget.nextSibling);
+            supElement.parentNode.insertBefore(nextNode, supElement.nextSibling);
           }
           newRange.setStart(nextNode, 0);
         }

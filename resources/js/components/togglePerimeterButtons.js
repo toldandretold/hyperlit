@@ -225,7 +225,7 @@ shouldIgnoreEvent(event) {
   // Ignore interactive elements
   if (
     event.target.closest("a") ||
-    event.target.closest("sup.open-icon") ||
+    event.target.closest("a.open-icon") ||
     event.target.closest("u.couple") ||
     event.target.closest("u.poly") ||
     event.target.closest("sup[fn-count-id]") ||  // Ignore footnote sup elements

@@ -137,9 +137,7 @@ u.single, u.couple, u.poly {
 
 /* Arrow icon navigation target state */
 .open-icon.arrow-target,
-sup.open-icon.arrow-target,
-span.open-icon.arrow-target,
-sup.arrow-target {
+span.open-icon.arrow-target {
     display: inline-block;
     animation: arrow-pulse 2000ms ease-in-out forwards;
 }
@@ -337,16 +335,21 @@ sup {
 /* Prevent orphaning of citation arrows on their own line */
 .nowrap { white-space: nowrap; }
 
-/* Increase touch target size for sup elements */
-sup.open-icon {
+/* Hypercite arrow links — single atomic element replacing old <a><sup> structure */
+a.open-icon {
+    color: var(--color-primary);
     padding: 8px; /* Add padding to increase clickable area */
     margin: -8px; /* Offset padding to maintain visual position */
     position: relative; /* Enable z-index */
     z-index: 2; /* Ensure it's above other elements */
+    vertical-align: super;
+    font-size: 0.7em;
+    line-height: 0;
+    text-decoration: none;
 }
 
 @media (hover: none) and (pointer: coarse) {
-    sup.open-icon {
+    a.open-icon {
         padding: 0;
         margin: 0;
     }
@@ -537,8 +540,8 @@ html, body, * {
 }
 
 /* Enable interaction for annotation links */
-.annotation a, 
-.annotation sup.open-icon {
+.annotation a,
+.annotation a.open-icon {
     -webkit-touch-callout: default;
     -webkit-user-select: text;
     user-select: text;

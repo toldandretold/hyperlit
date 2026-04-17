@@ -1113,6 +1113,30 @@ export function createLazyLoader(config) {
 }
 
 /**
+ * Normalize old hypercite DOM structures to the new single-element format.
+ * Old: <a href="..."><sup class="open-icon">↗</sup></a>
+ * Flipped: <sup class="open-icon"><a href="...">↗</a></sup>
+ * New: <a href="..." class="open-icon">↗</a>
+ */
+export function normalizeHyperciteElements(container) {
+  // Case 1: Normal old format — <a><sup class="open-icon">↗</sup></a>
+  container.querySelectorAll('a[href*="#hypercite_"] > sup.open-icon').forEach(sup => {
+    const anchor = sup.parentElement;
+    anchor.classList.add('open-icon');
+    anchor.textContent = '↗';
+  });
+
+  // Case 2: Flipped format — <sup class="open-icon"><a>↗</a></sup>
+  container.querySelectorAll('sup.open-icon > a[href*="#hypercite_"]').forEach(anchor => {
+    const sup = anchor.parentElement;
+    anchor.classList.add('open-icon');
+    anchor.textContent = '↗';
+    sup.parentNode.insertBefore(anchor, sup);
+    sup.remove();
+  });
+}
+
+/**
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
@@ -1155,6 +1179,11 @@ export function createChunkElement(nodes, instance) {
     const temp = document.createElement("div");
     // SECURITY: Sanitize HTML to prevent stored XSS from malicious EPUB uploads
     temp.innerHTML = sanitizeHtml(html);
+
+    // 🔄 NORMALIZE: Migrate old hypercite format to new single-element format
+    // Old: <a><sup class="open-icon">↗</sup></a> or flipped <sup class="open-icon"><a>↗</a></sup>
+    // New: <a class="open-icon">↗</a>
+    normalizeHyperciteElements(temp);
 
     // 🧹 CLEANUP: Strip navigation classes that shouldn't persist from database
     // Target: <a>, <u>, and arrow icons (<sup>, <span> with .open-icon)

@@ -54,11 +54,14 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   const pasteWrapper = document.createElement("div");
   pasteWrapper.innerHTML = sanitizeHtml(clipboardHtml);
 
-  const citeLink = pasteWrapper.querySelector(
-    'a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon'
-  )?.parentElement;
+  // Detect hypercite link — new format: <a class="open-icon">, old format: <a><sup class="open-icon">
+  let citeLink = pasteWrapper.querySelector('a.open-icon[id^="hypercite_"]');
+  if (!citeLink) {
+    const innerIcon = pasteWrapper.querySelector('a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon');
+    citeLink = innerIcon?.parentElement;
+  }
 
-  if (!(citeLink && (citeLink.innerText.trim() === "↗" || (citeLink.closest("span, sup") && (citeLink.closest("span")?.classList.contains("open-icon") || citeLink.closest("sup")?.classList.contains("open-icon")))))) {
+  if (!(citeLink && citeLink.innerText.replace(/[\u200B\s]/g, '') === "↗")) {
     return false;
   }
 
@@ -100,7 +103,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   // Strip word joiner characters (from previous pastes) then quotes
   quotedText = quotedText.replace(/\u2060/g, '').replace(/^['"]|['"]$/g, '');
 
-  const referenceHtml = `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a>`;
+  const referenceHtml = `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}" class="open-icon">↗</a>`;
 
   // Manually insert the clean HTML.
   document.execCommand("insertHTML", false, referenceHtml);

@@ -129,13 +129,15 @@ export async function handleHypercitePaste(event, targetBookId) {
     pasteWrapperHTML: pasteWrapper.innerHTML.substring(0, 200)
   });
 
-  // Find all links that have sup/span child with arrow (class may be stripped by browser)
+  // Find all links that are hypercite arrows (new format: a.open-icon, old format: a > sup/span)
   for (const link of links) {
-    const hasSupOrSpan = link.querySelector('sup, span');
-    // Remove all whitespace and zero-width spaces to handle \u200B from hypercite creation
     const linkText = link.innerText.replace(/[\u200B\s]/g, '');
-    if (hasSupOrSpan && linkText === "↗") {
-      citeLinks.push(link);
+    if (linkText === "↗") {
+      const isNewFormat = link.classList.contains('open-icon');
+      const hasSupOrSpan = link.querySelector('sup, span');
+      if (isNewFormat || hasSupOrSpan) {
+        citeLinks.push(link);
+      }
     }
   }
 
@@ -188,7 +190,7 @@ export async function handleHypercitePaste(event, targetBookId) {
 
     // Add to combined HTML (with space between multiple hypercites)
     if (combinedHtml) combinedHtml += ' ';
-    combinedHtml += `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}"><sup class="open-icon">↗</sup></a>`;
+    combinedHtml += `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}" class="open-icon">↗</a>`;
 
     // Store update task to process after insertion
     updateTasks.push({

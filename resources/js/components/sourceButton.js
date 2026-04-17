@@ -2027,7 +2027,7 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
     });
 
     frag.querySelectorAll('a[href]').forEach(anchor => {
-      if (anchor.querySelector('sup.open-icon') && anchor.id && !seenFnIds.has(anchor.id)) {
+      if ((anchor.classList.contains('open-icon') || anchor.querySelector('sup.open-icon')) && anchor.id && !seenFnIds.has(anchor.id)) {
         seenFnIds.add(anchor.id);
         try {
           const href = anchor.getAttribute('href');
@@ -2199,7 +2199,7 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
   turndownService.addRule('hypercite-arrow', {
     filter: (node) => {
       return node.nodeName === 'A'
-        && node.querySelector?.('sup.open-icon')
+        && (node.classList?.contains('open-icon') || node.querySelector?.('sup.open-icon'))
         && node.id
         && hyperciteContents.has(node.id);
     },
@@ -2533,7 +2533,7 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
 
         case 'a': {
           // Hypercite arrow link → Word footnote
-          if (child.querySelector?.('sup.open-icon') && child.id && footnoteMap?.has(child.id)) {
+          if ((child.classList?.contains('open-icon') || child.querySelector?.('sup.open-icon')) && child.id && footnoteMap?.has(child.id)) {
             out.push(new FootnoteReferenceRun(footnoteMap.get(child.id)));
             break;
           }
@@ -2796,9 +2796,9 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
       citationRefIds.push(cite.id);
     });
 
-    // Hypercite arrows: <a href="..."><sup class="open-icon">↗</sup></a>
+    // Hypercite arrows: <a href="..." class="open-icon">↗</a>
     frag.querySelectorAll('a[href]').forEach(anchor => {
-      if (anchor.querySelector('sup.open-icon') && anchor.id && !footnoteMap.has(anchor.id)) {
+      if ((anchor.classList.contains('open-icon') || anchor.querySelector('sup.open-icon')) && anchor.id && !footnoteMap.has(anchor.id)) {
         try {
           const href = anchor.getAttribute('href');
           const urlPath = new URL(href, window.location.origin).pathname;

@@ -223,6 +223,22 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     element.removeAttribute('style');
   });
 
+  // 🔄 NORMALIZE: Migrate old hypercite format to new single-element format on save
+  // Old: <a><sup class="open-icon">↗</sup></a> or flipped <sup class="open-icon"><a>↗</a></sup>
+  // New: <a class="open-icon">↗</a>
+  contentClone.querySelectorAll('a[href*="#hypercite_"] > sup.open-icon').forEach(sup => {
+    const anchor = sup.parentElement;
+    anchor.classList.add('open-icon');
+    anchor.textContent = '↗';
+  });
+  contentClone.querySelectorAll('sup.open-icon > a[href*="#hypercite_"]').forEach(anchor => {
+    const sup = anchor.parentElement;
+    anchor.classList.add('open-icon');
+    anchor.textContent = '↗';
+    sup.parentNode.insertBefore(anchor, sup);
+    sup.remove();
+  });
+
   // 🧹 STRIP navigation classes from ALL elements before saving
   // These are temporary UI classes that shouldn't persist in the database
   // Target: <a>, <u>, and arrow icons (<sup>, <span> with .open-icon)
