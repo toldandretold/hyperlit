@@ -4,7 +4,7 @@ import { ContainerManager } from "../containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";
-import { hasVibeCSS, showVibeInput, showVibeGallery, showTopUpUI } from "./vibeCSS.js";
+// vibeCSS.js is lazily imported at click time — keeps it out of the main bundle
 import { isLoggedIn } from "../utilities/auth.js";
 import { captureScrollAnchor, restoreScrollAnchor } from "../utilities/scrollAnchor.js";
 import { savePreference, clearPreference } from "../utilities/preferences.js";
@@ -158,6 +158,7 @@ export class SettingsContainerManager extends ContainerManager {
    * - Otherwise: open gallery
    */
   async handleVibeClick() {
+    const { hasVibeCSS } = await import('./vibeCSS.js');
     const currentTheme = getCurrentTheme();
     const saved = hasVibeCSS();
 
@@ -188,6 +189,7 @@ export class SettingsContainerManager extends ContainerManager {
 
     this._vibeRestore = restorePanel;
 
+    const { showVibeGallery } = await import('./vibeCSS.js');
     const loggedIn = await isLoggedIn();
 
     showVibeGallery(container, loggedIn, {
@@ -208,10 +210,11 @@ export class SettingsContainerManager extends ContainerManager {
    * Replace settings panel content with vibe generation input UI.
    * @param {string} [fallbackHTML] - HTML to restore on cancel (if called from gallery, use gallery's savedHTML)
    */
-  _openVibeUI(fallbackHTML) {
+  async _openVibeUI(fallbackHTML) {
     const container = document.getElementById('bottom-up-container');
     if (!container) return;
 
+    const { showVibeInput } = await import('./vibeCSS.js');
     const savedHTML = fallbackHTML || container.innerHTML;
 
     showVibeInput(

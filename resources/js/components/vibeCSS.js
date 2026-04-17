@@ -334,7 +334,7 @@ export function showVibeGallery(container, loggedIn, callbacks) {
       </div>
       <div class="vibe-gallery-content"></div>
       <div class="vibe-gallery-footer">
-        <button type="button" class="vibe-submit-btn vibe-generate-btn">+ Generate New</button>
+        <button type="button" class="vibe-submit-btn vibe-generate-btn">+ Generate ≈ 1¢</button>
         <button type="button" class="vibe-cancel-btn vibe-gallery-close">Close</button>
       </div>
     </div>
