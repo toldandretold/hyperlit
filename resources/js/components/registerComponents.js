@@ -191,7 +191,7 @@ export function registerAllComponents() {
       checkHighlightParam();
     },
     destroyFn: destroySearchToolbar,
-    pages: ['reader'],
+    pages: ['reader', 'home', 'user'],
     dependencies: [],
     required: false
   });

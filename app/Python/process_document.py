@@ -1392,6 +1392,93 @@ def main(html_file_path, output_dir, book_id):
                     new_content.append(NavigableString(text[last_index:]))
                     text_node.replace_with(*new_content)
 
+        # --- 2A-bracket: Link [Author Year] square-bracket citations ---
+        for text_node in soup.find_all(string=True):
+            if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
+                text = str(text_node)
+                matches = list(re.finditer(r"\[([^\]]*?\d{4}[^\]]*?)\]", text))
+                if matches:
+                    new_content = []
+                    last_index = 0
+                    for match in matches:
+                        preceding_text = text[last_index : match.start()]
+                        new_content.append(NavigableString(preceding_text))
+                        citation_block = match.group(1)
+                        new_content.append(NavigableString("["))
+                        sub_citations = re.split(r";\s*", citation_block)
+                        for i, sub_cite_raw in enumerate(sub_citations):
+                            sub_cite = sub_cite_raw.strip()
+                            if not sub_cite: continue
+                            citations_found += 1
+                            context_for_keys = preceding_text
+                            if not re.search(r'[A-Z]', preceding_text):
+                                sibling_texts = []
+                                for sibling in text_node.previous_siblings:
+                                    if hasattr(sibling, 'get_text'):
+                                        sibling_texts.append(sibling.get_text())
+                                    elif isinstance(sibling, str):
+                                        sibling_texts.append(str(sibling))
+                                if sibling_texts:
+                                    context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
+                            keys = generate_ref_keys(sub_cite, context_text=context_for_keys)
+                            linked = False
+                            for key in keys:
+                                if key in bibliography_map:
+                                    year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
+                                    if year_match:
+                                        author_part = sub_cite[:year_match.start(0)]
+                                        year_part = year_match.group(0)
+                                        trailing_part = sub_cite[year_match.end(0):]
+                                        if author_part:
+                                            new_content.append(NavigableString(author_part))
+                                        a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                        a_tag['class'] = 'in-text-citation'
+                                        a_tag.string = year_part
+                                        new_content.append(a_tag)
+                                        if trailing_part:
+                                            remaining = trailing_part
+                                            while remaining:
+                                                extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
+                                                if extra_year:
+                                                    separator = extra_year.group(1)
+                                                    extra_year_str = extra_year.group(2)
+                                                    extra_keys = generate_ref_keys(author_part + extra_year_str, context_text=preceding_text)
+                                                    extra_linked = False
+                                                    for ek in extra_keys:
+                                                        if ek in bibliography_map:
+                                                            new_content.append(NavigableString(separator))
+                                                            ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
+                                                            ea_tag['class'] = 'in-text-citation'
+                                                            ea_tag.string = extra_year_str
+                                                            new_content.append(ea_tag)
+                                                            extra_linked = True
+                                                            citations_found += 1
+                                                            citations_linked += 1
+                                                            break
+                                                    if not extra_linked:
+                                                        new_content.append(NavigableString(separator + extra_year_str))
+                                                    remaining = remaining[extra_year.end(0):]
+                                                else:
+                                                    new_content.append(NavigableString(remaining))
+                                                    break
+                                    else:
+                                        a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
+                                        a_tag['class'] = 'in-text-citation'
+                                        a_tag.string = sub_cite
+                                        new_content.append(a_tag)
+
+                                    linked = True
+                                    citations_linked += 1
+                                    break
+                            if not linked:
+                                new_content.append(NavigableString(sub_cite))
+                                citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
+                            if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
+                        new_content.append(NavigableString("]"))
+                        last_index = match.end()
+                    new_content.append(NavigableString(text[last_index:]))
+                    text_node.replace_with(*new_content)
+
         # Citation linking summary
         print(f"\n📖 Citation linking summary:")
         print(f"  - Total in-text citations found: {citations_found}")
