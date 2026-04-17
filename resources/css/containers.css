@@ -1705,8 +1705,11 @@ body.hyperlit-container-open .reader-content-wrapper {
   letter-spacing: 0.05em;
 }
 .settings-fullwidth-btn.active {
-  background-color: inherit;
+  background-color: rgba(75, 75, 75, 0.6);
   color: inherit;
+}
+.settings-fullwidth-btn.active:hover {
+  background-color: rgba(95, 95, 95, 0.8);
 }
 
 /* Perimeter button transparency when overlapping content */

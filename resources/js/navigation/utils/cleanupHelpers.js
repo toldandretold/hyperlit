@@ -10,6 +10,7 @@ import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
 import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../components/logoNavToggle.js';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index.js';
+import { buttonRegistry } from '../../utilities/buttonRegistry.js';
 
 /**
  * Clean up reader state
@@ -47,6 +48,9 @@ export async function cleanupReader() {
 export async function cleanupHome() {
 
   try {
+    // Destroy all registered button managers (search toolbar, etc.)
+    buttonRegistry.destroyAll();
+
     // Destroy homepage-specific managers
     if (typeof destroyUserContainer === 'function') {
       destroyUserContainer();

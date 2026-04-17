@@ -665,12 +665,9 @@ async function showCustomAlert(title, message, options = {}) {
         enableEditMode();
       });
 
-      // Get the CORE form HTML from the manager
-      const formHTML = userManager.getLoginFormHTML();
-      
-      // Inject the form HTML. The userManager's global listener will handle
-      // the 'loginSubmit' and 'showRegister' buttons automatically.
-      alertBox.innerHTML = formHTML;
+      // Show login form inside the .custom-alert. The userManager's global
+      // listener will handle 'loginSubmit' and 'showRegister' buttons automatically.
+      userManager.showLoginForm();
 
       // NOW, add the Cancel button, which is specific to this workflow.
       const buttonContainer = alertBox.querySelector(".alert-buttons");

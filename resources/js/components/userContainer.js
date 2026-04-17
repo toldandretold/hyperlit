@@ -142,7 +142,7 @@ export class UserContainerManager extends ContainerManager {
       '#changeEmailBtn': () => this.showChangeEmailForm(),
       '#changeEmailSubmit': () => this.handleChangeEmail(),
       '#backToVerify': () => this.showVerifyEmailScreen(),
-      '#dismissVerification': () => this.closeContainer(),
+      '#dismissVerification': () => this.proceedAfterLogin(),
     };
 
     for (const [selector, handler] of Object.entries(handlers)) {

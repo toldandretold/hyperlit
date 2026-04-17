@@ -1236,11 +1236,8 @@ function showPrivateBookLoginPrompt(bookId) {
         window.location.reload();
       });
 
-      // Get login form HTML
-      const formHTML = userManager.getLoginFormHTML();
-
-      // Replace alert content with login form
-      alertBox.innerHTML = formHTML;
+      // Show login form inside the .custom-alert
+      userManager.showLoginForm();
 
       // Add cancel button
       const buttonContainer = alertBox.querySelector(".alert-buttons");
