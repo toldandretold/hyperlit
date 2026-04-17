@@ -2,7 +2,7 @@
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
 
-import { openDatabase, updateBookTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
+import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { attachMarkListeners } from './listeners.js';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
@@ -136,8 +136,9 @@ export async function deleteHighlightById(highlightId) {
     const deletedHyperlight = await removeHighlightFromHyperlights(highlightId);
     const affectedNodes = await removeHighlightFromNodeChunksWithDeletion(bookId, highlightId, deletedHyperlight);
 
-    // Update book timestamp
+    // Update book timestamp + annotations timestamp
     await updateBookTimestamp(bookId);
+    await updateAnnotationsTimestamp(bookId);
 
     // Queue for server sync
     if (deletedHyperlight) {
@@ -259,8 +260,9 @@ export async function hideHighlightById(highlightId) {
     // Remove from local IndexedDB nodes (but don't sync this change to PostgreSQL)
     await removeHighlightFromNodeChunks(bookId, highlightId);
 
-    // Update book timestamp locally
+    // Update book timestamp + annotations timestamp locally
     await updateBookTimestamp(bookId);
+    await updateAnnotationsTimestamp(bookId);
 
     // Queue ONLY the hide operation for sync to PostgreSQL - no nodeChunk updates
     if (hiddenHyperlight) {
