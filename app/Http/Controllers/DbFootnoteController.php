@@ -71,9 +71,7 @@ class DbFootnoteController extends Controller
                     ->where('footnoteId', $item['footnoteId'])
                     ->first();
 
-                $previewNodes = isset($item['preview_nodes'])
-                    ? json_encode($item['preview_nodes'])
-                    : null;
+                $previewNodes = $item['preview_nodes'] ?? null;
 
                 $subBookId = SubBookIdHelper::build($book, $item['footnoteId']);
 
