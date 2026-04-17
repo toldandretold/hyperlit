@@ -441,6 +441,11 @@ async function _popTopLayerImpl() {
   const { restoreSubBookState } = await import('./subBookLoader.js');
   restoreSubBookState(newTop.savedSubBookState);
 
+  // Reset saved state — this layer is now active, not paused.
+  // pushStackedLayer uses savedModuleState === null to detect the active layer.
+  newTop.savedModuleState = null;
+  newTop.savedSubBookState = null;
+
   // Delay re-enabling pointer events by one frame to flush queued click events.
   // Without this, rapid overlay clicks pass through to the restored container content
   // (because the stacked overlay is gone), triggering handleMarkClick → pushStackedLayer.
