@@ -1686,14 +1686,16 @@ body.hyperlit-container-open .reader-content-wrapper {
   }
 }
 
-/* Full-width toggle — only visible on narrow screens */
-.settings-fullwidth-row {
+/* Flex break element — hidden on wide screens, forces a line break on narrow */
+.settings-theme-break {
   display: none;
 }
 
 @media (max-width: 768px) {
-  .settings-fullwidth-row {
-    display: flex;
+  .settings-theme-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
   }
 }
 
@@ -1701,6 +1703,10 @@ body.hyperlit-container-open .reader-content-wrapper {
   font-family: var(--font-family-mono);
   font-size: 14px;
   letter-spacing: 0.05em;
+}
+.settings-fullwidth-btn.active {
+  background-color: inherit;
+  color: inherit;
 }
 
 /* Perimeter button transparency when overlapping content */

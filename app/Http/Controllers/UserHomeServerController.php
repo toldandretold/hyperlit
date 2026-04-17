@@ -111,6 +111,7 @@ class UserHomeServerController extends Controller
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('visibility', $visibility)
             ->orderByDesc('created_at')

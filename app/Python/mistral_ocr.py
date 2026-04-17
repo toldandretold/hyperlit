@@ -1045,6 +1045,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
             # Also handle N text format (no period) — common in document endnotes
             md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)
+            # Also handle [N] text format — bracket-wrapped definitions
+            md = re.sub(r'^\[(\d{1,3})\] (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
 
         # Renumber footnotes per-page for page_bottom classification
         if classification == "page_bottom":
@@ -1104,6 +1106,34 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
             if md_stripped:
                 md_parts.append(md)
+        elif classification == "document_endnotes":
+            md = convert_footnotes(md)
+            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+            # Strip italic wrapping around numeric bracket refs: *[2]* → [2]
+            md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
+            # Convert inline [N] → [^N] (not at line start, not markdown links)
+            def _convert_bracket_endnote(m, _md=md):
+                num = int(m.group(1))
+                if num > 500 or num < 1:
+                    return m.group(0)
+                pos = m.start()
+                if pos == 0 or _md[pos - 1] == '\n':
+                    return m.group(0)
+                if pos > 0 and _md[pos - 1] in (']', '!'):
+                    return m.group(0)
+                if m.end() < len(_md) and _md[m.end()] == '(':
+                    return m.group(0)
+                return f'[^{m.group(1)}]'
+            md = re.sub(r'\[(\d+)\]', _convert_bracket_endnote, md)
+            # Convert bare numbers after punctuation
+            md = re.sub(
+                r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+                r'[^\1]',
+                md,
+                flags=re.DOTALL
+            )
+            if md_stripped:
+                md_parts.append(md)
         elif md_stripped:
             md_parts.append(md)
 
@@ -1123,6 +1153,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     elif classification == "chapter_endnotes":
         # Superscripts already converted per-page with chapter offsets applied.
         # Fix def formatting and rejoin page breaks.
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
+    elif classification == "document_endnotes":
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
         combined = rejoin_page_breaks(combined)
     else:

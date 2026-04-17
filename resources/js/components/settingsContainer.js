@@ -182,12 +182,9 @@ export class SettingsContainerManager extends ContainerManager {
 
     const restorePanel = () => {
       container.innerHTML = savedHTML;
-      this._vibeRestore = null;
       this.syncSliderUI();
       this.updateButtonStates();
     };
-
-    this._vibeRestore = restorePanel;
 
     const { showVibeGallery } = await import('./vibeCSS.js');
     const loggedIn = await isLoggedIn();
@@ -260,9 +257,12 @@ export class SettingsContainerManager extends ContainerManager {
     // Restore scroll position after reflow
     if (anchor) restoreScrollAnchor(wrapper, anchor);
 
-    // Update button text
+    // Update button text and active state
     const btn = document.getElementById('fullWidthToggle');
-    if (btn) btn.textContent = isActive ? '>full<' : '<full>';
+    if (btn) {
+      btn.textContent = isActive ? '<margins>' : '>margins<';
+      btn.classList.toggle('active', !isActive);
+    }
 
     // Persist
     if (isActive) {
@@ -294,12 +294,17 @@ export class SettingsContainerManager extends ContainerManager {
     }
 
     // Restore full-width mode
-    if (localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true') {
+    const isFullWidth = localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true';
+    if (isFullWidth) {
       const allMainContent = document.querySelectorAll('.main-content');
       allMainContent.forEach(el => el.classList.add('full-width-mode'));
+    }
 
-      const btn = document.getElementById('fullWidthToggle');
-      if (btn) btn.textContent = '>full<';
+    // Set margins button text and active state
+    const btn = document.getElementById('fullWidthToggle');
+    if (btn) {
+      btn.textContent = isFullWidth ? '<margins>' : '>margins<';
+      btn.classList.toggle('active', !isFullWidth);
     }
   }
 
@@ -328,10 +333,13 @@ export class SettingsContainerManager extends ContainerManager {
     if (widthSlider) widthSlider.value = contentWidth;
     if (widthValue) widthValue.textContent = `${contentWidth}ch`;
 
-    // Sync full-width button text
+    // Sync full-width button text and active state
     const fullWidthBtn = document.getElementById('fullWidthToggle');
     const isFullWidth = document.querySelector('.main-content')?.classList.contains('full-width-mode');
-    if (fullWidthBtn) fullWidthBtn.textContent = isFullWidth ? '>full<' : '<full>';
+    if (fullWidthBtn) {
+      fullWidthBtn.textContent = isFullWidth ? '<margins>' : '>margins<';
+      fullWidthBtn.classList.toggle('active', !isFullWidth);
+    }
   }
 
   /**
@@ -414,16 +422,6 @@ export class SettingsContainerManager extends ContainerManager {
   }
 
   /**
-   * Override closeContainer to restore settings UI if vibe gallery is showing.
-   */
-  closeContainer() {
-    if (this._vibeRestore) {
-      this._vibeRestore();
-    }
-    super.closeContainer();
-  }
-
-  /**
    * Rebind elements after SPA transitions
    * Extends parent rebindElements to also update button states
    */
@@ -433,19 +431,15 @@ export class SettingsContainerManager extends ContainerManager {
   }
 
   /**
-   * Override openContainer to skip innerHTML reset (preserves slider state)
-   * and update button active classes + slider positions
+   * Override openContainer to update button active classes + slider positions.
+   * Parent resets innerHTML to initialContent, then we sync slider values from localStorage.
    */
   openContainer(content = null, highlightId = null) {
-    // skipContentReset: true — settings panel never receives new content,
-    // and resetting innerHTML would destroy slider positions and values
-    super.openContainer(content, highlightId, { skipContentReset: true });
+    super.openContainer(content, highlightId);
 
-    // Update button states and slider UI after DOM is ready
     requestAnimationFrame(() => {
       this.updateButtonStates();
       this.syncSliderUI();
-      verbose.init('Button states and sliders updated after container opened', '/components/settingsContainer.js');
     });
   }
 
