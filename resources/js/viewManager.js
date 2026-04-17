@@ -271,6 +271,13 @@ export async function universalPageInitializer(progressCallback = null) {
 
   enforceEditableState();
 
+  // Re-apply vibe CSS after SPA navigation so the canvas + theme persist
+  import('./utilities/themeSwitcher.js').then(({ getCurrentTheme, THEMES }) => {
+    if (getCurrentTheme() === THEMES.VIBE) {
+      import('./components/vibeCSS.js').then(m => m.applyVibeCSS());
+    }
+  });
+
   // ✅ Check if this is an imported book
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');
 

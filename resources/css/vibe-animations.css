@@ -19,6 +19,16 @@
   50%      { opacity: 0.85; }
 }
 
+/* Vibe themes — make header transparent so body gradient shows through */
+body.theme-vibe .fixed-header {
+  background-color: transparent;
+}
+
+/* Vibe themes — logo text follows the vibe's text color */
+body.theme-vibe #top {
+  --logo-text-color: var(--color-text);
+}
+
 /* Canvas feedback loop — positioned behind all content */
 #vibe-canvas {
   position: fixed;

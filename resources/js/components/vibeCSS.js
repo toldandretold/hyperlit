@@ -22,11 +22,11 @@ const DIRECT_KEYS = {
   '--vibe-body-background-attachment': { selector: 'body.theme-vibe', property: 'background-attachment' },
   '--vibe-body-animation':             { selector: 'body.theme-vibe', property: 'animation' },
 
-  // Readability strip on text column
-  '--vibe-content-background':         { selector: '.main-content', property: 'background' },
-  '--vibe-content-border-radius':      { selector: '.main-content', property: 'border-radius' },
-  '--vibe-content-backdrop-filter':    { selector: '.main-content', property: 'backdrop-filter', compound: ['-webkit-backdrop-filter'] },
-  '--vibe-content-box-shadow':         { selector: '.main-content', property: 'box-shadow' },
+  // Readability strip on text column + header (uniform)
+  '--vibe-content-background':         { selector: '.main-content, body.theme-vibe .fixed-header', property: 'background' },
+  '--vibe-content-border-radius':      { selector: '.main-content, body.theme-vibe .fixed-header', property: 'border-radius' },
+  '--vibe-content-backdrop-filter':    { selector: '.main-content, body.theme-vibe .fixed-header', property: 'backdrop-filter', compound: ['-webkit-backdrop-filter'] },
+  '--vibe-content-box-shadow':         { selector: '.main-content, body.theme-vibe .fixed-header', property: 'box-shadow' },
 
   // Heading effects — gradient text via compound
   '--vibe-heading-background':         { selector: 'body.theme-vibe h1, body.theme-vibe h2, body.theme-vibe h3', property: 'background', compound: ['background-clip: text', '-webkit-background-clip: text', '-webkit-text-fill-color: transparent'] },
@@ -98,24 +98,6 @@ export function applyVibeCSS() {
     } else {
       varRules.push(`  ${prop}: ${val};`);
     }
-  }
-
-  // ─── Glass panels when canvas is active ───
-  // .main-content already gets glass from DIRECT_KEYS; extend it to .fixed-header
-  // so the homepage header area also has frosted glass over the canvas.
-  if (canvasParams.enabled === '1') {
-    const contentBg = cssOverrides['--vibe-content-background'] || 'rgba(0,0,0,0.85)';
-    const contentBackdrop = cssOverrides['--vibe-content-backdrop-filter'];
-
-    const headerGlass = [
-      `  background: ${contentBg};`,
-      '  border-radius: 12px;',
-    ];
-    if (contentBackdrop) {
-      headerGlass.push(`  backdrop-filter: ${contentBackdrop};`);
-      headerGlass.push(`  -webkit-backdrop-filter: ${contentBackdrop};`);
-    }
-    selectorMap['body.theme-vibe .fixed-header'] = headerGlass;
   }
 
   let css = '';

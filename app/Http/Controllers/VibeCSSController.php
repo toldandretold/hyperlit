@@ -114,14 +114,19 @@ class VibeCSSController extends Controller
         '--vibe-container-border',
         '--vibe-container-box-shadow',
 
-        // Canvas feedback loop
+        // Canvas animation engine
         '--vibe-canvas-enabled',
+        '--vibe-canvas-mode',
+        '--vibe-canvas-speed',
         '--vibe-canvas-blur',
         '--vibe-canvas-rotation',
         '--vibe-canvas-scale',
         '--vibe-canvas-fade',
         '--vibe-canvas-colors',
         '--vibe-canvas-intensity',
+        '--vibe-canvas-blend',
+        '--vibe-canvas-drift',
+        '--vibe-canvas-shape',
     ];
 
     /**
@@ -268,10 +273,19 @@ Think of --color-background as the "base color" that matches the dominant tone.
 
 ═══ READABILITY LAYER ═══
 
-When the background is wild, you MUST set --vibe-content-background to keep text readable.
-This creates a semi-transparent strip behind the text column.
+--vibe-content-background applies to BOTH .main-content AND .fixed-header uniformly.
+When set, both areas get the same semi-transparent strip — no visual split.
 
---vibe-content-background: Semi-transparent bg behind text (e.g. "rgba(10, 0, 20, 0.75)")
+IMPORTANT: For simple/calm/minimal themes, do NOT set --vibe-body-background or
+--vibe-content-background at all. Just set --color-background to a solid color.
+The header and content areas are transparent — the solid background shows through
+uniformly with no visible boxes or strips. This is the clean look for calm themes.
+
+Only set --vibe-body-background for wild/animated/gradient backgrounds.
+Only set --vibe-content-background when you ALSO set --vibe-body-background and need
+a readability strip so text stays legible over the wild background.
+
+--vibe-content-background: Semi-transparent bg behind text + header (e.g. "rgba(10, 0, 20, 0.75)")
 --vibe-content-border-radius: Round the edges (e.g. "12px")
 --vibe-content-backdrop-filter: Frosted glass blur (e.g. "blur(12px)")
 --vibe-content-box-shadow: Glow or shadow on edges (e.g. "0 0 30px rgba(0, 255, 65, 0.15)")
@@ -280,6 +294,8 @@ This creates a semi-transparent strip behind the text column.
 
 --vibe-heading-background: Gradient-filled heading text. Just set the gradient — background-clip: text and transparent fill are applied automatically.
   Example: "linear-gradient(90deg, #ff0080, #00ff41)"
+  IMPORTANT: Only use this for wild/psychedelic/neon themes where gradient headings add energy.
+  For calm/subtle/minimal/elegant themes, do NOT set this — headings will use --color-text automatically, which ensures proper contrast. When in doubt, skip it.
 
 --vibe-heading-text-shadow: Neon glow behind headings.
   Example: "0 0 20px rgba(255, 0, 128, 0.5), 0 0 40px rgba(255, 0, 128, 0.2)"
@@ -294,19 +310,42 @@ This creates a semi-transparent strip behind the text column.
 --vibe-container-border: Neon borders on glass panels (e.g. "1px solid rgba(0, 255, 65, 0.3)")
 --vibe-container-box-shadow: Glow on glass panel edges (e.g. "0 0 15px rgba(0, 255, 65, 0.1), inset 0 0 15px rgba(0, 255, 65, 0.05)")
 
-═══ CANVAS FEEDBACK LOOP ═══
+═══ CANVAS ANIMATION ENGINE ═══
 
-A recursive self-drawing canvas behind all content. Each frame redraws itself with rotation, scale, blur, and fade — creating evolving fractal/psychedelic visuals. Colored seed shapes keep the pattern alive.
-
-WHEN TO USE: Only for psychedelic, trippy, acid, cosmic, or kaleidoscope prompts. NEVER for calm, minimal, elegant, or subtle themes.
+An animated canvas behind all content. The DEFAULT mode is "feedback" — a recursive self-drawing spiral that creates evolving fractal/psychedelic visuals. Additional modes produce particle-based animations for non-psychedelic emotional energy.
 
 --vibe-canvas-enabled: Set to "1" to activate. Omit entirely to skip canvas.
---vibe-canvas-blur: Blur pixels per frame (0.1–3). Higher = smoother/dreamier. Default "0.5"
---vibe-canvas-rotation: Degrees of rotation per frame (0.05–1). Creates spiral effect. Default "0.2"
---vibe-canvas-scale: Scale factor per frame (1.001–1.01). Creates zoom/tunnel effect. Default "1.003"
---vibe-canvas-fade: Alpha for redraw (0.8–0.98). Lower = faster trail decay. Default "0.92"
---vibe-canvas-colors: Comma-separated hex colors for seed shapes. Falls back to --color-primary, --color-accent, --color-secondary.
---vibe-canvas-intensity: Number of seed shapes per frame (1–8). More = denser patterns. Default "3"
+--vibe-canvas-mode: Animation engine. Default "feedback". Only set a different mode when the emotion clearly matches fire/water/wind/electricity (see below).
+
+SHARED PARAMS (all modes):
+--vibe-canvas-colors: Comma-separated hex colors. Falls back to --color-primary, --color-accent, --color-secondary.
+--vibe-canvas-intensity: Density (1–8). Default "3"
+--vibe-canvas-speed: Time multiplier (0.2–3). Default "1"
+
+MODE: "feedback" (DEFAULT) — Recursive spiral feedback loop
+USE FOR: psychedelic, trippy, acid, cosmic, kaleidoscope, LSD, fractal, ANY prompt where you want the canvas.
+This is the primary canvas mode. When in doubt, use feedback.
+--vibe-canvas-blur: Blur per frame (0.1–3). Default "0.5"
+--vibe-canvas-rotation: Degrees rotation per frame (0.05–1). Creates spiral. Default "0.2"
+--vibe-canvas-scale: Scale factor per frame (1.001–1.01). Creates zoom/tunnel. Default "1.003"
+--vibe-canvas-fade: Alpha for redraw (0.8–0.98). Lower = faster decay. Default "0.92"
+DO NOT set --vibe-canvas-blend, --vibe-canvas-drift, or --vibe-canvas-shape unless you have a specific reason. The defaults (source-over, 0, circle) produce the classic spiral.
+
+MODE: "fire" — Rising flickering particles
+USE FOR: passionate, angry, fiery, warm, volcanic, hellish, desire, rage
+Colors default to warm oranges/reds. Intensity 4–6 for inferno, 2–3 for candlelight.
+
+MODE: "water" — Expanding ripple rings
+USE FOR: calm oceanic, rainy, melancholy, deep, serene, tears
+Colors default to cool blues. Low intensity (2–3) for zen, high (5–7) for rain.
+
+MODE: "wind" — Horizontal sweeping streaks
+USE FOR: free, ethereal, breezy, restless, spiritual, ghostly, airy
+Colors default to pale silver/blue. Speed 0.5 for gentle breeze, 2+ for gale.
+
+MODE: "electricity" — Jagged lightning bolts with glow
+USE FOR: powerful, anxious, digital, neural, shocking, glitch, electric, storm
+Colors default to cyan/white. Intensity 1–3 for subtle sparks, 5+ for storm.
 
 IMPORTANT: When canvas is enabled, .main-content becomes transparent automatically and --vibe-content-background is applied per-element (each paragraph, list, blockquote gets its own background strip). Use moderate opacity (0.7–0.85) so the canvas peeks through gaps between blocks. Still set --vibe-content-backdrop-filter (blur 12–18px) for frosted glass on each element.
 
@@ -315,14 +354,17 @@ IMPORTANT: When canvas is enabled, .main-content becomes transparent automatical
 - Return ONLY a JSON object. No markdown, no code fences, no explanation.
 - Be bold and creative. Match the energy of the description.
 - Ensure readable contrast between --color-background and --color-text.
-- When background is wild (animated, gradient, conic), ALWAYS set --vibe-content-background for readability.
+- When --vibe-body-background is set (animated, gradient, conic), ALWAYS set --vibe-content-background for readability.
+- For calm/minimal/elegant themes, do NOT set --vibe-body-background OR --vibe-content-background. Just use a solid --color-background. No boxes, no strips — one uniform color.
+- HIGHLIGHT SAFETY: The highlight system uses pink (#EE4A95) and aqua (#4EACAE) mark backgrounds. --color-text MUST contrast against both. Avoid pink, magenta, rose, teal, or cyan tones for --color-text. Light text (white/cream) or dark text (near-black) both work well. Mid-tone pinks or teals will make highlighted text invisible.
 - --container-glass-bg should be semi-transparent rgba matching the vibe.
 - --container-solid-bg should be a solid color near --color-background.
 - --editable-bg should be a subtle semi-transparent value.
 - --gradient-hyperlit can be a wild multi-color gradient for the app's accent bar.
 - Override 15-30 variables for maximum impact. Don't touch font families or spacing unless asked.
 - For calm/subtle vibes, skip animation and glow effects. For wild vibes, use everything.
-- For psychedelic/trippy/cosmic/acid/kaleidoscope prompts, enable the canvas feedback loop. For everything else, skip it entirely (do NOT set --vibe-canvas-enabled).
+- HEADING CONTRAST: For calm/subtle/minimal/elegant themes, do NOT set --vibe-heading-background. Headings will use --color-text automatically, ensuring they match paragraph text and have proper contrast. Only use --vibe-heading-background for wild/psychedelic/neon themes where gradient headings add energy.
+- For psychedelic/trippy/cosmic/acid/kaleidoscope prompts, enable the canvas with feedback mode (the default — no need to set --vibe-canvas-mode). For passionate/fiery prompts use mode "fire", for oceanic/rainy use "water", for ethereal/breezy use "wind", for electric/digital use "electricity". For calm/minimal/elegant/subtle prompts, skip the canvas entirely (do NOT set --vibe-canvas-enabled).
 
 ═══ EXAMPLES ═══
 
@@ -332,11 +374,17 @@ Cyberpunk neon (full effects):
 Psychedelic rainbow (animated + wild):
 {"--color-background": "#120024", "--color-text": "#f0e6ff", "--vibe-body-background": "conic-gradient(from 45deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)", "--vibe-body-background-size": "400% 400%", "--vibe-body-animation": "vibe-gradient-shift 8s ease infinite, vibe-hue-rotate 20s linear infinite", "--vibe-content-background": "rgba(18, 0, 36, 0.85)", "--vibe-content-border-radius": "16px", "--vibe-content-backdrop-filter": "blur(16px)", "--vibe-heading-background": "linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b)", "--vibe-heading-text-shadow": "0 0 15px rgba(131, 56, 236, 0.4)", "--color-primary": "#ff006e", "--color-accent": "#06d6a0", "--color-secondary": "#ffbe0b", "--container-glass-bg": "rgba(18, 0, 36, 0.8)", "--container-solid-bg": "#1a0030", "--editable-bg": "rgba(131, 56, 236, 0.1)", "--gradient-hyperlit": "linear-gradient(to right, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e)"}
 
-Calm ocean (subtle — no animation):
-{"--color-background": "#0a1628", "--color-text": "#c8dce8", "--vibe-body-background": "linear-gradient(180deg, #0a1628 0%, #0d2137 40%, #1a3a5c 70%, #0a1628 100%)", "--vibe-body-background-attachment": "fixed", "--vibe-content-background": "rgba(10, 22, 40, 0.6)", "--vibe-content-border-radius": "8px", "--color-primary": "#4da6c9", "--color-accent": "#7ec8e3", "--color-link": "#7ec8e3", "--container-glass-bg": "rgba(10, 22, 40, 0.7)", "--container-solid-bg": "#0d2137", "--editable-bg": "rgba(77, 166, 201, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #4da6c9, #7ec8e3, #4da6c9)"}
+Calm ocean (subtle — solid color, NO body gradient, NO readability strip):
+{"--color-background": "#0a1628", "--color-text": "#c8dce8", "--color-primary": "#4da6c9", "--color-accent": "#7ec8e3", "--color-link": "#7ec8e3", "--color-link-hover": "#a3ddf0", "--container-glass-bg": "rgba(10, 22, 40, 0.7)", "--container-solid-bg": "#0d2137", "--editable-bg": "rgba(77, 166, 201, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #4da6c9, #7ec8e3, #4da6c9)"}
 
-Acid trip (canvas feedback loop):
+Acid trip (canvas feedback — classic spiral):
 {"--color-background": "#0a000f", "--color-text": "#e0d0ff", "--vibe-body-background": "radial-gradient(ellipse at 30% 50%, #1a0033, #0a000f)", "--vibe-content-background": "rgba(10, 0, 15, 0.78)", "--vibe-content-backdrop-filter": "blur(16px)", "--vibe-heading-background": "linear-gradient(90deg, #ff0080, #ff00ff, #00ffff, #00ff41)", "--vibe-heading-text-shadow": "0 0 25px rgba(255, 0, 255, 0.6)", "--vibe-text-shadow": "0 0 8px rgba(200, 100, 255, 0.25)", "--vibe-link-text-shadow": "0 0 12px rgba(0, 255, 255, 0.5)", "--vibe-container-border": "1px solid rgba(255, 0, 255, 0.25)", "--vibe-container-box-shadow": "0 0 20px rgba(255, 0, 128, 0.15)", "--color-primary": "#ff00ff", "--color-accent": "#00ffff", "--color-secondary": "#00ff41", "--container-glass-bg": "rgba(10, 0, 15, 0.85)", "--container-solid-bg": "#1a0033", "--editable-bg": "rgba(255, 0, 255, 0.08)", "--gradient-hyperlit": "linear-gradient(to right, #ff0080, #ff00ff, #00ffff, #00ff41)", "--vibe-canvas-enabled": "1", "--vibe-canvas-blur": "0.8", "--vibe-canvas-rotation": "0.3", "--vibe-canvas-scale": "1.004", "--vibe-canvas-fade": "0.93", "--vibe-canvas-colors": "#ff0080,#ff00ff,#00ffff,#00ff41", "--vibe-canvas-intensity": "4"}
+
+Burning rage (fire engine):
+{"--color-background": "#1a0000", "--color-text": "#ffd4b8", "--vibe-body-background": "radial-gradient(ellipse at 50% 100%, #3d0000, #1a0000 60%, #0a0000)", "--vibe-content-background": "rgba(26, 0, 0, 0.75)", "--vibe-content-backdrop-filter": "blur(14px)", "--vibe-heading-background": "linear-gradient(90deg, #ff4500, #ff6b35, #ffcc00)", "--vibe-heading-text-shadow": "0 0 20px rgba(255, 69, 0, 0.6)", "--vibe-text-shadow": "0 0 6px rgba(255, 100, 0, 0.2)", "--color-primary": "#ff4500", "--color-accent": "#ffcc00", "--container-glass-bg": "rgba(26, 0, 0, 0.8)", "--container-solid-bg": "#2a0000", "--editable-bg": "rgba(255, 69, 0, 0.08)", "--gradient-hyperlit": "linear-gradient(to right, #ff0000, #ff4500, #ffcc00)", "--vibe-canvas-enabled": "1", "--vibe-canvas-mode": "fire", "--vibe-canvas-colors": "#ff4500,#ff6b35,#ffa500,#ff0000,#ffcc00", "--vibe-canvas-intensity": "5", "--vibe-canvas-speed": "1.2"}
+
+Electric storm (electricity engine):
+{"--color-background": "#050510", "--color-text": "#c8e0ff", "--vibe-body-background": "radial-gradient(ellipse at 50% 30%, #0a0a2e, #050510)", "--vibe-content-background": "rgba(5, 5, 16, 0.8)", "--vibe-content-backdrop-filter": "blur(14px)", "--vibe-heading-background": "linear-gradient(90deg, #00ffff, #8080ff, #00ccff)", "--vibe-heading-text-shadow": "0 0 20px rgba(0, 255, 255, 0.5)", "--vibe-text-shadow": "0 0 6px rgba(0, 200, 255, 0.2)", "--color-primary": "#00ffff", "--color-accent": "#8080ff", "--container-glass-bg": "rgba(5, 5, 16, 0.85)", "--container-solid-bg": "#0a0a2e", "--editable-bg": "rgba(0, 255, 255, 0.06)", "--gradient-hyperlit": "linear-gradient(to right, #00ffff, #8080ff, #00ccff)", "--vibe-canvas-enabled": "1", "--vibe-canvas-mode": "electricity", "--vibe-canvas-colors": "#00ffff,#ffffff,#8080ff,#00ccff", "--vibe-canvas-intensity": "4", "--vibe-canvas-speed": "1.5"}
 PROMPT;
     }
 

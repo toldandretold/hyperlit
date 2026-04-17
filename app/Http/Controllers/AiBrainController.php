@@ -87,14 +87,12 @@ class AiBrainController extends Controller
             'accounts/fireworks/models/deepseek-v3p2',
             'accounts/fireworks/models/deepseek-v3p1',
             'accounts/fireworks/models/minimax-m2p5',
-            'accounts/fireworks/models/qwen3-235b-a22b',
         ];
 
         $modelLabels = [
             'accounts/fireworks/models/deepseek-v3p2'    => 'DeepSeek V3.2',
             'accounts/fireworks/models/deepseek-v3p1'    => 'DeepSeek V3.1',
             'accounts/fireworks/models/minimax-m2p5'     => 'MiniMax M2.5',
-            'accounts/fireworks/models/qwen3-235b-a22b'  => 'Qwen3 235B',
         ];
 
         // Place user-selected model first in the chain (if valid)

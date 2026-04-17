@@ -48,7 +48,7 @@ class LlmService
     /**
      * Send a chat completion request (OpenAI-compatible format).
      */
-    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null, int $timeout = 30, ?string $reasoningEffort = 'none', ?\Closure $onRetry = null): ?string
+    public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null, int $timeout = 30, ?string $reasoningEffort = 'none', ?\Closure $onRetry = null, int $maxAttempts = 5): ?string
     {
         if (!$this->apiKey || !$this->baseUrl) {
             return null;
@@ -70,7 +70,6 @@ class LlmService
 
             // Retry on cURL timeout (error 28), 429 rate-limit, and 5xx responses with exponential backoff
             $attempts = 0;
-            $maxAttempts = 5;
             $response = null;
 
             while ($attempts < $maxAttempts) {
@@ -181,7 +180,8 @@ class LlmService
                 $model,
                 $timeout,
                 $reasoningEffort,
-                $onRetry
+                $onRetry,
+                maxAttempts: 2  // fail fast per model — fallback chain handles resilience
             );
 
             if ($result !== null) {

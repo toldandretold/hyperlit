@@ -162,13 +162,11 @@ export class SettingsContainerManager extends ContainerManager {
     const saved = hasVibeCSS();
 
     if (saved && currentTheme !== THEMES.VIBE) {
-      // Quick-apply saved vibe and close settings
+      // Apply the saved vibe, then show the gallery
       switchTheme(THEMES.VIBE);
-      this.closeContainer();
-      return;
     }
 
-    // Open the gallery for all other cases
+    // Always open the gallery
     this._openVibeGallery();
   }
 
@@ -183,9 +181,12 @@ export class SettingsContainerManager extends ContainerManager {
 
     const restorePanel = () => {
       container.innerHTML = savedHTML;
+      this._vibeRestore = null;
       this.syncSliderUI();
       this.updateButtonStates();
     };
+
+    this._vibeRestore = restorePanel;
 
     const loggedIn = await isLoggedIn();
 
@@ -407,6 +408,16 @@ export class SettingsContainerManager extends ContainerManager {
     this._resizeDebounce = setTimeout(() => {
       window.dispatchEvent(new Event('resize'));
     }, 150);
+  }
+
+  /**
+   * Override closeContainer to restore settings UI if vibe gallery is showing.
+   */
+  closeContainer() {
+    if (this._vibeRestore) {
+      this._vibeRestore();
+    }
+    super.closeContainer();
   }
 
   /**
