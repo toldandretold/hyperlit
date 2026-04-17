@@ -33,9 +33,21 @@ export class BookToBookTransition {
     if (this.isTransitioning && this.currentTransitionPromise) {
       console.log('🔄 BookToBookTransition: Transition in progress, waiting for completion...');
       try {
-        await this.currentTransitionPromise;
+        await Promise.race([
+          this.currentTransitionPromise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Previous transition timed out')), 8000)
+          )
+        ]);
       } catch (error) {
-        console.warn('Previous transition failed, proceeding with new one:', error);
+        console.warn('Previous transition failed or timed out, proceeding with new one:', error);
+      }
+      // Force-clear stale lock state before proceeding
+      this.isTransitioning = false;
+      this.currentTransitionPromise = null;
+      if (this.abortController) {
+        this.abortController.abort();
+        this.abortController = null;
       }
     }
     

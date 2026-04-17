@@ -185,19 +185,13 @@ export async function buildHyperciteContent(contentType, db = null) {
             bookID = pathParts.filter(part => part && !part.startsWith("HL_") && !(/^Fn\d/.test(part)) && !(/^\d+$/.test(part)))[0] || "";
           }
         } else if (isFootnoteURL) {
-          // Old format: "/bookId_Fn..." or "/book/bookId_Fn..."
-          const fnMatch = urlPart.match(/\/([^\/]+)_Fn/);
-          if (fnMatch) {
-            bookID = fnMatch[1];
+          const pathParts = urlPart.split("/").filter(p => p);
+          if (pathParts.length > 1) {
+            // Multi-segment: /craftingtheuser/seq1_Fn... → first segment is book slug
+            bookID = pathParts[0];
           } else {
-            // New format: "/bookId/FnTimestamp_random" (Fn as separate path segment)
-            const pathParts = urlPart.split("/").filter(p => p);
-            const fnIndex = pathParts.findIndex(p => /^Fn\d/.test(p));
-            if (fnIndex > 0) {
-              bookID = pathParts[fnIndex - 1];
-            } else {
-              bookID = urlPart.replace("/", "").split("_Fn")[0];
-            }
+            // Legacy single-segment: /bookId_FnN → extract before _Fn
+            bookID = pathParts[0].split("_Fn")[0];
           }
         } else {
           bookID = urlPart.replace("/", "");
@@ -211,7 +205,7 @@ export async function buildHyperciteContent(contentType, db = null) {
         const allPathParts = urlPart.split("/").filter(p => p);
         let lastItemIndex = -1;
         for (let i = allPathParts.length - 1; i >= 0; i--) {
-          if (allPathParts[i].startsWith("HL_") || /^Fn\d/.test(allPathParts[i])) {
+          if (allPathParts[i].startsWith("HL_") || /^Fn\d/.test(allPathParts[i]) || allPathParts[i].includes("_Fn")) {
             lastItemIndex = i;
             break;
           }

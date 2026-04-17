@@ -198,8 +198,14 @@ async function formatCitationLink(db, citationID, includeManagementButtons = fal
       bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
     }
   } else {
-    // Original simple case: url.com/book#id
-    bookID = urlPart.replace("/", "");
+    const pathParts = urlPart.split("/").filter(p => p);
+    if (pathParts.length > 1) {
+      bookID = pathParts[0];
+    } else {
+      bookID = pathParts[0]?.includes("_Fn")
+        ? pathParts[0].split("_Fn")[0]
+        : (pathParts[0] || "");
+    }
   }
 
   // Check if this is a simple hypercite and user owns the CITING book
