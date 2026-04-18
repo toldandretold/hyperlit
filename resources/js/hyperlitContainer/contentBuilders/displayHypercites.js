@@ -9,7 +9,7 @@ import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../../utilities/auth.js";
 import DOMPurify from 'dompurify';
-import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
+import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper.js';
 
 /**
  * Validate URL to prevent javascript: and other dangerous protocols
@@ -422,24 +422,46 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         // Footnote content doesn't contain the hypercite — fall through to sub-book check
       }
 
-      // Check sub-book nodes in IndexedDB (footnote-as-sub-book)
+      // Check sub-book nodes in IndexedDB — only if footnote is still active
       if (subBookId) {
-        console.log(`🔍 Footnote content check missed — checking sub-book nodes for ${subBookId}`);
-        const fnSubBookTx = db.transaction('nodes', 'readonly');
-        const fnSubBookStore = fnSubBookTx.objectStore('nodes');
-        const fnSubBookIndex = fnSubBookStore.index('book');
-        const fnSubBookNodes = await new Promise((resolve, reject) => {
-          const req = fnSubBookIndex.getAll(subBookId);
+        // Verify footnote is still referenced in at least one parent node
+        const fnActiveCheckTx = db.transaction('nodes', 'readonly');
+        const fnActiveCheckStore = fnActiveCheckTx.objectStore('nodes');
+        const fnActiveCheckIndex = fnActiveCheckStore.index('book');
+        const fnParentNodes = await new Promise((resolve, reject) => {
+          const req = fnActiveCheckIndex.getAll(bookId);
           req.onsuccess = () => resolve(req.result || []);
           req.onerror = () => reject(req.error);
         });
 
-        console.log(`📚 Found ${fnSubBookNodes.length} sub-book nodes for footnote ${subBookId}`);
+        const fnStillActiveForSubBook = fnParentNodes.some(node =>
+          node.footnotes?.some(fn => {
+            const id = typeof fn === 'string' ? fn : fn?.id;
+            return id === contentItemId;
+          })
+        );
 
-        for (const node of fnSubBookNodes) {
-          if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-            console.log(`✅ Found hypercite ${hyperciteId} in footnote sub-book node (${subBookId})`);
-            return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+        if (!fnStillActiveForSubBook) {
+          console.log(`⚠️ Footnote ${contentItemId} no longer active — skipping sub-book node check`);
+          // Fall through to PostgreSQL fallback (which has its own guard)
+        } else {
+          console.log(`🔍 Footnote content check missed — checking sub-book nodes for ${subBookId}`);
+          const fnSubBookTx = db.transaction('nodes', 'readonly');
+          const fnSubBookStore = fnSubBookTx.objectStore('nodes');
+          const fnSubBookIndex = fnSubBookStore.index('book');
+          const fnSubBookNodes = await new Promise((resolve, reject) => {
+            const req = fnSubBookIndex.getAll(subBookId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+
+          console.log(`📚 Found ${fnSubBookNodes.length} sub-book nodes for footnote ${subBookId}`);
+
+          for (const node of fnSubBookNodes) {
+            if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+              console.log(`✅ Found hypercite ${hyperciteId} in footnote sub-book node (${subBookId})`);
+              return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+            }
           }
         }
       }
@@ -481,16 +503,27 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
             }
           }
 
-          // Check sub-book nodes in PostgreSQL
+          // Check sub-book nodes in PostgreSQL — only if footnote still active
           if (subBookId) {
-            const pgNodes = data.nodes || [];
-            const pgFnSubBookNodes = pgNodes.filter(n => n.book === subBookId);
-            console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
-            for (const node of pgFnSubBookNodes) {
-              if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-                console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
-                return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+            const pgAllNodes = data.nodes || [];
+            const pgFnStillActive = pgAllNodes.some(node =>
+              node.footnotes?.some(fn => {
+                const id = typeof fn === 'string' ? fn : fn?.id;
+                return id === contentItemId;
+              })
+            );
+
+            if (pgFnStillActive) {
+              const pgFnSubBookNodes = pgAllNodes.filter(n => n.book === subBookId);
+              console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
+              for (const node of pgFnSubBookNodes) {
+                if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                  console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
+                  return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+                }
               }
+            } else {
+              console.log(`⚠️ Footnote ${contentItemId} no longer active in PostgreSQL — skipping sub-book check`);
             }
           }
         }
@@ -504,10 +537,23 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
     // --- Hyperlight check ---
     if (contentType === 'hyperlight' && contentItemId) {
+      // Define sub-book ID (needed for both IndexedDB and PostgreSQL paths)
+      const hlSubBookId = subBookId || `${bookId}/${contentItemId}`;
+
+      // Derive the hyperlight's actual book — may differ from bookId for nested hyperlights
+      // e.g. HL inside a footnote: subBookId = "book_X/2/FnY/HL_Z" → hlBook = "book_X/FnY"
+      let hlActualBook = bookId;
+      if (subBookId) {
+        const parsed = parseSubBookId(subBookId);
+        if (parsed.level >= 2 && parsed.parentItemId) {
+          hlActualBook = `${parsed.foundation}/${parsed.parentItemId}`;
+        }
+      }
+
       // Look up the specific hyperlight in IndexedDB
       const hlTx = db.transaction('hyperlights', 'readonly');
       const hlStore = hlTx.objectStore('hyperlights');
-      const hlRequest = hlStore.get([bookId, contentItemId]);
+      const hlRequest = hlStore.get([hlActualBook, contentItemId]);
 
       const hyperlight = await new Promise((resolve, reject) => {
         hlRequest.onsuccess = () => resolve(hlRequest.result);
@@ -522,34 +568,35 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         }
       }
 
-      // 2. Check sub-book nodes in IndexedDB
+      // 2. Check sub-book nodes in IndexedDB — only if hyperlight record still exists
       // When a hyperlight's annotation becomes a sub-book, content is stored as nodes
       // under the sub-book ID — use the passed-in subBookId which handles all nesting depths
-      const hlSubBookId = subBookId || `${bookId}/${contentItemId}`;
-      console.log(`🔍 Annotation check missed — checking sub-book nodes for ${hlSubBookId}`);
+      if (hyperlight) {
+        console.log(`🔍 Annotation check missed — checking sub-book nodes for ${hlSubBookId}`);
 
-      const subBookTx = db.transaction('nodes', 'readonly');
-      const subBookNodesStore = subBookTx.objectStore('nodes');
-      const subBookIndex = subBookNodesStore.index('book');
-      const subBookNodes = await new Promise((resolve, reject) => {
-        const req = subBookIndex.getAll(hlSubBookId);
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-      });
+        const subBookTx = db.transaction('nodes', 'readonly');
+        const subBookNodesStore = subBookTx.objectStore('nodes');
+        const subBookIndex = subBookNodesStore.index('book');
+        const subBookNodes = await new Promise((resolve, reject) => {
+          const req = subBookIndex.getAll(hlSubBookId);
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
 
-      console.log(`📚 Found ${subBookNodes.length} sub-book nodes for ${hlSubBookId}`);
+        console.log(`📚 Found ${subBookNodes.length} sub-book nodes for ${hlSubBookId}`);
 
-      for (const node of subBookNodes) {
-        if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-          console.log(`✅ Found hypercite ${hyperciteId} in sub-book node (${hlSubBookId})`);
-          return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+        for (const node of subBookNodes) {
+          if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+            console.log(`✅ Found hypercite ${hyperciteId} in sub-book node (${hlSubBookId})`);
+            return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+          }
         }
       }
 
       // 3. Fallback to PostgreSQL — check annotation and sub-book nodes
-      console.log(`📡 Not found in IndexedDB, checking PostgreSQL for book ${bookId}`);
+      console.log(`📡 Not found in IndexedDB, checking PostgreSQL for book ${hlActualBook}`);
       try {
-        const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
+        const response = await fetch(`/api/database-to-indexeddb/books/${hlActualBook}/data`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -570,14 +617,16 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
             }
           }
 
-          // Check sub-book nodes in PostgreSQL data
-          const pgNodes = data.nodes || [];
-          const pgSubBookNodes = pgNodes.filter(n => n.book === hlSubBookId);
-          console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
-          for (const node of pgSubBookNodes) {
-            if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${hlSubBookId})`);
-              return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+          // Check sub-book nodes in PostgreSQL data — only if hyperlight still exists
+          if (match) {
+            const pgNodes = data.nodes || [];
+            const pgSubBookNodes = pgNodes.filter(n => n.book === hlSubBookId);
+            console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
+            for (const node of pgSubBookNodes) {
+              if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${hlSubBookId})`);
+                return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+              }
             }
           }
         }

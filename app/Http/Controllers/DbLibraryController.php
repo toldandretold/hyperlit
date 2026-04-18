@@ -69,7 +69,7 @@ class DbLibraryController extends Controller
         }
 
         try {
-            $service = new BookDeletionService();
+            $service = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
             $stats = $service->deleteBook($book);
 
             return response()->json([

@@ -203,7 +203,10 @@ class BookDeletionService
         // Find hypercites where citedIN contains references to deleted book
         // citedIN format: ["/bookId#hypercite_xyz", ...] (leading slash from hyperciteHandler.js)
         $hypercites = $db->table('hypercites')
-            ->whereRaw('"citedIN"::text LIKE ?', ['%"/' . $deletedBook . '#%'])
+            ->where(function ($q) use ($deletedBook) {
+                $q->whereRaw('"citedIN"::text LIKE ?', ['%"/' . $deletedBook . '#%'])
+                  ->orWhereRaw('"citedIN"::text LIKE ?', ['%"/' . $deletedBook . '/%']);
+            })
             ->get();
 
         $delinkedCount = 0;
@@ -214,7 +217,10 @@ class BookDeletionService
 
             // Filter out references to deleted book (citedIN entries have leading slash)
             $filtered = array_values(array_filter($citedIN, function($ref) use ($deletedBook) {
-                return !str_starts_with($ref, '/' . $deletedBook . '#');
+                $prefix = '/' . $deletedBook;
+                if (!str_starts_with($ref, $prefix)) return true;
+                $nextChar = $ref[strlen($prefix)] ?? '';
+                return $nextChar !== '#' && $nextChar !== '/';
             }));
 
             // Update if changed

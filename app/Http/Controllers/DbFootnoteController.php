@@ -7,6 +7,7 @@ use App\Models\PgFootnote;
 use App\Services\BookDeletionService;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DbFootnoteController extends Controller
@@ -141,7 +142,7 @@ class DbFootnoteController extends Controller
             if (isset($data['data']) && is_array($data['data'])) {
                 $delinkedCount = 0;
 
-                $deletionService = new BookDeletionService();
+                $deletionService = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
 
                 foreach ($data['data'] as $index => $item) {
                     $book = $item['book'] ?? null;

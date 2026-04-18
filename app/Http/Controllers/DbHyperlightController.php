@@ -435,7 +435,7 @@ class DbHyperlightController extends Controller
 
                 // Clean up sub-book content and delink orphaned hypercites
                 if (!empty($deletedSubBookIds)) {
-                    $deletionService = new BookDeletionService();
+                    $deletionService = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
                     foreach ($deletedSubBookIds as $subBookId) {
                         try {
                             $deletionService->deleteSubBookContent($subBookId);
