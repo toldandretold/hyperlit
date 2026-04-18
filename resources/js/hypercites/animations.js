@@ -150,3 +150,45 @@ export function restoreNormalHyperciteDisplay() {
 
   console.log(`✅ Restored normal display for ${allHypercites.length} hypercites and ${allArrows.length} arrows`);
 }
+
+/**
+ * Reveal a ghost tombstone as a floating translucent bubble that floats up and fades away.
+ * Called when navigating to a tombstone via "See in source text".
+ * @param {string} elementId - The ID of the tombstone element
+ * @returns {boolean} - True if the element was a tombstone and was revealed
+ */
+export function revealGhostIfTombstone(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el || !el.classList.contains('hypercite-tombstone')) return false;
+
+  // Remove any existing bubble for this element (duplicate guard)
+  const existingBubble = document.getElementById(`ghost-bubble-${elementId}`);
+  if (existingBubble) existingBubble.remove();
+
+  // Position the bubble at the tombstone location
+  const rect = el.getBoundingClientRect();
+  const bubble = document.createElement('div');
+  bubble.id = `ghost-bubble-${elementId}`;
+  bubble.className = 'ghost-bubble';
+  bubble.textContent = '\uD83D\uDC7B';
+  bubble.style.left = `${rect.left}px`;
+  bubble.style.top = `${rect.top}px`;
+  document.body.appendChild(bubble);
+
+  // Trigger animation on next frame so the initial state is painted first
+  requestAnimationFrame(() => {
+    bubble.classList.add('ghost-bubble-animate');
+  });
+
+  // Self-remove on animation end
+  bubble.addEventListener('animationend', () => {
+    bubble.remove();
+  }, { once: true });
+
+  // Safety timeout in case animationend doesn't fire
+  setTimeout(() => {
+    if (bubble.parentNode) bubble.remove();
+  }, 5000);
+
+  return true;
+}

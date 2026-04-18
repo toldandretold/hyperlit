@@ -26,7 +26,7 @@ import { trackChunkNodeCount } from '../chunkManager.js';
  * Check if a removed node is a hypercite element and handle delinking
  * @param {Node} removedNode - The node that was removed
  */
-export async function handleHyperciteRemoval(removedNode) {
+export async function handleHyperciteRemoval(removedNode, mutationTarget = null) {
   // Helper function to verify removal with optional delay
   const verifyRemoval = async (hyperciteId, delay = 0) => {
     if (delay > 0) {
@@ -78,16 +78,82 @@ export async function handleHyperciteRemoval(removedNode) {
     }
   }
 
-  // ✅ CHECK 2: Source hypercite <u> wrappers being deleted
-  // TODO: Phase 2 - Replace with tombstone anchor instead of allowing deletion
+  // ✅ CHECK 2: Source hypercite <u> wrappers being deleted → create tombstone if cited
   if (removedNode.nodeType === Node.ELEMENT_NODE &&
       removedNode.tagName === 'U' &&
       removedNode.id &&
       removedNode.id.startsWith('hypercite_')) {
 
-    console.log(`⚠️ Source hypercite <u> wrapper deleted: ${removedNode.id}`);
-    console.log(`📌 TODO: This should be prevented and replaced with tombstone <a> tag`);
-    // For now, just log it - Phase 2 will handle this properly
+    const hyperciteId = removedNode.id;
+    console.log(`👻 Source hypercite <u> wrapper deleted: ${hyperciteId}`);
+
+    // Verify the removal is real (same dual-check as Check 1)
+    const immediateCheck = await verifyRemoval(hyperciteId);
+    const delayedCheck = immediateCheck ? await verifyRemoval(hyperciteId, 50) : false;
+
+    if (!delayedCheck) {
+      console.log(`✅ Hypercite ${hyperciteId} still exists in DOM - skipping tombstone`);
+      return;
+    }
+
+    try {
+      const { openDatabase } = await import('../indexedDB/index.js');
+      const { getHyperciteById } = await import('../hypercites/database.js');
+      const db = await openDatabase();
+      const hypercite = await getHyperciteById(db, hyperciteId);
+
+      if (!hypercite) {
+        console.log(`ℹ️ Hypercite ${hyperciteId} not found in IndexedDB - clean deletion`);
+        return;
+      }
+
+      const hasCitations = Array.isArray(hypercite.citedIN) && hypercite.citedIN.length > 0;
+
+      if (!hasCitations) {
+        console.log(`ℹ️ Hypercite ${hyperciteId} has no citations - clean deletion, no tombstone needed`);
+        return;
+      }
+
+      // Create tombstone anchor — invisible zero-width anchor, just an ID to scroll to
+      const tombstone = document.createElement('a');
+      tombstone.id = hyperciteId;
+      tombstone.className = 'hypercite-tombstone';
+      tombstone.setAttribute('data-ghost', 'true');
+
+      // Insert tombstone into the mutation target (parent paragraph)
+      let insertionParent = mutationTarget;
+
+      // Walk up to find a block-level element if mutationTarget is inline
+      if (insertionParent && insertionParent.nodeType === Node.ELEMENT_NODE) {
+        const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE'];
+        if (!blockTags.includes(insertionParent.tagName)) {
+          insertionParent = insertionParent.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+        }
+      }
+
+      if (insertionParent && document.contains(insertionParent)) {
+        insertionParent.appendChild(tombstone);
+        console.log(`👻 Tombstone inserted into ${insertionParent.tagName}#${insertionParent.id}`);
+      } else {
+        // Fallback: find the chunk and append to its last child
+        const chunk = mutationTarget?.closest?.('.chunk');
+        if (chunk) {
+          const lastChild = chunk.lastElementChild;
+          if (lastChild) {
+            lastChild.appendChild(tombstone);
+            console.log(`👻 Tombstone inserted into fallback element ${lastChild.tagName}#${lastChild.id}`);
+          }
+        }
+      }
+
+      // Mark hypercite as ghost in IndexedDB and sync
+      const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+      await markHyperciteAsGhost(hyperciteId);
+
+      console.log(`✅ Tombstone system complete for ${hyperciteId} (${hypercite.citedIN.length} citation(s) preserved)`);
+    } catch (error) {
+      console.error('❌ Error creating tombstone for hypercite:', error);
+    }
 
     return;
   }

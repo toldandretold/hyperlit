@@ -19,8 +19,14 @@ function isElementFullyRendered(element) {
 
   // Check if element has been laid out (has dimensions)
   const rect = element.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return false;
-  
+  if (rect.width === 0 && rect.height === 0) {
+    // Ghost hypercite tombstones are invisible anchors — skip dimension check
+    if (element.hasAttribute('data-ghost') && element.id.startsWith('hypercite_')) {
+      return true;
+    }
+    return false;
+  }
+
   // For highlights/hypercites, check if they have expected classes/attributes
   if (element.tagName === 'MARK' && (element.id.startsWith('HL_') || element.id === 'HL_overlap')) {
     // Highlight should have proper classes applied

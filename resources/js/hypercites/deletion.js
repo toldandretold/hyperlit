@@ -5,7 +5,7 @@
  * When a hypercite citation is deleted, it updates the source hypercite's citedIN array.
  */
 
-import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately } from '../indexedDB/index.js';
+import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index.js';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
 import { getHyperciteById } from './database.js';
@@ -190,6 +190,62 @@ export async function handleHyperciteDeletion(hyperciteElement) {
   console.log("🗑️ Handling deletion of hypercite:", hyperciteElementId);
 
   await delinkHypercite(hyperciteElementId, hrefUrl);
+}
+
+/**
+ * Mark a hypercite as a ghost (tombstone state)
+ * Called when the source <u> tag is deleted but citedIN references still exist.
+ * The hypercite record is kept with status 'ghost' so citing books can show ghost UX.
+ *
+ * @param {string} hyperciteId - The hypercite ID (e.g., "hypercite_p0pdlbaj")
+ * @returns {Promise<boolean>} - True if successfully marked as ghost
+ */
+export async function markHyperciteAsGhost(hyperciteId) {
+  try {
+    console.log("👻 Marking hypercite as ghost:", hyperciteId);
+
+    const db = await openDatabase();
+    const hypercite = await getHyperciteById(db, hyperciteId);
+
+    if (!hypercite) {
+      console.error("❌ Hypercite not found for ghost marking:", hyperciteId);
+      return false;
+    }
+
+    // Update status to ghost
+    hypercite.relationshipStatus = 'ghost';
+
+    // Write back to IndexedDB hypercites store
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("hypercites", "readwrite");
+      const store = tx.objectStore("hypercites");
+      const request = store.put(hypercite);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error("Error updating hypercite to ghost"));
+    });
+
+    console.log("💾 Updated hypercite status to ghost in IndexedDB");
+
+    // Rebuild affected node arrays so embedded hypercites reflect ghost status
+    const affectedDataNodeIDs = hypercite.node_id || [];
+    if (affectedDataNodeIDs.length > 0) {
+      const allNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
+      const affectedNodes = allNodes.filter(n => n.book === hypercite.book);
+      await rebuildNodeArrays(affectedNodes);
+      console.log(`✅ Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+    }
+
+    // Queue for sync and flush immediately
+    await updateBookTimestamp(hypercite.book);
+    queueForSync("hypercites", hyperciteId, "update", hypercite);
+    await debouncedMasterSync.flush();
+
+    console.log("✅ Ghost hypercite synced to server");
+    return true;
+  } catch (error) {
+    console.error("❌ Error marking hypercite as ghost:", error);
+    return false;
+  }
 }
 
 // ========== Internal Helper Functions (not exported) ==========

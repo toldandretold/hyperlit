@@ -6,6 +6,7 @@
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
+import { resolveHypercite } from '../../indexedDB/hypercites/helpers.js';
 
 /**
  * Build citation content section
@@ -163,6 +164,20 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       }
     }
 
+    // Check for ghost status — resolveHypercite does local-first + server fallback
+    let isGhost = false;
+    let ghostCitedText = '';
+    try {
+      const hyperciteData = await resolveHypercite(targetBook, targetHyperciteId);
+      if (hyperciteData?.relationshipStatus === 'ghost') {
+        isGhost = true;
+        ghostCitedText = hyperciteData.hypercitedText || '';
+        console.log(`👻 Hypercite ${targetHyperciteId} is a ghost`);
+      }
+    } catch (ghostError) {
+      console.warn('Could not check ghost status:', ghostError);
+    }
+
     // Check if book is private, deleted, or accessible
     const isPrivate = libraryData && libraryData.visibility === 'private';
     const isDeleted = libraryData && libraryData.visibility === 'deleted';
@@ -182,6 +197,8 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
     } else if (isPrivate) {
       statusIcon = '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     }
+
+    // Ghost status is communicated via the button text — no separate section needed
 
     // Build descriptive label for sub-book locations
     let locationLabel = '';
@@ -206,7 +223,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       locationLabel = 'a <span class="citedInFootnote">Footnote</span> within:';
     }
 
-    // Configure button based on access
+    // Configure button based on access and ghost status
     let buttonText = 'See in source text';
     let buttonStyle = 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
     let buttonAttrs = '';
@@ -219,6 +236,8 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       buttonText = 'source text private';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
       buttonAttrs = `data-private="true" data-access="denied" data-book-id="${targetBook}"`;
+    } else if (isGhost) {
+      buttonText = 'View ghost in source';
     }
 
     return `
@@ -227,7 +246,8 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
         <div class="citation-text">
           ${statusIcon}${locationLabel ? `<span class="location-label">${locationLabel}</span><blockquote>${formattedCitation}</blockquote>` : formattedCitation}
         </div>
-        <div style="margin-top: 1em;">
+        ${isGhost ? `<div style="color: #EF8D34; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(239, 141, 52, 0.08); border: 1px solid rgba(239, 141, 52, 0.25);">Cited text deleted</div>` : ''}
+        <div style="margin-top: ${isGhost ? '0.5em' : '1em'};">
           <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
             ${buttonText}
           </a>

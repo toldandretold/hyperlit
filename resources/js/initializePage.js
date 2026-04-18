@@ -1203,7 +1203,7 @@ function showPrivateBookLoginPrompt(bookId) {
   alertBox.innerHTML = `
     <div class="user-form">
       <h3 style="margin: 0 0 15px 0; color: #EF8D34;">Private Book</h3>
-      <p style="margin: 0 0 20px 0; line-height: 1.6;">This is a private book. Please log in to access it.</p>
+      <p style="margin: 0 0 20px 0; line-height: 1.6;">This is private hypertext.</p>
       <div class="alert-buttons" style="display: flex; gap: 10px; justify-content: flex-end;">
         <button type="button" id="goHomeButtonLogin" class="alert-button secondary" style="padding: 10px 20px; border: 1px solid #666; background: transparent; color: #fff; border-radius: 4px; cursor: pointer;">Go to Home</button>
         <button type="button" id="showLoginButton" class="alert-button primary" style="padding: 10px 20px; background: #EF8D34; color: #fff; border: none; border-radius: 4px; cursor: pointer;">Log In</button>

@@ -356,6 +356,13 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
           mark.parentNode?.normalize();
         });
 
+        // Also strip existing hypercite <u> elements to avoid double-wrapping
+        const existingHyperciteUs = nodeElement.querySelectorAll('u[id^="hypercite_"]');
+        existingHyperciteUs.forEach(u => {
+          unwrapElement(u);
+        });
+        nodeElement.normalize();
+
         // Get the clean HTML and re-apply highlights with correct segmentation
         const cleanHtml = nodeElement.innerHTML;
         console.log(`Applying highlights to clean HTML for node ${IDnumerical}:`, nodeHighlights.map(h => h.highlightID));

@@ -148,6 +148,7 @@ import {
   waitForChunkLoadingComplete
 } from "./domReadiness.js";
 import { highlightTargetHypercite } from "./hypercites/index.js";
+import { revealGhostIfTombstone } from "./hypercites/animations.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
 import { ProgressOverlayConductor } from './navigation/ProgressOverlayConductor.js';
 import { isSearchToolbarOpen } from './search/inTextSearch/searchToolbar.js';
@@ -1422,11 +1423,12 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }, 200);
     }
 
-    // For hypercites, highlight the target and dim others
+    // For hypercites, check for ghost tombstone first, otherwise highlight
     if (targetId.startsWith('hypercite_')) {
       setTimeout(() => {
-        console.log(`Highlighting target hypercite after navigation: ${targetId}`);
-        highlightTargetHypercite(targetId, 500); // 500ms delay to let user see normal layout first
+        if (!revealGhostIfTombstone(targetId)) {
+          highlightTargetHypercite(targetId, 500);
+        }
       }, 300);
     }
 

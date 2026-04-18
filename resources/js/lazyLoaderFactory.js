@@ -1232,11 +1232,15 @@ export function createChunkElement(nodes, instance) {
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
 
-  const segments = createHyperciteSegments(hypercites);
-  
+  // Separate ghost hypercites from active ones
+  const activeHypercites = hypercites.filter(h => h.relationshipStatus !== 'ghost');
+  const ghostHypercites = hypercites.filter(h => h.relationshipStatus === 'ghost');
+
+  const segments = createHyperciteSegments(activeHypercites);
+
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
-  
+
   segments.sort((a, b) => b.charStart - a.charStart);
 
   for (const segment of segments) {
@@ -1280,7 +1284,7 @@ export function applyHypercites(html, hypercites) {
           underlineElement.style.cssText = `--hypercite-intensity: ${intensity}`;
         }
       }
-      
+
       try {
         wrapRangeWithElement(
           positions.startNode,
@@ -1293,6 +1297,18 @@ export function applyHypercites(html, hypercites) {
         console.error("❌ Highlight wrapping failed completely", error);
       }
     }
+  }
+
+  // Render ghost hypercites as invisible tombstone anchors appended at end of content
+  for (const ghost of ghostHypercites) {
+    const tombstone = document.createElement('a');
+    tombstone.id = ghost.hyperciteId;
+    tombstone.className = 'hypercite-tombstone';
+    tombstone.setAttribute('data-ghost', 'true');
+
+    // Find the content element (first child element of tempElement)
+    const contentElement = tempElement.firstElementChild || tempElement;
+    contentElement.appendChild(tombstone);
   }
 
   return tempElement.innerHTML;

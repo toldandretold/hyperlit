@@ -433,7 +433,7 @@ export class ChunkMutationHandler {
 
             // Check for hypercite removals
             if (this.handleHyperciteRemoval) {
-              await this.handleHyperciteRemoval(node);
+              await this.handleHyperciteRemoval(node, mutation.target);
             }
 
             // Handle numerical ID deletions

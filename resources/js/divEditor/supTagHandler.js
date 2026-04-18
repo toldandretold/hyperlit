@@ -287,9 +287,77 @@ export class SupTagHandler {
       if (!node) return;
 
       let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-      let supElement = element?.closest('sup');
       const offset = selection.anchorOffset;
       const textLength = node.textContent?.length || 0;
+
+      // ✅ CHECK: Source hypercite <u> wrapper — confirm before deleting last character
+      // The <u> tag is removed by the browser when its last character is deleted.
+      // We intercept that moment to show a confirmation dialog if citedIN has entries.
+      const sourceHypercite = element?.closest('u[id^="hypercite_"]');
+      if (sourceHypercite) {
+        const uTextLength = sourceHypercite.textContent?.length || 0;
+        const isDeletingLastChar =
+          (e.inputType === 'deleteContentBackward' && uTextLength === 1) ||
+          (e.inputType === 'deleteContentForward' && uTextLength === 1);
+
+        if (isDeletingLastChar) {
+          // Async check — prevent default first, then decide
+          e.preventDefault();
+          e.stopPropagation();
+
+          const hyperciteId = sourceHypercite.id;
+
+          (async () => {
+            try {
+              const { openDatabase } = await import('../indexedDB/index.js');
+              const { getHyperciteById } = await import('../hypercites/database.js');
+              const db = await openDatabase();
+              const hypercite = await getHyperciteById(db, hyperciteId);
+
+              const citedINCount = (hypercite?.citedIN?.length) || 0;
+
+              if (citedINCount > 0) {
+                const confirmed = confirm(
+                  `This text is cited in ${citedINCount} other book(s). Delete anyway?`
+                );
+                if (!confirmed) {
+                  // Restore cursor position
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  const range = document.createRange();
+                  if (sourceHypercite.parentNode) {
+                    range.selectNodeContents(sourceHypercite);
+                    range.collapse(false);
+                    sel.addRange(range);
+                  }
+                  return;
+                }
+              }
+
+              // User confirmed (or no citations) — delete the <u> content
+              // Capture parent reference before removal (can't traverse after detach)
+              const parentWithId = sourceHypercite.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+
+              // This triggers MutationObserver Check 2 in domUtilities.js
+              // which will create a tombstone if citedIN has entries.
+              sourceHypercite.textContent = '';
+              sourceHypercite.remove();
+
+              // Queue parent for update
+              if (parentWithId?.id) {
+                queueNodeForSave(parentWithId.id, 'update');
+              }
+            } catch (error) {
+              console.error('❌ Error checking hypercite citations:', error);
+            }
+          })();
+
+          return;
+        }
+        // If not deleting last char, allow normal editing within <u>
+      }
+
+      let supElement = element?.closest('sup');
 
       // Check if cursor is INSIDE a hypercite anchor (new single-element format)
       // This catches both forward delete and backspace when cursor is within <a class="open-icon">↗</a>

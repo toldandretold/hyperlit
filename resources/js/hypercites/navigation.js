@@ -10,7 +10,7 @@ import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
 import { getHyperciteData, getHyperciteById } from './database.js';
-import { highlightTargetHypercite } from './animations.js';
+import { highlightTargetHypercite, revealGhostIfTombstone } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';
 import { handleUnifiedContentClick, closeHyperlitContainer } from '../hyperlitContainer/index.js';
 import { getCurrentContainer } from '../hyperlitContainer/stack.js';
@@ -279,8 +279,10 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
             block: 'center',
             inline: 'nearest'
           });
-          // Highlight the hypercite
-          highlightTargetHypercite(internalId, 500);
+          // Check if this is a ghost tombstone — reveal instead of highlight
+          if (!revealGhostIfTombstone(internalId)) {
+            highlightTargetHypercite(internalId, 500);
+          }
         }
       } else {
         console.log(`🎯 Hypercite ${internalId} not found in container, using standard navigation`);
@@ -381,8 +383,10 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
             block: 'center',
             inline: 'nearest'
           });
-          // Highlight the hypercite
-          highlightTargetHypercite(internalId, 500);
+          // Check if this is a ghost tombstone — reveal instead of highlight
+          if (!revealGhostIfTombstone(internalId)) {
+            highlightTargetHypercite(internalId, 500);
+          }
         } else {
           console.log(`⚠️ Hypercite ${internalId} not found in container`);
         }
@@ -463,6 +467,8 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
 
       if (internalId) {
         await navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
+        // Check if navigated-to element is a ghost tombstone
+        revealGhostIfTombstone(internalId);
         return;
       }
     }
