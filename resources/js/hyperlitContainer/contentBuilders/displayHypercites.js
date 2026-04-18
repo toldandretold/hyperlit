@@ -12,6 +12,20 @@ import DOMPurify from 'dompurify';
 import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper.js';
 
 /**
+ * Build the full-data API URL, handling sub-book IDs with slashes.
+ * e.g. "book_X/FnY" → "/api/database-to-indexeddb/books/book_X/FnY/data"
+ */
+function buildBookDataUrl(bookId) {
+  const slashIndex = bookId.indexOf('/');
+  if (slashIndex !== -1) {
+    const parentBook = bookId.substring(0, slashIndex);
+    const subId = bookId.substring(slashIndex + 1);
+    return `/api/database-to-indexeddb/books/${parentBook}/${subId}/data`;
+  }
+  return `/api/database-to-indexeddb/books/${bookId}/data`;
+}
+
+/**
  * Validate URL to prevent javascript: and other dangerous protocols
  * @param {string} url - The URL to validate
  * @returns {string} Safe URL or '#' if dangerous
@@ -469,7 +483,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       // Fallback to PostgreSQL if not found in IndexedDB
       console.log(`📡 Footnote not in IndexedDB, checking PostgreSQL for book ${bookId}`);
       try {
-        const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
+        const response = await fetch(buildBookDataUrl(bookId), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -514,12 +528,25 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
             );
 
             if (pgFnStillActive) {
-              const pgFnSubBookNodes = pgAllNodes.filter(n => n.book === subBookId);
-              console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
-              for (const node of pgFnSubBookNodes) {
-                if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-                  console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
-                  return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+              // Fetch sub-book data from its own endpoint (parent API doesn't return sub-book nodes)
+              const subResponse = await fetch(buildBookDataUrl(subBookId), {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                credentials: 'include'
+              });
+
+              if (subResponse.ok) {
+                const subData = await subResponse.json();
+                const pgFnSubBookNodes = subData.nodes || [];
+                console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
+                for (const node of pgFnSubBookNodes) {
+                  if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                    console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
+                    return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
+                  }
                 }
               }
             } else {
@@ -596,7 +623,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       // 3. Fallback to PostgreSQL — check annotation and sub-book nodes
       console.log(`📡 Not found in IndexedDB, checking PostgreSQL for book ${hlActualBook}`);
       try {
-        const response = await fetch(`/api/database-to-indexeddb/books/${hlActualBook}/data`, {
+        const response = await fetch(buildBookDataUrl(hlActualBook), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -619,13 +646,25 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
           // Check sub-book nodes in PostgreSQL data — only if hyperlight still exists
           if (match) {
-            const pgNodes = data.nodes || [];
-            const pgSubBookNodes = pgNodes.filter(n => n.book === hlSubBookId);
-            console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
-            for (const node of pgSubBookNodes) {
-              if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-                console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${hlSubBookId})`);
-                return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+            // Fetch sub-book data from its own endpoint (parent API doesn't return sub-book nodes)
+            const subResponse = await fetch(buildBookDataUrl(hlSubBookId), {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+              },
+              credentials: 'include'
+            });
+
+            if (subResponse.ok) {
+              const subData = await subResponse.json();
+              const pgSubBookNodes = subData.nodes || [];
+              console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
+              for (const node of pgSubBookNodes) {
+                if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                  console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL sub-book node (${hlSubBookId})`);
+                  return { exists: true, chunkKey: `${bookId}:hyperlight:${contentItemId}` };
+                }
               }
             }
           }
@@ -671,7 +710,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       console.log(`📡 No chunks in IndexedDB, checking PostgreSQL for book ${bookId}`);
 
       try {
-        const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
+        const response = await fetch(buildBookDataUrl(bookId), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

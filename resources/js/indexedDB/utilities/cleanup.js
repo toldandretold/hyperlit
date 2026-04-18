@@ -117,15 +117,16 @@ export async function deleteBookFromIndexedDB(bookId) {
 
     const tx = db.transaction([...storesWithBookIndex, 'library'], 'readwrite');
 
-    // Delete from stores using "book" index
+    // Delete from stores using "book" index (main book + sub-books)
+    const subRange = IDBKeyRange.bound(bookId + '/', bookId + '/\uffff');
+
     for (const storeName of storesWithBookIndex) {
       const store = tx.objectStore(storeName);
       const index = store.index('book');
-      const range = IDBKeyRange.only(bookId);
 
+      // Delete main book records
       let count = 0;
-      const request = index.openCursor(range);
-
+      const request = index.openCursor(IDBKeyRange.only(bookId));
       await new Promise((resolve, reject) => {
         request.onsuccess = (event) => {
           const cursor = event.target.result;
@@ -134,13 +135,30 @@ export async function deleteBookFromIndexedDB(bookId) {
             count++;
             cursor.continue();
           } else {
-            deleted[storeName] = count;
-            console.log(`  - Deleted ${count} records from ${storeName}`);
             resolve();
           }
         };
         request.onerror = () => reject(request.error);
       });
+
+      // Also delete sub-book records (bookId/ ... bookId/\uffff)
+      await new Promise((resolve, reject) => {
+        const subRequest = index.openCursor(subRange);
+        subRequest.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            cursor.delete();
+            count++;
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        subRequest.onerror = () => reject(subRequest.error);
+      });
+
+      deleted[storeName] = count;
+      console.log(`  - Deleted ${count} records from ${storeName}`);
     }
 
     // Delete library metadata (keyPath is "book")
@@ -154,6 +172,9 @@ export async function deleteBookFromIndexedDB(bookId) {
       };
       request.onerror = () => reject(request.error);
     });
+
+    // Delete sub-book library records
+    await cursorDelete(libraryStore.openCursor(subRange));
 
     console.log(`✅ Book "${bookId}" deleted from IndexedDB`);
     return { success: true, bookId, deleted };

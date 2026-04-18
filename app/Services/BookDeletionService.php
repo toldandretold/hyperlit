@@ -70,15 +70,26 @@ class BookDeletionService
             $stats['footnotes_deleted'] = $db->table('footnotes')->where('book', $bookId)->delete();
             $stats['bibliography_deleted'] = $db->table('bibliography')->where('book', $bookId)->delete();
 
+            // 1b. Also delete sub-book content (nodes/footnotes/bibliography where book starts with "bookId/")
+            $subBookPrefix = $bookId . '/';
+            $stats['nodes_deleted'] += $db->table('nodes')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
+            $stats['footnotes_deleted'] += $db->table('footnotes')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
+            $stats['bibliography_deleted'] += $db->table('bibliography')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
+
             // 2. Keep hypercites (needed for citation display when pastes link to this book)
             $stats['hypercites_kept'] = $db->table('hypercites')->where('book', $bookId)->count();
 
             // 3. Delete only the book owner's highlights (preserve others as orphaned)
             $stats['hyperlights_deleted'] = $this->deleteOwnerHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
+            // Also delete owner's sub-book highlights
+            $stats['hyperlights_deleted'] += $this->deleteOwnerSubBookHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
 
-            // Count orphaned highlights (by other users)
+            // Count orphaned highlights (by other users) — including sub-books
             $stats['hyperlights_orphaned'] = $db->table('hyperlights')
-                ->where('book', $bookId)
+                ->where(function ($q) use ($bookId, $subBookPrefix) {
+                    $q->where('book', $bookId)
+                      ->orWhere('book', 'LIKE', $subBookPrefix . '%');
+                })
                 ->count();
 
             // 4. Always soft delete library record
@@ -86,6 +97,11 @@ class BookDeletionService
                 ->where('book', $bookId)
                 ->update(['visibility' => 'deleted']);
             $stats['library_action'] = 'soft_deleted';
+
+            // Soft delete sub-book library records
+            $db->table('library')
+                ->where('book', 'LIKE', $subBookPrefix . '%')
+                ->update(['visibility' => 'deleted']);
 
             // Also delete any reference from creator's library nodes (both public and private user home pages)
             if ($bookCreator) {
@@ -155,6 +171,24 @@ class BookDeletionService
             $query->where('creator_token', $bookCreatorToken);
         } else {
             // No creator info - don't delete any highlights (preserve all)
+            return 0;
+        }
+
+        return $query->delete();
+    }
+
+    /**
+     * Delete only highlights made by the book owner in sub-books
+     */
+    private function deleteOwnerSubBookHighlights(string $bookId, ?string $bookCreator, ?string $bookCreatorToken, $db): int
+    {
+        $query = $db->table('hyperlights')->where('book', 'LIKE', $bookId . '/%');
+
+        if ($bookCreator !== null) {
+            $query->where('creator', $bookCreator);
+        } elseif ($bookCreatorToken !== null) {
+            $query->where('creator_token', $bookCreatorToken);
+        } else {
             return 0;
         }
 
