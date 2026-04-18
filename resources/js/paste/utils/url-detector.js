@@ -88,7 +88,7 @@ export function detectAndConvertUrls(text) {
 
       // Generate YouTube embed HTML (IDs will be added by setElementIds later)
       // Note: Outer div is selectable (for deletion), inner wrapper is not editable
-      const embedHtml = `<div class="video-embed">
+      const embedHtml = `<div class="video-embed" data-video-id="${videoId}">
   <button class="video-delete-btn" contenteditable="false" aria-label="Delete video" data-action="delete-video">×</button>
   <div class="video-wrapper" contenteditable="false">
     <iframe src="https://www.youtube.com/embed/${videoId}"

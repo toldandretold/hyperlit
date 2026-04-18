@@ -1180,6 +1180,31 @@ export function createChunkElement(nodes, instance) {
     // SECURITY: Sanitize HTML to prevent stored XSS from malicious EPUB uploads
     temp.innerHTML = sanitizeHtml(html);
 
+    // 🎬 RECONSTRUCT: YouTube embeds after sanitization (iframe/button stripped by DOMPurify)
+    temp.querySelectorAll('.video-embed[data-video-id]').forEach(embed => {
+      const videoId = embed.dataset.videoId;
+      // Clear residual text left by KEEP_CONTENT (e.g. "×" from stripped button)
+      embed.textContent = '';
+      // Rebuild button + iframe from the stored video ID
+      const btn = document.createElement('button');
+      btn.className = 'video-delete-btn';
+      btn.contentEditable = 'false';
+      btn.setAttribute('aria-label', 'Delete video');
+      btn.dataset.action = 'delete-video';
+      btn.textContent = '\u00d7';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'video-wrapper';
+      wrapper.contentEditable = 'false';
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube.com/embed/${videoId}`;
+      iframe.setAttribute('frameborder', '0');
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.allowFullscreen = true;
+      wrapper.appendChild(iframe);
+      embed.appendChild(btn);
+      embed.appendChild(wrapper);
+    });
+
     // 🔄 NORMALIZE: Migrate old hypercite format to new single-element format
     // Old: <a><sup class="open-icon">↗</sup></a> or flipped <sup class="open-icon"><a>↗</a></sup>
     // New: <a class="open-icon">↗</a>
