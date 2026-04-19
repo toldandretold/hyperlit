@@ -313,7 +313,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
-      initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+      await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
       // Signal that content is loaded — without this, anything awaiting
       // pendingFirstChunkLoadedPromise (e.g. handleHashNavigation) hangs forever
@@ -367,7 +367,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       buildFootnoteMap(currentBook, initialResult.nodes);
 
       updatePageLoadProgress(90, "Initializing interface...");
-      initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+      await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
       // Dim the edit button while background download is pending — edit mode
       // needs the full dataset, so the user shouldn't enter it yet.
@@ -412,7 +412,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
           buildFootnoteMap(currentBook, dbChunks);
 
           updatePageLoadProgress(90, "Initializing interface...");
-          initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+          await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
           return;
         }
       }
@@ -576,7 +576,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
 
 
 // Your existing helper function - updated to handle both hyperlights and footnotes
-function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
+async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
   if (!currentLazyLoader) {
     // Determine which ID to navigate to (hyperlight or footnote)
     const targetId = openHyperlightID || openFootnoteID;
@@ -592,15 +592,15 @@ function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
 
-    // Only manually load first chunk of nodes for homepage/user page contexts
-    // Regular reader pages will trigger via intersection observer
+    // Eagerly load first chunk for homepage/user page contexts AND reader pages
+    // with no target navigation, so the DOM has content before editButton resolves
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
                               document.querySelector('.user-content-wrapper');
-    if (isHomepageContext) {
+    if (isHomepageContext || !targetId) {
       const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
       if (firstChunk && currentLazyLoader) {
-        verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (homepage context)`, 'initializePage.js');
-        currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+        verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (eager load)`, 'initializePage.js');
+        await currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
     }
 
