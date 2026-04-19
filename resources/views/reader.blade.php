@@ -58,7 +58,7 @@
       <div class="spacer"></div>
       <div class="reader-content-wrapper">
   <!-- Load the content of the main-text.md file -->
-  <main id="{{ $book }}" class="main-content" contenteditable="{{ $editMode ? 'true' : 'false' }}">
+  <main id="{{ $book }}" class="main-content" data-slug="{{ $slug ?? '' }}" contenteditable="{{ $editMode ? 'true' : 'false' }}">
       </main>
       <div id="keyboard-spacer"></div>
       </div>

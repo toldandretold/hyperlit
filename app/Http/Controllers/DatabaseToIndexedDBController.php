@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\BookSlugHelper;
 
 class DatabaseToIndexedDBController extends Controller
 {
@@ -111,6 +112,8 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookData(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
+
             // 🔒 CRITICAL: Check book visibility and access permissions (bypasses RLS)
             $authError = $this->checkBookAuthorization($request, $bookId);
             if ($authError) {
@@ -637,6 +640,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookLibrary(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
             Log::info('getBookLibrary called', ['book_id' => $bookId]);
 
             // Library records (bibliographic metadata) are publicly accessible
@@ -692,6 +696,8 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookMetadata(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
+
             // 🔒 CRITICAL: Check book visibility and access permissions (bypasses RLS)
             $authError = $this->checkBookAuthorization($request, $bookId);
             if ($authError) {
@@ -738,6 +744,7 @@ class DatabaseToIndexedDBController extends Controller
      */
     public function getSubBookData(Request $request, string $parentBook, string $subId): JsonResponse
     {
+        $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getBookData($request, $parentBook . '/' . $subId);
     }
 
@@ -746,6 +753,7 @@ class DatabaseToIndexedDBController extends Controller
      */
     public function getSubBookMetadata(Request $request, string $parentBook, string $subId): JsonResponse
     {
+        $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getBookMetadata($request, $parentBook . '/' . $subId);
     }
 
@@ -754,6 +762,7 @@ class DatabaseToIndexedDBController extends Controller
      */
     public function getSubBookLibrary(Request $request, string $parentBook, string $subId): JsonResponse
     {
+        $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getBookLibrary($request, $parentBook . '/' . $subId);
     }
 
@@ -823,6 +832,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getInitialChunk(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
             $authError = $this->checkBookAuthorization($request, $bookId);
             if ($authError) {
                 return $authError;
@@ -938,6 +948,7 @@ class DatabaseToIndexedDBController extends Controller
      */
     public function getSubBookInitialChunk(Request $request, string $parentBook, string $subId): JsonResponse
     {
+        $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getInitialChunk($request, $parentBook . '/' . $subId);
     }
 
@@ -947,6 +958,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getSingleChunk(Request $request, string $bookId, int $chunkId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
             $authError = $this->checkBookAuthorization($request, $bookId);
             if ($authError) {
                 return $authError;
@@ -1225,6 +1237,7 @@ class DatabaseToIndexedDBController extends Controller
     public function saveReadingPosition(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
             $user = Auth::user();
             $anonymousToken = $request->cookie('anon_token');
 
@@ -1275,6 +1288,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getReadingPosition(Request $request, string $bookId): JsonResponse
     {
         try {
+            $bookId = BookSlugHelper::resolve($bookId);
             $bookmark = $this->getBookmarkData($request, $bookId);
 
             if (!$bookmark) {

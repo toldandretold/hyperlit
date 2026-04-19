@@ -6,6 +6,7 @@
  */
 
 import { getActiveBook } from '../utilities/activeContext.js';
+import { book as globalBookId } from '../app.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
@@ -426,7 +427,8 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
 
     const allSegments = url.pathname.split("/").filter(Boolean);
     const bookSegment = allSegments[0];
-    const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
+    // Use global book ID (from DOM) — not URL, which may contain a slug
+    const currentBook = globalBookId;
 
     // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
     const hlSegment = allSegments.find(p => p.startsWith('HL_'));

@@ -61,11 +61,17 @@ if (!book) {
 
 log.init(`Loading hypertext for: ${book}`, 'app.js');
 
-// ✅ ADD THIS EXPORTED FUNCTION
 // This allows our viewManager to update the global book state after an SPA transition.
 export function setCurrentBook(newBookId) {
   book = newBookId;
   log.init(`Book updated to: ${book}`, 'app.js');
+}
+
+// Slug support: URL alias for the current book
+export let bookSlug = document.querySelector('.main-content')?.dataset?.slug || null;
+
+export function setCurrentBookSlug(slug) {
+  bookSlug = slug || null;
 }
 
 // 6) Export the hyperlight and footnote constants

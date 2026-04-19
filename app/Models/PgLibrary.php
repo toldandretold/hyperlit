@@ -20,6 +20,7 @@ class PgLibrary extends Model
 
     protected $fillable = [
         'book',
+        'slug',
         'author',
         'bibtex',
         'fileName',

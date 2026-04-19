@@ -832,5 +832,122 @@ public function bulkCreate(Request $request)
             }
         }
 
-} 
+    /**
+     * Set or update the slug for a book.
+     * Creator-only. Validates slug format and checks for collisions.
+     */
+    public function setSlug(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required'
+                ], 401);
+            }
 
+            $bookId = $request->input('book');
+            $slug = $request->input('slug');
+
+            if (!$bookId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Book ID is required'
+                ], 400);
+            }
+
+            $library = PgLibrary::where('book', $bookId)->first();
+            if (!$library) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Book not found'
+                ], 404);
+            }
+
+            // Creator-only
+            if ($library->creator !== $user->name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the book creator can set a slug'
+                ], 403);
+            }
+
+            // Allow clearing the slug
+            if ($slug === null || $slug === '') {
+                $library->update(['slug' => null]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Slug removed',
+                    'book' => $bookId,
+                    'slug' => null
+                ]);
+            }
+
+            // Validate slug format: lowercase alphanumeric + hyphens, 3-60 chars
+            if (!preg_match('/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/', $slug)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Slug must be 3-60 characters, lowercase alphanumeric and hyphens only, cannot start or end with a hyphen'
+                ], 422);
+            }
+
+            // Check collision with reserved routes
+            $reserved = ['based', 'u', 'api', 'db', 'email', 'home', 'login', 'register', 'reset-password', 'import-file', 'offline', 'stripe'];
+            if (in_array($slug, $reserved)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug is reserved and cannot be used'
+                ], 422);
+            }
+
+            // Check collision with existing usernames
+            if (\App\Models\User::where('name', $slug)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug collides with an existing username'
+                ], 422);
+            }
+
+            // Check collision with existing book IDs
+            if (DB::table('library')->where('book', $slug)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug collides with an existing book ID'
+                ], 422);
+            }
+
+            // Check collision with other slugs (unique index will also enforce this)
+            if (DB::table('library')->where('slug', $slug)->where('book', '!=', $bookId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug is already in use by another book'
+                ], 422);
+            }
+
+            $library->update(['slug' => $slug]);
+
+            Log::info('Book slug set', [
+                'book' => $bookId,
+                'slug' => $slug,
+                'user' => $user->name
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Slug set successfully',
+                'book' => $bookId,
+                'slug' => $slug
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Set slug failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to set slug',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+}

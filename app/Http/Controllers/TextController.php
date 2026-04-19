@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ConversionController;
+use App\Helpers\BookSlugHelper;
 use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
@@ -40,10 +41,15 @@ class TextController extends Controller
                 // RLS allows user home page writes via type='user_home' exception
                 $generator->generateUserHomeBook($username, $isCurrentUserOwner, 'public');
             }
-            
+
             $book = $username;
         }
 
+        // Resolve slug → real book ID (preserves original value if not a slug)
+        $urlSlug = $book; // keep the original URL segment for slug detection
+        $book = BookSlugHelper::resolve($book);
+        // Determine the slug to pass to the view
+        $slug = BookSlugHelper::getSlug($book) ?? '';
 
         $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
 
@@ -60,9 +66,10 @@ class TextController extends Controller
             return view('reader', [
                 'html' => '',
                 'book' => $book,
+                'slug' => $slug,
                 'editMode' => $editMode,
                 'dataSource' => 'database',
-                'pageType' => 'reader' // <-- ADD THIS
+                'pageType' => 'reader'
             ]);
         }
         
@@ -94,9 +101,10 @@ class TextController extends Controller
             return view('reader', [
                 'html' => $html,
                 'book' => $book,
+                'slug' => $slug,
                 'editMode' => $editMode,
                 'dataSource' => 'filesystem',
-                'pageType' => 'reader' // <-- ADD THIS
+                'pageType' => 'reader'
             ]);
         }
 
@@ -105,9 +113,10 @@ class TextController extends Controller
         return view('reader', [
             'html' => '',
             'book' => $book,
+            'slug' => $slug,
             'editMode' => $editMode,
             'dataSource' => 'indexeddb', // Frontend will check IndexedDB
-            'pageType' => 'reader' // <-- ADD THIS
+            'pageType' => 'reader'
         ]);
     }
 
@@ -118,6 +127,7 @@ class TextController extends Controller
      */
     public function showTimeMachine(Request $request, $book)
     {
+        $book = BookSlugHelper::resolve($book);
         $timestamp = $request->query('at');
 
         if (!$timestamp) {
@@ -160,6 +170,10 @@ class TextController extends Controller
      */
     public function showNested(Request $request, $book, $rest)
     {
+        // Resolve slug → real book ID
+        $book = BookSlugHelper::resolve($book);
+        $slug = BookSlugHelper::getSlug($book) ?? '';
+
         $parts = explode('/', $rest);
         $level = (int) $parts[0];
         $urlItems = array_slice($parts, 1);
@@ -188,6 +202,7 @@ class TextController extends Controller
         return view('reader', [
             'html'           => '',
             'book'           => $book,
+            'slug'           => $slug,
             'editMode'       => $editMode,
             'dataSource'     => 'database',
             'pageType'       => 'reader',
@@ -201,6 +216,9 @@ class TextController extends Controller
      */
     public function resolveChainApi(Request $request, string $book, string $rest): \Illuminate\Http\JsonResponse
     {
+        // Resolve slug → real book ID
+        $book = BookSlugHelper::resolve($book);
+
         $parts = explode('/', $rest);
         $level = (int) $parts[0];
         $urlItems = array_slice($parts, 1);

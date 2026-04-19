@@ -36,6 +36,7 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 
 // AI Citation Review sub-book route
 Route::get('/{book}/AIreview', function (Request $request, $book) {
+    $book = \App\Helpers\BookSlugHelper::resolve($book);
     $subBookId = "{$book}/AIreview";
     if (!DB::table('nodes')->where('book', $subBookId)->exists()) {
         abort(404, 'AI Review not found for this book.');

@@ -7,7 +7,7 @@ import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
 import { log, verbose } from '../utilities/logger.js';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling.js';
-import { book } from '../app.js';
+import { book, bookSlug as _bookSlug } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
 import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
@@ -291,10 +291,10 @@ export class LinkNavigationHandler {
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
+          const slugUrl = this.preserveSlugInUrl(url);
           const currentUrl = window.location.pathname + window.location.hash;
-          const targetUrl = url.pathname + url.hash;
-          if (currentUrl !== targetUrl) {
-            window.history.pushState(null, '', url.href);
+          if (currentUrl !== slugUrl) {
+            window.history.pushState(null, '', slugUrl);
           }
           await openContainerChain(chain, currentLazyLoader, hyperciteId || null);
         }
@@ -305,11 +305,11 @@ export class LinkNavigationHandler {
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
+          const slugUrl = this.preserveSlugInUrl(url);
           const currentUrl = window.location.pathname + window.location.hash;
-          const targetUrl = url.pathname + url.hash;
-          if (currentUrl !== targetUrl) {
-            verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', url.href);
-            window.history.pushState(null, '', url.href);
+          if (currentUrl !== slugUrl) {
+            verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', slugUrl);
+            window.history.pushState(null, '', slugUrl);
           }
           if (hyperciteId) {
             navigateToHyperciteTarget(hlSegment, hyperciteId, currentLazyLoader);
@@ -324,35 +324,33 @@ export class LinkNavigationHandler {
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
+          const slugUrl = this.preserveSlugInUrl(url);
           const currentUrl = window.location.pathname + window.location.hash;
-          const targetUrl = url.pathname + url.hash;
-          if (currentUrl !== targetUrl) {
-            verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', url.href);
-            window.history.pushState(null, '', url.href);
+          if (currentUrl !== slugUrl) {
+            verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', slugUrl);
+            window.history.pushState(null, '', slugUrl);
           }
           await navigateToFootnoteTarget(fnSegment, hyperciteId, currentLazyLoader);
         }
       } else {
         // Regular same-book navigation
         const targetId = linkUrl.hash.substring(1);
-        // navigateToInternalId already imported statically
-        // currentLazyLoader already imported statically
-        
+
         if (currentLazyLoader) {
           const url = new URL(link.href);
-          
+          const slugUrl = this.preserveSlugInUrl(url);
+
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
-          const targetUrl = url.pathname + url.hash;
-          if (currentUrl !== targetUrl) {
+          if (currentUrl !== slugUrl) {
             verbose.nav('Updating URL for same-book navigation', '/navigation/LinkNavigationHandler.js', {
-              targetUrl: url.href,
+              targetUrl: slugUrl,
               currentUrl: window.location.href,
               historyLength: window.history.length
             });
-            window.history.pushState(null, '', url.href);
+            window.history.pushState(null, '', slugUrl);
           }
-          
+
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       }
@@ -517,7 +515,8 @@ export class LinkNavigationHandler {
     const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
 
     // If the URL book doesn't match the current loaded book content, use SPA navigation
-    if (urlBookId !== currentBookVariable) {
+    // Also check against slug — URL may show slug while book holds the real ID
+    if (urlBookId !== currentBookVariable && urlBookId !== _bookSlug) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
@@ -530,7 +529,8 @@ export class LinkNavigationHandler {
         fromBook: currentBookVariable,
         toBook: urlBookId,
         targetUrl: window.location.href,
-        hash: window.location.hash
+        hash: window.location.hash,
+        isPopstate: true, // Don't pushState — browser already set the URL
       };
 
       // Pass cascade segments so BookToBookTransition can rebuild nested containers
@@ -624,6 +624,19 @@ export class LinkNavigationHandler {
    * Extract book slug from path
    * Handles /u/{username} pattern for user pages
    */
+  /**
+   * Rewrite a link URL to preserve the current URL's book segment (slug).
+   * Link hrefs contain the raw book ID (from citedIN), but we want the URL
+   * bar to keep showing the slug when navigating within the same book.
+   */
+  static preserveSlugInUrl(linkUrl) {
+    const currentSegment = window.location.pathname.split('/').filter(Boolean)[0] || '';
+    const linkSegments = linkUrl.pathname.split('/').filter(Boolean);
+    // Replace the first segment (book ID) with the current URL's segment (slug)
+    linkSegments[0] = currentSegment;
+    return '/' + linkSegments.join('/') + (linkUrl.search || '') + (linkUrl.hash || '');
+  }
+
   static extractBookSlugFromPath(path) {
     const segments = path.split('/').filter(Boolean);
 

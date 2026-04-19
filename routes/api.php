@@ -204,8 +204,13 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
 
     Route::post(
-        '/db/library/update-timestamp', 
+        '/db/library/update-timestamp',
         [DbLibraryController::class, 'updateTimestamp']
+    );
+
+    Route::post(
+        '/db/library/set-slug',
+        [DbLibraryController::class, 'setSlug']
     );
 
     Route::post(

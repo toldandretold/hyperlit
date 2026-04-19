@@ -11,7 +11,7 @@ import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithPr
 import { cleanupReaderView } from '../../viewManager.js';
 import { resetEditModeState, enforceEditableState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
-import { setCurrentBook } from '../../app.js';
+import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../app.js';
 import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
@@ -66,6 +66,7 @@ export class BookToBookTransition {
       hyperciteId = null,
       footnoteId = null,
       targetUrl = null,
+      isPopstate = false,
       progressCallback
     } = options;
 
@@ -101,12 +102,16 @@ export class BookToBookTransition {
         
         // Replace only the page content (not the entire body)
         await this.replacePageContent(readerHtml, toBook);
-        
+
+        // Resolve real book ID from DOM — toBook may be a slug but the server
+        // renders <main id="realBookId">, so read the truth from the new DOM.
+        const resolvedBookId = document.querySelector('.main-content')?.id || toBook;
+
         progress(50, 'Waiting for DOM stabilization...');
 
         // Wait for DOM to be ready for content insertion
         await waitForLayoutStabilization();
-        
+
         progress(60, 'Initializing reader...');
 
         // For multi-level cascades (footnote + hyperlight/hypercite), the footnote
@@ -127,16 +132,16 @@ export class BookToBookTransition {
         // Initialize the new reader view
         // Pass hash navigation flag to prevent scroll position interference
         const hasHashNavigation = !!(hash || hyperlightId || hyperciteId || footnoteId);
-        await this.initializeReader(toBook, progress, hasHashNavigation);
+        await this.initializeReader(resolvedBookId, progress, hasHashNavigation);
 
         progress(75, 'Ensuring content readiness...');
 
         // Wait for content to be fully ready after initialization
-        await waitForContentReady(toBook, {
+        await waitForContentReady(resolvedBookId, {
           maxWaitTime: 10000,
           requireLazyLoader: true
         });
-        
+
         progress(78, 'Loading initial content...');
 
         // When hash navigation is pending, skip loading chunk 0 —
@@ -146,16 +151,17 @@ export class BookToBookTransition {
         // Exception: multi-level cascades need at least one chunk in the DOM
         // because the chain system uses waitForElement(), not _navigateToInternalId.
         if (!hasHashNavigation || isMultiLevelCascade) {
-          await this.ensureInitialContentLoaded(toBook);
+          await this.ensureInitialContentLoaded(resolvedBookId);
         }
-        
+
         progress(80, 'Finalizing navigation...');
 
         // Update URL early to keep browser history in sync
-        this.updateUrlWithStatePreservation(toBook, hash);
+        // On popstate (back/forward), use replaceState to preserve forward history
+        this.updateUrlWithStatePreservation(resolvedBookId, hash, isPopstate);
 
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
-        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, toBook, progress, targetUrl);
+        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, resolvedBookId, progress, targetUrl);
 
         // Wait for any container restoration triggered by initializeLazyLoader
         // (happens on back-nav when the restored entry has a matching containerStack)
@@ -307,6 +313,11 @@ export class BookToBookTransition {
     // Update document title
     document.title = newDoc.title;
     
+    // Read slug from new DOM and update global state
+    const newMain = document.querySelector('.main-content');
+    const newSlug = newMain?.dataset?.slug || null;
+    setCurrentBookSlug(newSlug);
+
     // Reset contentEditable state
     const editableDiv = document.getElementById(bookId);
     if (editableDiv) {
@@ -551,19 +562,21 @@ export class BookToBookTransition {
   /**
    * Update the browser URL while preserving container state for back button
    */
-  static updateUrlWithStatePreservation(bookId, hash = '') {
-    const newUrl = `/${bookId}${hash}`;
-    
+  static updateUrlWithStatePreservation(bookId, hash = '', isPopstate = false) {
+    // Use slug in URL bar if available, otherwise use bookId
+    const urlSegment = _bookSlug || bookId;
+    const newUrl = `/${urlSegment}${hash}`;
+
     try {
       const currentUrl = window.location.pathname + window.location.hash;
-      
+
       // Only update URL if we're not already there
       if (currentUrl !== newUrl) {
         console.log(`🔗 BookToBookTransition: Navigating to ${newUrl}`);
-        
+
         // For book-to-book navigation, create a new history entry so back/forward works
         const currentState = history.state || {};
-        
+
         // Add book transition metadata while preserving container state
         const newState = {
           ...currentState,
@@ -575,9 +588,14 @@ export class BookToBookTransition {
             timestamp: Date.now()
           }
         };
-        
-        // Use pushState to create proper navigation history
-        history.pushState(newState, '', newUrl);
+
+        if (isPopstate) {
+          // Popstate: browser already set the URL — just update state, don't wipe forward history
+          history.replaceState(newState, '', newUrl);
+        } else {
+          // Normal navigation: create new history entry
+          history.pushState(newState, '', newUrl);
+        }
       } else {
         console.log(`🔗 BookToBookTransition: Already at ${newUrl}`);
       }
