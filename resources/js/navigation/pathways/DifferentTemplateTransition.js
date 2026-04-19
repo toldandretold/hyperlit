@@ -69,7 +69,10 @@ export class DifferentTemplateTransition {
       }
 
       // Step 4: Structure-aware initialization (using shared utility)
-      const bookId = toBook || LinkNavigationHandler.getBookIdFromUrl(targetUrlResolved);
+      // Resolve real bookId from DOM — server renders <main id="realBookId">,
+      // so slugs (e.g. "welcome") get resolved to the actual book ID.
+      const rawBookId = toBook || LinkNavigationHandler.getBookIdFromUrl(targetUrlResolved);
+      const bookId = document.querySelector('.main-content')?.id || rawBookId;
       await initializeToStructure(toStructure, bookId, progress);
 
       // Step 5: Update URL with state preservation for back button (using shared utility)
