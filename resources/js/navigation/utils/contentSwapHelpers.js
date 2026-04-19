@@ -7,7 +7,7 @@ import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../scrolling.js';
 import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../homepageDisplayUnit.js';
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { setCurrentBook } from '../../app.js';
+import { setCurrentBook, setCurrentBookSlug } from '../../app.js';
 import { updateDatabaseBookId } from '../../indexedDB/index.js';
 import { resetCurrentLazyLoader, loadHyperText, currentLazyLoader } from '../../initializePage.js';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
@@ -75,6 +75,10 @@ export async function replaceBodyContent(htmlString) {
 
   // Update document title
   document.title = newDoc.title;
+
+  // Update slug global from new DOM (clear it if navigating away from a slug book)
+  const newMain = document.querySelector('.main-content');
+  setCurrentBookSlug(newMain?.dataset?.slug || null);
 }
 
 /**
