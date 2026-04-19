@@ -233,8 +233,8 @@ export async function buildHyperciteContent(contentType, db = null) {
           const lastItem = allPathParts[lastItemIndex];
           contentType = lastItem.startsWith("HL_") ? 'hyperlight' : 'footnote';
           contentItemId = lastItem;
-          const parentBook = allPathParts.slice(0, lastItemIndex).join('/');
-          subBookId = buildSubBookId(parentBook, lastItem);
+          // The URL path already IS the correct sub-book ID (including depth)
+          subBookId = allPathParts.join('/');
         } else if (isFootnoteURL) {
           // Legacy format: /bookId_FnN (underscore, single segment)
           contentType = 'footnote';
@@ -436,30 +436,21 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         // Footnote content doesn't contain the hypercite — fall through to sub-book check
       }
 
-      // Check sub-book nodes in IndexedDB — only if footnote is still active
+      // Check sub-book nodes in IndexedDB — guard by library visibility, not parent node references
       if (subBookId) {
-        // Verify footnote is still referenced in at least one parent node
-        const fnActiveCheckTx = db.transaction('nodes', 'readonly');
-        const fnActiveCheckStore = fnActiveCheckTx.objectStore('nodes');
-        const fnActiveCheckIndex = fnActiveCheckStore.index('book');
-        const fnParentNodes = await new Promise((resolve, reject) => {
-          const req = fnActiveCheckIndex.getAll(bookId);
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => reject(req.error);
+        // Guard: skip if the book has been deleted
+        const libCheckTx = db.transaction('library', 'readonly');
+        const libCheckStore = libCheckTx.objectStore('library');
+        const libRecord = await new Promise((resolve) => {
+          const req = libCheckStore.get(bookId);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
         });
 
-        const fnStillActiveForSubBook = fnParentNodes.some(node =>
-          node.footnotes?.some(fn => {
-            const id = typeof fn === 'string' ? fn : fn?.id;
-            return id === contentItemId;
-          })
-        );
-
-        if (!fnStillActiveForSubBook) {
-          console.log(`⚠️ Footnote ${contentItemId} no longer active — skipping sub-book node check`);
-          // Fall through to PostgreSQL fallback (which has its own guard)
+        if (libRecord && libRecord.visibility === 'deleted') {
+          console.log(`⚠️ Book ${bookId} is deleted — skipping sub-book node check`);
         } else {
-          console.log(`🔍 Footnote content check missed — checking sub-book nodes for ${subBookId}`);
+          console.log(`🔍 Checking sub-book nodes for ${subBookId}`);
           const fnSubBookTx = db.transaction('nodes', 'readonly');
           const fnSubBookStore = fnSubBookTx.objectStore('nodes');
           const fnSubBookIndex = fnSubBookStore.index('book');
@@ -499,59 +490,32 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
             if (fnData && fnData[contentItemId]) {
               const fnContent = fnData[contentItemId];
               if (typeof fnContent === 'string' && fnContent.includes(idPattern)) {
-                // Secondary check: verify footnote is still active in nodes
-                const pgNodes = data.nodes || [];
-                const fnStillActive = pgNodes.some(node =>
-                  node.footnotes?.some(fn => {
-                    const id = typeof fn === 'string' ? fn : fn?.id;
-                    return id === contentItemId;
-                  })
-                );
-
-                if (!fnStillActive) {
-                  console.log(`⚠️ Hypercite found in PostgreSQL footnote but footnote ${contentItemId} is no longer active`);
-                  return { exists: false, chunkKey: null };
-                }
-
-                console.log(`✅ Found hypercite ${hyperciteId} in active PostgreSQL footnote ${contentItemId}`);
+                console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote ${contentItemId}`);
                 return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
               }
             }
 
-            // Check sub-book nodes in PostgreSQL — only if footnote still active
+            // Check sub-book nodes in PostgreSQL (library deletion already guarded above)
             if (subBookId) {
-              const pgAllNodes = data.nodes || [];
-              const pgFnStillActive = pgAllNodes.some(node =>
-                node.footnotes?.some(fn => {
-                  const id = typeof fn === 'string' ? fn : fn?.id;
-                  return id === contentItemId;
-                })
-              );
+              const subResponse = await fetch(buildBookDataUrl(subBookId), {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                credentials: 'include'
+              });
 
-              if (pgFnStillActive) {
-                // Fetch sub-book data from its own endpoint (parent API doesn't return sub-book nodes)
-                const subResponse = await fetch(buildBookDataUrl(subBookId), {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                  },
-                  credentials: 'include'
-                });
-
-                if (subResponse.ok) {
-                  const subData = await subResponse.json();
-                  const pgFnSubBookNodes = subData.nodes || [];
-                  console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
-                  for (const node of pgFnSubBookNodes) {
-                    if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
-                      console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
-                      return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
-                    }
+              if (subResponse.ok) {
+                const subData = await subResponse.json();
+                const pgFnSubBookNodes = subData.nodes || [];
+                console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
+                for (const node of pgFnSubBookNodes) {
+                  if (node.content && typeof node.content === 'string' && node.content.includes(idPattern)) {
+                    console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL footnote sub-book node (${subBookId})`);
+                    return { exists: true, chunkKey: `${bookId}:footnote:${contentItemId}` };
                   }
                 }
-              } else {
-                console.log(`⚠️ Footnote ${contentItemId} no longer active in PostgreSQL — skipping sub-book check`);
               }
             }
           }

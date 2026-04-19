@@ -46,7 +46,6 @@ class BookDeletionService
             'bibliography_deleted' => 0,
             'hypercites_kept' => 0,
             'hypercites_delinked' => 0,
-            'hyperlights_deleted' => 0,
             'hyperlights_orphaned' => 0,
             'library_action' => null,
         ];
@@ -86,24 +85,8 @@ class BookDeletionService
             // 2. Keep hypercites (needed for citation display when pastes link to this book)
             $stats['hypercites_kept'] = $db->table('hypercites')->where('book', $bookId)->count();
 
-            // 3. Delete only the book owner's highlights (preserve others as orphaned)
-            $stats['hyperlights_deleted'] = $this->deleteOwnerHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
-            // Delete owner's highlights only in full_delete sub-books (not past hyperlight boundary)
-            if (!empty($fullDeleteIds)) {
-                $query = $db->table('hyperlights')->whereIn('book', $fullDeleteIds);
-                if ($bookCreator !== null) {
-                    $query->where('creator', $bookCreator);
-                } elseif ($bookCreatorToken !== null) {
-                    $query->where('creator_token', $bookCreatorToken);
-                } else {
-                    $query = null; // no creator info — don't delete any
-                }
-                if ($query) {
-                    $stats['hyperlights_deleted'] += $query->delete();
-                }
-            }
-
-            // Count orphaned highlights (by other users) — including sub-books
+            // 3. Preserve ALL highlights (they link to sub-books whose content must survive)
+            // Owner's highlights become ghosts (parent content gone) but sub-book content is preserved
             $stats['hyperlights_orphaned'] = $db->table('hyperlights')
                 ->whereIn('book', $allDescendantIds)
                 ->count();
@@ -185,27 +168,6 @@ class BookDeletionService
             ]);
             throw $e;
         }
-    }
-
-    /**
-     * Delete only highlights made by the book owner
-     */
-    private function deleteOwnerHighlights(string $bookId, ?string $bookCreator, ?string $bookCreatorToken, $db): int
-    {
-        $query = $db->table('hyperlights')->where('book', $bookId);
-
-        if ($bookCreator !== null) {
-            // Book has a logged-in creator - delete their highlights
-            $query->where('creator', $bookCreator);
-        } elseif ($bookCreatorToken !== null) {
-            // Book has an anonymous creator - delete their highlights
-            $query->where('creator_token', $bookCreatorToken);
-        } else {
-            // No creator info - don't delete any highlights (preserve all)
-            return 0;
-        }
-
-        return $query->delete();
     }
 
     /**
