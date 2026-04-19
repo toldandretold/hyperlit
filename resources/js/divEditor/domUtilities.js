@@ -84,6 +84,10 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
       removedNode.id &&
       removedNode.id.startsWith('hypercite_')) {
 
+    // Skip tombstone <u> tags — they're already ghosts, handled by CHECK 4
+    if (removedNode.classList?.contains('hypercite-tombstone')) {
+      // Fall through to CHECK 4
+    } else {
     const hyperciteId = removedNode.id;
     console.log(`👻 Source hypercite <u> wrapper deleted: ${hyperciteId}`);
 
@@ -114,8 +118,16 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
         return;
       }
 
-      // Create tombstone anchor — invisible zero-width anchor, just an ID to scroll to
-      const tombstone = document.createElement('a');
+      // Guard: skip duplicate tombstone if one already exists (MutationObserver double-fire)
+      if (document.getElementById(hyperciteId)) {
+        console.log(`👻 Tombstone already exists for ${hyperciteId} — skipping duplicate`);
+        const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+        await markHyperciteAsGhost(hyperciteId);
+        return;
+      }
+
+      // Create tombstone — invisible zero-width element, just an ID to scroll to
+      const tombstone = document.createElement('u');
       tombstone.id = hyperciteId;
       tombstone.className = 'hypercite-tombstone';
       tombstone.setAttribute('data-ghost', 'true');
@@ -156,6 +168,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
     }
 
     return;
+    }
   }
 
   // ✅ CHECK 3: Handle nested hypercite links within deleted containers
@@ -195,6 +208,82 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
             console.error('❌ Error handling nested hypercite link removal:', error);
           }
         }
+      }
+    }
+  }
+
+  // ✅ CHECK 4: Ghost tombstones within removed containers → relocate to surviving node
+  if (removedNode.nodeType === Node.ELEMENT_NODE) {
+    const tombstonesToRelocate = [];
+
+    // Check if removedNode itself IS a tombstone
+    if (removedNode.tagName === 'U' &&
+        removedNode.classList?.contains('hypercite-tombstone') &&
+        removedNode.id?.startsWith('hypercite_')) {
+      tombstonesToRelocate.push(removedNode);
+    }
+
+    // Check for tombstones nested inside removed container (e.g. deleted paragraph)
+    if (removedNode.querySelectorAll) {
+      const nested = removedNode.querySelectorAll('u.hypercite-tombstone[data-ghost="true"]');
+      tombstonesToRelocate.push(...nested);
+    }
+
+    for (const tombstone of tombstonesToRelocate) {
+      const hyperciteId = tombstone.id;
+      if (!hyperciteId || !hyperciteId.startsWith('hypercite_')) continue;
+
+      // Guard: skip if tombstone already exists in the live DOM
+      if (document.getElementById(hyperciteId)) continue;
+
+      // Find a surviving block element to relocate the tombstone into.
+      // Priority: mutationTarget if it's a block node (partial cut → same paragraph),
+      // then last block in the chunk (full node deletion → node above).
+      let targetNode = null;
+      const BLOCK_SELECTOR = 'p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id]';
+      const NUMERICAL_ID = /^\d+(\.\d+)?$/;
+
+      // 1. mutationTarget is the surviving paragraph (partial cut case)
+      if (mutationTarget?.nodeType === Node.ELEMENT_NODE && NUMERICAL_ID.test(mutationTarget.id)) {
+        targetNode = mutationTarget;
+      }
+
+      // 2. Last block in the chunk (full node deletion)
+      if (!targetNode) {
+        const chunk = mutationTarget?.closest?.('.chunk') || mutationTarget;
+        if (chunk?.querySelectorAll) {
+          const blocks = chunk.querySelectorAll(BLOCK_SELECTOR);
+          for (let i = blocks.length - 1; i >= 0; i--) {
+            if (NUMERICAL_ID.test(blocks[i].id)) { targetNode = blocks[i]; break; }
+          }
+        }
+      }
+
+      // 3. Fallback: any surviving block in the document
+      if (!targetNode) {
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+          const allBlocks = mainContent.querySelectorAll(BLOCK_SELECTOR);
+          for (let i = allBlocks.length - 1; i >= 0; i--) {
+            if (NUMERICAL_ID.test(allBlocks[i].id)) { targetNode = allBlocks[i]; break; }
+          }
+        }
+      }
+
+      if (targetNode) {
+        const newTombstone = document.createElement('u');
+        newTombstone.id = hyperciteId;
+        newTombstone.className = 'hypercite-tombstone';
+        newTombstone.setAttribute('data-ghost', 'true');
+        targetNode.appendChild(newTombstone);
+
+        // Explicitly queue save so batch.js updates node_id promptly
+        const { queueNodeForSave } = await import('./index.js');
+        queueNodeForSave(targetNode.id, 'update');
+
+        console.log(`👻 Relocated tombstone ${hyperciteId} to ${targetNode.tagName}#${targetNode.id}`);
+      } else {
+        console.warn(`⚠️ No surviving node found to relocate tombstone ${hyperciteId}`);
       }
     }
   }

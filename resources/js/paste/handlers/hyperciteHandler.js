@@ -17,6 +17,7 @@ import {
   syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index.js';
 import { parseHyperciteHref, attachUnderlineClickListeners } from '../../hypercites/index.js';
+import { determineRelationshipStatus } from '../../hypercites/utils.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {
   setHandleHypercitePaste
@@ -118,6 +119,113 @@ export async function handleHypercitePaste(event, targetBookId) {
       el.removeAttribute('id');
     }
   });
+
+  // Strip ghost tombstone <u> tags — CHECK 4 already relocated them on cut
+  pasteWrapper.querySelectorAll('u.hypercite-tombstone[data-ghost="true"]').forEach(el => el.remove());
+
+  // ── Source <u> hypercite detection (cut+paste ghost restoration) ──
+  const sourceUTags = pasteWrapper.querySelectorAll('u[id^="hypercite_"]');
+  if (sourceUTags.length > 0) {
+    const restorations = [];
+    for (const uTag of sourceUTags) {
+      const hyperciteId = uTag.id;
+      // Only restore if a tombstone exists for this ID in the current DOM.
+      // Tombstone = this was a cut (not a copy from another book).
+      const tombstone = document.getElementById(hyperciteId);
+      if (tombstone && tombstone.classList.contains('hypercite-tombstone')) {
+        restorations.push({ hyperciteId, uTag, tombstone });
+      }
+    }
+
+    if (restorations.length > 0) {
+      event.preventDefault();
+      setHandleHypercitePaste(true); // suppress mutation observer
+
+      const booka = targetBookId || getActiveBook();
+
+      try {
+        for (const { hyperciteId, uTag, tombstone } of restorations) {
+          const hypercite = await getHyperciteFromIndexedDB(booka, hyperciteId);
+          if (!hypercite) continue;
+
+          // 1. Restore status from citedIN
+          const citedCount = Array.isArray(hypercite.citedIN) ? hypercite.citedIN.length : 0;
+          const restoredStatus = determineRelationshipStatus(citedCount);
+
+          // 2. Remove tombstone, queue old parent for save
+          const oldParent = tombstone.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+          tombstone.remove();
+          if (oldParent?.id) queueNodeForSave(oldParent.id, 'update');
+
+          // 3. Fix class on the <u> tag we're about to insert
+          uTag.className = restoredStatus;
+
+          // 4. Update IndexedDB: restore status, clear stale node_id/charData
+          //    (batch.js will repopulate when the destination node saves)
+          const oldNodeIds = hypercite.node_id || [];
+          await updateHyperciteInIndexedDB(booka, hyperciteId, {
+            ...hypercite,
+            relationshipStatus: restoredStatus,
+            node_id: [],
+            charData: {},
+          }, false);
+
+          // 5. Rebuild arrays for old nodes (removes ghost from their embedded arrays)
+          if (oldNodeIds.length > 0) {
+            const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
+            const nodes = await getNodesByDataNodeIDs(oldNodeIds);
+            await rebuildNodeArrays(nodes.filter(n => n.book === booka));
+          }
+        }
+
+        // 5b. Strip browser cruft from clipboard content before insertion
+        //     Browser adds inline styles, data attrs, wrapper <p> tags, Apple <br> tags
+        pasteWrapper.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+        pasteWrapper.querySelectorAll('[data-hypercite-listener]').forEach(el => el.removeAttribute('data-hypercite-listener'));
+        pasteWrapper.querySelectorAll('br.Apple-interchange-newline').forEach(el => el.remove());
+        // Unwrap clipboard <p> wrappers — the destination paragraph provides block context
+        for (const p of pasteWrapper.querySelectorAll('p')) {
+          while (p.firstChild) p.parentNode.insertBefore(p.firstChild, p);
+          p.remove();
+        }
+        // Remove trailing <br> tags left over from browser paste formatting
+        while (pasteWrapper.lastChild && pasteWrapper.lastChild.nodeName === 'BR') {
+          pasteWrapper.lastChild.remove();
+        }
+
+        // 6. Insert using same pattern as citation-link paste
+        const htmlToInsert = pasteWrapper.innerHTML;
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const fragment = document.createDocumentFragment();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlToInsert;
+          while (tempDiv.firstChild) fragment.appendChild(tempDiv.firstChild);
+          range.deleteContents();
+          range.insertNode(fragment);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } else {
+          document.execCommand("insertHTML", false, htmlToInsert);
+        }
+
+        // 7. Save destination paragraph
+        saveCurrentParagraph();
+
+        // 8. Sync
+        const { debouncedMasterSync } = await import('../../indexedDB/index.js');
+        await debouncedMasterSync.flush();
+
+      } finally {
+        setHandleHypercitePaste(false);
+        attachUnderlineClickListeners();
+      }
+
+      return true;
+    }
+  }
 
   // Look for hypercite link by href pattern (more reliable than id attribute)
   // Browsers may not preserve id or class attributes when copying, but href is always preserved
@@ -268,14 +376,21 @@ export async function handleHypercitePaste(event, targetBookId) {
 
             // Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction
             const hyperciteToSync = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-            const nodeChunkToSync = await getNodeChunkFromIndexedDB(booka, updateResult.startLine);
+            const nodeChunkToSync = updateResult.startLine != null
+              ? await getNodeChunkFromIndexedDB(booka, updateResult.startLine)
+              : null;
 
             if (hyperciteToSync && nodeChunkToSync) {
               console.log("🚀 Syncing hypercite + nodeChunk in unified transaction...");
               await syncHyperciteWithNodeChunkImmediately(booka, hyperciteToSync, nodeChunkToSync);
               console.log("✅ Hypercite + nodeChunk synced to server in one transaction.");
+            } else if (hyperciteToSync) {
+              console.log("⚠️ startLine null — syncing hypercite alone");
+              const { queueForSync, debouncedMasterSync } = await import('../../indexedDB/index.js');
+              queueForSync("hypercites", hyperciteIDa, "update", hyperciteToSync);
+              await debouncedMasterSync.flush();
             } else {
-              console.error("❌ Failed to fetch hypercite or nodeChunk from IndexedDB for sync");
+              console.error("❌ Failed to fetch hypercite from IndexedDB for sync");
             }
 
             // Update the DOM in the CURRENT tab

@@ -4,13 +4,14 @@ import { book } from "../app.js"; // current book identifier
 import { applyHypercites, applyHighlights } from "../lazyLoaderFactory.js"; // adjust path as needed
 import { attachUnderlineClickListeners } from "../hypercites/index.js";
 import { setProgrammaticUpdateInProgress } from "./operationState.js";
+import { openDatabase } from "../indexedDB/core/connection.js";
 
 // Track recent broadcasts from THIS tab to skip self-processing
 // This prevents the re-render loop where our own broadcast triggers mutation observers
 const locallyBroadcastedUpdates = new Set();
 
 // Unique ID for this tab instance
-const TAB_ID = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+export const TAB_ID = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Channel for tab coordination (separate from node-updates)
 let tabCoordinationChannel = null;
@@ -59,11 +60,12 @@ export function registerBookOpen(bookId) {
     tabCoordinationChannel = new BroadcastChannel("hyperlit-tab-coordination");
   }
 
-  // Listen for queries from other tabs
+  // Listen for queries and edit broadcasts from other tabs
   tabCoordinationChannel.addEventListener('message', (event) => {
-    if (event.data.type === 'BOOK_OPEN_CHECK' &&
-        event.data.book === bookId &&
-        event.data.tabId !== TAB_ID) {
+    // Skip own messages
+    if (event.data.tabId === TAB_ID) return;
+
+    if (event.data.type === 'BOOK_OPEN_CHECK' && event.data.book === bookId) {
       // Another tab is asking if we have this book open - respond yes
       tabCoordinationChannel.postMessage({
         type: 'BOOK_OPEN_RESPONSE',
@@ -71,6 +73,63 @@ export function registerBookOpen(bookId) {
         tabId: TAB_ID
       });
     }
+
+    if (event.data.type === 'BOOK_EDITED') {
+      // Check if the edit is for our book (handle sub-books too)
+      const incomingRoot = event.data.book?.split('/')[0];
+      const currentRoot = bookId?.split('/')[0];
+      if (incomingRoot === currentRoot) {
+        showStaleTabOverlay();
+      }
+    }
+  });
+}
+
+/**
+ * Show a blocking overlay when the book was edited in another tab.
+ * Cannot be dismissed — the only action is to reload the page.
+ */
+function showStaleTabOverlay() {
+  if (document.getElementById('stale-tab-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'stale-tab-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: #2a2a2a; padding: 40px; border-radius: 12px; max-width: 460px; text-align: center; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF8D34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Edited in another tab</h2>
+      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">This book was modified in a different tab. Refresh to load the latest version.</p>
+      <button id="stale-tab-refresh" style="
+        background: #EF8D34;
+        color: #fff;
+        border: none;
+        padding: 12px 32px;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      ">Refresh</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  document.getElementById('stale-tab-refresh').addEventListener('click', () => {
+    window.location.reload();
   });
 }
 
@@ -179,41 +238,25 @@ function sanitizeContent(html) {
   }
   return html;
 }
-/** 
+/**
  * getNodeChunkByKey:
- * Returns a Promise that resolves to the nodeChunk record for the given book 
+ * Returns a Promise that resolves to the nodeChunk record for the given book
  * and startLine from IndexedDB.
  */
-function getNodeChunkByKey(book, startLine) {
+async function getNodeChunkByKey(book, startLine) {
+  const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const dbName = "MarkdownDB";
-    const storeName = "nodes";
-    const request = indexedDB.open(dbName);
+    const transaction = db.transaction("nodes", "readonly");
+    const objectStore = transaction.objectStore("nodes");
+    const getRequest = objectStore.get([book, startLine]);
 
-    request.onerror = (event) => {
-      console.error(`IndexedDB error: ${event.target.errorCode}`);
-      reject(event.target.error);
+    getRequest.onerror = (event) => {
+      console.error("Error getting record:", event.target.error);
+      resolve(null);
     };
 
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const transaction = db.transaction([storeName], "readonly");
-      const objectStore = transaction.objectStore(storeName);
-      const key = [book, startLine];
-      const getRequest = objectStore.get(key);
-
-      getRequest.onerror = (event) => {
-        console.error("Error getting record:", event.target.error);
-        resolve(null);
-      };
-
-      getRequest.onsuccess = (event) => {
-        resolve(event.target.result);
-      };
-
-      transaction.oncomplete = () => {
-        db.close();
-      };
+    getRequest.onsuccess = (event) => {
+      resolve(event.target.result);
     };
   });
 }

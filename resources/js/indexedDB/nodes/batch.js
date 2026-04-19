@@ -133,6 +133,7 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     if (!uTag.id || !uTag.id.startsWith('hypercite_')) {
       return; // Skip this tag if it's not a valid hypercite
     }
+    if (uTag.classList.contains('hypercite-tombstone')) return; // ghost — handled below
 
     const startPos = findElementPosition(uTag, node);
     const uLength = uTag.textContent.length;
@@ -158,6 +159,30 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
         totalNodeLength: textContent.length,
       });
     }
+  });
+
+  // Process ghost tombstone <a> tags — keep node_id tracking alive for ghosts
+  const ghostAnchors = node.querySelectorAll('u.hypercite-tombstone[data-ghost="true"]');
+  Array.from(ghostAnchors).forEach((anchor) => {
+    if (!anchor.id || !anchor.id.startsWith('hypercite_')) return;
+
+    const existingHypercite = existingHypercites.find(hc => hc.hyperciteId === anchor.id);
+
+    // Ghost tombstones don't need meaningful charStart/charEnd (they're invisible)
+    // but we need them in the array so updateHyperciteRecords updates node_id
+    hypercites.push({
+      hyperciteId: anchor.id,
+      charStart: -1,
+      charEnd: -1,
+      relationshipStatus: 'ghost',
+      citedIN: existingHypercite?.citedIN || [],
+      time_since: existingHypercite?.time_since || Math.floor(Date.now() / 1000)
+    });
+
+    console.log("Tracked ghost tombstone:", {
+      id: anchor.id,
+      nodeId: node.getAttribute('data-node-id'),
+    });
   });
 
   // Extract footnote references using shared utility

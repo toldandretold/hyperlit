@@ -1326,7 +1326,7 @@ export function applyHypercites(html, hypercites) {
 
   // Render ghost hypercites as invisible tombstone anchors appended at end of content
   for (const ghost of ghostHypercites) {
-    const tombstone = document.createElement('a');
+    const tombstone = document.createElement('u');
     tombstone.id = ghost.hyperciteId;
     tombstone.className = 'hypercite-tombstone';
     tombstone.setAttribute('data-ghost', 'true');

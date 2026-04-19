@@ -1,6 +1,11 @@
 /**
  * Database Connection Module
- * Handles IndexedDB connection and schema management
+ * Handles IndexedDB connection and schema management.
+ *
+ * Uses a singleton cached connection so the entire app shares one IDBDatabase
+ * instance. Safari iOS aggressively kills IDB connections when tabs are
+ * backgrounded — the `onclose` listener detects this and nulls the cache so
+ * the next caller transparently reopens.
  */
 
 /**
@@ -19,14 +24,111 @@ export const DB_VERSION = 26;
 // Covers iOS bfcache recovery which can take 1-5 seconds.
 const RETRY_DELAYS = [200, 400, 800, 1500, 2500];
 
+// ── Singleton state ─────────────────────────────────────────────────
+let cachedDb = null;
+let openingPromise = null; // prevents parallel open races
+
 /**
- * Opens (or creates) the IndexedDB database.
- * This function implements proper schema migration using `event.oldVersion`.
- * It will preserve existing data during upgrades and only apply necessary changes.
+ * Opens (or returns the cached) IndexedDB database.
+ * Attaches `onclose` and `onversionchange` handlers so the singleton
+ * self-heals when Safari kills the connection or another tab upgrades.
  *
  * @returns {Promise<IDBDatabase>} The opened database instance
  */
 export async function openDatabase(retryCount = 0) {
+  // Return cached connection if still alive
+  if (cachedDb) {
+    try {
+      // Quick liveness check — if the connection is dead this will throw
+      cachedDb.transaction('nodes', 'readonly');
+      return cachedDb;
+    } catch {
+      // Connection is dead, clear and reopen
+      console.warn('[Connection] Cached connection is dead, reopening...');
+      cachedDb = null;
+    }
+  }
+
+  // Prevent parallel opens — if another caller is already opening, wait for it
+  if (openingPromise) return openingPromise;
+
+  openingPromise = _openFresh(retryCount);
+  try {
+    const db = await openingPromise;
+    return db;
+  } finally {
+    openingPromise = null;
+  }
+}
+
+/**
+ * Explicitly close the cached connection and clear the singleton.
+ * Used by HealthMonitor before recovery and by bfcache restore.
+ */
+export function closeDatabase() {
+  if (cachedDb) {
+    try {
+      cachedDb.close();
+    } catch {
+      // Already closed — ignore
+    }
+    console.log('[Connection] Closed cached connection');
+    cachedDb = null;
+  }
+}
+
+/**
+ * Convenience wrapper: opens the connection (or returns cached) with an
+ * internal retry on failure so callers don't need their own retry loops.
+ *
+ * @returns {Promise<IDBDatabase>}
+ */
+export async function getConnection() {
+  try {
+    return await openDatabase();
+  } catch (e) {
+    // One transparent retry after clearing the cache
+    console.warn('[Connection] getConnection first attempt failed, retrying...', e);
+    cachedDb = null;
+    return await openDatabase();
+  }
+}
+
+/**
+ * Wrap a write operation in a Web Lock so only one tab writes at a time.
+ * If the lock isn't available (another tab holds it), the callback is skipped
+ * and the function returns `undefined` — the server sync will catch up later.
+ *
+ * Falls back to executing without a lock on browsers that lack navigator.locks
+ * (iOS < 15.4).
+ *
+ * @param {Function} fn  async callback receiving the IDBDatabase
+ * @returns {Promise<*>} result of fn, or undefined if lock wasn't available
+ */
+export async function withWriteLock(fn) {
+  if (typeof navigator.locks?.request !== 'function') {
+    // No Web Locks API — run without lock (same as today's behaviour)
+    const db = await getConnection();
+    return fn(db);
+  }
+
+  return navigator.locks.request(
+    'hyperlit-idb-write',
+    { ifAvailable: true },
+    async (lock) => {
+      if (!lock) {
+        console.warn('[Connection] Write lock held by another tab — skipping IDB write');
+        return undefined;
+      }
+      const db = await getConnection();
+      return fn(db);
+    }
+  );
+}
+
+// ── Internal open logic ─────────────────────────────────────────────
+
+async function _openFresh(retryCount = 0) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("MarkdownDB", DB_VERSION);
 
@@ -283,7 +385,26 @@ export async function openDatabase(retryCount = 0) {
       }
     };
 
-    request.onsuccess = (event) => resolve(event.target.result);
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+
+      // Safari fires `close` when it kills the connection in the background.
+      db.onclose = () => {
+        console.warn('[Connection] IDB connection closed by browser');
+        if (cachedDb === db) cachedDb = null;
+      };
+
+      // Another tab opened a higher version — close gracefully so it can upgrade.
+      db.onversionchange = () => {
+        console.warn('[Connection] IDB version change detected — closing for upgrade');
+        db.close();
+        if (cachedDb === db) cachedDb = null;
+      };
+
+      cachedDb = db;
+      resolve(db);
+    };
+
     request.onerror = async (event) => {
       const error = event.target.error;
       const isConnectionLost =
@@ -292,17 +413,17 @@ export async function openDatabase(retryCount = 0) {
 
       if (isConnectionLost && retryCount < RETRY_DELAYS.length) {
         const delay = RETRY_DELAYS[retryCount];
-        console.warn(`⚠️ IDB connection lost, retrying in ${delay}ms (${retryCount + 1}/${RETRY_DELAYS.length})...`);
+        console.warn(`IDB connection lost, retrying in ${delay}ms (${retryCount + 1}/${RETRY_DELAYS.length})...`);
         await new Promise(r => setTimeout(r, delay));
         try {
-          resolve(await openDatabase(retryCount + 1));
+          resolve(await _openFresh(retryCount + 1));
         } catch (e) {
           reject(e);
         }
         return;
       }
 
-      console.error("❌ Failed to open IndexedDB:", error);
+      console.error("Failed to open IndexedDB:", error);
       reject(`IndexedDB Error: ${error}`);
     };
   });

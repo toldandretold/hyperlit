@@ -6,7 +6,7 @@
  * attempts automatic recovery (reopen DB with exponential backoff).
  */
 
-import { openDatabase } from './connection.js';
+import { openDatabase, closeDatabase } from './connection.js';
 import { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } from './recoveryToast.js';
 
 // ── State ──────────────────────────────────────────────────────────
@@ -101,6 +101,9 @@ export async function attemptRecovery() {
 async function _doRecovery() {
   console.log('[HealthMonitor] Starting IDB recovery...');
 
+  // Force-close the stale cached connection so openDatabase() starts fresh
+  closeDatabase();
+
   for (let i = 0; i < RECOVERY_DELAYS.length; i++) {
     const delay = RECOVERY_DELAYS[i];
     console.log(`[HealthMonitor] Recovery attempt ${i + 1}/${RECOVERY_DELAYS.length} (delay ${delay}ms)`);
@@ -108,6 +111,8 @@ async function _doRecovery() {
     await sleep(delay);
 
     try {
+      // Clear cache before each attempt so we get a truly fresh connection
+      closeDatabase();
       const db = await openDatabase();
 
       // Verify with a lightweight test transaction
@@ -124,7 +129,7 @@ async function _doRecovery() {
         }
       });
 
-      db.close();
+      // Don't close — the singleton will keep this healthy connection cached
 
       // Recovery succeeded
       console.log('[HealthMonitor] IDB recovery SUCCEEDED');

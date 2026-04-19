@@ -17,6 +17,8 @@ import { markCacheDirty } from '../utilities/cacheState.js';
 import { debounce } from '../utilities/debounce.js';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
+import { TAB_ID } from '../utilities/BroadcastListener.js';
+import { book as currentBook } from '../app.js';
 
 // Re-export debounce for backwards compatibility
 export { debounce };
@@ -193,6 +195,20 @@ export class SaveQueue {
           markCacheDirty();
           // ✅ Invalidate search index so next search reflects edits
           invalidateSearchIndex();
+          // ✅ Notify other tabs that this book was edited
+          {
+            const editedBooks = new Set();
+            for (const [bk] of recordsByBookId) {
+              editedBooks.add(bk || currentBook);
+            }
+            for (const bk of editedBooks) {
+              if (bk) {
+                const bc = new BroadcastChannel('hyperlit-tab-coordination');
+                bc.postMessage({ type: 'BOOK_EDITED', book: bk, tabId: TAB_ID });
+                bc.close();
+              }
+            }
+          }
         } else {
           console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
         }
@@ -295,6 +311,20 @@ export class SaveQueue {
       }
 
       reportIDBSuccess();
+      // ✅ Notify other tabs that this book was edited (deletions)
+      {
+        const editedBooks = new Set();
+        for (const [bk] of nodesByBookId) {
+          editedBooks.add(bk || currentBook);
+        }
+        for (const bk of editedBooks) {
+          if (bk) {
+            const bc = new BroadcastChannel('hyperlit-tab-coordination');
+            bc.postMessage({ type: 'BOOK_EDITED', book: bk, tabId: TAB_ID });
+            bc.close();
+          }
+        }
+      }
     } catch (error) {
       console.error('❌ Error in batch deletion:', error);
       const shouldStop = reportIDBFailure(error, {

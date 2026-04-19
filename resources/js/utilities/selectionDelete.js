@@ -1,4 +1,5 @@
 import { batchDeleteIndexedDBRecords } from "../indexedDB/index.js";
+import { queueForSync } from '../indexedDB/syncQueue/queue.js';
 
 
 export class SelectionDeletionHandler {
@@ -19,6 +20,8 @@ export class SelectionDeletionHandler {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         // Check for content links first — unwrap them instead of deleting text
         if (this.checkAndUnwrapLinks(e)) return;
+        // Check for special elements (hypercites, footnotes) — warn before deleting
+        if (this.checkForSpecialElements(e)) return;
         this.captureSelectionForDeletion();
       }
     });
@@ -119,6 +122,149 @@ export class SelectionDeletionHandler {
     });
 
     return true;
+  }
+
+  /**
+   * Check if a non-collapsed selection contains special elements
+   * (source hypercites, hypercite citation links, footnotes).
+   * If found, preventDefault and show a combined confirmation dialog.
+   * Returns true if special elements were found (caller should skip normal deletion).
+   */
+  checkForSpecialElements(e) {
+    if (!window.isEditing) return false;
+    const selection = window.getSelection();
+    if (selection.isCollapsed || selection.rangeCount === 0) return false;
+
+    const range = selection.getRangeAt(0);
+    const root = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentElement
+      : range.commonAncestorContainer;
+    const searchRoot = root?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || root;
+    if (!searchRoot || !searchRoot.querySelectorAll) return false;
+
+    // Find special elements that intersect the selection
+    const sourceHypercites = [];
+    for (const el of searchRoot.querySelectorAll('u[id^="hypercite_"]')) {
+      if (this._rangeIntersectsNode(range, el)) sourceHypercites.push(el);
+    }
+
+    const hyperciteLinks = [];
+    for (const el of searchRoot.querySelectorAll('a[href*="#hypercite_"]')) {
+      if (this._rangeIntersectsNode(range, el)) hyperciteLinks.push(el);
+    }
+
+    const footnotes = [];
+    for (const el of searchRoot.querySelectorAll('sup[fn-count-id]')) {
+      if (this._rangeIntersectsNode(range, el)) footnotes.push(el);
+    }
+
+    if (sourceHypercites.length === 0 && hyperciteLinks.length === 0 && footnotes.length === 0) {
+      return false;
+    }
+
+    // Special elements found — prevent default and handle asynchronously
+    e.preventDefault();
+    this._handleSpecialElementDeletion(range, sourceHypercites, hyperciteLinks, footnotes);
+    return true;
+  }
+
+  /**
+   * Check if a Range intersects a given DOM node.
+   */
+  _rangeIntersectsNode(range, node) {
+    try {
+      const nodeRange = document.createRange();
+      nodeRange.selectNodeContents(node);
+      return range.compareBoundaryPoints(Range.END_TO_START, nodeRange) <= 0 &&
+             nodeRange.compareBoundaryPoints(Range.END_TO_START, range) <= 0;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * Async handler for selection-deleting special elements.
+   * Looks up citation counts, builds a combined warning, and executes deletion if confirmed.
+   */
+  async _handleSpecialElementDeletion(range, sourceHypercites, hyperciteLinks, footnotes) {
+    try {
+      // Look up citation counts for source hypercites
+      let citedSourceCount = 0;
+      let totalCitedIN = 0;
+      const uncitedSources = [];
+
+      if (sourceHypercites.length > 0) {
+        const { openDatabase } = await import('../indexedDB/index.js');
+        const { getHyperciteById } = await import('../hypercites/database.js');
+        const db = await openDatabase();
+
+        for (const el of sourceHypercites) {
+          const hypercite = await getHyperciteById(db, el.id);
+          const citedINCount = (hypercite?.citedIN?.length) || 0;
+          if (citedINCount > 0) {
+            citedSourceCount++;
+            totalCitedIN += citedINCount;
+          } else {
+            uncitedSources.push(el);
+          }
+        }
+      }
+
+      // Only warn if there's something worth warning about
+      const hasWarning = citedSourceCount > 0 || hyperciteLinks.length > 0 || footnotes.length > 0;
+
+      if (hasWarning) {
+        // Build combined warning message
+        const parts = [];
+        if (citedSourceCount > 0) {
+          parts.push(`${citedSourceCount} hypercited text(s) cited in ${totalCitedIN} other book(s)`);
+        }
+        if (hyperciteLinks.length > 0) {
+          parts.push(`${hyperciteLinks.length} hypercite citation link(s)`);
+        }
+        if (footnotes.length > 0) {
+          const fnNums = footnotes.map(s => s.getAttribute('fn-count-id')).join(', ');
+          parts.push(`footnote(s) ${fnNums}`);
+        }
+
+        const confirmed = confirm(`Selection contains: ${parts.join(', ')}. Delete anyway?`);
+        if (!confirmed) return; // User cancelled — selection stays intact
+      }
+
+      // User confirmed (or no warning needed) — execute the deletion
+      const { setProgrammaticUpdateInProgress } = await import('./operationState.js');
+      setProgrammaticUpdateInProgress(true);
+
+      try {
+        // Queue footnote delink syncs while <sup> elements are still in DOM
+        for (const sup of footnotes) {
+          const footnoteId = sup.id || sup.getAttribute('fn-count-id');
+          const fnBook = sup.closest('[data-book-id]')?.getAttribute('data-book-id')
+            || document.querySelector('.main-content')?.id;
+          if (footnoteId && fnBook) {
+            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
+          }
+        }
+
+        // Re-select the range (confirm dialog may have cleared it)
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        // Capture affected elements before deletion
+        this.captureSelectionForDeletion();
+
+        // Execute the deletion — MutationObserver handles tombstone creation
+        document.execCommand('delete', false, null);
+
+        // Run post-deletion IndexedDB cleanup
+        this.handlePostDeletion();
+      } finally {
+        setProgrammaticUpdateInProgress(false);
+      }
+    } catch (error) {
+      console.error('❌ Error in _handleSpecialElementDeletion:', error);
+    }
   }
 
   captureSelectionForDeletion() {

@@ -578,6 +578,43 @@ export class ChunkMutationHandler {
             parentsToUpdate.add(parent);
           }
         }
+
+        // Detect emptied <u> hypercites → convert to tombstone in place
+        // Browser keeps empty <u> in DOM after text deletion; CHECK 2 never fires
+        if (mutation.removedNodes.length > 0) {
+          const target = mutation.target;
+          if (target.nodeType === Node.ELEMENT_NODE &&
+              target.tagName === 'U' &&
+              target.id?.startsWith('hypercite_') &&
+              !target.classList.contains('hypercite-tombstone') &&
+              target.textContent.trim() === '' &&
+              document.contains(target)) {
+            try {
+              const { openDatabase } = await import('../indexedDB/index.js');
+              const { getHyperciteById } = await import('../hypercites/database.js');
+              const db = await openDatabase();
+              const hcRecord = await getHyperciteById(db, target.id);
+              const hasCitations = hcRecord && Array.isArray(hcRecord.citedIN) && hcRecord.citedIN.length > 0;
+
+              if (hasCitations) {
+                console.log(`👻 Empty <u> hypercite → tombstone: ${target.id}`);
+                target.className = 'hypercite-tombstone';
+                target.setAttribute('data-ghost', 'true');
+                target.removeAttribute('style');
+                target.removeAttribute('data-hypercite-listener');
+                const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+                await markHyperciteAsGhost(target.id);
+                // Queue parent paragraph for save so batch.js updates node_id
+                let parentBlock = target.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id]');
+                if (parentBlock) parentsToUpdate.add(parentBlock);
+              } else {
+                target.remove();
+              }
+            } catch (error) {
+              console.error('❌ Error converting empty hypercite to tombstone:', error);
+            }
+          }
+        }
       }
 
       // Handle attribute mutations (SPAN styling)
