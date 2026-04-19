@@ -69,13 +69,13 @@ class UserHomeServerController extends Controller
         // Check if viewer is owner (for delete buttons)
         $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
 
-        // Generate user home books - RLS allows this via user_home type exception
-        $this->generateUserHomeBook($actualUsername, $isOwner, 'public');
+        // Ensure user home books exist (only regenerate on first visit)
+        $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'public');
 
         // Only generate private book and account book if owner
         if ($isOwner) {
-            $this->generateUserHomeBook($actualUsername, $isOwner, 'private');
-            $this->generateAccountBook($actualUsername);
+            $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'private');
+            $this->generateAccountBookIfNeeded($actualUsername);
         }
 
         // Fetch library record for title and bio (use sanitized for book ID)
@@ -95,6 +95,26 @@ class UserHomeServerController extends Controller
             'libraryTitle' => $title,
             'libraryBio' => $bio,
         ]);
+    }
+
+    private function generateUserHomeBookIfNeeded(string $username, bool $isOwner, string $visibility): void
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+
+        if (!DB::table('library')->where('book', $bookName)->exists()) {
+            $this->generateUserHomeBook($username, $isOwner, $visibility);
+        }
+    }
+
+    private function generateAccountBookIfNeeded(string $username): void
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $bookName = $sanitizedUsername . 'Account';
+
+        if (!DB::table('library')->where('book', $bookName)->exists()) {
+            $this->generateAccountBook($username);
+        }
     }
 
     public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null, string $visibility = 'public'): array
