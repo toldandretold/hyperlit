@@ -13,6 +13,7 @@ use App\Http\Controllers\FootnotesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ConversionController;
 use App\Http\Controllers\DbLibraryController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Validation\ValidationException;
 
 
@@ -23,6 +24,9 @@ require __DIR__.'/auth.php';
 // Homepage
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/home', [HomeController::class, 'index']);
+
+// Sitemap
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Offline fallback page - now served as static /public/offline.html by Service Worker
 

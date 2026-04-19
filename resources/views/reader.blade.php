@@ -1,5 +1,13 @@
 @extends('layout')
 
+@if(isset($jsonLd))
+@section('structured_data')
+<script type="application/ld+json">
+@json($jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+</script>
+@endsection
+@endif
+
 @section('styles')
 
     @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/alert.css', 'resources/css/layout.css'])

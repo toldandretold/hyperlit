@@ -51,6 +51,12 @@ export function determineSingleContentHash(contentTypes) {
         return { type: 'hash', value: `citation_${contentType.referenceId}` };
       }
       break;
+
+    case 'hypercite-citation':
+      if (contentType.element?.id) {
+        return { type: 'hash', value: contentType.element.id };
+      }
+      break;
   }
 
   return null;

@@ -557,6 +557,11 @@ export class LinkNavigationHandler {
       try {
         const { restoreContainerStack } = await import('../hyperlitContainer/history.js');
         await restoreContainerStack(capturedStack);
+        // Scroll to the hash element (the link that triggered the container)
+        if (window.location.hash && currentLazyLoader) {
+          const targetId = window.location.hash.substring(1);
+          navigateToInternalId(targetId, currentLazyLoader, false);
+        }
         return;
       } catch (error) {
         console.warn('Failed to restore container stack from history.state:', error);

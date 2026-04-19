@@ -86,6 +86,10 @@ class UserHomeServerController extends Controller
         $title = $libraryRecord ? ($libraryRecord->title ?? "{$actualUsername}'s library") : "{$actualUsername}'s library";
         $bio = $libraryRecord ? ($libraryRecord->note ?? '') : '';
 
+        // SEO data for user pages
+        $pageTitle = "{$title} - Hyperlit";
+        $pageDescription = $bio ? \Illuminate\Support\Str::limit(strip_tags($bio), 160) : "{$actualUsername}'s library on Hyperlit";
+
         // Return user.blade.php with user page data (use sanitized for book ID)
         return view('user', [
             'pageType' => 'user',
@@ -94,6 +98,9 @@ class UserHomeServerController extends Controller
             'isOwner' => $isOwner,
             'libraryTitle' => $title,
             'libraryBio' => $bio,
+            'pageTitle' => $pageTitle,
+            'pageDescription' => $pageDescription,
+            'ogType' => 'profile',
         ]);
     }
 

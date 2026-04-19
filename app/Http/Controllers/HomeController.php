@@ -13,9 +13,10 @@ class HomeController extends Controller
      */
     public function index()
     {
-        // We pass the 'pageType' variable so the layout template works correctly.
         return view('home', [
             'pageType' => 'home',
+            'pageTitle' => 'Hyperlit - Read, Write and Publish Hypertext Literature',
+            'pageDescription' => 'An open-source platform for reading, writing and publishing hypertext literature. Annotate, highlight, and connect texts with hyperlights and hypercites.',
         ]);
     }
 }

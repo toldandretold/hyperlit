@@ -7,12 +7,41 @@
         console.log('%cRead, write and publish hypertext literature\n%cGitHub: %chttps://github.com/toldandretold/hyperlit', 'color: #6B7280; font-size: 11px', 'color: #6B7280; font-size: 11px', 'color: #3B82F6; font-size: 11px');
     </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyperlit</title>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>{{ $pageTitle ?? 'Hyperlit' }}</title>
+    <meta name="description" content="{{ $pageDescription ?? 'Read, write and publish hypertext literature' }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="canonical" href="{{ $canonicalUrl ?? url()->current() }}">
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=2">
     <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}?v=2">
+
+    {{-- Open Graph --}}
+    <meta property="og:title" content="{{ $ogTitle ?? $pageTitle ?? 'Hyperlit' }}">
+    <meta property="og:description" content="{{ $ogDescription ?? $pageDescription ?? 'Read, write and publish hypertext literature' }}">
+    <meta property="og:type" content="{{ $ogType ?? 'website' }}">
+    <meta property="og:url" content="{{ $ogUrl ?? url()->current() }}">
+    <meta property="og:image" content="{{ $ogImage ?? asset('images/og-default.png') }}">
+    <meta property="og:site_name" content="Hyperlit">
+
+    {{-- Twitter Card --}}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $ogTitle ?? $pageTitle ?? 'Hyperlit' }}">
+    <meta name="twitter:description" content="{{ $ogDescription ?? $pageDescription ?? 'Read, write and publish hypertext literature' }}">
+    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/og-default.png') }}">
+
+    {{-- Keywords --}}
+    @if(!empty($keywords))
+    <meta name="keywords" content="{{ $keywords }}">
+    @endif
+
+    {{-- Google Scholar citation meta tags --}}
+    @if(!empty($citationMeta))
+    @foreach($citationMeta as $name => $value)
+    <meta name="{{ $name }}" content="{{ $value }}">
+    @endforeach
+    @endif
+
+    @yield('structured_data')
     <style>
         @media screen and (max-width: 768px) {
             html {
