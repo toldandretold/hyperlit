@@ -9,6 +9,39 @@ import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { resolveHypercite } from '../../indexedDB/hypercites/helpers.js';
 
 /**
+ * Build an ancestor chain for a sub-book ID (innermost parent first).
+ * e.g. "bookX/2/FnY/HL_abc" → ["bookX/FnY", "bookX"]
+ */
+function buildAncestorChain(bookId) {
+  if (!bookId.includes('/')) return [];
+  const parts = bookId.split('/');
+  if (parts.length === 2) {
+    return [parts[0]]; // Level 1: parent is foundation
+  }
+  if (parts.length === 4) {
+    return [parts[0] + '/' + parts[2], parts[0]]; // Level 2: parent sub-book, then foundation
+  }
+  return [parts[0]]; // Fallback
+}
+
+/**
+ * Walk up the ancestor chain to find the first surviving (non-deleted) book.
+ */
+async function findSurvivingAncestor(bookId) {
+  const ancestors = buildAncestorChain(bookId);
+  for (const ancestorId of ancestors) {
+    try {
+      const { fetchLibraryFromServer } = await import('../utils.js');
+      const record = await fetchLibraryFromServer(ancestorId);
+      if (record && record.visibility !== 'deleted') {
+        return { bookId: ancestorId, libraryData: record };
+      }
+    } catch (e) { /* continue to next ancestor */ }
+  }
+  return null;
+}
+
+/**
  * Build citation content section
  * Supports both unlinked citations (just content) and linked citations (source_id with navigation)
  * @param {Object} contentType - The citation content type object
@@ -164,18 +197,22 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       }
     }
 
-    // Check for ghost status — resolveHypercite does local-first + server fallback
+    // Check for ghost/dead status — resolveHypercite does local-first + server fallback
     let isGhost = false;
+    let isDead = false;
     let ghostCitedText = '';
+    let hyperciteBook = null;
     try {
       const hyperciteData = await resolveHypercite(targetBook, targetHyperciteId);
       if (hyperciteData?.relationshipStatus === 'ghost') {
         isGhost = true;
         ghostCitedText = hyperciteData.hypercitedText || '';
-        console.log(`👻 Hypercite ${targetHyperciteId} is a ghost`);
+      } else if (hyperciteData?.relationshipStatus === 'dead') {
+        isDead = true;
+        hyperciteBook = hyperciteData.book || targetBook;
       }
     } catch (ghostError) {
-      console.warn('Could not check ghost status:', ghostError);
+      console.warn('Could not check ghost/dead status:', ghostError);
     }
 
     // Check if book is private, deleted, or accessible
@@ -236,8 +273,26 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       buttonText = 'source text private';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
       buttonAttrs = `data-private="true" data-access="denied" data-book-id="${targetBook}"`;
+    } else if (isDead) {
+      buttonText = 'Source text removed';
+      buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+      buttonAttrs = `data-dead="true"`;
     } else if (isGhost) {
       buttonText = 'View ghost in source';
+    }
+
+    // Build dead banner (if applicable)
+    let deadBannerHtml = '';
+    let deadNavLink = '';
+    if (isDead) {
+      deadBannerHtml = `<div style="color: #d73a49; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(215, 58, 73, 0.08); border: 1px solid rgba(215, 58, 73, 0.25);">Source text removed — the containing book or section was deleted</div>`;
+
+      // Check if a parent book survives (sub-book was deleted but parent still exists)
+      const ancestor = await findSurvivingAncestor(hyperciteBook);
+      if (ancestor) {
+        const ancestorTitle = ancestor.libraryData.title || ancestor.bookId;
+        deadNavLink = `<div style="margin-top: 0.5em;"><a href="/${encodeURIComponent(ancestor.bookId)}" style="color: #4EACAE; text-decoration: none; font-size: 13px;">View in containing book: ${ancestorTitle} ↗</a></div>`;
+      }
     }
 
     return `
@@ -247,7 +302,9 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
           ${statusIcon}${locationLabel ? `<span class="location-label">${locationLabel}</span><blockquote>${formattedCitation}</blockquote>` : formattedCitation}
         </div>
         ${isGhost ? `<div style="color: #EF8D34; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(239, 141, 52, 0.08); border: 1px solid rgba(239, 141, 52, 0.25);">Cited text deleted</div>` : ''}
-        <div style="margin-top: ${isGhost ? '0.5em' : '1em'};">
+        ${deadBannerHtml}
+        ${deadNavLink}
+        <div style="margin-top: ${isGhost || isDead ? '0.5em' : '1em'};">
           <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
             ${buttonText}
           </a>

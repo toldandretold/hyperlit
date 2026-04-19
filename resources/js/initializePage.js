@@ -286,6 +286,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       // Clear any pending SPA navigation target — it was set for fetchInitialChunk
       // which we're skipping (cache hit). Without this it leaks to the next navigation.
       window._pendingChunkTarget = null;
+      window._targetResolved = undefined;
 
       // Migrate old-format footnotes if needed (display numbers → footnote IDs)
       if (hasOldFormatFootnotes(cached)) {
@@ -313,6 +314,10 @@ export async function loadHyperText(bookId, progressCallback = null) {
       await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+
+      // Signal that content is loaded — without this, anything awaiting
+      // pendingFirstChunkLoadedPromise (e.g. handleHashNavigation) hangs forever
+      resolveFirstChunkPromise();
 
       // Note: Interactive features initialization handled by viewManager.js
 
@@ -882,6 +887,33 @@ async function continueChainOpening(chain) {
         readMoreBtn.click();
         await new Promise(r => setTimeout(r, 2000));
         element = await waitForElement(itemId, scroller, 5000);
+      }
+    }
+
+    // Fallback: if the element wasn't found (e.g. DOM is empty or wrong chunk loaded),
+    // search the lazy loader's nodes to find and load the correct chunk
+    if (!element && currentLazyLoader?.nodes) {
+      let targetChunkId = null;
+      for (const node of currentLazyLoader.nodes) {
+        if (Array.isArray(node.footnotes) && node.footnotes.includes(itemId)) {
+          targetChunkId = node.chunk_id;
+          break;
+        }
+        if (node.content && node.content.includes(`id="${itemId}"`)) {
+          targetChunkId = node.chunk_id;
+          break;
+        }
+        if (itemId.startsWith('HL_') && Array.isArray(node.hyperlights)) {
+          if (node.hyperlights.some(h => h.highlightID === itemId)) {
+            targetChunkId = node.chunk_id;
+            break;
+          }
+        }
+      }
+      if (targetChunkId !== null) {
+        console.log(`Loading chunk ${targetChunkId} for chain item ${itemId}`);
+        await currentLazyLoader.loadChunk(targetChunkId, "down");
+        element = await waitForElement(itemId, scroller || document.body, 3000);
       }
     }
 

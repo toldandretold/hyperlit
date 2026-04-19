@@ -438,8 +438,16 @@ class DbHyperlightController extends Controller
                     $deletionService = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
                     foreach ($deletedSubBookIds as $subBookId) {
                         try {
-                            $deletionService->deleteSubBookContent($subBookId);
+                            $stats = $deletionService->deleteSubBookContent($subBookId);
                             $deletionService->delinkOrphanedHypercites($subBookId);
+
+                            // Bump annotations for books citing now-dead hypercites
+                            if (!empty($stats['dead_citing_books'])) {
+                                $now = round(microtime(true) * 1000);
+                                foreach ($stats['dead_citing_books'] as $bId) {
+                                    DB::select('SELECT update_annotations_timestamp(?, ?)', [$bId, $now]);
+                                }
+                            }
                         } catch (\Exception $e) {
                             Log::warning('Sub-book cleanup failed (non-fatal)', [
                                 'sub_book_id' => $subBookId,

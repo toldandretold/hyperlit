@@ -109,13 +109,18 @@ export class BookToBookTransition {
         
         progress(60, 'Initializing reader...');
 
-        // Set pending navigation target so fetchInitialChunk can load the correct chunk
-        const navigationTarget = hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null;
+        // For multi-level cascades (footnote + hyperlight/hypercite), the footnote
+        // marker is what lives in the parent book's nodes — target it so the backend
+        // loads the correct chunk. The hyperlight/hypercite live inside the sub-book.
+        const isMultiLevelCascade = footnoteId && (hyperlightId || hyperciteId);
+        const navigationTarget = isMultiLevelCascade
+          ? footnoteId
+          : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
         window._pendingChunkTarget = navigationTarget;
 
         // When hash (hypercite) takes priority but a hyperlight/footnote also exists,
         // set it as fallback so the backend can load the right chunk if the hypercite is stale
-        if (hash && (hyperlightId || footnoteId)) {
+        if (!isMultiLevelCascade && hash && (hyperlightId || footnoteId)) {
           window._pendingChunkFallbackTarget = hyperlightId || footnoteId;
         }
 
@@ -138,7 +143,9 @@ export class BookToBookTransition {
         // handleHashNavigation will load the correct chunk directly via
         // findLineForCustomId → loadChunk. Loading chunk 0 first is wasted
         // work since _navigateToInternalId clears the container anyway.
-        if (!hasHashNavigation) {
+        // Exception: multi-level cascades need at least one chunk in the DOM
+        // because the chain system uses waitForElement(), not _navigateToInternalId.
+        if (!hasHashNavigation || isMultiLevelCascade) {
           await this.ensureInitialContentLoaded(toBook);
         }
         
@@ -372,33 +379,43 @@ export class BookToBookTransition {
     // If the backend couldn't resolve the target (e.g. stale hypercite),
     // check whether the parent hyperlight/footnote still exists — if so,
     // navigate to that and just toast about the missing citation.
+    // For multi-level cascades, _targetResolved === false is expected — the
+    // hypercite/hyperlight lives in a sub-book, not the parent book.
+    // Let the chain system handle it instead of treating it as "not found".
+    const isMultiLevelCascade = footnoteId && (hyperlightId || hyperciteId);
+
     if (window._targetResolved === false) {
-      window._targetResolved = undefined; // Consume
-      console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
+      window._targetResolved = undefined; // Consume to prevent staleness
 
-      // Show toast for the missing citation
-      import('../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
-        showTargetNotFoundToast();
-      });
+      if (!isMultiLevelCascade) {
+        console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
 
-      // Clean the stale hypercite hash from URL
-      history.replaceState(null, '', window.location.pathname);
+        // Show toast for the missing citation
+        import('../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+          showTargetNotFoundToast();
+        });
 
-      // If there's a parent hyperlight or footnote, navigate to that instead
-      if (hyperlightId) {
-        console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to hyperlight ${hyperlightId} instead`);
-        await this.navigateToInternalId(hyperlightId, progress);
-        return true;
+        // Clean the stale hypercite hash from URL
+        history.replaceState(null, '', window.location.pathname);
+
+        // If there's a parent hyperlight or footnote, navigate to that instead
+        if (hyperlightId) {
+          console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to hyperlight ${hyperlightId} instead`);
+          await this.navigateToInternalId(hyperlightId, progress);
+          return true;
+        }
+        if (footnoteId) {
+          console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to footnote ${footnoteId} instead`);
+          await navigateToFootnoteTarget(footnoteId, null, currentLazyLoader);
+          return true;
+        }
+
+        // No parent hyperlight/footnote — full fallback
+        await this.ensureInitialContentLoaded(bookId);
+        return false;
       }
-      if (footnoteId) {
-        console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to footnote ${footnoteId} instead`);
-        await navigateToFootnoteTarget(footnoteId, null, currentLazyLoader);
-        return true;
-      }
 
-      // No parent hyperlight/footnote — full fallback
-      await this.ensureInitialContentLoaded(bookId);
-      return false;
+      console.log('🔗 BookToBookTransition: Multi-level cascade detected, skipping "not found" fallback — letting chain system handle it');
     }
 
     try {

@@ -74,6 +74,7 @@ class HomePageServerController extends Controller
             ])
             ->where('listed', true)
             ->whereNotIn('visibility', ['private', 'deleted'])
+            ->whereNotIn('book', ['stats', 'most-recent', 'most-connected', 'most-lit'])
             ->get();
 
         // Use admin connection to bypass RLS for system-generated content

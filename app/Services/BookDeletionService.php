@@ -63,45 +63,64 @@ class BookDeletionService
         $bookCreator = $book->creator;
         $bookCreatorToken = $book->creator_token;
 
+        // Collect descendants BEFORE deleting anything (BFS needs footnotes/hyperlights rows to exist)
+        $descendants = $this->collectDescendantsWithPolicy($bookId);
+        $fullDeleteIds = array_slice($descendants['full_delete'], 1); // skip bookId (handled separately)
+        $allDescendantIds = array_merge($descendants['full_delete'], $descendants['metadata_only']);
+
         $db->beginTransaction();
         try {
-            // 1. Delete content (nodes, footnotes, bibliography)
+            // 1. Delete content (nodes, footnotes, bibliography) for parent book
             $stats['nodes_deleted'] = $db->table('nodes')->where('book', $bookId)->delete();
             $stats['footnotes_deleted'] = $db->table('footnotes')->where('book', $bookId)->delete();
             $stats['bibliography_deleted'] = $db->table('bibliography')->where('book', $bookId)->delete();
 
-            // 1b. Also delete sub-book content (nodes/footnotes/bibliography where book starts with "bookId/")
-            $subBookPrefix = $bookId . '/';
-            $stats['nodes_deleted'] += $db->table('nodes')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
-            $stats['footnotes_deleted'] += $db->table('footnotes')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
-            $stats['bibliography_deleted'] += $db->table('bibliography')->where('book', 'LIKE', $subBookPrefix . '%')->delete();
+            // 1b. Delete sub-book content — only for footnote-chain descendants (not past hyperlight boundary)
+            foreach ($fullDeleteIds as $descId) {
+                $stats['nodes_deleted'] += $db->table('nodes')->where('book', $descId)->delete();
+                $stats['footnotes_deleted'] += $db->table('footnotes')->where('book', $descId)->delete();
+                $stats['bibliography_deleted'] += $db->table('bibliography')->where('book', $descId)->delete();
+            }
+            // metadata_only descendants: content preserved (library soft-deleted below)
 
             // 2. Keep hypercites (needed for citation display when pastes link to this book)
             $stats['hypercites_kept'] = $db->table('hypercites')->where('book', $bookId)->count();
 
             // 3. Delete only the book owner's highlights (preserve others as orphaned)
             $stats['hyperlights_deleted'] = $this->deleteOwnerHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
-            // Also delete owner's sub-book highlights
-            $stats['hyperlights_deleted'] += $this->deleteOwnerSubBookHighlights($bookId, $bookCreator, $bookCreatorToken, $db);
+            // Delete owner's highlights only in full_delete sub-books (not past hyperlight boundary)
+            if (!empty($fullDeleteIds)) {
+                $query = $db->table('hyperlights')->whereIn('book', $fullDeleteIds);
+                if ($bookCreator !== null) {
+                    $query->where('creator', $bookCreator);
+                } elseif ($bookCreatorToken !== null) {
+                    $query->where('creator_token', $bookCreatorToken);
+                } else {
+                    $query = null; // no creator info — don't delete any
+                }
+                if ($query) {
+                    $stats['hyperlights_deleted'] += $query->delete();
+                }
+            }
 
             // Count orphaned highlights (by other users) — including sub-books
             $stats['hyperlights_orphaned'] = $db->table('hyperlights')
-                ->where(function ($q) use ($bookId, $subBookPrefix) {
-                    $q->where('book', $bookId)
-                      ->orWhere('book', 'LIKE', $subBookPrefix . '%');
-                })
+                ->whereIn('book', $allDescendantIds)
                 ->count();
 
-            // 4. Always soft delete library record
+            // 4. Always soft delete library record for ALL descendants
             $db->table('library')
                 ->where('book', $bookId)
                 ->update(['visibility' => 'deleted']);
             $stats['library_action'] = 'soft_deleted';
 
-            // Soft delete sub-book library records
-            $db->table('library')
-                ->where('book', 'LIKE', $subBookPrefix . '%')
-                ->update(['visibility' => 'deleted']);
+            // Soft delete sub-book library records (all descendants, both categories)
+            $allSubBookIds = array_merge($fullDeleteIds, $descendants['metadata_only']);
+            if (!empty($allSubBookIds)) {
+                $db->table('library')
+                    ->whereIn('book', $allSubBookIds)
+                    ->update(['visibility' => 'deleted']);
+            }
 
             // Also delete any reference from creator's library nodes (both public and private user home pages)
             if ($bookCreator) {
@@ -134,9 +153,21 @@ class BookDeletionService
                     ->update(['timestamp' => round(microtime(true) * 1000)]);
             }
 
+            // 5. Mark hypercites as dead for ALL descendants (both categories)
+            $deadResult = $this->markHypercitesAsDead($bookId, $allDescendantIds);
+            $stats['hypercites_marked_dead'] = $deadResult['count'];
+
             $db->commit();
 
-            // 5. Delink orphaned hypercites in other books (outside transaction)
+            // Bump annotation timestamps for citing books (outside transaction)
+            if (!empty($deadResult['citing_books'])) {
+                $now = round(microtime(true) * 1000);
+                foreach ($deadResult['citing_books'] as $bId) {
+                    DB::select('SELECT update_annotations_timestamp(?, ?)', [$bId, $now]);
+                }
+            }
+
+            // 6. Delink orphaned hypercites in other books (outside transaction)
             $stats['hypercites_delinked'] = $this->delinkOrphanedHypercites($bookId);
 
             Log::info('BookDeletionService: Book deleted', [
@@ -178,24 +209,6 @@ class BookDeletionService
     }
 
     /**
-     * Delete only highlights made by the book owner in sub-books
-     */
-    private function deleteOwnerSubBookHighlights(string $bookId, ?string $bookCreator, ?string $bookCreatorToken, $db): int
-    {
-        $query = $db->table('hyperlights')->where('book', 'LIKE', $bookId . '/%');
-
-        if ($bookCreator !== null) {
-            $query->where('creator', $bookCreator);
-        } elseif ($bookCreatorToken !== null) {
-            $query->where('creator_token', $bookCreatorToken);
-        } else {
-            return 0;
-        }
-
-        return $query->delete();
-    }
-
-    /**
      * Delete a sub-book's content (nodes, footnotes, bibliography, library)
      * without starting its own transaction — safe to call inside UnifiedSyncController's transaction.
      *
@@ -205,6 +218,10 @@ class BookDeletionService
     public function deleteSubBookContent(string $subBookId): array
     {
         $db = $this->db();
+
+        // Collect descendants BEFORE deleting anything (BFS needs footnotes/hyperlights rows to exist)
+        $descendants = $this->collectDescendantsWithPolicy($subBookId);
+        $fullDeleteIds = array_slice($descendants['full_delete'], 1); // skip subBookId (handled below)
 
         $stats = [
             'nodes_deleted' => $db->table('nodes')->where('book', $subBookId)->delete(),
@@ -217,6 +234,25 @@ class BookDeletionService
             ->where('book', $subBookId)
             ->update(['visibility' => 'deleted']);
         $stats['library_action'] = $libraryUpdated ? 'soft_deleted' : 'not_found';
+
+        foreach ($fullDeleteIds as $descId) {
+            $stats['nodes_deleted'] += $db->table('nodes')->where('book', $descId)->delete();
+            $stats['footnotes_deleted'] += $db->table('footnotes')->where('book', $descId)->delete();
+            $stats['bibliography_deleted'] += $db->table('bibliography')->where('book', $descId)->delete();
+            $db->table('library')->where('book', $descId)->update(['visibility' => 'deleted']);
+        }
+        foreach ($descendants['metadata_only'] as $descId) {
+            // Preserve content — only soft-delete library
+            $db->table('library')->where('book', $descId)->update(['visibility' => 'deleted']);
+        }
+        $stats['descendants_content_deleted'] = count($fullDeleteIds);
+        $stats['descendants_metadata_only'] = count($descendants['metadata_only']);
+
+        // Mark hypercites as dead for ALL descendants (both categories)
+        $allDescendantIds = array_merge($descendants['full_delete'], $descendants['metadata_only']);
+        $deadResult = $this->markHypercitesAsDead($subBookId, $allDescendantIds);
+        $stats['hypercites_marked_dead'] = $deadResult['count'];
+        $stats['dead_citing_books'] = $deadResult['citing_books'];
 
         Log::info('BookDeletionService: Sub-book content deleted', [
             'sub_book_id' => $subBookId,
@@ -302,5 +338,119 @@ class BookDeletionService
         }
 
         return $delinkedCount;
+    }
+
+    /**
+     * Recursively find all descendant sub-book IDs, categorized by deletion policy.
+     * - full_delete: footnote-only chains (same author) — content can be deleted
+     * - metadata_only: anything at or below a hyperlight boundary — preserve content
+     *
+     * The rule: footnotes inherit their parent's mode, hyperlights always switch to metadata_only.
+     */
+    private function collectDescendantsWithPolicy(string $bookId): array
+    {
+        $db = $this->db();
+        $fullDelete = [$bookId];
+        $metadataOnly = [];
+        $seen = [$bookId => true];
+        $toProcess = [[$bookId, 'full']]; // [id, mode]
+
+        while (!empty($toProcess)) {
+            [$current, $mode] = array_shift($toProcess);
+
+            // Footnotes in this book → child sub-books (inherit parent's mode)
+            $footnotes = $db->table('footnotes')
+                ->where('book', $current)
+                ->select('footnoteId')
+                ->distinct()
+                ->get();
+
+            foreach ($footnotes as $fn) {
+                $childId = SubBookIdHelper::build($current, $fn->footnoteId);
+                if (!isset($seen[$childId])) {
+                    $seen[$childId] = true;
+                    if ($mode === 'full') {
+                        $fullDelete[] = $childId;
+                    } else {
+                        $metadataOnly[] = $childId;
+                    }
+                    $toProcess[] = [$childId, $mode];
+                }
+            }
+
+            // Hyperlights in this book → child sub-books (ALWAYS metadata_only)
+            $highlights = $db->table('hyperlights')
+                ->where('book', $current)
+                ->select('hyperlight_id')
+                ->distinct()
+                ->get();
+
+            foreach ($highlights as $hl) {
+                $childId = SubBookIdHelper::build($current, $hl->hyperlight_id);
+                if (!isset($seen[$childId])) {
+                    $seen[$childId] = true;
+                    $metadataOnly[] = $childId;
+                    $toProcess[] = [$childId, 'metadata'];
+                }
+            }
+        }
+
+        return ['full_delete' => $fullDelete, 'metadata_only' => $metadataOnly];
+    }
+
+    /**
+     * Get all descendant IDs (both categories merged) for callers that don't need the categorization.
+     */
+    private function getAllDescendantIds(string $bookId): array
+    {
+        $result = $this->collectDescendantsWithPolicy($bookId);
+        return array_merge($result['full_delete'], $result['metadata_only']);
+    }
+
+    /**
+     * Mark hypercites as 'dead' for a book and all its descendant sub-books.
+     * Returns the count of marked hypercites and the list of citing books that need timestamp bumps.
+     */
+    public function markHypercitesAsDead(string $bookId, ?array $preCollectedIds = null): array
+    {
+        $db = $this->db();
+        $affectedBooks = $preCollectedIds ?? $this->getAllDescendantIds($bookId);
+
+        // Find hypercites in these books that have citations
+        $hypercites = $db->table('hypercites')
+            ->whereIn('book', $affectedBooks)
+            ->whereRaw('"citedIN" is not null')
+            ->whereRaw('jsonb_array_length("citedIN"::jsonb) > 0')
+            ->get();
+
+        if ($hypercites->isEmpty()) {
+            return ['count' => 0, 'citing_books' => []];
+        }
+
+        // Bulk-update to 'dead'
+        $ids = $hypercites->pluck('id')->all();
+        $db->table('hypercites')
+            ->whereIn('id', $ids)
+            ->update(['relationshipStatus' => 'dead']);
+
+        // Collect citing books for annotation timestamp bumps
+        $citingBooks = [];
+        foreach ($hypercites as $hc) {
+            $citedIN = json_decode($hc->citedIN, true) ?? [];
+            foreach ($citedIN as $ref) {
+                $bookPart = explode('#', ltrim($ref, '/'))[0];
+                if ($bookPart) {
+                    $citingBooks[] = $bookPart;
+                    if (str_contains($bookPart, '/')) {
+                        $citingBooks[] = SubBookIdHelper::parse($bookPart)['foundation'];
+                    }
+                }
+            }
+        }
+
+        return [
+            'count' => count($ids),
+            'citing_books' => array_values(array_unique($citingBooks)),
+        ];
     }
 }

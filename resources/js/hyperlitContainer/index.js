@@ -1541,6 +1541,10 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
 
   detachNoteListeners();
 
+  // Save preview_nodes for current layer's sub-books before pausing them
+  const { savePreviewNodes } = await import('./core.js');
+  await savePreviewNodes();
+
   // --- 2. Snapshot module state ---
   const savedModuleState = saveModuleState();
   const savedSubBookState = saveSubBookState();

@@ -399,6 +399,10 @@ async function _popTopLayerImpl() {
   const { cleanupContainerListeners } = await import('./index.js');
   await cleanupContainerListeners({ stackPop: true });
 
+  // 2.5 Save preview_nodes for active sub-books BEFORE destroying them
+  const { savePreviewNodes } = await import('./core.js');
+  await savePreviewNodes();
+
   // 3. Now safe to destroy sub-books (saves already flushed)
   const { destroyAllSubBooks } = await import('./subBookLoader.js');
   await destroyAllSubBooks();
