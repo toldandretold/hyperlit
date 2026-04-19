@@ -183,6 +183,11 @@ export async function handleHypercitePaste(event, targetBookId) {
         pasteWrapper.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
         pasteWrapper.querySelectorAll('[data-hypercite-listener]').forEach(el => el.removeAttribute('data-hypercite-listener'));
         pasteWrapper.querySelectorAll('br.Apple-interchange-newline').forEach(el => el.remove());
+        // Unwrap ALL <span> wrappers — browser loves adding these during cut/paste
+        for (const span of pasteWrapper.querySelectorAll('span')) {
+          while (span.firstChild) span.parentNode.insertBefore(span.firstChild, span);
+          span.remove();
+        }
         // Unwrap clipboard <p> wrappers — the destination paragraph provides block context
         for (const p of pasteWrapper.querySelectorAll('p')) {
           while (p.firstChild) p.parentNode.insertBefore(p.firstChild, p);
