@@ -312,7 +312,46 @@ export class BookToBookTransition {
     
     // Update document title
     document.title = newDoc.title;
-    
+
+    // Sync <head> meta tags from fetched HTML (SEO + link previews)
+    const metaSelectors = [
+      'meta[name="description"]',
+      'meta[name="keywords"]',
+      'meta[property="og:title"]',
+      'meta[property="og:description"]',
+      'meta[property="og:type"]',
+      'meta[property="og:url"]',
+      'meta[property="og:image"]',
+      'meta[name="twitter:title"]',
+      'meta[name="twitter:description"]',
+      'meta[name="twitter:image"]',
+    ];
+    for (const sel of metaSelectors) {
+      const newTag = newDoc.head.querySelector(sel);
+      const oldTag = document.head.querySelector(sel);
+      if (newTag && oldTag) {
+        oldTag.setAttribute('content', newTag.getAttribute('content'));
+      } else if (newTag && !oldTag) {
+        document.head.appendChild(newTag.cloneNode(true));
+      }
+    }
+    // Sync citation_* meta tags (replace all)
+    document.head.querySelectorAll('meta[name^="citation_"]').forEach(el => el.remove());
+    newDoc.head.querySelectorAll('meta[name^="citation_"]').forEach(el => {
+      document.head.appendChild(el.cloneNode(true));
+    });
+    // Sync canonical URL
+    const newCanonical = newDoc.head.querySelector('link[rel="canonical"]');
+    const oldCanonical = document.head.querySelector('link[rel="canonical"]');
+    if (newCanonical && oldCanonical) {
+      oldCanonical.setAttribute('href', newCanonical.getAttribute('href'));
+    }
+    // Sync JSON-LD structured data
+    const oldJsonLd = document.head.querySelector('script[type="application/ld+json"]');
+    const newJsonLd = newDoc.head.querySelector('script[type="application/ld+json"]');
+    if (oldJsonLd) oldJsonLd.remove();
+    if (newJsonLd) document.head.appendChild(newJsonLd.cloneNode(true));
+
     // Read slug from new DOM and update global state
     const newMain = document.querySelector('.main-content');
     const newSlug = newMain?.dataset?.slug || null;
