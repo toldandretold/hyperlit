@@ -24,6 +24,7 @@ export class DifferentTemplateTransition {
       targetUrl,
       toBook,
       hash = '',
+      isPopstate = false,
       progressCallback
     } = options;
 
@@ -78,7 +79,8 @@ export class DifferentTemplateTransition {
         toBook: bookId,
         fromStructure,
         toStructure,
-        transitionType: 'template-switch'
+        transitionType: 'template-switch',
+        isPopstate
       });
 
       // Step 6: Handle hash navigation if present (using shared utility)

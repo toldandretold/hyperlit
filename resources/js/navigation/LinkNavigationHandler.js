@@ -516,7 +516,7 @@ export class LinkNavigationHandler {
 
     // If the URL book doesn't match the current loaded book content, use SPA navigation
     // Also check against slug — URL may show slug while book holds the real ID
-    if (urlBookId !== currentBookVariable && urlBookId !== _bookSlug) {
+    if (urlBookId !== currentBookVariable && (!_bookSlug || urlBookId !== _bookSlug)) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)

@@ -57,7 +57,7 @@ export class SameTemplateTransition {
    * Uses the homepageDisplayUnit pattern: remove old .main-content, create new, load content
    */
   static async handleHomeToHome(options = {}) {
-    const { toBook, hash = '', progressCallback } = options;
+    const { toBook, hash = '', isPopstate = false, progressCallback } = options;
 
     console.log('🏠 SameTemplateTransition: Home→Home content swap', { toBook });
 
@@ -78,7 +78,8 @@ export class SameTemplateTransition {
         toBook: toBook,
         fromStructure: 'home',
         toStructure: 'home',
-        transitionType: 'content-swap'
+        transitionType: 'content-swap',
+        isPopstate
       });
 
       // Handle hash navigation if present (using shared utility)
@@ -104,7 +105,7 @@ export class SameTemplateTransition {
    * Same pattern as home→home
    */
   static async handleUserToUser(options = {}) {
-    const { toBook, hash = '', progressCallback } = options;
+    const { toBook, hash = '', isPopstate = false, progressCallback } = options;
 
     console.log('👤 SameTemplateTransition: User→User content swap', { toBook });
 
@@ -125,7 +126,8 @@ export class SameTemplateTransition {
         toBook: toBook,
         fromStructure: 'user',
         toStructure: 'user',
-        transitionType: 'content-swap'
+        transitionType: 'content-swap',
+        isPopstate
       });
 
       // Handle hash navigation if present (using shared utility)

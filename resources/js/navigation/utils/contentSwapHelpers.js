@@ -243,7 +243,11 @@ export function updateUrl(url, options = {}) {
         }
       };
 
-      window.history.pushState(newState, '', url);
+      if (options.isPopstate) {
+        window.history.replaceState(newState, '', url);
+      } else {
+        window.history.pushState(newState, '', url);
+      }
       log.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');
     }
   } catch (error) {
