@@ -111,6 +111,32 @@ class UserHomeServerController extends Controller
 
         if (!DB::table('library')->where('book', $bookName)->exists()) {
             $this->generateUserHomeBook($username, $isOwner, $visibility);
+            return;
+        }
+
+        // Failsafe for private home book: regenerate if library count doesn't match node count
+        if ($visibility === 'private') {
+            $bookCount = DB::table('library')
+                ->where('creator', $username)
+                ->where('book', '!=', $sanitizedUsername)
+                ->where('book', '!=', $sanitizedUsername . 'Private')
+                ->where('book', '!=', $sanitizedUsername . 'Account')
+                ->where('book', 'NOT LIKE', '%/%')
+                ->where('visibility', 'private')
+                ->count();
+
+            $nodeCount = DB::table('nodes')
+                ->where('book', $bookName)
+                ->where('startLine', '>', 0)
+                ->count();
+
+            if ($bookCount !== $nodeCount) {
+                Log::info('Regenerating private home book due to count mismatch.', [
+                    'username' => $username,
+                    'book_count' => $bookCount, 'node_count' => $nodeCount,
+                ]);
+                $this->generateUserHomeBook($username, $isOwner, $visibility);
+            }
         }
     }
 
