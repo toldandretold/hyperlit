@@ -47,7 +47,7 @@ export {
 
 // Content builders
 export { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
-export { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
+export { buildCitationContent, buildHyperciteCitationContent, resolveButtonStatus } from './contentBuilders/displayCitations.js';
 export { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 export {
   buildHyperciteContent,
@@ -1421,6 +1421,14 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     } catch (error) {
       console.error('Error in footnote post-actions:', error);
     }
+  }
+
+  // Defer hypercite-citation button resolution (access check, ancestor check, node pre-cache)
+  const hcCitationType = contentTypes.find(ct => ct.type === 'hypercite-citation');
+  if (hcCitationType) {
+    import('./contentBuilders/displayCitations.js').then(({ resolveButtonStatus }) => {
+      resolveButtonStatus(hcCitationType, db);
+    });
   }
 
   // Always attach listeners for management buttons and private book checks

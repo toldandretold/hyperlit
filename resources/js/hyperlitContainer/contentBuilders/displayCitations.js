@@ -6,7 +6,7 @@
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
-import { resolveHypercite } from '../../indexedDB/hypercites/helpers.js';
+import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index.js';
 
 /**
  * Build an ancestor chain for a sub-book ID (innermost parent first).
@@ -197,13 +197,14 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       }
     }
 
-    // Check for ghost/dead status — resolveHypercite does local-first + server fallback
+    // Check for ghost/dead status — IndexedDB-only lookup (instant, no server calls)
+    // Full resolveHypercite (which fetches nodes) is deferred to post-open
     let isGhost = false;
     let isDead = false;
     let ghostCitedText = '';
     let hyperciteBook = null;
     try {
-      const hyperciteData = await resolveHypercite(targetBook, targetHyperciteId);
+      const hyperciteData = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
       if (hyperciteData?.relationshipStatus === 'ghost') {
         isGhost = true;
         ghostCitedText = hyperciteData.hypercitedText || '';
@@ -215,17 +216,9 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       console.warn('Could not check ghost/dead status:', ghostError);
     }
 
-    // Check if book is private, deleted, or accessible
+    // Check if book is private or deleted (access check deferred to post-open)
     const isPrivate = libraryData && libraryData.visibility === 'private';
     const isDeleted = libraryData && libraryData.visibility === 'deleted';
-    let hasAccess = true;
-
-    if (isPrivate) {
-      console.log(`🔒 Target book ${targetBook} is private, checking access...`);
-      const { canUserEditBook } = await import('../../utilities/auth.js');
-      hasAccess = await canUserEditBook(targetBook);
-      console.log(`🔒 Access result: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
-    }
 
     // Add lock icon if private, trash icon if deleted
     let statusIcon = '';
@@ -264,21 +257,29 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
     let buttonText = 'See in source text';
     let buttonStyle = 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
     let buttonAttrs = '';
+    let buttonSuffix = '';
 
     if (isDeleted) {
       buttonText = 'source deleted';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
       buttonAttrs = `data-deleted="true" data-book-id="${targetBook}"`;
-    } else if (isPrivate && !hasAccess) {
-      buttonText = 'source text private';
-      buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
-      buttonAttrs = `data-private="true" data-access="denied" data-book-id="${targetBook}"`;
     } else if (isDead) {
       buttonText = 'Source text removed';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
       buttonAttrs = `data-dead="true"`;
+    } else if (isGhost && isPrivate) {
+      // Ghost in private book — need access check to decide if user can navigate
+      buttonText = 'View ghost in source';
+      buttonStyle += ' opacity: 0.5; pointer-events: none;';
+      buttonAttrs = `data-private="true" data-ghost="true" data-book-id="${targetBook}" data-needs-access-check="true"`;
+      buttonSuffix = ' <span class="btn-spinner"></span>';
     } else if (isGhost) {
       buttonText = 'View ghost in source';
+    } else if (isPrivate) {
+      // Muted state with spinner — resolved post-open by resolveButtonStatus()
+      buttonStyle += ' opacity: 0.5; pointer-events: none;';
+      buttonAttrs = `data-private="true" data-book-id="${targetBook}" data-needs-access-check="true"`;
+      buttonSuffix = ' <span class="btn-spinner"></span>';
     }
 
     // Build dead banner (if applicable)
@@ -287,12 +288,8 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
     if (isDead) {
       deadBannerHtml = `<div style="color: #d73a49; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(215, 58, 73, 0.08); border: 1px solid rgba(215, 58, 73, 0.25);">Source text removed — the containing book or section was deleted</div>`;
 
-      // Check if a parent book survives (sub-book was deleted but parent still exists)
-      const ancestor = await findSurvivingAncestor(hyperciteBook);
-      if (ancestor) {
-        const ancestorTitle = ancestor.libraryData.title || ancestor.bookId;
-        deadNavLink = `<div style="margin-top: 0.5em;"><a href="/${encodeURIComponent(ancestor.bookId)}" style="color: #4EACAE; text-decoration: none; font-size: 13px;">View in containing book: ${ancestorTitle} ↗</a></div>`;
-      }
+      // Ancestor link injected post-open by resolveButtonStatus()
+      deadNavLink = `<div data-needs-ancestor-check="true" data-hypercite-book="${hyperciteBook}" style="margin-top: 0.5em;"></div>`;
     }
 
     return `
@@ -306,7 +303,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
         ${deadNavLink}
         <div style="margin-top: ${isGhost || isDead ? '0.5em' : '1em'};">
           <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
-            ${buttonText}
+            ${buttonText}${buttonSuffix}
           </a>
         </div>
         <hr style="margin: 2em 0; opacity: 0.5;">
@@ -319,5 +316,79 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
         <div class="error">Error loading citation</div>
         <hr style="margin: 2em 0; opacity: 0.5;">
       </div>`;
+  }
+}
+
+/**
+ * Post-open resolution for hypercite-citation buttons.
+ * Called from handlePostOpenActions after the container is visible.
+ * - Resolves private book access (enables/disables button)
+ * - Injects surviving ancestor link for dead books
+ * - Pre-caches nodes via full resolveHypercite for navigation
+ * @param {Object} contentType - The hypercite-citation content type
+ * @param {IDBDatabase|null} db - Optional reused database connection
+ */
+export async function resolveButtonStatus(contentType, db) {
+  try {
+    const { targetBook, targetHyperciteId } = contentType;
+
+    // Guard: return early if container closed
+    const container = document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
+    if (!container) return;
+
+    // Handle access check for private books
+    const accessCheckBtn = container.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
+    if (accessCheckBtn) {
+      const { canUserEditBook } = await import('../../utilities/auth.js');
+      const bookId = accessCheckBtn.getAttribute('data-book-id');
+      const hasAccess = await canUserEditBook(bookId);
+
+      accessCheckBtn.removeAttribute('data-needs-access-check');
+      const spinner = accessCheckBtn.querySelector('.btn-spinner');
+
+      if (hasAccess) {
+        // Enable button — user can navigate to source
+        accessCheckBtn.style.opacity = '';
+        accessCheckBtn.style.pointerEvents = '';
+        if (spinner) spinner.remove();
+      } else {
+        // Update to private denied state
+        accessCheckBtn.style.opacity = '0.6';
+        accessCheckBtn.style.cursor = 'not-allowed';
+        accessCheckBtn.style.pointerEvents = '';
+        accessCheckBtn.setAttribute('data-access', 'denied');
+        if (spinner) spinner.remove();
+        // Update button text — ghost+private gets distinct denied text
+        const isGhost = accessCheckBtn.hasAttribute('data-ghost');
+        const deniedText = isGhost ? 'Ghost in private source ' : 'source text private ';
+        accessCheckBtn.childNodes.forEach(node => {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+            node.textContent = deniedText;
+          }
+        });
+      }
+    }
+
+    // Handle ancestor check for dead books
+    const ancestorCheckEl = container.querySelector('[data-needs-ancestor-check="true"]');
+    if (ancestorCheckEl) {
+      const hyperciteBook = ancestorCheckEl.getAttribute('data-hypercite-book');
+      if (hyperciteBook) {
+        const ancestor = await findSurvivingAncestor(hyperciteBook);
+        if (ancestor) {
+          const ancestorTitle = ancestor.libraryData.title || ancestor.bookId;
+          ancestorCheckEl.innerHTML = `<a href="/${encodeURIComponent(ancestor.bookId)}" style="color: #4EACAE; text-decoration: none; font-size: 13px;">View in containing book: ${ancestorTitle} ↗</a>`;
+        }
+      }
+      ancestorCheckEl.removeAttribute('data-needs-ancestor-check');
+    }
+
+    // Fire-and-forget: run full resolveHypercite to pre-cache nodes for navigation
+    if (targetBook && targetHyperciteId) {
+      const { resolveHypercite } = await import('../../indexedDB/hypercites/helpers.js');
+      resolveHypercite(targetBook, targetHyperciteId);
+    }
+  } catch (error) {
+    console.warn('resolveButtonStatus error:', error);
   }
 }

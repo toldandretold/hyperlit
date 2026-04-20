@@ -5,7 +5,7 @@ import { getCurrentUserId } from "./auth.js";
  * @param {string} bibtex - The BibTeX string.
  * @returns {Promise<string>} - The formatted citation.
  */
-export async function formatBibtexToCitation(bibtex) {
+export async function formatBibtexToCitation(bibtex, preResolvedUserId = null) {
   // Helper to pull out all key = { value } or "value" pairs
   const parseBibtex = (bibtex) => {
     const fields = {};
@@ -21,7 +21,7 @@ export async function formatBibtexToCitation(bibtex) {
   const fields = parseBibtex(bibtex);
   console.log("🔍 Parsed BibTeX fields:", fields);
   const rawAuthor = fields.author || "";
-  const currentUserId = await getCurrentUserId();
+  const currentUserId = preResolvedUserId || await getCurrentUserId();
 
   // Decide what to show for author
   let author;
