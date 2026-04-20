@@ -383,11 +383,6 @@ export async function resolveButtonStatus(contentType, db) {
       ancestorCheckEl.removeAttribute('data-needs-ancestor-check');
     }
 
-    // Fire-and-forget: run full resolveHypercite to pre-cache nodes for navigation
-    if (targetBook && targetHyperciteId) {
-      const { resolveHypercite } = await import('../../indexedDB/hypercites/helpers.js');
-      resolveHypercite(targetBook, targetHyperciteId);
-    }
   } catch (error) {
     console.warn('resolveButtonStatus error:', error);
   }
