@@ -114,33 +114,34 @@ class UserHomeServerController extends Controller
             return;
         }
 
-        // Failsafe for private home book: regenerate if library count doesn't match node count
+        // Failsafe for private home book: regenerate if actual book IDs don't match
         // Use admin connection to bypass RLS - trusted backend operation
         if ($visibility === 'private') {
-            $bookCount = DB::connection('pgsql_admin')->table('library')
+            $libraryBooks = DB::connection('pgsql_admin')->table('library')
                 ->where('creator', $username)
                 ->where('book', '!=', $sanitizedUsername)
                 ->where('book', '!=', $sanitizedUsername . 'Private')
                 ->where('book', '!=', $sanitizedUsername . 'Account')
                 ->where('book', 'NOT LIKE', '%/%')
                 ->where('visibility', 'private')
-                ->count();
+                ->pluck('book')
+                ->sort()
+                ->values();
 
-            $nodeCount = DB::connection('pgsql_admin')->table('nodes')
+            $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
                 ->where('book', $bookName)
                 ->where('startLine', '>', 0)
-                ->count();
+                ->pluck('raw_json')
+                ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
+                ->filter()
+                ->sort()
+                ->values();
 
-            Log::info('Private home book failsafe check.', [
-                'username' => $username,
-                'book_count' => $bookCount, 'node_count' => $nodeCount,
-                'book_name' => $bookName,
-            ]);
-
-            if ($bookCount !== $nodeCount) {
-                Log::info('Regenerating private home book due to count mismatch.', [
+            if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
+                Log::info('Regenerating private home book due to book ID mismatch.', [
                     'username' => $username,
-                    'book_count' => $bookCount, 'node_count' => $nodeCount,
+                    'missing' => $libraryBooks->diff($nodeBooks)->values(),
+                    'extra' => $nodeBooks->diff($libraryBooks)->values(),
                 ]);
                 $this->generateUserHomeBook($username, $isOwner, $visibility);
             }
