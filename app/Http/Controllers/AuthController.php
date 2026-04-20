@@ -425,6 +425,13 @@ class AuthController extends Controller
                 $updatedCounts['PgHypercite'] = $hypercitesCount->count ?? 0;
             });
 
+            // Regenerate user home books so claimed books appear on profile immediately
+            if (($updatedCounts['PgLibrary'] ?? 0) > 0) {
+                $homeController = app(UserHomeServerController::class);
+                $homeController->generateUserHomeBook($user->name, true, 'public');
+                $homeController->generateUserHomeBook($user->name, true, 'private');
+            }
+
             Log::info('Content associated successfully', [
                 'user' => $user->name,
                 'token_prefix' => substr($requestedToken, 0, 8) . '...',
