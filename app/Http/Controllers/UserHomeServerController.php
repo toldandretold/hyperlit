@@ -115,8 +115,9 @@ class UserHomeServerController extends Controller
         }
 
         // Failsafe for private home book: regenerate if library count doesn't match node count
+        // Use admin connection to bypass RLS - trusted backend operation
         if ($visibility === 'private') {
-            $bookCount = DB::table('library')
+            $bookCount = DB::connection('pgsql_admin')->table('library')
                 ->where('creator', $username)
                 ->where('book', '!=', $sanitizedUsername)
                 ->where('book', '!=', $sanitizedUsername . 'Private')
@@ -125,7 +126,7 @@ class UserHomeServerController extends Controller
                 ->where('visibility', 'private')
                 ->count();
 
-            $nodeCount = DB::table('nodes')
+            $nodeCount = DB::connection('pgsql_admin')->table('nodes')
                 ->where('book', $bookName)
                 ->where('startLine', '>', 0)
                 ->count();
@@ -159,7 +160,9 @@ class UserHomeServerController extends Controller
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
         // Query database using actual username for creator field
-        $records = DB::table('library')
+        // Use admin connection to bypass RLS - trusted backend operation
+        // (RLS blocks private books when called from auth controller after token transfer)
+        $records = DB::connection('pgsql_admin')->table('library')
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at'])
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
