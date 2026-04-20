@@ -26,9 +26,26 @@ export function detectFormat(htmlContent) {
 
   console.log('🔍 Detecting format from pasted content...');
 
+  // Domain-only matches are saved as fallback — structural matches always win
+  let domainOnlyFallback = null;
+
   for (const [formatType, config] of formats) {
     // Fallback format (general) has no selectors - always matches
     if (config.selectors.length === 0) {
+      // Use domain-only fallback if we found one, otherwise use general
+      if (domainOnlyFallback) {
+        const { formatType: fbType, matchedSelectors: fbSels, totalMatches: fbTotal, config: fbConfig } = domainOnlyFallback;
+        console.log(`📚 Detected ${fbType} format (domain-only fallback):`);
+        console.log(`  - Matched ${fbSels.length}/${fbConfig.selectors.length} selector patterns`);
+        console.log(`  - Total elements: ${fbTotal}`);
+        console.log(`  - Priority: ${fbConfig.priority}`);
+        console.log(`  - Description: ${fbConfig.description}`);
+        fbSels.forEach(sel => {
+          const count = tempDiv.querySelectorAll(sel).length;
+          console.log(`    ✓ ${sel} (${count} matches)`);
+        });
+        return fbType;
+      }
       console.log(`📚 Using fallback format: ${formatType}`);
       return formatType;
     }
@@ -49,8 +66,17 @@ export function detectFormat(htmlContent) {
       }
     }
 
-    // If we found matches, this is our format
+    // If we found matches, check whether they're all domain-based (href*=)
     if (matchedSelectors.length > 0) {
+      const allDomainOnly = matchedSelectors.every(sel => /^a\[href\*=/.test(sel));
+
+      if (allDomainOnly && !domainOnlyFallback) {
+        // Save as fallback — continue checking lower-priority formats for structural matches
+        console.log(`  ⏳ ${formatType}: domain-only match, saving as fallback`);
+        domainOnlyFallback = { formatType, matchedSelectors, totalMatches, config };
+        continue;
+      }
+
       console.log(`📚 Detected ${formatType} format:`);
       console.log(`  - Matched ${matchedSelectors.length}/${config.selectors.length} selector patterns`);
       console.log(`  - Total elements: ${totalMatches}`);

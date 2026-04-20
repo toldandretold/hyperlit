@@ -186,6 +186,11 @@ export class BaseFormatProcessor {
       if (ref.originalAnchorId && ref.referenceId) {
         referenceMappings.set(ref.originalAnchorId, ref.referenceId);
       }
+
+      // Also map xmlRid if present (for Sage citation links like <a href="#bibr4-...">)
+      if (ref.xmlRid && ref.referenceId) {
+        referenceMappings.set(ref.xmlRid, ref.referenceId);
+      }
     });
 
     console.log(`  - Built reference mappings: ${referenceMappings.size} keys for ${references.length} references`);
