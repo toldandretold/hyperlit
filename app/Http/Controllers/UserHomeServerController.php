@@ -131,6 +131,12 @@ class UserHomeServerController extends Controller
                 ->where('startLine', '>', 0)
                 ->count();
 
+            Log::info('Private home book failsafe check.', [
+                'username' => $username,
+                'book_count' => $bookCount, 'node_count' => $nodeCount,
+                'book_name' => $bookName,
+            ]);
+
             if ($bookCount !== $nodeCount) {
                 Log::info('Regenerating private home book due to count mismatch.', [
                     'username' => $username,
