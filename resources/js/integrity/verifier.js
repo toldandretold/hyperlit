@@ -82,9 +82,31 @@ async function _verifySync(bookId, nodeIds) {
   const tx = db.transaction('nodes', 'readonly');
   const store = tx.objectStore('nodes');
 
+  // Scope DOM lookups to the correct book container to avoid collisions
+  // (nested sub-books all have nodes with id="1", id="2", etc.)
+  const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+    || document.getElementById(bookId);
+
+  // For sub-books: if the container has been destroyed (closed), bail entirely.
+  // Without this, getElementById("1") finds the PARENT book's node and
+  // the false mismatch triggers self-healing that overwrites IDB with wrong content.
+  const isSubBook = bookId.includes('/');
+  if (isSubBook && !bookContainer) {
+    console.warn(`[integrity] Sub-book container gone for ${bookId} — skipping verification`);
+    return { ok, mismatches, missingFromIDB, duplicateIds };
+  }
+
   const checks = nodeIds.map((nodeId) => {
     return new Promise((res) => {
-      const domEl = document.getElementById(nodeId);
+      // Scoped lookup within the book container (avoids duplicate-ID collisions)
+      let domEl = null;
+      if (bookContainer) {
+        domEl = bookContainer.querySelector(`[id="${nodeId}"]`);
+      }
+      // Fallback to global only for main content (no sub-book path separator)
+      if (!domEl && !isSubBook) {
+        domEl = document.getElementById(nodeId);
+      }
       if (!domEl) {
         // Node not rendered (lazy-loaded away) — skip silently
         return res();
@@ -100,9 +122,12 @@ async function _verifySync(bookId, nodeIds) {
 
       req.onsuccess = () => {
         const record = req.result;
+        const dataNodeId = domEl.getAttribute('data-node-id') || null;
+
         if (!record) {
           missingFromIDB.push({
-            nodeId: String(nodeId),
+            startLine: String(nodeId),
+            nodeId: dataNodeId,
             tag: domEl.tagName,
             domText: domText.substring(0, 300),
           });
@@ -115,7 +140,8 @@ async function _verifySync(bookId, nodeIds) {
           ok.push(String(nodeId));
         } else {
           mismatches.push({
-            nodeId: String(nodeId),
+            startLine: String(nodeId),
+            nodeId: dataNodeId,
             domText: domText.substring(0, 300),
             idbText: idbText.substring(0, 300),
           });

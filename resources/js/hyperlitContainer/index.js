@@ -316,11 +316,11 @@ async function handleEditButtonClick() {
     }
   }
 
-  // Toggle contenteditable on all editable elements in-place
-  toggleContentEditableInPlace(newState);
-
   // Attach or detach edit listeners
   if (newState) {
+    // Toggle contenteditable BEFORE attaching observers (enable path only).
+    // The disable path moves this to AFTER stopObserving() — see below.
+    toggleContentEditableInPlace(true);
     const { attachNoteListeners, initializePlaceholders } = await import('./noteListener.js');
     attachNoteListeners();
     initializePlaceholders();
@@ -371,6 +371,12 @@ async function handleEditButtonClick() {
       // Tear down observer (already flushed by prepareContainerClose)
       const { stopObserving } = await import('../divEditor/index.js');
       await stopObserving();
+
+      // Toggle contenteditable AFTER the observer is disconnected.
+      // The browser's text-node normalization from contenteditable=false generates
+      // artifact childList mutations. By disconnecting first, those mutations are
+      // never captured, preventing stale IDB writes to the wrong book.
+      toggleContentEditableInPlace(false);
 
       // Hide toolbar if main book was in read mode
       if (!previousIsEditing) {

@@ -30,7 +30,7 @@ let _modalEl = null;
  *
  * @param {Object} opts
  * @param {string}   opts.bookId       - Affected book
- * @param {Array}    opts.mismatches   - Array of {nodeId, domText, idbText}
+ * @param {Array}    opts.mismatches   - Array of {startLine, nodeId, domText, idbText}
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
@@ -59,12 +59,13 @@ export function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB
   const payload = {
     bookId,
     mismatches: mismatches.map(m => ({
-      nodeId: m.nodeId,
+      startLine: m.startLine || m.nodeId,
+      nodeId: m.nodeId || null,
       domText: (m.domText || '').substring(0, 500),
       idbText: (m.idbText || '').substring(0, 500),
     })),
     missingFromIDB: missingFromIDB.map(m =>
-      typeof m === 'object' ? { nodeId: m.nodeId, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { nodeId: m }
+      typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
     ),
     duplicateIds,
     trigger,
@@ -189,28 +190,34 @@ function _showModal(bookId, payload, selfHealed = false) {
   const card = document.createElement('div');
   card.className = 'integrity-card';
 
+  const premiumParagraph = `
+    <h3>Free Premium</h3>
+    <p>As compensation for this travesty, you have been awarded one month premium membership,
+    including free PDF conversion, AI Archivist, and Citation Review.</p>
+  `;
+
   const disclosureParagraph = `
     <div class="integrity-disclosure">
-      <p>As compensation for this travesty, you have been awarded one month premium membership, including
-      free PDF conversion, AI Archivist, and Citation Review.</p>
       <h3>Why send a report?</h3>
       <p>Support the digital knowledge commons.</p>
       <h3>Why not send a report?</h3>
       <p>Requires sending some potentially private HTML to
       fml@hyperlit.io. You will <em>always</em> have full personal data sovereignty.</p>
-      <p>Much thanks and apologies for this inconvenience comrade.</p>
+      <p>Much thanks comrade.</p>
     </div>
   `;
 
   if (selfHealed) {
     card.innerHTML = `
+      <h2>Apologies comrade</h2>
       <p>
-        Apologies comrade. Hyperlit detected a data sync issue and automatically
+        Hyperlit detected a data sync issue and automatically
         fixed it. We believe no data was lost. However, to be safe it is
-        recommended to download copies to markdown:
+        recommended to download a backup:
       </p>
+      ${premiumParagraph}
       <div style="margin:0 0 20px;">
-        <button id="integrity-download-btn" class="integrity-btn-download">Download emergency backup</button>
+        <button id="integrity-download-btn" class="integrity-btn-download">Black Box Emergency Backup</button>
       </div>
       <p style="margin:0 0 12px;">
         If you would be so kind, could you approve a bug report?
@@ -229,13 +236,14 @@ function _showModal(bookId, payload, selfHealed = false) {
     `;
   } else {
     card.innerHTML = `
+      <h2>Apologies comrade</h2>
       <p>
-        Apologies comrade. Hyperlit is in pre-beta testing. We have detected data
-        loss (our bad). We recommend pressing this button to download all data as
-        markdown so you won't lose any of your work:
+        Hyperlit is in pre-beta testing. We have detected data
+        loss (our bad). We recommend downloading a backup so you won't lose any of your work:
       </p>
+      ${premiumParagraph}
       <div style="margin:0 0 20px;">
-        <button id="integrity-download-btn" class="integrity-btn-download">Download emergency backup</button>
+        <button id="integrity-download-btn" class="integrity-btn-download">Black Box Emergency Backup</button>
       </div>
       <p style="margin:0 0 12px;">
         If you would be so kind, could you approve a bug report?

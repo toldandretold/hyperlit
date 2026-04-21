@@ -48,6 +48,7 @@ const DEBOUNCE_DELAYS = {
 export class SaveQueue {
   constructor(bookId = null) {
     this.bookId = bookId;
+    this._destroyed = false;
     this._fullVerifyTimer = null;
     // Track what needs to be saved
     this.pendingSaves = {
@@ -157,6 +158,7 @@ export class SaveQueue {
    * Save queued nodes to database
    */
   async saveNodeToDatabase() {
+    if (this._destroyed) return;
     verbose.content(`saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue.js');
     if (this.pendingSaves.nodes.size === 0) {
       verbose.content('saveNodeToDatabase: no pending nodes, returning', 'divEditor/saveQueue.js');
@@ -408,6 +410,8 @@ export class SaveQueue {
     // Without this, requestIdleCallback fires between keystrokes before the
     // node enters pendingSaves, causing false integrity mismatches.
     setTimeout(() => {
+      // Bail if this SaveQueue was destroyed (e.g., sub-book closed)
+      if (this._destroyed) return;
       // Bail if new saves were queued during the delay — next save will re-verify
       if (this.pendingSaves.nodes.size > 0) return;
 
@@ -428,8 +432,8 @@ export class SaveQueue {
           const result = await verifyNodesIntegrity(effectiveBookId, nodeIds);
 
           const failedIds = [
-            ...result.missingFromIDB.map(m => typeof m === 'object' ? m.nodeId : m),
-            ...result.mismatches.map(m => m.nodeId),
+            ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
+            ...result.mismatches.map(m => m.startLine || m.nodeId),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -439,7 +443,7 @@ export class SaveQueue {
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
               const safeToHeal = failedIds.filter(id => {
-                const m = result.mismatches.find(m => m.nodeId === id);
+                const m = result.mismatches.find(m => (m.startLine || m.nodeId) === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -524,8 +528,8 @@ export class SaveQueue {
           const result = await verifyNodesIntegrity(bookId, nodeIds);
 
           const failedIds = [
-            ...result.missingFromIDB.map(m => typeof m === 'object' ? m.nodeId : m),
-            ...result.mismatches.map(m => m.nodeId),
+            ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
+            ...result.mismatches.map(m => m.startLine || m.nodeId),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -534,7 +538,7 @@ export class SaveQueue {
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
               const safeToHeal = failedIds.filter(id => {
-                const m = result.mismatches.find(m => m.nodeId === id);
+                const m = result.mismatches.find(m => (m.startLine || m.nodeId) === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -671,6 +675,7 @@ export class SaveQueue {
    * Cleanup and cancel all pending operations
    */
   destroy() {
+    this._destroyed = true;
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
     if (this._fullVerifyTimer) {
