@@ -27,6 +27,7 @@ use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\VibeCSSController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibesController;
+use App\Http\Controllers\IntegrityReportController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -116,6 +117,10 @@ Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSessio
 Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
 Route::middleware(['author', 'throttle:120,1'])->group(function () {
+
+    /* ----------------  Integrity Report  ---------------- */
+    Route::post('/integrity/report', [IntegrityReportController::class, 'report'])
+        ->middleware('throttle:10,1');
 
     /* ----------------  Unified Sync Endpoint  ---------------- */
     Route::post(

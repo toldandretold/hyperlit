@@ -11,6 +11,7 @@ import { debounce } from '../../divEditor/saveQueue.js';
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds.js';
 import { withPending } from '../../utilities/operationState.js';
 import { queueForSync } from '../syncQueue/queue.js';
+import { reportIntegrityFailure } from '../../integrity/reporter.js';
 
 // Dependencies that change per-book
 let book;
@@ -642,6 +643,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
           console.error(
             `Skipping batch update for invalid node ID: '${record.id}' which parsed to NaN.`,
           );
+          reportIntegrityFailure({
+            bookId,
+            mismatches: [],
+            missingFromIDB: [String(record.id)],
+            trigger: 'batch-nan-id',
+          });
           return resolve(); // Resolve and skip this invalid record.
         }
 

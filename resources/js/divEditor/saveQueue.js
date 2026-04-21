@@ -19,6 +19,10 @@ import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 import { TAB_ID } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
+import { verifyNodesIntegrity } from '../integrity/verifier.js';
+import { reportIntegrityFailure } from '../integrity/reporter.js';
+import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
+import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
 
 // Re-export debounce for backwards compatibility
 export { debounce };
@@ -44,6 +48,7 @@ const DEBOUNCE_DELAYS = {
 export class SaveQueue {
   constructor(bookId = null) {
     this.bookId = bookId;
+    this._fullVerifyTimer = null;
     // Track what needs to be saved
     this.pendingSaves = {
       nodes: new Map(),
@@ -75,6 +80,10 @@ export class SaveQueue {
     console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, current pending: ${this.pendingSaves.nodes.size}`);
     this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
+
+    // Dismiss large-paste undo toast on any subsequent edit
+    hidePasteUndoToast();
+    clearPasteSnapshot();
 
     verbose.content(`Queued node ${IDnumerical} for ${action}`, 'divEditor/saveQueue.js');
     console.log(`🎯 SaveQueue: calling debouncedSaveNode`);
@@ -209,6 +218,8 @@ export class SaveQueue {
               }
             }
           }
+          // Non-blocking integrity verification after successful save
+          this._verifyAfterSave(recordsByBookId);
         } else {
           console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
         }
@@ -365,6 +376,91 @@ export class SaveQueue {
   }
 
   /**
+   * Non-blocking post-save integrity verification.
+   * Runs in requestIdleCallback so it never blocks typing.
+   */
+  _verifyAfterSave(recordsByBookId) {
+    const schedule = typeof requestIdleCallback === 'function'
+      ? (fn) => requestIdleCallback(fn, { timeout: 3000 })
+      : (fn) => setTimeout(fn, 100);
+
+    schedule(async () => {
+      try {
+        for (const [bookId, records] of recordsByBookId) {
+          const effectiveBookId = bookId || currentBook;
+          if (!effectiveBookId) continue;
+
+          const nodeIds = records.map(r => r.id).filter(Boolean);
+          if (nodeIds.length === 0) continue;
+
+          const result = await verifyNodesIntegrity(effectiveBookId, nodeIds);
+
+          if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0) {
+            reportIntegrityFailure({
+              bookId: effectiveBookId,
+              mismatches: result.mismatches,
+              missingFromIDB: result.missingFromIDB,
+              duplicateIds: result.duplicateIds,
+              trigger: 'save',
+            });
+          }
+
+          // Schedule a full-book scan on a longer debounce
+          this._scheduleFullVerification(effectiveBookId);
+        }
+      } catch (e) {
+        console.warn('[integrity] Post-save verification error:', e);
+      }
+    });
+  }
+
+  /**
+   * Schedule a full-book verification that scans ALL visible nodes against IDB.
+   * Debounced at 10s after the last save settles, runs in requestIdleCallback.
+   */
+  _scheduleFullVerification(bookId) {
+    if (this._fullVerifyTimer) clearTimeout(this._fullVerifyTimer);
+    this._fullVerifyTimer = setTimeout(() => {
+      this._fullVerifyTimer = null;
+      const schedule = typeof requestIdleCallback === 'function'
+        ? (fn) => requestIdleCallback(fn, { timeout: 5000 })
+        : (fn) => setTimeout(fn, 200);
+
+      schedule(async () => {
+        const container = document.querySelector(`[data-book-id="${bookId}"]`)
+          || document.getElementById(bookId);
+        if (!container) return;
+
+        const nodeEls = container.querySelectorAll('[id]');
+        const nodeIds = [];
+        nodeEls.forEach(el => {
+          if (/^\d+(\.\d+)?$/.test(el.id)) nodeIds.push(el.id);
+        });
+        if (nodeIds.length === 0) return;
+
+        try {
+          console.log(`[integrity] Full-book verification: checking ${nodeIds.length} nodes for ${bookId}`);
+          const result = await verifyNodesIntegrity(bookId, nodeIds);
+
+          if (result.missingFromIDB.length > 0 || result.mismatches.length > 0 || result.duplicateIds.length > 0) {
+            reportIntegrityFailure({
+              bookId,
+              mismatches: result.mismatches,
+              missingFromIDB: result.missingFromIDB,
+              duplicateIds: result.duplicateIds,
+              trigger: 'periodic-save',
+            });
+          } else {
+            console.log(`[integrity] Full-book verification: all ${result.ok.length} nodes OK`);
+          }
+        } catch (e) {
+          console.warn('[integrity] Full-book verification error:', e);
+        }
+      });
+    }, 10_000);
+  }
+
+  /**
    * Force save all pending changes immediately
    */
   async flush() {
@@ -444,6 +540,10 @@ export class SaveQueue {
   destroy() {
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
+    if (this._fullVerifyTimer) {
+      clearTimeout(this._fullVerifyTimer);
+      this._fullVerifyTimer = null;
+    }
     this.stopMonitoring();
     this.pendingSaves.nodes.clear();
     this.pendingSaves.deletions.clear();

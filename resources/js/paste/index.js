@@ -34,11 +34,12 @@ import {
 // Import handlers
 import { handleCodeBlockPaste } from './handlers/codeBlockHandler.js';
 import { handleSmallPaste } from './handlers/smallPasteHandler.js';
-import { handleLargePaste } from './handlers/largePasteHandler.js';
+import { handleLargePaste, undoLastLargePaste } from './handlers/largePasteHandler.js';
 import { handleHypercitePaste, extractQuotedText } from './handlers/hyperciteHandler.js';
 
 // Import UI
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { showPasteUndoToast } from './ui/pasteUndoToast.js';
 
 // Import utilities
 import { detectFormat } from './format-detection/format-detector.js';
@@ -51,6 +52,8 @@ import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
 import { stripMarkTags, convertDefinitionListTags } from './utils/normalizer.js';
+import { verifyNodesIntegrity } from '../integrity/verifier.js';
+import { reportIntegrityFailure } from '../integrity/reporter.js';
 
 // Configure marked options
 marked.setOptions({
@@ -179,6 +182,89 @@ async function syncPasteToPostgreSQL(bookId) {
     glowCloudRed();
     throw error; // Re-throw for caller's catch block
   }
+}
+
+/**
+ * Schedule a post-paste integrity check.
+ * Waits 500ms for MutationObserver to re-queue nodes, then flushes all
+ * pending saves and verifies DOM nodes made it to IndexedDB.
+ */
+function _schedulePasteVerification(bookId, pasteOpId) {
+  if (!bookId) return;
+
+  setTimeout(async () => {
+    try {
+      // Flush all pending saves (cancels debounce timers, awaits in-flight writes)
+      const { flushAllPendingSaves, queueNodeForSave } = await import('../divEditor/index.js');
+      await flushAllPendingSaves();
+
+      // Collect all rendered node IDs for this book
+      const container = document.querySelector(`[data-book-id="${bookId}"]`)
+        || document.getElementById(bookId);
+      if (!container) return;
+
+      const nodeEls = container.querySelectorAll('[id]');
+      const nodeIds = [];
+      nodeEls.forEach(el => {
+        if (/^\d+(\.\d+)?$/.test(el.id)) {
+          nodeIds.push(el.id);
+        }
+      });
+
+      if (nodeIds.length === 0) return;
+
+      console.log(`[integrity] Post-paste check (${pasteOpId}): verifying ${nodeIds.length} nodes`);
+      const result = await verifyNodesIntegrity(bookId, nodeIds);
+
+      const hasIssues = result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0;
+
+      if (hasIssues) {
+        // Self-healing: re-queue failed nodes for save and retry once
+        const failedIds = [
+          ...result.missingFromIDB.map(m => m.nodeId),
+          ...result.mismatches.map(m => m.nodeId),
+        ];
+
+        if (failedIds.length > 0) {
+          console.log(`[integrity] Self-healing: re-queuing ${failedIds.length} failed nodes for save`);
+          for (const id of failedIds) {
+            queueNodeForSave(id, 'update', bookId);
+          }
+          await flushAllPendingSaves();
+
+          // Re-verify after retry
+          const retryResult = await verifyNodesIntegrity(bookId, nodeIds);
+          const stillHasIssues = retryResult.mismatches.length > 0 || retryResult.missingFromIDB.length > 0 || retryResult.duplicateIds.length > 0;
+
+          if (stillHasIssues) {
+            console.warn(`[integrity] Self-healing failed — reporting (${pasteOpId})`);
+            reportIntegrityFailure({
+              bookId,
+              mismatches: retryResult.mismatches,
+              missingFromIDB: retryResult.missingFromIDB,
+              duplicateIds: retryResult.duplicateIds,
+              trigger: 'paste',
+            });
+          } else {
+            console.log(`[integrity] Self-healing succeeded (${pasteOpId}): all ${retryResult.ok.length} nodes verified OK after retry`);
+          }
+        } else if (result.duplicateIds.length > 0) {
+          // Duplicates only — can't self-heal, just report
+          reportIntegrityFailure({
+            bookId,
+            mismatches: result.mismatches,
+            missingFromIDB: result.missingFromIDB,
+            duplicateIds: result.duplicateIds,
+            trigger: 'paste',
+          });
+        }
+      } else {
+        console.log(`[integrity] Post-paste check (${pasteOpId}): all ${result.ok.length} nodes verified OK`);
+      }
+    } catch (e) {
+      console.warn('[integrity] Post-paste verification error:', e);
+    }
+  }, 500);
 }
 
 /**
@@ -444,6 +530,9 @@ async function handlePaste(event) {
     if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, targetBookId)) {
       // Small paste completed - hide overlay if it was shown (markdown conversion)
       await ProgressOverlayConductor.hide();
+
+      // Post-paste integrity check: 3s delay (1.5s debounce + 1.5s margin)
+      _schedulePasteVerification(targetBookId, pasteOpId);
       return;
     }
 
@@ -603,6 +692,17 @@ async function handlePaste(event) {
 
     console.log(`🎯 [${pasteOpId}] Paste render complete`);
 
+    // Clear the browser's undo stack — the DOM was rebuilt via lazy loader,
+    // so stale undo entries would reference dead nodes and cause phantom saves.
+    // Toggling contentEditable is the standard way to reset the undo stack.
+    if (loader.container) {
+      loader.container.contentEditable = 'false';
+      loader.container.contentEditable = 'true';
+    }
+
+    // Show undo toast for large paste
+    showPasteUndoToast(() => undoLastLargePaste());
+
     // Sync FULL BOOK to PostgreSQL in background (fire and forget - don't block user)
     // Full sync ensures no orphaned records after paste renumbering
     syncPasteToPostgreSQL(pasteBook).catch(err => {
@@ -611,6 +711,9 @@ async function handlePaste(event) {
     });
 
     console.log(`🎯 [${pasteOpId}] Paste operation complete (full book sync happening in background)`);
+
+    // Post-paste integrity check for large pastes
+    _schedulePasteVerification(pasteBook, pasteOpId);
 
   } finally {
     // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.

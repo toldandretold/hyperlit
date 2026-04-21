@@ -10,7 +10,8 @@ import { NODE_LIMIT } from '../../chunkManager.js';
 import {
   getNodeChunksAfter,
   deleteNodeChunksAfter,
-  writeNodeChunks
+  writeNodeChunks,
+  getNodeChunksFromIndexedDB
 } from '../../indexedDB/index.js';
 import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
@@ -18,6 +19,9 @@ import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds.js';
+
+// Snapshot for undo support
+let lastPasteSnapshot = null;
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -136,6 +140,11 @@ export async function handleLargePaste(
   console.log(`📊 [PASTE] Retrieved ${existingTailChunks.length} existing tail chunks:`,
     existingTailChunks.map(c => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
 
+  // Snapshot all nodes BEFORE any modifications (for undo support)
+  const allNodesBeforePaste = await getNodeChunksFromIndexedDB(book);
+  lastPasteSnapshot = { bookId: book, allNodes: [...allNodesBeforePaste] };
+  console.log(`📸 [PASTE] Snapshot saved: ${allNodesBeforePaste.length} nodes for undo`);
+
   // Delete old tail nodes from IndexedDB (they'll be re-inserted with new IDs)
   if (afterNodeId != null && existingTailChunks.length > 0) {
     console.log(`🗑️ [PASTE] Deleting ${existingTailChunks.length} old tail chunks from IndexedDB...`);
@@ -146,7 +155,6 @@ export async function handleLargePaste(
   // Now assign IDs to pasted nodes, knowing what exists
   // IMPORTANT: Don't trust insertionPoint.currentChunkNodeCount - it's from DOM, not IndexedDB
   // We need to count how many nodes are ACTUALLY in this chunk from what we just retrieved
-  const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index.js');
   const allNodesInBook = await getNodeChunksFromIndexedDB(book);
   const actualNodesInInsertionChunk = allNodesInBook.filter(n => n.chunk_id === insertionPoint.chunkId).length;
 
@@ -319,4 +327,96 @@ export async function handleLargePaste(
   // Return data for DOM insertion
   // PostgreSQL sync will happen in background after DOM is visible (in index.js)
   return { chunks: toWrite, book: insertionPoint.book };
+}
+
+/**
+ * Undo the last large paste by restoring the pre-paste snapshot.
+ * Deletes all current nodes, restores snapshot, refreshes lazy loader, syncs to PostgreSQL.
+ */
+export async function undoLastLargePaste() {
+  if (!lastPasteSnapshot) {
+    console.warn('No paste snapshot available for undo');
+    return;
+  }
+
+  const { bookId, allNodes } = lastPasteSnapshot;
+  lastPasteSnapshot = null;
+
+  console.log(`⏪ Undoing large paste: restoring ${allNodes.length} nodes for book ${bookId}`);
+
+  // Suppress MutationObserver + integrity checks during undo (same as paste handler)
+  const { setPasteInProgress } = await import('../../utilities/operationState.js');
+  setPasteInProgress(true);
+
+  ProgressOverlayConductor.showSPATransition(10, 'Undoing paste...', true);
+
+  try {
+    // 1. Delete all current nodes for this book
+    await deleteNodeChunksAfter(bookId, 0);
+
+    // 2. Restore snapshot nodes
+    if (allNodes.length > 0) {
+      await writeNodeChunks(allNodes);
+    }
+
+    ProgressOverlayConductor.updateProgress(60, 'Refreshing view...');
+
+    // 3. Refresh lazy loader (remove all chunks, reload chunk 0)
+    const { initializeMainLazyLoader } = await import('../../initializePage.js');
+    const loader = initializeMainLazyLoader();
+    loader.nodes = await loader.getNodeChunks();
+
+    const allChunks = Array.from(loader.container.querySelectorAll('[data-chunk-id]'));
+    allChunks.forEach(chunk => {
+      const chunkId = parseInt(chunk.dataset.chunkId);
+      chunk.remove();
+      loader.currentlyLoadedChunks.delete(chunkId);
+    });
+
+    loader.loadChunk(0, 'down');
+    loader.repositionSentinels();
+
+    // Clear browser undo stack — DOM was rebuilt, stale entries would cause phantom saves
+    if (loader.container) {
+      loader.container.contentEditable = 'false';
+      loader.container.contentEditable = 'true';
+    }
+
+    await ProgressOverlayConductor.hide();
+    console.log('✅ Large paste undo complete');
+
+    // 4. Full book sync to PostgreSQL in background
+    const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/editIndicator.js');
+    glowCloudOrange();
+
+    const response = await fetch('/api/db/node-chunks/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+      },
+      credentials: 'include',
+      body: JSON.stringify({ book: bookId, data: allNodes })
+    });
+
+    if (response.ok) {
+      glowCloudGreen();
+      console.log('✅ Paste undo synced to PostgreSQL');
+    } else {
+      glowCloudRed();
+      console.error('❌ Failed to sync paste undo to PostgreSQL');
+    }
+  } catch (error) {
+    console.error('❌ Error undoing large paste:', error);
+    await ProgressOverlayConductor.hide();
+  } finally {
+    setPasteInProgress(false);
+  }
+}
+
+/**
+ * Clear the paste snapshot (e.g. when user makes subsequent edits)
+ */
+export function clearPasteSnapshot() {
+  lastPasteSnapshot = null;
 }
