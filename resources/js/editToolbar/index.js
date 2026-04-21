@@ -141,7 +141,10 @@ class EditToolbar {
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
 
     this.isVisible = false;
-    this.isFormatting = false;
+  }
+
+  get isFormatting() {
+    return this.blockFormatter?.isCurrentlyFormatting() || false;
   }
 
   init() {

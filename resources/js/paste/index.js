@@ -54,6 +54,7 @@ import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/you
 import { stripMarkTags, convertDefinitionListTags } from './utils/normalizer.js';
 import { verifyNodesIntegrity } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
+import { startPasteCapture } from '../integrity/logCapture.js';
 
 // Configure marked options
 marked.setOptions({
@@ -285,6 +286,9 @@ async function handlePaste(event) {
   // This stops the browser from inserting unsanitized content
   event.preventDefault();
 
+  // Start capturing all console logs for this paste operation
+  startPasteCapture();
+
   // 🎯 Generate unique paste operation ID for tracing
   const pasteOpId = `paste_${Date.now()}`;
   console.log(`🎯 [${pasteOpId}] Starting paste operation`);
@@ -437,6 +441,8 @@ async function handlePaste(event) {
     // PRIORITIZE HTML PATH
     let extractedFootnotes = [];
     let extractedReferences = [];
+    // Track whether markdown conversion happened (used in toast summary)
+    let wasMarkdown = false;
 
     if (rawHtml.trim()) {
       console.log('🔧 [REFACTORED] Using new processor architecture');
@@ -492,6 +498,7 @@ async function handlePaste(event) {
     else {
       const isMarkdown = detectMarkdown(plainText);
       if (isMarkdown) {
+        wasMarkdown = true;
         console.log(`🎯 [${pasteOpId}] Markdown detected, converting to HTML`);
         event.preventDefault(); // This is now safe to call
 
@@ -707,8 +714,18 @@ async function handlePaste(event) {
       loader.container.contentEditable = 'true';
     }
 
-    // Show undo toast for large paste
-    showPasteUndoToast(() => undoLastLargePaste());
+    // Show undo toast for large paste (with conversion summary)
+    const conversionSummary = {
+      formatType,
+      wasMarkdown,
+      wasHtml: !!rawHtml.trim(),
+      footnoteCount: extractedFootnotes.length,
+      referenceCount: extractedReferences.length,
+      nodeCount: newAndUpdatedNodes.length,
+      bookId: pasteBook,
+      pastedContent: rawHtml.trim() || plainText,
+    };
+    showPasteUndoToast(() => undoLastLargePaste(), conversionSummary);
 
     // Sync FULL BOOK to PostgreSQL in background (fire and forget - don't block user)
     // Full sync ensures no orphaned records after paste renumbering

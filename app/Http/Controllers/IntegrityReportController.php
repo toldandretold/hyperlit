@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\IntegrityReportMail;
+use App\Mail\PasteGlitchReportMail;
 use App\Models\PgNodeChunk;
 
 class IntegrityReportController extends Controller
@@ -62,18 +63,45 @@ class IntegrityReportController extends Controller
             ]);
         }
 
-        $premiumGranted = false;
-        if ($user) {
-            $user->status = 'premium';
-            $user->save();
-            $premiumGranted = true;
-            Log::info('Premium granted for integrity report', ['userId' => $user->id]);
-        }
-
         return response()->json([
             'status' => 'received',
-            'premium_granted' => $premiumGranted,
         ]);
+    }
+
+    public function pasteGlitchReport(Request $request)
+    {
+        $data = $request->validate([
+            'bookId'              => 'required|string|max:500',
+            'conversionSummary'   => 'nullable|array',
+            'recentLogs'          => 'nullable|array|max:50',
+            'recentLogs.*.level'  => 'nullable|string|max:10',
+            'recentLogs.*.ts'     => 'nullable|numeric',
+            'recentLogs.*.msg'    => 'nullable|string|max:2000',
+            'pasteLogs'           => 'nullable|array|max:2000',
+            'pasteLogs.*.level'   => 'nullable|string|max:10',
+            'pasteLogs.*.ts'      => 'nullable|numeric',
+            'pasteLogs.*.msg'     => 'nullable|string|max:2000',
+            'pastedContent'       => 'nullable|string',
+            'url'                 => 'nullable|string|max:2000',
+            'userAgent'           => 'nullable|string|max:1000',
+            'timestamp'           => 'nullable|string|max:100',
+        ]);
+
+        $user = Auth::user();
+        $data['userId'] = $user?->id;
+        $data['userName'] = $user?->name ?? 'anonymous';
+
+        Log::warning('Paste conversion glitch report', $data);
+
+        try {
+            Mail::send(new PasteGlitchReportMail($data));
+        } catch (\Exception $e) {
+            Log::error('Failed to send paste glitch report email', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json(['status' => 'received']);
     }
 
     public function claimPremium(Request $request)

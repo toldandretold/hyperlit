@@ -344,7 +344,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         const { startObserving } = await import('../divEditor/index.js');
         const { addPasteListener } = await import('../paste/index.js');
 
-        startObserving(editableDiv);
+        startObserving(editableDiv, book);
         addPasteListener(editableDiv);
       } catch (error) {
         console.error("Error during UI update inside setTimeout:", error);

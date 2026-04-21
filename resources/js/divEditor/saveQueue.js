@@ -404,11 +404,18 @@ export class SaveQueue {
    * Runs in requestIdleCallback so it never blocks typing.
    */
   _verifyAfterSave(recordsByBookId) {
-    const schedule = typeof requestIdleCallback === 'function'
-      ? (fn) => requestIdleCallback(fn, { timeout: 3000 })
-      : (fn) => setTimeout(fn, 100);
+    // Delay 500ms so the 200ms input debounce can re-queue any active node.
+    // Without this, requestIdleCallback fires between keystrokes before the
+    // node enters pendingSaves, causing false integrity mismatches.
+    setTimeout(() => {
+      // Bail if new saves were queued during the delay — next save will re-verify
+      if (this.pendingSaves.nodes.size > 0) return;
 
-    schedule(async () => {
+      const schedule = typeof requestIdleCallback === 'function'
+        ? (fn) => requestIdleCallback(fn, { timeout: 3000 })
+        : (fn) => setTimeout(fn, 100);
+
+      schedule(async () => {
       try {
         for (const [bookId, records] of recordsByBookId) {
           const effectiveBookId = bookId || currentBook;
@@ -484,7 +491,8 @@ export class SaveQueue {
       } catch (e) {
         console.warn('[integrity] Post-save verification error:', e);
       }
-    });
+      });
+    }, 500);
   }
 
   /**

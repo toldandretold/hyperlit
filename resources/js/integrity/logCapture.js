@@ -10,6 +10,8 @@
 
 const _buffer = [];
 const MAX_ENTRIES = 50;
+const MAX_PASTE_ENTRIES = 2000;
+let _pasteBuffer = null;
 const _orig = { log: console.log, warn: console.warn, error: console.error };
 
 for (const level of ['log', 'warn', 'error']) {
@@ -21,12 +23,26 @@ for (const level of ['log', 'warn', 'error']) {
                 return '[unserializable]';
             }
         }).join(' ').substring(0, 2000);
-        _buffer.push({ level, ts: Date.now(), msg });
+        const entry = { level, ts: Date.now(), msg };
+        _buffer.push(entry);
         if (_buffer.length > MAX_ENTRIES) _buffer.shift();
+        if (_pasteBuffer !== null && _pasteBuffer.length < MAX_PASTE_ENTRIES) {
+            _pasteBuffer.push(entry);
+        }
         _orig[level](...args);
     };
 }
 
 export function getRecentLogs() {
     return [..._buffer];
+}
+
+export function startPasteCapture() {
+    _pasteBuffer = [];
+}
+
+export function getPasteLogs() {
+    const logs = _pasteBuffer;
+    _pasteBuffer = null;
+    return logs ?? [];
 }

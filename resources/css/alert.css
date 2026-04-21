@@ -201,11 +201,15 @@
 .integrity-btn-download {
   padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid #444;
-  background: var(--container-solid-bg);
-  color: var(--color-text);
+  border: 1px solid #b8860b;
+  background: #78650a;
+  color: #fff;
   cursor: pointer;
   font-size: 14px;
+}
+
+.integrity-btn-download:hover:not(:disabled) {
+  background: #99800d;
 }
 
 .integrity-btn-group {

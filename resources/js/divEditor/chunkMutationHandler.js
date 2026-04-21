@@ -405,6 +405,34 @@ export class ChunkMutationHandler {
       return;
     }
 
+    // Pre-scan: detect tag replacements (same ID in both removedNodes and addedNodes).
+    // Heading format changes use replaceChild(newEl, oldEl) where both share the same ID.
+    // Without this, the MutationObserver sees a spurious delete → re-add cycle.
+    const replacedNodeIds = new Set();
+    {
+      const removedIds = new Set();
+      const addedIds = new Set();
+      for (const m of mutations) {
+        if (m.type !== 'childList') continue;
+        for (const n of m.removedNodes) {
+          if (n.nodeType === Node.ELEMENT_NODE && n.id && NUMERICAL_ID_PATTERN.test(n.id)) {
+            removedIds.add(n.id);
+          }
+        }
+        for (const n of m.addedNodes) {
+          if (n.nodeType === Node.ELEMENT_NODE && n.id && NUMERICAL_ID_PATTERN.test(n.id)) {
+            addedIds.add(n.id);
+          }
+        }
+      }
+      for (const id of removedIds) {
+        if (addedIds.has(id)) replacedNodeIds.add(id);
+      }
+      if (replacedNodeIds.size > 0) {
+        console.log(`🔄 Tag replacement detected for IDs: ${[...replacedNodeIds].join(', ')} — skipping spurious delete/add`);
+      }
+    }
+
     // Track parent nodes that need updates
     const parentsToUpdate = new Set();
     let addedCount = 0;
@@ -438,6 +466,12 @@ export class ChunkMutationHandler {
 
             // Handle numerical ID deletions
             if (node.id && NUMERICAL_ID_PATTERN.test(node.id)) {
+              // Skip spurious deletion from tag replacement (e.g. heading format change)
+              if (replacedNodeIds.has(node.id)) {
+                verbose.content(`Skipping deletion for replaced node ${node.id}`, 'divEditor/chunkMutationHandler.js');
+                continue;
+              }
+
               invalidateTocCacheForDeletion(node.id);
 
               // 🆕 O(1) CHECK: Does this node have the no-delete-id marker?
@@ -655,6 +689,13 @@ export class ChunkMutationHandler {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
+
+            // Skip spurious addition from tag replacement (e.g. heading format change)
+            // The editToolbar already handles the save for these.
+            if (node.id && replacedNodeIds.has(node.id)) {
+              this.queueTocInvalidation(node.id, node);
+              return;
+            }
 
             if (node.id && node.id.startsWith('hypercite_')) {
               console.log(`✍️ Ignoring standalone hypercite mutation for ${node.id}. It will be saved with its parent.`);

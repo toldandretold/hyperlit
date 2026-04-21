@@ -190,13 +190,16 @@ function _showModal(bookId, payload, selfHealed = false) {
   card.className = 'integrity-card';
 
   const disclosureParagraph = `
-    <p class="integrity-disclosure">
-      <em>Why send a report? Hyperlit will make you a premium member for a month
-      (free PDF conversion, AI Archivist, and Citation Review). However, sending
-      a bug report means sending some HTML from this potentially private text to
-      fml@hyperlit.io — that is why your consent is required. Much thanks for your
-      consideration, and apologies for this inconvenience comrade.</em>
-    </p>
+    <div class="integrity-disclosure">
+      <p>As compensation for this travesty, you have been awarded one month premium membership, including
+      free PDF conversion, AI Archivist, and Citation Review.</p>
+      <h3>Why send a report?</h3>
+      <p>Support the digital knowledge commons.</p>
+      <h3>Why not send a report?</h3>
+      <p>Requires sending some potentially private HTML to
+      fml@hyperlit.io. You will <em>always</em> have full personal data sovereignty.</p>
+      <p>Much thanks and apologies for this inconvenience comrade.</p>
+    </div>
   `;
 
   if (selfHealed) {
@@ -255,6 +258,9 @@ function _showModal(bookId, payload, selfHealed = false) {
   backdrop.appendChild(card);
   document.body.appendChild(backdrop);
   _modalEl = backdrop;
+
+  // Grant premium immediately (no report required — consent shouldn't be coerced)
+  _grantPremium();
 
   // Dismiss button
   card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => {
@@ -506,6 +512,26 @@ function _pollForAuthAndClaim(backdrop, card) {
     `;
     card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => _closeModal());
   }, 2000);
+}
+
+/**
+ * Grant premium immediately when the modal appears (fire-and-forget).
+ * Works for logged-in users; anonymous users get it via _pollForAuthAndClaim.
+ */
+async function _grantPremium() {
+  try {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    await fetch('/api/integrity/claim-premium', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+      },
+      credentials: 'include',
+    });
+  } catch (e) {
+    // Silent — anonymous users won't have auth, that's fine
+  }
 }
 
 function _closeModal() {

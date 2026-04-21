@@ -207,7 +207,9 @@ async function syncFootnotesToPostgreSQL(footnotes, bookId) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
       },
+      credentials: 'include',
       body: JSON.stringify({
         book: bookId,
         data: footnotes.map(footnote => ({
@@ -300,7 +302,9 @@ async function syncReferencesToPostgreSQL(references, bookId) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
       },
+      credentials: 'include',
       body: JSON.stringify({
         book: bookId,
         data: dataToSend

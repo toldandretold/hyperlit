@@ -121,6 +121,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     /* ----------------  Integrity Report  ---------------- */
     Route::post('/integrity/report', [IntegrityReportController::class, 'report'])
         ->middleware('throttle:10,1');
+    Route::post('/integrity/paste-glitch', [IntegrityReportController::class, 'pasteGlitchReport'])
+        ->middleware('throttle:10,1');
     Route::post('/integrity/claim-premium', [IntegrityReportController::class, 'claimPremium'])
         ->middleware(['auth:sanctum', 'throttle:5,1']);
 
