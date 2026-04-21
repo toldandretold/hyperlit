@@ -273,12 +273,12 @@ export function buildTopLevelReadme(bookId, zip) {
     lines.push(
       '## `postgresql_data/`',
       'Server-side data exported as JSON. Contains:',
-      '- **nodes** — the book\'s content (HTML nodes)',
-      '- **footnotes** — footnote content linked to nodes',
+      '- **nodes** — hypertext nodes (from books, hyperlights and footnotes)',
+      '- **footnotes** — footnote meta data',
       '- **hypercites** — cross-references between books',
-      '- **hyperlights** — sub-books embedded within the text',
+      '- **hyperlights** — hyperlight meta data',
       '- **highlights** — user highlights and annotations',
-      '- **bibliography** — bibliographic entries',
+      '- **bibliography** — citation data',
       '',
     );
   }
@@ -295,7 +295,7 @@ export function buildTopLevelReadme(bookId, zip) {
   if (hasBlackBox) {
     lines.push(
       '## `blackBox/`',
-      'Browser-side backup snapshots. See `blackBox/README.md` for details on these files.',
+      'Server and browser side backups. See `blackBox/README.md` for details.',
       '',
     );
   }
@@ -303,25 +303,25 @@ export function buildTopLevelReadme(bookId, zip) {
   if (hasOriginalFiles) {
     lines.push(
       '## Conversion scripts',
-      'If you want to reconvert or modify the pipeline, these scripts and the original',
-      'source file in `original_files/` are everything you need:',
+      'Source code for the conversion pipeline:',
       '',
     );
+    const gh = 'https://github.com/toldandretold/hyperlit/blob/main';
     if (sourceType === 'PDF') {
-      lines.push('- `app/Python/mistral_ocr.py` — PDF → markdown via Mistral OCR');
+      lines.push(`- [app/Python/mistral_ocr.py](${gh}/app/Python/mistral_ocr.py) — PDF → markdown via Mistral OCR`);
     } else if (sourceType === 'EPUB') {
       lines.push(
-        '- `app/Python/epub_processor.py` / `epub_normalizer.py` — EPUB → HTML',
+        `- [app/Python/epub_processor.py](${gh}/app/Python/epub_processor.py) / [epub_normalizer.py](${gh}/app/Python/epub_normalizer.py) — EPUB → HTML`,
       );
     } else {
       lines.push(
-        '- `app/Python/mistral_ocr.py` — PDF → markdown via Mistral OCR',
-        '- `app/Python/epub_processor.py` / `epub_normalizer.py` — EPUB → HTML',
+        `- [app/Python/mistral_ocr.py](${gh}/app/Python/mistral_ocr.py) — PDF → markdown via Mistral OCR`,
+        `- [app/Python/epub_processor.py](${gh}/app/Python/epub_processor.py) / [epub_normalizer.py](${gh}/app/Python/epub_normalizer.py) — EPUB → HTML`,
       );
     }
     lines.push(
-      '- `app/Python/process_document.py` — HTML post-processing & sanitisation',
-      '- `app/Http/Controllers/ConversionController.php` — markdown ↔ HTML + highlight position tracking',
+      `- [app/Python/process_document.py](${gh}/app/Python/process_document.py) — HTML post-processing & sanitisation`,
+      `- [app/Http/Controllers/ConversionController.php](${gh}/app/Http/Controllers/ConversionController.php) — markdown ↔ HTML + highlight position tracking`,
       '',
     );
   }
