@@ -269,7 +269,7 @@ export function isActivelyScrollingForLinkBlock() {
 export function shouldSkipScrollRestoration(reason = "user scrolling") {
   const skip = isUserCurrentlyScrolling();
   if (skip) {
-    console.log(`⏭️ SKIP RESTORATION: ${reason} - user was scrolling ${Date.now() - userScrollState.lastUserScrollTime}ms ago`);
+    verbose.nav(`SKIP RESTORATION: ${reason} - user was scrolling ${Date.now() - userScrollState.lastUserScrollTime}ms ago`, 'scrolling.js');
   }
   return skip;
 }
@@ -479,7 +479,7 @@ export function isValidContentElement(el) {
     el.id.startsWith("toc-") ||
     el.id === "ref-overlay"
   ) {
-    console.log(`Skipping non-tracked element: ${el.id}`);
+    verbose.nav(`Skipping non-tracked element: ${el.id}`, 'scrolling.js');
     return false;
   }
   return ["P", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "IMG"].includes(
@@ -490,26 +490,26 @@ export function isValidContentElement(el) {
 
 // Adjusted helper: load default content if container is empty.
 async function loadDefaultContent(lazyLoader) {
-  console.log("Loading default content (first chunk)...");
-  
+  verbose.nav("Loading default content (first chunk)...", 'scrolling.js');
+
   // Check if we already have nodes
   if (!lazyLoader.nodes || lazyLoader.nodes.length === 0) {
-    console.log("No nodes in memory, trying to fetch from IndexedDB...");
+    verbose.nav("No nodes in memory, trying to fetch from IndexedDB...", 'scrolling.js');
     try {
       let cachedNodeChunks = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
       if (cachedNodeChunks && cachedNodeChunks.length > 0) {
-        console.log(`Found ${cachedNodeChunks.length} chunks in IndexedDB`);
+        verbose.nav(`Found ${cachedNodeChunks.length} chunks in IndexedDB`, 'scrolling.js');
         lazyLoader.nodes = cachedNodeChunks;
       } else {
         // Fallback: fetch markdown and parse
-        console.log("No cached chunks found. Fetching main-text.md...");
+        verbose.nav("No cached chunks found. Fetching main-text.md...", 'scrolling.js');
         const response = await fetch(`/${lazyLoader.bookId}/main-text.md`);
         if (!response.ok) {
           throw new Error(`Failed to fetch markdown: ${response.status}`);
         }
         const markdown = await response.text();
         lazyLoader.nodes = parseMarkdownIntoChunksInitial(markdown);
-        console.log(`Parsed ${lazyLoader.nodes.length} chunks from markdown`);
+        verbose.nav(`Parsed ${lazyLoader.nodes.length} chunks from markdown`, 'scrolling.js');
       }
     } catch (error) {
       console.error("Error loading content:", error);
@@ -538,7 +538,7 @@ async function loadDefaultContent(lazyLoader) {
       throw new Error("No chunks available to load");
     }
   } else {
-    console.log(`Loading ${firstChunks.length} chunks with ID 0`);
+    verbose.nav(`Loading ${firstChunks.length} chunks with ID 0`, 'scrolling.js');
     firstChunks.forEach(node => {
       lazyLoader.loadChunk(node.chunk_id, "down");
     });
@@ -557,7 +557,7 @@ async function loadDefaultContent(lazyLoader) {
     throw new Error("No content loaded");
   }
   
-  console.log("Default content loaded successfully");
+  verbose.nav("Default content loaded successfully", 'scrolling.js');
 }
 
 
@@ -640,9 +640,9 @@ export async function restoreScrollPosition() {
   }
 
   // 🔍 DIAGNOSTIC: Entry point logging
-  console.log('🔍 SCROLL DEBUG: ========== restoreScrollPosition() ENTRY ==========');
-  console.log('🔍 SCROLL DEBUG: URL =', window.location.href);
-  console.log('🔍 SCROLL DEBUG: URL hash =', window.location.hash);
+  verbose.nav('restoreScrollPosition() ENTRY', 'scrolling.js');
+  verbose.nav(`URL = ${window.location.href}`, 'scrolling.js');
+  verbose.nav(`URL hash = ${window.location.hash}`, 'scrolling.js');
 
   // Skip if content doesn't overflow (nothing to scroll)
   const wrapper = document.querySelector('.home-content-wrapper') ||
@@ -651,13 +651,13 @@ export async function restoreScrollPosition() {
 
   // 🔍 DIAGNOSTIC: Log current scroll state BEFORE any logic
   if (wrapper) {
-    console.log('🔍 SCROLL DEBUG: Current scrollTop =', wrapper.scrollTop);
-    console.log('🔍 SCROLL DEBUG: scrollHeight =', wrapper.scrollHeight, 'clientHeight =', wrapper.clientHeight);
+    verbose.nav(`Current scrollTop = ${wrapper.scrollTop}`, 'scrolling.js');
+    verbose.nav(`scrollHeight = ${wrapper.scrollHeight}, clientHeight = ${wrapper.clientHeight}`, 'scrolling.js');
     const existingChunks = wrapper.querySelectorAll('[data-chunk-id]');
-    console.log('🔍 SCROLL DEBUG: Existing chunks in DOM =', existingChunks.length);
+    verbose.nav(`Existing chunks in DOM = ${existingChunks.length}`, 'scrolling.js');
     if (existingChunks.length > 0) {
       const chunkIds = Array.from(existingChunks).map(c => c.getAttribute('data-chunk-id'));
-      console.log('🔍 SCROLL DEBUG: Chunk IDs =', chunkIds.join(', '));
+      verbose.nav(`Chunk IDs = ${chunkIds.join(', ')}`, 'scrolling.js');
     }
   }
 
@@ -665,7 +665,7 @@ export async function restoreScrollPosition() {
   // When no chunks are in the DOM yet we still need to proceed to load them.
   const hasChunksInDom = wrapper && wrapper.querySelectorAll('[data-chunk-id]').length > 0;
   if (hasChunksInDom && wrapper.scrollHeight <= wrapper.clientHeight && !window.location.hash) {
-    console.log('🔍 SCROLL DEBUG: EARLY EXIT - content doesnt overflow and no hash target');
+    verbose.nav('EARLY EXIT - content doesnt overflow and no hash target', 'scrolling.js');
     return;
   }
 
@@ -676,13 +676,13 @@ export async function restoreScrollPosition() {
 
   // Skip if search toolbar is blocking navigation
   if (window.searchToolbarBlockingNavigation) {
-    console.log(`⏭️ RESTORE SCROLL: Search toolbar blocking navigation, skipping restoration`);
+    verbose.nav('RESTORE SCROLL: Search toolbar blocking navigation, skipping restoration', 'scrolling.js');
     return;
   }
 
   // Skip if search toolbar is open - don't interfere with search UX
   if (isSearchToolbarOpen()) {
-    console.log(`⏭️ RESTORE SCROLL: Search toolbar is open, skipping restoration`);
+    verbose.nav('RESTORE SCROLL: Search toolbar is open, skipping restoration', 'scrolling.js');
     return;
   }
 
@@ -699,7 +699,7 @@ export async function restoreScrollPosition() {
 
   // 🚀 FIX: Check global flag to skip scroll restoration (set by BookToBookTransition for hash navigation)
   if (shouldSkipScrollRestorationGlobal()) {
-    console.log(`⏭️ RESTORE SCROLL: Skip flag is set, clearing and returning`);
+    verbose.nav('RESTORE SCROLL: Skip flag is set, clearing and returning', 'scrolling.js');
     setSkipScrollRestoration(false); // Clear the flag for next time
     return;
   }
@@ -710,18 +710,18 @@ export async function restoreScrollPosition() {
   const isHyperlightPath = pathSegments.length >= 2 && pathSegments[1]?.startsWith('HL_');
   const isFootnotePath = pathSegments.length >= 2 && (pathSegments[1]?.includes('_Fn') || pathSegments[1]?.startsWith('Fn'));
   if (isHyperlightPath) {
-    console.log(`⏭️ RESTORE SCROLL: Hyperlight path detected (${pathSegments[1]}), skipping scroll restoration`);
+    verbose.nav(`RESTORE SCROLL: Hyperlight path detected (${pathSegments[1]}), skipping`, 'scrolling.js');
     return;
   }
   if (isFootnotePath) {
-    console.log(`⏭️ RESTORE SCROLL: Footnote path detected (${pathSegments[1]}), skipping scroll restoration`);
+    verbose.nav(`RESTORE SCROLL: Footnote path detected (${pathSegments[1]}), skipping`, 'scrolling.js');
     return;
   }
 
   // If we're navigating to an internal ID (like a highlight or footnote), prioritize that
   const targetInternalId = OpenHyperlightID || OpenFootnoteID;
   if (currentLazyLoader.isNavigatingToInternalId && targetInternalId) {
-    console.log(`🔍 Prioritizing navigation to internal ID: ${targetInternalId}`);
+    verbose.nav(`Prioritizing navigation to internal ID: ${targetInternalId}`, 'scrolling.js');
     navigateToInternalId(targetInternalId, currentLazyLoader, false);
     return; // Exit early, don't proceed with normal scroll restoration
   }
@@ -735,7 +735,7 @@ export async function restoreScrollPosition() {
   const alreadyNavigatedToHash = navigatedHashes.has(targetId);
   const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
 
-  console.log(`🔍 RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`);
+  verbose.nav(`RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`, 'scrolling.js');
   
   // Show overlay for external navigation targets
   let overlayShown = false;
@@ -761,33 +761,33 @@ export async function restoreScrollPosition() {
   // Only use saved scroll position if there's no explicit target in URL
   // AND we're not currently navigating to an internal ID
   if (!hasExplicitTarget && !currentLazyLoader.isNavigatingToInternalId) {
-    console.log(`🔍 RESTORE SCROLL: No explicit target, checking saved positions...`);
+    verbose.nav('RESTORE SCROLL: No explicit target, checking saved positions...', 'scrolling.js');
     try {
       const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
-      console.log('🔍 SCROLL DEBUG: Storage key =', scrollKey);
+      verbose.nav(`Storage key = ${scrollKey}`, 'scrolling.js');
 
       // Try session storage first
       const sessionData = sessionStorage.getItem(scrollKey);
-      console.log('🔍 SCROLL DEBUG: Raw sessionStorage data =', sessionData);
+      verbose.nav(`Raw sessionStorage data = ${sessionData}`, 'scrolling.js');
       if (sessionData && sessionData !== "0") {
         const parsed = JSON.parse(sessionData);
-        console.log('🔍 SCROLL DEBUG: Parsed session data =', parsed);
+        verbose.nav(`Parsed session data = ${JSON.stringify(parsed)}`, 'scrolling.js');
         if (parsed?.elementId) {
           targetId = parsed.elementId;
-          console.log(`📍 RESTORE SCROLL: Using saved session position: ${targetId}`);
+          verbose.nav(`Using saved session position: ${targetId}`, 'scrolling.js');
         }
       }
 
       // Fallback to localStorage
       if (!targetId) {
         const localData = localStorage.getItem(scrollKey);
-        console.log('🔍 SCROLL DEBUG: Raw localStorage data =', localData);
+        verbose.nav(`Raw localStorage data = ${localData}`, 'scrolling.js');
         if (localData && localData !== "0") {
           const parsed = JSON.parse(localData);
-          console.log('🔍 SCROLL DEBUG: Parsed local data =', parsed);
+          verbose.nav(`Parsed local data = ${JSON.stringify(parsed)}`, 'scrolling.js');
           if (parsed?.elementId) {
             targetId = parsed.elementId;
-            console.log(`📍 RESTORE SCROLL: Using saved local position: ${targetId}`);
+            verbose.nav(`Using saved local position: ${targetId}`, 'scrolling.js');
           }
         }
       }
@@ -795,32 +795,32 @@ export async function restoreScrollPosition() {
       console.warn("Error reading saved scroll position", e);
     }
   } else if (currentLazyLoader.isNavigatingToInternalId) {
-    console.log(`🎯 RESTORE SCROLL: Internal navigation in progress, IGNORING saved scroll positions`);
+    verbose.nav('RESTORE SCROLL: Internal navigation in progress, IGNORING saved scroll positions', 'scrolling.js');
   } else {
-    console.log(`🎯 RESTORE SCROLL: Explicit target found, IGNORING any saved scroll positions`);
+    verbose.nav('RESTORE SCROLL: Explicit target found, IGNORING any saved scroll positions', 'scrolling.js');
   }
 
-  console.log('🔍 SCROLL DEBUG: Final targetId after storage check =', targetId || '(empty)');
+  verbose.nav(`Final targetId after storage check = ${targetId || '(empty)'}`, 'scrolling.js');
 
   if (!targetId) {
     // 🔍 DIAGNOSTIC: This is the problematic path
-    console.log('🔍 SCROLL DEBUG: ⚠️ NO targetId - entering chunk 0 loading path');
-    console.log('🔍 SCROLL DEBUG: WHY? Check if storage data was null/empty above');
+    verbose.nav('NO targetId - entering chunk 0 loading path', 'scrolling.js');
+    verbose.nav('WHY? Check if storage data was null/empty above', 'scrolling.js');
 
     // Load first chunk when no saved position
     try {
       let cachedNodeChunks = await getNodeChunksFromIndexedDB(currentLazyLoader.bookId);
-      console.log('🔍 SCROLL DEBUG: Got cachedNodeChunks from IndexedDB, count =', cachedNodeChunks?.length || 0);
+      verbose.nav(`Got cachedNodeChunks from IndexedDB, count = ${cachedNodeChunks?.length || 0}`, 'scrolling.js');
 
       if (cachedNodeChunks?.length > 0) {
         // 🛡️ FIX: Check if content already exists in DOM (e.g., from bfcache)
         // If so, preserve it and let browser's scroll restoration work
         const existingChunks = currentLazyLoader.container.querySelectorAll('[data-chunk-id]');
-        console.log('🔍 SCROLL DEBUG: Existing chunks in DOM =', existingChunks.length);
+        verbose.nav(`Existing chunks in DOM = ${existingChunks.length}`, 'scrolling.js');
 
         if (existingChunks.length > 0) {
-          console.log('🔍 SCROLL DEBUG: ✅ Content exists in DOM - preserving instead of clearing');
-          console.log('🔍 SCROLL DEBUG: Current scrollTop =', currentLazyLoader.scrollableParent?.scrollTop);
+          verbose.nav('Content exists in DOM - preserving instead of clearing', 'scrolling.js');
+          verbose.nav(`Current scrollTop = ${currentLazyLoader.scrollableParent?.scrollTop}`, 'scrolling.js');
 
           // Sync lazy loader state with existing DOM
           existingChunks.forEach(chunk => {
@@ -838,7 +838,7 @@ export async function restoreScrollPosition() {
         }
 
         // No existing content - safe to clear and load chunk 0
-        console.log('🔍 SCROLL DEBUG: No existing content, loading chunk 0');
+        verbose.nav('No existing content, loading chunk 0', 'scrolling.js');
         currentLazyLoader.nodes = cachedNodeChunks;
         // ⚠️ DIAGNOSTIC: Log when container is cleared
         const childCount2 = currentLazyLoader.container.children.length;
@@ -908,7 +908,7 @@ export async function restoreScrollPosition() {
 // LEGACY: These were originally managing overlays directly, now they're thin wrappers
 
 export function showNavigationLoading(targetId) {
-  console.log(`🎯 [LEGACY] showNavigationLoading called for ${targetId} - delegating to ProgressOverlayConductor`);
+  verbose.nav(`[LEGACY] showNavigationLoading called for ${targetId} - delegating to ProgressOverlayConductor`, 'scrolling.js');
 
   // Delegate to the new centralized system (now statically imported)
   ProgressOverlayConductor.showSPATransition(5, `Loading ${targetId}...`);
@@ -938,7 +938,7 @@ export async function hideNavigationLoading() {
 // which detects overlay visibility using getComputedStyle on initialization
 
 export function restoreNavigationOverlayIfNeeded() {
-  console.log('🎯 [LEGACY] restoreNavigationOverlayIfNeeded called - now handled by ProgressOverlayEnactor._bindElements()');
+  verbose.nav('[LEGACY] restoreNavigationOverlayIfNeeded called - now handled by ProgressOverlayEnactor._bindElements()', 'scrolling.js');
 
   // Clear any legacy session storage flags (no longer used)
   sessionStorage.removeItem('navigationOverlayActive');
@@ -952,7 +952,7 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     console.error("Lazy loader instance not provided!");
     return Promise.reject(new Error("Lazy loader instance not provided"));
   }
-  console.log("Initiating navigation to internal ID:", targetId);
+  verbose.nav(`Initiating navigation to internal ID: ${targetId}`, 'scrolling.js');
 
   // 🚀 Return a Promise that resolves when navigation is truly complete
   // This fixes iOS Safari race condition where scroll restoration interferes
@@ -965,7 +965,7 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     // This prevents restoreScrollPosition() from interfering
     lazyLoader.isNavigatingToInternalId = true;
     lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
-    console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
+    verbose.nav(`Set isNavigatingToInternalId = true for ${targetId}`, 'scrolling.js');
 
     // 🚦 Start the NavigationCompletionBarrier to coordinate async processes
     // This ensures flags persist until scroll completes. If a timestamp check triggers
@@ -984,7 +984,7 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
       let userScrollDetected = false;
       const detectUserScroll = (event) => {
         if (!userScrollDetected && lazyLoader.scrollLocked) {
-          console.log(`🔄 User scroll detected during navigation, unlocking immediately`);
+          verbose.nav('User scroll detected during navigation, unlocking immediately', 'scrolling.js');
           userScrollDetected = true;
           lazyLoader.unlockScroll();
 
@@ -1014,7 +1014,7 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     // 🚀 FIX: Clear session storage when explicitly navigating to prevent cached position interference
     if (targetId && targetId.trim() !== '') {
       const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
-      console.log(`🧹 Clearing session scroll cache for explicit navigation to: ${targetId}`);
+      verbose.nav(`Clearing session scroll cache for explicit navigation to: ${targetId}`, 'scrolling.js');
       sessionStorage.removeItem(scrollKey);
     }
 
@@ -1041,16 +1041,16 @@ function calculateScrollDelay(element, container, targetId) {
     if (!isVisible) {
       // Element exists but not visible - needs scrolling
       delay = 400;
-      console.log(`Element ${targetId} needs scrolling, using ${delay}ms delay`);
+      verbose.nav(`Element ${targetId} needs scrolling, using ${delay}ms delay`, 'scrolling.js');
     } else {
       // Element is already visible - minimal delay
       delay = 100;
-      console.log(`Element ${targetId} already visible, using ${delay}ms delay`);
+      verbose.nav(`Element ${targetId} already visible, using ${delay}ms delay`, 'scrolling.js');
     }
   } else {
     // Element doesn't exist yet - will need loading and scrolling
     delay = 800;
-    console.log(`Element ${targetId} not loaded yet, using ${delay}ms delay`);
+    verbose.nav(`Element ${targetId} not loaded yet, using ${delay}ms delay`, 'scrolling.js');
   }
   
   return delay;
@@ -1068,7 +1068,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     for (const element of overlappingElements) {
       const overlappingIds = element.getAttribute('data-overlapping');
       if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
-        console.log(`🎯 Found hypercite ${targetId} in overlapping element:`, element);
+        verbose.nav(`Found hypercite ${targetId} in overlapping element`, 'scrolling.js');
         existingElement = element;
         break;
       }
@@ -1086,7 +1086,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
   if (existingElement) {
     try {
       // 🚀 Verify the element is actually ready before proceeding  
-      console.log(`📍 Found existing element ${targetId}, verifying readiness...`);
+      verbose.nav(`Found existing element ${targetId}, verifying readiness...`, 'scrolling.js');
       
       if (progressIndicator) {
         progressIndicator.updateProgress(40, "Verifying element readiness...");
@@ -1098,7 +1098,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         container: lazyLoader.container
       });
       
-      console.log(`✅ Existing element ${targetId} confirmed ready`);
+      verbose.nav(`Existing element ${targetId} confirmed ready`, 'scrolling.js');
       elementsReady = true;
       
     } catch (error) {
@@ -1133,7 +1133,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     // If target not found and we only have partial data, wait for background
     // download to complete then retry with the full dataset.
     if (targetChunkIndex === -1 && !lazyLoader.isFullyLoaded) {
-      console.log(`⏳ Target "${targetId}" not in partial data, waiting for background download...`);
+      verbose.nav(`Target "${targetId}" not in partial data, waiting for background download...`, 'scrolling.js');
       if (progressIndicator) {
         progressIndicator.updateProgress(35, "Waiting for full content...");
       }
@@ -1154,13 +1154,13 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         }
       }
       if (targetChunkIndex !== -1) {
-        console.log(`✅ Target "${targetId}" found after background download`);
+        verbose.nav(`Target "${targetId}" found after background download`, 'scrolling.js');
       }
     }
 
     // Hypercite rescue: direct IndexedDB lookup + server fallback
     if (targetChunkIndex === -1 && targetId.startsWith('hypercite_')) {
-      console.log(`🔍 Hypercite rescue: resolveHypercite for "${targetId}"`);
+      verbose.nav(`Hypercite rescue: resolveHypercite for "${targetId}"`, 'scrolling.js');
       try {
         const { resolveHypercite } = await import('./indexedDB/hypercites/helpers.js');
         const record = await resolveHypercite(lazyLoader.bookId, targetId);
@@ -1246,8 +1246,8 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
     const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
     
-    console.log(`🎯 Target element "${targetId}" is in chunk_id: ${targetChunkId}`);
-    console.log(`📦 Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`);
+    verbose.nav(`Target element "${targetId}" is in chunk_id: ${targetChunkId}`, 'scrolling.js');
+    verbose.nav(`Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`, 'scrolling.js');
 
     if (progressIndicator) {
       progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
@@ -1264,7 +1264,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     
     try {
       // 🚀 Use DOM readiness detection instead of fixed timeout
-      console.log(`🎯 Waiting for navigation target to be ready: ${targetId}`);
+      verbose.nav(`Waiting for navigation target to be ready: ${targetId}`, 'scrolling.js');
       
       targetElement = await waitForNavigationTarget(
         targetId, 
@@ -1276,7 +1276,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         }
       );
       
-      console.log(`✅ Navigation target ready: ${targetId}`);
+      verbose.nav(`Navigation target ready: ${targetId}`, 'scrolling.js');
       elementsReady = true;
         
     } catch (error) {
@@ -1296,7 +1296,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         for (const element of overlappingElements) {
           const overlappingIds = element.getAttribute('data-overlapping');
           if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
-            console.log(`🎯 Found hypercite ${targetId} in overlapping element (fallback):`, element);
+            verbose.nav(`Found hypercite ${targetId} in overlapping element (fallback)`, 'scrolling.js');
             fallbackTarget = element;
             break;
           }
@@ -1304,7 +1304,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }
       
       if (fallbackTarget) {
-        console.log(`📍 Found target on fallback attempt: ${targetId}`);
+        verbose.nav(`Found target on fallback attempt: ${targetId}`, 'scrolling.js');
         targetElement = fallbackTarget;
         elementsReady = true;
       } else {
@@ -1337,11 +1337,11 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     }
     
     // 🚀 LAYOUT FIX: Wait for layout to complete before scrolling
-    console.log(`⏳ Waiting for layout completion before scrolling to: ${targetId}`);
+    verbose.nav(`Waiting for layout completion before scrolling to: ${targetId}`, 'scrolling.js');
     
     try {
       await pendingFirstChunkLoadedPromise;
-      console.log(`✅ Layout complete, proceeding with scroll`);
+      verbose.nav('Layout complete, proceeding with scroll', 'scrolling.js');
     } catch (error) {
       console.warn(`⚠️ Layout promise failed, proceeding anyway: ${error.message}`);
     }
@@ -1351,7 +1351,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     }
     
     // 🎯 FINAL SCROLL - Check if element is already visible before scrolling
-    console.log(`🎯 FINAL SCROLL: Navigating to confirmed ready element: ${targetId}`);
+    verbose.nav(`FINAL SCROLL: Navigating to confirmed ready element: ${targetId}`, 'scrolling.js');
     const scrollableParent = lazyLoader.scrollableParent;
     
     // Check if element is actually visible in the viewport
@@ -1373,15 +1373,15 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     const isAlreadyVisible = isInViewport && isInContainer;
     const isReasonablyPositioned = currentPosition >= 0 && currentPosition <= 300; // Within first 300px of container
     
-    console.log(`🎯 Element visibility check: inViewport=${isInViewport}, inContainer=${isInContainer}, visible=${isAlreadyVisible}, position=${currentPosition}px, reasonablyPositioned=${isReasonablyPositioned}`);
+    verbose.nav(`Element visibility: inViewport=${isInViewport}, inContainer=${isInContainer}, visible=${isAlreadyVisible}, position=${currentPosition}px`, 'scrolling.js');
     
     // Only scroll if element is not visible or poorly positioned
     if (!isAlreadyVisible || !isReasonablyPositioned) {
       if (scrollableParent && scrollableParent !== window) {
-        console.log(`📍 Using consistent scroll for container: ${scrollableParent.className}`);
+        verbose.nav(`Using consistent scroll for container: ${scrollableParent.className}`, 'scrolling.js');
         scrollElementWithConsistentMethod(targetElement, scrollableParent, 192);
       } else {
-        console.log(`📍 Using scrollIntoView for window scrolling`);
+        verbose.nav('Using scrollIntoView for window scrolling', 'scrolling.js');
         targetElement.scrollIntoView({ 
           behavior: "smooth", 
           block: "start", 
@@ -1389,13 +1389,13 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         });
       }
     } else {
-      console.log(`✅ Element already visible and well-positioned - skipping scroll`);
+      verbose.nav('Element already visible and well-positioned - skipping scroll', 'scrolling.js');
     }
     
     // For highlights, open the container (cascade-origin is applied there)
     if (targetId.startsWith('HL_')) {
       setTimeout(() => {
-        console.log(`Opening highlight after navigation: ${targetId}`);
+        verbose.nav(`Opening highlight after navigation: ${targetId}`, 'scrolling.js');
         openHighlightById(targetId);
       }, 200);
     }
@@ -1414,7 +1414,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         fnEl.addEventListener('animationend', handleEnd);
       }
       setTimeout(async () => {
-        console.log(`Opening footnote after navigation: ${targetId}`);
+        verbose.nav(`Opening footnote after navigation: ${targetId}`, 'scrolling.js');
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
         const footnoteElement = document.getElementById(targetId);
         if (footnoteElement) {
@@ -1448,7 +1448,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     const isAlreadyPerfectlyPositioned = Math.abs(currentPosition - targetPosition) < 20; // 20px tolerance
     const cleanupDelay = isAlreadyPerfectlyPositioned ? 0 : 500; // No delay if perfect, 500ms if corrections might fire
     
-    console.log(`🎯 SMART CLEANUP: Element at ${currentPosition}px, target ${targetPosition}px, diff ${Math.abs(currentPosition - targetPosition)}px, using ${cleanupDelay}ms delay`);
+    verbose.nav(`SMART CLEANUP: Element at ${currentPosition}px, target ${targetPosition}px, diff ${Math.abs(currentPosition - targetPosition)}px, delay ${cleanupDelay}ms`, 'scrolling.js');
 
     // Clear any existing cleanup timer and store the new one
     if (pendingNavigationCleanupTimer) {
@@ -1461,7 +1461,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     }
 
     pendingNavigationCleanupTimer = setTimeout(() => {
-      console.log(`🏁 Navigation scroll complete for ${targetId}`);
+      verbose.nav(`Navigation scroll complete for ${targetId}`, 'scrolling.js');
       pendingNavigationCleanupTimer = null; // Clear the reference
 
       // 🚦 Signal scroll completion to the barrier (DON'T clear flags directly - barrier handles that)
@@ -1479,7 +1479,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       // Uses module-level Set so it resets on page reload (fresh loads re-navigate).
       if (window.location.hash.substring(1) === targetId) {
         navigatedHashes.add(targetId);
-        console.log(`✅ Marked hash ${targetId} as navigated (session-level)`);
+        verbose.nav(`Marked hash ${targetId} as navigated (session-level)`, 'scrolling.js');
       }
 
       // 🚀 iOS Safari fix: Resolve navigation Promise so callers know we're truly done
@@ -1510,7 +1510,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
 function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
   const targetElement = document.getElementById(targetId);
   if (targetElement) {
-    console.log(`✅ Target ID "${targetId}" found! Scrolling...`);
+    verbose.nav(`Target ID "${targetId}" found! Scrolling...`, 'scrolling.js');
     setTimeout(() => {
       scrollElementIntoMainContent(targetElement, 50);
     }, 150);

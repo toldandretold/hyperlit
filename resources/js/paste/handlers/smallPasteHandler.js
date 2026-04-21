@@ -135,6 +135,29 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     console.log('Moved cursor after H1 to prevent splitting');
   }
 
+  // Snapshot nearby siblings' content so we can detect collateral damage from execCommand
+  const _collateralSnapshot = new Map();
+  const _snapshotRadius = 5;
+  if (currentBlock?.parentElement) {
+    let el = currentBlock;
+    for (let i = 0; i < _snapshotRadius && el.previousElementSibling; i++) {
+      el = el.previousElementSibling;
+      if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
+        _collateralSnapshot.set(el.id, el.textContent);
+      }
+    }
+    el = currentBlock;
+    if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
+      _collateralSnapshot.set(el.id, el.textContent);
+    }
+    for (let i = 0; i < _snapshotRadius && el.nextElementSibling; i++) {
+      el = el.nextElementSibling;
+      if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
+        _collateralSnapshot.set(el.id, el.textContent);
+      }
+    }
+  }
+
   // Use execCommand for browser-native undo support (Cmd+Z reverts correctly)
   document.execCommand('insertHTML', false, finalHtmlToInsert);
 
@@ -314,6 +337,16 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
       }
     }
     elementToProcess = elementToProcess.nextElementSibling;
+  }
+
+  // Detect collateral damage: re-queue any snapshotted node whose content changed
+  for (const [nodeId, oldText] of _collateralSnapshot) {
+    const el = document.getElementById(nodeId);
+    if (!el) continue; // Node was removed — will be caught by deletion handling
+    if (el.textContent !== oldText) {
+      console.log(`[paste] Collateral damage detected on node ${nodeId} — re-queuing for save`);
+      queueNodeForSave(nodeId, 'update', book);
+    }
   }
 
   // --- 5. FINALIZE ---

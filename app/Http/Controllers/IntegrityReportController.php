@@ -38,6 +38,10 @@ class IntegrityReportController extends Controller
             'context.totalDomNodes'      => 'nullable|integer',
             'context.sessionAgeSec'      => 'nullable|integer',
             'context.idbBroken'          => 'nullable|boolean',
+            'selfHealed'         => 'nullable|boolean',
+            'selfHealedNodeIds'  => 'nullable|array|max:100',
+            'selfHealedNodeIds.*' => 'string|max:50',
+            'comment'            => 'nullable|string|max:2000',
         ]);
 
         $user = Auth::user();
@@ -58,7 +62,35 @@ class IntegrityReportController extends Controller
             ]);
         }
 
-        return response()->json(['status' => 'received']);
+        $premiumGranted = false;
+        if ($user) {
+            $user->status = 'premium';
+            $user->save();
+            $premiumGranted = true;
+            Log::info('Premium granted for integrity report', ['userId' => $user->id]);
+        }
+
+        return response()->json([
+            'status' => 'received',
+            'premium_granted' => $premiumGranted,
+        ]);
+    }
+
+    public function claimPremium(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $user->status = 'premium';
+        $user->save();
+        Log::info('Premium claimed via integrity report', ['userId' => $user->id]);
+
+        return response()->json([
+            'status' => 'granted',
+            'premium_granted' => true,
+        ]);
     }
 
     private function grepLaravelLog(string $bookId, int $limit): array

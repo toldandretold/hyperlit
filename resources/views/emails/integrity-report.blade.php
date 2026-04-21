@@ -14,7 +14,13 @@
         <tr><td style="padding:4px 12px 4px 0; color:#888;">URL</td><td>{{ $url ?? '' }}</td></tr>
         <tr><td style="padding:4px 12px 4px 0; color:#888;">User Agent</td><td style="word-break:break-all;">{{ $userAgent ?? '' }}</td></tr>
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Timestamp</td><td>{{ $timestamp ?? '' }}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0; color:#888;">Self-Healed</td><td>{{ !empty($selfHealed) ? 'Yes' : 'No' }}</td></tr>
     </table>
+
+    @if(!empty($comment))
+    <h3 style="color:#4EACAE;">User Comment</h3>
+    <div style="padding:12px; background:#2A2A2A; border-radius:6px; margin-bottom:20px; white-space:pre-wrap;">{{ $comment }}</div>
+    @endif
 
     @if(!empty($context))
     <h3 style="color:#38bdf8;">Session Context</h3>
@@ -46,6 +52,15 @@
             <td>{{ $pgNodeCount ?? '?' }}</td>
         </tr>
     </table>
+    @endif
+
+    @if(!empty($selfHealed) && !empty($selfHealedNodeIds))
+    <h3 style="color:#22c55e;">Self-Healing Summary</h3>
+    <div style="padding:12px; background:#0f291a; border:1px solid #166534; border-radius:6px; margin-bottom:20px;">
+        <p style="margin:0 0 8px; color:#4ade80;">Self-healing <strong>succeeded</strong> — {{ count($selfHealedNodeIds) }} node(s) re-queued and re-saved:</p>
+        <p style="margin:0; color:#86efac; font-family:monospace;">{{ implode(', ', $selfHealedNodeIds) }}</p>
+        <p style="margin:8px 0 0; color:#888; font-size:12px;">The mismatches/missing nodes below show what was wrong <em>before</em> self-healing fixed them.</p>
+    </div>
     @endif
 
     @if(!empty($mismatches))

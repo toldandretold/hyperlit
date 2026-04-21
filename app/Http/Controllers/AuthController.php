@@ -50,11 +50,11 @@ class AuthController extends Controller
                 'string',
                 'min:3',
                 'max:30',
-                'unique:users,name',
+                'unique:pgsql_admin.users,name',
                 'alpha_dash', // Allows alphanumeric, hyphens, and underscores only
                 'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/', // Cannot start/end with - or _
             ],
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email',
             'password' => 'required|string|min:8',
         ], [
             'name.alpha_dash' => 'Username can only contain letters, numbers, hyphens, and underscores.',
@@ -65,16 +65,26 @@ class AuthController extends Controller
         ]);
 
         // Use admin connection for registration - trusted operation that bypasses RLS
-        // This is safe: validation already checked unique constraints, we control all inputs
+        // Validation uses pgsql_admin too, so uniqueness checks see all rows regardless of RLS
         $userToken = \Illuminate\Support\Str::uuid()->toString();
-        $userId = DB::connection('pgsql_admin')->table('users')->insertGetId([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'user_token' => $userToken,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            $userId = DB::connection('pgsql_admin')->table('users')->insertGetId([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'user_token' => $userToken,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23505') { // Unique constraint violation (race condition)
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['email' => ['This email or username is already registered.']],
+                ], 422);
+            }
+            throw $e;
+        }
 
         // Check for anonymous content BEFORE setting RLS context
         // (RLS would block seeing records with the anonymous token after context is set to new user)
@@ -577,12 +587,22 @@ class AuthController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email,' . $user->id,
         ]);
 
         $newEmail = $request->input('email');
 
-        DB::selectOne('SELECT auth_change_user_email(?, ?)', [$user->id, $newEmail]);
+        try {
+            DB::selectOne('SELECT auth_change_user_email(?, ?)', [$user->id, $newEmail]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23505') {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['email' => ['This email is already taken.']],
+                ], 422);
+            }
+            throw $e;
+        }
 
         // Refresh user model with new email
         $user->email = $newEmail;

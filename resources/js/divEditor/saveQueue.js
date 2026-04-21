@@ -59,6 +59,11 @@ export class SaveQueue {
     // 🔑 CRITICAL: Track save completion for proper close handling
     this.currentSavePromise = null;
 
+    // Self-healing & paste guard state
+    this._selfHealingInProgress = false;
+    this._forceBypassPasteGuard = false;
+    this._pasteGuardDeferrals = 0;
+
     // ✅ REMOVED: ensureMinimumStructure callback - no longer needed with no-delete-id marker system
 
     // Bind methods
@@ -77,18 +82,23 @@ export class SaveQueue {
    * Add node to pending saves queue
    */
   queueNode(IDnumerical, action = 'update', bookId = null) {
-    console.log(`🎯 SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, current pending: ${this.pendingSaves.nodes.size}`);
+    verbose.content(`SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, pending: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue.js');
     this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
+
+    // Reset full-verification timer so it can't fire while saves are pending.
+    // It will be rescheduled after the next save completes (_verifyAfterSave → _scheduleFullVerification).
+    if (this._fullVerifyTimer) {
+      clearTimeout(this._fullVerifyTimer);
+      this._fullVerifyTimer = null;
+    }
 
     // Dismiss large-paste undo toast on any subsequent edit
     hidePasteUndoToast();
     clearPasteSnapshot();
 
-    verbose.content(`Queued node ${IDnumerical} for ${action}`, 'divEditor/saveQueue.js');
-    console.log(`🎯 SaveQueue: calling debouncedSaveNode`);
+    verbose.content(`Calling debouncedSaveNode`, 'divEditor/saveQueue.js');
     this.debouncedSaveNode();
-    console.log(`🎯 SaveQueue: debouncedSaveNode called, timer started`);
   }
 
   /**
@@ -147,11 +157,25 @@ export class SaveQueue {
    * Save queued nodes to database
    */
   async saveNodeToDatabase() {
-    console.log(`🎯 saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`);
+    verbose.content(`saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue.js');
     if (this.pendingSaves.nodes.size === 0) {
-      console.log('🎯 saveNodeToDatabase: no pending nodes, returning');
+      verbose.content('saveNodeToDatabase: no pending nodes, returning', 'divEditor/saveQueue.js');
       return;
     }
+
+    // Paste guard: defer saves while paste is restructuring the DOM
+    if (isPasteOperationActive() && !this._forceBypassPasteGuard) {
+      this._pasteGuardDeferrals++;
+      if (this._pasteGuardDeferrals > 10) {
+        console.warn('[SaveQueue] Paste guard exceeded max deferrals — saving anyway');
+        this._pasteGuardDeferrals = 0;
+      } else {
+        verbose.content(`[SaveQueue] Paste in progress — deferring save (attempt ${this._pasteGuardDeferrals})`, 'divEditor/saveQueue.js');
+        this.debouncedSaveNode();
+        return;
+      }
+    }
+    this._pasteGuardDeferrals = 0;
 
     // Circuit-breaker: if IDB is broken, leave items queued for retry after recovery
     if (isIDBBroken()) {
@@ -160,7 +184,7 @@ export class SaveQueue {
     }
 
     const nodesToSave = Array.from(this.pendingSaves.nodes.values());
-    console.log(`🎯 saveNodeToDatabase: processing ${nodesToSave.length} nodes`);
+    verbose.content(`saveNodeToDatabase: processing ${nodesToSave.length} nodes`, 'divEditor/saveQueue.js');
     this.pendingSaves.nodes.clear();
 
     verbose.content(`Processing ${nodesToSave.length} pending node saves`, 'divEditor/saveQueue.js');
@@ -182,7 +206,7 @@ export class SaveQueue {
         });
 
         if (recordsToUpdate.length > 0) {
-          console.log(`🎯 saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`);
+          verbose.content(`saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`, 'divEditor/saveQueue.js');
 
           // Group records by bookId for correct sub-book saves
           const recordsByBookId = new Map();
@@ -198,7 +222,7 @@ export class SaveQueue {
             await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
           }
 
-          console.log('🎯 saveNodeToDatabase: IndexedDB save complete');
+          verbose.content('saveNodeToDatabase: IndexedDB save complete', 'divEditor/saveQueue.js');
           reportIDBSuccess();
           // ✅ Mark cache dirty after successful saves
           markCacheDirty();
@@ -221,7 +245,7 @@ export class SaveQueue {
           // Non-blocking integrity verification after successful save
           this._verifyAfterSave(recordsByBookId);
         } else {
-          console.log('🎯 saveNodeToDatabase: no records to update (elements not found in DOM)');
+          verbose.content('saveNodeToDatabase: no records to update (elements not found in DOM)', 'divEditor/saveQueue.js');
         }
 
         if (deletions.length > 0) {
@@ -366,7 +390,7 @@ export class SaveQueue {
     } finally {
       // ✅ Clear chunk loading flags to re-enable lazy loading
       clearChunkLoadingInProgress();
-      console.log('🔓 Cleared chunk loading flags - lazy loading re-enabled');
+      verbose.content('Cleared chunk loading flags - lazy loading re-enabled', 'divEditor/saveQueue.js');
 
       // ✅ Mark cache dirty so it refreshes before next chunk load
       markCacheDirty();
@@ -390,12 +414,52 @@ export class SaveQueue {
           const effectiveBookId = bookId || currentBook;
           if (!effectiveBookId) continue;
 
-          const nodeIds = records.map(r => r.id).filter(Boolean);
+          const nodeIds = records.map(r => r.id).filter(Boolean)
+              .filter(id => !this.pendingSaves.nodes.has(id));
           if (nodeIds.length === 0) continue;
 
           const result = await verifyNodesIntegrity(effectiveBookId, nodeIds);
 
-          if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0) {
+          const failedIds = [
+            ...result.missingFromIDB.map(m => typeof m === 'object' ? m.nodeId : m),
+            ...result.mismatches.map(m => m.nodeId),
+          ];
+
+          if (failedIds.length > 0 && !this._selfHealingInProgress) {
+            // Attempt self-healing: re-queue failed nodes → flush → re-verify
+            verbose.content(`[integrity] Post-save self-healing: re-queuing ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
+            this._selfHealingInProgress = true;
+            try {
+              for (const id of failedIds) {
+                this.queueNode(id, 'update', effectiveBookId);
+              }
+              await this.flush();
+              const retryResult = await verifyNodesIntegrity(effectiveBookId, nodeIds);
+              if (retryResult.mismatches.length > 0 || retryResult.missingFromIDB.length > 0 || retryResult.duplicateIds.length > 0) {
+                reportIntegrityFailure({
+                  bookId: effectiveBookId,
+                  mismatches: retryResult.mismatches,
+                  missingFromIDB: retryResult.missingFromIDB,
+                  duplicateIds: retryResult.duplicateIds,
+                  trigger: 'save',
+                });
+              } else {
+                verbose.content(`[integrity] Post-save self-healing succeeded for ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
+                reportIntegrityFailure({
+                  bookId: effectiveBookId,
+                  mismatches: result.mismatches,
+                  missingFromIDB: result.missingFromIDB,
+                  duplicateIds: result.duplicateIds,
+                  trigger: 'save',
+                  selfHealed: true,
+                  selfHealedNodeIds: failedIds,
+                });
+              }
+            } finally {
+              this._selfHealingInProgress = false;
+            }
+          } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
+            // Can't self-heal duplicates or already healing — report immediately
             reportIntegrityFailure({
               bookId: effectiveBookId,
               mismatches: result.mismatches,
@@ -439,10 +503,47 @@ export class SaveQueue {
         if (nodeIds.length === 0) return;
 
         try {
-          console.log(`[integrity] Full-book verification: checking ${nodeIds.length} nodes for ${bookId}`);
+          verbose.content(`[integrity] Full-book verification: checking ${nodeIds.length} nodes for ${bookId}`, 'divEditor/saveQueue.js');
           const result = await verifyNodesIntegrity(bookId, nodeIds);
 
-          if (result.missingFromIDB.length > 0 || result.mismatches.length > 0 || result.duplicateIds.length > 0) {
+          const failedIds = [
+            ...result.missingFromIDB.map(m => typeof m === 'object' ? m.nodeId : m),
+            ...result.mismatches.map(m => m.nodeId),
+          ];
+
+          if (failedIds.length > 0 && !this._selfHealingInProgress) {
+            verbose.content(`[integrity] Full-scan self-healing: re-queuing ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
+            this._selfHealingInProgress = true;
+            try {
+              for (const id of failedIds) {
+                this.queueNode(id, 'update', bookId);
+              }
+              await this.flush();
+              const retryResult = await verifyNodesIntegrity(bookId, nodeIds);
+              if (retryResult.mismatches.length > 0 || retryResult.missingFromIDB.length > 0 || retryResult.duplicateIds.length > 0) {
+                reportIntegrityFailure({
+                  bookId,
+                  mismatches: retryResult.mismatches,
+                  missingFromIDB: retryResult.missingFromIDB,
+                  duplicateIds: retryResult.duplicateIds,
+                  trigger: 'periodic-save',
+                });
+              } else {
+                verbose.content(`[integrity] Full-scan self-healing succeeded for ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
+                reportIntegrityFailure({
+                  bookId,
+                  mismatches: result.mismatches,
+                  missingFromIDB: result.missingFromIDB,
+                  duplicateIds: result.duplicateIds,
+                  trigger: 'periodic-save',
+                  selfHealed: true,
+                  selfHealedNodeIds: failedIds,
+                });
+              }
+            } finally {
+              this._selfHealingInProgress = false;
+            }
+          } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
             reportIntegrityFailure({
               bookId,
               mismatches: result.mismatches,
@@ -451,7 +552,7 @@ export class SaveQueue {
               trigger: 'periodic-save',
             });
           } else {
-            console.log(`[integrity] Full-book verification: all ${result.ok.length} nodes OK`);
+            verbose.content(`[integrity] Full-book verification: all ${result.ok.length} nodes OK`, 'divEditor/saveQueue.js');
           }
         } catch (e) {
           console.warn('[integrity] Full-book verification error:', e);
@@ -464,7 +565,7 @@ export class SaveQueue {
    * Force save all pending changes immediately
    */
   async flush() {
-    console.log('🚨 Flushing all pending saves...');
+    verbose.content('Flushing all pending saves...', 'divEditor/saveQueue.js');
 
     // Clear debounce timers and execute immediately
     this.debouncedSaveNode.cancel();
@@ -472,28 +573,34 @@ export class SaveQueue {
 
     // 🔑 CRITICAL: Wait for any ongoing save to complete first
     if (this.currentSavePromise) {
-      console.log('[SaveQueue] Waiting for ongoing save to complete...');
+      verbose.content('[SaveQueue] Waiting for ongoing save to complete...', 'divEditor/saveQueue.js');
       await this.currentSavePromise;
-      console.log('[SaveQueue] Ongoing save completed');
+      verbose.content('[SaveQueue] Ongoing save completed', 'divEditor/saveQueue.js');
     }
 
-    // Await the async save operations to ensure they complete
-    if (this.pendingSaves.nodes.size > 0) {
-      await this.saveNodeToDatabase();
+    // Bypass paste guard for explicit flushes (page unload, paste verification)
+    this._forceBypassPasteGuard = true;
+    try {
+      // Await the async save operations to ensure they complete
+      if (this.pendingSaves.nodes.size > 0) {
+        await this.saveNodeToDatabase();
+      }
+
+      if (this.pendingSaves.deletions.size > 0) {
+        await this.processBatchDeletions();
+      }
+
+      // 🔑 CRITICAL: Wait for any save that started during this flush
+      if (this.currentSavePromise) {
+        verbose.content('[SaveQueue] Waiting for final save to complete...', 'divEditor/saveQueue.js');
+        await this.currentSavePromise;
+        verbose.content('[SaveQueue] Final save completed', 'divEditor/saveQueue.js');
+      }
+    } finally {
+      this._forceBypassPasteGuard = false;
     }
 
-    if (this.pendingSaves.deletions.size > 0) {
-      await this.processBatchDeletions();
-    }
-    
-    // 🔑 CRITICAL: Wait for any save that started during this flush
-    if (this.currentSavePromise) {
-      console.log('[SaveQueue] Waiting for final save to complete...');
-      await this.currentSavePromise;
-      console.log('[SaveQueue] Final save completed');
-    }
-    
-    console.log('✅ SaveQueue flush complete');
+    verbose.content('SaveQueue flush complete', 'divEditor/saveQueue.js');
   }
 
   /**

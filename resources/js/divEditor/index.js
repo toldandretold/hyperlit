@@ -171,14 +171,13 @@ let enterKeyHandler = null;
 // ================================================================
 
 export function queueNodeForSave(IDnumerical, action = 'update', bookId = null) {
-  console.log(`🎯 queueNodeForSave called: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, saveQueue exists: ${!!saveQueue}`);
+  verbose.content(`queueNodeForSave: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}`, 'divEditor/index.js');
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
     return;
   }
   glowCloudOrange();
   saveQueue.queueNode(IDnumerical, action, bookId);
-  console.log(`🎯 queueNodeForSave: queued ${IDnumerical}, pending nodes: ${saveQueue.pendingSaves?.nodes?.size || 0}`);
 }
 
 export function queueNodeForDeletion(IDnumerical, nodeElement = null, bookId = null) {
@@ -197,23 +196,23 @@ export function queueNodeForDeletion(IDnumerical, nodeElement = null, bookId = n
 
 // Force save all pending changes (useful for page unload)
 export async function flushAllPendingSaves() {
-  console.log('🚨 Flushing all pending saves...');
+  verbose.content('Flushing all pending saves...', 'divEditor/index.js');
 
   if (saveQueue) {
     await saveQueue.flush();
-    console.log('✅ All pending saves flushed');
+    verbose.content('All pending saves flushed', 'divEditor/index.js');
   }
 }
 
 // 🔑 CRITICAL: Flush input debounce to capture recent typing
 // This forces the 200ms debounced input handler to execute immediately
 export function flushInputDebounce() {
-  console.log('[EditSession] Flushing input debounce...');
+  verbose.content('[EditSession] Flushing input debounce...', 'divEditor/index.js');
   if (debouncedInputHandlerRef) {
     debouncedInputHandlerRef.flush();
-    console.log('[EditSession] Input debounce flushed');
+    verbose.content('[EditSession] Input debounce flushed', 'divEditor/index.js');
   } else {
-    console.log('[EditSession] No input debounce to flush');
+    verbose.content('[EditSession] No input debounce to flush', 'divEditor/index.js');
   }
 }
 
@@ -382,22 +381,22 @@ export async function startObserving(editableDiv, bookId = null) {
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
   debouncedInputHandlerRef = debounce((e) => {
-    console.log('🎯 INPUT EVENT FIRED:', e.type, e.inputType, 'isEditing:', window.isEditing, 'isComposing:', isComposing);
+    verbose.user(`INPUT EVENT: ${e.type} ${e.inputType}, isEditing: ${window.isEditing}, isComposing: ${isComposing}`, 'divEditor/index.js');
     if (!window.isEditing || isComposing) {
-      console.log('🚫 INPUT HANDLER: Skipped (not editing or composing)');
+      verbose.user('INPUT HANDLER: Skipped (not editing or composing)', 'divEditor/index.js');
       return; // Skip during mobile IME composition
     }
 
     // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
     const selection = window.getSelection();
-    console.log('🎯 SELECTION:', selection ? 'exists' : 'null', 'rangeCount:', selection?.rangeCount);
+    verbose.user(`SELECTION: ${selection ? 'exists' : 'null'}, rangeCount: ${selection?.rangeCount}`, 'divEditor/index.js');
     if (!selection || !selection.rangeCount) {
       // 🛡️ Selection gone (e.g., user clicked overlay during debounce) — use cached node ID
       if (lastInputNodeId) {
-        console.log(`🎯 FALLBACK: No selection, using lastInputNodeId: ${lastInputNodeId}`);
+        verbose.user(`FALLBACK: No selection, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
         queueNodeForSave(lastInputNodeId, 'update');
       } else {
-        console.log('🚫 INPUT HANDLER: No selection and no lastInputNodeId');
+        verbose.user('INPUT HANDLER: No selection and no lastInputNodeId', 'divEditor/index.js');
       }
       return;
     }
@@ -410,23 +409,23 @@ export async function startObserving(editableDiv, bookId = null) {
     }
 
     if (!targetElement) {
-      console.log('🚫 INPUT HANDLER: No target element');
+      verbose.user('INPUT HANDLER: No target element', 'divEditor/index.js');
       return;
     }
-    console.log('🎯 TARGET ELEMENT:', targetElement.nodeName, 'id:', targetElement.id);
+    verbose.user(`TARGET ELEMENT: ${targetElement.nodeName}, id: ${targetElement.id}`, 'divEditor/index.js');
 
     // 🚀 PERFORMANCE: Check cache first (50-90% faster on repeat keystrokes)
     let parentWithId = elementToNumericalParent.get(targetElement);
-    console.log('🎯 CACHE CHECK:', parentWithId ? `found ${parentWithId.id}` : 'cache miss');
+    verbose.user(`CACHE CHECK: ${parentWithId ? `found ${parentWithId.id}` : 'cache miss'}`, 'divEditor/index.js');
 
     if (!parentWithId) {
       // Cache miss - do expensive lookup
       parentWithId = targetElement.closest('[id]');
-      console.log('🎯 CLOSEST [id]:', parentWithId ? parentWithId.id : 'none found');
+      verbose.user(`CLOSEST [id]: ${parentWithId ? parentWithId.id : 'none found'}`, 'divEditor/index.js');
 
       while (parentWithId && !NUMERICAL_ID_PATTERN.test(parentWithId.id)) {
         parentWithId = parentWithId.parentElement?.closest('[id]');
-        console.log('🎯 PARENT SEARCH:', parentWithId ? parentWithId.id : 'no match');
+        verbose.user(`PARENT SEARCH: ${parentWithId ? parentWithId.id : 'no match'}`, 'divEditor/index.js');
       }
 
       // Cache the result for future lookups
@@ -437,18 +436,17 @@ export async function startObserving(editableDiv, bookId = null) {
 
     if (parentWithId?.id) {
       lastInputNodeId = parentWithId.id;
-      console.log(`🎯 QUEUEING NODE: ${parentWithId.id}`);
       verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
       queueNodeForSave(parentWithId.id, 'update');
       checkAndInvalidateTocCache(parentWithId.id, parentWithId);
     } else {
       // 🛡️ Selection moved away from contenteditable (e.g., to overlay) — use cached node ID
       if (lastInputNodeId) {
-        console.log(`🎯 FALLBACK: No numerical parent found, using lastInputNodeId: ${lastInputNodeId}`);
+        verbose.user(`FALLBACK: No numerical parent, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
         queueNodeForSave(lastInputNodeId, 'update');
         checkAndInvalidateTocCache(lastInputNodeId, document.getElementById(lastInputNodeId));
       } else {
-        console.log('🚫 INPUT HANDLER: No parent with valid ID found');
+        verbose.user('INPUT HANDLER: No parent with valid ID found', 'divEditor/index.js');
       }
     }
   }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel
@@ -660,10 +658,10 @@ export async function stopObserving() {
   // 🔑 CRITICAL: Flush input debounce BEFORE SaveQueue cleanup
   // This captures typing that hasn't been queued yet (within debounce window)
   if (debouncedInputHandlerRef) {
-    console.log('[EditSession] Flushing pending input debounce...');
+    verbose.content('[EditSession] Flushing pending input debounce...', 'divEditor/index.js');
     debouncedInputHandlerRef.flush();
     debouncedInputHandlerRef = null;
-    console.log('[EditSession] Input debounce flushed');
+    verbose.content('[EditSession] Input debounce flushed', 'divEditor/index.js');
   }
 
   // 💾 Flush then cleanup SaveQueue

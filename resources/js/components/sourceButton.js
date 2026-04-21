@@ -502,10 +502,115 @@ export class SourceContainerManager extends ContainerManager {
       exportBookAsDocxStyled(book);
     });
     const downloadAllBtn = this.container.querySelector("#download-all");
-    if (downloadAllBtn) downloadAllBtn.addEventListener("click", (e) => {
+    if (downloadAllBtn) downloadAllBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      window.location.href = `/${encodeURIComponent(book)}/download-all`;
+
+      const origText = downloadAllBtn.textContent;
+      downloadAllBtn.disabled = true;
+      downloadAllBtn.textContent = 'Preparing download…';
+
+      const triggerBlobDownload = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      try {
+        // Step 1: Fetch server zip — this is the critical part
+        const zipResp = await fetch(`/${encodeURIComponent(book)}/download-all`, { credentials: 'include' });
+        if (!zipResp.ok) throw new Error(`Server zip fetch failed (${zipResp.status})`);
+        const serverZipBlob = await zipResp.blob();
+
+        // Step 2: Try to augment with blackBox (non-critical — failures just skip it)
+        try {
+          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme }, JSZip] =
+            await Promise.all([
+              import('../integrity/emergencyBackup.js'),
+              loadJSZip(),
+            ]);
+
+          const [browserResult, idbResult, serverMd] = await Promise.all([
+            buildBrowserMd(book),
+            buildBrowserDatabaseMd(book),
+            buildServerDatabaseMd(book),
+          ]);
+
+          const zip = await JSZip.loadAsync(serverZipBlob);
+
+          const stitchedMd = buildStitchedUpMd(
+            idbResult?.nodeMap || null,
+            browserResult?.nodeMap || null,
+          );
+
+          const bbFiles = {};
+          if (browserResult?.markdown) bbFiles['browser.md'] = browserResult.markdown;
+          if (idbResult?.markdown) bbFiles['browserDatabase.md'] = idbResult.markdown;
+          if (serverMd) bbFiles['serverDatabase.md'] = serverMd;
+          if (stitchedMd) bbFiles['stitchedUp.md'] = stitchedMd;
+          bbFiles['README.md'] = buildReadme(book, bbFiles);
+
+          const prefix = `${book}/blackBox`;
+          for (const [name, content] of Object.entries(bbFiles)) {
+            zip.file(`${prefix}/${name}`, content);
+          }
+
+          const augmented = await zip.generateAsync({ type: 'blob' });
+          triggerBlobDownload(augmented, `${book}.zip`);
+        } catch (augmentErr) {
+          console.warn('[sourceButton] BlackBox augmentation failed, downloading plain zip:', augmentErr);
+          triggerBlobDownload(serverZipBlob, `${book}.zip`);
+        }
+      } catch (err) {
+        // Server zip fetch failed (404, network error) — build client-only blackBox zip
+        console.warn('[sourceButton] Server zip fetch failed, building client-only zip:', err);
+        try {
+          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme }, JSZip] =
+            await Promise.all([
+              import('../integrity/emergencyBackup.js'),
+              loadJSZip(),
+            ]);
+
+          const [browserResult, idbResult, serverMd] = await Promise.all([
+            buildBrowserMd(book),
+            buildBrowserDatabaseMd(book),
+            buildServerDatabaseMd(book),
+          ]);
+
+          const zip = new JSZip();
+          const stitchedMd = buildStitchedUpMd(
+            idbResult?.nodeMap || null,
+            browserResult?.nodeMap || null,
+          );
+
+          const bbFiles = {};
+          if (browserResult?.markdown) bbFiles['browser.md'] = browserResult.markdown;
+          if (idbResult?.markdown) bbFiles['browserDatabase.md'] = idbResult.markdown;
+          if (serverMd) bbFiles['serverDatabase.md'] = serverMd;
+          if (stitchedMd) bbFiles['stitchedUp.md'] = stitchedMd;
+          bbFiles['README.md'] = buildReadme(book, bbFiles);
+
+          const prefix = `${book}/blackBox`;
+          for (const [name, content] of Object.entries(bbFiles)) {
+            zip.file(`${prefix}/${name}`, content);
+          }
+
+          const blob = await zip.generateAsync({ type: 'blob' });
+          triggerBlobDownload(blob, `${book}.zip`);
+        } catch (fallbackErr) {
+          console.error('[sourceButton] Client-only zip also failed:', fallbackErr);
+          downloadAllBtn.textContent = 'Download failed';
+          setTimeout(() => { downloadAllBtn.textContent = origText; }, 3000);
+        }
+      } finally {
+        downloadAllBtn.disabled = false;
+        downloadAllBtn.textContent = origText;
+      }
     });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
