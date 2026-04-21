@@ -226,8 +226,17 @@ function _schedulePasteVerification(bookId, pasteOpId) {
         ];
 
         if (failedIds.length > 0) {
-          console.log(`[integrity] Self-healing: re-queuing ${failedIds.length} failed nodes for save`);
-          for (const id of failedIds) {
+          // Don't overwrite IDB with empty DOM — that's data destruction
+          const safeToHeal = failedIds.filter(id => {
+            const m = result.mismatches.find(m => m.nodeId === id);
+            if (m && !m.domText.trim() && m.idbText.trim()) {
+              console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
+              return false;
+            }
+            return true;
+          });
+          console.log(`[integrity] Self-healing: re-queuing ${safeToHeal.length} failed nodes for save (${failedIds.length - safeToHeal.length} skipped — DOM empty)`);
+          for (const id of safeToHeal) {
             queueNodeForSave(id, 'update', bookId);
           }
           await flushAllPendingSaves();
@@ -279,12 +288,6 @@ async function handlePaste(event) {
   // 🎯 Generate unique paste operation ID for tracing
   const pasteOpId = `paste_${Date.now()}`;
   console.log(`🎯 [${pasteOpId}] Starting paste operation`);
-
-  // Set the flag immediately to disable the MutationObserver
-  setPasteInProgress(true);
-
-  // Also set flag to disable safety mechanism
-  isPasteOperationInProgress = true;
 
   try {
     // 1) Prevent double-handling
@@ -528,13 +531,17 @@ async function handlePaste(event) {
 
     // 5) Route to the correct handler (small vs. large paste).
     if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, targetBookId)) {
-      // Small paste completed - hide overlay if it was shown (markdown conversion)
+      // Small paste completed — observer was active the whole time
       await ProgressOverlayConductor.hide();
 
       // Post-paste integrity check: 3s delay (1.5s debounce + 1.5s margin)
       _schedulePasteVerification(targetBookId, pasteOpId);
       return;
     }
+
+    // Large paste DOES need the flags — it does brutal DOM surgery
+    setPasteInProgress(true);
+    isPasteOperationInProgress = true;
 
     const insertionPoint = getInsertionPoint(chunkElement, targetBookId);
     if (!insertionPoint) {
@@ -716,9 +723,12 @@ async function handlePaste(event) {
     _schedulePasteVerification(pasteBook, pasteOpId);
 
   } finally {
-    // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
-    setPasteInProgress(false);
-    // Also clear the safety mechanism flag
-    isPasteOperationInProgress = false;
+    // Only clear flags if they were set (small pastes skip flag-setting)
+    if (isPasteInProgressState()) {
+      setPasteInProgress(false);
+    }
+    if (isPasteOperationInProgress) {
+      isPasteOperationInProgress = false;
+    }
   }
 }

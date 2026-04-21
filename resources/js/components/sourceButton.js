@@ -529,7 +529,7 @@ export class SourceContainerManager extends ContainerManager {
 
         // Step 2: Try to augment with blackBox (non-critical — failures just skip it)
         try {
-          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme }, JSZip] =
+          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme, buildTopLevelReadme }, JSZip] =
             await Promise.all([
               import('../integrity/emergencyBackup.js'),
               loadJSZip(),
@@ -560,6 +560,8 @@ export class SourceContainerManager extends ContainerManager {
             zip.file(`${prefix}/${name}`, content);
           }
 
+          zip.file(`${book}/README.md`, buildTopLevelReadme(book, zip));
+
           const augmented = await zip.generateAsync({ type: 'blob' });
           triggerBlobDownload(augmented, `${book}.zip`);
         } catch (augmentErr) {
@@ -570,7 +572,7 @@ export class SourceContainerManager extends ContainerManager {
         // Server zip fetch failed (404, network error) — build client-only blackBox zip
         console.warn('[sourceButton] Server zip fetch failed, building client-only zip:', err);
         try {
-          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme }, JSZip] =
+          const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme, buildTopLevelReadme }, JSZip] =
             await Promise.all([
               import('../integrity/emergencyBackup.js'),
               loadJSZip(),
@@ -599,6 +601,8 @@ export class SourceContainerManager extends ContainerManager {
           for (const [name, content] of Object.entries(bbFiles)) {
             zip.file(`${prefix}/${name}`, content);
           }
+
+          zip.file(`${book}/README.md`, buildTopLevelReadme(book, zip));
 
           const blob = await zip.generateAsync({ type: 'blob' });
           triggerBlobDownload(blob, `${book}.zip`);

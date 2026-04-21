@@ -5,6 +5,7 @@
         // Console banner
         console.log('%c\n _   ___   ______  _____ ____  _     ___ _____\n| | | \\ \\ / /  _ \\| ____|  _ \\| |   |_ _|_   _|\n| |_| |\\ V /| |_) |  _| | |_) | |    | |  | |\n|  _  | | | |  __/| |___|  _ <| |___ | |  | |\n|_| |_| |_| |_|   |_____|_| \\_\\_____|___| |_|\n', 'color: #3B82F6; font-family: monospace;');
         console.log('%cRead, write and publish hypertext literature\n%cGitHub: %chttps://github.com/toldandretold/hyperlit', 'color: #6B7280; font-size: 11px', 'color: #6B7280; font-size: 11px', 'color: #3B82F6; font-size: 11px');
+        console.log('%cVerbose logs: logger.enableVerbose()  ·  logger.disableVerbose()  ·  logger.isVerbose()', 'color: #6B7280; font-size: 11px');
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">

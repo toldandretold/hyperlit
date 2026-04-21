@@ -430,7 +430,16 @@ export class SaveQueue {
             verbose.content(`[integrity] Post-save self-healing: re-queuing ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
             this._selfHealingInProgress = true;
             try {
-              for (const id of failedIds) {
+              // Don't overwrite IDB with empty DOM — that's data destruction
+              const safeToHeal = failedIds.filter(id => {
+                const m = result.mismatches.find(m => m.nodeId === id);
+                if (m && !m.domText.trim() && m.idbText.trim()) {
+                  console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
+                  return false;
+                }
+                return true;
+              });
+              for (const id of safeToHeal) {
                 this.queueNode(id, 'update', effectiveBookId);
               }
               await this.flush();
@@ -515,7 +524,16 @@ export class SaveQueue {
             verbose.content(`[integrity] Full-scan self-healing: re-queuing ${failedIds.length} nodes`, 'divEditor/saveQueue.js');
             this._selfHealingInProgress = true;
             try {
-              for (const id of failedIds) {
+              // Don't overwrite IDB with empty DOM — that's data destruction
+              const safeToHeal = failedIds.filter(id => {
+                const m = result.mismatches.find(m => m.nodeId === id);
+                if (m && !m.domText.trim() && m.idbText.trim()) {
+                  console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
+                  return false;
+                }
+                return true;
+              });
+              for (const id of safeToHeal) {
                 this.queueNode(id, 'update', bookId);
               }
               await this.flush();

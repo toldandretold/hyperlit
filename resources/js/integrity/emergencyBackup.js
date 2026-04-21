@@ -206,14 +206,14 @@ export function buildReadme(bookId, available) {
     ],
     'serverDatabase.md': [
       '### serverDatabase.md',
-      'Content from the server database. This is the last version that was',
+      'Content from the server database (PostgreSQL). This is the last version that was',
       'successfully synced to the cloud.',
     ],
     'stitchedUp.md': [
       '### stitchedUp.md',
       'A "best of both worlds" merge: the full book from your browser database,',
-      'but with any sections that were visible in your editor replaced with the',
-      'freshest version. This is likely the most complete and up-to-date copy.',
+      'but updated with anything from the browser that might not have synced.',
+      'This is likely the most complete and up-to-date copy.',
     ],
   };
 
@@ -235,4 +235,100 @@ export function buildReadme(bookId, available) {
   );
 
   return lines.join('\n');
+}
+
+/**
+ * Generate a top-level README for the download-all zip.
+ * Inspects the JSZip instance to determine which folders are present.
+ */
+export function buildTopLevelReadme(bookId, zip) {
+  const timestamp = new Date().toISOString();
+  const prefix = bookId + '/';
+
+  // Detect what's in the zip
+  const hasPostgresql = !!zip.file(new RegExp('^' + escapeRegExp(prefix) + 'postgresql_data/'));
+  const hasOriginalFiles = !!zip.file(new RegExp('^' + escapeRegExp(prefix) + 'original_files/'));
+  const hasBlackBox = !!zip.file(new RegExp('^' + escapeRegExp(prefix) + 'blackBox/'));
+
+  // Detect source file type
+  let sourceType = null;
+  if (hasOriginalFiles) {
+    if (zip.file(new RegExp('^' + escapeRegExp(prefix) + 'original_files/.*\\.pdf$', 'i'))) {
+      sourceType = 'PDF';
+    } else if (zip.file(new RegExp('^' + escapeRegExp(prefix) + 'original_files/.*\\.epub$', 'i'))) {
+      sourceType = 'EPUB';
+    }
+  }
+
+  const lines = [
+    `# ${bookId} — Complete Export`,
+    `Exported: ${timestamp}`,
+    '',
+    '## Overview',
+    'This folder contains the complete data for this book in markdown and JSON.',
+    '',
+  ];
+
+  if (hasPostgresql) {
+    lines.push(
+      '## `postgresql_data/`',
+      'Server-side data exported as JSON. Contains:',
+      '- **nodes** — the book\'s content (HTML nodes)',
+      '- **footnotes** — footnote content linked to nodes',
+      '- **hypercites** — cross-references between books',
+      '- **hyperlights** — sub-books embedded within the text',
+      '- **highlights** — user highlights and annotations',
+      '- **bibliography** — bibliographic entries',
+      '',
+    );
+  }
+
+  if (hasOriginalFiles) {
+    lines.push(
+      '## `original_files/`',
+      `Contains the original source file (${sourceType || 'PDF/EPUB'}) and all intermediate`,
+      'conversion artifacts. These can be used locally to re-run or modify the conversion.',
+      '',
+    );
+  }
+
+  if (hasBlackBox) {
+    lines.push(
+      '## `blackBox/`',
+      'Browser-side backup snapshots. See `blackBox/README.md` for details on these files.',
+      '',
+    );
+  }
+
+  if (hasOriginalFiles) {
+    lines.push(
+      '## Conversion scripts',
+      'If you want to reconvert or modify the pipeline, these scripts and the original',
+      'source file in `original_files/` are everything you need:',
+      '',
+    );
+    if (sourceType === 'PDF') {
+      lines.push('- `app/Python/mistral_ocr.py` — PDF → markdown via Mistral OCR');
+    } else if (sourceType === 'EPUB') {
+      lines.push(
+        '- `app/Python/epub_processor.py` / `epub_normalizer.py` — EPUB → HTML',
+      );
+    } else {
+      lines.push(
+        '- `app/Python/mistral_ocr.py` — PDF → markdown via Mistral OCR',
+        '- `app/Python/epub_processor.py` / `epub_normalizer.py` — EPUB → HTML',
+      );
+    }
+    lines.push(
+      '- `app/Python/process_document.py` — HTML post-processing & sanitisation',
+      '- `app/Http/Controllers/ConversionController.php` — markdown ↔ HTML + highlight position tracking',
+      '',
+    );
+  }
+
+  return lines.join('\n');
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
