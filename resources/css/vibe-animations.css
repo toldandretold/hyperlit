@@ -29,6 +29,13 @@ body.theme-vibe #top {
   --logo-text-color: var(--color-text);
 }
 
+/* Vibe themes — reset text-fill on marks inside gradient headings so text stays visible */
+body.theme-vibe h1 mark,
+body.theme-vibe h2 mark,
+body.theme-vibe h3 mark {
+  -webkit-text-fill-color: #fff;
+}
+
 /* Canvas feedback loop — positioned behind all content */
 #vibe-canvas {
   position: fixed;
