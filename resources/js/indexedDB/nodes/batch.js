@@ -228,6 +228,28 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     uTag.parentNode.removeChild(uTag);
   }
 
+  // 🧹 REMOVE <font> tags (browser artifacts from execCommand)
+  // These are inline wrappers the browser creates — unwrap to keep content
+  const clonedFontTags = contentClone.getElementsByTagName("font");
+  while (clonedFontTags.length > 0) {
+    const fontTag = clonedFontTags[0];
+    while (fontTag.firstChild) {
+      fontTag.parentNode.insertBefore(fontTag.firstChild, fontTag);
+    }
+    fontTag.parentNode.removeChild(fontTag);
+  }
+
+  // 🧹 STRIP duplicate node IDs from inline descendants
+  // When content is copy-pasted, inline elements can retain id/data-node-id
+  // from their original nodes — these cause duplicate DOM IDs on render
+  contentClone.querySelectorAll('[id]').forEach(el => {
+    if (el === contentClone) return; // Don't strip the node's own ID
+    if (/^\d+(\.\d+)*$/.test(el.id)) {
+      el.removeAttribute('id');
+      el.removeAttribute('data-node-id');
+    }
+  });
+
   // 🧹 REMOVE styled spans before saving (prevents them from being stored)
   const clonedSpans = Array.from(contentClone.querySelectorAll('span[style]'));
   clonedSpans.forEach(span => {
