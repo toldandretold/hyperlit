@@ -114,37 +114,35 @@ class UserHomeServerController extends Controller
             return;
         }
 
-        // Failsafe for private home book: regenerate if actual book IDs don't match
+        // Failsafe: regenerate if actual book IDs don't match
         // Use admin connection to bypass RLS - trusted backend operation
-        if ($visibility === 'private') {
-            $libraryBooks = DB::connection('pgsql_admin')->table('library')
-                ->where('creator', $username)
-                ->where('book', '!=', $sanitizedUsername)
-                ->where('book', '!=', $sanitizedUsername . 'Private')
-                ->where('book', '!=', $sanitizedUsername . 'Account')
-                ->where('book', 'NOT LIKE', '%/%')
-                ->where('visibility', 'private')
-                ->pluck('book')
-                ->sort()
-                ->values();
+        $libraryBooks = DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('visibility', $visibility)
+            ->pluck('book')
+            ->sort()
+            ->values();
 
-            $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
-                ->where('book', $bookName)
-                ->where('startLine', '>', 0)
-                ->pluck('raw_json')
-                ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
-                ->filter()
-                ->sort()
-                ->values();
+        $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $bookName)
+            ->where('startLine', '>', 0)
+            ->pluck('raw_json')
+            ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
+            ->filter()
+            ->sort()
+            ->values();
 
-            if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
-                Log::info('Regenerating private home book due to book ID mismatch.', [
-                    'username' => $username,
-                    'missing' => $libraryBooks->diff($nodeBooks)->values(),
-                    'extra' => $nodeBooks->diff($libraryBooks)->values(),
-                ]);
-                $this->generateUserHomeBook($username, $isOwner, $visibility);
-            }
+        if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
+            Log::info('Regenerating ' . $visibility . ' home book due to book ID mismatch.', [
+                'username' => $username,
+                'missing' => $libraryBooks->diff($nodeBooks)->values(),
+                'extra' => $nodeBooks->diff($libraryBooks)->values(),
+            ]);
+            $this->generateUserHomeBook($username, $isOwner, $visibility);
         }
     }
 

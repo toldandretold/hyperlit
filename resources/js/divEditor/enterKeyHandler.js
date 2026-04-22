@@ -677,6 +677,10 @@ export class EnterKeyHandler {
           range.setStartAfter(br);
           range.insertNode(textNode);
           moveCaretTo(textNode, 0);
+
+          if (blockElement.id) {
+            queueNodeForSave(blockElement.id, "update");
+          }
         }
 
         return;

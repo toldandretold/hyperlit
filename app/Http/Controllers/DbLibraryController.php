@@ -260,11 +260,24 @@ public function upsert(Request $request)
                 ]);
             }
 
+            // Capture old visibility before applying update
+            $oldVisibility = $libraryRecord->visibility;
+
             // Apply the update (this is fast)
             $libraryRecord->update($updateData);
 
             if ($isOwner && $libraryRecord->creator) {
-                app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
+                $newVisibility = $libraryRecord->visibility;
+
+                if ($oldVisibility !== $newVisibility) {
+                    // Visibility changed — regenerate both home books so the card
+                    // moves from the old visibility's book to the new one
+                    $homeController = app(UserHomeServerController::class);
+                    $homeController->generateUserHomeBook($libraryRecord->creator, null, 'public');
+                    $homeController->generateUserHomeBook($libraryRecord->creator, null, 'private');
+                } else {
+                    app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
+                }
             }
 
             Log::info('Library record updated successfully', [
