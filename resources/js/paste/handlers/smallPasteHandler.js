@@ -95,6 +95,10 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   // Strip id, data-node-id, no-delete-id attributes (fix-up phase assigns fresh ones)
   finalHtmlToInsert = finalHtmlToInsert.replace(/\s(?:id|data-node-id|no-delete-id)="[^"]*"/gi, '');
 
+  // Strip style attributes — browser bakes computed CSS (e.g. font-family: var(--font-family-base))
+  // into clipboard HTML when copying from contenteditable; these are visual noise, not user intent
+  finalHtmlToInsert = finalHtmlToInsert.replace(/\sstyle="[^"]*"/gi, '');
+
   // If pasting HTML with a single <p> wrapper into an existing <p>, unwrap it
   // SAFE: Content is already sanitized above
   if (finalHtmlToInsert && currentBlock) {
