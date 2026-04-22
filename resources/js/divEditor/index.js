@@ -436,6 +436,13 @@ export async function startObserving(editableDiv, bookId = null) {
 
     if (parentWithId?.id) {
       lastInputNodeId = parentWithId.id;
+      // Strip browser-injected inline style attributes (e.g. font-family from execCommand)
+      // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner
+      parentWithId.querySelectorAll('[style]').forEach(el => {
+        if (!el.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, ul, ol, li, table')) {
+          el.removeAttribute('style');
+        }
+      });
       verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
       queueNodeForSave(parentWithId.id, 'update');
       checkAndInvalidateTocCache(parentWithId.id, parentWithId);

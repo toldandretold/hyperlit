@@ -438,7 +438,12 @@ export class SaveQueue {
               .filter(id => !this.pendingSaves.nodes.has(id));
           if (nodeIds.length === 0) continue;
 
+          const verifyStartedAt = Date.now();
           const result = await verifyNodesIntegrity(effectiveBookId, nodeIds);
+          if (this._lastInputTimestamp > verifyStartedAt || this.pendingSaves.nodes.size > 0) {
+            verbose.content('[integrity] Skipping post-save results — user typed during verification', 'divEditor/saveQueue.js');
+            continue;
+          }
 
           const failedIds = [
             ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
@@ -463,7 +468,12 @@ export class SaveQueue {
                 this.queueNode(id, 'update', effectiveBookId);
               }
               await this.flush();
+              const retryStartedAt = Date.now();
               const retryResult = await verifyNodesIntegrity(effectiveBookId, nodeIds);
+              if (this._lastInputTimestamp > retryStartedAt || this.pendingSaves.nodes.size > 0) {
+                verbose.content('[integrity] Skipping self-heal retry — user typed during re-verification', 'divEditor/saveQueue.js');
+                continue;
+              }
               if (retryResult.mismatches.length > 0 || retryResult.missingFromIDB.length > 0 || retryResult.duplicateIds.length > 0) {
                 reportIntegrityFailure({
                   bookId: effectiveBookId,
@@ -546,7 +556,12 @@ export class SaveQueue {
 
         try {
           verbose.content(`[integrity] Full-book verification: checking ${nodeIds.length} nodes for ${bookId}`, 'divEditor/saveQueue.js');
+          const verifyStartedAt = Date.now();
           const result = await verifyNodesIntegrity(bookId, nodeIds);
+          if (this._lastInputTimestamp > verifyStartedAt || this.pendingSaves.nodes.size > 0) {
+            verbose.content('[integrity] Skipping full-scan results — user typed during verification', 'divEditor/saveQueue.js');
+            return;
+          }
 
           const failedIds = [
             ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
@@ -570,7 +585,12 @@ export class SaveQueue {
                 this.queueNode(id, 'update', bookId);
               }
               await this.flush();
+              const retryStartedAt = Date.now();
               const retryResult = await verifyNodesIntegrity(bookId, nodeIds);
+              if (this._lastInputTimestamp > retryStartedAt || this.pendingSaves.nodes.size > 0) {
+                verbose.content('[integrity] Skipping full-scan self-heal retry — user typed during re-verification', 'divEditor/saveQueue.js');
+                return;
+              }
               if (retryResult.mismatches.length > 0 || retryResult.missingFromIDB.length > 0 || retryResult.duplicateIds.length > 0) {
                 reportIntegrityFailure({
                   bookId,

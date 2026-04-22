@@ -354,6 +354,19 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   // --- 5. FINALIZE ---
   // The cursor is already placed correctly by execCommand.
 
+  // Strip style attributes the browser injected during execCommand
+  // (e.g. <b style="font-family: var(--font-family-base);">)
+  // Cover currentBlock and any sibling blocks that execCommand may have touched
+  if (currentBlock?.parentElement) {
+    currentBlock.parentElement.querySelectorAll('[style]').forEach(el => {
+      // Only strip from inline elements — don't touch block-level style attrs
+      const tag = el.tagName;
+      if (!el.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, ul, ol, li, table')) {
+        el.removeAttribute('style');
+      }
+    });
+  }
+
   // Detect collateral damage: re-queue any snapshotted node whose content changed
   for (const [nodeId, oldText] of _collateralSnapshot) {
     const el = document.getElementById(nodeId);
