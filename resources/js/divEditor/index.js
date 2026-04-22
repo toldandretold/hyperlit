@@ -455,6 +455,7 @@ export async function startObserving(editableDiv, bookId = null) {
   // Selection may move by the time the 200ms debounce fires (e.g., overlay click)
   inputEventHandler = (e) => {
     if (window.isEditing && !isComposing) {
+      if (saveQueue) saveQueue.recordInputEvent();
       const sel = window.getSelection();
       if (sel?.rangeCount) {
         let el = sel.getRangeAt(0).startContainer;

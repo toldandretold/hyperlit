@@ -64,6 +64,7 @@ export class SaveQueue {
     this._selfHealingInProgress = false;
     this._forceBypassPasteGuard = false;
     this._pasteGuardDeferrals = 0;
+    this._lastInputTimestamp = 0;
 
     // ✅ REMOVED: ensureMinimumStructure callback - no longer needed with no-delete-id marker system
 
@@ -100,6 +101,10 @@ export class SaveQueue {
 
     verbose.content(`Calling debouncedSaveNode`, 'divEditor/saveQueue.js');
     this.debouncedSaveNode();
+  }
+
+  recordInputEvent() {
+    this._lastInputTimestamp = Date.now();
   }
 
   /**
@@ -421,6 +426,10 @@ export class SaveQueue {
 
       schedule(async () => {
       try {
+        const msSinceLastInput = Date.now() - this._lastInputTimestamp;
+        if (msSinceLastInput < 400) return;
+        if (this.pendingSaves.nodes.size > 0) return;
+
         for (const [bookId, records] of recordsByBookId) {
           const effectiveBookId = bookId || currentBook;
           if (!effectiveBookId) continue;

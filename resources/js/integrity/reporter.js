@@ -55,6 +55,22 @@ export function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB
     });
   }
 
+  // Count IDB nodes for this book
+  let totalIdbNodes = 0;
+  try {
+    const { openDatabase } = await import('../indexedDB/core/database.js');
+    const db = await openDatabase();
+    const tx = db.transaction('nodes', 'readonly');
+    const index = tx.objectStore('nodes').index('book');
+    totalIdbNodes = await new Promise((resolve, reject) => {
+      const req = index.count(bookId);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(0);
+    });
+  } catch (e) {
+    console.warn('[integrity] Could not count IDB nodes:', e);
+  }
+
   // Detect deliberate IDB wipe: 80%+ nodes missing, zero mismatches, non-trivial book
   const suspiciousWipe =
     missingFromIDB.length > 10 &&
