@@ -34,7 +34,7 @@ let _modalEl = null;
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
-export function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }) {
+export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }) {
   // Always log
   console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, trigger });
 
