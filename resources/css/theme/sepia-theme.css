@@ -30,6 +30,10 @@ body.theme-sepia {
   /* Editable element background (slightly darker in sepia mode) */
   --editable-bg: rgba(0, 0, 0, 0.06);
 
+  /* Resize edge tint (dark wash on light bg) */
+  --resize-edge-tint: rgba(0, 0, 0, 0.1);
+  --resize-edge-tint-active: rgba(0, 0, 0, 0.2);
+
   /* Higher opacity needed on light backgrounds */
   --hypercite-single-opacity: 0.5;
   --hypercite-multi-opacity: 0.7;

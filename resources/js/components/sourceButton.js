@@ -670,6 +670,23 @@ export class SourceContainerManager extends ContainerManager {
         a.appendChild(detailSpan);
         listEl.appendChild(a);
       }
+
+      const items = listEl.querySelectorAll('.version-history-item');
+      if (items.length > 5) {
+        for (let i = 5; i < items.length; i++) {
+          items[i].style.display = 'none';
+        }
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.textContent = 'Show More';
+        showMoreBtn.className = 'version-history-show-more';
+        showMoreBtn.addEventListener('click', () => {
+          for (let i = 5; i < items.length; i++) {
+            items[i].style.display = '';
+          }
+          showMoreBtn.remove();
+        });
+        listEl.appendChild(showMoreBtn);
+      }
     } catch (err) {
       console.warn('Failed to load version history:', err);
       listEl.textContent = 'Could not load version history.';

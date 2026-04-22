@@ -26,6 +26,10 @@
   /* Editable element background (slightly lighter in dark mode) */
   --editable-bg: rgba(255, 255, 255, 0.08);
 
+  /* Resize edge tint (light wash on dark bg) */
+  --resize-edge-tint: rgba(203, 204, 204, 0.2);
+  --resize-edge-tint-active: rgba(203, 204, 204, 0.4);
+
   /* Interactive Elements */
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);

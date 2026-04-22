@@ -797,12 +797,12 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 .resize-edge.resize-left:hover {
-  background: linear-gradient(to right, rgba(203, 204, 204, 0.2), transparent);
+  background: linear-gradient(to right, var(--resize-edge-tint), transparent);
 }
 
 .resize-edge.resize-left:active,
 .resize-edge.resize-left.resizing {
-  background: linear-gradient(to right, rgba(203, 204, 204, 0.4), transparent);
+  background: linear-gradient(to right, var(--resize-edge-tint-active), transparent);
 }
 
 /* Prevent text selection during drag/resize */
@@ -2163,6 +2163,25 @@ body[data-page="timemachine"] #main-content {
 .snapshot-detail {
   font-size: 12px;
   opacity: 0.6;
+}
+
+.version-history-show-more {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 0;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.version-history-show-more:hover {
+  color: #4EACAE;
+  border-color: rgba(78,172,174,0.3);
 }
 
 /* ───── AI Citation Review in source container ───── */
