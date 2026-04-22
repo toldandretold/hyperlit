@@ -55,9 +55,17 @@ export function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB
     });
   }
 
+  // Detect deliberate IDB wipe: 80%+ nodes missing, zero mismatches, non-trivial book
+  const suspiciousWipe =
+    missingFromIDB.length > 10 &&
+    mismatches.length === 0 &&
+    totalDomNodes > 0 &&
+    (missingFromIDB.length / totalDomNodes) > 0.8;
+
   // Build diagnostic payload
   const payload = {
     bookId,
+    suspiciousWipe,
     mismatches: mismatches.map(m => ({
       startLine: m.startLine || m.nodeId,
       nodeId: m.nodeId || null,
@@ -84,13 +92,21 @@ export function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB
 
   // Rate-limit popup display
   const now = Date.now();
+  if (suspiciousWipe) {
+    // Suspicious wipe overrides any existing modal — the full-book scan
+    // has better data than the small post-save check that fired first.
+    _closeModal();
+    _lastPopupTs = now;
+    _showModal(bookId, payload, selfHealed, suspiciousWipe);
+    return;
+  }
   if (now - _lastPopupTs < POPUP_COOLDOWN_MS) {
     console.warn('[integrity] Popup suppressed (cooldown)');
     return;
   }
   _lastPopupTs = now;
 
-  _showModal(bookId, payload, selfHealed);
+  _showModal(bookId, payload, selfHealed, suspiciousWipe);
 }
 
 // ================================================================
@@ -180,7 +196,7 @@ async function _doSend(payload) {
  * @param {Object}  payload    - Diagnostic payload (sent only if user clicks Send Bug Report)
  * @param {boolean} selfHealed - Whether the issue was auto-fixed
  */
-function _showModal(bookId, payload, selfHealed = false) {
+function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false) {
   if (_modalEl) return; // Already showing
 
   const backdrop = document.createElement('div');
@@ -191,72 +207,94 @@ function _showModal(bookId, payload, selfHealed = false) {
   card.className = 'integrity-card';
 
   const premiumParagraph = `
-    <h3>Free Premium</h3>
-    <p>As compensation for this travesty, you have been awarded one month premium membership,
+    <p>While we are still in beta testing, this is not good enough.
+    <strong>Free Premium 🙏</strong> — as compensation you have been awarded one month premium membership,
     including free PDF conversion, AI Archivist, and Citation Review.</p>
   `;
 
   const disclosureParagraph = `
-    <div class="integrity-disclosure">
-      <h3>Why send a report?</h3>
-      <p>Support the digital knowledge commons.</p>
-      <h3>Why not send a report?</h3>
-      <p>Requires sending some potentially private HTML to
-      fml@hyperlit.io. You will <em>always</em> have full personal data sovereignty.</p>
-      <p>Much thanks comrade.</p>
-    </div>
+    <p style="font-size:13px; opacity:0.65; font-style:italic;">
+      Why or why not submit?
+      <span class="integrity-info-toggle" tabindex="0" role="button" aria-label="More info"
+        style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;
+        text-align:center;border-radius:50%;border:1px solid rgba(78,172,174,0.5);
+        font-size:10px;vertical-align:middle;margin-left:4px;">?</span>
+      <span class="integrity-info-detail" style="display:none;">
+        Why: Support the digital knowledge commons.
+        Why not: Requires sending some potentially private HTML to fml@hyperlit.io.
+        You will <em>always</em> have full personal data sovereignty.
+      </span>
+    </p>
   `;
 
-  if (selfHealed) {
+  if (suspiciousWipe) {
     card.innerHTML = `
-      <h2>Apologies comrade</h2>
+      <h3>Okay, hacker 👀</h3>
+      <p>Looks like someone's been in DevTools clearing out IndexedDB nodes...
+      We see you.</p>
+      <p>Here's the thing though — you still get premium. Consider it a reward
+      for your curiosity. Welcome to the club ✊</p>
+      ${premiumParagraph}
+      <div class="integrity-btn-group integrity-btn-group-sticky">
+        <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
+      </div>
+    `;
+  } else if (selfHealed) {
+    card.innerHTML = `
+      <h3>Apologies comrade</h3>
       <p>
         Hyperlit detected a data sync issue and automatically
-        fixed it. We believe no data was lost. However, to be safe it is
-        recommended to download a backup:
+        fixed it. We believe no data was lost.
       </p>
-      ${premiumParagraph}
-      <div style="margin:0 0 20px;">
-        <button id="integrity-download-btn" class="integrity-btn-download">Black Box Emergency Backup</button>
-      </div>
-      <p style="margin:0 0 12px;">
-        If you would be so kind, could you approve a bug report?
+      <p>
+      While we are in beta testing, this is not good enough. Please enjoy <strong>Free Premium</strong> 🙏.
+      <span class="integrity-info-toggle" tabindex="0" role="button" aria-label="Premium details"
+        style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;
+        text-align:center;border-radius:50%;border:1px solid rgba(78,172,174,0.5);
+        font-size:10px;vertical-align:middle;margin-left:4px;">?</span>
+      <span class="integrity-info-detail" style="display:none;">
+        Includes free PDF conversion, AI Archivist, and Citation Review.
+      </span> </p>
+      <p>We recommend <strong>downloading</strong> a backup of your text as markdown, and sending a <strong>bug report</strong>.
       </p>
       <textarea id="integrity-comment" class="integrity-comment"
         placeholder="Optional: describe what you were doing when this happened..."
         rows="3"></textarea>
-      <div style="margin:0 0 16px;">
-        <button id="integrity-send-report-btn" class="integrity-btn integrity-btn-success">Send Bug Report</button>
-      </div>
       ${disclosureParagraph}
       <div id="integrity-rectify-status" class="integrity-status"></div>
-      <div class="integrity-btn-group">
+      <div class="integrity-btn-group integrity-btn-group-sticky">
+        <button id="integrity-download-btn" class="integrity-btn-download">Download blackBox.md</button>
+        <button id="integrity-send-report-btn" class="integrity-btn integrity-btn-success">Send Bug Report</button>
         <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
       </div>
     `;
   } else {
     card.innerHTML = `
-      <h2>Apologies comrade</h2>
+      <h3>Apologies comrade</h3>
       <p>
         Hyperlit is in pre-beta testing. We have detected data
-        loss (our bad). We recommend downloading a backup so you won't lose any of your work:
+        loss (our bad). We recommend downloading a backup so you won't lose any of your work.
       </p>
-      ${premiumParagraph}
-      <div style="margin:0 0 20px;">
-        <button id="integrity-download-btn" class="integrity-btn-download">Black Box Emergency Backup</button>
-      </div>
-      <p style="margin:0 0 12px;">
-        If you would be so kind, could you approve a bug report?
+      <p>
+      While we are in beta testing, this is not good enough. Please enjoy <strong>Free Premium</strong> 🙏.
+      <span class="integrity-info-toggle" tabindex="0" role="button" aria-label="Premium details"
+        style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;
+        text-align:center;border-radius:50%;border:1px solid rgba(78,172,174,0.5);
+        font-size:10px;vertical-align:middle;margin-left:4px;">?</span>
+      <span class="integrity-info-detail" style="display:none;">
+        Includes free PDF conversion, AI Archivist, and Citation Review.
+      </span> </p>
+      <p>We recommend <strong>downloading</strong> a backup of your text as markdown, and sending a <strong>bug report</strong>.
       </p>
+      
       <textarea id="integrity-comment" class="integrity-comment"
         placeholder="Optional: describe what you were doing when this happened..."
         rows="3"></textarea>
-      <div style="margin:0 0 16px;">
-        <button id="integrity-send-report-btn" class="integrity-btn integrity-btn-success">Send Bug Report</button>
-      </div>
       ${disclosureParagraph}
       <div id="integrity-rectify-status" class="integrity-status"></div>
-      <div class="integrity-btn-group">
+      <div class="integrity-btn-group integrity-btn-group-sticky">
+        <button id="integrity-download-btn" class="integrity-btn-download">Download blackBox.md</button>
+        <button id="integrity-send-report-btn" class="integrity-btn integrity-btn-success">Send Bug Report</button>
         <button id="integrity-rectify-btn" class="integrity-btn integrity-btn-danger">Emergency Rectify</button>
         <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
       </div>
@@ -266,6 +304,17 @@ function _showModal(bookId, payload, selfHealed = false) {
   backdrop.appendChild(card);
   document.body.appendChild(backdrop);
   _modalEl = backdrop;
+
+  // Wire up all "?" info toggles
+  card.querySelectorAll('.integrity-info-toggle').forEach(toggle => {
+    const detail = toggle.nextElementSibling;
+    if (detail && detail.classList.contains('integrity-info-detail')) {
+      toggle.addEventListener('click', () => {
+        const open = detail.style.display === 'none';
+        detail.style.display = open ? 'inline' : 'none';
+      });
+    }
+  });
 
   // Grant premium immediately (no report required — consent shouldn't be coerced)
   _grantPremium();
@@ -327,8 +376,9 @@ function _showModal(bookId, payload, selfHealed = false) {
     });
   }
 
-  // Send Bug Report button (consent-based)
-  card.querySelector('#integrity-send-report-btn').addEventListener('click', async () => {
+  // Send Bug Report button (consent-based — not present in suspiciousWipe variant)
+  const reportBtn = card.querySelector('#integrity-send-report-btn');
+  if (reportBtn) reportBtn.addEventListener('click', async () => {
     const reportBtn = card.querySelector('#integrity-send-report-btn');
     reportBtn.disabled = true;
     reportBtn.textContent = 'Sending…';
@@ -363,9 +413,9 @@ function _showModal(bookId, payload, selfHealed = false) {
           to claim your free month of premium.
         </p>
       `;
-      const disclosureEl = card.querySelector('.integrity-disclosure');
-      if (disclosureEl) {
-        disclosureEl.parentNode.insertBefore(postSendDiv, disclosureEl);
+      const infoToggleP = card.querySelector('.integrity-info-toggle')?.parentElement;
+      if (infoToggleP) {
+        infoToggleP.parentNode.insertBefore(postSendDiv, infoToggleP);
       } else {
         card.appendChild(postSendDiv);
       }

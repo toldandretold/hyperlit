@@ -130,18 +130,24 @@
   padding: 32px;
   max-width: 520px;
   width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
   border: 1px solid #444;
   font-family: var(--font-family-base);
   line-height: 1.5;
 }
 
+.integrity-card h3,
+.integrity-card h4 { margin: 8px 0 8px; }
+
 .integrity-card p { margin: 0 0 16px; font-size: 15px; }
 
-.integrity-disclosure {
-  font-size: 13px;
-  opacity: 0.65;
-  font-style: italic;
+.integrity-action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
 }
 
 .integrity-comment {
@@ -218,6 +224,14 @@
   flex-wrap: wrap;
 }
 
+.integrity-btn-group-sticky {
+  position: sticky;
+  bottom: -32px;
+  background: var(--color-background);
+  margin: 0 -32px -32px;
+  padding: 16px 32px 32px;
+}
+
 .integrity-status {
   display: none;
   margin: 0 0 16px;
@@ -250,4 +264,10 @@
   .integrity-card { padding: 20px; max-width: calc(100vw - 32px); }
   .integrity-btn-group { flex-direction: column; }
   .integrity-btn-group .integrity-btn { width: 100%; }
+  .integrity-btn-group-sticky {
+    bottom: -20px;
+    margin: 0 -20px -20px;
+    padding: 16px 20px 20px;
+  }
+  .integrity-action-row { flex-direction: column; }
 }

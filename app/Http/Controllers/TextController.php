@@ -197,6 +197,21 @@ class TextController extends Controller
         $chain = $this->walkChainToRoot($book, $finalSubBookId);
 
         if ($chain === null) {
+            // Check if the root book is private (RLS blocked the chain queries).
+            // If so, serve the reader view — the client-side fetchInitialChunk() will
+            // get a 403 and show the "Private Book" login prompt, same as /book does.
+            $bookInfo = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$book]);
+            if ($bookInfo && $bookInfo->visibility === 'private') {
+                return view('reader', array_merge([
+                    'html'       => '',
+                    'book'       => $book,
+                    'slug'       => $slug,
+                    'editMode'   => false,
+                    'dataSource' => 'database',
+                    'pageType'   => 'reader',
+                ], $this->buildSeoData($book)));
+            }
+
             abort(404, 'Sub-book chain not found.');
         }
 
