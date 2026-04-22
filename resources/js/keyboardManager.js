@@ -538,7 +538,9 @@ scrollCaretIntoView(element) {
 
       // Adjust stacked containers height when keyboard opens
       document.querySelectorAll('.hyperlit-container-stacked.open').forEach(c => {
-        const maxH = vv.offsetTop + vv.height - 16 - 4;
+        const stackedEditToolbar = document.getElementById('edit-toolbar');
+        const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
+        const maxH = vv.offsetTop + vv.height - 16 - stackedBottomGap;
         c.style.maxHeight = `${maxH}px`;
       });
     } else {
@@ -579,7 +581,9 @@ scrollCaretIntoView(element) {
 
       // Reset stacked containers to full height
       document.querySelectorAll('.hyperlit-container-stacked').forEach(c => {
-        c.style.maxHeight = `${window.innerHeight - 16 - 4}px`;
+        const stackedEditToolbar = document.getElementById('edit-toolbar');
+        const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
+        c.style.maxHeight = `${window.innerHeight - 16 - stackedBottomGap}px`;
       });
 
       console.log("🔧 KeyboardManager: Inline styles reset on all elements including #bottom-right-buttons");
@@ -740,19 +744,21 @@ scrollCaretIntoView(element) {
   }
 
   adjustHyperlitContainerHeight(container, vv) {
+    const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
+    const editToolbar = document.getElementById('edit-toolbar');
+    const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
+
     if (!vv) {
       // Fallback if Visual Viewport API not available
-      const maxHeight = window.innerHeight - 16 - 4; // topMargin - bottomGap
+      const maxHeight = window.innerHeight - topMargin - bottomGap;
       container.style.maxHeight = `${maxHeight}px`;
-      console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (no VV API)`);
+      console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (no VV API, bottomGap: ${bottomGap}px)`);
       return;
     }
 
-    const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
-    const BOTTOM_GAP = 4; // Visual gap between container and keyboard/screen bottom
-    const maxHeight = vv.offsetTop + vv.height - topMargin - BOTTOM_GAP;
+    const maxHeight = vv.offsetTop + vv.height - topMargin - bottomGap;
 
-    console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (vv.height: ${vv.height}px, offsetTop: ${vv.offsetTop}px)`);
+    console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (vv.height: ${vv.height}px, offsetTop: ${vv.offsetTop}px, bottomGap: ${bottomGap}px)`);
     container.style.maxHeight = `${maxHeight}px`;
   }
    

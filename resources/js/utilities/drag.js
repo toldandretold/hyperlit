@@ -25,7 +25,7 @@ class ContainerDragger {
 
   handleMouseDown(e) {
     // Only handle resize, not drag
-    const resizeHandle = e.target.closest('.resize-handle');
+    const resizeHandle = e.target.closest('.resize-handle, .resize-edge');
 
     if (resizeHandle) {
       this.startResize(e, resizeHandle);
@@ -34,7 +34,7 @@ class ContainerDragger {
 
   handleTouchStart(e) {
     // Only handle resize, not drag
-    const resizeHandle = e.target.closest('.resize-handle');
+    const resizeHandle = e.target.closest('.resize-handle, .resize-edge');
 
     if (resizeHandle) {
       this.startResize(e.touches[0], resizeHandle);
@@ -42,15 +42,18 @@ class ContainerDragger {
   }
 
   startResize(event, resizeHandle) {
-    // Find the container (try both hyperlit-container and toc-container)
-    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container');
+    // Find the container (try both hyperlit-container, toc-container, and stacked containers)
+    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container, .hyperlit-container-stacked');
     if (!this.currentContainer) return;
 
     this.isResizing = true;
     this.resizeDirection = resizeHandle.classList.contains('resize-left') ? 'left' : 'right';
 
     // Detect which container we're working with
-    this.containerType = this.currentContainer.id; // 'hyperlit-container' or 'toc-container'
+    // Stacked containers behave like hyperlit-container (right edge fixed)
+    this.containerType = this.currentContainer.classList.contains('hyperlit-container-stacked')
+      ? 'hyperlit-container'
+      : this.currentContainer.id; // 'hyperlit-container' or 'toc-container'
 
     // Record starting positions
     this.startPos = {
@@ -180,7 +183,7 @@ class ContainerDragger {
     if (!this.isResizing) return;
 
     // Remove classes
-    document.querySelector('.resize-handle.resizing')?.classList.remove('resizing');
+    document.querySelector('.resize-handle.resizing, .resize-edge.resizing')?.classList.remove('resizing');
     document.body.classList.remove('container-resizing');
 
     // Save the new width and position to customizations

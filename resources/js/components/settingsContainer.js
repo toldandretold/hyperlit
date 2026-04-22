@@ -286,16 +286,18 @@ export class SettingsContainerManager extends ContainerManager {
       // Scope to .main-content so logo, search bar, arranger buttons etc. stay fixed size
       document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${savedSize}px`);
     }
-    if (savedWidth) {
+    const isMobile = window.innerWidth <= 500;
+    if (savedWidth && !isMobile) {
       document.documentElement.style.setProperty('--content-width', `${savedWidth}ch`);
       // Also set inline max-width on wrapper to override global * { max-width: 100% }
       const wrapper = document.querySelector('.reader-content-wrapper');
       if (wrapper) wrapper.style.maxWidth = `${savedWidth}ch`;
     }
 
-    // Restore full-width mode
+    // Restore full-width mode (only on narrower screens where the toggle exists)
     const isFullWidth = localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true';
-    if (isFullWidth) {
+    const isNarrow = window.innerWidth <= 768;
+    if (isFullWidth && isNarrow) {
       const allMainContent = document.querySelectorAll('.main-content');
       allMainContent.forEach(el => el.classList.add('full-width-mode'));
     }

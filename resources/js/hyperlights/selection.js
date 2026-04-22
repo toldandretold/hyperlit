@@ -324,9 +324,18 @@ async function openBrainFromSelection(event) {
   const selection = window.getSelection();
   console.log('🧠 openBrainFromSelection called, selection:', selection?.toString()?.substring(0, 50), 'collapsed:', selection?.isCollapsed);
 
+  // Clone the range immediately — mousedown may collapse the live selection on some platforms
+  let cachedRange = null;
+  if (selection && selection.rangeCount > 0) {
+    try { cachedRange = selection.getRangeAt(0).cloneRange(); } catch (_) { /* noop */ }
+  }
+
   if (!selection || selection.isCollapsed) {
-    console.warn('🧠 BrainMode: No selection or selection collapsed');
-    return;
+    // Fallback: use the cached range if the live selection already collapsed
+    if (!cachedRange || cachedRange.collapsed) {
+      console.warn('🧠 BrainMode: No selection or selection collapsed');
+      return;
+    }
   }
 
   const selectedText = selection.toString().trim();
@@ -335,8 +344,10 @@ async function openBrainFromSelection(event) {
     return;
   }
 
-  // Resolve bookId from selection DOM position (sub-book aware)
-  const range = selection.getRangeAt(0);
+  // Use live range if available, otherwise fall back to cached clone
+  const range = (!selection.isCollapsed && selection.rangeCount > 0)
+    ? selection.getRangeAt(0)
+    : cachedRange;
   const rangeEl = range?.commonAncestorContainer;
   const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
   const subBookEl = containerEl?.closest('[data-book-id]');

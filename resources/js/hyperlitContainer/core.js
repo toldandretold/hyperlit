@@ -143,10 +143,11 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   // KeyboardManager will dynamically adjust this when keyboard opens/closes
   const viewportHeight = window.innerHeight;
   const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
-  const BOTTOM_GAP = 4; // Visual gap
-  const maxHeight = viewportHeight - topMargin - BOTTOM_GAP;
+  const editToolbar = document.getElementById('edit-toolbar');
+  const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
+  const maxHeight = viewportHeight - topMargin - bottomGap;
 
-  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px)`);
+  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, bottomGap: ${bottomGap}px)`);
   console.log(`📐 KeyboardManager will handle dynamic height adjustments when keyboard opens/closes`);
 
   // Apply max-height as inline style
@@ -235,10 +236,11 @@ export function prepareHyperlitContainer(content, isBackNavigation = false) {
   // Set initial max-height
   const viewportHeight = window.innerHeight;
   const topMargin = 16;
-  const BOTTOM_GAP = 4;
-  const maxHeight = viewportHeight - topMargin - BOTTOM_GAP;
+  const editToolbar = document.getElementById('edit-toolbar');
+  const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
+  const maxHeight = viewportHeight - topMargin - bottomGap;
 
-  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px)`);
+  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, bottomGap: ${bottomGap}px)`);
   container.style.maxHeight = `${maxHeight}px`;
 
   // Reset container to initial structure (ensures .scroller, masks, controls exist)

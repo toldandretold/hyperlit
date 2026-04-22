@@ -185,10 +185,9 @@
     <div class="scroller"></div>
     <div class="mask-top"></div>
     <div class="mask-bottom"></div>
+    <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="container-controls">
-      <div class="resize-handle resize-left" title="Resize width"></div>
       <div class="drag-handle" title="Drag to move container"></div>
-      <div class="resize-handle resize-right" title="Resize width"></div>
     </div>
   </div>
  

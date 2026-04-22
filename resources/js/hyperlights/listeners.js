@@ -5,8 +5,8 @@
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 import { verbose } from '../utilities/logger.js';
 
-// Module-level debounce flag shared by all handlers
-let isProcessing = false;
+// Per-element guard — prevents double-fires without blocking other buttons
+const processingElements = new WeakSet();
 
 /**
  * Attach click and hover listeners to all mark elements
@@ -102,23 +102,22 @@ export function addTouchAndClickListener(element, handler) {
     return;
   }
 
-  const wrappedHandler = function(event) {
-    if (isProcessing) {
-      console.log("🚫 Handler already processing, ignoring duplicate event");
+  const wrappedHandler = async function(event) {
+    if (processingElements.has(element)) {
+      console.log("🚫 Handler already processing for this element, ignoring duplicate event");
       return;
     }
 
-    isProcessing = true;
+    processingElements.add(element);
     event.preventDefault();
     event.stopPropagation();
 
     try {
-      handler(event);
+      await handler(event);
+    } catch (err) {
+      console.error("Button handler error:", err);
     } finally {
-      // Reset the flag after a short delay
-      setTimeout(() => {
-        isProcessing = false;
-      }, 1000); // 1 second cooldown
+      processingElements.delete(element);
     }
   };
 

@@ -24,7 +24,7 @@
   </div>
 
   <!-- Content Width slider -->
-  <div class="settings-row settings-slider-row">
+  <div class="settings-row settings-slider-row settings-width-row">
     <label class="settings-slider-label" for="contentWidthSlider"><span class="slider-icon">&harr;</span></label>
     <input type="range" id="contentWidthSlider" class="settings-slider" min="25" max="80" value="40" step="1">
     <span class="settings-slider-value" id="contentWidthValue">40ch</span>

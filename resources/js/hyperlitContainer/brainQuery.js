@@ -159,10 +159,14 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   annotation.addEventListener('blur', updatePlaceholder);
 
   // Show the edit toolbar for the brain annotation field
-  const { getEditToolbar } = await import('../editToolbar/index.js');
-  const toolbar = getEditToolbar();
-  if (toolbar) {
-    toolbar.setEditMode(true);
+  try {
+    const { getEditToolbar } = await import('../editToolbar/index.js');
+    const toolbar = getEditToolbar();
+    if (toolbar) {
+      toolbar.setEditMode(true);
+    }
+  } catch (e) {
+    console.warn('BrainQuery: toolbar.setEditMode failed (non-fatal):', e);
   }
 
   // Autofocus (desktop only to avoid iOS keyboard issues)
@@ -174,7 +178,14 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   // Submit handler
   const handleSubmit = async () => {
     const question = annotation.textContent.trim();
-    if (!question) return;
+    if (!question) {
+      annotation.classList.add('brain-input-error');
+      annotation.focus();
+      annotation.addEventListener('input', () => {
+        annotation.classList.remove('brain-input-error');
+      }, { once: true });
+      return;
+    }
 
     // Disable input
     const sourceScope = section.querySelector('.brain-scope-btn.active').dataset.scope;
@@ -355,6 +366,17 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
         mode: 'read',
       });
 
+      // Force container to recalculate layout after replacing brain query form with sub-book content
+      const container = document.getElementById('hyperlit-container');
+      if (container) {
+        const vv = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
+        const topMargin = 16;
+        const editToolbar2 = document.getElementById('edit-toolbar');
+        const toolbarGap = editToolbar2 ? editToolbar2.offsetHeight : 4;
+        const maxH = (vv.offsetTop || 0) + vv.height - topMargin - toolbarGap;
+        container.style.maxHeight = `${maxH}px`;
+      }
+
       // Success — highlight now has content, so it must persist.
       pendingBrainHighlightId = null;
 
@@ -441,6 +463,17 @@ export async function injectBrainPolling(highlight, scroller) {
                     targetElement: subBookTarget,
                     mode: 'read',
                 });
+
+                // Force container to recalculate layout after loading sub-book content
+                const container = document.getElementById('hyperlit-container');
+                if (container) {
+                    const vv = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
+                    const topMargin = 16;
+                    const editToolbar = document.getElementById('edit-toolbar');
+                    const toolbarGap = editToolbar ? editToolbar.offsetHeight : 4;
+                    const maxH = (vv.offsetTop || 0) + vv.height - topMargin - toolbarGap;
+                    container.style.maxHeight = `${maxH}px`;
+                }
                 return;
             }
 

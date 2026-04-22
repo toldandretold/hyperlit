@@ -1983,6 +1983,18 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   text-decoration: underline;
   cursor: pointer;
 }
+/* Empty question error feedback */
+.brain-query-annotation.brain-input-error {
+  border-bottom-color: #EE4A95;
+  animation: brain-shake 0.4s ease;
+}
+@keyframes brain-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
 /* end brain query */
 
 /*

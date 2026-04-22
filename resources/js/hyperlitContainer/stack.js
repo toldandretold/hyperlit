@@ -215,10 +215,9 @@ export function createStackedContainerDOM(depth) {
     <div class="mask-top"></div>
     <div class="scroller"></div>
     <div class="mask-bottom"></div>
+    <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="container-controls">
-      <div class="resize-handle resize-left"></div>
       <div class="drag-handle"></div>
-      <div class="resize-handle resize-right"></div>
     </div>
   `;
 

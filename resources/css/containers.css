@@ -40,11 +40,11 @@ black #221F20;
 /* Source container - similar to hyperlit-container */
 #source-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen right, including gap */
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out, height 0.3s ease-in-out;
   position: fixed;
   right: .75em;
   top: 1em;
-  height: 400px; /* Fixed height for citation display */
+  height: auto; /* Grow to fit content */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
   width: 300px; /* Fixed width, narrower than hyperlit */
   font-size: 14px; /* Base size — everything inside scales from this */
@@ -84,7 +84,24 @@ black #221F20;
   transform: translateX(calc(100% + 2em)); /* Keep off-screen */
 }
 
-#source-container .scroller {
+#source-container #source-content {
+  overflow: auto;
+  max-height: calc(100vh - 2em);
+  padding: 1em;
+  padding-left: 1.5em;
+  border-radius: 1em;
+}
+
+/* Edit form fills the fixed-size container (JS sets explicit width/height on #source-container) */
+#source-container #edit-form-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#source-container #edit-form-container .scroller {
   position: absolute;
   top: 0;
   left: 0;
@@ -93,7 +110,7 @@ black #221F20;
   overflow: auto;
   padding: 1em;
   padding-left: 1.5em;
-  border-radius: 1em 1em;
+  border-radius: 1em;
 }
 
 /* Glass circle backdrop for source-container corner buttons
@@ -154,6 +171,37 @@ black #221F20;
   pointer-events: none;
 }
 
+/* Creator Tools toggle button */
+#creator-tools-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #888;
+  border: 1px solid rgba(136,136,136,0.3);
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#creator-tools-toggle:hover {
+  color: #CBCCCC;
+  border-color: rgba(203,204,204,0.4);
+}
+
+#creator-tools-toggle .creator-tools-chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+#creator-tools-toggle.expanded .creator-tools-chevron {
+  transform: rotate(180deg);
+}
 
 /* When the container is in button view (open state) */
 /* Closed state: container is hidden */
@@ -674,7 +722,8 @@ body[data-page="user"] #userLibraryContainer {
 
 /* Show controls on container hover */
 #hyperlit-container:hover .container-controls,
-#toc-container:hover .container-controls {
+#toc-container:hover .container-controls,
+.hyperlit-container-stacked:hover .container-controls {
   opacity: 1;
 }
 
@@ -730,6 +779,30 @@ body[data-page="user"] #userLibraryContainer {
 .resize-handle:active,
 .resize-handle.resizing {
   background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.4));
+}
+
+/* Left-edge resize strip — full-height invisible grab zone */
+.resize-edge.resize-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  cursor: ew-resize;
+  z-index: 16;
+  user-select: none;
+  touch-action: none;
+  border-radius: 1em 0 0 0;
+  transition: background 0.2s ease;
+}
+
+.resize-edge.resize-left:hover {
+  background: linear-gradient(to right, rgba(203, 204, 204, 0.2), transparent);
+}
+
+.resize-edge.resize-left:active,
+.resize-edge.resize-left.resizing {
+  background: linear-gradient(to right, rgba(203, 204, 204, 0.4), transparent);
 }
 
 /* Prevent text selection during drag/resize */
@@ -1683,6 +1756,20 @@ body.hyperlit-container-open .reader-content-wrapper {
 @media (max-width: 480px) {
   #bottom-up-container {
     padding: 0.75em 1em;
+  }
+}
+
+/* Content width slider — hide on phones; full-width toggle is the only width control */
+@media (max-width: 500px) {
+  .settings-width-row {
+    display: none;
+  }
+}
+
+/* Full-width toggle — hide on wider screens; content width slider handles width there */
+@media (min-width: 769px) {
+  #fullWidthToggle {
+    display: none;
   }
 }
 

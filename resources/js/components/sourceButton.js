@@ -292,65 +292,18 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       </div>`;
     })() : ''}
 
-    ${canEdit ? `<div id="version-history-section" style="margin-top: 20px; padding-top: 15px;">
-      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Version History</h3>
-      <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
-    </div>` : ''}
-
-    ${await (async () => {
-      if (!canEdit || accessDenied) return '';
-      try {
-        const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert-info`, { credentials: 'include' });
-        if (!resp.ok) return '';
-        const info = await resp.json();
-        if (!info.canReconvert) return '';
-        const label = info.hasOcrCache ? 'Reconvert from OCR cache' : 'Reconvert from source';
-        return `
-          <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px;">
-            <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="1 4 1 10 7 10"></polyline>
-                <polyline points="23 20 23 14 17 14"></polyline>
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-              </svg>
-              ${label}
-            </button>
-            <p style="font-size: 11px; color: #666; margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>
-          </div>`;
-      } catch (e) {
-        console.warn('Could not check reconvert availability:', e);
-        return '';
-      }
-    })()}
-
     ${(canEdit && !accessDenied) ? `
-    <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
-      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Re-upload Source</h3>
-      <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
-        <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>
-      </div>
-      <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.epub,.html,.pdf" style="display: none;">
-      <p id="reupload-status" style="font-size: 12px; color: #d73a49; margin-top: 6px; display: none;"></p>
-    </div>` : ''}
-
-    ${(canEdit && !accessDenied && record) ? `
-    <div id="delete-book-section" style="margin-top: 20px; padding-top: 15px;">
-      <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+    <div id="creator-tools-section" style="margin-top: 15px; padding-top: 15px;">
+      <button type="button" id="creator-tools-toggle">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          <line x1="10" y1="11" x2="10" y2="17"></line>
-          <line x1="14" y1="11" x2="14" y2="17"></line>
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
         </svg>
-        Delete Book
+        Creator Tools
+        <svg class="creator-tools-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
       </button>
-      <p style="font-size: 11px; color: #666; margin-top: 6px;">Permanently delete this book and all associated data.</p>
+      <div id="creator-tools-content" style="display: none;"></div>
     </div>` : ''}
 
     </div>
@@ -619,42 +572,28 @@ export class SourceContainerManager extends ContainerManager {
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
 
-    const reconvertBtn = this.container.querySelector("#reconvert-btn");
-    if (reconvertBtn) reconvertBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.handleReconvert();
-    });
-
-    const deleteBtn = this.container.querySelector("#delete-book-btn");
-    if (deleteBtn) deleteBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.handleDeleteBook();
-    });
-
-    // Re-upload drop zone
-    const dropzone = this.container.querySelector("#reupload-dropzone");
-    const fileInput = this.container.querySelector("#reupload-file-input");
-    if (dropzone && fileInput) {
-      dropzone.addEventListener("click", () => fileInput.click());
-      dropzone.addEventListener("dragover", (e) => {
+    // Creator tools toggle (lazy-load on first expand)
+    // Guard against duplicate listeners from hideEditForm → attachInternalListeners
+    const creatorToolsToggle = this.container.querySelector("#creator-tools-toggle");
+    if (creatorToolsToggle && !creatorToolsToggle._listenerAttached) {
+      creatorToolsToggle._listenerAttached = true;
+      creatorToolsToggle.addEventListener("click", (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#EF8D34';
-      });
-      dropzone.addEventListener("dragleave", () => {
-        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
-      });
-      dropzone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
-        const file = e.dataTransfer.files[0];
-        if (file) this.handleReupload(file);
-      });
-      fileInput.addEventListener("change", () => {
-        const file = fileInput.files[0];
-        if (file) this.handleReupload(file);
-        fileInput.value = '';
+        e.stopPropagation();
+        const content = this.container.querySelector("#creator-tools-content");
+        if (!content) return;
+        const isExpanded = content.style.display !== 'none';
+        content.style.display = isExpanded ? 'none' : 'block';
+        creatorToolsToggle.classList.toggle('expanded', !isExpanded);
+        if (!isExpanded) {
+          if (!this._creatorToolsLoaded) {
+            this.loadCreatorTools();
+          }
+          // Scroll so the expanded content is visible
+          setTimeout(() => {
+            content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 50);
+        }
       });
     }
 
@@ -689,7 +628,6 @@ export class SourceContainerManager extends ContainerManager {
       });
     }
 
-    this.loadVersionHistory();
     this.loadAiReviewStatus();
   }
 
@@ -738,9 +676,136 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+  async loadCreatorTools() {
+    if (this._creatorToolsLoaded) return;
+    this._creatorToolsLoaded = true;
+
+    const content = this.container.querySelector("#creator-tools-content");
+    if (!content) return;
+
+    // Build the HTML for version history, reconvert placeholder, reupload, and delete
+    let html = `
+      <div id="version-history-section" style="margin-top: 10px;">
+        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Version History</h3>
+        <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
+      </div>
+
+      <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px; display: none;"></div>
+
+      <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
+        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Re-upload Source</h3>
+        <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+          <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>
+        </div>
+        <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.epub,.html,.pdf" style="display: none;">
+        <p id="reupload-status" style="font-size: 12px; color: #d73a49; margin-top: 6px; display: none;"></p>
+      </div>
+
+      <div id="delete-book-section" style="margin-top: 20px; padding-top: 15px;">
+        <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          Delete Book
+        </button>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">Permanently delete this book and all associated data.</p>
+      </div>`;
+
+    content.innerHTML = html;
+
+    // Attach event listeners for reconvert, delete, reupload
+    const reconvertBtn = content.querySelector("#reconvert-btn");
+    if (reconvertBtn) reconvertBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleReconvert();
+    });
+
+    const deleteBtn = content.querySelector("#delete-book-btn");
+    if (deleteBtn) deleteBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleDeleteBook();
+    });
+
+    const dropzone = content.querySelector("#reupload-dropzone");
+    const fileInput = content.querySelector("#reupload-file-input");
+    if (dropzone && fileInput) {
+      dropzone.addEventListener("click", () => fileInput.click());
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#EF8D34';
+      });
+      dropzone.addEventListener("dragleave", () => {
+        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
+      });
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
+        const file = e.dataTransfer.files[0];
+        if (file) this.handleReupload(file);
+      });
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (file) this.handleReupload(file);
+        fileInput.value = '';
+      });
+    }
+
+    // Fire off lazy API calls
+    this.loadVersionHistory();
+    this.loadReconvertInfo();
+  }
+
+  async loadReconvertInfo() {
+    try {
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert-info`, { credentials: 'include' });
+      if (!resp.ok) return;
+      const info = await resp.json();
+      if (!info.canReconvert) return;
+
+      const label = info.hasOcrCache ? 'Reconvert from OCR cache' : 'Reconvert from source';
+      const section = this.container.querySelector("#reconvert-section");
+      if (!section) return;
+
+      section.style.display = '';
+      section.innerHTML = `
+        <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <polyline points="23 20 23 14 17 14"></polyline>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+          </svg>
+          ${label}
+        </button>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>`;
+
+      // Attach listener to the newly created button
+      const btn = section.querySelector("#reconvert-btn");
+      if (btn) btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleReconvert();
+      });
+    } catch (e) {
+      console.warn('Could not check reconvert availability:', e);
+    }
+  }
+
   async openContainer() {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
+
+    this._creatorToolsLoaded = false;
 
     const html = await buildSourceHtml(book);
     this.container.innerHTML = html;
@@ -2007,6 +2072,7 @@ export class SourceContainerManager extends ContainerManager {
   }
 
   async refreshCitationDisplay() {
+    this._creatorToolsLoaded = false;
     // Rebuild the HTML with updated citation
     const html = await buildSourceHtml(book);
     this.container.innerHTML = html;
