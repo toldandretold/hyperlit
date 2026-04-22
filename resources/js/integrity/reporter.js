@@ -58,7 +58,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   // Count IDB nodes for this book
   let totalIdbNodes = 0;
   try {
-    const { openDatabase } = await import('../indexedDB/core/database.js');
+    const { openDatabase } = await import('../indexedDB/core/connection.js');
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
     const index = tx.objectStore('nodes').index('book');
