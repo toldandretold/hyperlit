@@ -245,6 +245,60 @@ export function removeStackedContainerDOM(container, overlay) {
 }
 
 // ============================================================================
+// PROPORTIONAL RESIZE
+// ============================================================================
+
+/**
+ * Resize all containers (base + every stacked layer) from a new base width.
+ * Called by drag.js when the user resizes any container in the stack.
+ *
+ * @param {number} newBaseWidthPx - The new width for #hyperlit-container
+ */
+export function resizeAllLayers(newBaseWidthPx) {
+  const base = document.getElementById('hyperlit-container');
+  if (!base) return;
+
+  // Update base container width
+  base.style.setProperty('width', `${newBaseWidthPx}px`, 'important');
+
+  // Update cached value so subsequent stack operations use the new width
+  cachedBaseWidthPx = newBaseWidthPx;
+
+  // Read current base right offset (doesn't change during resize)
+  const baseRightPx = cachedBaseRightPx ?? (parseFloat(getComputedStyle(base).right) || 0);
+  cachedBaseRightPx = baseRightPx;
+
+  // Recalculate every stacked layer
+  for (const layer of layers) {
+    if (!layer.isDynamic || !layer.container) continue;
+
+    const depth = layer.depth;
+    const group = Math.floor((depth - 1) / LEVELS_PER_FLIP);
+    const localDepth = ((depth - 1) % LEVELS_PER_FLIP) + 1;
+    const widthPx = newBaseWidthPx * Math.pow(SHRINK_FACTOR, localDepth);
+
+    let rightPx;
+    if (group % 2 === 0) {
+      rightPx = baseRightPx;
+    } else {
+      rightPx = baseRightPx + newBaseWidthPx - widthPx;
+    }
+
+    layer.container.style.setProperty('width', `${widthPx}px`, 'important');
+    layer.container.style.setProperty('right', `${rightPx}px`, 'important');
+  }
+}
+
+/**
+ * Get depth info needed to reverse-derive base width from a stacked container's width.
+ */
+window.resizeAllLayers = resizeAllLayers;
+window.getStackDepthInfo = (depth) => ({
+  localDepth: ((depth - 1) % LEVELS_PER_FLIP) + 1,
+  shrinkFactor: SHRINK_FACTOR
+});
+
+// ============================================================================
 // STACK SERIALIZATION
 // ============================================================================
 

@@ -111,6 +111,15 @@ class ContainerDragger {
       this.fixedLeftEdge = rect.left;
     }
 
+    // For proportional stack resize: snapshot depth info if stacked container
+    this.draggedDepthInfo = null;
+    if (this.currentContainer.classList.contains('hyperlit-container-stacked')) {
+      const depth = parseInt(this.currentContainer.getAttribute('data-layer'), 10);
+      if (depth && window.getStackDepthInfo) {
+        this.draggedDepthInfo = window.getStackDepthInfo(depth);
+      }
+    }
+
     // Add resizing class
     resizeHandle.classList.add('resizing');
     document.body.classList.add('container-resizing');
@@ -163,12 +172,35 @@ class ContainerDragger {
         newLeft = rightEdge - maxWidth;
       }
 
-      // Apply the new size using right-based positioning to match CSS
-      this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
-      this.currentContainer.style.setProperty('max-width', 'none', 'important');
-      this.currentContainer.style.setProperty('right', `${rightOffset}px`, 'important');
-      this.currentContainer.style.setProperty('left', 'auto', 'important');
-      this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+      // Proportional stack resize: derive base width and update all layers
+      if (window.resizeAllLayers) {
+        let newBaseWidth;
+        if (this.draggedDepthInfo) {
+          // Stacked container: reverse the shrink to get implied base width
+          const { localDepth, shrinkFactor } = this.draggedDepthInfo;
+          newBaseWidth = newWidth / Math.pow(shrinkFactor, localDepth);
+        } else {
+          // Base container: new width IS the base width
+          newBaseWidth = newWidth;
+        }
+        // resizeAllLayers handles base + all stacked containers
+        window.resizeAllLayers(newBaseWidth);
+        // Still set max-width/left/transform on the base container
+        const base = document.getElementById('hyperlit-container');
+        if (base) {
+          base.style.setProperty('max-width', 'none', 'important');
+          base.style.setProperty('right', `${rightOffset}px`, 'important');
+          base.style.setProperty('left', 'auto', 'important');
+          base.style.setProperty('transform', 'translateX(0)', 'important');
+        }
+      } else {
+        // Fallback: no stack manager, just resize this container
+        this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
+        this.currentContainer.style.setProperty('max-width', 'none', 'important');
+        this.currentContainer.style.setProperty('right', `${rightOffset}px`, 'important');
+        this.currentContainer.style.setProperty('left', 'auto', 'important');
+        this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+      }
 
     } else if (this.containerType === 'toc-container') {
       // TOC-CONTAINER: Left edge fixed, right edge moves
@@ -220,37 +252,38 @@ class ContainerDragger {
 
     // Save the new width and position to customizations
     if (this.currentContainer && this.currentContainer.isConnected && window.containerCustomizer) {
-      const rect = this.currentContainer.getBoundingClientRect();
-      const containerId = this.currentContainer.id;
       const viewportWidth = window.innerWidth;
 
-      let customizations = {};
-
       if (this.containerType === 'hyperlit-container') {
-        // Save right-based positioning
-        const rightOffset = viewportWidth - rect.right;
-        customizations = {
-          'width': `${rect.width}px`,
-          'max-width': 'none',
-          'right': `${rightOffset}px`,
-          'left': 'auto',
-          'transform': 'translateX(0)'
-        };
+        // Always save for the BASE container — stacked widths are derived from it
+        const base = document.getElementById('hyperlit-container');
+        if (base) {
+          const baseRect = base.getBoundingClientRect();
+          const rightOffset = viewportWidth - baseRect.right;
+          const customizations = {
+            'width': `${baseRect.width}px`,
+            'max-width': 'none',
+            'right': `${rightOffset}px`,
+            'left': 'auto',
+            'transform': 'translateX(0)'
+          };
+          window.containerCustomizer.updateContainer('hyperlit-container', customizations);
+          console.log('Saved new width for hyperlit-container:', customizations);
+        }
       } else if (this.containerType === 'toc-container') {
-        // Save left-based positioning
+        // Save left-based positioning for toc
+        const rect = this.currentContainer.getBoundingClientRect();
         const leftOffset = rect.left;
-        customizations = {
+        const customizations = {
           'width': `${rect.width}px`,
           'max-width': 'none',
           'left': `${leftOffset}px`,
           'right': 'auto',
           'transform': 'translateX(0)'
         };
+        window.containerCustomizer.updateContainer(this.currentContainer.id, customizations);
+        console.log(`Saved new width for ${this.currentContainer.id}:`, customizations);
       }
-
-      window.containerCustomizer.updateContainer(containerId, customizations);
-
-      console.log(`Saved new width for ${containerId}:`, customizations);
     }
 
     // Don't clear inline styles - let them persist
