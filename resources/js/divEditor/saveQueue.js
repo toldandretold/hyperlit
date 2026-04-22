@@ -533,10 +533,14 @@ export class SaveQueue {
           || document.getElementById(bookId);
         if (!container) return;
 
+        const INLINE_TAGS = new Set([
+          'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
+          'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
+        ]);
         const nodeEls = container.querySelectorAll('[id]');
         const nodeIds = [];
         nodeEls.forEach(el => {
-          if (/^\d+(\.\d+)?$/.test(el.id)) nodeIds.push(el.id);
+          if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_TAGS.has(el.tagName)) nodeIds.push(el.id);
         });
         if (nodeIds.length === 0) return;
 

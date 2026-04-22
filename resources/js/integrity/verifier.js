@@ -112,6 +112,15 @@ async function _verifySync(bookId, nodeIds) {
         return res();
       }
 
+      // Skip inline formatting elements (browser artifacts from copy-paste)
+      const INLINE_TAGS = new Set([
+        'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
+        'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
+      ]);
+      if (INLINE_TAGS.has(domEl.tagName)) {
+        return res(); // Not a real node — skip silently
+      }
+
       const domText = normaliseText(domEl.textContent);
 
       const numericId = typeof nodeId === 'number' ? nodeId : parseFloat(nodeId);

@@ -725,6 +725,17 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       if (!node) {
         node = document.getElementById(IDnumerical);
       }
+
+      // Skip inline formatting artifacts (e.g. <font id="1"> from copy-paste)
+      const INLINE_TAGS = new Set([
+        'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
+        'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
+      ]);
+      if (node && INLINE_TAGS.has(node.tagName)) {
+        console.warn(`⚠️ Skipping batch update – inline element <${node.tagName}> for id ${IDnumerical}`);
+        return;
+      }
+
       while (node && !/^\d+(\.\d+)?$/.test(IDnumerical)) {
         node = node.parentElement;
         if (node?.id) IDnumerical = node.id;
