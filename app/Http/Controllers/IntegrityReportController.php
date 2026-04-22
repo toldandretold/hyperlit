@@ -37,6 +37,7 @@ class IntegrityReportController extends Controller
             'timestamp'      => 'nullable|string|max:100',
             'context'                    => 'nullable|array',
             'context.totalDomNodes'      => 'nullable|integer',
+            'context.totalIdbNodes'      => 'nullable|integer',
             'context.sessionAgeSec'      => 'nullable|integer',
             'context.idbBroken'          => 'nullable|boolean',
             'selfHealed'         => 'nullable|boolean',

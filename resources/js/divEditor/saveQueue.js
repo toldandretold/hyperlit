@@ -521,6 +521,14 @@ export class SaveQueue {
         : (fn) => setTimeout(fn, 200);
 
       schedule(async () => {
+        // Guard: bail if new saves were queued — next save will reschedule
+        if (this.pendingSaves.nodes.size > 0) return;
+
+        // Guard: wait for any in-flight batch write to commit before reading IDB
+        if (this.currentSavePromise) {
+          await this.currentSavePromise;
+        }
+
         const container = document.querySelector(`[data-book-id="${bookId}"]`)
           || document.getElementById(bookId);
         if (!container) return;

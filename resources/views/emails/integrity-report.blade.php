@@ -30,6 +30,10 @@
             <td>{{ $context['totalDomNodes'] ?? '?' }}</td>
         </tr>
         <tr>
+            <td style="padding:4px 12px 4px 0; color:#888;">IDB Nodes</td>
+            <td>{{ $context['totalIdbNodes'] ?? '?' }}</td>
+        </tr>
+        <tr>
             <td style="padding:4px 12px 4px 0; color:#888;">Session Age</td>
             <td>
                 @php

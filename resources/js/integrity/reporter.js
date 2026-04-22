@@ -101,6 +101,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
     recentLogs: getRecentLogs(),
     context: {
       totalDomNodes,
+      totalIdbNodes,
       sessionAgeSec: Math.round((Date.now() - _sessionStartTs) / 1000),
       idbBroken: isIDBBroken(),
     },
@@ -412,10 +413,11 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false)
       card.innerHTML = `
         <p>Thanks for contributing to the digital knowledge commons! You've been upgraded to premium ✊</p>
         <div class="integrity-btn-group">
-          <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
+          <button class="integrity-btn integrity-btn-primary integrity-dismiss-ok">Ok</button>
+          <button class="integrity-btn integrity-btn-primary integrity-dismiss-ok">No worries</button>
         </div>
       `;
-      card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => _closeModal());
+      card.querySelectorAll('.integrity-dismiss-ok').forEach(btn => btn.addEventListener('click', () => _closeModal()));
     } else {
       reportBtn.remove();
       // Insert login/register prompt where button was
@@ -581,10 +583,11 @@ function _pollForAuthAndClaim(backdrop, card) {
     card.innerHTML = `
       <p>Thanks for contributing to the digital knowledge commons! You've been upgraded to premium ✊</p>
       <div class="integrity-btn-group">
-        <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
+        <button class="integrity-btn integrity-btn-primary integrity-dismiss-ok">Ok</button>
+        <button class="integrity-btn integrity-btn-primary integrity-dismiss-ok">No worries</button>
       </div>
     `;
-    card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => _closeModal());
+    card.querySelectorAll('.integrity-dismiss-ok').forEach(btn => btn.addEventListener('click', () => _closeModal()));
   }, 2000);
 }
 
