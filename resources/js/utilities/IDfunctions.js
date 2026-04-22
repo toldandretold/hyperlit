@@ -718,7 +718,9 @@ export function ensureNodeHasValidId(node, options = {}) {
   
   if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
     const { nodeId: IDnumerical, cursorPosition } = window.__enterKeyInfo;
-    const referenceNode = document.getElementById(IDnumerical);
+    // Scope lookup to the active book container to avoid cross-book ID collisions
+    const activeContainer = node.closest('[data-book-id]') || document.querySelector('.main-content');
+    const referenceNode = activeContainer?.querySelector(`[id="${IDnumerical}"]`) || document.getElementById(IDnumerical);
     if (referenceNode) {
       if (cursorPosition === "start") {
         const parent = referenceNode.parentElement;
@@ -732,6 +734,9 @@ export function ensureNodeHasValidId(node, options = {}) {
               if (baseMatch) {
                 const baseId = baseMatch[1];
                 node.id = getNextDecimalForBase(baseId);
+                if (!node.getAttribute('data-node-id')) {
+                  node.setAttribute('data-node-id', generateNodeId(book));
+                }
                 console.log(`Cursor at start: New node gets ID ${node.id} based on node above (${nodeAbove.id})`);
                 window.__enterKeyInfo = null;
                 return;
@@ -743,6 +748,9 @@ export function ensureNodeHasValidId(node, options = {}) {
               const baseId = parseInt(baseMatch[1], 10);
               const newBaseId = Math.max(1, baseId - 1).toString();
               node.id = newBaseId;
+              if (!node.getAttribute('data-node-id')) {
+                node.setAttribute('data-node-id', generateNodeId(book));
+              }
               console.log(`No node above; new node gets ID ${node.id} (one less than reference ${referenceNode.id})`);
               window.__enterKeyInfo = null;
               return;
@@ -754,6 +762,9 @@ export function ensureNodeHasValidId(node, options = {}) {
         if (baseMatch) {
           const baseId = baseMatch[1];
           node.id = getNextDecimalForBase(baseId);
+          if (!node.getAttribute('data-node-id')) {
+            node.setAttribute('data-node-id', generateNodeId(book));
+          }
           console.log(`Cursor at ${cursorPosition}: New node gets ${node.id}, reference node stays ${referenceNode.id}`);
           window.__enterKeyInfo = null;
           return;

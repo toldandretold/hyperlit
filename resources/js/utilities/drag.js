@@ -13,17 +13,44 @@ class ContainerDragger {
 
   init() {
     // Use event delegation for dynamically added drag handles
-    document.addEventListener('mousedown', this.handleMouseDown.bind(this));
-    document.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    document.addEventListener('mouseup', this.handleMouseUp.bind(this));
-    
+    this._onMouseDown = this.handleMouseDown.bind(this);
+    this._onMouseMove = this.handleMouseMove.bind(this);
+    this._onMouseUp = this.handleMouseUp.bind(this);
+    this._onTouchStart = this.handleTouchStart.bind(this);
+    this._onTouchMove = this.handleTouchMove.bind(this);
+    this._onTouchEnd = this.handleTouchEnd.bind(this);
+
+    document.addEventListener('mousedown', this._onMouseDown);
+    document.addEventListener('mousemove', this._onMouseMove);
+    document.addEventListener('mouseup', this._onMouseUp);
+
     // Touch events for mobile
-    document.addEventListener('touchstart', this.handleTouchStart.bind(this));
-    document.addEventListener('touchmove', this.handleTouchMove.bind(this));
-    document.addEventListener('touchend', this.handleTouchEnd.bind(this));
+    document.addEventListener('touchstart', this._onTouchStart);
+    document.addEventListener('touchmove', this._onTouchMove);
+    document.addEventListener('touchend', this._onTouchEnd);
+  }
+
+  /**
+   * Force-reset any stale resize state.
+   * Called on container open/close and SPA navigation to prevent stuck states.
+   */
+  reset() {
+    if (this.isResizing) {
+      document.querySelector('.resize-handle.resizing, .resize-edge.resizing')?.classList.remove('resizing');
+    }
+    document.body.classList.remove('container-resizing');
+    this.isResizing = false;
+    this.resizeDirection = null;
+    this.currentContainer = null;
+    this.containerType = null;
   }
 
   handleMouseDown(e) {
+    // Safety: if isResizing is stuck from a previous interrupted drag, reset first
+    if (this.isResizing && this.currentContainer && !this.currentContainer.isConnected) {
+      this.reset();
+    }
+
     // Only handle resize, not drag
     const resizeHandle = e.target.closest('.resize-handle, .resize-edge');
 
@@ -33,6 +60,11 @@ class ContainerDragger {
   }
 
   handleTouchStart(e) {
+    // Safety: if isResizing is stuck from a previous interrupted drag, reset first
+    if (this.isResizing && this.currentContainer && !this.currentContainer.isConnected) {
+      this.reset();
+    }
+
     // Only handle resize, not drag
     const resizeHandle = e.target.closest('.resize-handle, .resize-edge');
 
@@ -187,7 +219,7 @@ class ContainerDragger {
     document.body.classList.remove('container-resizing');
 
     // Save the new width and position to customizations
-    if (this.currentContainer && window.containerCustomizer) {
+    if (this.currentContainer && this.currentContainer.isConnected && window.containerCustomizer) {
       const rect = this.currentContainer.getBoundingClientRect();
       const containerId = this.currentContainer.id;
       const viewportWidth = window.innerWidth;
@@ -218,7 +250,7 @@ class ContainerDragger {
 
       window.containerCustomizer.updateContainer(containerId, customizations);
 
-      console.log(`📍 Saved new width for ${containerId}:`, customizations);
+      console.log(`Saved new width for ${containerId}:`, customizations);
     }
 
     // Don't clear inline styles - let them persist
@@ -231,5 +263,5 @@ class ContainerDragger {
   }
 }
 
-// Initialize the dragger
-const containerDragger = new ContainerDragger();
+// Initialize the dragger — exposed globally so container lifecycle can reset it
+window.containerDragger = new ContainerDragger();

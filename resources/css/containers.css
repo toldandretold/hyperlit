@@ -813,7 +813,9 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 .container-dragging .container-controls,
-.container-resizing .container-controls {
+.container-resizing .container-controls,
+.container-dragging .resize-edge,
+.container-resizing .resize-edge {
   pointer-events: auto;
 }
 

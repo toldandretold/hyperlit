@@ -38,7 +38,9 @@ export class ContainerManager {
   // again and again to "refresh" the manager after an SPA transition.
   // =================================================================
   rebindElements() {
-    
+    // Reset any stale drag/resize state from before SPA navigation
+    if (window.containerDragger) window.containerDragger.reset();
+
     // Store old element references for cleanup
     const oldContainer = this.container;
     const oldOverlay = this.overlay;

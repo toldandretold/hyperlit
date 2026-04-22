@@ -38,6 +38,17 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   // Always log
   console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, trigger });
 
+  if (mismatches.length > 0) {
+    console.group('[integrity] Mismatch details');
+    mismatches.forEach((m, i) => {
+      console.warn(`Node ${m.startLine || m.nodeId}:`, {
+        domText: m.domText,
+        idbText: m.idbText,
+      });
+    });
+    console.groupEnd();
+  }
+
   // TODO: Re-enable once self-healing is battle-tested and we're confident no data is lost.
   // For now, always show the modal so users can send bug reports and claim premium.
   // if (selfHealed) {

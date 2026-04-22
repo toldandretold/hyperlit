@@ -204,7 +204,16 @@ export class SaveQueue {
     this.currentSavePromise = (async () => {
       try {
         const recordsToUpdate = [...updates, ...additions].filter(node => {
-          const element = document.getElementById(node.id);
+          let element;
+          const effectiveBookId = node.bookId || this.bookId;
+          if (effectiveBookId) {
+            const container = document.querySelector(`[data-book-id="${effectiveBookId}"]`)
+              || document.getElementById(effectiveBookId);
+            element = container?.querySelector(`[id="${node.id}"]`);
+          }
+          if (!element) {
+            element = document.getElementById(node.id);
+          }
           if (!element) {
             console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
             return false;
