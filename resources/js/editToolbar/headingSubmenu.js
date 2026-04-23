@@ -13,6 +13,7 @@ import {
   findClosestBlockParent,
   getFirstTextNode,
   setCursorAtTextOffset,
+  replaceBlockUndoable,
 } from "./toolbarDOMUtils.js";
 import {
   setElementIds,
@@ -278,16 +279,17 @@ export class HeadingSubmenu {
       pElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
     }
 
-    blockParent.parentNode.replaceChild(pElement, blockParent);
-    setCursorAtTextOffset(pElement, currentOffset);
+    replaceBlockUndoable(blockParent, pElement.outerHTML);
+    const insertedP = document.getElementById(newPId) || pElement;
+    setCursorAtTextOffset(insertedP, currentOffset);
 
     // Update button states after cursor is set
     this.selectionManager.currentSelection = window.getSelection();
     this.buttonStateManager.updateButtonStates();
 
     // Save to IndexedDB
-    if (this.currentBookId && pElement.id && this.saveToIndexedDBCallback) {
-      await this.saveToIndexedDBCallback(pElement.id, pElement.outerHTML);
+    if (this.currentBookId && insertedP.id && this.saveToIndexedDBCallback) {
+      await this.saveToIndexedDBCallback(insertedP.id, insertedP.outerHTML);
     }
   }
 

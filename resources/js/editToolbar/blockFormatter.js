@@ -16,6 +16,7 @@ import {
   selectAcrossElements,
   findClosestListItem,
   isBlockElement,
+  replaceBlockUndoable,
 } from "./toolbarDOMUtils.js";
 import {
   setElementIds,
@@ -200,10 +201,11 @@ export class BlockFormatter {
             newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id'));
           }
 
-          block.parentNode.replaceChild(newBlockElement, block);
+          replaceBlockUndoable(block, newBlockElement.outerHTML);
+          const insertedBlock = document.getElementById(newBlockElement.id);
           modifiedElementsForSelection.push({
             id: newBlockElement.id,
-            element: newBlockElement,
+            element: insertedBlock || newBlockElement,
           });
           recordsToUpdate.push({
             id: newBlockElement.id,
@@ -263,10 +265,11 @@ export class BlockFormatter {
           pElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
         }
 
-        headingElement.parentNode.replaceChild(pElement, headingElement);
-        setCursorAtTextOffset(pElement, currentOffset);
+        replaceBlockUndoable(headingElement, pElement.outerHTML);
+        const insertedP = document.getElementById(newPId);
+        setCursorAtTextOffset(insertedP || pElement, currentOffset);
         modifiedElementId = newPId;
-        newElement = pElement;
+        newElement = insertedP || pElement;
       } else {
         // Different level - convert to new heading level
         const newHeadingElement = document.createElement(headingLevel);
@@ -282,10 +285,11 @@ export class BlockFormatter {
           newHeadingElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
         }
 
-        headingElement.parentNode.replaceChild(newHeadingElement, headingElement);
-        setCursorAtTextOffset(newHeadingElement, currentOffset);
+        replaceBlockUndoable(headingElement, newHeadingElement.outerHTML);
+        const insertedHeading = document.getElementById(newHeadingId);
+        setCursorAtTextOffset(insertedHeading || newHeadingElement, currentOffset);
         modifiedElementId = newHeadingId;
-        newElement = newHeadingElement;
+        newElement = insertedHeading || newHeadingElement;
       }
 
       this.selectionManager.currentSelection = window.getSelection();
@@ -321,10 +325,11 @@ export class BlockFormatter {
         headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
       }
 
-      blockParent.parentNode.replaceChild(headingElement, blockParent);
-      setCursorAtTextOffset(headingElement, currentOffset);
+      replaceBlockUndoable(blockParent, headingElement.outerHTML);
+      const insertedHeading2 = document.getElementById(newHeadingId);
+      setCursorAtTextOffset(insertedHeading2 || headingElement, currentOffset);
       modifiedElementId = newHeadingId;
-      newElement = headingElement;
+      newElement = insertedHeading2 || headingElement;
 
       this.selectionManager.currentSelection = window.getSelection();
     }
@@ -378,9 +383,10 @@ export class BlockFormatter {
 
           setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
 
-          // Replace in place
-          block.parentNode.replaceChild(newBlockElement, block);
-          createdBlocks.push(newBlockElement);
+          // Replace in place (undoable)
+          replaceBlockUndoable(block, newBlockElement.outerHTML);
+          const insertedWrapBlock = document.getElementById(newBlockElement.id);
+          createdBlocks.push(insertedWrapBlock || newBlockElement);
 
           // Save (no delete needed since node_id is preserved)
           if (this.currentBookId && this.saveToIndexedDBCallback) {
@@ -499,8 +505,9 @@ export class BlockFormatter {
     let newElement = null;
 
     if (fragment.childNodes.length > 0) {
-      blockToUnwrap.parentNode.replaceChild(fragment, blockToUnwrap);
-      newElement = firstNewP;
+      replaceBlockUndoable(blockToUnwrap, firstNewP.outerHTML);
+      const insertedUnwrap = document.getElementById(firstNewP.id);
+      newElement = insertedUnwrap || firstNewP;
       modifiedElementId = newElement.id;
       setCursorAtTextOffset(newElement, 0);
 
@@ -515,9 +522,10 @@ export class BlockFormatter {
       const p = document.createElement("p");
       p.innerHTML = "&nbsp;";
       setElementIds(p, beforeOriginalId, afterOriginalId, this.currentBookId);
-      blockToUnwrap.parentNode.replaceChild(p, blockToUnwrap);
-      newElement = p;
-      modifiedElementId = p.id;
+      replaceBlockUndoable(blockToUnwrap, p.outerHTML);
+      const insertedEmptyP = document.getElementById(p.id);
+      newElement = insertedEmptyP || p;
+      modifiedElementId = newElement.id;
       setCursorAtTextOffset(newElement, 0);
 
       if (this.saveToIndexedDBCallback) {
@@ -563,9 +571,10 @@ export class BlockFormatter {
       newBlockElement.setAttribute('data-node-id', oldNodeId);
     }
     setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
-    blockParentToToggle.parentNode.replaceChild(newBlockElement, blockParentToToggle);
+    replaceBlockUndoable(blockParentToToggle, newBlockElement.outerHTML);
 
-    const newElement = newBlockElement;
+    const insertedWrap = document.getElementById(newBlockElement.id);
+    const newElement = insertedWrap || newBlockElement;
     const modifiedElementId = newElement.id;
     setCursorAtTextOffset(newElement, currentOffset);
 
@@ -621,24 +630,27 @@ export class BlockFormatter {
     setElementIds(pElement, beforeOriginalId, afterOriginalId, this.currentBookId);
 
     try {
-      headingElement.parentNode.replaceChild(pElement, headingElement);
+      replaceBlockUndoable(headingElement, pElement.outerHTML);
     } catch (domError) {
       console.error("unwrapSelectedTextFromHeading: DOM replacement failed.", domError);
       return null;
     }
 
+    // Re-acquire the inserted element from the live DOM
+    const livePElement = document.getElementById(pElement.id) || pElement;
+
     if (this.selectionManager.currentSelection) {
       const newRange = document.createRange();
-      newRange.selectNodeContents(pElement);
+      newRange.selectNodeContents(livePElement);
       this.selectionManager.currentSelection.removeAllRanges();
       this.selectionManager.currentSelection.addRange(newRange);
     }
 
-    console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${pElement.id}"`);
+    console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${livePElement.id}"`);
 
     if (this.currentBookId) {
       if (this.saveToIndexedDBCallback) {
-        await this.saveToIndexedDBCallback(pElement.id, pElement.outerHTML);
+        await this.saveToIndexedDBCallback(livePElement.id, livePElement.outerHTML);
       }
       if (this.deleteFromIndexedDBCallback) {
         await this.deleteFromIndexedDBCallback(headingElement.id);
@@ -646,8 +658,8 @@ export class BlockFormatter {
     }
 
     return {
-      id: pElement.id,
-      element: pElement,
+      id: livePElement.id,
+      element: livePElement,
     };
   }
 

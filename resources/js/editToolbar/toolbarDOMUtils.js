@@ -289,6 +289,22 @@ export function getFirstTextNode(element) {
 }
 
 /**
+ * Replace a DOM element using execCommand('insertHTML') so the change
+ * participates in the browser's native undo stack (Cmd+Z / Ctrl+Z).
+ *
+ * @param {Element} oldElement - The existing DOM element to replace
+ * @param {string} newOuterHTML - The outerHTML string of the replacement
+ */
+export function replaceBlockUndoable(oldElement, newOuterHTML) {
+  const sel = window.getSelection();
+  const range = document.createRange();
+  range.selectNode(oldElement);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  document.execCommand('insertHTML', false, newOuterHTML);
+}
+
+/**
  * Find the closest list item parent
  * @param {Element} element - The element to start from
  * @returns {Element|null}

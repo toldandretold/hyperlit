@@ -15,6 +15,7 @@ import {
   getTextOffsetInElement,
   setCursorAtTextOffset,
   getElementsInSelectionRange,
+  replaceBlockUndoable,
 } from "./toolbarDOMUtils.js";
 
 /**
@@ -146,18 +147,13 @@ export class TextFormatter {
       const isInHeading = blockParent && /^H[1-6]$/.test(blockParent.tagName);
 
       if (isInHeading) {
-        // Manual <strong> wrapping for headings
+        // Use execCommand for undoable bold wrapping in headings
         const range = this.selectionManager.currentSelection.getRangeAt(0);
-        const selectedText = range.extractContents();
-        const strong = document.createElement("strong");
-        strong.appendChild(selectedText);
-        range.insertNode(strong);
-
-        // Restore selection
-        const newRange = document.createRange();
-        newRange.selectNodeContents(strong);
-        this.selectionManager.currentSelection.removeAllRanges();
-        this.selectionManager.currentSelection.addRange(newRange);
+        const fragment = range.cloneContents();
+        const tempDiv = document.createElement('div');
+        tempDiv.appendChild(fragment);
+        const innerHTML = tempDiv.innerHTML;
+        document.execCommand('insertHTML', false, '<strong>' + innerHTML + '</strong>');
 
         modifiedElementId = blockParent.id;
         newElement = blockParent;
@@ -191,9 +187,8 @@ export class TextFormatter {
           findParentWithTag(parentElement, "STRONG") ||
           findParentWithTag(parentElement, "B");
         if (boldElement) {
-          const newTextNode = document.createTextNode(boldElement.textContent);
           const parentNode = boldElement.parentNode;
-          parentNode.replaceChild(newTextNode, boldElement);
+          replaceBlockUndoable(boldElement, boldElement.innerHTML);
           setCursorAtTextOffset(parentNode, currentOffset);
           const blockParentAfter = findClosestBlockParent(parentNode);
           if (blockParentAfter && blockParentAfter.id) {
@@ -211,15 +206,17 @@ export class TextFormatter {
 
         if (node && node.nodeType === Node.TEXT_NODE) {
           if (isInHeading) {
-            // Manual <strong> wrapping for headings
+            // Use execCommand for undoable bold wrapping in headings
             const range = document.createRange();
             range.selectNodeContents(node);
-            const selectedText = range.extractContents();
-            const strong = document.createElement("strong");
-            strong.appendChild(selectedText);
-            range.insertNode(strong);
+            this.selectionManager.currentSelection.removeAllRanges();
+            this.selectionManager.currentSelection.addRange(range);
+            document.execCommand('insertHTML', false, '<strong>' + node.textContent + '</strong>');
 
-            setCursorAtTextOffset(strong, currentOffset);
+            const newBoldInHeading = blockParent.querySelector('strong');
+            if (newBoldInHeading) {
+              setCursorAtTextOffset(newBoldInHeading, currentOffset);
+            }
             modifiedElementId = blockParent.id;
             newElement = blockParent;
           } else {
@@ -280,9 +277,8 @@ export class TextFormatter {
           findParentWithTag(parentElement, "EM") ||
           findParentWithTag(parentElement, "I");
         if (italicElement) {
-          const newTextNode = document.createTextNode(italicElement.textContent);
           const parentNode = italicElement.parentNode;
-          parentNode.replaceChild(newTextNode, italicElement);
+          replaceBlockUndoable(italicElement, italicElement.innerHTML);
           setCursorAtTextOffset(parentNode, currentOffset);
           const blockParent = findClosestBlockParent(parentNode);
           if (blockParent && blockParent.id) {

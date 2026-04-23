@@ -873,9 +873,20 @@ class DatabaseToIndexedDBController extends Controller
                 $targetChunkId = $validChunkIds[0] ?? 0;
             }
 
-            // Get nodes for target chunk with embedded annotations
+            // Pre-fetch all annotations ONCE for the entire request
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
-            $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $visibleHyperlightIds);
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
+
+            $highlightLookup = [];
+            foreach ($hyperlights as $h) {
+                $highlightLookup[$h['hyperlight_id']] = $h;
+            }
+            $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
+            $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
+
+            // Get nodes for target chunk using pre-fetched annotations
+            $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode);
 
             // If the target chunk is too small to fill a viewport, include adjacent chunks
             // so the user has enough content to scroll
@@ -887,12 +898,12 @@ class DatabaseToIndexedDBController extends Controller
                 // Try next chunk first, then previous
                 if ($targetPos !== false && $targetPos < count($chunkIds) - 1) {
                     $nextChunkId = $chunkIds[$targetPos + 1];
-                    $nextNodes = $this->getNodeChunksForChunk($bookId, $nextChunkId, $visibleHyperlightIds);
+                    $nextNodes = $this->getNodeChunksForChunk($bookId, $nextChunkId, $hyperlightsByNode, $hypercitesByNode);
                     $initialNodes = array_merge($initialNodes, $nextNodes);
                 }
                 if (count($initialNodes) < $minNodes && $targetPos !== false && $targetPos > 0) {
                     $prevChunkId = $chunkIds[$targetPos - 1];
-                    $prevNodes = $this->getNodeChunksForChunk($bookId, $prevChunkId, $visibleHyperlightIds);
+                    $prevNodes = $this->getNodeChunksForChunk($bookId, $prevChunkId, $hyperlightsByNode, $hypercitesByNode);
                     $initialNodes = array_merge($prevNodes, $initialNodes);
                 }
             }
@@ -900,11 +911,6 @@ class DatabaseToIndexedDBController extends Controller
             // Get footnotes + library (small, needed immediately)
             $footnotes = $this->getFootnotes($bookId);
             $library = $this->getLibrary($bookId);
-
-            // Get all annotation stores — small compared to nodes, and needed
-            // immediately so highlights/citations work before background download
-            $hyperlights = $this->getHyperlights($bookId);
-            $hypercites = $this->getHypercites($bookId);
             $bibliography = $this->getBibliography($bookId);
 
             // Get bookmark for restoration
@@ -953,6 +959,54 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Get only annotations (hyperlights + hypercites) for a book.
+     * Lightweight endpoint for annotation-only syncs — avoids downloading all nodes.
+     */
+    public function getBookAnnotations(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $bookId = BookSlugHelper::resolve($bookId);
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
+
+            return response()->json([
+                'hyperlights' => $hyperlights,
+                'hypercites' => $hypercites,
+                'metadata' => [
+                    'book_id' => $bookId,
+                    'total_hyperlights' => count($hyperlights),
+                    'total_hypercites' => count($hypercites),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching book annotations', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'message' => 'Failed to fetch annotations'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get annotations for a sub-book.
+     */
+    public function getSubBookAnnotations(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        $parentBook = BookSlugHelper::resolve($parentBook);
+        return $this->getBookAnnotations($request, $parentBook . '/' . $subId);
+    }
+
+    /**
      * Get a single chunk of nodes by chunk_id (for on-demand loading).
      */
     public function getSingleChunk(Request $request, string $bookId, int $chunkId): JsonResponse
@@ -964,8 +1018,18 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
+            // Pre-fetch annotations once
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
-            $nodes = $this->getNodeChunksForChunk($bookId, $chunkId, $visibleHyperlightIds);
+            $processedHighlights = $this->getHyperlights($bookId);
+
+            $highlightLookup = [];
+            foreach ($processedHighlights as $h) {
+                $highlightLookup[$h['hyperlight_id']] = $h;
+            }
+            $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
+            $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
+
+            $nodes = $this->getNodeChunksForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode);
 
             if (empty($nodes)) {
                 return response()->json([
@@ -1157,19 +1221,10 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks for a specific chunk_id with embedded annotations.
      * Variant of getNodeChunks() filtered to a single chunk.
+     * Accepts pre-fetched annotation lookups to avoid redundant queries.
      */
-    private function getNodeChunksForChunk(string $bookId, int $chunkId, array $visibleHyperlightIds): array
+    private function getNodeChunksForChunk(string $bookId, int $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
     {
-        $processedHighlights = $this->getHyperlights($bookId);
-
-        $highlightLookup = [];
-        foreach ($processedHighlights as $highlight) {
-            $highlightLookup[$highlight['hyperlight_id']] = $highlight;
-        }
-
-        $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
-        $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
-
         $chunks = DB::table('nodes')
             ->where('book', $bookId)
             ->where('chunk_id', $chunkId)

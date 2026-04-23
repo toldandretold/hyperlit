@@ -321,6 +321,9 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{parentBook}/{subId}/initial', [DatabaseToIndexedDBController::class, 'getSubBookInitialChunk'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-initial');
+    Route::get('books/{parentBook}/{subId}/annotations', [DatabaseToIndexedDBController::class, 'getSubBookAnnotations'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-annotations');
 
     // Chunked lazy loading: initial chunk + manifest
     Route::get('books/{bookId}/initial', [DatabaseToIndexedDBController::class, 'getInitialChunk'])
@@ -344,6 +347,10 @@ Route::prefix('database-to-indexeddb')->group(function () {
     // Get just metadata (for checking if update needed)
     Route::get('books/{bookId}/metadata', [DatabaseToIndexedDBController::class, 'getBookMetadata'])
         ->name('api.database-to-indexeddb.book-metadata');
+
+    // Get just annotations (hyperlights + hypercites) for a book
+    Route::get('books/{bookId}/annotations', [DatabaseToIndexedDBController::class, 'getBookAnnotations'])
+        ->name('api.database-to-indexeddb.book-annotations');
 
     // Get just library data for a specific book
     Route::get('books/{bookId}/library', [DatabaseToIndexedDBController::class, 'getBookLibrary'])

@@ -42,6 +42,21 @@ function getRecord(db, storeName, key) {
     req.onerror = () => reject(req.error);
   });
 }
+async function getBookDownloadName(bookId, ext) {
+  try {
+    const db = await openDatabase();
+    const record = await getRecord(db, 'library', bookId);
+    const title = (record?.title || record?.book || bookId).trim();
+    const author = (record?.author || record?.creator || '').trim();
+    const sanitize = s => s.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim();
+    const safeTitle = sanitize(title) || bookId;
+    const safeAuthor = sanitize(author);
+    return safeAuthor ? `${safeAuthor} - ${safeTitle}.${ext}` : `${safeTitle}.${ext}`;
+  } catch (e) {
+    return `book-${bookId}.${ext}`;
+  }
+}
+
 /**
  * Build the inner-HTML for the source container:
  *  - fetch bibtex from IndexedDB
@@ -2601,7 +2616,8 @@ async function exportBookAsMarkdown(bookId = book || 'latest') {
       // Bundle as zip with images
       const JSZip = await loadJSZip();
       const zip = new JSZip();
-      zip.file(`book-${bookId}.md`, markdown);
+      const mdName = await getBookDownloadName(bookId, 'md');
+      zip.file(mdName, markdown);
 
       const imgFolder = zip.folder('images');
       for (const { src, filename } of images) {
@@ -2618,14 +2634,14 @@ async function exportBookAsMarkdown(bookId = book || 'latest') {
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `book-${bookId}.zip`;
+      a.download = await getBookDownloadName(bookId, 'zip');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      console.log(`✅ Markdown + images exported as book-${bookId}.zip`);
+      console.log(`✅ Markdown + images exported as zip`);
     } else {
-      const filename = `book-${bookId}.md`;
+      const filename = await getBookDownloadName(bookId, 'md');
       downloadMarkdown(filename, markdown);
       console.log(`✅ Markdown exported to ${filename}`);
     }
@@ -2637,7 +2653,7 @@ async function exportBookAsMarkdown(bookId = book || 'latest') {
 async function exportBookAsDocx(bookId = book || 'latest') {
   try {
     const blob = await buildDocxBuffer(bookId);
-    const filename = `book-${bookId}.docx`;
+    const filename = await getBookDownloadName(bookId, 'docx');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -3385,7 +3401,7 @@ async function exportBookAsDocxStyled(bookId = book || 'latest') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `book-${bookId}.docx`;
+    a.download = await getBookDownloadName(bookId, 'docx');
     a.click();
     URL.revokeObjectURL(url);
     console.log('✅ Styled DOCX exported');
@@ -3679,18 +3695,13 @@ async function buildEpubBlob(bookId = book || 'latest') {
   }
 
   // --- Phase 5: Split content into per-chapter files ---
-  // Determine split level: use h1 if any exist, otherwise h2
-  const hasH1 = tocEntries.some(e => e.level === 1);
-  const splitLevel = hasH1 ? 1 : 2;
-  const splitTag = `H${splitLevel}`;
-
   const chapters = [{ html: '', headingIds: [] }]; // start with preamble chapter
   const headingToChapter = new Map(); // headingId → chapter index
 
   for (const frag of fragments) {
     for (const child of Array.from(frag.childNodes)) {
-      // Start a new chapter at each split-level heading
-      if (child.nodeType === Node.ELEMENT_NODE && child.tagName === splitTag) {
+      // Start a new chapter at each h1 or h2
+      if (child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'H1' || child.tagName === 'H2')) {
         chapters.push({ html: '', headingIds: [] });
       }
       const chIdx = chapters.length - 1;
@@ -3983,7 +3994,7 @@ async function exportBookAsEpub(bookId = book || 'latest') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `book-${bookId}.epub`;
+    a.download = await getBookDownloadName(bookId, 'epub');
     a.click();
     URL.revokeObjectURL(url);
     console.log('✅ EPUB exported');

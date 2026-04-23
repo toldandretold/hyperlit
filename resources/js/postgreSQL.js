@@ -542,8 +542,8 @@ export async function syncAnnotationsOnly(bookId) {
   verbose.content(`Starting annotations-only sync for: ${bookId}`, 'postgreSQL.js');
 
   try {
-    // 1. Fetch full book data from Laravel API (we'll only use annotations)
-    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`);
+    // 1. Fetch only annotations (not the full book with all nodes)
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/annotations`);
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
