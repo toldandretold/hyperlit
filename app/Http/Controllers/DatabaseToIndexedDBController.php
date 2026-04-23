@@ -120,14 +120,17 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
-            // Now query with RLS - will return the record since user is authorized
-            $library = DB::table('library')->where('book', $bookId)->first();
+            // Fetch annotations ONCE for the entire request (avoids redundant queries)
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
 
-            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
+            // Build per-node lookups from pre-fetched data
+            $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
+            $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
-            // Get node chunks for this book, filtering the highlights within them
-            $nodeChunks = $this->getNodeChunks($bookId, $visibleHyperlightIds);
-            
+            // Get node chunks using pre-fetched annotation lookups
+            $nodeChunks = $this->getNodeChunksWithPreFetched($bookId, $hyperlightsByNode, $hypercitesByNode);
+
             if (empty($nodeChunks)) {
                 return response()->json([
                     'error' => 'No data found for book',
@@ -135,19 +138,8 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            // Get footnotes for this book
             $footnotes = $this->getFootnotes($bookId);
-            
-            // Get bibliography/references for this book
             $bibliography = $this->getBibliography($bookId);
-            
-            // Get hyperlights for this book
-            $hyperlights = $this->getHyperlights($bookId);
-            
-            // Get hypercites for this book
-            $hypercites = $this->getHypercites($bookId);
-            
-            // Get library data for this book
             $library = $this->getLibrary($bookId);
 
             // Structure data for efficient IndexedDB import
@@ -370,6 +362,118 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Build per-node hyperlight lookup from pre-fetched processed hyperlights.
+     * Avoids redundant queries by deriving the per-node structure from getHyperlights() result.
+     */
+    private function buildHyperlightsByNodeFromProcessed(array $hyperlights): array
+    {
+        $byNode = [];
+        foreach ($hyperlights as $hl) {
+            $nodeIds = $hl['node_id'] ?? [];
+            $charData = $hl['charData'] ?? [];
+
+            foreach ($nodeIds as $nodeUUID) {
+                $nodeCharData = $charData[$nodeUUID] ?? null;
+                if (!$nodeCharData) {
+                    continue;
+                }
+
+                if (!isset($byNode[$nodeUUID])) {
+                    $byNode[$nodeUUID] = [];
+                }
+
+                $byNode[$nodeUUID][] = [
+                    'highlightID' => $hl['hyperlight_id'],
+                    'charStart' => $nodeCharData['charStart'],
+                    'charEnd' => $nodeCharData['charEnd'],
+                    'annotation' => $hl['annotation'],
+                    'creator' => $hl['creator'],
+                    'preview_nodes' => $hl['preview_nodes'] ?? null,
+                    'time_since' => $hl['time_since'],
+                    'hidden' => $hl['hidden'] ?? false,
+                    'is_user_highlight' => $hl['is_user_highlight'] ?? false
+                ];
+            }
+        }
+        return $byNode;
+    }
+
+    /**
+     * Build per-node hypercite lookup from pre-fetched processed hypercites.
+     * Avoids redundant queries by deriving the per-node structure from getHypercites() result.
+     */
+    private function buildHypercitesByNodeFromProcessed(array $hypercites): array
+    {
+        $byNode = [];
+        foreach ($hypercites as $hc) {
+            $nodeIds = $hc['node_id'] ?? [];
+            $charData = $hc['charData'] ?? [];
+
+            foreach ($nodeIds as $nodeUUID) {
+                $nodeCharData = $charData[$nodeUUID] ?? null;
+                if (!$nodeCharData) {
+                    continue;
+                }
+
+                if (!isset($byNode[$nodeUUID])) {
+                    $byNode[$nodeUUID] = [];
+                }
+
+                $byNode[$nodeUUID][] = [
+                    'hyperciteId' => $hc['hyperciteId'],
+                    'charStart' => $nodeCharData['charStart'],
+                    'charEnd' => $nodeCharData['charEnd'],
+                    'relationshipStatus' => $hc['relationshipStatus'],
+                    'citedIN' => $hc['citedIN'] ?? [],
+                    'time_since' => $hc['time_since'] ?? null
+                ];
+            }
+        }
+        return $byNode;
+    }
+
+    /**
+     * Get node chunks using pre-fetched annotation lookups (avoids redundant queries).
+     */
+    private function getNodeChunksWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode): array
+    {
+        $chunks = DB::table('nodes')
+            ->where('book', $bookId)
+            ->orderBy('chunk_id')
+            ->get()
+            ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
+                $nodeUUID = $chunk->node_id;
+
+                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
+                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
+
+                return [
+                    'book' => $chunk->book,
+                    'chunk_id' => (int) $chunk->chunk_id,
+                    'startLine' => (float) $chunk->startLine,
+                    'node_id' => $chunk->node_id,
+                    'content' => $chunk->content,
+                    'plainText' => $chunk->plainText,
+                    'type' => $chunk->type,
+                    'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
+                    'hypercites' => $finalHypercites,
+                    'hyperlights' => array_values($finalHyperlights),
+                    'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
+                ];
+            })
+            ->toArray();
+
+        Log::info('Node chunks loaded', [
+            'book' => $bookId,
+            'chunks' => count($chunks),
+            'highlights' => count($hyperlightsByNode),
+            'hypercites' => count($hypercitesByNode)
+        ]);
+
+        return $chunks;
+    }
+
+    /**
      * Get footnotes for a book
      */
     private function getFootnotes(string $bookId): ?array
@@ -513,6 +617,7 @@ class DatabaseToIndexedDBController extends Controller
                     'startLine' => $hyperlight->startLine,
                     'raw_json' => $rawJson,
                     'time_since' => $hyperlight->time_since,
+                    'hidden' => (bool) ($hyperlight->hidden ?? false),
                     'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
                     // creator_token intentionally omitted - security sensitive
@@ -549,6 +654,7 @@ class DatabaseToIndexedDBController extends Controller
                     'hypercitedHTML' => $hypercite->hypercitedHTML,
                     'hypercitedText' => $hypercite->hypercitedText,
                     'relationshipStatus' => $hypercite->relationshipStatus,
+                    'time_since' => $hypercite->time_since ?? null,
                     'raw_json' => json_decode($hypercite->raw_json ?? '{}', true),
                 ];
             })
@@ -874,16 +980,11 @@ class DatabaseToIndexedDBController extends Controller
             }
 
             // Pre-fetch all annotations ONCE for the entire request
-            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
             $hyperlights = $this->getHyperlights($bookId);
             $hypercites = $this->getHypercites($bookId);
 
-            $highlightLookup = [];
-            foreach ($hyperlights as $h) {
-                $highlightLookup[$h['hyperlight_id']] = $h;
-            }
-            $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
-            $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
+            $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
+            $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
             // Get nodes for target chunk using pre-fetched annotations
             $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode);
@@ -1019,15 +1120,11 @@ class DatabaseToIndexedDBController extends Controller
             }
 
             // Pre-fetch annotations once
-            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
-            $processedHighlights = $this->getHyperlights($bookId);
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
 
-            $highlightLookup = [];
-            foreach ($processedHighlights as $h) {
-                $highlightLookup[$h['hyperlight_id']] = $h;
-            }
-            $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
-            $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
+            $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
+            $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
             $nodes = $this->getNodeChunksForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode);
 

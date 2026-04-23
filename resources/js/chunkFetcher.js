@@ -52,12 +52,13 @@ export async function storeSingleChunkToIndexedDB(nodes) {
                 : chunk.raw_json,
         };
 
-        await new Promise((resolve, reject) => {
-            const request = store.put(processedChunk);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
+        store.put(processedChunk);
     }
+
+    await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
 
 /**

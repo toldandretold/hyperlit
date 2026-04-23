@@ -100,20 +100,22 @@ async function queryHyperlightsByNodes(db, dataNodeIDs) {
   // Use a Set to deduplicate (a hyperlight spanning multiple nodes will be found multiple times)
   const resultsMap = new Map(); // Use Map to deduplicate by hyperlight_id
 
-  // Query each data-node-id using the index - each query is O(1) with the index
-  for (const dataNodeID of dataNodeIDs) {
+  // Fire all index queries at once within the same transaction, collect with Promise.all
+  const hlPromises = dataNodeIDs.map(dataNodeID => {
     const req = index.getAll(dataNodeID);
-    const matches = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-    // Add to map, keyed by hyperlight_id to avoid duplicates
+  });
+  const allHlResults = await Promise.all(hlPromises);
+  allHlResults.forEach(matches => {
     matches.forEach(hl => {
       if (hl && hl.hyperlight_id) {
         resultsMap.set(hl.hyperlight_id, hl);
       }
     });
-  }
+  });
 
   const results = Array.from(resultsMap.values());
   verbose.content(`NEW SYSTEM: Queried hyperlights index for ${dataNodeIDs.length} nodes, found ${results.length} hyperlights`, 'indexedDB/hydration/rebuild.js');
@@ -137,21 +139,22 @@ async function queryHypercitesByNodes(db, dataNodeIDs) {
   // Use a Map to deduplicate (a hypercite spanning multiple nodes will be found multiple times)
   const resultsMap = new Map(); // Use Map to deduplicate by hyperciteId
 
-  // Query each data-node-id using the index - each query is O(1) with the index
-  for (const dataNodeID of dataNodeIDs) {
+  // Fire all index queries at once within the same transaction, collect with Promise.all
+  const hcPromises = dataNodeIDs.map(dataNodeID => {
     const req = index.getAll(dataNodeID);
-    const matches = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-
-    // Add to map, keyed by hyperciteId to avoid duplicates
+  });
+  const allHcResults = await Promise.all(hcPromises);
+  allHcResults.forEach(matches => {
     matches.forEach(hc => {
       if (hc && hc.hyperciteId) {
         resultsMap.set(hc.hyperciteId, hc);
       }
     });
-  }
+  });
 
   const results = Array.from(resultsMap.values());
   verbose.content(`NEW SYSTEM: Queried hypercites index for ${dataNodeIDs.length} nodes, found ${results.length} hypercites`, 'indexedDB/hydration/rebuild.js');
@@ -251,23 +254,21 @@ async function updateNodesInDB(db, nodes) {
   const tx = db.transaction('nodes', 'readwrite');
   const store = tx.objectStore('nodes');
 
+  // Fire all put() calls without individual awaits, wait for tx.oncomplete
   for (const node of nodes) {
-    const key = [node.book, node.startLine];
-
-    await new Promise((resolve, reject) => {
-      const req = store.put(node);
-      req.onsuccess = () => {
-        verbose.content(`NEW SYSTEM: Updated node ${node.node_id} in IndexedDB`, 'indexedDB/hydration/rebuild.js');
-        resolve();
-      };
-      req.onerror = () => {
-        console.error(`❌ NEW SYSTEM: Failed to update node ${node.node_id}:`, req.error);
-        reject(req.error);
-      };
-    });
+    store.put(node);
   }
 
-  verbose.content(`NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`, 'indexedDB/hydration/rebuild.js');
+  await new Promise((resolve, reject) => {
+    tx.oncomplete = () => {
+      verbose.content(`NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`, 'indexedDB/hydration/rebuild.js');
+      resolve();
+    };
+    tx.onerror = () => {
+      console.error(`❌ NEW SYSTEM: Failed to update nodes in IndexedDB:`, tx.error);
+      reject(tx.error);
+    };
+  });
 }
 
 /**
@@ -288,20 +289,15 @@ export async function getNodesByDataNodeIDs(dataNodeIDs) {
   const store = tx.objectStore('nodes');
   const index = store.index('node_id'); // Use node_id index
 
-  const results = [];
-
-  // Query each data-node-id using the index - O(1) per lookup
-  for (const dataNodeID of dataNodeIDs) {
+  // Fire all index queries at once within the same transaction, collect with Promise.all
+  const nodePromises = dataNodeIDs.map(dataNodeID => {
     const req = index.get(dataNodeID);
-    const node = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-
-    if (node) {
-      results.push(node);
-    }
-  }
+  });
+  const results = (await Promise.all(nodePromises)).filter(Boolean);
 
   verbose.content(`NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${dataNodeIDs.length} data-node-ids)`, 'indexedDB/hydration/rebuild.js');
 

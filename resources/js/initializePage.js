@@ -382,13 +382,20 @@ export async function loadHyperText(bookId, progressCallback = null) {
       }
 
       // Background download remaining chunks (Phase 3)
-      setTimeout(() => {
+      // Use requestIdleCallback to start when the browser is actually idle,
+      // preventing contention with user interactions right after first render.
+      const startBackgroundDownload = () => {
         import('./backgroundDownloader.js').then(({ backgroundDownloadRemainingChunks }) => {
           backgroundDownloadRemainingChunks(currentBook, currentLazyLoader);
         }).catch(err => {
           console.warn('Background download module not available, falling back:', err);
         });
-      }, 100);
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(startBackgroundDownload, { timeout: 2000 });
+      } else {
+        setTimeout(startBackgroundDownload, 100);
+      }
 
       return;
     }

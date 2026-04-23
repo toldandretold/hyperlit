@@ -812,6 +812,33 @@ export async function clearBookDataFromIndexedDB(db, bookId) {
 }
 
 /**
+ * Write items to an IndexedDB store in batches, yielding between each batch
+ * to prevent blocking user interactions with long-held readwrite locks.
+ */
+async function batchedWrite(db, storeName, items, processItem = null, batchSize = 100) {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+
+    for (const item of batch) {
+      const record = processItem ? processItem(item) : item;
+      store.put(record);
+    }
+
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    // Yield to main thread between batches so user interactions can interleave
+    if (i + batchSize < items.length) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+}
+
+/**
  * Load node chunks into IndexedDB
  */
 export async function loadNodeChunksToIndexedDB(db, nodes) {
@@ -822,15 +849,10 @@ export async function loadNodeChunksToIndexedDB(db, nodes) {
 
   verbose.content(`Loading ${nodes.length} nodes`, 'postgreSQL.js');
 
-  const tx = db.transaction('nodes', 'readwrite');
-  const store = tx.objectStore('nodes');
-
   let chunksWithHighlights = 0;
-  let totalEmbeddedHighlights = 0;
   let userHighlightCount = 0;
 
-  for (const [chunkIndex, chunk] of nodes.entries()) {
-    // ✅ Convert startLine AND parse JSON fields
+  function processNode(chunk) {
     let parsedHyperlights = null;
     if (chunk.hyperlights) {
       try {
@@ -839,22 +861,17 @@ export async function loadNodeChunksToIndexedDB(db, nodes) {
 
         if (parsedHyperlights && parsedHyperlights.length > 0) {
           chunksWithHighlights++;
-          totalEmbeddedHighlights += parsedHyperlights.length;
-
-          // Count user highlights
-          const userHighlightsInChunk = parsedHyperlights.filter(h => h.is_user_highlight);
-          userHighlightCount += userHighlightsInChunk.length;
+          userHighlightCount += parsedHyperlights.filter(h => h.is_user_highlight).length;
         }
       } catch (parseError) {
-        console.error(`❌ Error parsing hyperlights for chunk ${chunkIndex + 1}:`, parseError, chunk.hyperlights);
+        console.error('❌ Error parsing hyperlights:', parseError);
         parsedHyperlights = [];
       }
     }
 
-    const processedChunk = {
+    return {
       ...chunk,
       startLine: parseNodeId(chunk.startLine),
-      // Parse JSON strings back to objects/arrays
       footnotes: typeof chunk.footnotes === 'string' ?
         (chunk.footnotes ? JSON.parse(chunk.footnotes) : null) : chunk.footnotes,
       hypercites: typeof chunk.hypercites === 'string' ?
@@ -863,18 +880,9 @@ export async function loadNodeChunksToIndexedDB(db, nodes) {
       raw_json: typeof chunk.raw_json === 'string' ?
         (chunk.raw_json ? JSON.parse(chunk.raw_json) : null) : chunk.raw_json
     };
-
-    await new Promise((resolve, reject) => {
-      const request = store.put(processedChunk);
-      request.onsuccess = () => {
-        resolve();
-      };
-      request.onerror = () => {
-        console.error(`❌ Failed to store chunk ${chunkIndex + 1}:`, processedChunk, request.error);
-        reject(request.error);
-      };
-    });
   }
+
+  await batchedWrite(db, 'nodes', nodes, processNode, 100);
 
   verbose.content(`Loaded ${nodes.length} nodes (${chunksWithHighlights} with highlights, ${userHighlightCount} user highlights)`, 'postgreSQL.js');
 }
@@ -970,32 +978,17 @@ export async function loadHyperlightsToIndexedDB(db, hyperlights) {
 
   verbose.content(`Loading ${hyperlights.length} standalone hyperlights`, 'postgreSQL.js');
 
-  const tx = db.transaction('hyperlights', 'readwrite');
-  const store = tx.objectStore('hyperlights');
-
   let userHighlightCount = 0;
   let anonHighlightCount = 0;
-
-  // Analyze highlights before storing
   hyperlights.forEach((highlight) => {
-    const isUserHighlight = highlight.is_user_highlight;
-    if (isUserHighlight) {
+    if (highlight.is_user_highlight) {
       userHighlightCount++;
     } else {
       anonHighlightCount++;
     }
   });
 
-  for (const hyperlight of hyperlights) {
-    await new Promise((resolve, reject) => {
-      const request = store.put(hyperlight);
-      request.onsuccess = () => resolve();
-      request.onerror = () => {
-        console.error('❌ Failed to store standalone highlight:', hyperlight, request.error);
-        reject(request.error);
-      };
-    });
-  }
+  await batchedWrite(db, 'hyperlights', hyperlights, null, 100);
 
   verbose.content(`Loaded ${hyperlights.length} standalone hyperlights (${userHighlightCount} user, ${anonHighlightCount} anonymous)`, 'postgreSQL.js');
 }
@@ -1011,26 +1004,15 @@ export async function loadHypercitesToIndexedDB(db, hypercites) {
 
   verbose.content(`Loading ${hypercites.length} hypercites`, 'postgreSQL.js');
 
-  const tx = db.transaction('hypercites', 'readwrite');
-  const store = tx.objectStore('hypercites');
-
-  for (const hypercite of hypercites) {
-    // Parse JSON strings back to objects/arrays
-    const processedHypercite = {
+  function processHypercite(hypercite) {
+    return {
       ...hypercite,
       citedIN: typeof hypercite.citedIN === 'string' ? JSON.parse(hypercite.citedIN) : hypercite.citedIN,
       raw_json: typeof hypercite.raw_json === 'string' ? JSON.parse(hypercite.raw_json) : hypercite.raw_json
     };
-
-    await new Promise((resolve, reject) => {
-      const request = store.put(processedHypercite);
-      request.onsuccess = () => resolve();
-      request.onerror = () => {
-        console.error("❌ Failed to store hypercite:", processedHypercite, request.error);
-        reject(request.error);
-      };
-    });
   }
+
+  await batchedWrite(db, 'hypercites', hypercites, processHypercite, 100);
 
   verbose.content(`Loaded ${hypercites.length} hypercites`, 'postgreSQL.js');
 }
