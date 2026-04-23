@@ -13,13 +13,7 @@ import {
   findClosestBlockParent,
   getFirstTextNode,
   setCursorAtTextOffset,
-  replaceBlockUndoable,
 } from "./toolbarDOMUtils.js";
-import {
-  setElementIds,
-  findPreviousElementId,
-  findNextElementId,
-} from "../utilities/IDfunctions.js";
 
 /**
  * HeadingSubmenu class
@@ -258,30 +252,41 @@ export class HeadingSubmenu {
       return;
     }
 
-    const beforeId = findPreviousElementId(blockParent);
-    const afterId = findNextElementId(blockParent);
+    // Save references for ID reassignment after formatBlock
+    const oldId = blockParent.id;
+    const oldNodeId = blockParent.getAttribute('data-node-id');
+    const prevSib = blockParent.previousElementSibling;
+    const nextSib = blockParent.nextElementSibling;
 
-    // Get first text node for cursor placement (don't rely on selection)
+    // Place cursor inside the heading so formatBlock targets it
     const firstTextNode = getFirstTextNode(blockParent);
-    const currentOffset = firstTextNode ? 0 : 0;
-
-    const pElement = document.createElement("p");
-    pElement.innerHTML = blockParent.innerHTML;
-    const newPId = blockParent.id;
-    if (newPId) {
-      pElement.id = newPId;
-    } else {
-      setElementIds(pElement, beforeId, afterId, this.currentBookId);
+    if (firstTextNode) {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.setStart(firstTextNode, 0);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
 
-    // Preserve data-node-id attribute if it exists
-    if (blockParent.hasAttribute('data-node-id')) {
-      pElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+    // Use native formatBlock for undoable heading→paragraph conversion
+    document.execCommand('formatBlock', false, 'p');
+
+    // Find the new element and reassign id + data-node-id if the browser dropped them
+    let newEl = oldId ? document.getElementById(oldId) : null;
+    if (!newEl) {
+      newEl = prevSib ? prevSib.nextElementSibling
+                      : (nextSib ? nextSib.previousElementSibling : null);
+    }
+    if (newEl) {
+      if (oldId && newEl.id !== oldId) newEl.id = oldId;
+      if (oldNodeId && !newEl.getAttribute('data-node-id')) {
+        newEl.setAttribute('data-node-id', oldNodeId);
+      }
     }
 
-    replaceBlockUndoable(blockParent, pElement.outerHTML);
-    const insertedP = document.getElementById(newPId) || pElement;
-    setCursorAtTextOffset(insertedP, currentOffset);
+    const insertedP = newEl || blockParent;
+    setCursorAtTextOffset(insertedP, 0);
 
     // Update button states after cursor is set
     this.selectionManager.currentSelection = window.getSelection();

@@ -11,9 +11,6 @@ export const chunkNodeCounts = {};
 // Define the node limit constant
 export const NODE_LIMIT = 100;
 
-// 🚀 PERFORMANCE: Debounce tracking to avoid recalculating on every mutation
-let trackingDebounceTimers = new Map();
-
 /**
  * Helper: Count numerical ID nodes efficiently
  * @param {HTMLElement} container - Container to count within
@@ -58,62 +55,18 @@ export function trackChunkNodeCount(chunk, mutations = null) {
     return;
   }
 
-  // If mutations provided, update the count based on additions/removals
+  // If mutations provided, recount when childList changes occurred
+  // Direct DOM recount avoids delta drift that caused spurious overflow
   if (mutations) {
-    let addedCount = 0;
-    let removedCount = 0;
-    const numericIdRegex = /^\d+(\.\d+)?$/;
-
-    mutations.forEach(mutation => {
-      if (mutation.type === 'childList') {
-        // Count added nodes that have numeric IDs
-        mutation.addedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.id && numericIdRegex.test(node.id)) {
-              addedCount++;
-            }
-            // Also count any child elements with numeric IDs
-            if (node.querySelectorAll) {
-              addedCount += countNumericalNodes(node);
-            }
-          }
-        });
-
-        // Count removed nodes that have numeric IDs
-        mutation.removedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.id && numericIdRegex.test(node.id)) {
-              removedCount++;
-            }
-            // Also count any child elements with numeric IDs
-            if (node.querySelectorAll) {
-              removedCount += countNumericalNodes(node);
-            }
-          }
-        });
-      }
-    });
-
-    // 🚀 PERFORMANCE: Debounce count updates during rapid typing
-    // Only update count after mutations settle
-    if (addedCount > 0 || removedCount > 0) {
-      const oldCount = chunkNodeCounts[chunkId];
-      const newCount = oldCount + addedCount - removedCount;
-
-      // Clear existing timer
-      if (trackingDebounceTimers.has(chunkId)) {
-        clearTimeout(trackingDebounceTimers.get(chunkId));
-      }
-
-      // Set new timer
-      trackingDebounceTimers.set(chunkId, setTimeout(() => {
+    const hasNodeChanges = mutations.some(m =>
+      m.type === 'childList' && (m.addedNodes.length > 0 || m.removedNodes.length > 0)
+    );
+    if (hasNodeChanges) {
+      const newCount = countNumericalNodes(chunk);
+      if (newCount !== chunkNodeCounts[chunkId]) {
+        verbose.content(`Count for chunk: ${chunkId} = ${newCount} (was ${chunkNodeCounts[chunkId]})`, 'chunkManager.js');
         chunkNodeCounts[chunkId] = newCount;
-        verbose.content(`Count for chunk: ${chunkId} = ${newCount} (added: ${addedCount}, removed: ${removedCount})`, 'chunkManager.js');
-        trackingDebounceTimers.delete(chunkId);
-      }, 100)); // 100ms debounce
-
-      // Immediately update for overflow checks (important for correctness)
-      chunkNodeCounts[chunkId] = newCount;
+      }
     }
   }
 }
@@ -196,9 +149,10 @@ export async function handleChunkOverflow(currentChunk, mutations) {
       return idA - idB;
     });
     
-    // If we don't have enough nodes to overflow, exit early
+    // If we don't have enough nodes to overflow, reset the inflated count and exit
     if (allNodesInChunk.length <= NODE_LIMIT) {
-      return;
+      chunkNodeCounts[currentChunkId] = allNodesInChunk.length;
+      return false;
     }
     
     // Determine which nodes need to be moved (always the last ones)

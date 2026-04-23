@@ -36,6 +36,7 @@ import { handleCodeBlockPaste } from './handlers/codeBlockHandler.js';
 import { handleSmallPaste } from './handlers/smallPasteHandler.js';
 import { handleLargePaste, undoLastLargePaste } from './handlers/largePasteHandler.js';
 import { handleHypercitePaste, extractQuotedText } from './handlers/hyperciteHandler.js';
+import { handleNovelVacuum } from './handlers/novelVacuumHandler.js';
 
 // Import UI
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
@@ -408,6 +409,14 @@ async function handlePaste(event) {
     const urlConversion = detectAndConvertUrls(plainText.trim());
     if (urlConversion.isUrl) {
       event.preventDefault();
+
+      // Novel Vacuum: mydramanovel.com URL detected — launch scraper flow
+      if (urlConversion.isNovelScraper) {
+        console.log(`📚 [${pasteOpId}] Novel Vacuum URL detected: ${urlConversion.url}`);
+        handleNovelVacuum(urlConversion.url, targetBookId, isSubBook);
+        return;
+      }
+
       console.log(`🔗 [${pasteOpId}] Detected ${urlConversion.isYouTube ? 'YouTube embed' : 'external link'} paste: ${urlConversion.url}`);
 
       // For YouTube embeds (block-level), use execCommand which triggers mutation observer

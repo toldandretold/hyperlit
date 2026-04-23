@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novel Scraper - mydramanovel.com</title>
+<script>
+if (location.protocol === 'file:') location.href = 'http://localhost:8008';
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+  }
+  h1 { color: #fff; margin-bottom: 4px; }
+  .subtitle { color: #888; margin-bottom: 24px; font-size: 14px; }
+  label { display: block; font-size: 13px; color: #aaa; margin-bottom: 4px; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #16213e;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #5865f2;
+  }
+  .row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .row > * { flex: 1; }
+  .row > .small { flex: 0 0 120px; }
+  button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary { background: #5865f2; color: #fff; }
+  .btn-primary:hover { background: #4752c4; }
+  .btn-primary:disabled { background: #3a3f5c; cursor: not-allowed; }
+  .btn-secondary { background: #2d2d44; color: #ccc; }
+  .btn-secondary:hover { background: #3a3a55; }
+  .btn-danger { background: #d9534f; color: #fff; }
+  .btn-danger:hover { background: #c9302c; }
+  .actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .progress-wrap {
+    background: #16213e;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 28px;
+    margin-bottom: 8px;
+    position: relative;
+    display: none;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #5865f2, #7289da);
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .progress-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .status { font-size: 13px; color: #aaa; margin-bottom: 16px; min-height: 20px; }
+  textarea#output {
+    height: 500px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    white-space: pre-wrap;
+  }
+  .log {
+    background: #0f0f23;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 16px;
+    display: none;
+  }
+  .log-line { margin: 2px 0; }
+  .log-line.error { color: #f44; }
+  .log-line.success { color: #4caf50; }
+  .log-line.info { color: #7289da; }
+</style>
+</head>
+<body>
+
+<h1>Novel Scraper</h1>
+<p class="subtitle">Scrape chapters from mydramanovel.com into a single Markdown file. Run <code>python3 tools/novel-scraper.py</code> first.</p>
+
+<div class="row">
+  <div>
+    <label for="url">Contents / Chapter List URL</label>
+    <input type="url" id="url" placeholder="https://mydramanovel.com/gui-luan/">
+  </div>
+  <div class="small">
+    <label for="delay">Delay (ms)</label>
+    <input type="number" id="delay" value="1000" min="0" step="100">
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn-primary" id="scrapeBtn" onclick="startScrape()">Scrape</button>
+  <button class="btn-danger" id="stopBtn" onclick="stopScrape()" style="display:none;">Stop</button>
+  <button class="btn-secondary" onclick="toggleLog()">Toggle Log</button>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-bar" id="progressBar"></div>
+  <div class="progress-label" id="progressLabel">0 / 0</div>
+</div>
+<div class="status" id="status"></div>
+
+<div class="actions">
+  <button class="btn-secondary" onclick="copyOutput()">Copy to Clipboard</button>
+  <button class="btn-secondary" onclick="downloadOutput()">Download .md</button>
+</div>
+
+<textarea id="output" readonly placeholder="Markdown output will appear here..."></textarea>
+
+<div class="log" id="log"></div>
+
+<script>
+let stopped = false;
+let bookTitle = '';
+
+function log(msg, type = 'info') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function toggleLog() {
+  const el = document.getElementById('log');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function setProgress(current, total) {
+  const wrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('progressBar');
+  const label = document.getElementById('progressLabel');
+  wrap.style.display = 'block';
+  const pct = total > 0 ? (current / total) * 100 : 0;
+  bar.style.width = pct + '%';
+  label.textContent = `${current} / ${total}`;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function apiGet(endpoint, params) {
+  const qs = new URLSearchParams(params).toString();
+  const resp = await fetch(`/api/${endpoint}?${qs}`);
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || `API error ${resp.status}`);
+  return data;
+}
+
+async function startScrape() {
+  const url = document.getElementById('url').value.trim();
+  if (!url) { alert('Please enter a URL'); return; }
+
+  stopped = false;
+  document.getElementById('scrapeBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = '';
+  document.getElementById('output').value = '';
+  document.getElementById('log').innerHTML = '';
+  bookTitle = '';
+
+  try {
+    // Step 1: Fetch the chapter list
+    setStatus('Fetching chapter list...');
+    log('Fetching chapter list page...');
+
+    const listData = await apiGet('chapters', { url });
+    bookTitle = listData.title || 'Untitled';
+    const chapters = listData.chapters || [];
+
+    log(`Book title: ${bookTitle}`, 'success');
+    log(`Found ${chapters.length} chapters`, 'success');
+
+    if (chapters.length === 0) {
+      throw new Error('No chapter links found. Check the URL.');
+    }
+
+    // Step 2: Fetch each chapter sequentially
+    const delay = parseInt(document.getElementById('delay').value) || 1000;
+    let markdown = `# ${bookTitle}\n\n`;
+
+    for (let i = 0; i < chapters.length; i++) {
+      if (stopped) break;
+
+      const ch = chapters[i];
+      setStatus(`Fetching chapter ${i + 1} / ${chapters.length}: ${ch.title}`);
+      setProgress(i, chapters.length);
+
+      try {
+        log(`Fetching: ${ch.url}`);
+        const chData = await apiGet('chapter', { url: ch.url });
+        const chTitle = chData.title || ch.title;
+        const paragraphs = chData.paragraphs || [];
+
+        markdown += `## ${chTitle}\n\n`;
+        markdown += paragraphs.join('\n\n') + '\n\n';
+
+        log(`Chapter ${i + 1}: ${chTitle} — ${paragraphs.length} paragraphs`, 'success');
+      } catch (err) {
+        log(`Failed chapter ${i + 1} (${ch.title}): ${err.message}`, 'error');
+        markdown += `## ${ch.title}\n\n> [Error fetching this chapter: ${err.message}]\n\n`;
+      }
+
+      // Update output as we go
+      document.getElementById('output').value = markdown;
+
+      // Delay between requests
+      if (i < chapters.length - 1 && !stopped) {
+        await sleep(delay);
+      }
+    }
+
+    setProgress(chapters.length, chapters.length);
+    setStatus(stopped ? 'Stopped.' : 'Done!');
+    log(stopped ? 'Scraping stopped by user.' : 'Scraping complete.', stopped ? 'error' : 'success');
+
+  } catch (err) {
+    setStatus(`Error: ${err.message}`);
+    log(err.message, 'error');
+  } finally {
+    document.getElementById('scrapeBtn').disabled = false;
+    document.getElementById('stopBtn').style.display = 'none';
+  }
+}
+
+function stopScrape() {
+  stopped = true;
+}
+
+function copyOutput() {
+  const text = document.getElementById('output').value;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    setStatus('Copied to clipboard!');
+  });
+}
+
+function downloadOutput() {
+  const text = document.getElementById('output').value;
+  if (!text) return;
+  const filename = (bookTitle || 'novel').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.md';
+  const blob = new Blob([text], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

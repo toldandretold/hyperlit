@@ -28,6 +28,7 @@ use App\Http\Controllers\VibeCSSController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibesController;
 use App\Http\Controllers\IntegrityReportController;
+use App\Http\Controllers\ScrapeController;
 
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
@@ -291,6 +292,10 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/books/{book}/timemachine-data',
         [NodeHistoryController::class, 'getTimeMachineData']
     );
+
+    /* ----------------  Scraper  ---------------- */
+    Route::post('/scrape/novel/chapters', [ScrapeController::class, 'novelChapters']);
+    Route::post('/scrape/novel/chapter', [ScrapeController::class, 'novelChapter']);
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

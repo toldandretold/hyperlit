@@ -14,6 +14,7 @@ import { CitationMode } from "./citationMode.js";
 import { TextFormatter } from "./textFormatter.js";
 import { ListConverter } from "./listConverter.js";
 import { BlockFormatter } from "./blockFormatter.js";
+import { FormattingUndoManager } from "./formattingUndoManager.js";
 import { setCurrentBookId } from "../historyManager.js";
 import { initTapAreaExtender } from "./tapAreaExtender.js";
 
@@ -78,6 +79,9 @@ class EditToolbar {
       isDisabled: this.isDisabled
     });
 
+    // Initialize FormattingUndoManager (for replaceChild-based operations)
+    this.formattingUndoManager = new FormattingUndoManager();
+
     // Initialize HeadingSubmenu
     this.headingSubmenu_handler = new HeadingSubmenu({
       headingSubmenu: this.headingSubmenu,
@@ -134,7 +138,8 @@ class EditToolbar {
       buttonStateManager: this.buttonStateManager,
       saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
       deleteFromIndexedDBCallback: (id) => this.deleteFromIndexedDB(id),
-      convertListItemToBlockCallback: (listItem, type) => this.convertListItemToBlock(listItem, type)
+      convertListItemToBlockCallback: (listItem, type) => this.convertListItemToBlock(listItem, type),
+      undoManager: this.formattingUndoManager,
     });
 
     // Bind event handlers
@@ -238,6 +243,50 @@ class EditToolbar {
         console.warn('❌ Gap blocker element NOT found - cannot attach listeners');
       }
     }
+
+    // Cmd+Z / Cmd+Shift+Z handler for FormattingUndoManager
+    // Intercepts undo/redo only when the custom stack has entries;
+    // otherwise lets the browser handle native text undo.
+    this._formattingKeydownHandler = (e) => {
+      // Only intercept inside contenteditable
+      const active = document.activeElement;
+      if (!active || !active.closest('[contenteditable="true"]')) return;
+
+      const isMeta = e.metaKey || e.ctrlKey;
+      if (!isMeta || e.key.toLowerCase() !== 'z') return;
+
+      if (e.shiftKey) {
+        // Cmd+Shift+Z → redo
+        if (this.formattingUndoManager.hasRedo()) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.formattingUndoManager.redo(
+            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+            (flag) => { this.blockFormatter.isFormatting = flag; }
+          );
+        }
+      } else {
+        // Cmd+Z → undo
+        if (this.formattingUndoManager.hasUndo()) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.formattingUndoManager.undo(
+            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+            (flag) => { this.blockFormatter.isFormatting = flag; }
+          );
+        }
+      }
+    };
+    document.addEventListener('keydown', this._formattingKeydownHandler, true); // capture phase
+
+    // Clear the formatting undo stack when user types, so stale
+    // entries don't interfere with native text undo.
+    this._formattingInputHandler = () => {
+      if (this.formattingUndoManager.hasUndo() || this.formattingUndoManager.hasRedo()) {
+        this.formattingUndoManager.clear();
+      }
+    };
+    document.addEventListener('input', this._formattingInputHandler, true);
 
     // Set the initial book ID in historyManager
     if (this.currentBookId) {
@@ -676,6 +725,12 @@ class EditToolbar {
     this.selectionManager.detachListener();
     window.removeEventListener("resize", this.handleResize);
     document.removeEventListener("click", this.handleClickOutsideSubmenu);
+    if (this._formattingKeydownHandler) {
+      document.removeEventListener('keydown', this._formattingKeydownHandler, true);
+    }
+    if (this._formattingInputHandler) {
+      document.removeEventListener('input', this._formattingInputHandler, true);
+    }
   }
 
   /**

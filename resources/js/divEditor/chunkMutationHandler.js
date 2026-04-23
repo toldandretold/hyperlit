@@ -401,8 +401,11 @@ export class ChunkMutationHandler {
     if (currentNodeCount > NODE_LIMIT &&
         mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
       console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
-      await handleChunkOverflow(chunk, mutations);
-      return;
+      const didOverflow = await handleChunkOverflow(chunk, mutations);
+      if (didOverflow) {
+        return;
+      }
+      // Spurious overflow — count was inflated; fall through to normal mutation processing
     }
 
     // Pre-scan: detect tag replacements (same ID in both removedNodes and addedNodes).
@@ -690,10 +693,14 @@ export class ChunkMutationHandler {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
 
-            // Skip spurious addition from tag replacement (e.g. heading format change)
-            // The editToolbar already handles the save for these.
+            // Tag replacement detected (e.g. heading format change via formatBlock).
+            // Skip ID assignment etc., but DO queue for save so browser undo
+            // of formatBlock persists the reverted state to IndexedDB.
             if (node.id && replacedNodeIds.has(node.id)) {
               this.queueTocInvalidation(node.id, node);
+              if (this.queueNodeForSave) {
+                this.queueNodeForSave(node.id, 'update');
+              }
               return;
             }
 

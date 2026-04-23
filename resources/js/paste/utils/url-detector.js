@@ -61,6 +61,15 @@ export function detectAndConvertUrls(text) {
     return { isUrl: false };
   }
 
+  // Check for mydramanovel.com URL (Novel Vacuum)
+  if (url.hostname === 'mydramanovel.com' || url.hostname === 'www.mydramanovel.com') {
+    return {
+      isUrl: true,
+      isNovelScraper: true,
+      url: url.href
+    };
+  }
+
   // Check for image URLs
   const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i;
   if (imageExtensions.test(url.pathname)) {

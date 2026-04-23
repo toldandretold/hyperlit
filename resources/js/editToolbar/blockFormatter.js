@@ -6,6 +6,10 @@
  * - Blockquote formatting - wrapping/unwrapping
  * - Code block formatting - wrapping/unwrapping with HTML preservation
  * - Paragraph conversion from headings
+ *
+ * Cursor-only heading and blockquote changes use document.execCommand('formatBlock')
+ * for native undo support. Complex operations (code wrap/unwrap, multi-block
+ * heading/blockquote, pre→heading) use replaceChild + FormattingUndoManager.
  */
 
 import {
@@ -16,7 +20,6 @@ import {
   selectAcrossElements,
   findClosestListItem,
   isBlockElement,
-  replaceBlockUndoable,
 } from "./toolbarDOMUtils.js";
 import {
   setElementIds,
@@ -41,6 +44,7 @@ export class BlockFormatter {
     this.saveToIndexedDBCallback = options.saveToIndexedDBCallback || null;
     this.deleteFromIndexedDBCallback = options.deleteFromIndexedDBCallback || null;
     this.convertListItemToBlockCallback = options.convertListItemToBlockCallback || null;
+    this.undoManager = options.undoManager || null;
 
     this.isFormatting = false;
   }
@@ -155,6 +159,53 @@ export class BlockFormatter {
   }
 
   /**
+   * After execCommand('formatBlock'), find the new element and reassign
+   * its id + data-node-id if the browser dropped them.
+   */
+  _findAndReassign(oldId, oldNodeId, prevSib, nextSib) {
+    // Try by ID first (some browsers preserve it)
+    let newEl = oldId ? document.getElementById(oldId) : null;
+
+    if (!newEl) {
+      // Walk siblings to find the new element
+      newEl = prevSib ? prevSib.nextElementSibling
+                      : (nextSib ? nextSib.previousElementSibling : null);
+    }
+
+    if (newEl) {
+      if (oldId && newEl.id !== oldId) newEl.id = oldId;
+      if (oldNodeId && !newEl.getAttribute('data-node-id')) {
+        newEl.setAttribute('data-node-id', oldNodeId);
+      }
+    }
+
+    return newEl;
+  }
+
+  /**
+   * Use native execCommand('formatBlock') for a simple tag swap (e.g. p↔blockquote, p↔h2).
+   * Saves refs, executes the command, reassigns IDs, and restores cursor.
+   */
+  _nativeFormatBlock(element, targetTag) {
+    const oldId = element.id;
+    const oldNodeId = element.getAttribute('data-node-id');
+    const prevSib = element.previousElementSibling;
+    const nextSib = element.nextElementSibling;
+    const currentOffset = getTextOffsetInElement(
+      element,
+      this.selectionManager.currentSelection.focusNode,
+      this.selectionManager.currentSelection.focusOffset
+    );
+
+    document.execCommand('formatBlock', false, targetTag);
+
+    const newEl = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
+    if (newEl) setCursorAtTextOffset(newEl, currentOffset);
+
+    return { modifiedElementId: newEl?.id || oldId, newElement: newEl };
+  }
+
+  /**
    * Handle heading formatting (both multi-block and cursor-only)
    */
   async handleHeadingFormat(isTextSelected, parentElement, headingLevel) {
@@ -162,7 +213,7 @@ export class BlockFormatter {
     let newElement = null;
 
     if (isTextSelected) {
-      // Multi-block heading formatting
+      // Multi-block heading formatting — uses replaceChild + undo stack
       const range = this.selectionManager.currentSelection.getRangeAt(0);
       const affectedBlocks = getBlockElementsInRange(range);
 
@@ -201,11 +252,15 @@ export class BlockFormatter {
             newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id'));
           }
 
-          replaceBlockUndoable(block, newBlockElement.outerHTML);
-          const insertedBlock = document.getElementById(newBlockElement.id);
+          // Record undo before replaceChild
+          if (this.undoManager) {
+            this.undoManager.recordUndo(block.id, block.outerHTML, newBlockElement.outerHTML, this.currentBookId);
+          }
+          block.parentNode.replaceChild(newBlockElement, block);
+
           modifiedElementsForSelection.push({
             id: newBlockElement.id,
-            element: insertedBlock || newBlockElement,
+            element: newBlockElement,
           });
           recordsToUpdate.push({
             id: newBlockElement.id,
@@ -242,94 +297,89 @@ export class BlockFormatter {
       // Converting from heading to heading or paragraph
       const headingElement = blockParent;
       const currentHeadingLevel = headingElement.tagName.toLowerCase();
-      const beforeId = findPreviousElementId(headingElement);
-      const afterId = findNextElementId(headingElement);
       const currentOffset = getTextOffsetInElement(
         headingElement,
         this.selectionManager.currentSelection.focusNode,
         this.selectionManager.currentSelection.focusOffset
       );
 
+      // Save references for ID reassignment after formatBlock
+      const oldId = headingElement.id;
+      const oldNodeId = headingElement.getAttribute('data-node-id');
+      const prevSib = headingElement.previousElementSibling;
+      const nextSib = headingElement.nextElementSibling;
+
       if (currentHeadingLevel === headingLevel) {
-        // Same level - convert to paragraph (toggle off)
-        const pElement = document.createElement("p");
-        pElement.innerHTML = headingElement.innerHTML;
-        const newPId = headingElement.id;
-        if (newPId) {
-          pElement.id = newPId;
-        } else {
-          setElementIds(pElement, beforeId, afterId, this.currentBookId);
+        // Same level - convert to paragraph (toggle off) via native formatBlock
+        document.execCommand('formatBlock', false, 'p');
+        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
+        if (newElement) {
+          setCursorAtTextOffset(newElement, currentOffset);
+          modifiedElementId = newElement.id;
         }
-
-        if (headingElement.hasAttribute('data-node-id')) {
-          pElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
-        }
-
-        replaceBlockUndoable(headingElement, pElement.outerHTML);
-        const insertedP = document.getElementById(newPId);
-        setCursorAtTextOffset(insertedP || pElement, currentOffset);
-        modifiedElementId = newPId;
-        newElement = insertedP || pElement;
       } else {
-        // Different level - convert to new heading level
-        const newHeadingElement = document.createElement(headingLevel);
-        newHeadingElement.innerHTML = headingElement.innerHTML;
-        const newHeadingId = headingElement.id;
-        if (newHeadingId) {
-          newHeadingElement.id = newHeadingId;
-        } else {
-          setElementIds(newHeadingElement, beforeId, afterId, this.currentBookId);
+        // Different level - convert to new heading level via native formatBlock
+        document.execCommand('formatBlock', false, headingLevel);
+        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
+        if (newElement) {
+          setCursorAtTextOffset(newElement, currentOffset);
+          modifiedElementId = newElement.id;
         }
-
-        if (headingElement.hasAttribute('data-node-id')) {
-          newHeadingElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
-        }
-
-        replaceBlockUndoable(headingElement, newHeadingElement.outerHTML);
-        const insertedHeading = document.getElementById(newHeadingId);
-        setCursorAtTextOffset(insertedHeading || newHeadingElement, currentOffset);
-        modifiedElementId = newHeadingId;
-        newElement = insertedHeading || newHeadingElement;
       }
 
       this.selectionManager.currentSelection = window.getSelection();
     } else if (blockParent) {
       // Converting from paragraph (or other block) to heading
       const isCodeBlock = blockParent.tagName === 'PRE';
-      const beforeId = findPreviousElementId(blockParent);
-      const afterId = findNextElementId(blockParent);
       const currentOffset = getTextOffsetInElement(
         blockParent,
         this.selectionManager.currentSelection.focusNode,
         this.selectionManager.currentSelection.focusOffset
       );
 
-      const headingElement = document.createElement(headingLevel);
-
-      // Handle code blocks specially - extract text content from <code> element
       if (isCodeBlock) {
+        // Code block → heading requires content extraction from <code>,
+        // so we use replaceChild + undo stack
+        const beforeId = findPreviousElementId(blockParent);
+        const afterId = findNextElementId(blockParent);
+
+        const headingElement = document.createElement(headingLevel);
         const codeElement = blockParent.querySelector('code');
         headingElement.textContent = codeElement ? codeElement.textContent : blockParent.textContent;
+
+        const newHeadingId = blockParent.id;
+        if (newHeadingId) {
+          headingElement.id = newHeadingId;
+        } else {
+          setElementIds(headingElement, beforeId, afterId, this.currentBookId);
+        }
+
+        if (blockParent.hasAttribute('data-node-id')) {
+          headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+        }
+
+        if (this.undoManager) {
+          this.undoManager.recordUndo(blockParent.id, blockParent.outerHTML, headingElement.outerHTML, this.currentBookId);
+        }
+        blockParent.parentNode.replaceChild(headingElement, blockParent);
+
+        setCursorAtTextOffset(headingElement, currentOffset);
+        modifiedElementId = headingElement.id;
+        newElement = headingElement;
       } else {
-        headingElement.innerHTML = blockParent.innerHTML;
-      }
+        // Paragraph → heading via native formatBlock
+        const oldId = blockParent.id;
+        const oldNodeId = blockParent.getAttribute('data-node-id');
+        const prevSib = blockParent.previousElementSibling;
+        const nextSib = blockParent.nextElementSibling;
 
-      const newHeadingId = blockParent.id;
-      if (newHeadingId) {
-        headingElement.id = newHeadingId;
-      } else {
-        setElementIds(headingElement, beforeId, afterId, this.currentBookId);
+        document.execCommand('formatBlock', false, headingLevel);
+        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
+        if (newElement) {
+          setCursorAtTextOffset(newElement, currentOffset);
+          modifiedElementId = newElement.id;
+        }
       }
-
-      if (blockParent.hasAttribute('data-node-id')) {
-        headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
-      }
-
-      replaceBlockUndoable(blockParent, headingElement.outerHTML);
-      const insertedHeading2 = document.getElementById(newHeadingId);
-      setCursorAtTextOffset(insertedHeading2 || headingElement, currentOffset);
-      modifiedElementId = newHeadingId;
-      newElement = insertedHeading2 || headingElement;
 
       this.selectionManager.currentSelection = window.getSelection();
     }
@@ -383,10 +433,12 @@ export class BlockFormatter {
 
           setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
 
-          // Replace in place (undoable)
-          replaceBlockUndoable(block, newBlockElement.outerHTML);
-          const insertedWrapBlock = document.getElementById(newBlockElement.id);
-          createdBlocks.push(insertedWrapBlock || newBlockElement);
+          // Record undo before replaceChild
+          if (this.undoManager) {
+            this.undoManager.recordUndo(block.id, block.outerHTML, newBlockElement.outerHTML, this.currentBookId);
+          }
+          block.parentNode.replaceChild(newBlockElement, block);
+          createdBlocks.push(newBlockElement);
 
           // Save (no delete needed since node_id is preserved)
           if (this.currentBookId && this.saveToIndexedDBCallback) {
@@ -438,10 +490,18 @@ export class BlockFormatter {
 
       if ((type === "blockquote" && isBlockquote) || (type === "code" && isCode)) {
         // UNWRAPPING
-        ({ modifiedElementId, newElement } = await this.unwrapBlock(blockParentToToggle, type));
+        if (type === "blockquote") {
+          ({ modifiedElementId, newElement } = this._nativeFormatBlock(blockParentToToggle, 'p'));
+        } else {
+          ({ modifiedElementId, newElement } = await this.unwrapBlock(blockParentToToggle, type));
+        }
       } else if (blockParentToToggle) {
         // WRAPPING
-        ({ modifiedElementId, newElement } = await this.wrapBlock(blockParentToToggle, type));
+        if (type === "blockquote") {
+          ({ modifiedElementId, newElement } = this._nativeFormatBlock(blockParentToToggle, 'blockquote'));
+        } else {
+          ({ modifiedElementId, newElement } = await this.wrapBlock(blockParentToToggle, type));
+        }
       }
     }
 
@@ -505,9 +565,12 @@ export class BlockFormatter {
     let newElement = null;
 
     if (fragment.childNodes.length > 0) {
-      replaceBlockUndoable(blockToUnwrap, firstNewP.outerHTML);
-      const insertedUnwrap = document.getElementById(firstNewP.id);
-      newElement = insertedUnwrap || firstNewP;
+      // Record undo before replaceChild
+      if (this.undoManager) {
+        this.undoManager.recordUndo(blockToUnwrap.id, blockToUnwrap.outerHTML, firstNewP.outerHTML, this.currentBookId);
+      }
+      blockToUnwrap.parentNode.replaceChild(firstNewP, blockToUnwrap);
+      newElement = firstNewP;
       modifiedElementId = newElement.id;
       setCursorAtTextOffset(newElement, 0);
 
@@ -522,9 +585,13 @@ export class BlockFormatter {
       const p = document.createElement("p");
       p.innerHTML = "&nbsp;";
       setElementIds(p, beforeOriginalId, afterOriginalId, this.currentBookId);
-      replaceBlockUndoable(blockToUnwrap, p.outerHTML);
-      const insertedEmptyP = document.getElementById(p.id);
-      newElement = insertedEmptyP || p;
+
+      // Record undo before replaceChild
+      if (this.undoManager) {
+        this.undoManager.recordUndo(blockToUnwrap.id, blockToUnwrap.outerHTML, p.outerHTML, this.currentBookId);
+      }
+      blockToUnwrap.parentNode.replaceChild(p, blockToUnwrap);
+      newElement = p;
       modifiedElementId = newElement.id;
       setCursorAtTextOffset(newElement, 0);
 
@@ -571,10 +638,14 @@ export class BlockFormatter {
       newBlockElement.setAttribute('data-node-id', oldNodeId);
     }
     setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
-    replaceBlockUndoable(blockParentToToggle, newBlockElement.outerHTML);
 
-    const insertedWrap = document.getElementById(newBlockElement.id);
-    const newElement = insertedWrap || newBlockElement;
+    // Record undo before replaceChild
+    if (this.undoManager) {
+      this.undoManager.recordUndo(blockParentToToggle.id, blockParentToToggle.outerHTML, newBlockElement.outerHTML, this.currentBookId);
+    }
+    blockParentToToggle.parentNode.replaceChild(newBlockElement, blockParentToToggle);
+
+    const newElement = newBlockElement;
     const modifiedElementId = newElement.id;
     setCursorAtTextOffset(newElement, currentOffset);
 
@@ -630,27 +701,28 @@ export class BlockFormatter {
     setElementIds(pElement, beforeOriginalId, afterOriginalId, this.currentBookId);
 
     try {
-      replaceBlockUndoable(headingElement, pElement.outerHTML);
+      // Record undo before replaceChild
+      if (this.undoManager) {
+        this.undoManager.recordUndo(headingElement.id, headingElement.outerHTML, pElement.outerHTML, this.currentBookId);
+      }
+      headingElement.parentNode.replaceChild(pElement, headingElement);
     } catch (domError) {
       console.error("unwrapSelectedTextFromHeading: DOM replacement failed.", domError);
       return null;
     }
 
-    // Re-acquire the inserted element from the live DOM
-    const livePElement = document.getElementById(pElement.id) || pElement;
-
     if (this.selectionManager.currentSelection) {
       const newRange = document.createRange();
-      newRange.selectNodeContents(livePElement);
+      newRange.selectNodeContents(pElement);
       this.selectionManager.currentSelection.removeAllRanges();
       this.selectionManager.currentSelection.addRange(newRange);
     }
 
-    console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${livePElement.id}"`);
+    console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${pElement.id}"`);
 
     if (this.currentBookId) {
       if (this.saveToIndexedDBCallback) {
-        await this.saveToIndexedDBCallback(livePElement.id, livePElement.outerHTML);
+        await this.saveToIndexedDBCallback(pElement.id, pElement.outerHTML);
       }
       if (this.deleteFromIndexedDBCallback) {
         await this.deleteFromIndexedDBCallback(headingElement.id);
@@ -658,8 +730,8 @@ export class BlockFormatter {
     }
 
     return {
-      id: livePElement.id,
-      element: livePElement,
+      id: pElement.id,
+      element: pElement,
     };
   }
 

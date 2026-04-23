@@ -69,6 +69,14 @@
     @if(isset($userPreferences) && !empty($userPreferences))
     <script>window.__userPreferences = @json($userPreferences);</script>
     @endif
+    <script>
+        // Prevent white flash by setting background color before CSS loads
+        (function() {
+            var theme = localStorage.getItem('hyperlit_theme_preference');
+            var colors = { light: '#F4ECD8', sepia: '#E8D7B8' };
+            document.documentElement.style.backgroundColor = colors[theme] || '#221F20';
+        })();
+    </script>
     @yield('styles')
 </head>
 
