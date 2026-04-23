@@ -321,7 +321,7 @@ ins {
 }
 
 blockquote strong {
-    color: var(--hyperlit-black);
+    color: var(--color-text);
     font-weight: 600;
 }
 

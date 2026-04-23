@@ -3678,12 +3678,51 @@ async function buildEpubBlob(bookId = book || 'latest') {
     });
   }
 
-  // --- Phase 5: Build XHTML content document ---
-  // Collect body HTML from transformed fragments
-  let bodyHtml = '';
+  // --- Phase 5: Split content into per-chapter files ---
+  // Determine split level: use h1 if any exist, otherwise h2
+  const hasH1 = tocEntries.some(e => e.level === 1);
+  const splitLevel = hasH1 ? 1 : 2;
+  const splitTag = `H${splitLevel}`;
+
+  const chapters = [{ html: '', headingIds: [] }]; // start with preamble chapter
+  const headingToChapter = new Map(); // headingId → chapter index
+
   for (const frag of fragments) {
-    bodyHtml += frag.innerHTML;
+    for (const child of Array.from(frag.childNodes)) {
+      // Start a new chapter at each split-level heading
+      if (child.nodeType === Node.ELEMENT_NODE && child.tagName === splitTag) {
+        chapters.push({ html: '', headingIds: [] });
+      }
+      const chIdx = chapters.length - 1;
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        chapters[chIdx].html += child.outerHTML;
+        // Track heading IDs for TOC mapping
+        if (/^H[1-6]$/i.test(child.tagName) && child.id) {
+          chapters[chIdx].headingIds.push(child.id);
+          headingToChapter.set(child.id, chIdx);
+        }
+        child.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+          if (h.id) {
+            chapters[chIdx].headingIds.push(h.id);
+            headingToChapter.set(h.id, chIdx);
+          }
+        });
+      } else if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+        chapters[chIdx].html += child.textContent;
+      }
+    }
   }
+
+  // Remove empty preamble chapter
+  if (!chapters[0].html.trim()) {
+    chapters.shift();
+    for (const [id, idx] of headingToChapter) {
+      headingToChapter.set(id, idx - 1);
+    }
+  }
+
+  // Chapter file names
+  const chapterFiles = chapters.map((_, i) => `chapter-${i}.xhtml`);
 
   // Build endnotes section
   let endnotesHtml = '';
@@ -3709,7 +3748,39 @@ async function buildEpubBlob(bookId = book || 'latest') {
     referencesHtml += '</section>\n';
   }
 
-  const rawContentXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+  const hasEndnotes = endnotesHtml || referencesHtml;
+
+  // Update noteref links in chapters to point to endnotes.xhtml
+  if (hasEndnotes) {
+    for (let i = 0; i < chapters.length; i++) {
+      chapters[i].html = chapters[i].html.replace(
+        /href="#fn-(\d+)"/g,
+        'href="endnotes.xhtml#fn-$1"'
+      );
+    }
+  }
+
+  // Track which chapter each fnref lives in, update endnote back-links
+  if (hasEndnotes) {
+    const fnrefToChapter = new Map();
+    chapters.forEach((ch, idx) => {
+      for (const m of ch.html.matchAll(/id="fnref-(\d+)"/g)) {
+        fnrefToChapter.set(m[1], idx);
+      }
+    });
+    endnotesHtml = endnotesHtml.replace(/href="#fnref-(\d+)"/g, (match, num) => {
+      const chIdx = fnrefToChapter.get(num);
+      if (chIdx != null) return `href="${chapterFiles[chIdx]}#fnref-${num}"`;
+      return match;
+    });
+  }
+
+  // --- Phase 6: Build per-chapter XHTML files ---
+  const serializer = new XMLSerializer();
+  const chapterXhtmlFiles = []; // { filename, xhtml }
+
+  for (let i = 0; i < chapters.length; i++) {
+    const rawXhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
 <head>
@@ -3718,28 +3789,21 @@ async function buildEpubBlob(bookId = book || 'latest') {
   <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
 <body>
-${bodyHtml}
-${endnotesHtml}
-${referencesHtml}
+${chapters[i].html}
 </body>
 </html>`;
 
-  // Round-trip through DOMParser → XMLSerializer for well-formed XHTML
-  const contentDoc = parser.parseFromString(rawContentXhtml, 'application/xhtml+xml');
-  const parseErrors = contentDoc.querySelector('parsererror');
-  let contentXhtml;
-  if (parseErrors) {
-    // Fallback: parse as HTML, then serialize as XHTML
-    console.warn('EPUB: XHTML parse error, falling back to HTML parse + serialize');
-    const htmlDoc = parser.parseFromString(rawContentXhtml, 'text/html');
-    // Rebuild as XHTML by serializing
-    const serializer = new XMLSerializer();
-    const bodyEl = htmlDoc.body;
-    let serializedBody = '';
-    for (const child of bodyEl.childNodes) {
-      serializedBody += serializer.serializeToString(child);
-    }
-    contentXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+    const doc = parser.parseFromString(rawXhtml, 'application/xhtml+xml');
+    const parseErrors = doc.querySelector('parsererror');
+    let xhtml;
+    if (parseErrors) {
+      console.warn(`EPUB: XHTML parse error in ${chapterFiles[i]}, falling back to HTML parse + serialize`);
+      const htmlDoc = parser.parseFromString(rawXhtml, 'text/html');
+      let serializedBody = '';
+      for (const child of htmlDoc.body.childNodes) {
+        serializedBody += serializer.serializeToString(child);
+      }
+      xhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
 <head>
@@ -3751,14 +3815,61 @@ ${referencesHtml}
 ${serializedBody}
 </body>
 </html>`;
-  } else {
-    contentXhtml = new XMLSerializer().serializeToString(contentDoc);
+    } else {
+      xhtml = serializer.serializeToString(doc);
+    }
+    chapterXhtmlFiles.push({ filename: chapterFiles[i], xhtml });
   }
 
-  // --- Phase 6: Build TOC ---
+  // Build endnotes XHTML file
+  let endnotesXhtml = '';
+  if (hasEndnotes) {
+    const rawEndnotes = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Notes</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+${endnotesHtml}
+${referencesHtml}
+</body>
+</html>`;
+
+    const endDoc = parser.parseFromString(rawEndnotes, 'application/xhtml+xml');
+    const endErrors = endDoc.querySelector('parsererror');
+    if (endErrors) {
+      console.warn('EPUB: XHTML parse error in endnotes, falling back to HTML parse + serialize');
+      const htmlDoc = parser.parseFromString(rawEndnotes, 'text/html');
+      let serializedBody = '';
+      for (const child of htmlDoc.body.childNodes) {
+        serializedBody += serializer.serializeToString(child);
+      }
+      endnotesXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Notes</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+${serializedBody}
+</body>
+</html>`;
+    } else {
+      endnotesXhtml = serializer.serializeToString(endDoc);
+    }
+  }
+
+  // --- Phase 7: Build TOC ---
   let tocItems = '';
   for (const entry of tocEntries) {
-    tocItems += `    <li class="toc-h${entry.level}"><a href="content.xhtml#${escapeXml(entry.id)}">${escapeXml(entry.text)}</a></li>\n`;
+    const chIdx = headingToChapter.get(entry.id);
+    const file = chIdx != null ? chapterFiles[chIdx] : chapterFiles[0];
+    tocItems += `    <li class="toc-h${entry.level}"><a href="${escapeXml(file)}#${escapeXml(entry.id)}">${escapeXml(entry.text)}</a></li>\n`;
   }
 
   const tocXhtml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -3777,7 +3888,7 @@ ${tocItems}    </ol>
 </body>
 </html>`;
 
-  // --- Phase 7: Build metadata (content.opf) ---
+  // --- Phase 8: Build metadata (content.opf) ---
   const uid = `urn:uuid:${crypto.randomUUID()}`;
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
@@ -3788,6 +3899,22 @@ ${tocItems}    </ol>
     const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp' };
     const mime = mimeMap[ext] || 'image/png';
     manifestImages += `    <item id="img-${imgIdx++}" href="images/${escapeXml(filename)}" media-type="${mime}"/>\n`;
+  }
+
+  // Build manifest and spine entries for chapter files
+  let manifestChapters = '';
+  let spineChapters = '';
+  for (let i = 0; i < chapterFiles.length; i++) {
+    manifestChapters += `    <item id="chapter-${i}" href="${chapterFiles[i]}" media-type="application/xhtml+xml"/>\n`;
+    spineChapters += `    <itemref idref="chapter-${i}"/>\n`;
+  }
+
+  // Add endnotes to manifest and spine if present
+  let manifestEndnotes = '';
+  let spineEndnotes = '';
+  if (hasEndnotes) {
+    manifestEndnotes = `    <item id="endnotes" href="endnotes.xhtml" media-type="application/xhtml+xml"/>\n`;
+    spineEndnotes = `    <itemref idref="endnotes"/>\n`;
   }
 
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
@@ -3801,13 +3928,10 @@ ${tocItems}    </ol>
   </metadata>
   <manifest>
     <item id="nav" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
-    <item id="style" href="style.css" media-type="text/css"/>
+${manifestChapters}${manifestEndnotes}    <item id="style" href="style.css" media-type="text/css"/>
 ${manifestImages}  </manifest>
   <spine>
-    <itemref idref="nav"/>
-    <itemref idref="content"/>
-  </spine>
+${spineChapters}${spineEndnotes}  </spine>
 </package>`;
 
   const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -3817,7 +3941,7 @@ ${manifestImages}  </manifest>
   </rootfiles>
 </container>`;
 
-  // --- Phase 8: Fetch images ---
+  // --- Phase 9: Fetch images ---
   const imageBlobs = new Map(); // filename → blob
   for (const [src, filename] of imageUrls) {
     try {
@@ -3829,14 +3953,21 @@ ${manifestImages}  </manifest>
     }
   }
 
-  // --- Phase 9: Assemble ZIP ---
+  // --- Phase 10: Assemble ZIP ---
   const zip = new JSZip();
   // mimetype must be first entry, uncompressed
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
   zip.file('META-INF/container.xml', containerXml);
   zip.file('OEBPS/content.opf', contentOpf);
   zip.file('OEBPS/toc.xhtml', tocXhtml);
-  zip.file('OEBPS/content.xhtml', contentXhtml);
+
+  for (const { filename, xhtml } of chapterXhtmlFiles) {
+    zip.file(`OEBPS/${filename}`, xhtml);
+  }
+  if (hasEndnotes) {
+    zip.file('OEBPS/endnotes.xhtml', endnotesXhtml);
+  }
+
   zip.file('OEBPS/style.css', EPUB_CSS);
 
   for (const [filename, blob] of imageBlobs) {
