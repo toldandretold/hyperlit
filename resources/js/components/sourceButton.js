@@ -1167,14 +1167,14 @@ export class SourceContainerManager extends ContainerManager {
     }
 
     try {
-      // 1. Delete from IndexedDB
-      const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
-      await deleteBookFromIndexedDB(book);
+      // 1. Verify session is still valid & refresh CSRF
+      const { refreshCsrfToken } = await import('../utilities/auth.js');
+      const isAuthenticated = await refreshCsrfToken();
+      if (!isAuthenticated) {
+        throw new Error('Your session has expired. Please log in again.');
+      }
 
-      // 2. Delete from server
-      const { refreshAuth } = await import('../utilities/auth.js');
-      await refreshAuth();
-
+      // 2. Delete from server first
       const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
       const resp = await fetch(`/api/books/${encodeURIComponent(book)}`, {
         method: 'DELETE',
@@ -1191,9 +1191,13 @@ export class SourceContainerManager extends ContainerManager {
         throw new Error(`${resp.status} ${txt}`);
       }
 
+      // 3. Delete from IndexedDB only after server confirms
+      const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
+      await deleteBookFromIndexedDB(book);
+
       console.log(`Book ${book} deleted successfully.`);
 
-      // 3. Redirect to user home
+      // 4. Redirect to user home
       const authCtx = getAuthContextSync();
       const username = authCtx?.user?.username;
       window.location.href = username ? `/${encodeURIComponent(username)}` : '/';

@@ -515,6 +515,29 @@ export class EnterKeyHandler {
       ) {
         event.preventDefault();
 
+        // Shift+Enter: always insert <br>, never exit the block
+        if (event.shiftKey) {
+          let insertTarget = blockElement;
+          if (blockElement.tagName === "PRE") {
+            const codeElement = blockElement.querySelector("code");
+            if (codeElement) insertTarget = codeElement;
+          }
+
+          const br = document.createElement("br");
+          range.insertNode(br);
+          const textNode = document.createTextNode("\u200B");
+          range.setStartAfter(br);
+          range.insertNode(textNode);
+          moveCaretTo(textNode, 0);
+
+          if (blockElement.id) {
+            queueNodeForSave(blockElement.id, "update");
+          }
+
+          this.enterCount = 0;
+          return;
+        }
+
         // Triple Enter to exit block
         if (this.enterCount >= 3) {
           const rangeToEnd = document.createRange();

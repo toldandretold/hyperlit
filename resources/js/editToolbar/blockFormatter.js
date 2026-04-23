@@ -7,9 +7,9 @@
  * - Code block formatting - wrapping/unwrapping with HTML preservation
  * - Paragraph conversion from headings
  *
- * Cursor-only heading and blockquote changes use document.execCommand('formatBlock')
- * for native undo support. Complex operations (code wrap/unwrap, multi-block
- * heading/blockquote, pre→heading) use replaceChild + FormattingUndoManager.
+ * Cursor-only heading changes use document.execCommand('formatBlock') for
+ * native undo support. Complex operations (blockquote/code wrap/unwrap,
+ * multi-block heading, pre→heading) use replaceChild + FormattingUndoManager.
  */
 
 import {
@@ -180,29 +180,6 @@ export class BlockFormatter {
     }
 
     return newEl;
-  }
-
-  /**
-   * Use native execCommand('formatBlock') for a simple tag swap (e.g. p↔blockquote, p↔h2).
-   * Saves refs, executes the command, reassigns IDs, and restores cursor.
-   */
-  _nativeFormatBlock(element, targetTag) {
-    const oldId = element.id;
-    const oldNodeId = element.getAttribute('data-node-id');
-    const prevSib = element.previousElementSibling;
-    const nextSib = element.nextElementSibling;
-    const currentOffset = getTextOffsetInElement(
-      element,
-      this.selectionManager.currentSelection.focusNode,
-      this.selectionManager.currentSelection.focusOffset
-    );
-
-    document.execCommand('formatBlock', false, targetTag);
-
-    const newEl = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
-    if (newEl) setCursorAtTextOffset(newEl, currentOffset);
-
-    return { modifiedElementId: newEl?.id || oldId, newElement: newEl };
   }
 
   /**
@@ -490,18 +467,10 @@ export class BlockFormatter {
 
       if ((type === "blockquote" && isBlockquote) || (type === "code" && isCode)) {
         // UNWRAPPING
-        if (type === "blockquote") {
-          ({ modifiedElementId, newElement } = this._nativeFormatBlock(blockParentToToggle, 'p'));
-        } else {
-          ({ modifiedElementId, newElement } = await this.unwrapBlock(blockParentToToggle, type));
-        }
+        ({ modifiedElementId, newElement } = await this.unwrapBlock(blockParentToToggle, type));
       } else if (blockParentToToggle) {
         // WRAPPING
-        if (type === "blockquote") {
-          ({ modifiedElementId, newElement } = this._nativeFormatBlock(blockParentToToggle, 'blockquote'));
-        } else {
-          ({ modifiedElementId, newElement } = await this.wrapBlock(blockParentToToggle, type));
-        }
+        ({ modifiedElementId, newElement } = await this.wrapBlock(blockParentToToggle, type));
       }
     }
 

@@ -256,19 +256,18 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 
 1. each user will have their own custom hyperlit gatekeeping. 
 2. we don't want users editing the nodes data table of another user's book. (hyperlights and hypercites are treated as the sovereign data of their users, and not tied to the sovereign data of other users, except via the relation of node_id)
-3. this also enables us to have a ghost hyperlight and hypercite system, which is not yet done.
-
- > **To Do**: *Create a ghost hyperlight and hypercite system. When the creator of a book/hypertext deletes a node that another user has a hyperlight or hypercite on, it should be marked as a hyper-ghost. On page load, these could be inserted below the node above the former location. These could be filtered out by user preferecne, but it would ensure that if the creator of the hyperlight returned, they could see their annotation, and understand that it was orphaned. Because hyperlights contain "highlighted text" they, and other users, will have some knoweldge of what was originally highlighted*
+3. this also enables us to have a ghost hypercite system, which [is done](https://hyperlit.io/book_1776498326506).
 
 
 ## Roadmap
 
-1. Hyperlight-ghost system.
-2. Version control.
-3. Pre-inject first chunk for faster load time.
-4. More security vulnerability testing
-5. Footnote / hyperlight annotations are treated as text-nodes so  that they too can be highlighted and hypercited.
-6. Update crucial user settings, like change password. Two-factor auth or passkey. 
+1. Hyperlight-ghost system (user can still see their own highlights in text, if original nodes were removed by crreator).
+2. See all hyperlights of one book in a seperate book, with links back to in-text hyperlights.
+3. Pre-inject first chunk for faster load time and SEO.
+4. More security vulnerability testing.
+5. Update user page, need overhaul of the page creation on backend, maybe even create it on front end. 
+6. fix/update re-do undo redo system... its a nightmare out there.
+
 
 ## Contributing
 
