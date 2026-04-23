@@ -17,7 +17,7 @@ import { openDatabase } from '../indexedDB/core/connection.js';
  * differences between live DOM and stored HTML.
  */
 function normaliseText(str) {
-  return (str || '').replace(/\s+/g, ' ').trim();
+  return (str || '').replace(/\u2060/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /**

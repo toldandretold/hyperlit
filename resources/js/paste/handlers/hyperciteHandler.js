@@ -326,6 +326,21 @@ export async function handleHypercitePaste(event, targetBookId) {
   setHandleHypercitePaste(true);
   console.log("setHandleHypercitePaste flag to true");
 
+  // Capture the target node ID BEFORE DOM manipulation
+  // (cursor position may shift after insertNode + collapse)
+  let targetNodeId = null;
+  {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      let anchor = sel.getRangeAt(0).startContainer;
+      if (anchor.nodeType !== Node.ELEMENT_NODE) anchor = anchor.parentElement;
+      const block = anchor?.closest('[id]');
+      if (block && /^\d+(\.\d+)?$/.test(block.id)) {
+        targetNodeId = block.id;
+      }
+    }
+  }
+
   // Insert the combined content - use a more controlled approach
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
@@ -354,8 +369,14 @@ export async function handleHypercitePaste(event, targetBookId) {
     document.execCommand("insertHTML", false, combinedHtml);
   }
 
-  // Get the current paragraph to manually save it
+  // Save the affected node — use pre-captured ID as fallback
   saveCurrentParagraph();
+  if (targetNodeId) {
+    // Belt-and-suspenders: ensure the pre-identified node is queued
+    // even if saveCurrentParagraph()'s cursor-based lookup missed it
+    console.log("🛡️ targetNodeId fallback: ensuring node", targetNodeId, "is queued for save");
+    queueNodeForSave(targetNodeId, 'update');
+  }
 
   // Update all original hypercites' citedIN arrays
   // Use batched sync for multiple hypercites to avoid 429 rate limiting

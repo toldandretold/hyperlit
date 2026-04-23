@@ -163,6 +163,10 @@ export function popLayer() {
 }
 
 export function clear() {
+  // Clear stale pointer-events from stack operations
+  const base = document.getElementById('hyperlit-container');
+  if (base) base.style.pointerEvents = '';
+
   layers.length = 0;
   cachedBaseWidthPx = null;
   cachedBaseRightPx = null;

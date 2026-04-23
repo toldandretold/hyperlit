@@ -237,6 +237,23 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
+    <button type="button" id="download-epub" class="download-btn">
+  <div class="icon-wrapper">
+    <svg
+      class="download-icon"
+      xmlns="http://www.w3.org/2000/svg"
+      shape-rendering="geometricPrecision"
+      text-rendering="geometricPrecision"
+      image-rendering="optimizeQuality"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      viewBox="0 0 480 511.462"
+    >
+      <path fill="currentColor" d="M105.662 237.133h270.139v-81.852h-86.024c-9.016 0-21.614-4.888-27.56-10.835-5.948-5.948-9.594-16.683-9.594-25.7V31.619H33.922c-1.335 0-2.494 1.123-2.494 2.494v443.236c0 1.285 1.159 2.494 2.494 2.494h339.385c.7 0 2.494-1.887 2.494-2.494v-46.466H105.662c-17.256 0-31.464-14.159-31.464-31.465v-130.82c0-17.306 14.157-31.465 31.464-31.465zm47.235 114.854v4.58c2.618.262 5.235.393 7.851.393 8.114 0 16.315-1.309 24.601-3.926l3.141 19.236c-9.77 2.617-19.454 3.926-29.049 3.926-12.214 0-21.047-2.858-26.5-8.572-5.451-5.714-8.178-14.416-8.178-26.106 0-11.69 2.727-20.392 8.178-26.106 5.453-5.714 14.264-8.571 26.433-8.571 12.171 0 20.567 1.658 25.191 4.972 4.624 3.316 6.935 9.51 6.935 18.583 0 7.677-2.77 13.195-8.309 16.553-5.54 3.359-15.637 5.038-30.294 5.038zm0-20.545v5.366h5.366c3.14 0 5.43-.327 6.869-.981 1.44-.655 2.16-2.16 2.16-4.515v-5.366h-5.366c-3.141 0-5.43.327-6.869.982-1.44.654-2.16 2.159-2.16 4.514zm92.582 23.031h-17.011v19.76h-26.172v-81.786h41.22c18.756 0 28.135 10.076 28.135 30.228 0 11.079-2.443 19.28-7.328 24.601-1.832 2.006-4.362 3.708-7.59 5.103-3.228 1.397-6.979 2.094-11.254 2.094zm-17.011-41.089v20.152h6.02c3.14 0 5.431-.327 6.869-.981 1.44-.654 2.159-2.159 2.159-4.515v-9.16c0-2.355-.719-3.86-2.159-4.515-1.438-.654-3.729-.981-6.869-.981h-6.02zm76.226-20.937v61.372h9.29c3.315 0 5.584-.414 6.804-1.243 1.222-.829 1.833-2.726 1.833-5.692v-54.437h26.171v45.93c0 7.416-.48 13.392-1.44 17.928-.959 4.537-2.747 8.376-5.364 11.516-2.617 3.14-6.194 5.321-10.73 6.543-4.537 1.221-10.426 1.832-17.666 1.832-7.241 0-13.107-.611-17.601-1.832-4.492-1.222-8.047-3.403-10.665-6.543-2.617-3.14-4.405-6.979-5.364-11.516-.96-4.536-1.44-10.512-1.44-17.928v-45.93h26.172zm56.202 81.786v-81.786h42.398c7.852 0 13.457 1.527 16.816 4.58 3.358 3.053 5.038 7.503 5.038 13.348 0 5.844-1.069 10.359-3.206 13.544-2.138 3.183-4.995 5.256-8.571 6.215v.785c10.555 1.832 15.833 9.029 15.833 21.591 0 6.543-1.744 11.8-5.234 15.769-3.489 3.97-8.855 5.954-16.095 5.954h-46.979zm36.379-32.584h-10.206v13.348h10.076c3.664 0 5.495-2.225 5.495-6.674s-1.788-6.674-5.365-6.674zm-1.963-31.274h-8.243v12.17h8.113c3.314 0 4.971-2.029 4.971-6.086s-1.613-6.084-4.841-6.084zm11.869-73.242h41.354c17.307 0 31.465 14.205 31.465 31.465v130.82c0 17.26-14.204 31.465-31.465 31.465h-41.354v56.407c0 13.325-10.849 24.172-24.174 24.172H24.173C10.848 511.462 0 500.614 0 487.29V24.173C0 10.864 10.873 0 24.173 0h244.492c3.477.035 8.353 1.44 10.359 3.454l124.895 126.429c2.11 2.11 3.646 4.988 3.646 8.249 0 .96-.193 1.727-.384 2.687v96.314zM281.135 116.261V37.027l89.211 90.362h-78.083c-3.07 0-5.755-1.343-7.867-3.262-1.918-1.918-3.261-4.796-3.261-7.866z"/>
+    </svg>
+    </div>
+  </button>
+
     ${canEdit ? `<button type="button" id="download-all" class="download-btn">
   <div class="icon-wrapper">
     <svg
@@ -453,6 +470,12 @@ export class SourceContainerManager extends ContainerManager {
       e.preventDefault();
       e.stopPropagation();
       exportBookAsDocxStyled(book);
+    });
+    const epubBtn = this.container.querySelector("#download-epub");
+    if (epubBtn) epubBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportBookAsEpub(book);
     });
     const downloadAllBtn = this.container.querySelector("#download-all");
     if (downloadAllBtn) downloadAllBtn.addEventListener("click", async (e) => {
@@ -3368,6 +3391,473 @@ async function exportBookAsDocxStyled(bookId = book || 'latest') {
     console.log('✅ Styled DOCX exported');
   } catch (e) {
     console.error('❌ export styled docx failed', e);
+  }
+}
+
+// ─── EPUB Export ─────────────────────────────────────────────────────────────
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+const EPUB_CSS = `
+body { font-family: Georgia, "Times New Roman", serif; line-height: 1.6; margin: 1em; }
+h1, h2, h3, h4, h5, h6 { font-family: Helvetica, Arial, sans-serif; margin-top: 1.4em; margin-bottom: 0.4em; }
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.4em; }
+h3 { font-size: 1.2em; }
+blockquote { margin: 1em 2em; padding-left: 1em; border-left: 3px solid #ccc; font-style: italic; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #999; padding: 0.4em 0.6em; text-align: left; }
+th { background: #f0f0f0; font-weight: bold; }
+img { max-width: 100%; height: auto; }
+aside[epub\\:type="footnote"] { font-size: 0.85em; margin: 0.5em 0; padding: 0.5em; border-top: 1px solid #ccc; }
+sup a { text-decoration: none; }
+.toc-h1 { margin-left: 0; }
+.toc-h2 { margin-left: 1.5em; }
+.toc-h3 { margin-left: 3em; }
+.toc-h4 { margin-left: 4.5em; }
+.toc-h5 { margin-left: 6em; }
+.toc-h6 { margin-left: 7.5em; }
+`;
+
+async function buildEpubBlob(bookId = book || 'latest') {
+  // --- Phase 1: Fetch content ---
+  if (window._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    await waitForBackgroundDownload();
+  }
+  const JSZip = await loadJSZip();
+  const chunks = await getNodeChunksFromIndexedDB(bookId);
+  chunks.sort((a, b) => a.chunk_id - b.chunk_id);
+
+  // Fetch library metadata
+  const db = await openDatabase();
+  const libraryRecord = await getRecord(db, 'library', bookId);
+  const bookTitle = libraryRecord?.title || libraryRecord?.book || bookId;
+  const bookAuthor = libraryRecord?.author || libraryRecord?.creator || 'Unknown';
+  const bookLang = libraryRecord?.language || 'en';
+
+  const parser = new DOMParser();
+
+  // --- Phase 2: Parse & pre-scan ---
+  const fragments = [];
+  for (const chunk of chunks) {
+    const frag = parser.parseFromString(
+      `<div>${chunk.content || chunk.html}</div>`,
+      'text/html'
+    ).body.firstChild;
+    fragments.push(frag);
+  }
+
+  const tocEntries = [];      // { level, text, id }
+  const footnoteRefIds = [];
+  const hyperciteArrows = [];
+  const citationRefIds = [];
+  const imageUrls = new Map(); // src → filename
+
+  let headingCounter = 0;
+  let imgCounter = 0;
+
+  for (const frag of fragments) {
+    // Headings
+    frag.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+      const level = parseInt(h.tagName.substring(1));
+      const id = h.id || `heading-${++headingCounter}`;
+      h.id = id;
+      tocEntries.push({ level, text: h.textContent.trim(), id });
+    });
+
+    // Footnote refs
+    frag.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+      if (!footnoteRefIds.includes(sup.id)) {
+        footnoteRefIds.push(sup.id);
+      }
+    });
+
+    // Citation refs
+    frag.querySelectorAll('a.citation-ref[id]').forEach(cite => {
+      citationRefIds.push(cite.id);
+    });
+
+    // Hypercite arrows
+    frag.querySelectorAll('a[href]').forEach(anchor => {
+      if ((anchor.classList.contains('open-icon') || anchor.querySelector('sup.open-icon')) && anchor.id) {
+        try {
+          const href = anchor.getAttribute('href');
+          const urlPath = new URL(href, window.location.origin).pathname;
+          const segments = urlPath.split('/').filter(Boolean);
+          if (segments.length > 0) {
+            hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]) });
+          }
+        } catch (e) {
+          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
+        }
+      }
+    });
+
+    // Images
+    frag.querySelectorAll('img[src]').forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && !imageUrls.has(src)) {
+        const ext = (src.split('.').pop() || 'png').split('?')[0].toLowerCase();
+        const validExt = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext) ? ext : 'png';
+        imageUrls.set(src, `img-${++imgCounter}.${validExt}`);
+      }
+    });
+  }
+
+  // --- Phase 3: Fetch footnote/citation content from IndexedDB ---
+  const footnoteContents = new Map(); // fnId → html string
+
+  let fnDb;
+  if (footnoteRefIds.length > 0) {
+    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+  }
+
+  for (const fnId of footnoteRefIds) {
+    const subBookId = `${bookId}/${fnId}`;
+    try {
+      let fnNodes = await getNodeChunksFromIndexedDB(subBookId);
+
+      // Fallback: check footnotes store for preview_nodes
+      if ((!fnNodes || fnNodes.length === 0) && fnDb) {
+        try {
+          const tx = fnDb.transaction('footnotes', 'readonly');
+          const index = tx.objectStore('footnotes').index('footnoteId');
+          const results = await new Promise((resolve, reject) => {
+            const req = index.getAll(fnId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+          const fnRecord = results.find(r => r.book === bookId);
+          if (fnRecord?.preview_nodes?.length) {
+            fnNodes = fnRecord.preview_nodes;
+          }
+        } catch (e) {
+          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
+        }
+      }
+
+      if (fnNodes) fnNodes.sort((a, b) => a.chunk_id - b.chunk_id);
+      let html = '';
+      for (const node of (fnNodes || [])) {
+        html += (node.content || node.html || '');
+      }
+      footnoteContents.set(fnId, html || '<p>(footnote)</p>');
+    } catch (e) {
+      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
+      footnoteContents.set(fnId, '<p>(footnote)</p>');
+    }
+  }
+
+  // Fetch hypercite citation text
+  const hyperciteContents = new Map(); // id → html string
+  let hcDb;
+  if (hyperciteArrows.length > 0) {
+    try { hcDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for hypercites:', e); }
+  }
+
+  for (const { id, targetBookId } of hyperciteArrows) {
+    try {
+      if (hcDb) {
+        const record = await getRecord(hcDb, 'library', targetBookId);
+        if (record?.bibtex) {
+          const citationHtml = await formatBibtexToCitation(record.bibtex);
+          hyperciteContents.set(id, citationHtml || `<p>${escapeXml(targetBookId)}</p>`);
+        } else {
+          hyperciteContents.set(id, `<p>${escapeXml(targetBookId)}</p>`);
+        }
+      } else {
+        hyperciteContents.set(id, `<p>${escapeXml(targetBookId)}</p>`);
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
+      hyperciteContents.set(id, `<p>${escapeXml(targetBookId)}</p>`);
+    }
+  }
+
+  // Fetch bibliography entries for References section
+  const referencesData = [];
+  if (citationRefIds.length > 0) {
+    let bibDb;
+    try { bibDb = hcDb || db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    if (bibDb) {
+      const seenSourceIds = new Set();
+      for (const refId of citationRefIds) {
+        try {
+          const tx = bibDb.transaction('bibliography', 'readonly');
+          const store = tx.objectStore('bibliography');
+          const record = await new Promise((resolve, reject) => {
+            const req = store.get([bookId, refId]);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+          if (record?.content && !seenSourceIds.has(record.source_id)) {
+            seenSourceIds.add(record.source_id);
+            referencesData.push({ content: record.content });
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
+        }
+      }
+    }
+  }
+
+  // --- Phase 4: Transform DOM for EPUB ---
+  // Assign footnote numbers
+  const footnoteMap = new Map(); // elementId → number
+  let fnCounter = 1;
+  for (const fnId of footnoteRefIds) {
+    footnoteMap.set(fnId, fnCounter++);
+  }
+  for (const { id } of hyperciteArrows) {
+    if (!footnoteMap.has(id)) {
+      footnoteMap.set(id, fnCounter++);
+    }
+  }
+
+  for (const frag of fragments) {
+    // Transform footnote refs to EPUB noterefs
+    frag.querySelectorAll('sup.footnote-ref[id]').forEach(sup => {
+      const num = footnoteMap.get(sup.id);
+      if (num == null) return;
+      const a = document.createElement('a');
+      a.setAttribute('epub:type', 'noteref');
+      a.setAttribute('href', `#fn-${num}`);
+      a.id = `fnref-${num}`;
+      const supEl = document.createElement('sup');
+      supEl.textContent = String(num);
+      a.appendChild(supEl);
+      sup.replaceWith(a);
+    });
+
+    // Transform hypercite arrows to EPUB noterefs
+    frag.querySelectorAll('a[href]').forEach(anchor => {
+      if ((anchor.classList.contains('open-icon') || anchor.querySelector('sup.open-icon')) && anchor.id) {
+        const num = footnoteMap.get(anchor.id);
+        if (num == null) return;
+        const a = document.createElement('a');
+        a.setAttribute('epub:type', 'noteref');
+        a.setAttribute('href', `#fn-${num}`);
+        a.id = `fnref-${num}`;
+        const supEl = document.createElement('sup');
+        supEl.textContent = String(num);
+        a.appendChild(supEl);
+        anchor.replaceWith(a);
+      }
+    });
+
+    // Strip citation-ref anchors to plain spans
+    frag.querySelectorAll('a.citation-ref').forEach(cite => {
+      const span = document.createElement('span');
+      span.innerHTML = cite.innerHTML;
+      if (cite.id) span.id = cite.id;
+      cite.replaceWith(span);
+    });
+
+    // Rewrite image src paths
+    frag.querySelectorAll('img[src]').forEach(img => {
+      const src = img.getAttribute('src');
+      const filename = imageUrls.get(src);
+      if (filename) {
+        img.setAttribute('src', `images/${filename}`);
+      }
+    });
+
+    // Ensure all headings have id attributes
+    frag.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+      if (!h.id) {
+        h.id = `heading-${++headingCounter}`;
+      }
+    });
+  }
+
+  // --- Phase 5: Build XHTML content document ---
+  // Collect body HTML from transformed fragments
+  let bodyHtml = '';
+  for (const frag of fragments) {
+    bodyHtml += frag.innerHTML;
+  }
+
+  // Build endnotes section
+  let endnotesHtml = '';
+  if (footnoteMap.size > 0) {
+    endnotesHtml += '<section epub:type="endnotes">\n<h2>Notes</h2>\n';
+    for (const [elemId, num] of footnoteMap) {
+      const content = footnoteContents.get(elemId) || hyperciteContents.get(elemId) || '<p>(note)</p>';
+      endnotesHtml += `<aside epub:type="footnote" id="fn-${num}">\n`;
+      endnotesHtml += `<p><a href="#fnref-${num}">${num}.</a></p>\n`;
+      endnotesHtml += content + '\n';
+      endnotesHtml += '</aside>\n';
+    }
+    endnotesHtml += '</section>\n';
+  }
+
+  // Build references section
+  let referencesHtml = '';
+  if (referencesData.length > 0) {
+    referencesHtml += '<section>\n<h2>References</h2>\n';
+    for (const ref of referencesData) {
+      referencesHtml += `<div class="reference">${ref.content}</div>\n`;
+    }
+    referencesHtml += '</section>\n';
+  }
+
+  const rawContentXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${escapeXml(bookTitle)}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+${bodyHtml}
+${endnotesHtml}
+${referencesHtml}
+</body>
+</html>`;
+
+  // Round-trip through DOMParser → XMLSerializer for well-formed XHTML
+  const contentDoc = parser.parseFromString(rawContentXhtml, 'application/xhtml+xml');
+  const parseErrors = contentDoc.querySelector('parsererror');
+  let contentXhtml;
+  if (parseErrors) {
+    // Fallback: parse as HTML, then serialize as XHTML
+    console.warn('EPUB: XHTML parse error, falling back to HTML parse + serialize');
+    const htmlDoc = parser.parseFromString(rawContentXhtml, 'text/html');
+    // Rebuild as XHTML by serializing
+    const serializer = new XMLSerializer();
+    const bodyEl = htmlDoc.body;
+    let serializedBody = '';
+    for (const child of bodyEl.childNodes) {
+      serializedBody += serializer.serializeToString(child);
+    }
+    contentXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(bookLang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${escapeXml(bookTitle)}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+${serializedBody}
+</body>
+</html>`;
+  } else {
+    contentXhtml = new XMLSerializer().serializeToString(contentDoc);
+  }
+
+  // --- Phase 6: Build TOC ---
+  let tocItems = '';
+  for (const entry of tocEntries) {
+    tocItems += `    <li class="toc-h${entry.level}"><a href="content.xhtml#${escapeXml(entry.id)}">${escapeXml(entry.text)}</a></li>\n`;
+  }
+
+  const tocXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Table of Contents</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>Table of Contents</h1>
+    <ol>
+${tocItems}    </ol>
+  </nav>
+</body>
+</html>`;
+
+  // --- Phase 7: Build metadata (content.opf) ---
+  const uid = `urn:uuid:${crypto.randomUUID()}`;
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  let manifestImages = '';
+  let imgIdx = 0;
+  for (const [, filename] of imageUrls) {
+    const ext = filename.split('.').pop();
+    const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp' };
+    const mime = mimeMap[ext] || 'image/png';
+    manifestImages += `    <item id="img-${imgIdx++}" href="images/${escapeXml(filename)}" media-type="${mime}"/>\n`;
+  }
+
+  const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="BookId">${escapeXml(uid)}</dc:identifier>
+    <dc:title>${escapeXml(bookTitle)}</dc:title>
+    <dc:creator>${escapeXml(bookAuthor)}</dc:creator>
+    <dc:language>${escapeXml(bookLang)}</dc:language>
+    <meta property="dcterms:modified">${now}</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+    <item id="style" href="style.css" media-type="text/css"/>
+${manifestImages}  </manifest>
+  <spine>
+    <itemref idref="nav"/>
+    <itemref idref="content"/>
+  </spine>
+</package>`;
+
+  const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`;
+
+  // --- Phase 8: Fetch images ---
+  const imageBlobs = new Map(); // filename → blob
+  for (const [src, filename] of imageUrls) {
+    try {
+      const resp = await fetch(src);
+      const blob = await resp.blob();
+      imageBlobs.set(filename, blob);
+    } catch (e) {
+      console.warn('Failed to fetch image for EPUB:', src, e);
+    }
+  }
+
+  // --- Phase 9: Assemble ZIP ---
+  const zip = new JSZip();
+  // mimetype must be first entry, uncompressed
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  zip.file('META-INF/container.xml', containerXml);
+  zip.file('OEBPS/content.opf', contentOpf);
+  zip.file('OEBPS/toc.xhtml', tocXhtml);
+  zip.file('OEBPS/content.xhtml', contentXhtml);
+  zip.file('OEBPS/style.css', EPUB_CSS);
+
+  for (const [filename, blob] of imageBlobs) {
+    zip.file(`OEBPS/images/${filename}`, blob);
+  }
+
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+}
+
+async function exportBookAsEpub(bookId = book || 'latest') {
+  try {
+    const blob = await buildEpubBlob(bookId);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `book-${bookId}.epub`;
+    a.click();
+    URL.revokeObjectURL(url);
+    console.log('✅ EPUB exported');
+  } catch (e) {
+    console.error('❌ export EPUB failed', e);
   }
 }
 

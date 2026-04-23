@@ -787,6 +787,11 @@ body[data-page="home"] #topRightContainer::after {
   height: 100%;
 }
 
+#download-epub .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
 #download-all .download-icon {
   width: 80%;
   height: 100%;

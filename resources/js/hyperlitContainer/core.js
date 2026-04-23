@@ -129,6 +129,9 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     return;
   }
 
+  // Clear stale inline pointer-events from previous stack sessions
+  container.style.pointerEvents = '';
+
   // 🔒 SAVE scroll position FIRST, before any DOM changes
   const scrollContainer = document.querySelector('.reader-content-wrapper')
     || document.querySelector('.main-content')
