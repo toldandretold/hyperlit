@@ -1,14 +1,16 @@
 /**
  * Small Paste Handler
  *
- * Handles paste operations with ≤10 nodes using fast browser insertion.
- * Uses execCommand('insertHTML') and fixes IDs afterward.
+ * Handles paste operations with ≤10 nodes using direct DOM manipulation.
+ * Integrates with UndoManager for undo/redo support.
  */
 
-import { generateIdBetween, setElementIds, generateNodeId } from '../../utilities/IDfunctions.js';
+import { setElementIds } from '../../utilities/IDfunctions.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
+import { getEditToolbar } from '../../editToolbar/index.js';
+import { getTextOffsetInElement, setCursorAtTextOffset } from '../../editToolbar/toolbarDOMUtils.js';
 
 const SMALL_NODE_LIMIT = 10;
 
@@ -30,7 +32,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   event.preventDefault();
 
   console.log(
-    `Small paste (≈${nodeCount} nodes); handling with browser insertion and ID fix-up.`
+    `Small paste (≈${nodeCount} nodes); handling with direct DOM insertion.`
   );
 
   // --- 1. PREPARE THE CONTENT (initial) ---
@@ -113,12 +115,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     }
   }
 
-  // --- 3. PERFORM THE PASTE ---
-  // (event.preventDefault already called at top of function)
-
-  // Save currentBlock's data-node-id before paste (execCommand may replace the element)
-  const savedNodeId = currentBlock ? currentBlock.getAttribute('data-node-id') : null;
-  const savedBlockId = currentBlock ? currentBlock.id : null;
+  // --- 3. DETECT BLOCK ELEMENTS ---
 
   // Detect if pasted content contains block-level elements
   let hasBlockElements = false;
@@ -126,6 +123,21 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     const parser = new DOMParser();
     const doc = parser.parseFromString(finalHtmlToInsert, 'text/html');
     hasBlockElements = doc.body.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table') !== null;
+  }
+
+  // --- 4. SEAL UNDO GROUP + CAPTURE CURSOR (before any cursor moves) ---
+
+  const undoManager = getEditToolbar()?.undoManager;
+  if (undoManager) undoManager.sealGroup();
+
+  let cursorBefore = { elementId: currentBlock.id, offset: 0 };
+  {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      try {
+        cursorBefore.offset = getTextOffsetInElement(currentBlock, sel.focusNode, sel.focusOffset);
+      } catch (e) { /* cursor may not be inside block (will be moved for H1) */ }
+    }
   }
 
   // Protect H1 from being split by block-level paste:
@@ -140,242 +152,293 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     console.log('Moved cursor after H1 to prevent splitting');
   }
 
-  // Snapshot nearby siblings' content so we can detect collateral damage from execCommand
-  const _collateralSnapshot = new Map();
-  const _snapshotRadius = 5;
-  if (currentBlock?.parentElement) {
-    let el = currentBlock;
-    for (let i = 0; i < _snapshotRadius && el.previousElementSibling; i++) {
-      el = el.previousElementSibling;
-      if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
-        _collateralSnapshot.set(el.id, el.textContent);
-      }
-    }
-    el = currentBlock;
-    if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
-      _collateralSnapshot.set(el.id, el.textContent);
-    }
-    for (let i = 0; i < _snapshotRadius && el.nextElementSibling; i++) {
-      el = el.nextElementSibling;
-      if (el.id && /^\d+(\.\d+)?$/.test(el.id)) {
-        _collateralSnapshot.set(el.id, el.textContent);
-      }
-    }
-  }
+  // --- 5. PERFORM THE PASTE ---
 
-  // Suppress observer during execCommand + fix-up:
-  // execCommand mutations are dangerous for ChunkMutationHandler (destroySpan, parentsToUpdate)
-  // Fix-up handles all necessary saves for paste-created elements
   setProgrammaticUpdateInProgress(true);
   try {
-    // Use execCommand for browser-native undo support (Cmd+Z reverts correctly)
-    document.execCommand('insertHTML', false, finalHtmlToInsert);
-
-    // --- 4. FIX-UP: ASSIGN IDS TO NEWLY CREATED ELEMENTS ---
-    console.log("Fix-up phase: Scanning for new nodes to assign IDs.");
-
-    // The original block was modified, so save it.
-    queueNodeForSave(currentBlock.id, "update", book);
-
-    // Re-query currentBlock by ID (execCommand may have replaced it in DOM)
-    const liveCurrentBlock = savedBlockId ? document.getElementById(savedBlockId) : null;
-
-    if (liveCurrentBlock) {
-      // Restore data-node-id if element was replaced by execCommand
-      if (savedNodeId && !liveCurrentBlock.getAttribute('data-node-id')) {
-        liveCurrentBlock.setAttribute('data-node-id', savedNodeId);
-        console.log(`Restored data-node-id to element #${savedBlockId} after paste`);
-      } else if (!liveCurrentBlock.getAttribute('data-node-id')) {
-        // No saved node ID, generate a new one
-        const newNodeId = generateNodeId(book);
-        liveCurrentBlock.setAttribute('data-node-id', newNodeId);
-        console.log(`Added new data-node-id to element #${savedBlockId}`);
-      }
-      // Update reference for subsequent loop
-      currentBlock = liveCurrentBlock;
+    if (!hasBlockElements) {
+      _inlinePaste(currentBlock, finalHtmlToInsert, book, undoManager, cursorBefore);
     } else {
-      console.warn(`Could not find element #${savedBlockId} after paste - element may have been removed`);
-
-      // Element was replaced by paste - find the selection position to locate new elements
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        let node = selection.getRangeAt(0).startContainer;
-
-        // Get to an element node
-        if (node.nodeType === Node.TEXT_NODE) {
-          node = node.parentElement;
-        }
-
-        // Find the closest block-level element
-        currentBlock = node.closest('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote');
-
-        if (currentBlock) {
-          console.log(`Found replacement element via selection: ${currentBlock.tagName}#${currentBlock.id || '(no id)'}`);
-
-          // If found element has no ID, try to find previous sibling with ID
-          if (!currentBlock.id || !/^\d+(\.\d+)*$/.test(currentBlock.id)) {
-            // Try to use the saved ID from before paste
-            if (savedBlockId) {
-              // Check if there's a previous sibling with an ID we can use as reference
-              let prevSibling = currentBlock.previousElementSibling;
-              while (prevSibling && (!prevSibling.id || !/^\d+(\.\d+)*$/.test(prevSibling.id))) {
-                prevSibling = prevSibling.previousElementSibling;
-              }
-
-              const prevId = prevSibling ? prevSibling.id : null;
-              const nextSibling = currentBlock.nextElementSibling;
-              let nextId = null;
-              if (nextSibling && /^\d+(\.\d+)*$/.test(nextSibling.id)) {
-                nextId = nextSibling.id;
-              }
-
-              // Assign ID to this first pasted element
-              setElementIds(currentBlock, prevId, nextId, book);
-              console.log(`Assigned ID ${currentBlock.id} to first pasted element`);
-              queueNodeForSave(currentBlock.id, "add", book);
-            }
-          }
-        }
-      }
-    }
-
-    // If currentBlock was just found and has an ID, queue it for save
-    if (currentBlock && currentBlock.id && /^\d+(\.\d+)*$/.test(currentBlock.id)) {
-      // Only queue if it's a new element (doesn't have saved node-id from before paste)
-      if (!savedNodeId || currentBlock.getAttribute('data-node-id') !== savedNodeId) {
-        queueNodeForSave(currentBlock.id, "add", book);
-        console.log(`Queued currentBlock ${currentBlock.id} for save`);
-      }
-    }
-
-    // Find the ID of the next "stable" node that already has an ID.
-    let nextStableElement = currentBlock ? currentBlock.nextElementSibling :
-      currentElement.closest(".chunk")?.firstElementChild?.nextElementSibling;
-    while (
-      nextStableElement &&
-      (!nextStableElement.id || !/^\d+(\.\d+)*$/.test(nextStableElement.id))
-    ) {
-      nextStableElement = nextStableElement.nextElementSibling;
-    }
-    const nextStableNodeId = nextStableElement ? nextStableElement.id : null;
-
-    // Safety check - if currentBlock is null, can't assign IDs
-    if (!currentBlock) {
-      console.error('Cannot assign IDs: currentBlock is null after paste. Pasted elements will have no IDs!');
-      return;
-    }
-
-    // First, go BACKWARDS from currentBlock to assign IDs to earlier pasted elements
-    let prevElement = currentBlock.previousElementSibling;
-    const elementsToProcessBackwards = [];
-
-    while (prevElement) {
-      // Stop if we hit an element with a valid ID (stable element)
-      if (prevElement.id && /^\d+(\.\d+)*$/.test(prevElement.id)) {
-        break;
-      }
-
-      // Collect elements that need IDs
-      if (prevElement.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote")) {
-        elementsToProcessBackwards.unshift(prevElement); // Add to front to maintain order
-      }
-
-      prevElement = prevElement.previousElementSibling;
-    }
-
-    // Find the ID before the first pasted element
-    const firstPrevId = prevElement?.id || null;
-
-    // Assign IDs to backward elements
-    let lastAssignedId = firstPrevId;
-    elementsToProcessBackwards.forEach(element => {
-      if (!element.id || !/^\d+(\.\d+)*$/.test(element.id)) {
-        setElementIds(element, lastAssignedId, currentBlock.id, book);
-        console.log(`Assigned ID ${element.id} to earlier pasted element`);
-        queueNodeForSave(element.id, "add", book);
-        lastAssignedId = element.id;
-      }
-    });
-
-    // Now proceed with FORWARD loop as before
-    let lastKnownId = currentBlock.id;
-    let elementToProcess = currentBlock.nextElementSibling;
-
-    while (elementToProcess && elementToProcess !== nextStableElement) {
-      // Process all block-level elements to ensure they have both id and data-node-id
-      if (elementToProcess.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote")) {
-        const hasValidId = elementToProcess.id && /^\d+(\.\d+)*$/.test(elementToProcess.id);
-        const hasNodeId = elementToProcess.getAttribute('data-node-id');
-
-        if (!hasValidId) {
-          // Element needs a new numerical ID (and data-node-id)
-          const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
-          console.log(`Assigned new ID ${newId} to pasted element.`);
-          queueNodeForSave(newId, "add", book);
-          lastKnownId = newId;
-        } else if (!hasNodeId) {
-          // Element has valid numerical ID but missing data-node-id
-          elementToProcess.setAttribute('data-node-id', generateNodeId(book));
-          console.log(`Added data-node-id to pasted element with existing ID ${elementToProcess.id}`);
-          queueNodeForSave(elementToProcess.id, "add", book);
-          lastKnownId = elementToProcess.id;
-        } else {
-          // Element has both IDs - CHECK if the ID is valid for this position
-          const elementId = parseFloat(elementToProcess.id);
-          const lastKnownNum = parseFloat(lastKnownId);
-          const nextStableNum = nextStableNodeId ? parseFloat(nextStableNodeId) : null;
-
-          // Validate: Is this ID in the correct sequential position?
-          const needsNewId =
-            elementId <= lastKnownNum || // ID is not greater than previous
-            (nextStableNum && elementId >= nextStableNum); // ID is not less than next
-
-          if (needsNewId) {
-            // Generate new positional ID, but PRESERVE existing data-node-id
-            const existingNodeId = elementToProcess.getAttribute('data-node-id');
-            const newId = generateIdBetween(lastKnownId, nextStableNodeId);
-            elementToProcess.id = newId;
-            console.log(`Updated pasted element ID: ${elementToProcess.id} → ${newId} (preserved data-node-id: ${existingNodeId})`);
-            queueNodeForSave(newId, 'update', book); // Update since it has existing node_id
-            lastKnownId = newId;
-          } else {
-            // ID is already correct for this position
-            console.log(`Pasted element ID ${elementToProcess.id} is valid for position`);
-            lastKnownId = elementToProcess.id;
-          }
-        }
-      }
-      elementToProcess = elementToProcess.nextElementSibling;
+      _blockPaste(currentBlock, finalHtmlToInsert, book, undoManager, cursorBefore);
     }
   } finally {
-    setProgrammaticUpdateInProgress(false);
-  }
-
-  // --- 5. FINALIZE ---
-  // The cursor is already placed correctly by execCommand.
-
-  // Strip style attributes the browser injected during execCommand
-  // (e.g. <b style="font-family: var(--font-family-base);">)
-  // Cover currentBlock and any sibling blocks that execCommand may have touched
-  if (currentBlock?.parentElement) {
-    currentBlock.parentElement.querySelectorAll('[style]').forEach(el => {
-      // Only strip from inline elements — don't touch block-level style attrs
-      const tag = el.tagName;
-      if (!el.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, ul, ol, li, table')) {
-        el.removeAttribute('style');
-      }
-    });
-  }
-
-  // Detect collateral damage: re-queue any snapshotted node whose content changed
-  for (const [nodeId, oldText] of _collateralSnapshot) {
-    const el = document.getElementById(nodeId);
-    if (!el) continue;
-    if (el.textContent !== oldText) {
-      console.log(`[paste] Collateral damage detected on node ${nodeId} — re-queuing for save`);
-      queueNodeForSave(nodeId, 'update', book);
-    }
+    setTimeout(() => setProgrammaticUpdateInProgress(false), 0);
   }
 
   return true; // We handled it.
+}
+
+/**
+ * Path A: Inline paste — content goes inside the current block at cursor position.
+ */
+function _inlinePaste(currentBlock, html, book, undoManager, cursorBefore) {
+  const oldHTML = currentBlock.innerHTML;
+
+  // Get fresh selection/range
+  const selection = window.getSelection();
+  const range = selection.getRangeAt(0);
+
+  // Delete any selected content
+  range.deleteContents();
+
+  // Measure text before cursor position (after deletion) for cursor restoration
+  let textBeforeCursor = 0;
+  try {
+    const beforeRange = document.createRange();
+    beforeRange.setStart(currentBlock, 0);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    textBeforeCursor = beforeRange.toString().length;
+  } catch (e) { /* ignore */ }
+
+  // Create fragment from HTML via <template>
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const fragment = template.content;
+  const pastedTextLength = fragment.textContent.length;
+
+  // Insert at cursor position
+  range.insertNode(fragment);
+  currentBlock.normalize();
+
+  // Place cursor after pasted content
+  setCursorAtTextOffset(currentBlock, textBeforeCursor + pastedTextLength);
+
+  // Record undo entry
+  const newHTML = currentBlock.innerHTML;
+  if (undoManager && oldHTML !== newHTML) {
+    let cursorAfter = 0;
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        cursorAfter = getTextOffsetInElement(currentBlock, sel.focusNode, sel.focusOffset);
+      }
+    } catch (e) { /* ignore */ }
+
+    undoManager._pushUndo(book, {
+      type: 'input',
+      elementId: currentBlock.id,
+      oldHTML,
+      newHTML,
+      bookId: book,
+      cursorBefore: cursorBefore.offset,
+      cursorAfter,
+    });
+    console.log(`[Paste] Recorded inline paste undo for #${currentBlock.id}`);
+  }
+
+  // Queue for save
+  queueNodeForSave(currentBlock.id, 'update', book);
+}
+
+/**
+ * Path B: Block paste — current block is split at cursor; new blocks inserted between halves.
+ */
+function _blockPaste(currentBlock, html, book, undoManager, cursorBefore) {
+  const oldHTML = currentBlock.innerHTML;
+
+  // Check if cursor is inside currentBlock (false when cursor was moved after H1)
+  const cursorInsideBlock = currentBlock.contains(
+    window.getSelection().getRangeAt(0).startContainer
+  );
+
+  // Editable container for structural undo entry
+  const editable = currentBlock.closest('[contenteditable="true"]');
+  const editableSelector = editable?.getAttribute('data-book-id')
+    ? `[data-book-id="${editable.getAttribute('data-book-id')}"]`
+    : editable?.id ? `#${editable.id}` : null;
+
+  // Get fresh selection/range
+  const selection = window.getSelection();
+  const range = selection.getRangeAt(0);
+
+  // Delete any selected content
+  range.deleteContents();
+
+  // Extract tail content (content after cursor in currentBlock)
+  let tailFragment = null;
+  if (cursorInsideBlock && currentBlock.childNodes.length > 0) {
+    try {
+      const tailRange = document.createRange();
+      tailRange.setStart(range.startContainer, range.startOffset);
+      tailRange.setEnd(currentBlock, currentBlock.childNodes.length);
+
+      // Check if there's meaningful content to extract
+      const cloned = tailRange.cloneContents();
+      const tempCheck = document.createElement('div');
+      tempCheck.appendChild(cloned);
+      if (tempCheck.textContent.trim() || tempCheck.querySelector('img, sup')) {
+        tailFragment = tailRange.extractContents();
+      }
+    } catch (e) {
+      console.warn('[Paste] Could not extract tail content:', e.message);
+    }
+  }
+
+  // Parse pasted HTML, separate leading inline nodes from block elements
+  const tempContainer = document.createElement('div');
+  tempContainer.innerHTML = html;
+
+  const leadingInlines = [];
+  const blockNodes = [];
+  for (const child of Array.from(tempContainer.childNodes)) {
+    if (blockNodes.length === 0 &&
+        (child.nodeType === Node.TEXT_NODE ||
+         (child.nodeType === Node.ELEMENT_NODE &&
+          !child.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table')))) {
+      leadingInlines.push(child);
+    } else {
+      blockNodes.push(child);
+    }
+  }
+
+  // Merge leading inline content into currentBlock (normal case)
+  if (cursorInsideBlock && leadingInlines.length > 0) {
+    for (const node of leadingInlines) {
+      currentBlock.appendChild(node);
+    }
+  }
+
+  // Ensure currentBlock has content if it was emptied by tail extraction
+  if (cursorInsideBlock && !currentBlock.textContent.trim() &&
+      !currentBlock.querySelector('img, sup, br')) {
+    currentBlock.innerHTML = '<br>';
+  }
+
+  // Insert new block elements as siblings after currentBlock
+  const container = currentBlock.closest('.chunk') || currentBlock.parentNode;
+  let insertAfter = currentBlock;
+  const insertedElements = [];
+
+  // H1 case: cursor was moved outside block, wrap leading inlines in a <p>
+  if (!cursorInsideBlock && leadingInlines.length > 0) {
+    const p = document.createElement('p');
+    for (const node of leadingInlines) {
+      p.appendChild(node);
+    }
+    if (insertAfter.nextSibling) {
+      container.insertBefore(p, insertAfter.nextSibling);
+    } else {
+      container.appendChild(p);
+    }
+    insertedElements.push(p);
+    insertAfter = p;
+  }
+
+  // Insert block-level elements
+  for (const blockNode of blockNodes) {
+    let elementToInsert;
+    if (blockNode.nodeType === Node.ELEMENT_NODE &&
+        blockNode.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table')) {
+      elementToInsert = blockNode;
+    } else {
+      // Skip whitespace-only text nodes
+      if (blockNode.nodeType === Node.TEXT_NODE && !blockNode.textContent.trim()) continue;
+      // Wrap inline/text content in a <p>
+      const p = document.createElement('p');
+      p.appendChild(blockNode);
+      elementToInsert = p;
+    }
+
+    if (insertAfter.nextSibling) {
+      container.insertBefore(elementToInsert, insertAfter.nextSibling);
+    } else {
+      container.appendChild(elementToInsert);
+    }
+    insertedElements.push(elementToInsert);
+    insertAfter = elementToInsert;
+  }
+
+  // Create tail <p> from extracted content (if non-empty)
+  if (tailFragment) {
+    const tailP = document.createElement('p');
+    tailP.appendChild(tailFragment);
+    if (tailP.textContent.trim() || tailP.querySelector('img, sup')) {
+      if (insertAfter.nextSibling) {
+        container.insertBefore(tailP, insertAfter.nextSibling);
+      } else {
+        container.appendChild(tailP);
+      }
+      insertedElements.push(tailP);
+    }
+  }
+
+  // --- ID ASSIGNMENT ---
+  // Find the next stable element (already has a valid ID, beyond all pasted elements)
+  let nextStableElement = (insertedElements.length > 0
+    ? insertedElements[insertedElements.length - 1]
+    : currentBlock
+  ).nextElementSibling;
+  while (nextStableElement &&
+         (!nextStableElement.id || !/^\d+(\.\d+)*$/.test(nextStableElement.id))) {
+    nextStableElement = nextStableElement.nextElementSibling;
+  }
+  const nextStableId = nextStableElement ? nextStableElement.id : null;
+
+  let lastKnownId = currentBlock.id;
+  for (const element of insertedElements) {
+    if (element.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote')) {
+      setElementIds(element, lastKnownId, nextStableId, book);
+      console.log(`Assigned ID ${element.id} to pasted block element`);
+      queueNodeForSave(element.id, 'add', book);
+      lastKnownId = element.id;
+    }
+  }
+
+  // Queue currentBlock for save if it was modified
+  if (cursorInsideBlock) {
+    queueNodeForSave(currentBlock.id, 'update', book);
+  }
+
+  // --- CURSOR PLACEMENT ---
+  const lastElement = insertedElements.length > 0
+    ? insertedElements[insertedElements.length - 1]
+    : currentBlock;
+
+  const editableEl = lastElement.closest('[contenteditable="true"]');
+  if (editableEl && document.activeElement !== editableEl) editableEl.focus();
+  setCursorAtTextOffset(lastElement, lastElement.textContent.length);
+
+  // --- STRUCTURAL UNDO ENTRY ---
+  if (undoManager && editableSelector) {
+    const modified = [];
+    if (cursorInsideBlock && oldHTML !== currentBlock.innerHTML) {
+      modified.push({
+        id: currentBlock.id,
+        oldHTML,
+        newHTML: currentBlock.innerHTML,
+        oldTag: currentBlock.tagName.toLowerCase(),
+        newTag: currentBlock.tagName.toLowerCase(),
+      });
+    }
+
+    const added = insertedElements
+      .filter(el => el.id && /^\d+(\.\d+)*$/.test(el.id))
+      .map(el => ({
+        id: el.id,
+        html: el.innerHTML,
+        tag: el.tagName.toLowerCase(),
+        nodeId: el.getAttribute('data-node-id'),
+        afterId: el.previousElementSibling?.id || null,
+      }));
+
+    let cursorAfter = { elementId: lastElement.id, offset: 0 };
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        cursorAfter.offset = getTextOffsetInElement(lastElement, sel.focusNode, sel.focusOffset);
+      }
+    } catch (e) { /* ignore */ }
+
+    undoManager._pushUndo(book, {
+      type: 'structural',
+      bookId: book,
+      modified,
+      added,
+      removed: [],
+      editableSelector,
+      cursorBefore,
+      cursorAfter,
+    });
+    console.log(`[Paste] Recorded block paste undo: ${modified.length} modified, ${added.length} added`);
+  }
 }

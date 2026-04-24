@@ -584,8 +584,13 @@ export class UndoManager {
 
       if (r.afterId) {
         const afterEl = document.getElementById(r.afterId);
-        if (afterEl && afterEl.nextSibling) {
-          editable.insertBefore(newEl, afterEl.nextSibling);
+        if (afterEl) {
+          const parent = afterEl.parentNode;
+          if (afterEl.nextSibling) {
+            parent.insertBefore(newEl, afterEl.nextSibling);
+          } else {
+            parent.appendChild(newEl);
+          }
         } else {
           editable.appendChild(newEl);
         }
@@ -653,8 +658,13 @@ export class UndoManager {
 
       if (a.afterId) {
         const afterEl = document.getElementById(a.afterId);
-        if (afterEl && afterEl.nextSibling) {
-          editable.insertBefore(newEl, afterEl.nextSibling);
+        if (afterEl) {
+          const parent = afterEl.parentNode;
+          if (afterEl.nextSibling) {
+            parent.insertBefore(newEl, afterEl.nextSibling);
+          } else {
+            parent.appendChild(newEl);
+          }
         } else {
           editable.appendChild(newEl);
         }

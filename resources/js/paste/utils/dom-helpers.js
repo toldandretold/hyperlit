@@ -32,9 +32,6 @@ export function estimatePasteNodeCount(content) {
         'p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, li'
       ).length;
 
-    // Count <br> as its own node
-    count += tempDiv.querySelectorAll('br').length;
-
     // Count top-level text fragments as paragraphs
     tempDiv.childNodes.forEach(node => {
       if (
