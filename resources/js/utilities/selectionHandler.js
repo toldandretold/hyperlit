@@ -33,6 +33,11 @@ function handleSelection() {
   if (selectedText.length > 0) {
     const editToolbar = document.getElementById("edit-toolbar");
 
+    // Hide undo/redo buttons while hyperlight buttons are visible
+    if (editToolbar) {
+      editToolbar.classList.add("hyperlight-selection-active");
+    }
+
     if (window.innerWidth <= 768) {
       // Mobile logic...
       hyperlightButtons.style.top = "";
@@ -117,6 +122,12 @@ function handleSelection() {
     hyperlightButtons.style.display = "none";
     hyperlightButtons.classList.remove("mobile-fixed-bottom");
     document.getElementById("delete-hyperlight").style.display = "none";
+
+    // Show undo/redo buttons again when selection is cleared
+    const editToolbar = document.getElementById("edit-toolbar");
+    if (editToolbar) {
+      editToolbar.classList.remove("hyperlight-selection-active");
+    }
   }
 }
 
