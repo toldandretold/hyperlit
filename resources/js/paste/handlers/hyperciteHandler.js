@@ -16,7 +16,9 @@ import {
   toPublicChunk,
   syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index.js';
-import { parseHyperciteHref, attachUnderlineClickListeners } from '../../hypercites/index.js';
+import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index.js';
+import { getEditToolbar } from '../../editToolbar/index.js';
+import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils.js';
 import { determineRelationshipStatus } from '../../hypercites/utils.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {
@@ -326,6 +328,31 @@ export async function handleHypercitePaste(event, targetBookId) {
   setHandleHypercitePaste(true);
   console.log("setHandleHypercitePaste flag to true");
 
+  // ── Undo snapshot: seal any open typing group and capture pre-paste state ──
+  const undoManager = getEditToolbar()?.undoManager;
+  let undoSnapshot = null;
+  if (undoManager) {
+    undoManager.sealGroup();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      let anchor = sel.getRangeAt(0).startContainer;
+      if (anchor.nodeType !== Node.ELEMENT_NODE) anchor = anchor.parentElement;
+      const block = anchor?.closest('p, pre, blockquote, h1, h2, h3, h4, h5, h6');
+      if (block && block.id) {
+        let cursorBefore = 0;
+        try {
+          cursorBefore = getTextOffsetInElement(block, sel.focusNode, sel.focusOffset);
+        } catch (e) { /* ignore */ }
+        undoSnapshot = {
+          elementId: block.id,
+          oldHTML: block.innerHTML,
+          bookId: bookb,
+          cursorBefore,
+        };
+      }
+    }
+  }
+
   // Capture the target node ID BEFORE DOM manipulation
   // (cursor position may shift after insertNode + collapse)
   let targetNodeId = null;
@@ -376,6 +403,82 @@ export async function handleHypercitePaste(event, targetBookId) {
     // even if saveCurrentParagraph()'s cursor-based lookup missed it
     console.log("🛡️ targetNodeId fallback: ensuring node", targetNodeId, "is queued for save");
     queueNodeForSave(targetNodeId, 'update');
+  }
+
+  // ── Push undo entry for hypercite paste ──
+  if (undoManager && undoSnapshot) {
+    const block = document.getElementById(undoSnapshot.elementId);
+    if (block) {
+      const newHTML = block.innerHTML;
+      const sel2 = window.getSelection();
+      let cursorAfter = 0;
+      if (sel2 && sel2.rangeCount > 0) {
+        try {
+          cursorAfter = getTextOffsetInElement(block, sel2.focusNode, sel2.focusOffset);
+        } catch (e) { /* ignore */ }
+      }
+
+      // Freeze task data for closures
+      const capturedUpdateTasks = updateTasks.map(t => ({
+        booka: t.booka,
+        hyperciteIDa: t.hyperciteIDa,
+        citationIDb: t.citationIDb,
+        hyperciteIDb: t.citationIDb.split('#')[1],
+      }));
+
+      undoManager._pushUndo(undoSnapshot.bookId, {
+        type: 'input',
+        elementId: undoSnapshot.elementId,
+        oldHTML: undoSnapshot.oldHTML,
+        newHTML,
+        bookId: undoSnapshot.bookId,
+        cursorBefore: undoSnapshot.cursorBefore,
+        cursorAfter,
+        onUndo: async () => {
+          for (const task of capturedUpdateTasks) {
+            try {
+              await delinkHypercite(task.hyperciteIDb, `/${task.booka}#${task.hyperciteIDa}`);
+            } catch (err) {
+              console.error('[UndoManager] onUndo delink error:', err);
+            }
+          }
+          attachUnderlineClickListeners();
+        },
+        onRedo: async () => {
+          for (const task of capturedUpdateTasks) {
+            try {
+              const result = await updateCitationForExistingHypercite(
+                task.booka, task.hyperciteIDa, task.citationIDb
+              );
+              if (result && result.success) {
+                // Update source hypercite DOM class (same-page paste)
+                const sourceEl = document.getElementById(task.hyperciteIDa);
+                if (sourceEl) sourceEl.className = result.newStatus;
+
+                const hyperciteToSync = await getHyperciteFromIndexedDB(task.booka, task.hyperciteIDa);
+                const nodeChunkToSync = result.startLine != null
+                  ? await getNodeChunkFromIndexedDB(task.booka, result.startLine)
+                  : null;
+                if (hyperciteToSync && nodeChunkToSync) {
+                  await syncHyperciteWithNodeChunkImmediately(task.booka, hyperciteToSync, nodeChunkToSync);
+                }
+
+                // Broadcast to other tabs
+                broadcastToOpenTabs(task.booka, result.startLine);
+              }
+            } catch (err) {
+              console.error('[UndoManager] onRedo relink error:', err);
+            }
+          }
+          // Re-save target node to rebuild arrays, then flush
+          queueNodeForSave(undoSnapshot.elementId, 'update');
+          const { debouncedMasterSync } = await import('../../indexedDB/index.js');
+          await debouncedMasterSync.flush();
+          attachUnderlineClickListeners();
+        },
+      });
+      console.log(`[UndoManager] Pushed hypercite paste undo entry for #${undoSnapshot.elementId} (${capturedUpdateTasks.length} task(s))`);
+    }
   }
 
   // Update all original hypercites' citedIN arrays

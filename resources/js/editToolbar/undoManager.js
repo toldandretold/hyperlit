@@ -446,6 +446,11 @@ export class UndoManager {
       setTimeout(() => {
         setProgrammaticUpdateInProgress(false);
         setFormattingFlag(false);
+        if (entry.onUndo) {
+          entry.onUndo().catch(err =>
+            console.error('[UndoManager] onUndo callback error:', err)
+          );
+        }
       }, 0);
     }
   }
@@ -481,6 +486,11 @@ export class UndoManager {
       setTimeout(() => {
         setProgrammaticUpdateInProgress(false);
         setFormattingFlag(false);
+        if (entry.onRedo) {
+          entry.onRedo().catch(err =>
+            console.error('[UndoManager] onRedo callback error:', err)
+          );
+        }
       }, 0);
     }
   }
