@@ -32,7 +32,6 @@ import { fetchInitialChunk } from "./initialChunkLoader.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 import { registerBookOpen } from "./utilities/BroadcastListener.js";
 
-import { undoLastBatch, redoLastBatch } from './historyManager.js';
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
 import { parseSubBookId, buildSubBookId } from './utilities/subBookIdHelper.js';
 

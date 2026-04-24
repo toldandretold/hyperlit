@@ -8,7 +8,6 @@ import {
 } from "../indexedDB/index.js";
 import { SelectionManager } from "./selectionManager.js";
 import { ButtonStateManager } from "./buttonStateManager.js";
-import { HistoryHandler } from "./historyHandler.js";
 import { HeadingSubmenu } from "./headingSubmenu.js";
 import { CitationMode } from "./citationMode.js";
 import { TextFormatter } from "./textFormatter.js";
@@ -16,7 +15,6 @@ import { ListConverter } from "./listConverter.js";
 import { BlockFormatter } from "./blockFormatter.js";
 import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager.js";
 import { getTextOffsetInElement } from "./toolbarDOMUtils.js";
-import { setCurrentBookId } from "../historyManager.js";
 import { initTapAreaExtender } from "./tapAreaExtender.js";
 
 // Private module-level variable to hold the toolbar instance
@@ -71,13 +69,6 @@ class EditToolbar {
       footnoteButton: this.footnoteButton,
       headingSubmenu: this.headingSubmenu,
       selectionManager: this.selectionManager
-    });
-
-    // Initialize HistoryHandler
-    this.historyHandler = new HistoryHandler({
-      undoButton: this.undoButton,
-      redoButton: this.redoButton,
-      isDisabled: this.isDisabled
     });
 
     // Initialize UndoManager (unified undo system for all changes)
@@ -393,10 +384,6 @@ class EditToolbar {
     };
     document.addEventListener('keydown', this._undoKeydownHandler, true);
 
-    // Set the initial book ID in historyManager
-    if (this.currentBookId) {
-      setCurrentBookId(this.currentBookId);
-    }
     this._updateUndoRedoButtons(this.currentBookId); // Set initial state of undo/redo buttons
   }
 
@@ -408,7 +395,6 @@ class EditToolbar {
   setBookId(bookId) {
     if (this.isDisabled) return;
     this.currentBookId = bookId;
-    setCurrentBookId(bookId); // Update the history manager
     this._updateUndoRedoButtons(bookId); // Refresh button states
     this.headingSubmenu_handler.setBookId(bookId); // Update heading submenu bookId
     this.listConverter.setBookId(bookId); // Update list converter bookId
@@ -828,7 +814,6 @@ class EditToolbar {
     console.log(
       `EditToolbar: Queued update for ID: ${id}. History handled by debounced sync.`
     );
-    // No direct updateHistoryButtonStates here, as clearRedoHistory (from queueForSync) will trigger it.
   }
 
   /**

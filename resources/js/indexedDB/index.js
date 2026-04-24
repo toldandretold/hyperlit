@@ -170,7 +170,6 @@ export {
 // Master Sync
 export {
   updateHistoryLog,
-  createGenesisHistoryEntry,
   executeSyncPayload,
   debouncedMasterSync,
   syncIndexedDBtoPostgreSQLBlocking,  // Renamed to avoid collision with postgreSQL.js version
@@ -215,7 +214,6 @@ export async function initializeDatabaseModules(dependencies) {
   const {
     book,
     withPending,
-    clearRedoHistory,
     getInitialBookSyncPromise,
     glowCloudGreen,
     glowCloudRed,
@@ -233,7 +231,7 @@ export async function initializeDatabaseModules(dependencies) {
   initHypercitesDependencies({ updateBookTimestamp, queueForSync, withPending, getNodeChunksFromIndexedDB });
   initFootnotesDependencies({ updateBookTimestamp, withPending });
   initReferencesDependencies({ withPending });
-  initSyncQueueDependencies({ clearRedoHistory, debouncedMasterSync });
+  initSyncQueueDependencies({ debouncedMasterSync });
   initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book });
 

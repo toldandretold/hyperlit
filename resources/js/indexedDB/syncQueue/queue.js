@@ -9,11 +9,10 @@ import { isUndoRedoInProgress } from '../../utilities/operationState.js';
 export const pendingSyncs = new Map();
 
 // Import dependencies (will be injected)
-let clearRedoHistory, debouncedMasterSync;
+let debouncedMasterSync;
 
 // Initialization function to inject dependencies
 export function initSyncQueueDependencies(deps) {
-  clearRedoHistory = deps.clearRedoHistory;
   debouncedMasterSync = deps.debouncedMasterSync;
 }
 
@@ -26,7 +25,7 @@ export function initSyncQueueDependencies(deps) {
  * @param {string} type - Operation type (update, delete, hide)
  * @param {Object} data - New data state
  * @param {Object} originalData - Original data state (for undo)
- * @param {boolean} skipRedoClear - If true, don't clear redo history (for automatic operations like undo/redo refresh)
+ * @param {boolean} skipRedoClear - Unused (kept for backward compatibility with callers)
  */
 export function queueForSync(store, id, type = "update", data = null, originalData = null, skipRedoClear = false) {
   // ✅ FIX: Skip queuing entirely during undo/redo to prevent spurious history batches
@@ -64,11 +63,6 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
 
   pendingSyncs.set(key, { store, id, type, data, originalData });
 
-  // Only clear redo history for genuine user edits, not automatic operations
-  if (!skipRedoClear) {
-    const book = window.book || "latest";
-    clearRedoHistory(book);
-  }
   debouncedMasterSync();
 }
 

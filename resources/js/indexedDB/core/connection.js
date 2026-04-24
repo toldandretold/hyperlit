@@ -17,8 +17,9 @@
  * Version 24: Added multi-entry node_id index to hyperlights and hypercites stores
  * Version 25: Fixed node_id index to properly set multiEntry: true
  * Version 26: Added source_id index to bibliography store for linked citations
+ * Version 27: Removed redoLog store (legacy undo/redo system replaced by in-memory UndoManager)
  */
-export const DB_VERSION = 26;
+export const DB_VERSION = 27;
 
 // Exponential backoff delays for IDB connection retries (ms).
 // Covers iOS bfcache recovery which can take 1-5 seconds.
@@ -194,12 +195,6 @@ async function _openFresh(retryCount = 0) {
           autoIncrement: true,
           indices: ["status", "bookId"],
         },
-        {
-          name: "redoLog",
-          keyPath: "id",
-          autoIncrement: true,
-          indices: ["bookId"],
-        },
       ];
 
       // Migration logic for schema version 21
@@ -367,6 +362,16 @@ async function _openFresh(retryCount = 0) {
           }
           hypercitesStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
           console.log("✅ Recreated node_id index on hypercites with multiEntry: true");
+        }
+      }
+
+      // Migration logic for schema version 27
+      if (oldVersion < 27) {
+        console.log("📦 Migrating to schema version 27: Removing legacy redoLog store");
+
+        if (db.objectStoreNames.contains("redoLog")) {
+          db.deleteObjectStore("redoLog");
+          console.log("🔥 Deleted legacy 'redoLog' store");
         }
       }
 

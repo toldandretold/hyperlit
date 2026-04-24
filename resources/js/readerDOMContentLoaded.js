@@ -106,12 +106,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   log.init("IndexedDB initialized", "readerDOMContentLoaded.js");
 
   // Initialize database modules with dependencies
-  const { clearRedoHistory } = await import('./historyManager.js');
   const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('./components/editIndicator.js');
   initializeDatabaseModules({
     book,
     withPending,
-    clearRedoHistory,
     getInitialBookSyncPromise,
     glowCloudGreen,
     glowCloudRed,

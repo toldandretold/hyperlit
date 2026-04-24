@@ -66,45 +66,6 @@ async function getFailedBatchesForBook(bookId) {
 }
 
 /**
- * Create a genesis history entry for a new book.
- * This marks the initial state that undo cannot go past.
- *
- * @param {string} bookId - Book identifier
- * @param {Array} initialNodes - Array of initial node chunks
- * @returns {Promise<void>}
- */
-export async function createGenesisHistoryEntry(bookId, initialNodes = []) {
-  const db = await openDatabase();
-  const tx = db.transaction("historyLog", "readwrite");
-  const store = tx.objectStore("historyLog");
-
-  const genesisEntry = {
-    timestamp: Date.now(),
-    bookId: bookId,
-    status: "genesis",
-    isGenesis: true,
-    payload: {
-      book: bookId,
-      updates: { nodes: initialNodes, hypercites: [], hyperlights: [], footnotes: [], library: null },
-      deletions: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], library: null }
-    }
-  };
-
-  await new Promise((resolve, reject) => {
-    const request = store.add(genesisEntry);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-
-  await new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-
-  console.log(`🌱 Created genesis history entry for book: ${bookId}`);
-}
-
-/**
  * Execute a sync payload by sending it to the unified sync API
  *
  * @param {Object} payload - Sync payload with updates and deletions
@@ -524,16 +485,6 @@ export const debouncedMasterSync = debounce(async () => {
     await syncItemsForBook(bookId, bookItems);
   }
 
-  // ✅ Dynamically import toolbar (only exists when editing)
-  try {
-    const { getEditToolbar } = await import('../../editToolbar/index.js');
-    const toolbar = getEditToolbar();
-    if (toolbar) {
-      await toolbar.updateHistoryButtonStates();
-    }
-  } catch (e) {
-    // Toolbar not loaded (not in edit mode)
-  }
 }, 3000);
 
 /**

@@ -6,7 +6,6 @@ import {
   updateBookTimestamp,
   addNewBookToIndexedDB,
   syncNodeChunksToPostgreSQL,
-  createGenesisHistoryEntry
 } from "./indexedDB/index.js";
 import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
@@ -275,9 +274,6 @@ export async function createNewBook() {
       tx.oncomplete = () => resolve();
       tx.onerror = (e) => reject(e.target.error);
     });
-
-    // Create genesis history entry - marks the baseline that undo can't go past
-    await createGenesisHistoryEntry(bookId, [initialNodeChunk]);
 
     // ✅ THE CHANGE: Create the full data object here.
     const pendingSyncData = {
