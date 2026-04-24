@@ -27,26 +27,42 @@ export function estimatePasteNodeCount(content) {
 
     let count = 0;
 
+    const blockTags = new Set([
+      'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+      'DIV', 'PRE', 'BLOCKQUOTE', 'LI',
+      'TABLE', 'UL', 'OL', 'FIGURE', 'SECTION', 'ARTICLE'
+    ]);
+
     // Count block-level elements
     count += tempDiv.querySelectorAll(
       'p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, li'
     ).length;
 
-    // Count <br> as its own node
-    count += tempDiv.querySelectorAll('br').length;
-
-    // Count top-level text fragments as paragraphs
+    // For block elements containing <br> tags, count non-empty text parts
+    // instead of raw <br> count (matches how parseHtmlToBlocks splits content)
+    let inlineHTML = '';
     tempDiv.childNodes.forEach(node => {
-      if (
-        node.nodeType === Node.TEXT_NODE &&
-        node.textContent.trim()
-      ) {
-        const paras = node.textContent
-          .split(/\n\s*\n/) // split on blank lines
-          .filter(p => p.trim());
-        count += paras.length;
+      if (node.nodeType === Node.ELEMENT_NODE && blockTags.has(node.tagName)) {
+        const brParts = node.innerHTML.split(/<br\s*\/?>/i);
+        if (brParts.length > 1) {
+          const nonEmptyParts = brParts.filter(p => p.trim()).length;
+          if (nonEmptyParts > 1) {
+            count += nonEmptyParts - 1; // block itself already counted as 1
+          }
+        }
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        inlineHTML += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE && !blockTags.has(node.tagName)) {
+        inlineHTML += node.outerHTML;
       }
     });
+
+    // For top-level non-block content (inline elements + <br> tags, like Safari paste),
+    // split on <br> and count non-empty text segments
+    if (inlineHTML.trim()) {
+      const segments = inlineHTML.split(/<br\s*\/?>/i).filter(s => s.trim());
+      count += segments.length;
+    }
 
     return Math.max(1, count);
   } else {

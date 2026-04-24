@@ -8,8 +8,8 @@
  * - Paragraph conversion from headings
  *
  * Cursor-only heading changes use document.execCommand('formatBlock') for
- * native undo support. Complex operations (blockquote/code wrap/unwrap,
- * multi-block heading, pre→heading) use replaceChild + FormattingUndoManager.
+ * simplicity. Complex operations (blockquote/code wrap/unwrap,
+ * multi-block heading, pre→heading) use replaceChild + UndoManager.recordFormat().
  */
 
 import {
@@ -28,7 +28,6 @@ import {
 } from "../utilities/IDfunctions.js";
 import {
   batchUpdateIndexedDBRecords,
-  batchDeleteIndexedDBRecords,
 } from "../indexedDB/index.js";
 
 /**
@@ -183,6 +182,66 @@ export class BlockFormatter {
   }
 
   /**
+   * Content-preserving wrap: converts a paragraph (or any element) into
+   * a blockquote or code block, preserving the current innerHTML, id,
+   * and data-node-id. Used by wrapBlock and as undo/redo closures.
+   * @param {HTMLElement} element - The element to wrap
+   * @param {string} type - "blockquote" or "code"
+   * @returns {HTMLElement} The new element that replaced the old one
+   */
+  _contentPreservingWrap(element, type) {
+    let newEl;
+    if (type === "blockquote") {
+      newEl = document.createElement("blockquote");
+      let content = element.innerHTML;
+      if (content && !content.endsWith("<br>")) content += "<br>";
+      newEl.innerHTML = content;
+    } else {
+      newEl = document.createElement("pre");
+      const code = document.createElement("code");
+      code.innerHTML = element.innerHTML;
+      newEl.appendChild(code);
+    }
+
+    newEl.id = element.id;
+    if (element.hasAttribute("data-node-id")) {
+      newEl.setAttribute("data-node-id", element.getAttribute("data-node-id"));
+    }
+
+    element.parentNode.replaceChild(newEl, element);
+    return newEl;
+  }
+
+  /**
+   * Content-preserving unwrap: converts a blockquote or code block back
+   * to a paragraph, preserving the current innerHTML, id, and data-node-id.
+   * Used by unwrapBlock and as undo/redo closures.
+   * @param {HTMLElement} element - The blockquote or pre element to unwrap
+   * @param {string} type - "blockquote" or "code"
+   * @returns {HTMLElement} The new <p> element that replaced the old one
+   */
+  _contentPreservingUnwrap(element, type) {
+    const p = document.createElement("p");
+
+    if (type === "blockquote") {
+      let content = element.innerHTML;
+      if (content.endsWith("<br>")) content = content.slice(0, -4);
+      p.innerHTML = content || "\u00A0";
+    } else {
+      const codeEl = element.querySelector("code");
+      p.innerHTML = (codeEl ? codeEl.innerHTML : element.innerHTML) || "\u00A0";
+    }
+
+    p.id = element.id;
+    if (element.hasAttribute("data-node-id")) {
+      p.setAttribute("data-node-id", element.getAttribute("data-node-id"));
+    }
+
+    element.parentNode.replaceChild(p, element);
+    return p;
+  }
+
+  /**
    * Handle heading formatting (both multi-block and cursor-only)
    */
   async handleHeadingFormat(isTextSelected, parentElement, headingLevel) {
@@ -229,9 +288,42 @@ export class BlockFormatter {
             newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id'));
           }
 
-          // Record undo before replaceChild
+          // Record content-preserving operation before replaceChild
           if (this.undoManager) {
-            this.undoManager.recordUndo(block.id, block.outerHTML, newBlockElement.outerHTML, this.currentBookId);
+            const oldTag = block.tagName.toLowerCase();
+            const newTag = newBlockElement.tagName.toLowerCase();
+            this.undoManager.recordFormat(
+              block.id,
+              (el) => {
+                const r = document.createElement(oldTag);
+                if (oldTag === 'pre') {
+                  const c = document.createElement('code');
+                  c.innerHTML = el.innerHTML;
+                  r.appendChild(c);
+                } else {
+                  r.innerHTML = el.innerHTML;
+                }
+                r.id = el.id;
+                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+                el.parentNode.replaceChild(r, el);
+                return r;
+              },
+              (el) => {
+                const r = document.createElement(newTag);
+                if (el.tagName === 'PRE') {
+                  const codeEl = el.querySelector('code');
+                  r.textContent = codeEl ? codeEl.textContent : el.textContent;
+                } else {
+                  r.innerHTML = el.innerHTML;
+                }
+                r.id = el.id;
+                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+                el.parentNode.replaceChild(r, el);
+                return r;
+              },
+              this.currentBookId,
+              0
+            );
           }
           block.parentNode.replaceChild(newBlockElement, block);
 
@@ -336,7 +428,33 @@ export class BlockFormatter {
         }
 
         if (this.undoManager) {
-          this.undoManager.recordUndo(blockParent.id, blockParent.outerHTML, headingElement.outerHTML, this.currentBookId);
+          const targetLevel = headingLevel;
+          this.undoManager.recordFormat(
+            blockParent.id,
+            (el) => {
+              // Undo: heading → pre (restore code block)
+              const pre = document.createElement('pre');
+              const code = document.createElement('code');
+              code.innerHTML = el.innerHTML;
+              pre.appendChild(code);
+              pre.id = el.id;
+              if (el.hasAttribute('data-node-id')) pre.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+              el.parentNode.replaceChild(pre, el);
+              return pre;
+            },
+            (el) => {
+              // Redo: pre → heading
+              const h = document.createElement(targetLevel);
+              const codeEl = el.querySelector('code');
+              h.textContent = codeEl ? codeEl.textContent : el.textContent;
+              h.id = el.id;
+              if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+              el.parentNode.replaceChild(h, el);
+              return h;
+            },
+            this.currentBookId,
+            currentOffset
+          );
         }
         blockParent.parentNode.replaceChild(headingElement, blockParent);
 
@@ -385,36 +503,17 @@ export class BlockFormatter {
         const createdBlocks = [];
 
         for (const block of paragraphBlocks) {
-          const beforeId = findPreviousElementId(block);
-          const afterId = findNextElementId(block);
+          const newBlockElement = this._contentPreservingWrap(block, type);
 
-          let newBlockElement;
-          if (type === "blockquote") {
-            newBlockElement = document.createElement("blockquote");
-            let content = block.innerHTML;
-            if (content && !content.endsWith("<br>")) content += "<br>";
-            newBlockElement.innerHTML = content;
-          } else {
-            // Code block - use innerHTML to preserve marks/highlights
-            newBlockElement = document.createElement("pre");
-            const codeElement = document.createElement("code");
-            codeElement.innerHTML = block.innerHTML;
-            newBlockElement.appendChild(codeElement);
-          }
-
-          // Preserve the paragraph's node_id
-          const oldNodeId = block.getAttribute('data-node-id');
-          if (oldNodeId) {
-            newBlockElement.setAttribute('data-node-id', oldNodeId);
-          }
-
-          setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
-
-          // Record undo before replaceChild
           if (this.undoManager) {
-            this.undoManager.recordUndo(block.id, block.outerHTML, newBlockElement.outerHTML, this.currentBookId);
+            this.undoManager.recordFormat(
+              newBlockElement.id,
+              (el) => this._contentPreservingUnwrap(el, type),
+              (el) => this._contentPreservingWrap(el, type),
+              this.currentBookId,
+              0
+            );
           }
-          block.parentNode.replaceChild(newBlockElement, block);
           createdBlocks.push(newBlockElement);
 
           // Save (no delete needed since node_id is preserved)
@@ -481,96 +580,22 @@ export class BlockFormatter {
    * Unwrap a blockquote or code block back to paragraph(s)
    */
   async unwrapBlock(blockToUnwrap, type) {
-    const beforeOriginalId = findPreviousElementId(blockToUnwrap);
-    const afterOriginalId = findNextElementId(blockToUnwrap);
+    const newElement = this._contentPreservingUnwrap(blockToUnwrap, type);
+    const modifiedElementId = newElement.id;
 
-    const fragment = document.createDocumentFragment();
-    let lastId = beforeOriginalId;
-    let firstNewP = null;
-    const createdP_ids_with_html = [];
-
-    // Track if this is a 1:1 conversion (blockquote) so we can skip the delete
-    let isSingleNodeConversion = false;
-
-    if (type === "blockquote") {
-      // For blockquotes, preserve HTML formatting (1:1 conversion)
-      isSingleNodeConversion = true;
-      const p = document.createElement("p");
-      let content = blockToUnwrap.innerHTML;
-      if (content.endsWith("<br>")) {
-        content = content.slice(0, -4);
-      }
-      p.innerHTML = content || "\u00A0";
-      // Preserve the blockquote's node_id so hyperlights/hypercites stay connected
-      const oldNodeId = blockToUnwrap.getAttribute('data-node-id');
-      if (oldNodeId) {
-        p.setAttribute('data-node-id', oldNodeId);
-      }
-      setElementIds(p, lastId, afterOriginalId, this.currentBookId);
-      firstNewP = p;
-      fragment.appendChild(p);
-      createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
-    } else {
-      // For code blocks - 1:1 conversion, preserve node_id and HTML content
-      isSingleNodeConversion = true;
-      const codeElement = blockToUnwrap.querySelector('code');
-      const htmlContent = codeElement ? codeElement.innerHTML : blockToUnwrap.textContent;
-
-      const p = document.createElement("p");
-      p.innerHTML = htmlContent || "\u00A0";
-
-      // Preserve the code block's node_id so hyperlights/hypercites stay connected
-      const oldNodeId = blockToUnwrap.getAttribute('data-node-id');
-      if (oldNodeId) {
-        p.setAttribute('data-node-id', oldNodeId);
-      }
-      setElementIds(p, lastId, afterOriginalId, this.currentBookId);
-      firstNewP = p;
-      fragment.appendChild(p);
-      createdP_ids_with_html.push({ id: p.id, html: p.outerHTML });
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        newElement.id,
+        (el) => this._contentPreservingWrap(el, type),
+        (el) => this._contentPreservingUnwrap(el, type),
+        this.currentBookId,
+        0
+      );
     }
 
-    let modifiedElementId = null;
-    let newElement = null;
+    setCursorAtTextOffset(newElement, 0);
 
-    if (fragment.childNodes.length > 0) {
-      // Record undo before replaceChild
-      if (this.undoManager) {
-        this.undoManager.recordUndo(blockToUnwrap.id, blockToUnwrap.outerHTML, firstNewP.outerHTML, this.currentBookId);
-      }
-      blockToUnwrap.parentNode.replaceChild(firstNewP, blockToUnwrap);
-      newElement = firstNewP;
-      modifiedElementId = newElement.id;
-      setCursorAtTextOffset(newElement, 0);
-
-      await batchUpdateIndexedDBRecords(createdP_ids_with_html);
-      // Only delete the old block for 1:N conversions (code blocks)
-      // For 1:1 conversions (blockquote), we preserve node_id so no delete needed
-      if (!isSingleNodeConversion && blockToUnwrap.id && this.deleteFromIndexedDBCallback) {
-        await this.deleteFromIndexedDBCallback(blockToUnwrap.id);
-      }
-    } else {
-      // Handle empty case
-      const p = document.createElement("p");
-      p.innerHTML = "&nbsp;";
-      setElementIds(p, beforeOriginalId, afterOriginalId, this.currentBookId);
-
-      // Record undo before replaceChild
-      if (this.undoManager) {
-        this.undoManager.recordUndo(blockToUnwrap.id, blockToUnwrap.outerHTML, p.outerHTML, this.currentBookId);
-      }
-      blockToUnwrap.parentNode.replaceChild(p, blockToUnwrap);
-      newElement = p;
-      modifiedElementId = newElement.id;
-      setCursorAtTextOffset(newElement, 0);
-
-      if (this.saveToIndexedDBCallback) {
-        await this.saveToIndexedDBCallback(p.id, p.outerHTML);
-      }
-      if (blockToUnwrap.id && this.deleteFromIndexedDBCallback) {
-        await this.deleteFromIndexedDBCallback(blockToUnwrap.id);
-      }
-    }
+    await batchUpdateIndexedDBRecords([{ id: newElement.id, html: newElement.outerHTML }]);
 
     return { modifiedElementId, newElement };
   }
@@ -579,48 +604,30 @@ export class BlockFormatter {
    * Wrap a paragraph in a blockquote or code block
    */
   async wrapBlock(blockParentToToggle, type) {
-    const beforeId = findPreviousElementId(blockParentToToggle);
-    const afterId = findNextElementId(blockParentToToggle);
     const currentOffset = getTextOffsetInElement(
       blockParentToToggle,
       this.selectionManager.currentSelection.focusNode,
       this.selectionManager.currentSelection.focusOffset
     );
 
-    let newBlockElement;
-    if (type === "blockquote") {
-      newBlockElement = document.createElement("blockquote");
-      let content = blockParentToToggle.innerHTML;
-      if (content && !content.endsWith("<br>")) content += "<br>";
-      newBlockElement.innerHTML = content;
-    } else {
-      newBlockElement = document.createElement("pre");
-      const code = document.createElement("code");
-      // Use innerHTML to preserve marks/highlights instead of escaping them
-      code.innerHTML = blockParentToToggle.innerHTML;
-      newBlockElement.appendChild(code);
-    }
-
-    // Preserve the old node_id so hyperlights/hypercites stay connected
-    const oldNodeId = blockParentToToggle.getAttribute('data-node-id');
-    if (oldNodeId) {
-      newBlockElement.setAttribute('data-node-id', oldNodeId);
-    }
-    setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
-
-    // Record undo before replaceChild
-    if (this.undoManager) {
-      this.undoManager.recordUndo(blockParentToToggle.id, blockParentToToggle.outerHTML, newBlockElement.outerHTML, this.currentBookId);
-    }
-    blockParentToToggle.parentNode.replaceChild(newBlockElement, blockParentToToggle);
-
-    const newElement = newBlockElement;
+    const newElement = this._contentPreservingWrap(blockParentToToggle, type);
     const modifiedElementId = newElement.id;
+
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        newElement.id,
+        (el) => this._contentPreservingUnwrap(el, type),
+        (el) => this._contentPreservingWrap(el, type),
+        this.currentBookId,
+        currentOffset
+      );
+    }
+
     setCursorAtTextOffset(newElement, currentOffset);
 
     // Since we preserve node_id, just save the updated content (no delete needed)
-    if (this.saveToIndexedDBCallback && newBlockElement.id) {
-      await this.saveToIndexedDBCallback(newBlockElement.id, newBlockElement.outerHTML);
+    if (this.saveToIndexedDBCallback && newElement.id) {
+      await this.saveToIndexedDBCallback(newElement.id, newElement.outerHTML);
     }
 
     return { modifiedElementId, newElement };
@@ -670,9 +677,32 @@ export class BlockFormatter {
     setElementIds(pElement, beforeOriginalId, afterOriginalId, this.currentBookId);
 
     try {
-      // Record undo before replaceChild
+      // Record content-preserving operation before replaceChild
       if (this.undoManager) {
-        this.undoManager.recordUndo(headingElement.id, headingElement.outerHTML, pElement.outerHTML, this.currentBookId);
+        const origTag = headingElement.tagName.toLowerCase();
+        this.undoManager.recordFormat(
+          headingElement.id,
+          (el) => {
+            // Undo: p → heading
+            const h = document.createElement(origTag);
+            h.innerHTML = el.innerHTML;
+            h.id = el.id;
+            if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+            el.parentNode.replaceChild(h, el);
+            return h;
+          },
+          (el) => {
+            // Redo: heading → p
+            const p = document.createElement('p');
+            p.innerHTML = el.innerHTML;
+            p.id = el.id;
+            if (el.hasAttribute('data-node-id')) p.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+            el.parentNode.replaceChild(p, el);
+            return p;
+          },
+          this.currentBookId,
+          0
+        );
       }
       headingElement.parentNode.replaceChild(pElement, headingElement);
     } catch (domError) {

@@ -14,7 +14,8 @@ import { CitationMode } from "./citationMode.js";
 import { TextFormatter } from "./textFormatter.js";
 import { ListConverter } from "./listConverter.js";
 import { BlockFormatter } from "./blockFormatter.js";
-import { FormattingUndoManager } from "./formattingUndoManager.js";
+import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager.js";
+import { getTextOffsetInElement } from "./toolbarDOMUtils.js";
 import { setCurrentBookId } from "../historyManager.js";
 import { initTapAreaExtender } from "./tapAreaExtender.js";
 
@@ -79,8 +80,8 @@ class EditToolbar {
       isDisabled: this.isDisabled
     });
 
-    // Initialize FormattingUndoManager (for replaceChild-based operations)
-    this.formattingUndoManager = new FormattingUndoManager();
+    // Initialize UndoManager (unified undo system for all changes)
+    this.undoManager = new UndoManager();
 
     // Initialize HeadingSubmenu
     this.headingSubmenu_handler = new HeadingSubmenu({
@@ -139,7 +140,7 @@ class EditToolbar {
       saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
       deleteFromIndexedDBCallback: (id) => this.deleteFromIndexedDB(id),
       convertListItemToBlockCallback: (listItem, type) => this.convertListItemToBlock(listItem, type),
-      undoManager: this.formattingUndoManager,
+      undoManager: this.undoManager,
     });
 
     // Bind event handlers
@@ -244,49 +245,148 @@ class EditToolbar {
       }
     }
 
-    // Cmd+Z / Cmd+Shift+Z handler for FormattingUndoManager
-    // Intercepts undo/redo only when the custom stack has entries;
-    // otherwise lets the browser handle native text undo.
-    this._formattingKeydownHandler = (e) => {
-      // Only intercept inside contenteditable
+    // ── Helper: get the focused block element from the current selection ──
+    // e.target on contenteditable is the container itself, NOT the block being
+    // edited.  We must walk from the selection's focusNode to the real block.
+    const getFocusedBlock = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const node = sel.focusNode;
+      if (!node) return null;
+      return findBlockFromTarget(node);
+    };
+
+    // Same for bookId — resolve from the selection, not from e.target
+    const getBookIdFromSelection = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const node = sel.focusNode;
+      if (!node) return null;
+      return resolveBookId(node);
+    };
+
+    // ── Structural inputTypes that need snapshot-before / finalize-after ──
+    // Note: Enter is mostly handled by enterKeyHandler.js (which calls
+    // preventDefault at keydown level), so insertParagraph rarely reaches here.
+    // deleteContentBackward/Forward are treated as typing — block merging
+    // from backspace at boundaries is a future enhancement.
+    const STRUCTURAL_INPUT_TYPES = new Set([
+      'insertParagraph',        // Enter key (fallback if enterKeyHandler doesn't catch it)
+    ]);
+
+    // ── beforeinput listener (capture phase) ──
+    // Intercepts native undo/redo and captures state for our custom system
+    this._beforeInputHandler = (e) => {
+      const target = e.target;
+      if (!target?.closest?.('[contenteditable="true"]')) return;
+
+      const inputType = e.inputType;
+
+      // Block native undo/redo entirely — we handle it ourselves
+      if (inputType === 'historyUndo' || inputType === 'historyRedo') {
+        e.preventDefault();
+        const bookId = getBookIdFromSelection() || resolveBookId(target);
+        if (!bookId) return;
+
+        console.log(`[UndoManager] beforeinput ${inputType}, bookId=${bookId}`);
+        if (inputType === 'historyUndo') {
+          this.undoManager.undo(
+            bookId,
+            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+            (flag) => { this.blockFormatter.isFormatting = flag; }
+          );
+        } else {
+          this.undoManager.redo(
+            bookId,
+            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+            (flag) => { this.blockFormatter.isFormatting = flag; }
+          );
+        }
+        return;
+      }
+
+      // For structural changes, snapshot before the browser modifies the DOM
+      if (STRUCTURAL_INPUT_TYPES.has(inputType)) {
+        const blockEl = getFocusedBlock();
+        const bookId = getBookIdFromSelection() || resolveBookId(target);
+        if (blockEl && bookId) {
+          this.undoManager.snapshotForStructural(bookId, blockEl);
+        }
+        return;
+      }
+
+      // For typing-class events, start capturing
+      const blockEl = getFocusedBlock();
+      const bookId = getBookIdFromSelection() || resolveBookId(target);
+      if (blockEl && bookId) {
+        this.undoManager.startCapture(blockEl, bookId);
+      }
+    };
+    document.addEventListener('beforeinput', this._beforeInputHandler, true);
+
+    // ── input listener (capture phase) ──
+    // Finalizes captures after the browser has modified the DOM
+    this._inputHandler = (e) => {
+      const target = e.target;
+      if (!target?.closest?.('[contenteditable="true"]')) return;
+
+      const inputType = e.inputType;
+      const bookId = getBookIdFromSelection() || resolveBookId(target);
+      if (!bookId) return;
+
+      // Structural changes: finalize the snapshot comparison
+      if (STRUCTURAL_INPUT_TYPES.has(inputType)) {
+        this.undoManager.finalizeStructural(bookId);
+        return;
+      }
+
+      // Typing-class events: finalize the capture
+      const blockEl = getFocusedBlock();
+      if (blockEl) {
+        this.undoManager.finalizeCapture(blockEl, bookId, inputType);
+      }
+    };
+    document.addEventListener('input', this._inputHandler, true);
+
+    // ── Keydown handler (capture phase — safety net) ──
+    // Catches Cmd/Ctrl+Z in edge cases where beforeinput doesn't fire.
+    // Also the primary handler since keydown fires BEFORE beforeinput —
+    // when we preventDefault here, beforeinput for historyUndo won't fire.
+    this._undoKeydownHandler = (e) => {
       const active = document.activeElement;
       if (!active || !active.closest('[contenteditable="true"]')) return;
 
       const isMeta = e.metaKey || e.ctrlKey;
       if (!isMeta || e.key.toLowerCase() !== 'z') return;
 
+      const bookId = getBookIdFromSelection() || resolveBookId(active);
+      if (!bookId) return;
+
       if (e.shiftKey) {
-        // Cmd+Shift+Z → redo
-        if (this.formattingUndoManager.hasRedo()) {
+        if (this.undoManager.hasRedo(bookId)) {
           e.preventDefault();
           e.stopPropagation();
-          this.formattingUndoManager.redo(
+          console.log(`[UndoManager] Cmd+Shift+Z → redo, bookId=${bookId}`);
+          this.undoManager.redo(
+            bookId,
             (id, html, opts) => this.saveToIndexedDB(id, html, opts),
             (flag) => { this.blockFormatter.isFormatting = flag; }
           );
         }
       } else {
-        // Cmd+Z → undo
-        if (this.formattingUndoManager.hasUndo()) {
+        if (this.undoManager.hasUndo(bookId) || this.undoManager.hasAnyUndo()) {
           e.preventDefault();
           e.stopPropagation();
-          this.formattingUndoManager.undo(
+          console.log(`[UndoManager] Cmd+Z → undo, bookId=${bookId}, stackSize=${this.undoManager._getStacks(bookId).undoStack.length}, hasGroup=${!!this.undoManager._currentGroup}`);
+          this.undoManager.undo(
+            bookId,
             (id, html, opts) => this.saveToIndexedDB(id, html, opts),
             (flag) => { this.blockFormatter.isFormatting = flag; }
           );
         }
       }
     };
-    document.addEventListener('keydown', this._formattingKeydownHandler, true); // capture phase
-
-    // Clear the formatting undo stack when user types, so stale
-    // entries don't interfere with native text undo.
-    this._formattingInputHandler = () => {
-      if (this.formattingUndoManager.hasUndo() || this.formattingUndoManager.hasRedo()) {
-        this.formattingUndoManager.clear();
-      }
-    };
-    document.addEventListener('input', this._formattingInputHandler, true);
+    document.addEventListener('keydown', this._undoKeydownHandler, true);
 
     // Set the initial book ID in historyManager
     if (this.currentBookId) {
@@ -551,11 +651,25 @@ class EditToolbar {
       return;
     }
 
-    // Open citation mode with context
+    // Snapshot the block before citation insertion for undo tracking
+    const blockEl = findBlockFromTarget(range.startContainer);
+    let undoSnapshot = null;
+    if (blockEl && blockEl.id) {
+      this.undoManager.sealGroup();
+      let cursorBefore = 0;
+      try {
+        cursorBefore = getTextOffsetInElement(blockEl, range.startContainer, range.startOffset);
+      } catch (e) { /* ignore */ }
+      undoSnapshot = { elementId: blockEl.id, oldHTML: blockEl.innerHTML, cursorBefore };
+    }
+
+    // Open citation mode with context (includes undo info)
     this.citationMode.open({
       bookId,
       range: range.cloneRange(),
-      saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options)
+      saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options),
+      undoSnapshot,
+      undoManager: this.undoManager,
     });
   }
 
@@ -589,6 +703,20 @@ class EditToolbar {
       // Dynamic import to avoid circular dependencies
       const { insertFootnoteAtCursor, openFootnoteForEditing } = await import('../footnotes/footnoteInserter.js');
 
+      // Snapshot the parent block BEFORE insertion for undo tracking
+      const focusNode = selection.focusNode;
+      const blockEl = findBlockFromTarget(focusNode);
+      const oldHTML = blockEl ? blockEl.innerHTML : null;
+      let cursorBefore = 0;
+      if (blockEl) {
+        try {
+          cursorBefore = getTextOffsetInElement(blockEl, focusNode, selection.focusOffset);
+        } catch (e) { /* ignore */ }
+      }
+
+      // Seal any pending typing group before the footnote insertion
+      this.undoManager.sealGroup();
+
       // Insert the footnote
       const { footnoteId, supElement } = await insertFootnoteAtCursor(
         range,
@@ -597,6 +725,32 @@ class EditToolbar {
       );
 
       console.log(`Footnote inserted: ${footnoteId}`);
+
+      // Record the insertion as an input entry (sup added to block innerHTML).
+      // Footnote record stays in IndexedDB on undo — only the <sup> is removed/restored.
+      if (blockEl && blockEl.id && oldHTML !== null) {
+        const newHTML = blockEl.innerHTML;
+        if (oldHTML !== newHTML) {
+          let cursorAfter = 0;
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            try {
+              cursorAfter = getTextOffsetInElement(blockEl, sel.focusNode, sel.focusOffset);
+            } catch (e) { /* ignore */ }
+          }
+
+          this.undoManager._pushUndo(bookId, {
+            type: 'input',
+            elementId: blockEl.id,
+            oldHTML,
+            newHTML,
+            bookId,
+            cursorBefore,
+            cursorAfter,
+          });
+          console.log(`[UndoManager] Recorded footnote insertion for undo on #${blockEl.id}`);
+        }
+      }
 
       // Open the hyperlit container with the footnote
       await openFootnoteForEditing(footnoteId, supElement);
@@ -725,11 +879,14 @@ class EditToolbar {
     this.selectionManager.detachListener();
     window.removeEventListener("resize", this.handleResize);
     document.removeEventListener("click", this.handleClickOutsideSubmenu);
-    if (this._formattingKeydownHandler) {
-      document.removeEventListener('keydown', this._formattingKeydownHandler, true);
+    if (this._undoKeydownHandler) {
+      document.removeEventListener('keydown', this._undoKeydownHandler, true);
     }
-    if (this._formattingInputHandler) {
-      document.removeEventListener('input', this._formattingInputHandler, true);
+    if (this._beforeInputHandler) {
+      document.removeEventListener('beforeinput', this._beforeInputHandler, true);
+    }
+    if (this._inputHandler) {
+      document.removeEventListener('input', this._inputHandler, true);
     }
   }
 

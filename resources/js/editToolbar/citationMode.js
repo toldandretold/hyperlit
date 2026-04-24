@@ -552,7 +552,7 @@ export class CitationMode {
       return;
     }
 
-    const { range, bookId, saveCallback } = this.pendingContext;
+    const { range, bookId, saveCallback, undoSnapshot, undoManager } = this.pendingContext;
     const sourceHasNodes = button.dataset.hasNodes !== '0';
 
     try {
@@ -567,6 +567,23 @@ export class CitationMode {
         saveCallback,
         sourceHasNodes
       );
+
+      // Record undo entry for the citation insertion
+      if (undoSnapshot && undoManager) {
+        const el = document.getElementById(undoSnapshot.elementId);
+        if (el && el.innerHTML !== undoSnapshot.oldHTML) {
+          undoManager._pushUndo(bookId, {
+            type: 'input',
+            elementId: undoSnapshot.elementId,
+            oldHTML: undoSnapshot.oldHTML,
+            newHTML: el.innerHTML,
+            bookId,
+            cursorBefore: undoSnapshot.cursorBefore || 0,
+            cursorAfter: 0,
+          });
+          console.log(`[UndoManager] Recorded citation insertion for undo on #${undoSnapshot.elementId}`);
+        }
+      }
 
       // Close the citation mode
       this.close();
