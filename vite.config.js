@@ -38,11 +38,6 @@ export default defineConfig({
             return 'editor';
           }
 
-          // historyManager (lazy loaded only when editing)
-          if (id.includes('/resources/js/historyManager.js')) {
-            return 'editor';
-          }
-
           // Highlighting system (core feature - keep separate)
           if (id.includes('/resources/js/hyperlights/') ||
               id.includes('/resources/js/hypercites/')) {
@@ -166,11 +161,14 @@ export default defineConfig({
                 'resources/js/editToolbar/toolbarDOMUtils.js',
                 'resources/js/editToolbar/selectionManager.js',
                 'resources/js/editToolbar/buttonStateManager.js',
-                'resources/js/editToolbar/historyHandler.js',
                 'resources/js/editToolbar/headingSubmenu.js',
                 'resources/js/editToolbar/textFormatter.js',
                 'resources/js/editToolbar/listConverter.js',
                 'resources/js/editToolbar/blockFormatter.js',
+
+                // Quantizer view
+                'resources/css/quantizer.css',
+                'resources/js/quantizer/index.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

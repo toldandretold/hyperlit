@@ -1,0 +1,310 @@
+/* Quantizer View — cascading annotation visualization */
+
+:root {
+  --q-bg: #1a1a1d;
+  --q-panel: #222225;
+  --q-panel-alt: #2a2a2e;
+  --q-border: rgba(255,255,255,0.08);
+  --q-text: #cbcccc;
+  --q-muted: #888;
+  --q-accent: #4EACAE;
+  --q-pink: #EE4A95;
+  --q-orange: #EF8D34;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--q-bg);
+  color: var(--q-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Shell */
+.quantizer-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0.75rem 1rem;
+  gap: 0.6rem;
+}
+
+/* Header */
+.quantizer-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.quantizer-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.quantizer-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quantizer-author {
+  font-size: 0.8rem;
+  color: var(--q-muted);
+  white-space: nowrap;
+}
+
+.quantizer-back {
+  font-size: 0.8rem;
+  color: var(--q-accent);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.quantizer-back:hover { text-decoration: underline; }
+
+/* Column layout — grid-template-columns set dynamically by JS */
+.quantizer-columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 100px 1fr;
+  gap: 0;
+  min-height: 0;
+  position: relative;
+  overflow-x: auto;
+}
+
+/* Panes */
+.quantizer-pane {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--q-border);
+  background: var(--q-panel);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  min-height: 0;
+  min-width: 280px;
+}
+
+/* Book text (left pane) */
+#quantizer-book {
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+#quantizer-book .quantizer-node {
+  margin-bottom: 0.25rem;
+}
+
+#quantizer-book p { margin: 0 0 0.6em; }
+#quantizer-book h1, #quantizer-book h2, #quantizer-book h3,
+#quantizer-book h4, #quantizer-book h5, #quantizer-book h6 {
+  margin: 1em 0 0.4em;
+  line-height: 1.3;
+}
+#quantizer-book blockquote {
+  border-left: 3px solid var(--q-accent);
+  margin: 0.5em 0;
+  padding: 0.3em 0.8em;
+  color: var(--q-muted);
+}
+
+/* Highlight marks in book text */
+mark[data-annotation-id] {
+  background: rgba(238, 74, 149, 0.18);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+mark[data-annotation-id].is-linked {
+  background: rgba(238, 74, 149, 0.4);
+}
+
+/* Footnote superscripts in book text */
+sup[data-annotation-id] {
+  color: var(--q-orange);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+sup[data-annotation-id].is-linked {
+  color: #fff;
+  text-shadow: 0 0 4px var(--q-orange);
+}
+
+/* Hypercite underlines in book text */
+u[data-annotation-id] {
+  text-decoration-color: rgba(78, 172, 174, 0.5);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: text-decoration-color 120ms ease;
+}
+u[data-annotation-id].is-linked {
+  text-decoration-color: rgba(78, 172, 174, 0.9);
+  background: rgba(78, 172, 174, 0.08);
+}
+
+/* Cards panes */
+.quantizer-cards-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.65rem;
+}
+
+/* Annotation cards */
+.quantizer-card {
+  border: 1px solid var(--q-border);
+  border-radius: 0.5rem;
+  padding: 0.65rem;
+  background: var(--q-panel-alt);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+}
+.quantizer-card.is-linked {
+  border-color: rgba(210, 216, 225, 0.5);
+  box-shadow: 0 0 0 1px rgba(210, 216, 225, 0.2);
+}
+
+.quantizer-card-meta {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+.quantizer-card-meta span {
+  font-size: 0.68rem;
+  color: var(--q-muted);
+  border: 1px solid var(--q-border);
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+}
+.quantizer-card-meta .badge-hl { border-color: rgba(238, 74, 149, 0.4); color: var(--q-pink); }
+.quantizer-card-meta .badge-hc { border-color: rgba(78, 172, 174, 0.4); color: var(--q-accent); }
+.quantizer-card-meta .badge-fn { border-color: rgba(239, 141, 52, 0.4); color: var(--q-orange); }
+
+.quantizer-card-excerpt {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--q-text);
+  margin-bottom: 0.35rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Preview content (from preview_nodes) */
+.quantizer-card-preview {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--q-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.quantizer-card-preview p { margin: 0 0 0.4em; }
+.quantizer-card-preview p:last-child { margin-bottom: 0; }
+
+/* Expandable sub-book content */
+.quantizer-card.has-subbook { cursor: pointer; }
+.quantizer-card.has-subbook::after {
+  content: 'click to expand';
+  display: block;
+  font-size: 0.65rem;
+  color: var(--q-muted);
+  margin-top: 0.4rem;
+  opacity: 0.6;
+}
+.quantizer-card.is-expanded .quantizer-card-preview {
+  display: none;
+}
+.quantizer-card.is-expanded::after {
+  content: 'click to collapse';
+}
+
+.quantizer-card-expanded {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--q-text);
+  border-top: 1px solid var(--q-border);
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.quantizer-card-expanded p { margin: 0 0 0.5em; }
+
+.quantizer-loading {
+  color: var(--q-muted);
+  font-style: italic;
+  font-size: 0.78rem;
+}
+
+.quantizer-card-citations {
+  font-size: 0.72rem;
+  color: var(--q-accent);
+  margin-top: 0.3rem;
+}
+
+/* SVG connector overlay */
+.quantizer-links {
+  position: relative;
+  pointer-events: none;
+  z-index: 8;
+  overflow: visible;
+  min-width: 60px;
+}
+
+.quantizer-links-svg {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: calc(100% + 2px);
+  height: 100%;
+  display: block;
+}
+
+.quantizer-link-band {
+  fill: rgba(132, 139, 151, 0.1);
+  stroke: none;
+  opacity: 0.86;
+}
+.quantizer-link-path {
+  fill: none;
+  stroke: rgba(158, 166, 179, 0.4);
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.78;
+}
+
+.quantizer-link-band.is-active {
+  fill: rgba(201, 208, 219, 0.25);
+  opacity: 1;
+}
+.quantizer-link-path.is-active {
+  stroke: rgba(226, 232, 240, 0.8);
+  opacity: 1;
+}
+.quantizer-link-band.is-muted,
+.quantizer-link-path.is-muted {
+  opacity: 0.15;
+}
+
+/* Node wrappers inside expanded cards */
+.quantizer-card-expanded .quantizer-node {
+  margin-bottom: 0.15rem;
+}

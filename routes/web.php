@@ -13,6 +13,7 @@ use App\Http\Controllers\FootnotesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ConversionController;
 use App\Http\Controllers\DbLibraryController;
+use App\Http\Controllers\QuantizerController;
 use App\Http\Controllers\SitemapController;
 use Illuminate\Validation\ValidationException;
 
@@ -316,6 +317,14 @@ Route::get('/reset-password/{token}', function (Request $request, $token) {
 Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\AuthController::class, 'verifyEmail'])
     ->middleware('signed')
     ->name('verification.verify');
+
+// Quantizer view — experimental two-column annotation visualization
+Route::get('/q/{book}', [QuantizerController::class, 'show'])
+     ->where('book', '[A-Za-z0-9_-]+')
+     ->name('book.quantizer');
+Route::get('/q/{parentBook}/{subId}/data', [QuantizerController::class, 'subBookData'])
+     ->where('subId', '.+')
+     ->name('quantizer.sub-book-data');
 
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
