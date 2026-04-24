@@ -302,6 +302,7 @@ class EditToolbar {
             (flag) => { this.blockFormatter.isFormatting = flag; }
           );
         }
+        this._updateUndoRedoButtons(bookId);
         return;
       }
 
@@ -337,6 +338,7 @@ class EditToolbar {
       // Structural changes: finalize the snapshot comparison
       if (STRUCTURAL_INPUT_TYPES.has(inputType)) {
         this.undoManager.finalizeStructural(bookId);
+        this._updateUndoRedoButtons(bookId);
         return;
       }
 
@@ -344,6 +346,7 @@ class EditToolbar {
       const blockEl = getFocusedBlock();
       if (blockEl) {
         this.undoManager.finalizeCapture(blockEl, bookId, inputType);
+        this._updateUndoRedoButtons(bookId);
       }
     };
     document.addEventListener('input', this._inputHandler, true);
@@ -372,6 +375,7 @@ class EditToolbar {
             (id, html, opts) => this.saveToIndexedDB(id, html, opts),
             (flag) => { this.blockFormatter.isFormatting = flag; }
           );
+          this._updateUndoRedoButtons(bookId);
         }
       } else {
         if (this.undoManager.hasUndo(bookId) || this.undoManager.hasAnyUndo()) {
@@ -383,6 +387,7 @@ class EditToolbar {
             (id, html, opts) => this.saveToIndexedDB(id, html, opts),
             (flag) => { this.blockFormatter.isFormatting = flag; }
           );
+          this._updateUndoRedoButtons(bookId);
         }
       }
     };
@@ -392,7 +397,7 @@ class EditToolbar {
     if (this.currentBookId) {
       setCurrentBookId(this.currentBookId);
     }
-    this.historyHandler.updateHistoryButtonStates(); // Set initial state of undo/redo buttons
+    this._updateUndoRedoButtons(this.currentBookId); // Set initial state of undo/redo buttons
   }
 
   /**
@@ -404,7 +409,7 @@ class EditToolbar {
     if (this.isDisabled) return;
     this.currentBookId = bookId;
     setCurrentBookId(bookId); // Update the history manager
-    this.historyHandler.updateHistoryButtonStates(); // Refresh button states
+    this._updateUndoRedoButtons(bookId); // Refresh button states
     this.headingSubmenu_handler.setBookId(bookId); // Update heading submenu bookId
     this.listConverter.setBookId(bookId); // Update list converter bookId
     this.blockFormatter.setBookId(bookId); // Update block formatter bookId
@@ -459,12 +464,12 @@ class EditToolbar {
       {
         element: this.undoButton,
         name: "undo",
-        action: () => this.historyHandler.handleUndo(),
+        action: () => this._handleUndoButton(),
       },
       {
         element: this.redoButton,
         name: "redo",
-        action: () => this.historyHandler.handleRedo(),
+        action: () => this._handleRedoButton(),
       },
     ];
 
@@ -531,13 +536,49 @@ class EditToolbar {
     log.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
   }
 
-  // Undo/Redo methods delegated to HistoryHandler
-  async handleUndo() {
-    return this.historyHandler.handleUndo();
+  /**
+   * Handle undo button tap/click — routes through the new UndoManager
+   */
+  _handleUndoButton() {
+    const bookId = resolveBookId(document.activeElement) || this.currentBookId;
+    if (!bookId) return;
+    this.undoManager.undo(
+      bookId,
+      (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+      (flag) => { this.blockFormatter.isFormatting = flag; }
+    );
+    this._updateUndoRedoButtons(bookId);
   }
 
-  async handleRedo() {
-    return this.historyHandler.handleRedo();
+  /**
+   * Handle redo button tap/click — routes through the new UndoManager
+   */
+  _handleRedoButton() {
+    const bookId = resolveBookId(document.activeElement) || this.currentBookId;
+    if (!bookId) return;
+    this.undoManager.redo(
+      bookId,
+      (id, html, opts) => this.saveToIndexedDB(id, html, opts),
+      (flag) => { this.blockFormatter.isFormatting = flag; }
+    );
+    this._updateUndoRedoButtons(bookId);
+  }
+
+  /**
+   * Synchronously toggle disabled state on undo/redo buttons
+   * based on current UndoManager stack state.
+   */
+  _updateUndoRedoButtons(bookId) {
+    if (this.undoButton) {
+      const can = this.undoManager.hasUndo(bookId) || this.undoManager.hasAnyUndo();
+      this.undoButton.classList.toggle('disabled', !can);
+      this.undoButton.disabled = !can;
+    }
+    if (this.redoButton) {
+      const can = this.undoManager.hasRedo(bookId);
+      this.redoButton.classList.toggle('disabled', !can);
+      this.redoButton.disabled = !can;
+    }
   }
 
   /**
@@ -546,14 +587,6 @@ class EditToolbar {
    */
   closeHeadingSubmenu() {
     this.headingSubmenu_handler.closeHeadingSubmenu();
-  }
-
-  /**
-   * Update the active/disabled states of undo/redo buttons.
-   */
-  // History button states delegated to HistoryHandler
-  async updateHistoryButtonStates() {
-    return this.historyHandler.updateHistoryButtonStates();
   }
 
   /**
@@ -579,7 +612,7 @@ class EditToolbar {
       this.selectionManager.attachListener(() => this.buttonStateManager.updateButtonStates());
       // Initial button state update
       this.handleSelectionChange();
-      this.historyHandler.updateHistoryButtonStates(); // Ensure history buttons are up to date on mode change
+      this._updateUndoRedoButtons(this.currentBookId); // Ensure undo/redo buttons are up to date on mode change
     } else {
       this.hide();
       this.tapExtender?.disable();
@@ -749,6 +782,7 @@ class EditToolbar {
             cursorAfter,
           });
           console.log(`[UndoManager] Recorded footnote insertion for undo on #${blockEl.id}`);
+          this._updateUndoRedoButtons(bookId);
         }
       }
 
