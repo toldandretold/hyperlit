@@ -100,38 +100,64 @@ async function retryFailedBatches() {
 
     verbose.content(`Retrying ${logsToRetry.length} pending sync batches (${failedLogs.length} failed, ${pendingLogs.length} pending)`, 'initializePage.js');
 
+    const CHUNK_SIZE = 500; // Max nodes per request to stay under server timeout
+
     let successCount = 0;
     for (const log of logsToRetry) {
       try {
         // --- START: Build a clean payload for syncing ---
         const historyPayload = log.payload;
-        const syncPayload = {
-          book: historyPayload.book,
-          updates: {
-            nodes: historyPayload.updates.nodes || [],
-            hypercites: historyPayload.updates.hypercites || [],
-            hyperlights: historyPayload.updates.hyperlights || [],
-            footnotes: historyPayload.updates.footnotes || [],
-            library: historyPayload.updates.library || null,
-          },
-          deletions: {
-            // For syncing, we only want TRUE deletions.
-            // A true deletion is an item in `deletions` that does NOT have a corresponding `update`.
-            nodes: (historyPayload.deletions.nodes || []).filter(
-              d => !(historyPayload.updates.nodes || []).some(u => u.startLine === d.startLine)
-            ),
-            hypercites: (historyPayload.deletions.hypercites || []).filter(
-              d => !(historyPayload.updates.hypercites || []).some(u => u.hyperciteId === d.hyperciteId)
-            ),
-            hyperlights: (historyPayload.deletions.hyperlights || []).filter(
-              d => !(historyPayload.updates.hyperlights || []).some(u => u.hyperlight_id === d.hyperlight_id)
-            ),
-            // Library deletions are not handled this way, so it remains empty for sync.
-          }
+        const allNodes = historyPayload.updates.nodes || [];
+        const baseDeletions = {
+          nodes: (historyPayload.deletions.nodes || []).filter(
+            d => !(historyPayload.updates.nodes || []).some(u => u.startLine === d.startLine)
+          ),
+          hypercites: (historyPayload.deletions.hypercites || []).filter(
+            d => !(historyPayload.updates.hypercites || []).some(u => u.hyperciteId === d.hyperciteId)
+          ),
+          hyperlights: (historyPayload.deletions.hyperlights || []).filter(
+            d => !(historyPayload.updates.hyperlights || []).some(u => u.hyperlight_id === d.hyperlight_id)
+          ),
         };
         // --- END: Build a clean payload for syncing ---
 
-        await executeSyncPayload(syncPayload); // <-- Pass the clean syncPayload
+        if (allNodes.length <= CHUNK_SIZE) {
+          // Small batch — send in one go (normal edits)
+          const syncPayload = {
+            book: historyPayload.book,
+            updates: {
+              nodes: allNodes,
+              hypercites: historyPayload.updates.hypercites || [],
+              hyperlights: historyPayload.updates.hyperlights || [],
+              footnotes: historyPayload.updates.footnotes || [],
+              library: historyPayload.updates.library || null,
+            },
+            deletions: baseDeletions,
+          };
+          await executeSyncPayload(syncPayload);
+        } else {
+          // Large batch (e.g. renumbering) — chunk to avoid server timeout
+          console.log(`📦 Chunking large batch ${log.id}: ${allNodes.length} nodes in chunks of ${CHUNK_SIZE}`);
+          for (let i = 0; i < allNodes.length; i += CHUNK_SIZE) {
+            const nodeChunk = allNodes.slice(i, i + CHUNK_SIZE);
+            const isFirstChunk = i === 0;
+            const syncPayload = {
+              book: historyPayload.book,
+              updates: {
+                nodes: nodeChunk,
+                // Only include non-node data in the first chunk to avoid duplicates
+                hypercites: isFirstChunk ? (historyPayload.updates.hypercites || []) : [],
+                hyperlights: isFirstChunk ? (historyPayload.updates.hyperlights || []) : [],
+                footnotes: isFirstChunk ? (historyPayload.updates.footnotes || []) : [],
+                library: isFirstChunk ? (historyPayload.updates.library || null) : null,
+              },
+              deletions: isFirstChunk ? baseDeletions : { nodes: [], hypercites: [], hyperlights: [] },
+            };
+            console.log(`  📤 Chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(allNodes.length / CHUNK_SIZE)}: ${nodeChunk.length} nodes`);
+            await executeSyncPayload(syncPayload);
+          }
+          console.log(`✅ All chunks synced for batch ${log.id}`);
+        }
 
         log.status = "synced";
         await updateHistoryLog(log);

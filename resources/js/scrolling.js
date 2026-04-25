@@ -1435,15 +1435,6 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }, 200);
     }
 
-    // For hypercites, check for ghost tombstone first, otherwise highlight
-    if (targetId.startsWith('hypercite_')) {
-      setTimeout(() => {
-        if (!revealGhostIfTombstone(targetId)) {
-          highlightTargetHypercite(targetId, 500);
-        }
-      }, 300);
-    }
-
     // Clean up navigation state
     if (typeof lazyLoader.attachMarkListeners === "function") {
       lazyLoader.attachMarkListeners(lazyLoader.container);
@@ -1472,7 +1463,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       NavigationCompletionBarrier.registerProcess(NavigationProcess.SCROLL_CORRECTION);
     }
 
-    pendingNavigationCleanupTimer = setTimeout(() => {
+    pendingNavigationCleanupTimer = setTimeout(async () => {
       verbose.nav(`Navigation scroll complete for ${targetId}`, 'scrolling.js');
       pendingNavigationCleanupTimer = null; // Clear the reference
 
@@ -1484,8 +1475,14 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_CORRECTION, true);
       }
 
-      // 🎯 Hide loading indicator
-      hideNavigationLoading();
+      // 🎯 Hide loading indicator, then trigger hypercite glow
+      await hideNavigationLoading();
+
+      if (targetId.startsWith('hypercite_')) {
+        if (!revealGhostIfTombstone(targetId)) {
+          highlightTargetHypercite(targetId);
+        }
+      }
 
       // Mark this hash as "navigated to" for this page session.
       // Uses module-level Set so it resets on page reload (fresh loads re-navigate).

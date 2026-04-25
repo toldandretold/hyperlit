@@ -118,13 +118,13 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
 
     console.log(`🔅 Dimmed ${allHypercites.length - targetElements.length} non-target hypercites`);
 
-    // Remove highlighting after 5 seconds with smooth transition back
+    // Remove highlighting after 2.5 seconds with smooth transition back
     // Store timeout reference so it can be cleared by subsequent navigations
     highlightTimeout = setTimeout(() => {
       console.log(`🌅 Starting fade-out animation for: ${targetHyperciteId}`);
       restoreNormalHyperciteDisplay();
       highlightTimeout = null; // Clear reference after completion
-    }, 5000);
+    }, 2000);
 
   }, delay);
 

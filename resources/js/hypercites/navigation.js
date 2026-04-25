@@ -282,7 +282,7 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
           });
           // Check if this is a ghost tombstone — reveal instead of highlight
           if (!revealGhostIfTombstone(internalId)) {
-            highlightTargetHypercite(internalId, 500);
+            highlightTargetHypercite(internalId);
           }
         }
       } else {
@@ -373,25 +373,27 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
 
     // If there's a hypercite to scroll to inside the container
     if (internalId) {
-      // Wait for the container to render
-      setTimeout(() => {
-        const fnContainer = getCurrentContainer();
-        const hyperciteInContainer = fnContainer?.querySelector(`#${internalId}`);
-        if (hyperciteInContainer) {
-          console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
-          hyperciteInContainer.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
-          // Check if this is a ghost tombstone — reveal instead of highlight
-          if (!revealGhostIfTombstone(internalId)) {
-            highlightTargetHypercite(internalId, 500);
+      const fnContainer = getCurrentContainer();
+      // Wait for the hypercite element to be ready inside the container
+      waitForElementReady(internalId, { maxAttempts: 20, checkInterval: 50, container: fnContainer })
+        .then(() => {
+          const hyperciteInContainer = fnContainer?.querySelector(`#${internalId}`);
+          if (hyperciteInContainer) {
+            console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
+            hyperciteInContainer.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+            // Check if this is a ghost tombstone — reveal instead of highlight
+            if (!revealGhostIfTombstone(internalId)) {
+              highlightTargetHypercite(internalId);
+            }
           }
-        } else {
-          console.log(`⚠️ Hypercite ${internalId} not found in container`);
-        }
-      }, 400);
+        })
+        .catch(() => {
+          console.log(`⚠️ Hypercite ${internalId} not found in container after waiting`);
+        });
     }
 
   } catch (error) {

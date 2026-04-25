@@ -1,9 +1,9 @@
 import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
-import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs } from "../indexedDB/index.js";
-import { executeSyncPayload, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
+import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
+import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
 import { currentLazyLoader } from "../initializePage.js";
 import { book } from "../app.js";
-import { glowCloudGreen, glowCloudRed } from "../components/editIndicator.js";
+import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger.js';
 
@@ -201,7 +201,6 @@ async function renumberAllNodes() {
     // 6. Sync to PostgreSQL using SAFE executeSyncPayload (UPDATE by node_id, no DELETE ALL)
     // This uses /api/db/unified-sync → bulkTargetedUpsert which does:
     // ON CONFLICT (book, node_id) DO UPDATE SET startLine = ...
-    // NO history entry created - renumbering is a system operation
     const syncPayload = {
       book: book,
       updates: {
@@ -227,12 +226,32 @@ async function renumberAllNodes() {
       }
     };
 
-    console.log(`📤 RENUMBERING: Syncing ${updates.length} nodes to PostgreSQL (safe UPDATE by node_id)`);
-    await executeSyncPayload(syncPayload);
-    console.log('✅ RENUMBERING: PostgreSQL synced (no deletions, only updates by node_id)');
+    // Save to historyLog WAL. Renumbering touches every node in the book
+    // (potentially tens of thousands) so we NEVER attempt an inline sync —
+    // the server's 30-second timeout can't handle it. Instead, save as
+    // "pending" and let retryFailedBatches send it in chunks when online.
+    const logEntry = {
+      timestamp: Date.now(),
+      bookId: book,
+      status: "pending",
+      payload: syncPayload,
+    };
 
-    // Show green tick to indicate successful sync
-    glowCloudGreen();
+    const walDb = await openDatabase();
+    const walTx = walDb.transaction("historyLog", "readwrite");
+    const walStore = walTx.objectStore("historyLog");
+    const walId = await new Promise((resolve, reject) => {
+      const request = walStore.add(logEntry);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+    logEntry.id = walId;
+    await new Promise((resolve, reject) => {
+      walTx.oncomplete = () => resolve();
+      walTx.onerror = () => reject(walTx.error);
+    });
+    console.log(`📦 RENUMBERING: WAL entry ${logEntry.id} saved (${updates.length} nodes, deferred sync)`);
+    glowCloudLocalSave();
 
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
     const clearedCount = clearPendingSyncsForBook(book);
@@ -257,6 +276,13 @@ async function renumberAllNodes() {
     await ProgressOverlayConductor.hide();
     isRenumberingInProgress = false;
     renumberingPromise = null;
+
+    // 10. Kick off chunked sync in the background (non-blocking).
+    // retryFailedBatches will find the pending WAL entry and send it
+    // in 500-node chunks so the server doesn't timeout.
+    import('../initializePage.js').then(({ setupOnlineSyncListener }) => {
+      setupOnlineSyncListener();
+    });
 
     return true;
 
