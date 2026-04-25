@@ -283,8 +283,8 @@ export class SettingsContainerManager extends ContainerManager {
     const savedWidth = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
 
     if (savedSize) {
-      // Scope to .main-content so logo, search bar, arranger buttons etc. stay fixed size
-      document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${savedSize}px`);
+      // Set on <html> so the value survives SPA nav (main-content gets replaced, html doesn't)
+      document.documentElement.style.setProperty('--font-size-base', `${savedSize}px`);
     }
     const isMobile = window.innerWidth <= 500;
     if (savedWidth && !isMobile) {
@@ -358,15 +358,15 @@ export class SettingsContainerManager extends ContainerManager {
       const wrapper = document.querySelector('.reader-content-wrapper');
       const anchor = wrapper ? captureScrollAnchor(wrapper) : null;
 
-      // Scope to .main-content so only book content resizes
-      document.querySelectorAll('.main-content').forEach(el => el.style.fontSize = `${val}px`);
+      // Set on <html> so the value survives SPA nav (main-content gets replaced, html doesn't)
+      document.documentElement.style.setProperty('--font-size-base', `${val}px`);
       const display = document.getElementById('textSizeValue');
       if (display) display.textContent = `${val}px`;
 
       if (val === defaultSize) {
         localStorage.removeItem(STORAGE_KEYS.TEXT_SIZE);
         clearPreference('text_size');
-        document.querySelectorAll('.main-content').forEach(el => el.style.removeProperty('font-size'));
+        document.documentElement.style.removeProperty('--font-size-base');
       } else {
         localStorage.setItem(STORAGE_KEYS.TEXT_SIZE, val);
         savePreference('text_size', val);
