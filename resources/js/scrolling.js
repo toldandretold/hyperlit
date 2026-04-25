@@ -1114,90 +1114,104 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       progressIndicator.updateProgress(30, "Looking up target in content chunks...");
     }
     
-    let targetChunkIndex = -1;
-    if (/^\d+$/.test(targetId)) {
-      // Compare targetId (which is startLine) to node.startLine.
-      targetChunkIndex = lazyLoader.nodes.findIndex(
-        node => node.startLine.toString() === targetId
-      );
-    } else {
-      // Use custom logic for non-numeric IDs.
-      const targetLine = findLineForCustomId(targetId, lazyLoader.nodes);
-      if (targetLine !== null) {
-        targetChunkIndex = lazyLoader.nodes.findIndex(
-          node => targetLine === node.startLine
-        );
-      }
-    }
+    // Unified resolver: queries IndexedDB stores (hypercites, hyperlights,
+    // footnotes, nodes) to find which chunk contains the target.
+    const { resolveTargetChunkId } = await import('./navigation/resolveTargetChunk.js');
+    let resolution = await resolveTargetChunkId(lazyLoader.bookId, targetId, {
+      chunkManifest: lazyLoader.chunkManifest,
+      nodes: lazyLoader.nodes,
+    });
 
-    // If target not found and we only have partial data, wait for background
-    // download to complete then retry with the full dataset.
-    if (targetChunkIndex === -1 && !lazyLoader.isFullyLoaded) {
-      verbose.nav(`Target "${targetId}" not in partial data, waiting for background download...`, 'scrolling.js');
+    verbose.nav(
+      `Resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
+      'scrolling.js'
+    );
+
+    // If the resolver couldn't find the target and the book isn't fully loaded,
+    // wait for the background download to complete and retry with the full dataset.
+    if (!resolution.resolved && !lazyLoader.isFullyLoaded) {
+      verbose.nav(`Target "${targetId}" not found in partial data — waiting for background download...`, 'scrolling.js');
       if (progressIndicator) {
-        progressIndicator.updateProgress(35, "Waiting for full content...");
+        progressIndicator.updateProgress(40, "Loading remaining book data...");
       }
+
       const { waitForBackgroundDownload } = await import('./backgroundDownloader.js');
       await waitForBackgroundDownload();
 
-      // Retry lookup with now-complete dataset
-      if (/^\d+$/.test(targetId)) {
-        targetChunkIndex = lazyLoader.nodes.findIndex(
-          node => node.startLine.toString() === targetId
-        );
-      } else {
-        const retryLine = findLineForCustomId(targetId, lazyLoader.nodes);
-        if (retryLine !== null) {
-          targetChunkIndex = lazyLoader.nodes.findIndex(
-            node => retryLine === node.startLine
-          );
-        }
+      // Refresh nodes from IndexedDB now that all chunks are downloaded
+      const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+      if (freshNodes && freshNodes.length > 0) {
+        lazyLoader.nodes = freshNodes;
+        lazyLoader.chunkManifest = null;
+        window.nodes = freshNodes;
       }
-      if (targetChunkIndex !== -1) {
-        verbose.nav(`Target "${targetId}" found after background download`, 'scrolling.js');
-      }
+
+      // Retry the resolver with the complete dataset
+      resolution = await resolveTargetChunkId(lazyLoader.bookId, targetId, {
+        chunkManifest: lazyLoader.chunkManifest,
+        nodes: lazyLoader.nodes,
+      });
+
+      verbose.nav(
+        `Retry resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
+        'scrolling.js'
+      );
     }
 
-    // Hypercite rescue: direct IndexedDB lookup + server fallback
-    if (targetChunkIndex === -1 && targetId.startsWith('hypercite_')) {
-      verbose.nav(`Hypercite rescue: resolveHypercite for "${targetId}"`, 'scrolling.js');
-      try {
-        const { resolveHypercite } = await import('./indexedDB/hypercites/helpers.js');
-        const record = await resolveHypercite(lazyLoader.bookId, targetId);
+    // If the primary target couldn't be resolved, show fallback UI
+    if (!resolution.resolved) {
+      console.warn(
+        `No block found for target ID "${targetId}" (reason: ${resolution.reason}). ` +
+          `Fallback: loading chunk ${resolution.chunkId}.`
+      );
 
-        if (record && Array.isArray(record.node_id) && record.node_id.length > 0) {
-          // Find matching node in current lazyLoader
-          targetChunkIndex = lazyLoader.nodes.findIndex(
-            node => record.node_id.includes(node.node_id)
-          );
-
-          // If not found, resolveHypercite may have cached fresh nodes to IndexedDB
-          // that aren't in lazyLoader yet — reload and re-hydrate
-          if (targetChunkIndex === -1) {
-            const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
-            if (freshNodes && freshNodes.length > 0) {
-              const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
-              await rebuildNodeArrays(freshNodes);
-              lazyLoader.nodes = freshNodes;
-              lazyLoader.chunkManifest = null;
-              window.nodes = freshNodes;
-
-              targetChunkIndex = lazyLoader.nodes.findIndex(
-                node => record.node_id.includes(node.node_id)
-              );
-            }
-          }
+      // If we have no valid fallback chunk either, do the old fallback
+      if (resolution.reason === 'lowest_chunk' && resolution.chunkId === 0 && !lazyLoader.nodes.some(n => n.chunk_id === 0)) {
+        hideNavigationLoading();
+        fallbackScrollPosition(lazyLoader);
+        if (typeof lazyLoader.attachMarkListeners === "function") {
+          lazyLoader.attachMarkListeners(lazyLoader.container);
         }
-      } catch (e) {
-        console.error('❌ Hypercite rescue failed:', e);
+        lazyLoader.isNavigatingToInternalId = false;
+        lazyLoader.pendingNavigationTarget = null;
+        if (lazyLoader._navigationResolve) {
+          lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
+          lazyLoader._navigationResolve = null;
+          lazyLoader._navigationReject = null;
+        }
+        // Show contextual toast
+        import('./utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+          showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
+        });
+        return;
+      }
+
+      // Show contextual toast after scroll completes (deferred to avoid layout shift)
+      setTimeout(() => {
+        import('./utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+          showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
+        });
+      }, 500);
+    }
+
+    // Map resolved chunk_id to an index in lazyLoader.nodes
+    const targetChunkId = resolution.chunkId;
+    let targetChunkIndex = lazyLoader.nodes.findIndex(n => n.chunk_id === targetChunkId);
+
+    // If chunk not in lazyLoader.nodes (partial load), try to load it
+    if (targetChunkIndex === -1) {
+      // Refresh lazyLoader nodes from IndexedDB in case they were updated
+      const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+      if (freshNodes && freshNodes.length > 0) {
+        lazyLoader.nodes = freshNodes;
+        lazyLoader.chunkManifest = null;
+        window.nodes = freshNodes;
+        targetChunkIndex = freshNodes.findIndex(n => n.chunk_id === targetChunkId);
       }
     }
 
     if (targetChunkIndex === -1) {
-      console.warn(
-        `No block found for target ID "${targetId}". ` +
-          `Fallback: loading default view.`
-      );
+      console.warn(`Resolved chunk ${targetChunkId} not found in lazyLoader nodes. Falling back.`);
       hideNavigationLoading();
       fallbackScrollPosition(lazyLoader);
       if (typeof lazyLoader.attachMarkListeners === "function") {
@@ -1205,7 +1219,6 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }
       lazyLoader.isNavigatingToInternalId = false;
       lazyLoader.pendingNavigationTarget = null;
-      // Resolve with fallback flag so callers know we didn't reach target
       if (lazyLoader._navigationResolve) {
         lazyLoader._navigationResolve({ success: false, targetId, fallback: true });
         lazyLoader._navigationResolve = null;
@@ -1231,9 +1244,8 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     lazyLoader.container.innerHTML = "";
     lazyLoader.currentlyLoadedChunks.clear();
     
-    // 🚀 Get the actual chunk_id of the target node, not array index
+    // targetChunkId already set from resolver — verify against node
     const targetNode = lazyLoader.nodes[targetChunkIndex];
-    const targetChunkId = targetNode.chunk_id;
     
     // Get all unique chunk_ids — use manifest when available (partial load)
     const allChunkIds = lazyLoader.chunkManifest
@@ -1526,44 +1538,4 @@ function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
   );
 }
 
-// Utility: find the line for a custom id in content, hypercites, and hyperlights.
-function findLineForCustomId(targetId, nodes) {
-  // Normalize for case-insensitive comparisons.
-  const normalizedTarget = targetId.toLowerCase();
-  // Create a regex to look in content for an element with the matching id.
-  const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
-
-  // Iterate over each node in nodes.
-  for (let node of nodes) {
-    // Check if the content has an element with the target id.
-    if (node.content && regex.test(node.content)) {
-      return node.startLine;
-    }
-
-    // Check in hypercites array.
-    if (Array.isArray(node.hypercites)) {
-      for (let cite of node.hypercites) {
-        if (
-          cite.hyperciteId &&
-          cite.hyperciteId.toLowerCase() === normalizedTarget
-        ) {
-          return node.startLine;
-        }
-      }
-    }
-
-    // Check in hyperlights array.
-    if (Array.isArray(node.hyperlights)) {
-      for (let light of node.hyperlights) {
-        if (
-          light.highlightID &&
-          light.highlightID.toLowerCase() === normalizedTarget
-        ) {
-          return node.startLine;
-        }
-      }
-    }
-  }
-  // Return null if no match is found.
-  return null;
-}
+// findLineForCustomId removed — logic absorbed into navigation/resolveTargetChunk.js

@@ -2,21 +2,27 @@
 
 import os from 'os';
 
+function getNetworkIp() {
+  const interfaces = os.networkInterfaces();
+  for (const interfaceKey in interfaces) {
+    for (const iface of interfaces[interfaceKey]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+// --ip-only: just print the IP for use in shell scripts
+if (process.argv.includes('--ip-only')) {
+  process.stdout.write(getNetworkIp());
+  process.exit(0);
+}
+
 const showNetwork = process.argv.includes('--network');
 
 if (showNetwork) {
-  function getNetworkIp() {
-    const interfaces = os.networkInterfaces();
-    for (const interfaceKey in interfaces) {
-      for (const iface of interfaces[interfaceKey]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
-        }
-      }
-    }
-    return 'localhost';
-  }
-
   const ip = getNetworkIp();
   console.log('\n🌐 Network Access Information:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

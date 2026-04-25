@@ -28,7 +28,8 @@ import {
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./postgreSQL.js";
-import { fetchInitialChunk } from "./initialChunkLoader.js";
+import { fetchInitialChunk, resolveBootstrapTarget } from "./initialChunkLoader.js";
+import { loadChunkForTarget } from "./navigation/chunkLoadRouter.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 import { registerBookOpen } from "./utilities/BroadcastListener.js";
 
@@ -282,8 +283,9 @@ export async function loadHyperText(bookId, progressCallback = null) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
 
-      // Clear any pending SPA navigation target — it was set for fetchInitialChunk
-      // which we're skipping (cache hit). Without this it leaks to the next navigation.
+      // Capture any pending SPA navigation target before clearing it — we need to
+      // resolve it against the cache so initializeLazyLoader renders the correct chunk.
+      const spaTarget = window._pendingChunkTarget || null;
       window._pendingChunkTarget = null;
       window._targetResolved = undefined;
 
@@ -294,29 +296,77 @@ export async function loadHyperText(bookId, progressCallback = null) {
         await saveAllNodeChunksToIndexedDB(cached, currentBook);
       }
 
+      // 1. Resolve target chunk BEFORE hydration (lightweight IDB query)
+      //    so we know which chunk to hydrate and render first
+      let resolvedTargetChunkId = null;
+      if (spaTarget) {
+        const { resolveTargetChunkId: resolve } = await import('./navigation/resolveTargetChunk.js');
+        const resolution = await resolve(currentBook, spaTarget, { nodes: cached });
+        if (resolution.resolved) {
+          resolvedTargetChunkId = resolution.chunkId;
+          verbose.content(`SPA target "${spaTarget}" resolved to chunk ${resolvedTargetChunkId}`, 'initializePage.js');
+        }
+      }
+
+      // 2. Hydrate ONLY the target chunk's nodes for fast first render
+      //    (~100 nodes instead of potentially 26856)
+      const firstChunkId = resolvedTargetChunkId !== null ? resolvedTargetChunkId : 0;
+      const targetChunkNodes = cached.filter(n => n.chunk_id === firstChunkId);
+      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+      await rebuildNodeArrays(targetChunkNodes);
+
+      // Set window.nodes (full set needed for lazy loader's chunk lookup)
       window.nodes = cached;
       window.chunkManifest = null; // Clear stale manifest — full dataset from cache, no manifest needed
 
-      // Hydrate nodes with highlights/hypercites from standalone stores
-      // Editor saves may have cleared embedded arrays — rebuild from source of truth
-      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
-      await rebuildNodeArrays(cached);
-
-      // Clear stale dirty flag — we just hydrated from source of truth
-      const { clearCacheDirtyFlag } = await import('./utilities/cacheState.js');
-      clearCacheDirtyFlag();
-
-      // Build footnote numbering map for dynamic renumbering
-      buildFootnoteMap(currentBook, cached);
-
-      // Add small delays to make progress visible
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 3. Skip artificial delay for SPA transitions — progress overlay already showing
+      if (!progressCallback) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       updatePageLoadProgress(90, "Initializing interface...");
-      await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+      await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID, resolvedTargetChunkId);
 
       // Signal that content is loaded — without this, anything awaiting
       // pendingFirstChunkLoadedPromise (e.g. handleHashNavigation) hangs forever
       resolveFirstChunkPromise();
+
+      // 4. Dim edit button while background hydration is pending — edit mode
+      //    needs the full hydrated dataset to work correctly
+      const editBtn = document.getElementById('editButton');
+      const needsBackgroundHydration = targetChunkNodes.length < cached.length;
+      if (editBtn && needsBackgroundHydration) {
+        editBtn.style.opacity = '0.3';
+        editBtn.style.pointerEvents = 'none';
+      }
+
+      // 5. Background: hydrate remaining nodes + build footnote map + clear dirty flag
+      const completeBackgroundHydration = async () => {
+        try {
+          const remaining = cached.filter(n => n.chunk_id !== firstChunkId);
+          if (remaining.length > 0) {
+            await rebuildNodeArrays(remaining);
+          }
+          // Build footnote numbering map (needs all nodes with footnotes extracted)
+          buildFootnoteMap(currentBook, cached);
+          // Clear stale dirty flag — we just hydrated from source of truth
+          const { clearCacheDirtyFlag } = await import('./utilities/cacheState.js');
+          clearCacheDirtyFlag();
+        } catch (err) {
+          console.error('Background hydration failed:', err);
+        } finally {
+          // Re-enable edit button now that all nodes are hydrated
+          if (editBtn) {
+            editBtn.style.opacity = '';
+            editBtn.style.pointerEvents = '';
+          }
+        }
+      };
+
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => completeBackgroundHydration(), { timeout: 2000 });
+      } else {
+        setTimeout(() => completeBackgroundHydration(), 50);
+      }
 
       // Note: Interactive features initialization handled by viewManager.js
 
@@ -329,8 +379,12 @@ export async function loadHyperText(bookId, progressCallback = null) {
     }
 
     // 2. Try chunked initial load (fast: fetches only one chunk first)
+    //    Routes between local IndexedDB cache and server based on freshness
     updatePageLoadProgress(20, "Connecting to database...");
-    const initialResult = await fetchInitialChunk(currentBook);
+    const { target: bootstrapTarget, fallbackTarget: bootstrapFallback } = resolveBootstrapTarget();
+    const initialResult = await loadChunkForTarget(currentBook, bootstrapTarget, {
+      fallbackTarget: bootstrapFallback,
+    });
     if (initialResult?.success) {
       updatePageLoadProgress(50, "Loading initial content...");
       verbose.content(
@@ -348,7 +402,10 @@ export async function loadHyperText(bookId, progressCallback = null) {
       if (!initialResult.targetResolved && window.location.hash) {
         history.replaceState(null, '', window.location.pathname);
         import('./utilities/toast.js').then(({ showTargetNotFoundToast }) => {
-          showTargetNotFoundToast();
+          showTargetNotFoundToast({
+            target: bootstrapTarget,
+            fallbackUsed: initialResult.targetFallbackUsed,
+          });
         });
       }
 
@@ -582,10 +639,11 @@ export async function initializeLazyLoaderForContainer(bookId) {
 
 
 // Your existing helper function - updated to handle both hyperlights and footnotes
-async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null) {
+async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = null, initialChunkId = null) {
   if (!currentLazyLoader) {
     // Determine which ID to navigate to (hyperlight or footnote)
     const targetId = openHyperlightID || openFootnoteID;
+    const hasNavigationTarget = !!targetId || initialChunkId !== null;
 
     currentLazyLoader = createLazyLoader({
       nodes: window.nodes,
@@ -602,12 +660,16 @@ async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = n
     // with no target navigation, so the DOM has content before editButton resolves
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
                               document.querySelector('.user-content-wrapper');
-    if (isHomepageContext || !targetId) {
+    if (isHomepageContext || !hasNavigationTarget) {
       const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
       if (firstChunk && currentLazyLoader) {
         verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (eager load)`, 'initializePage.js');
         await currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
+    } else if (initialChunkId !== null && !targetId) {
+      // SPA target resolved to a specific chunk — load it directly instead of chunk 0
+      verbose.content(`Loading SPA-resolved chunk #${initialChunkId} (target chunk)`, 'initializePage.js');
+      await currentLazyLoader.loadChunk(initialChunkId, "down");
     }
 
     // Navigate to hyperlight or footnote if specified in URL
@@ -1064,26 +1126,51 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
     // Check if book content changed (nodes)
     if (serverTimestamp > localTimestamp) {
       console.log(
-        `🔥 Book content changed for ${bookId}. Full sync...`
+        `🔥 Book content changed for ${bookId}. Surgical refresh for current target...`
       );
-      await syncBookDataFromDatabase(bookId, true); // Download new data (includes annotations)
-      notifyContentUpdated();
 
-      // Tell the already-rendered page to refresh itself with the new data.
-      console.log(
-        `🔄 Triggering lazyLoader.refresh() to display updated content.`
-      );
-      // 🎯 Pass captured navigation target directly to refresh() - this is the most reliable
-      // way to preserve the target, since it was captured at the start of this async check
-      if (capturedNavigationTarget) {
-        console.log(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`);
+      // Fetch fresh chunk for the current navigation target (stores all annotations
+      // + target chunk to IndexedDB via put semantics — no wipe needed)
+      const freshResult = await fetchInitialChunk(bookId);
+
+      if (freshResult?.success) {
+        // Update lazyLoader with fresh data for the target chunk
+        lazyLoader.nodes = freshResult.nodes;
+        window.nodes = freshResult.nodes;
+        if (freshResult.chunkManifest) {
+          window.chunkManifest = freshResult.chunkManifest;
+          lazyLoader.chunkManifest = freshResult.chunkManifest;
+        }
+
+        notifyContentUpdated();
+
+        if (capturedNavigationTarget) {
+          console.log(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`);
+        }
+
+        // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
+        NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
+        await lazyLoader.refresh(capturedNavigationTarget);
+        // 🚦 Signal CONTENT_REFRESH complete
+        NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
+
+        // Kick off background backfill of remaining chunks (non-blocking)
+        import('./backgroundDownloader.js').then(({ backgroundDownloadRemainingChunks }) => {
+          backgroundDownloadRemainingChunks(bookId, lazyLoader);
+        }).catch(err => {
+          console.warn('Background download module not available:', err);
+        });
+      } else {
+        // Fall back to full sync if initial chunk fetch failed
+        console.log(`⚠️ Surgical refresh failed, falling back to full sync for ${bookId}`);
+        await syncBookDataFromDatabase(bookId, true);
+        notifyContentUpdated();
+
+        NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
+        await lazyLoader.refresh(capturedNavigationTarget);
+        NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
       }
-      // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
-      NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
-      await lazyLoader.refresh(capturedNavigationTarget);
-      // 🚦 Signal CONTENT_REFRESH complete
-      NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
-      return; // Full sync includes annotations, no need to check further
+      return; // Refresh includes annotations, no need to check further
     }
 
     // Check if only annotations changed (highlights/hypercites)

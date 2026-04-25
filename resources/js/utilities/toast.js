@@ -6,7 +6,10 @@
 
 const TOAST_ID = 'target-not-found-toast';
 
-export function showTargetNotFoundToast() {
+/**
+ * @param {{ target?: string, fallbackUsed?: string|null }} [context]
+ */
+export function showTargetNotFoundToast(context = {}) {
   // Prevent duplicates
   const existing = document.getElementById(TOAST_ID);
   if (existing) existing.remove();
@@ -30,7 +33,7 @@ export function showTargetNotFoundToast() {
     transition: 'opacity 0.25s ease',
   });
 
-  toast.textContent = 'Citation not found';
+  toast.textContent = getToastMessage(context);
   document.body.appendChild(toast);
 
   // Fade in
@@ -41,4 +44,22 @@ export function showTargetNotFoundToast() {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 250);
   }, 4000);
+}
+
+function getToastMessage({ target, fallbackUsed } = {}) {
+  if (fallbackUsed === 'saved_position') {
+    return target
+      ? `Couldn't find '${truncate(target, 30)}' — showing your last reading position`
+      : 'Showing your last reading position';
+  }
+  if (fallbackUsed === 'lowest_chunk') {
+    return target
+      ? `Couldn't find '${truncate(target, 30)}' — showing start of book`
+      : 'Showing start of book';
+  }
+  return 'Citation not found';
+}
+
+function truncate(str, maxLen) {
+  return str.length > maxLen ? str.slice(0, maxLen) + '...' : str;
 }

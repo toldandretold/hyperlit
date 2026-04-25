@@ -55,6 +55,8 @@ export async function fetchInitialChunk(bookId) {
             chunkManifest: data.chunk_manifest || [],
             targetChunkId: data.target_chunk_id,
             targetResolved: data.target_resolved !== false, // default true for backward compat
+            targetReason: data.target_reason || null,
+            targetFallbackUsed: data.target_fallback_used || null,
             bookmark: data.bookmark,
             library: data.library,
             footnotes: data.footnotes,
@@ -148,6 +150,44 @@ function buildInitialChunkParams() {
     // Priority 4: Resume from saved position
     params.set('resume', 'true');
     return params;
+}
+
+/**
+ * Determine the bootstrap navigation target from URL hash / SPA globals / path params.
+ * Returns { target, fallbackTarget } instead of URLSearchParams.
+ * Does NOT consume the SPA globals — buildInitialChunkParams (used by the server path) does that.
+ */
+export function resolveBootstrapTarget() {
+    // Priority 0: SPA navigation target
+    const spaTarget = window._pendingChunkTarget;
+    const spaFallback = window._pendingChunkFallbackTarget;
+    if (spaTarget) {
+        return { target: spaTarget, fallbackTarget: spaFallback || null };
+    }
+
+    // Priority 1: URL hash target
+    const hash = window.location.hash?.substring(1);
+    if (hash) {
+        let fallbackTarget = null;
+        if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || /(^|_)Fn\d/.test(hash)) {
+            if (OpenHyperlightID) fallbackTarget = OpenHyperlightID;
+            else if (OpenFootnoteID) fallbackTarget = OpenFootnoteID;
+        }
+        return { target: hash, fallbackTarget };
+    }
+
+    // Priority 2: OpenHyperlightID from URL path
+    if (OpenHyperlightID) {
+        return { target: OpenHyperlightID, fallbackTarget: null };
+    }
+
+    // Priority 3: OpenFootnoteID from URL path
+    if (OpenFootnoteID) {
+        return { target: OpenFootnoteID, fallbackTarget: null };
+    }
+
+    // Priority 4: No explicit target — resolver will handle resume/default
+    return { target: null, fallbackTarget: null };
 }
 
 /**

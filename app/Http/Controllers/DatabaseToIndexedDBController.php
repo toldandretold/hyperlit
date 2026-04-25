@@ -948,6 +948,8 @@ class DatabaseToIndexedDBController extends Controller
             $resolveResult = $this->resolveTargetChunkId($request, $bookId);
             $targetChunkId = $resolveResult['chunk_id'];
             $targetResolved = $resolveResult['resolved'];
+            $targetReason = $resolveResult['reason'];
+            $targetFallbackUsed = $resolveResult['fallbackUsed'];
 
             // Build chunk manifest
             $chunkManifest = DB::table('nodes')
@@ -1022,6 +1024,8 @@ class DatabaseToIndexedDBController extends Controller
                 'chunk_manifest' => $chunkManifest,
                 'target_chunk_id' => $targetChunkId,
                 'target_resolved' => $targetResolved,
+                'target_reason' => $targetReason,
+                'target_fallback_used' => $targetFallbackUsed,
                 'footnotes' => $footnotes,
                 'library' => $library,
                 'hyperlights' => $hyperlights,
@@ -1157,8 +1161,18 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Resolve which chunk_id to load first, based on request params.
-     * Returns ['chunk_id' => int, 'resolved' => bool].
-     * resolved=false means a target param was provided but couldn't be found.
+     * Returns ['chunk_id' => int, 'resolved' => bool, 'reason' => string, 'fallbackUsed' => string|null].
+     *
+     * Unified branch order (mirrored on the client):
+     *   1. chunk_id=N → direct
+     *   2. hypercite_ → hypercites table
+     *   3. HL_ → hyperlights table
+     *   4. Fn (footnote pattern) → nodes.footnotes
+     *   5. Numeric → nodes.startLine
+     *   6. Anything else → content scan (id="<target>")
+     *   7. fallback_target → retry 2-6
+     *   8. Saved scroll position (bookmark)
+     *   9. Lowest existing chunk_id
      */
     private function resolveTargetChunkId(Request $request, string $bookId): array
     {
@@ -1167,115 +1181,64 @@ class DatabaseToIndexedDBController extends Controller
         $resume = $request->query('resume');
         $chunkId = $request->query('chunk_id');
 
-        // Direct chunk_id param (for on-demand fetch)
+        // Step 1: Direct chunk_id param (for on-demand fetch)
         if ($chunkId !== null) {
-            return ['chunk_id' => (int) $chunkId, 'resolved' => true];
+            return ['chunk_id' => (int) $chunkId, 'resolved' => true, 'reason' => 'direct', 'fallbackUsed' => null];
         }
 
-        // Hypercite target → look up node → get chunk_id
-        if ($target && str_starts_with($target, 'hypercite_')) {
-            $hyperciteId = $target;
-            $hypercite = DB::table('hypercites')
-                ->where('book', $bookId)
-                ->where('hyperciteId', $hyperciteId)
-                ->first();
-
-            if ($hypercite) {
-                $nodeIds = json_decode($hypercite->node_id ?? '[]', true);
-                if (!empty($nodeIds)) {
-                    $node = DB::table('nodes')
-                        ->where('book', $bookId)
-                        ->where('node_id', $nodeIds[0])
-                        ->first();
-                    if ($node) {
-                        return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
-                    }
-                }
-            }
+        // Merge element_id into target for unified branch handling
+        // (element_id is the legacy param for numeric startLine targets)
+        if (!$target && $elementId) {
+            $target = $elementId;
         }
 
-        // Hyperlight target → look up node → get chunk_id
-        if ($target && str_starts_with($target, 'HL_')) {
-            $hyperlight = DB::table('hyperlights')
-                ->where('book', $bookId)
-                ->where('hyperlight_id', $target)
-                ->first();
-
-            if ($hyperlight) {
-                $nodeIds = json_decode($hyperlight->node_id ?? '[]', true);
-                if (!empty($nodeIds)) {
-                    $node = DB::table('nodes')
-                        ->where('book', $bookId)
-                        ->where('node_id', $nodeIds[0])
-                        ->first();
-                    if ($node) {
-                        return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
-                    }
-                }
-            }
-        }
-
-        // Footnote target → search nodes.footnotes JSON array for the ID
-        // Footnote IDs can be "Fn1234_abc" or "bookId_Fn1234_abc"
-        if ($target && (str_starts_with($target, 'Fn') || str_contains($target, '_Fn'))) {
-            $node = DB::table('nodes')
-                ->where('book', $bookId)
-                ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
-                ->first();
-            if ($node) {
-                return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
-            }
-        }
-
-        // If a target was provided but none of the above resolved it,
-        // try the fallback_target (e.g. hyperlight/footnote when hypercite not found)
-        // so the correct chunk still gets loaded for navigation to the parent item
+        // Steps 2-6: Try resolving the primary target
         if ($target) {
+            $result = $this->resolveTargetToChunkIdWithReason($bookId, $target);
+            if ($result !== null) {
+                return ['chunk_id' => $result['chunk_id'], 'resolved' => true, 'reason' => $result['reason'], 'fallbackUsed' => null];
+            }
+
+            // Step 7: Fallback target → retry steps 2-6
             $fallbackTarget = $request->query('fallback_target');
             if ($fallbackTarget) {
-                $fallbackChunkId = $this->resolveTargetToChunkId($bookId, $fallbackTarget);
-                if ($fallbackChunkId !== null) {
-                    return ['chunk_id' => $fallbackChunkId, 'resolved' => false];
+                $fallbackResult = $this->resolveTargetToChunkIdWithReason($bookId, $fallbackTarget);
+                if ($fallbackResult !== null) {
+                    return ['chunk_id' => $fallbackResult['chunk_id'], 'resolved' => false, 'reason' => 'fallback_target', 'fallbackUsed' => $fallbackResult['reason']];
                 }
             }
 
-            // Last resort: bookmark, then chunk 0
+            // Step 8: Saved scroll position
             $bookmark = $this->getBookmarkData($request, $bookId);
             if ($bookmark) {
-                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => false];
+                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => false, 'reason' => 'saved_position', 'fallbackUsed' => 'saved_position'];
             }
-            return ['chunk_id' => 0, 'resolved' => false];
+
+            // Step 9: Lowest existing chunk_id
+            return ['chunk_id' => $this->getLowestChunkId($bookId), 'resolved' => false, 'reason' => 'lowest_chunk', 'fallbackUsed' => 'lowest_chunk'];
         }
 
-        // Element ID (startLine) → find chunk
-        if ($elementId) {
-            $node = DB::table('nodes')
-                ->where('book', $bookId)
-                ->where('startLine', $elementId)
-                ->first();
-            if ($node) {
-                return ['chunk_id' => (int) $node->chunk_id, 'resolved' => true];
-            }
-        }
-
-        // Resume → read from user_reading_positions
+        // No target provided — check resume
         if ($resume === 'true') {
             $bookmark = $this->getBookmarkData($request, $bookId);
             if ($bookmark) {
-                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => true];
+                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => true, 'reason' => 'saved_position', 'fallbackUsed' => null];
             }
         }
 
-        // Default: chunk 0
-        return ['chunk_id' => 0, 'resolved' => true];
+        // Default: lowest chunk
+        return ['chunk_id' => $this->getLowestChunkId($bookId), 'resolved' => true, 'reason' => 'lowest_chunk', 'fallbackUsed' => null];
     }
 
     /**
-     * Try to resolve a single target identifier (HL_, hypercite_, Fn) to a chunk_id.
-     * Returns the chunk_id or null if the target doesn't exist.
+     * Try to resolve a single target identifier to a chunk_id.
+     * Returns ['chunk_id' => int, 'reason' => string] or null.
+     *
+     * Covers: hypercite_, HL_, footnote, numeric startLine, content scan.
      */
-    private function resolveTargetToChunkId(string $bookId, string $target): ?int
+    private function resolveTargetToChunkIdWithReason(string $bookId, string $target): ?array
     {
+        // Step 2: Hypercite
         if (str_starts_with($target, 'hypercite_')) {
             $hypercite = DB::table('hypercites')
                 ->where('book', $bookId)
@@ -1285,11 +1248,14 @@ class DatabaseToIndexedDBController extends Controller
                 $nodeIds = json_decode($hypercite->node_id ?? '[]', true);
                 if (!empty($nodeIds)) {
                     $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
-                    if ($node) return (int) $node->chunk_id;
+                    if ($node) {
+                        return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'hypercite'];
+                    }
                 }
             }
         }
 
+        // Step 3: Hyperlight
         if (str_starts_with($target, 'HL_')) {
             $hyperlight = DB::table('hyperlights')
                 ->where('book', $bookId)
@@ -1299,20 +1265,59 @@ class DatabaseToIndexedDBController extends Controller
                 $nodeIds = json_decode($hyperlight->node_id ?? '[]', true);
                 if (!empty($nodeIds)) {
                     $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
-                    if ($node) return (int) $node->chunk_id;
+                    if ($node) {
+                        return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'hyperlight'];
+                    }
                 }
             }
         }
 
-        if (str_starts_with($target, 'Fn') || str_contains($target, '_Fn')) {
+        // Step 4: Footnote (tightened regex: must match Fn followed by a digit)
+        if (preg_match('/(^|_)Fn\d/', $target)) {
             $node = DB::table('nodes')
                 ->where('book', $bookId)
                 ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
                 ->first();
-            if ($node) return (int) $node->chunk_id;
+            if ($node) {
+                return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'footnote'];
+            }
+        }
+
+        // Step 5: Numeric startLine
+        if (preg_match('/^\d+(\.\d+)?$/', $target)) {
+            $node = DB::table('nodes')
+                ->where('book', $bookId)
+                ->where('startLine', (float) $target)
+                ->first();
+            if ($node) {
+                return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'startLine'];
+            }
+        }
+
+        // Step 6: Content scan — find element with id="<target>" in node content
+        // Rare fallback path, O(n) on server
+        $likePattern = '%id="' . str_replace(['%', '_'], ['\\%', '\\_'], $target) . '"%';
+        $node = DB::table('nodes')
+            ->where('book', $bookId)
+            ->where('content', 'LIKE', $likePattern)
+            ->first();
+        if ($node) {
+            return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'content_scan'];
         }
 
         return null;
+    }
+
+    /**
+     * Get the lowest chunk_id for a book.
+     * Falls back to 0 if no chunks exist.
+     */
+    private function getLowestChunkId(string $bookId): int
+    {
+        $minChunk = DB::table('nodes')
+            ->where('book', $bookId)
+            ->min('chunk_id');
+        return $minChunk !== null ? (int) $minChunk : 0;
     }
 
     /**

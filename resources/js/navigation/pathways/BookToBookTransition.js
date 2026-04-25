@@ -146,7 +146,7 @@ export class BookToBookTransition {
 
         // When hash navigation is pending, skip loading chunk 0 —
         // handleHashNavigation will load the correct chunk directly via
-        // findLineForCustomId → loadChunk. Loading chunk 0 first is wasted
+        // resolveTargetChunkId → loadChunk. Loading chunk 0 first is wasted
         // work since _navigateToInternalId clears the container anyway.
         // Exception: multi-level cascades need at least one chunk in the DOM
         // because the chain system uses waitForElement(), not _navigateToInternalId.
