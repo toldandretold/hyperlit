@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "classification": "none",
+  "confidence": 1.0,
+  "signals": {
+    "total_pages": 23,
+    "pages_with_refs": 0,
+    "pages_with_defs": 1,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.0435,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 0,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 0
+  },
+  "page_summary": [
+    {
+      "index": 9,
+      "refs": [],
+      "defs": [
+        4
+      ],
+      "trailing_number": null
+    }
+  ]
+}

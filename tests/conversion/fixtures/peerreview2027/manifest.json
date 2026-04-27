@@ -1,0 +1,14 @@
+{
+    "name": "peerreview2027",
+    "description": "Bracket [Author, Year] citations, no footnotes, 40 refs, garbled OCR prefixes",
+    "book_id": "peerreview2027",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "expected": {
+        "references_count": 40,
+        "citations_linked": 45,
+        "citations_total": 48,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}
