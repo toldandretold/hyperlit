@@ -14,11 +14,8 @@ import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 
-/** Map of subBookId -> { loader, containerDiv } for all currently-active sub-books. */
-export const subBookLoaders = new Map();
-
-/** Sub-books fully synced from the DB this session — skip re-fetch on repeated opens. */
-const enrichedSubBooks = new Set();
+import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
+export { subBookLoaders };
 
 /**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
@@ -448,7 +445,11 @@ export async function loadSubBook(
   const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
 
   // Clean up any prior instance
-  destroySubBook(subBookId);
+  try {
+    destroySubBook(subBookId);
+  } catch (e) {
+    console.warn(`⚠️ destroySubBook failed for "${subBookId}":`, e.message);
+  }
 
   // 1. Fetch nodes: previewNodes → IndexedDB → create locally and write to IndexedDB
   // NOTE: We always use previewNodes for initial load to ensure lazy loading works correctly.

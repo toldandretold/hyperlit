@@ -11,6 +11,7 @@ import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
 import { getEditToolbar } from '../../editToolbar/index.js';
 import { getTextOffsetInElement, setCursorAtTextOffset } from '../../editToolbar/toolbarDOMUtils.js';
+import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements.js';
 
 const SMALL_NODE_LIMIT = 10;
 
@@ -49,9 +50,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     currentElement = currentElement.parentElement;
   }
 
-  let currentBlock = currentElement.closest(
-    "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
-  );
+  let currentBlock = currentElement.closest(BLOCK_ELEMENT_SELECTOR);
 
   if (
     !currentBlock ||
@@ -122,7 +121,7 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   if (finalHtmlToInsert) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(finalHtmlToInsert, 'text/html');
-    hasBlockElements = doc.body.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table') !== null;
+    hasBlockElements = doc.body.querySelector(BLOCK_ELEMENT_SELECTOR) !== null;
   }
 
   // --- 4. SEAL UNDO GROUP + CAPTURE CURSOR (before any cursor moves) ---
@@ -284,7 +283,7 @@ function _blockPaste(currentBlock, html, book, undoManager, cursorBefore) {
     if (blockNodes.length === 0 &&
         (child.nodeType === Node.TEXT_NODE ||
          (child.nodeType === Node.ELEMENT_NODE &&
-          !child.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table')))) {
+          !child.matches(BLOCK_ELEMENT_SELECTOR)))) {
       leadingInlines.push(child);
     } else {
       blockNodes.push(child);
@@ -328,7 +327,7 @@ function _blockPaste(currentBlock, html, book, undoManager, cursorBefore) {
   for (const blockNode of blockNodes) {
     let elementToInsert;
     if (blockNode.nodeType === Node.ELEMENT_NODE &&
-        blockNode.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre, table')) {
+        blockNode.matches(BLOCK_ELEMENT_SELECTOR)) {
       elementToInsert = blockNode;
     } else {
       // Skip whitespace-only text nodes
@@ -376,7 +375,7 @@ function _blockPaste(currentBlock, html, book, undoManager, cursorBefore) {
 
   let lastKnownId = currentBlock.id;
   for (const element of insertedElements) {
-    if (element.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote')) {
+    if (element.matches(BLOCK_ELEMENT_SELECTOR)) {
       setElementIds(element, lastKnownId, nextStableId, book);
       console.log(`Assigned ID ${element.id} to pasted block element`);
       queueNodeForSave(element.id, 'add', book);

@@ -6,6 +6,7 @@ import { book } from "../app.js";
 import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger.js';
+import { ID_SKIP_TAGS } from './blockElements.js';
 
 // 🚀 PERFORMANCE: Cache regex pattern (compiled once, used everywhere)
 export const NUMERICAL_ID_PATTERN = /^\d+(\.\d+)?$/;
@@ -734,10 +735,8 @@ export function ensureNodeHasValidId(node, options = {}) {
   const { referenceNode, insertAfter } = options;
   if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-  // 🆕 NEW: Skip elements that shouldn't have IDs
-  // LI elements are skipped because their parent OL/UL has the ID
-  const skipElements = ['BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U', 'SUP', 'SUB', 'A', 'IMG', 'LI'];
-  if (skipElements.includes(node.tagName)) {
+  // Skip elements that shouldn't have IDs (e.g. inline tags, LI whose parent OL/UL has the ID)
+  if (ID_SKIP_TAGS.has(node.tagName)) {
     console.log(`Skipping ID assignment for ${node.tagName} element`);
     return;
   }

@@ -175,20 +175,16 @@ class EditToolbar {
         // Calculate toolbar area (bottom 15% of visible viewport)
         const toolbarZoneStart = viewportHeight * 0.85;
 
-        console.log(`🔍 Global touch at y=${touchY}, viewport=${viewportHeight}, toolbarZone=${toolbarZoneStart}`);
-
         // If touch is in the toolbar zone
         if (touchY >= toolbarZoneStart) {
           const target = e.target;
 
           // Allow touches on buttons and inputs
           if (target.closest('button') || target.closest('input') || target.closest('textarea')) {
-            console.log('✅ Allowing touch on interactive element');
             return;
           }
 
           // Block everything else in the toolbar zone
-          console.log(`🛡️ BLOCKING ${e.type} in toolbar zone - preventing keyboard dismiss`);
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
@@ -205,32 +201,25 @@ class EditToolbar {
       // Also prevent touches on keyboard gap blocker
       const gapBlocker = document.getElementById('keyboard-gap-blocker');
       if (gapBlocker) {
-        console.log('🛡️ Gap blocker element found, attaching touch event listeners');
-
         gapBlocker.addEventListener('touchstart', (e) => {
-          const touch = e.touches[0];
-          console.log(`🛡️ Gap blocker TOUCHSTART at (${touch.clientX}, ${touch.clientY}) - preventing keyboard close`);
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
 
         gapBlocker.addEventListener('touchend', (e) => {
-          const touch = e.changedTouches[0];
-          console.log(`🛡️ Gap blocker TOUCHEND at (${touch.clientX}, ${touch.clientY}) - preventing keyboard close`);
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
 
         gapBlocker.addEventListener('click', (e) => {
-          console.log(`🛡️ Gap blocker CLICK at (${e.clientX}, ${e.clientY}) - preventing keyboard close`);
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
 
-        console.log('✅ Gap blocker listeners attached successfully');
+        console.log('🛡️ Gap blocker listeners attached');
       } else {
         console.warn('❌ Gap blocker element NOT found - cannot attach listeners');
       }

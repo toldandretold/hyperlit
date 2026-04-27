@@ -102,6 +102,7 @@ class CitationReviewService
 
     /**
      * Phase 1: Find nodes with citations, replace anchors with [CITE:refId] markers.
+     * Detects both inline <a href="#refId"> citations and footnote-based citations.
      */
     private function parseCitationNodes(string $bookId): array
     {
@@ -113,6 +114,9 @@ class CitationReviewService
             ->pluck('referenceId')
             ->flip()
             ->toArray();
+
+        // Pre-build footnote → refIds map for footnote-based citations
+        $footnoteMap = $this->buildFootnoteCitationMap($bookId);
 
         $nodes = $db->table('nodes')
             ->where('book', $bookId)
@@ -131,13 +135,16 @@ class CitationReviewService
                 'UTF-8'
             );
 
-            // Check for any anchor with href="#..."
-            if (!preg_match('/<a\s[^>]*href="#([^"]+)"[^>]*>/i', $content)) {
+            // Quick check: skip nodes with neither inline citations nor footnote refs
+            $hasInlineLink = preg_match('/<a\s[^>]*href="#([^"]+)"[^>]*>/i', $content);
+            $hasFootnote = !empty($footnoteMap) && preg_match('/<sup\b[^>]*\bfn-count-id="/i', $content);
+
+            if (!$hasInlineLink && !$hasFootnote) {
                 $prevContext = mb_substr($currentPlain, -500);
                 continue;
             }
 
-            // Replace citation anchors with [CITE:refId] markers — only for bibliography refIds
+            // Replace inline citation anchors with [CITE:refId] markers
             $marked = preg_replace_callback(
                 '/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is',
                 function ($m) use ($bibRefIds) {
@@ -145,6 +152,27 @@ class CitationReviewService
                 },
                 $content
             );
+
+            // Replace footnote <sup> tags with [CITE:refId] markers
+            if (!empty($footnoteMap)) {
+                $marked = preg_replace_callback(
+                    '/<sup\b[^>]*\bfn-count-id="[^"]*"[^>]*>.*?<\/sup>/is',
+                    function ($m) use ($footnoteMap) {
+                        if (preg_match('/\bid="([^"]+)"/', $m[0], $idMatch)) {
+                            $footnoteId = $idMatch[1];
+                            if (isset($footnoteMap[$footnoteId])) {
+                                return implode('', array_map(
+                                    fn($refId) => '[CITE:' . $refId . ']',
+                                    $footnoteMap[$footnoteId]
+                                ));
+                            }
+                        }
+                        return ''; // remove unmatched footnote markers
+                    },
+                    $marked
+                );
+            }
+
             $marked = strip_tags($marked);
 
             // Extract reference IDs
@@ -157,18 +185,39 @@ class CitationReviewService
             }
 
             // Compute each citation's character position in plainText
-            // by finding the <a> tag byte offset in HTML and counting
-            // plain text characters before it (like frontend calculateCleanTextOffset)
+            // First: inline <a> tags
             $citationPositions = [];
             if (preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $tagMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
                 foreach ($tagMatches as $tagMatch) {
-                    $matchedRefId = $tagMatch[1][0]; // captured href fragment
-                    $tagByteOffset = $tagMatch[0][1]; // byte offset of full match
-                    // Only track positions for bibliography-validated refIds
+                    $matchedRefId = $tagMatch[1][0];
+                    $tagByteOffset = $tagMatch[0][1];
                     if (isset($bibRefIds[$matchedRefId]) && !isset($citationPositions[$matchedRefId])) {
                         $contentBefore = substr($content, 0, $tagByteOffset);
                         $plainBefore = html_entity_decode(strip_tags($contentBefore), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                         $citationPositions[$matchedRefId] = mb_strlen($plainBefore);
+                    }
+                }
+            }
+
+            // Then: footnote <sup> tags
+            if (!empty($footnoteMap) && preg_match_all('/<sup\b[^>]*\bfn-count-id="[^"]*"[^>]*>.*?<\/sup>/is', $content, $supTagMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
+                foreach ($supTagMatches as $supMatch) {
+                    $supTag = $supMatch[0][0];
+                    $tagByteOffset = $supMatch[0][1];
+
+                    if (preg_match('/\bid="([^"]+)"/', $supTag, $idMatch)) {
+                        $footnoteId = $idMatch[1];
+                        if (isset($footnoteMap[$footnoteId])) {
+                            $contentBefore = substr($content, 0, $tagByteOffset);
+                            $plainBefore = html_entity_decode(strip_tags($contentBefore), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                            $charPos = mb_strlen($plainBefore);
+
+                            foreach ($footnoteMap[$footnoteId] as $refId) {
+                                if (!isset($citationPositions[$refId])) {
+                                    $citationPositions[$refId] = $charPos;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1676,6 +1725,192 @@ class CitationReviewService
         $union = count(array_unique(array_merge($wordsA, $wordsB)));
 
         return $union > 0 ? $intersection / $union : 0.0;
+    }
+
+    /**
+     * Pre-build a map of footnoteId → [refId, ...] for all footnotes in the book.
+     * Uses two detection methods: inline links in footnote HTML, and author+year text matching.
+     */
+    private function buildFootnoteCitationMap(string $bookId): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $footnotes = $db->table('footnotes')
+            ->where('book', $bookId)
+            ->select(['footnoteId', 'preview_nodes', 'content'])
+            ->get();
+
+        if ($footnotes->isEmpty()) {
+            return [];
+        }
+
+        // Load bibliography referenceIds for link validation
+        $bibRefIdSet = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->pluck('referenceId')
+            ->flip()
+            ->toArray();
+
+        // Load bibliography entries with llm_metadata for author+year matching
+        $bibMetadata = [];
+        $bibEntries = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->whereNotNull('llm_metadata')
+            ->select(['referenceId', 'llm_metadata'])
+            ->get();
+
+        foreach ($bibEntries as $entry) {
+            $meta = is_string($entry->llm_metadata) ? json_decode($entry->llm_metadata, true) : null;
+            if ($meta) {
+                $bibMetadata[$entry->referenceId] = $meta;
+            }
+        }
+
+        $footnoteMap = [];
+
+        foreach ($footnotes as $fn) {
+            $refIds = [];
+
+            // Extract HTML and plaintext from preview_nodes or fallback to content
+            $html = '';
+            $plaintext = '';
+
+            $previewNodes = is_string($fn->preview_nodes)
+                ? json_decode($fn->preview_nodes, true)
+                : (is_array($fn->preview_nodes) ? $fn->preview_nodes : null);
+
+            if (!empty($previewNodes) && is_array($previewNodes)) {
+                foreach ($previewNodes as $node) {
+                    $nodeContent = $node['content'] ?? '';
+                    $html .= ' ' . $nodeContent;
+                    $plaintext .= ' ' . ($node['plainText'] ?? strip_tags($nodeContent));
+                }
+            } elseif (!empty($fn->content)) {
+                $html = $fn->content;
+                $plaintext = strip_tags($fn->content);
+            }
+
+            $html = trim($html);
+            $plaintext = trim($plaintext);
+
+            if (empty($html) && empty($plaintext)) {
+                continue;
+            }
+
+            // Method 1: Scan HTML for <a href="#refId"> tags
+            if (preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $html, $linkMatches)) {
+                foreach ($linkMatches[1] as $refId) {
+                    if (isset($bibRefIdSet[$refId])) {
+                        $refIds[$refId] = true;
+                    }
+                }
+            }
+
+            // Method 2: Author+year text matching against bibliography metadata
+            if (!empty($plaintext) && !empty($bibMetadata)) {
+                $textMatches = $this->matchFootnoteTextToBibliography($plaintext, $bibMetadata);
+                foreach ($textMatches as $refId) {
+                    $refIds[$refId] = true;
+                }
+            }
+
+            if (!empty($refIds)) {
+                $footnoteMap[$fn->footnoteId] = array_keys($refIds);
+            }
+        }
+
+        return $footnoteMap;
+    }
+
+    /**
+     * Match footnote plaintext against bibliography entries using author last name + year.
+     * Returns array of matched referenceIds.
+     */
+    private function matchFootnoteTextToBibliography(string $text, array $bibMetadata): array
+    {
+        $textLower = mb_strtolower($text);
+        $matches = [];
+
+        foreach ($bibMetadata as $refId => $meta) {
+            $year = (string) ($meta['year'] ?? '');
+            $authors = $meta['authors'] ?? [];
+
+            if (empty($year) || empty($authors)) {
+                continue;
+            }
+
+            // Check if year appears in text
+            if (mb_strpos($textLower, $year) === false) {
+                continue;
+            }
+
+            // Extract last names and check if any appear in text
+            if (!is_array($authors)) {
+                $authors = [$authors];
+            }
+
+            $hasAuthorMatch = false;
+            foreach ($authors as $author) {
+                $lastName = $this->extractLastName((string) $author);
+                if ($lastName && mb_strpos($textLower, mb_strtolower($lastName)) !== false) {
+                    $hasAuthorMatch = true;
+                    break;
+                }
+            }
+
+            if ($hasAuthorMatch) {
+                $matches[$refId] = $meta;
+            }
+        }
+
+        if (count($matches) <= 1) {
+            return array_keys($matches);
+        }
+
+        // Multiple matches — score by title keyword overlap to disambiguate
+        $textWords = preg_split('/[^\p{L}\p{N}]+/u', $textLower);
+        $textWords = array_filter($textWords, fn($w) => mb_strlen($w) > 3);
+        $textWords = array_values($textWords);
+
+        $scores = [];
+        foreach ($matches as $refId => $meta) {
+            $title = mb_strtolower($meta['title'] ?? '');
+            $titleWords = preg_split('/[^\p{L}\p{N}]+/u', $title);
+            $titleWords = array_filter($titleWords, fn($w) => mb_strlen($w) > 3);
+            $scores[$refId] = count(array_intersect($titleWords, $textWords));
+        }
+
+        arsort($scores);
+        $topScore = reset($scores);
+
+        // Return all entries with the top score (handles ties)
+        if ($topScore > 0) {
+            return array_keys(array_filter($scores, fn($s) => $s === $topScore));
+        }
+
+        // No title overlap distinguishes them — return all
+        return array_keys($matches);
+    }
+
+    /**
+     * Extract last name from an author string.
+     * Handles "Surname, First" and "First Surname" formats.
+     */
+    private function extractLastName(string $author): string
+    {
+        $author = trim($author);
+        if (empty($author)) {
+            return '';
+        }
+
+        // "Surname, First" format
+        if (str_contains($author, ',')) {
+            return trim(explode(',', $author)[0]);
+        }
+
+        // "First Surname" format — take last word
+        $words = preg_split('/\s+/', $author);
+        return end($words);
     }
 
     /**

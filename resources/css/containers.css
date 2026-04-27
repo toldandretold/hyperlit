@@ -2684,3 +2684,86 @@ body[data-page="timemachine"] #main-content {
 @keyframes btn-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ========================================
+   GATE FILTER — Annotation visibility panel
+   Injected into bottom-up-container
+   ======================================== */
+
+.gate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 100%;
+  align-items: center;
+}
+
+.gate-mode-selector {
+  display: flex;
+  gap: 0.25em;
+}
+
+.gate-mode-btn {
+  padding: 0.5em 1.2em;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.4em;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.gate-mode-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.gate-mode-btn.active {
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  border-color: var(--hyperlit-aqua);
+}
+
+.gate-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  width: 100%;
+  max-width: 20em;
+  transition: opacity 0.2s ease;
+}
+
+.gate-options.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.gate-options-heading {
+  font-size: 13px;
+  color: var(--color-text);
+  opacity: 0.6;
+  margin-bottom: 0.25em;
+}
+
+.gate-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.gate-option input[type="checkbox"] {
+  accent-color: var(--hyperlit-aqua);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.gate-actions {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  padding-top: 0.25em;
+}

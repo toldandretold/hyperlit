@@ -12,6 +12,7 @@ import { reprocessHighlightsForNodes, unwrapMark, unwrapElement, isContentLink }
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { queueNodeForSave } from '../divEditor/index.js';
 import { log, verbose } from '../utilities/logger.js';
+import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
 import { withPending, setProgrammaticUpdateInProgress, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState.js';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
 import { isStackPopping } from '../hyperlitContainer/stack.js';
@@ -35,13 +36,12 @@ highlighter.addClassApplier(classApplier);
  * This function detects and fixes those cases
  */
 function fixInvalidMarks() {
-  const blockElements = ['LI', 'OL', 'UL', 'P', 'DIV', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE', 'TABLE'];
   const marks = document.querySelectorAll('mark.highlight');
 
   marks.forEach(mark => {
     // Check if mark contains block elements as direct children
     const blockChildren = Array.from(mark.childNodes).filter(child =>
-      child.nodeType === Node.ELEMENT_NODE && blockElements.includes(child.tagName)
+      child.nodeType === Node.ELEMENT_NODE && STRUCTURAL_BLOCK_TAGS.has(child.tagName)
     );
 
     if (blockChildren.length > 0) {
@@ -52,7 +52,7 @@ function fixInvalidMarks() {
 
       // Process each child of the invalid mark
       Array.from(mark.childNodes).forEach(child => {
-        if (child.nodeType === Node.ELEMENT_NODE && blockElements.includes(child.tagName)) {
+        if (child.nodeType === Node.ELEMENT_NODE && STRUCTURAL_BLOCK_TAGS.has(child.tagName)) {
           // This is a block element - move it out of the mark
           // and wrap its text content in new marks
 
@@ -116,12 +116,10 @@ function wrapTextInElement(element, tagName, classes) {
  * Clean up empty elements created by Rangy's extractContents
  */
 function cleanupEmptyElements() {
-  const blockElements = ['LI', 'P', 'DIV', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
-
   const editableRoot = document.querySelector('.main-content');
   if (!editableRoot) return;
 
-  blockElements.forEach(tag => {
+  STRUCTURAL_BLOCK_TAGS.forEach(tag => {
     editableRoot.querySelectorAll(tag).forEach(el => {
       // Check if element is effectively empty (only whitespace or empty children)
       const hasContent = el.textContent.trim().length > 0 ||

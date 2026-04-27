@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 class UserPreferencesController extends Controller
 {
     private const ALLOWED_KEYS = [
-        'theme', 'vibe_css', 'full_width',
+        'theme', 'vibe_css', 'full_width', 'gate_filter',
         'text_size', 'content_width',                    // legacy
         'text_size_mobile', 'text_size_desktop',
         'content_width_mobile', 'content_width_desktop',

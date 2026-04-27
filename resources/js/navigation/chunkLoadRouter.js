@@ -83,8 +83,10 @@ export async function isLocalCacheFresh(bookId) {
     // If either is missing, can't determine freshness — not fresh
     if (!serverRecord || !localRecord) return false;
 
-    // Fresh if local timestamp is >= server timestamp
-    return localRecord.timestamp >= serverRecord.timestamp;
+    // Fresh if local timestamp is >= server timestamp for BOTH content and annotations
+    if (localRecord.timestamp < serverRecord.timestamp) return false;
+    if (localRecord.annotationsUpdatedAt < serverRecord.annotationsUpdatedAt) return false;
+    return true;
   } catch (e) {
     console.warn('isLocalCacheFresh check failed:', e);
     // On error, assume not fresh to be safe
@@ -107,7 +109,10 @@ async function getLibraryTimestamp(bookId) {
     if (!response.ok) return null;
     const data = await response.json();
     if (!data.success || !data.library) return null;
-    return { timestamp: data.library.timestamp || 0 };
+    return {
+      timestamp: data.library.timestamp || 0,
+      annotationsUpdatedAt: data.library.annotations_updated_at || 0,
+    };
   } catch {
     return null;
   }
@@ -126,7 +131,10 @@ async function getLocalLibraryTimestamp(bookId) {
       const request = store.get(bookId);
       request.onsuccess = () => {
         const record = request.result;
-        resolve(record ? { timestamp: record.timestamp || 0 } : null);
+        resolve(record ? {
+          timestamp: record.timestamp || 0,
+          annotationsUpdatedAt: record.annotations_updated_at || 0,
+        } : null);
       };
       request.onerror = () => resolve(null);
     });

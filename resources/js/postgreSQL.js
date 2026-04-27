@@ -423,7 +423,9 @@ export async function syncBookDataFromDatabase(bookId) {
     // 1. Fetch data from Laravel API
     verbose.content('Making API request', 'postgreSQL.js');
 
-    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`);
+    // Include gate filter as query param so server-side annotation filtering matches client
+    const { appendGateParam } = await import('./components/gateFilter.js');
+    const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/data`));
 
     verbose.content(`API response received: ${response.status}`, 'postgreSQL.js');
 
@@ -543,7 +545,10 @@ export async function syncAnnotationsOnly(bookId) {
 
   try {
     // 1. Fetch only annotations (not the full book with all nodes)
-    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/annotations`);
+    // Include gate filter as query param so server applies it immediately
+    // (avoids race with async preference save, works for anonymous users)
+    const { appendGateParam } = await import('./components/gateFilter.js');
+    const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/annotations`));
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);

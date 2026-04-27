@@ -276,6 +276,9 @@ class ImportController extends Controller
                     count($auditData['duplicates'] ?? []) > 0
                 );
 
+                $statsPath = "{$path}/conversion_stats.json";
+                $conversionStats = File::exists($statsPath) ? json_decode(File::get($statsPath), true) : null;
+
                 return response()->json([
                     'success' => true,
                     'bookId' => $bookId,
@@ -283,6 +286,7 @@ class ImportController extends Controller
                     'processing_time_ms' => $totalProcessingTime,
                     'footnoteAudit' => $auditData,
                     'hasFootnoteIssues' => $hasIssues,
+                    'conversionStats' => $conversionStats,
                 ]);
             }
 

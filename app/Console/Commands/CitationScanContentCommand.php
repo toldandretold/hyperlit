@@ -88,6 +88,9 @@ class CitationScanContentCommand extends Command
         // O(1) lookup set for bibliography referenceIds
         $bibRefIdSet = array_flip(array_keys($bibPlainTexts));
 
+        // Pre-build footnote → refIds map for footnote-based citations
+        $footnoteMap = $this->buildFootnoteCitationMap($db, $bookId, $bibRefIdSet);
+
         $citations = [];
 
         foreach ($nodes as $node) {
@@ -98,93 +101,119 @@ class CitationScanContentCommand extends Command
                 continue;
             }
 
-            // Match any <a href="#refId"> — we validate refId against bibliography below
-            if (!preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $matches)) {
-                continue;
-            }
+            // --- Inline <a href="#refId"> citations ---
+            $inlineRefIds = [];
+            $hasInlineLinks = preg_match_all(
+                '/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is',
+                $content,
+                $matches
+            );
 
-            // Filter to only refIds that exist in bibliography
-            $validIndices = [];
-            foreach ($matches[1] as $i => $refId) {
-                if (isset($bibRefIdSet[$refId])) {
-                    $validIndices[] = $i;
-                }
-            }
-            if (empty($validIndices)) {
-                continue;
-            }
-
-            // Self-heal: add missing class="in-text-citation" to citation links
-            $healed = false;
-            foreach ($validIndices as $i) {
-                $fullTag = $matches[0][$i];
-                if (!str_contains($fullTag, 'in-text-citation')) {
-                    $refId = $matches[1][$i];
-                    $fixedTag = preg_replace(
-                        '/<a\s([^>]*href="#' . preg_quote($refId, '/') . '")/i',
-                        '<a class="in-text-citation" $1',
-                        $fullTag
-                    );
-                    $content = str_replace($fullTag, $fixedTag, $content);
-                    $healed = true;
-                }
-            }
-            if ($healed) {
-                $db->table('nodes')
-                    ->where('book', $bookId)
-                    ->where('node_id', $node->node_id)
-                    ->update(['content' => $content]);
-                Log::info('Added missing in-text-citation class to citation links', [
-                    'node_id' => $node->node_id,
-                ]);
-                // Re-match after healing so $matches reflects updated content
-                preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $matches);
+            if ($hasInlineLinks) {
                 $validIndices = [];
                 foreach ($matches[1] as $i => $refId) {
                     if (isset($bibRefIdSet[$refId])) {
                         $validIndices[] = $i;
                     }
                 }
-            }
 
-            // Check if this node IS a bibliography entry (self-reference)
-            $isBibEntry = false;
-            $validRefIds = array_map(fn($i) => $matches[1][$i], $validIndices);
-            foreach ($validRefIds as $refId) {
-                if (isset($bibPlainTexts[$refId])) {
-                    $nodeText = trim($node->plainText ?? '');
-                    $bibText = $bibPlainTexts[$refId];
-                    $prefixLen = min(60, strlen($bibText));
-                    if ($prefixLen >= 30 && str_starts_with($nodeText, substr($bibText, 0, $prefixLen))) {
-                        $isBibEntry = true;
-                        break;
+                if (!empty($validIndices)) {
+                    // Self-heal: add missing class="in-text-citation" to citation links
+                    $healed = false;
+                    foreach ($validIndices as $i) {
+                        $fullTag = $matches[0][$i];
+                        if (!str_contains($fullTag, 'in-text-citation')) {
+                            $refId = $matches[1][$i];
+                            $fixedTag = preg_replace(
+                                '/<a\s([^>]*href="#' . preg_quote($refId, '/') . '")/i',
+                                '<a class="in-text-citation" $1',
+                                $fullTag
+                            );
+                            $content = str_replace($fullTag, $fixedTag, $content);
+                            $healed = true;
+                        }
+                    }
+                    if ($healed) {
+                        $db->table('nodes')
+                            ->where('book', $bookId)
+                            ->where('node_id', $node->node_id)
+                            ->update(['content' => $content]);
+                        Log::info('Added missing in-text-citation class to citation links', [
+                            'node_id' => $node->node_id,
+                        ]);
+                        // Re-match after healing so $matches reflects updated content
+                        preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $matches);
+                        $validIndices = [];
+                        foreach ($matches[1] as $i => $refId) {
+                            if (isset($bibRefIdSet[$refId])) {
+                                $validIndices[] = $i;
+                            }
+                        }
+                    }
+
+                    // Check if this node IS a bibliography entry (self-reference)
+                    $isBibEntry = false;
+                    $validRefIds = array_map(fn($i) => $matches[1][$i], $validIndices);
+                    $inlineRefIds = $validRefIds;
+                    foreach ($validRefIds as $refId) {
+                        if (isset($bibPlainTexts[$refId])) {
+                            $nodeText = trim($node->plainText ?? '');
+                            $bibText = $bibPlainTexts[$refId];
+                            $prefixLen = min(60, strlen($bibText));
+                            if ($prefixLen >= 30 && str_starts_with($nodeText, substr($bibText, 0, $prefixLen))) {
+                                $isBibEntry = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($isBibEntry) {
+                        // Strip all citation <a> tags that reference bibliography entries, keep inner text
+                        $cleanedContent = preg_replace_callback(
+                            '/<a\s[^>]*href="#([^"]+)"[^>]*>(.*?)<\/a>/is',
+                            function ($m) use ($bibRefIdSet) {
+                                return isset($bibRefIdSet[$m[1]]) ? $m[2] : $m[0];
+                            },
+                            $content
+                        );
+                        if ($cleanedContent !== $content) {
+                            $db->table('nodes')
+                                ->where('book', $bookId)
+                                ->where('node_id', $node->node_id)
+                                ->update(['content' => $cleanedContent]);
+                            Log::info('Stripped self-referencing citation from bibliography node', [
+                                'node_id' => $node->node_id,
+                                'refIds'  => $validRefIds,
+                            ]);
+                        }
+                        continue; // skip this node entirely
                     }
                 }
             }
 
-            if ($isBibEntry) {
-                // Strip all citation <a> tags that reference bibliography entries, keep inner text
-                $cleanedContent = preg_replace_callback(
-                    '/<a\s[^>]*href="#([^"]+)"[^>]*>(.*?)<\/a>/is',
-                    function ($m) use ($bibRefIdSet) {
-                        return isset($bibRefIdSet[$m[1]]) ? $m[2] : $m[0];
-                    },
-                    $content
-                );
-                if ($cleanedContent !== $content) {
-                    $db->table('nodes')
-                        ->where('book', $bookId)
-                        ->where('node_id', $node->node_id)
-                        ->update(['content' => $cleanedContent]);
-                    Log::info('Stripped self-referencing citation from bibliography node', [
-                        'node_id' => $node->node_id,
-                        'refIds'  => $validRefIds,
-                    ]);
+            // --- Footnote-based citations via <sup> tags ---
+            $footnoteRefIds = [];
+            if (!empty($footnoteMap)) {
+                if (preg_match_all('/<sup\b[^>]*\bfn-count-id="[^"]*"[^>]*>/i', $content, $supMatches)) {
+                    foreach ($supMatches[0] as $supTag) {
+                        if (preg_match('/\bid="([^"]+)"/', $supTag, $idMatch)) {
+                            $footnoteId = $idMatch[1];
+                            if (isset($footnoteMap[$footnoteId])) {
+                                $footnoteRefIds = array_merge($footnoteRefIds, $footnoteMap[$footnoteId]);
+                            }
+                        }
+                    }
                 }
-                continue; // skip this node entirely
             }
 
-            foreach ($validRefIds as $refId) {
+            // Combine inline and footnote citations
+            $allRefIds = array_unique(array_merge($inlineRefIds, $footnoteRefIds));
+
+            if (empty($allRefIds)) {
+                continue;
+            }
+
+            foreach ($allRefIds as $refId) {
                 if (!isset($citations[$refId])) {
                     $citations[$refId] = [
                         'occurrences' => 0,
@@ -422,6 +451,183 @@ class CitationScanContentCommand extends Command
         }
 
         return $md;
+    }
+
+    /**
+     * Pre-build a map of footnoteId → [refId, ...] for all footnotes in the book.
+     * Uses two detection methods: inline links in footnote HTML, and author+year text matching.
+     */
+    private function buildFootnoteCitationMap($db, string $bookId, array $bibRefIdSet): array
+    {
+        $footnotes = $db->table('footnotes')
+            ->where('book', $bookId)
+            ->select(['footnoteId', 'preview_nodes', 'content'])
+            ->get();
+
+        if ($footnotes->isEmpty()) {
+            return [];
+        }
+
+        // Load bibliography entries with llm_metadata for author+year matching
+        $bibMetadata = [];
+        $bibEntries = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->whereNotNull('llm_metadata')
+            ->select(['referenceId', 'llm_metadata'])
+            ->get();
+
+        foreach ($bibEntries as $entry) {
+            $meta = is_string($entry->llm_metadata) ? json_decode($entry->llm_metadata, true) : null;
+            if ($meta) {
+                $bibMetadata[$entry->referenceId] = $meta;
+            }
+        }
+
+        $footnoteMap = [];
+
+        foreach ($footnotes as $fn) {
+            $refIds = [];
+
+            // Extract HTML and plaintext from preview_nodes or fallback to content
+            $html = '';
+            $plaintext = '';
+
+            $previewNodes = is_string($fn->preview_nodes)
+                ? json_decode($fn->preview_nodes, true)
+                : (is_array($fn->preview_nodes) ? $fn->preview_nodes : null);
+
+            if (!empty($previewNodes) && is_array($previewNodes)) {
+                foreach ($previewNodes as $node) {
+                    $nodeContent = $node['content'] ?? '';
+                    $html .= ' ' . $nodeContent;
+                    $plaintext .= ' ' . ($node['plainText'] ?? strip_tags($nodeContent));
+                }
+            } elseif (!empty($fn->content)) {
+                $html = $fn->content;
+                $plaintext = strip_tags($fn->content);
+            }
+
+            $html = trim($html);
+            $plaintext = trim($plaintext);
+
+            if (empty($html) && empty($plaintext)) {
+                continue;
+            }
+
+            // Method 1: Scan HTML for <a href="#refId"> tags
+            if (preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $html, $linkMatches)) {
+                foreach ($linkMatches[1] as $refId) {
+                    if (isset($bibRefIdSet[$refId])) {
+                        $refIds[$refId] = true;
+                    }
+                }
+            }
+
+            // Method 2: Author+year text matching against bibliography metadata
+            if (!empty($plaintext) && !empty($bibMetadata)) {
+                $textMatches = $this->matchFootnoteTextToBibliography($plaintext, $bibMetadata);
+                foreach ($textMatches as $refId) {
+                    $refIds[$refId] = true;
+                }
+            }
+
+            if (!empty($refIds)) {
+                $footnoteMap[$fn->footnoteId] = array_keys($refIds);
+            }
+        }
+
+        return $footnoteMap;
+    }
+
+    /**
+     * Match footnote plaintext against bibliography entries using author last name + year.
+     * Returns array of matched referenceIds.
+     */
+    private function matchFootnoteTextToBibliography(string $text, array $bibMetadata): array
+    {
+        $textLower = mb_strtolower($text);
+        $matches = [];
+
+        foreach ($bibMetadata as $refId => $meta) {
+            $year = (string) ($meta['year'] ?? '');
+            $authors = $meta['authors'] ?? [];
+
+            if (empty($year) || empty($authors)) {
+                continue;
+            }
+
+            // Check if year appears in text
+            if (mb_strpos($textLower, $year) === false) {
+                continue;
+            }
+
+            // Extract last names and check if any appear in text
+            if (!is_array($authors)) {
+                $authors = [$authors];
+            }
+
+            $hasAuthorMatch = false;
+            foreach ($authors as $author) {
+                $lastName = $this->extractLastName((string) $author);
+                if ($lastName && mb_strpos($textLower, mb_strtolower($lastName)) !== false) {
+                    $hasAuthorMatch = true;
+                    break;
+                }
+            }
+
+            if ($hasAuthorMatch) {
+                $matches[$refId] = $meta;
+            }
+        }
+
+        if (count($matches) <= 1) {
+            return array_keys($matches);
+        }
+
+        // Multiple matches — score by title keyword overlap to disambiguate
+        $textWords = preg_split('/[^\p{L}\p{N}]+/u', $textLower);
+        $textWords = array_filter($textWords, fn($w) => mb_strlen($w) > 3);
+        $textWords = array_values($textWords);
+
+        $scores = [];
+        foreach ($matches as $refId => $meta) {
+            $title = mb_strtolower($meta['title'] ?? '');
+            $titleWords = preg_split('/[^\p{L}\p{N}]+/u', $title);
+            $titleWords = array_filter($titleWords, fn($w) => mb_strlen($w) > 3);
+            $scores[$refId] = count(array_intersect($titleWords, $textWords));
+        }
+
+        arsort($scores);
+        $topScore = reset($scores);
+
+        // Return all entries with the top score (handles ties)
+        if ($topScore > 0) {
+            return array_keys(array_filter($scores, fn($s) => $s === $topScore));
+        }
+
+        // No title overlap distinguishes them — return all
+        return array_keys($matches);
+    }
+
+    /**
+     * Extract last name from an author string.
+     * Handles "Surname, First" and "First Surname" formats.
+     */
+    private function extractLastName(string $author): string
+    {
+        $author = trim($author);
+        if (empty($author)) {
+            return '';
+        }
+
+        // "Surname, First" format
+        if (str_contains($author, ',')) {
+            return trim(explode(',', $author)[0]);
+        }
+
+        // "First Surname" format — take last word
+        $words = preg_split('/\s+/', $author);
+        return end($words);
     }
 
     private function formatEntryMd(array $r): string

@@ -21,6 +21,7 @@ import { isNumericalId, setElementIds } from "../utilities/IDfunctions.js";
 import { verbose } from '../utilities/logger.js';
 import { isPasteOperationActive } from '../paste';
 import { trackChunkNodeCount } from '../chunkManager.js';
+import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
 
 /**
  * Check if a removed node is a hypercite element and handle delinking
@@ -137,9 +138,8 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
 
       // Walk up to find a block-level element if mutationTarget is inline
       if (insertionParent && insertionParent.nodeType === Node.ELEMENT_NODE) {
-        const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE'];
-        if (!blockTags.includes(insertionParent.tagName)) {
-          insertionParent = insertionParent.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+        if (!insertionParent.matches(BLOCK_ELEMENT_SELECTOR)) {
+          insertionParent = insertionParent.closest(BLOCK_ELEMENT_SELECTOR);
         }
       }
 
@@ -240,7 +240,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
       // Priority: mutationTarget if it's a block node (partial cut → same paragraph),
       // then last block in the chunk (full node deletion → node above).
       let targetNode = null;
-      const BLOCK_SELECTOR = 'p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id]';
+      const BLOCK_SELECTOR = BLOCK_ELEMENT_SELECTOR.split(', ').map(t => `${t}[id]`).join(', ');
       const NUMERICAL_ID = /^\d+(\.\d+)?$/;
 
       // 1. mutationTarget is the surviving paragraph (partial cut case)

@@ -273,8 +273,6 @@ processViewportChange() {
     : window.innerHeight;
   const keyboardOpen = vv.height < referenceHeight * 0.9;
 
-  console.log(`🔍 VIEWPORT CHANGE: vv.height=${vv.height}px, vv.offsetTop=${vv.offsetTop}px, referenceHeight=${referenceHeight}px, threshold=${referenceHeight * 0.9}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}, focusedElement=${this.state.focusedElement?.id || 'none'}`);
-
   // Early exit if viewport shrinks but no editable element is focused
   // This prevents false keyboard detection from focus-preserver or other non-editable elements
   if (keyboardOpen && !this.state.focusedElement) {
@@ -288,7 +286,6 @@ processViewportChange() {
   const brainContainer = document.getElementById('brain-mode-container');
   const isBrainMode = brainContainer && !brainContainer.classList.contains('hidden');
   if ((isCitationMode || isBrainMode) && this.isKeyboardOpen) {
-    console.log(`🔒 Citation/Brain mode active - LOCKING toolbar position, ignoring all viewport changes`);
     return;
   }
 

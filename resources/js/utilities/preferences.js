@@ -14,6 +14,7 @@ const UNIVERSAL_KEYS = {
   theme:     'hyperlit_theme_preference',
   vibe_css:  'hyperlit_vibe_css',
   full_width:'hyperlit_full_width',
+  gate_filter: 'hyperlit_gate_filter',
 };
 
 const DEVICE_KEYS = {
@@ -64,7 +65,7 @@ export function seedFromServer() {
 
     const value = prefs[key];
 
-    if (key === 'vibe_css') {
+    if (key === 'vibe_css' || key === 'gate_filter') {
       localStorage.setItem(lsKey, JSON.stringify(value));
     } else if (key === 'full_width') {
       if (value) {
@@ -104,7 +105,7 @@ function uploadMissingPreferences(serverPrefs) {
     const localValue = localStorage.getItem(lsKey);
     if (localValue === null) continue;
 
-    if (key === 'vibe_css') {
+    if (key === 'vibe_css' || key === 'gate_filter') {
       try {
         missing[key] = JSON.parse(localValue);
       } catch {

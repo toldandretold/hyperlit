@@ -1,5 +1,6 @@
 import { openDatabase, parseNodeId } from './indexedDB/index.js';
 import { verbose } from './utilities/logger.js';
+import { appendGateParam } from './components/gateFilter.js';
 
 /**
  * Fetch a single chunk from the server by chunk_id.
@@ -66,10 +67,13 @@ export async function storeSingleChunkToIndexedDB(nodes) {
  */
 function buildChunkUrl(bookId, chunkId) {
     const slashIndex = bookId.indexOf('/');
+    let url;
     if (slashIndex !== -1) {
         const parentBook = bookId.substring(0, slashIndex);
         const subId = bookId.substring(slashIndex + 1);
-        return `/api/database-to-indexeddb/books/${parentBook}/${subId}/initial?chunk_id=${chunkId}`;
+        url = `/api/database-to-indexeddb/books/${parentBook}/${subId}/initial?chunk_id=${chunkId}`;
+    } else {
+        url = `/api/database-to-indexeddb/books/${bookId}/chunk/${chunkId}`;
     }
-    return `/api/database-to-indexeddb/books/${bookId}/chunk/${chunkId}`;
+    return appendGateParam(url);
 }

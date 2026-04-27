@@ -34,9 +34,20 @@ let _modalEl = null;
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
-export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }) {
+export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }) {
   // Always log
-  console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, trigger });
+  console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, orphanedNodes, trigger });
+
+  if (orphanedNodes.length > 0) {
+    console.warn(`[integrity] Orphaned nodes (${orphanedNodes.length}):`);
+    orphanedNodes.forEach(o => {
+      if (o.healFailed) {
+        console.warn(`  <${o.tag}> HEAL FAILED: ${o.error || 'unknown'} — "${o.textSnippet?.substring(0, 80)}"`);
+      } else {
+        console.warn(`  <${o.tag}> healed → ID ${o.assignedId} — "${o.textSnippet?.substring(0, 80)}"`);
+      }
+    });
+  }
 
   if (mismatches.length > 0) {
     console.group('[integrity] Mismatch details');
@@ -44,6 +55,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
       console.warn(`Node ${m.startLine || m.nodeId}:`, {
         domText: m.domText,
         idbText: m.idbText,
+        ...(m.diff ? { diffAtChar: m.diff.diffIndex, domSnippet: m.diff.snippetA, idbSnippet: m.diff.snippetB } : {}),
       });
     });
     console.groupEnd();
@@ -96,13 +108,21 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
     mismatches: mismatches.map(m => ({
       startLine: m.startLine || m.nodeId,
       nodeId: m.nodeId || null,
-      domText: (m.domText || '').substring(0, 500),
-      idbText: (m.idbText || '').substring(0, 500),
+      domText: m.domText || '',
+      idbText: m.idbText || '',
+      diff: m.diff || null,
     })),
     missingFromIDB: missingFromIDB.map(m =>
       typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
     ),
     duplicateIds,
+    orphanedNodes: orphanedNodes.map(o => ({
+      tag: o.tag || null,
+      textSnippet: (o.textSnippet || '').substring(0, 500),
+      assignedId: o.assignedId || null,
+      healFailed: o.healFailed || false,
+      error: o.error || null,
+    })),
     trigger,
     selfHealed,
     selfHealedNodeIds,

@@ -19,10 +19,11 @@ import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 import { TAB_ID } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
-import { verifyNodesIntegrity } from '../integrity/verifier.js';
+import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
 import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
+import { INLINE_SKIP_TAGS } from '../utilities/blockElements.js';
 
 // Re-export debounce for backwards compatibility
 export { debounce };
@@ -449,6 +450,10 @@ export class SaveQueue {
 
           const verifyStartedAt = Date.now();
           const result = await verifyNodesIntegrity(effectiveBookId, nodeIds);
+
+          // Yield to let any in-flight input events update _lastInputTimestamp
+          await new Promise(resolve => setTimeout(resolve, 50));
+
           if (this._lastInputTimestamp > verifyStartedAt || this.pendingSaves.nodes.size > 0) {
             verbose.content('[integrity] Skipping post-save results — user typed during verification', 'divEditor/saveQueue.js');
             continue;
@@ -552,14 +557,10 @@ export class SaveQueue {
           || document.getElementById(bookId);
         if (!container) return;
 
-        const INLINE_TAGS = new Set([
-          'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
-          'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
-        ]);
         const nodeEls = container.querySelectorAll('[id]');
         const nodeIds = [];
         nodeEls.forEach(el => {
-          if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_TAGS.has(el.tagName)) nodeIds.push(el.id);
+          if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) nodeIds.push(el.id);
         });
         if (nodeIds.length === 0) return;
 
@@ -567,6 +568,10 @@ export class SaveQueue {
           verbose.content(`[integrity] Full-book verification: checking ${nodeIds.length} nodes for ${bookId}`, 'divEditor/saveQueue.js');
           const verifyStartedAt = Date.now();
           const result = await verifyNodesIntegrity(bookId, nodeIds);
+
+          // Yield to let any in-flight input events update _lastInputTimestamp
+          await new Promise(resolve => setTimeout(resolve, 50));
+
           if (this._lastInputTimestamp > verifyStartedAt || this.pendingSaves.nodes.size > 0) {
             verbose.content('[integrity] Skipping full-scan results — user typed during verification', 'divEditor/saveQueue.js');
             return;
@@ -633,6 +638,49 @@ export class SaveQueue {
             });
           } else {
             verbose.content(`[integrity] Full-book verification: all ${result.ok.length} nodes OK`, 'divEditor/saveQueue.js');
+          }
+
+          // Orphan check: find block-level elements without numeric IDs
+          const orphans = findOrphanedNodes(bookId);
+          if (orphans.length > 0) {
+            console.warn(`[integrity] Full-scan orphan check: found ${orphans.length} orphaned node(s)`);
+            const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions.js');
+
+            const orphanedNodes = [];
+            for (const orphan of orphans) {
+              try {
+                const beforeId = findPreviousElementId(orphan.element);
+                const afterId = findNextElementId(orphan.element);
+                setElementIds(orphan.element, beforeId, afterId, bookId);
+                console.log(`[integrity] Assigned ID ${orphan.element.id} to orphaned <${orphan.tag}> element`);
+                this.queueNode(orphan.element.id, 'add', bookId);
+                orphanedNodes.push({
+                  tag: orphan.tag,
+                  textSnippet: orphan.textSnippet,
+                  assignedId: orphan.element.id,
+                });
+              } catch (err) {
+                console.error(`[integrity] Failed to heal orphaned <${orphan.tag}>:`, err);
+                orphanedNodes.push({
+                  tag: orphan.tag,
+                  textSnippet: orphan.textSnippet,
+                  healFailed: true,
+                  error: err.message,
+                });
+              }
+            }
+
+            await this.flush();
+
+            reportIntegrityFailure({
+              bookId,
+              mismatches: [],
+              missingFromIDB: [],
+              duplicateIds: [],
+              orphanedNodes,
+              trigger: 'periodic-save',
+              selfHealed: true,
+            });
           }
         } catch (e) {
           console.warn('[integrity] Full-book verification error:', e);

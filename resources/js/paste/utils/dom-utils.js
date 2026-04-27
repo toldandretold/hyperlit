@@ -3,19 +3,15 @@
  * Common DOM operations used across paste handlers and processors
  */
 
+import { isStructuralBlockTag, STRUCTURAL_BLOCK_TAGS } from '../../utilities/blockElements.js';
+
 /**
  * Check if an element is a block-level element
  * @param {string} tagName - Tag name to check
  * @returns {boolean} - True if block-level element
  */
 export function isBlockElement(tagName) {
-  const blockTags = [
-    'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-    'DIV', 'BLOCKQUOTE', 'UL', 'OL', 'LI',
-    'PRE', 'TABLE', 'FIGURE', 'SECTION',
-    'ARTICLE', 'HEADER', 'FOOTER'
-  ];
-  return blockTags.includes(tagName.toUpperCase());
+  return isStructuralBlockTag(tagName);
 }
 
 /**
@@ -66,12 +62,11 @@ export function unwrap(el) {
  * @param {Document} doc - Document context
  */
 export function wrapLooseNodes(container, doc = document) {
-  const blockTags = /^(P|H[1-6]|BLOCKQUOTE|UL|OL|LI|PRE|DIV|TABLE|FIGURE)$/;
   const nodesToProcess = Array.from(container.childNodes);
   let currentWrapper = null;
 
   for (const node of nodesToProcess) {
-    const isBlock = node.nodeType === Node.ELEMENT_NODE && blockTags.test(node.tagName);
+    const isBlock = node.nodeType === Node.ELEMENT_NODE && STRUCTURAL_BLOCK_TAGS.has(node.tagName);
 
     if (isBlock) {
       currentWrapper = null;

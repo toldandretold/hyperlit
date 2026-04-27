@@ -73,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/citation-pipeline/trigger', [CitationScannerController::class, 'triggerPipeline']);
     Route::get('/citation-pipeline/status/{pipelineId}', [CitationScannerController::class, 'pipelineStatus']);
     Route::get('/citation-pipeline/running/{book}', [CitationScannerController::class, 'pipelineRunning']);
+    Route::post('/citation-pipeline/resume/{pipelineId}', [CitationScannerController::class, 'resumePipeline']);
 
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
@@ -124,6 +125,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->middleware('throttle:120,1');
     Route::post('/integrity/paste-glitch', [IntegrityReportController::class, 'pasteGlitchReport'])
         ->middleware('throttle:120,1');
+    Route::post('/integrity/conversion-feedback', [IntegrityReportController::class, 'conversionFeedback'])
+        ->middleware('throttle:10,1');
     Route::post('/integrity/claim-premium', [IntegrityReportController::class, 'claimPremium'])
         ->middleware(['auth:sanctum', 'throttle:5,1']);
 

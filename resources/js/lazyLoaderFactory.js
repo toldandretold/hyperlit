@@ -11,6 +11,7 @@ import {
   getHyperciteFromIndexedDB
 } from "./indexedDB/index.js";
 import { attachUnderlineClickListeners } from "./hypercites/index.js";
+import { applyGateFilter } from "./components/gateFilter.js";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
@@ -25,6 +26,7 @@ import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
 import { renderCharts } from './utilities/chartRenderer.js';
 import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
 import { restoreScrollAnchor } from './utilities/scrollAnchor.js';
+import { STRUCTURAL_BLOCK_TAGS } from './utilities/blockElements.js';
 
 /**
  * Apply dynamic footnote numbers to rendered HTML element.
@@ -1245,6 +1247,10 @@ export function createChunkElement(nodes, instance) {
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
 
+  // Client-side gate filter — removes gated hypercites before rendering
+  hypercites = applyGateFilter(hypercites, 'hypercite');
+  if (hypercites.length === 0) return html;
+
   // Separate ghost hypercites from active ones
   const activeHypercites = hypercites.filter(h => h.relationshipStatus !== 'ghost');
   const ghostHypercites = hypercites.filter(h => h.relationshipStatus === 'ghost');
@@ -1369,6 +1375,10 @@ export function applyHighlights(html, highlights, bookId) {
   if (!highlights || highlights.length === 0) {
     return html;
   }
+
+  // Client-side gate filter — removes gated highlights before rendering
+  highlights = applyGateFilter(highlights, 'hyperlight');
+  if (highlights.length === 0) return html;
 
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
@@ -1534,24 +1544,24 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     // Check if range is within a single block element
     // extractContents() is safe within a block but can corrupt structure across blocks
     const commonAncestor = range.commonAncestorContainer;
-    const blockTags = ['P', 'DIV', 'BLOCKQUOTE', 'LI', 'UL', 'OL', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+    const blockTags = STRUCTURAL_BLOCK_TAGS;
 
     // Find the containing block element
     let containingBlock = commonAncestor;
     while (containingBlock && containingBlock.nodeType !== Node.ELEMENT_NODE) {
       containingBlock = containingBlock.parentNode;
     }
-    while (containingBlock && !blockTags.includes(containingBlock.tagName)) {
+    while (containingBlock && !blockTags.has(containingBlock.tagName)) {
       containingBlock = containingBlock.parentNode;
     }
 
     // Check if start and end are in the same block element
     let startBlock = startNode;
-    while (startBlock && !blockTags.includes(startBlock.tagName)) {
+    while (startBlock && !blockTags.has(startBlock.tagName)) {
       startBlock = startBlock.parentNode;
     }
     let endBlock = endNode;
-    while (endBlock && !blockTags.includes(endBlock.tagName)) {
+    while (endBlock && !blockTags.has(endBlock.tagName)) {
       endBlock = endBlock.parentNode;
     }
 

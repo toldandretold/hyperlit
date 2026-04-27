@@ -5,6 +5,8 @@
  * These functions have no dependencies on class state and can be used independently.
  */
 
+import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
+
 /**
  * Check if element or any of its parents has the specified tag
  * @param {Element} element - The element to check
@@ -51,14 +53,7 @@ export function isBlockElement(element) {
     return false;
   }
 
-  const blockElements = [
-    "P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6",
-    "BLOCKQUOTE", "PRE", "UL", "OL", "LI", "TABLE",
-    "TR", "TD", "TH", "SECTION", "ARTICLE", "ASIDE",
-    "HEADER", "FOOTER", "MAIN", "NAV", "FIGURE", "FIGCAPTION"
-  ];
-
-  return blockElements.includes(element.tagName);
+  return STRUCTURAL_BLOCK_TAGS.has(element.tagName);
 }
 
 /**
@@ -140,27 +135,7 @@ export function getElementsInSelectionRange(range) {
 export function findClosestBlockParent(element) {
   if (!element) return null;
 
-  const blockElements = [
-    "P",
-    "DIV",
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6",
-    "BLOCKQUOTE",
-    "PRE",
-    "UL",
-    "OL",
-    "LI",
-    "TABLE",
-    "TR",
-    "TD",
-    "TH",
-  ];
-
-  if (blockElements.includes(element.tagName)) {
+  if (STRUCTURAL_BLOCK_TAGS.has(element.tagName)) {
     // Skip chunk divs - they're containers, not content blocks that should be formatted/replaced
     if (element.tagName === "DIV" && element.classList?.contains('chunk')) {
       return element.parentNode && element.parentNode.nodeType === 1

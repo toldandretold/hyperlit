@@ -425,7 +425,9 @@ class DatabaseToIndexedDBController extends Controller
                     'charEnd' => $nodeCharData['charEnd'],
                     'relationshipStatus' => $hc['relationshipStatus'],
                     'citedIN' => $hc['citedIN'] ?? [],
-                    'time_since' => $hc['time_since'] ?? null
+                    'time_since' => $hc['time_since'] ?? null,
+                    'creator' => $hc['creator'] ?? null,
+                    'is_user_hypercite' => $hc['is_user_hypercite'] ?? false,
                 ];
             }
         }
@@ -536,6 +538,118 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Read gate filter preferences for the current user.
+     * Returns a normalised settings array with mode + custom flags.
+     */
+    private function getGatePreferences(): array
+    {
+        $defaults = [
+            'mode' => 'default',
+            'custom' => ['hideAI' => false, 'hideAnonymous' => false, 'hideNoAnnotation' => false],
+        ];
+
+        // 1. Prefer query-param gate settings (sent by client on every fetch —
+        //    avoids race with async preference save and works for anonymous users)
+        $qp = request()->input('gate');
+        if ($qp) {
+            $gate = is_string($qp) ? json_decode($qp, true) : $qp;
+            if (is_array($gate) && isset($gate['mode'])) {
+                return [
+                    'mode' => $gate['mode'],
+                    'custom' => array_merge($defaults['custom'], $gate['custom'] ?? []),
+                ];
+            }
+        }
+
+        // 2. Fall back to stored user preferences
+        $user = Auth::user();
+        if (!$user) return $defaults;
+
+        $prefs = $user->preferences ?? [];
+        $gate = $prefs['gate_filter'] ?? null;
+        if (!is_array($gate)) return $defaults;
+
+        return [
+            'mode' => $gate['mode'] ?? 'default',
+            'custom' => array_merge($defaults['custom'], $gate['custom'] ?? []),
+        ];
+    }
+
+    /**
+     * Apply gate filter WHERE clauses to an annotation query.
+     * The user's own rows always pass through (ownership bypass in every clause).
+     *
+     * @param \Illuminate\Database\Query\Builder $query
+     * @param array  $gate          Gate settings from getGatePreferences()
+     * @param string $type          'hyperlight' or 'hypercite'
+     * @param mixed  $user          Auth::user() or null
+     * @param string|null $anonToken Anonymous token cookie
+     */
+    private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken): void
+    {
+        if ($gate['mode'] === 'all') return;
+
+        // "hideAll" — exclude everything except the user's own rows
+        if ($gate['mode'] === 'hideAll') {
+            $query->where(function ($q) use ($user, $anonToken) {
+                $q->whereRaw('1 = 0'); // exclude everything...
+                if ($user) $q->orWhere('creator', $user->name);
+                if ($anonToken) $q->orWhere('creator_token', $anonToken);
+            });
+            return;
+        }
+
+        // Determine which restrictions to apply
+        $hideAI = false;
+        $hideAnonymous = false;
+        $hideNoAnnotation = false;
+
+        if ($gate['mode'] === 'default') {
+            // Default: only filter hyperlights — hide AI + empty annotation
+            if ($type === 'hypercite') return;
+            $hideAI = true;
+            $hideNoAnnotation = true;
+        } elseif ($gate['mode'] === 'custom') {
+            $hideAI = $gate['custom']['hideAI'] ?? false;
+            $hideAnonymous = $gate['custom']['hideAnonymous'] ?? false;
+            $hideNoAnnotation = $gate['custom']['hideNoAnnotation'] ?? false;
+        }
+
+        if ($hideAI) {
+            $query->where(function ($q) use ($user, $anonToken) {
+                $q->where('creator', 'NOT LIKE', 'AIreview:%');
+                $q->orWhereNull('creator');
+                if ($user) $q->orWhere('creator', $user->name);
+                if ($anonToken) $q->orWhere('creator_token', $anonToken);
+            });
+        }
+
+        if ($hideAnonymous) {
+            $query->where(function ($q) use ($user, $anonToken) {
+                $q->whereNotNull('creator');
+                if ($user) $q->orWhere('creator', $user->name);
+                if ($anonToken) $q->orWhere('creator_token', $anonToken);
+            });
+        }
+
+        if ($hideNoAnnotation && $type === 'hyperlight') {
+            $query->where(function ($q) use ($user, $anonToken) {
+                $q->where(function ($inner) {
+                    $inner->where(function ($sub) {
+                        $sub->whereNotNull('annotation')
+                            ->where('annotation', '!=', '');
+                    })->orWhere(function ($sub) {
+                        $sub->whereNotNull('preview_nodes')
+                            ->whereRaw("EXISTS (SELECT 1 FROM jsonb_array_elements(preview_nodes) AS elem WHERE regexp_replace(elem->>'content', '<[^>]*>', '', 'g') ~ '\\S')");
+                    });
+                });
+                if ($user) $q->orWhere('creator', $user->name);
+                if ($anonToken) $q->orWhere('creator_token', $anonToken);
+            });
+        }
+    }
+
+    /**
      * Get hyperlights for a book
      */
     private function getHyperlights(string $bookId): array
@@ -551,19 +665,25 @@ class DatabaseToIndexedDBController extends Controller
             'anonymous_token' => $anonymousToken ? 'present' : 'null'
         ]);
 
-        $hyperlights = DB::table('hyperlights')
+        $query = DB::table('hyperlights')
             ->where('book', $bookId)
-            ->where(function($query) use ($user, $anonymousToken) {
-                $query->where('hidden', false);
+            ->where(function($q) use ($user, $anonymousToken) {
+                $q->where('hidden', false);
 
                 if ($user) {
-                    $query->orWhere('creator', $user->name);
+                    $q->orWhere('creator', $user->name);
                 }
 
                 if ($anonymousToken) {
-                    $query->orWhere('creator_token', $anonymousToken);
+                    $q->orWhere('creator_token', $anonymousToken);
                 }
-            })
+            });
+
+        // Server-side gate filter — exclude gated highlights before download
+        $gate = $this->getGatePreferences();
+        $this->applyGateFilters($query, $gate, 'hyperlight', $user, $anonymousToken);
+
+        $hyperlights = $query
             ->orderBy('hyperlight_id')
             ->get()
             ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId) {
@@ -640,11 +760,28 @@ class DatabaseToIndexedDBController extends Controller
      */
     private function getHypercites(string $bookId): array
     {
-        $hypercites = DB::table('hypercites')
-            ->where('book', $bookId)
+        $user = Auth::user();
+        $anonymousToken = request()->cookie('anon_token');
+
+        $query = DB::table('hypercites')
+            ->where('book', $bookId);
+
+        // Server-side gate filter — only applied in custom mode (default leaves hypercites unfiltered)
+        $gate = $this->getGatePreferences();
+        $this->applyGateFilters($query, $gate, 'hypercite', $user, $anonymousToken);
+
+        $hypercites = $query
             ->orderBy('hyperciteId')
             ->get()
-            ->map(function ($hypercite) {
+            ->map(function ($hypercite) use ($user, $anonymousToken) {
+                // Determine ownership (same prioritised logic as hyperlights)
+                $isUserHypercite = false;
+                if ($hypercite->creator) {
+                    $isUserHypercite = $user && $hypercite->creator === $user->name;
+                } elseif ($hypercite->creator_token ?? null) {
+                    $isUserHypercite = $anonymousToken && $hypercite->creator_token === $anonymousToken;
+                }
+
                 return [
                     'book' => $hypercite->book,
                     'hyperciteId' => $hypercite->hyperciteId,
@@ -656,6 +793,9 @@ class DatabaseToIndexedDBController extends Controller
                     'relationshipStatus' => $hypercite->relationshipStatus,
                     'time_since' => $hypercite->time_since ?? null,
                     'raw_json' => json_decode($hypercite->raw_json ?? '{}', true),
+                    'creator' => $hypercite->creator,
+                    'is_user_hypercite' => $isUserHypercite,
+                    // creator_token intentionally omitted - security sensitive
                 ];
             })
             ->toArray();

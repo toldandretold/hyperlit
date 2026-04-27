@@ -3,6 +3,8 @@
  * Estimates node count for paste operations to determine routing
  */
 
+import { STRUCTURAL_BLOCK_TAGS } from '../../utilities/blockElements.js';
+
 /**
  * Estimate how many nodes a paste operation will create
  * Used to route between small paste (inline) and large paste (batch) handlers
@@ -27,11 +29,7 @@ export function estimatePasteNodeCount(content) {
 
     let count = 0;
 
-    const blockTags = new Set([
-      'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-      'DIV', 'PRE', 'BLOCKQUOTE', 'LI',
-      'TABLE', 'UL', 'OL', 'FIGURE', 'SECTION', 'ARTICLE'
-    ]);
+    const blockTags = STRUCTURAL_BLOCK_TAGS;
 
     // Count block-level elements
     count += tempDiv.querySelectorAll(

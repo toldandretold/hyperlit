@@ -1444,6 +1444,9 @@ export class SourceContainerManager extends ContainerManager {
       if (pipeline.status === 'completed') {
         this.stopAiReviewPolling();
         this.setAiReviewState('completed');
+
+        // Pull pipeline-created highlights into IndexedDB so they render immediately
+        this.syncPipelineHighlights(pipeline.book);
       } else if (pipeline.status === 'failed') {
         this.stopAiReviewPolling();
         // Reset button to idle state
@@ -1463,6 +1466,47 @@ export class SourceContainerManager extends ContainerManager {
       }
     } catch (err) {
       console.warn('AI review poll failed:', err);
+    }
+  }
+
+  /**
+   * After the citation pipeline completes, pull the new highlights into
+   * IndexedDB and re-render them on visible nodes so they appear immediately
+   * without requiring a page refresh.
+   */
+  async syncPipelineHighlights(bookId) {
+    try {
+      const { syncAnnotationsOnly } = await import('../postgreSQL.js');
+      const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library.js');
+
+      // Sync highlights + hypercites from server into IndexedDB
+      await syncAnnotationsOnly(bookId);
+
+      // Align the local annotations_updated_at so future freshness checks pass
+      const libResp = await fetch(
+        `/api/database-to-indexeddb/books/${encodeURIComponent(bookId)}/library`,
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
+      );
+      if (libResp.ok) {
+        const libData = await libResp.json();
+        if (libData.success && libData.library?.annotations_updated_at) {
+          await updateLocalAnnotationsTimestamp(bookId, libData.library.annotations_updated_at);
+        }
+      }
+
+      // Re-render highlights on currently visible nodes
+      const visibleNodeIds = Array.from(
+        document.querySelectorAll('[id]:not([data-chunk-id]):not(.sentinel)')
+      ).filter(el => /^\d+$/.test(el.id)).map(el => el.id);
+
+      if (visibleNodeIds.length > 0) {
+        const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion.js');
+        await reprocessHighlightsForNodes(bookId, visibleNodeIds);
+      }
+
+      console.log(`[Pipeline] Synced ${bookId} highlights after pipeline completion`);
+    } catch (err) {
+      console.warn('[Pipeline] Failed to sync highlights after completion:', err);
     }
   }
 

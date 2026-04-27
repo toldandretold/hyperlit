@@ -6,6 +6,7 @@
     <button type="button" id="lightModeButton" class="settings-button">Light</button>
     <button type="button" id="sepiaModeButton" class="settings-button">Sepia</button>
     <button type="button" id="vibeCSSButton" class="settings-button">Vibe</button>
+    <button type="button" id="gateFilterButton" class="settings-button">Gate</button>
     <span class="settings-theme-break"></span>
     <button type="button" id="searchButton" class="settings-button">
       <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">

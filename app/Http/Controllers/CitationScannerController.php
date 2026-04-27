@@ -152,16 +152,21 @@ class CitationScannerController extends Controller
         }
 
         // Check no existing running pipeline for this book
-        $running = $db->table('citation_pipelines')
+        $existing = $db->table('citation_pipelines')
             ->where('book', $bookId)
             ->whereIn('status', ['pending', 'running'])
-            ->exists();
+            ->first();
 
-        if ($running) {
-            return response()->json([
-                'success' => false,
-                'message' => 'A citation pipeline is already in progress for this book.',
-            ], 409);
+        if ($existing) {
+            $existing = $this->autoFailStalePipeline($existing);
+
+            // If still active after stale check, block the new trigger
+            if (in_array($existing->status, ['pending', 'running'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A citation pipeline is already in progress for this book.',
+                ], 409);
+            }
         }
 
         // Create a pipeline record so the frontend can poll immediately
@@ -175,7 +180,7 @@ class CitationScannerController extends Controller
             'updated_at' => now(),
         ]);
 
-        CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user);
+        CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user->id);
 
         return response()->json([
             'success'     => true,
@@ -226,6 +231,8 @@ class CitationScannerController extends Controller
             ], 404);
         }
 
+        $pipeline = $this->autoFailStalePipeline($pipeline);
+
         return response()->json([
             'success'  => true,
             'pipeline' => [
@@ -242,6 +249,76 @@ class CitationScannerController extends Controller
     }
 
     /**
+     * Resume a failed citation pipeline from its last completed step.
+     * POST /api/citation-pipeline/resume/{pipelineId}
+     */
+    public function resumePipeline(string $pipelineId): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You must be logged in to use this feature.',
+            ], 401);
+        }
+
+        $db = DB::connection('pgsql_admin');
+
+        $pipeline = $db->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->first();
+
+        if (!$pipeline) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pipeline not found.',
+            ], 404);
+        }
+
+        $pipeline = $this->autoFailStalePipeline($pipeline);
+
+        if ($pipeline->status !== 'failed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only failed pipelines can be resumed.',
+            ], 422);
+        }
+
+        $user->refresh();
+        if (!app(BillingService::class)->canProceed($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient balance. Please top up your credits to continue.',
+            ], 402);
+        }
+
+        // Reset to pending
+        $db->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->update([
+                'status'     => 'pending',
+                'error'      => null,
+                'updated_at' => now(),
+            ]);
+
+        $pipelineUserId = $pipeline->user_id ?? $user->id;
+
+        CitationPipelineJob::dispatch(
+            $pipeline->book,
+            $pipelineId,
+            false,       // force — not needed on resume, completed steps are skipped
+            $pipelineUserId,
+            true,        // resume
+        );
+
+        return response()->json([
+            'success'     => true,
+            'pipeline_id' => $pipelineId,
+            'message'     => 'Pipeline resume has been queued.',
+        ]);
+    }
+
+    /**
      * Check if a pipeline is currently running for a book.
      * GET /api/citation-pipeline/running/{book}
      */
@@ -253,9 +330,16 @@ class CitationScannerController extends Controller
             ->whereIn('status', ['pending', 'running'])
             ->first();
 
+        if ($pipeline) {
+            $pipeline = $this->autoFailStalePipeline($pipeline);
+        }
+
+        // If auto-failed, treat as no active pipeline
+        $isActive = $pipeline && in_array($pipeline->status, ['pending', 'running']);
+
         return response()->json([
             'success'  => true,
-            'pipeline' => $pipeline ? [
+            'pipeline' => $isActive ? [
                 'id'           => $pipeline->id,
                 'book'         => $pipeline->book,
                 'status'       => $pipeline->status,
@@ -265,5 +349,52 @@ class CitationScannerController extends Controller
                 'updated_at'   => $pipeline->updated_at,
             ] : null,
         ]);
+    }
+
+    /**
+     * Auto-fail a pipeline record that has been stuck in pending/running too long.
+     * Returns the (possibly updated) pipeline object.
+     */
+    private function autoFailStalePipeline($pipeline)
+    {
+        if (!$pipeline || !in_array($pipeline->status, ['pending', 'running'])) {
+            return $pipeline;
+        }
+
+        $updatedAt = strtotime($pipeline->updated_at);
+        $now = time();
+        $stalePendingSeconds = 5 * 60;       // 5 minutes
+        $staleRunningSeconds = 3 * 60 * 60;  // 3 hours
+
+        $isStale = ($pipeline->status === 'pending' && ($now - $updatedAt) > $stalePendingSeconds)
+                || ($pipeline->status === 'running' && ($now - $updatedAt) > $staleRunningSeconds);
+
+        if (!$isStale) {
+            return $pipeline;
+        }
+
+        $error = $pipeline->status === 'pending'
+            ? 'Pipeline timed out: job never started (stuck in pending for over 5 minutes).'
+            : 'Pipeline timed out: no progress for over 3 hours.';
+
+        // Guard with status check to prevent race conditions between concurrent requests
+        $affected = DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipeline->id)
+            ->whereIn('status', ['pending', 'running'])
+            ->update([
+                'status'     => 'failed',
+                'error'      => $error,
+                'updated_at' => now(),
+            ]);
+
+        if ($affected) {
+            $pipeline = DB::connection('pgsql_admin')
+                ->table('citation_pipelines')
+                ->where('id', $pipeline->id)
+                ->first();
+        }
+
+        return $pipeline;
     }
 }

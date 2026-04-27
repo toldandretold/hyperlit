@@ -53,9 +53,10 @@ import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
 import { stripMarkTags, convertDefinitionListTags } from './utils/normalizer.js';
-import { verifyNodesIntegrity } from '../integrity/verifier.js';
+import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
 import { startPasteCapture } from '../integrity/logCapture.js';
+import { INLINE_SKIP_TAGS } from '../utilities/blockElements.js';
 
 // Configure marked options
 marked.setOptions({
@@ -205,14 +206,10 @@ function _schedulePasteVerification(bookId, pasteOpId) {
         || document.getElementById(bookId);
       if (!container) return;
 
-      const INLINE_TAGS = new Set([
-        'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
-        'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
-      ]);
       const nodeEls = container.querySelectorAll('[id]');
       const nodeIds = [];
       nodeEls.forEach(el => {
-        if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_TAGS.has(el.tagName)) {
+        if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) {
           nodeIds.push(el.id);
         }
       });
@@ -275,6 +272,49 @@ function _schedulePasteVerification(bookId, pasteOpId) {
         }
       } else {
         console.log(`[integrity] Post-paste check (${pasteOpId}): all ${result.ok.length} nodes verified OK`);
+      }
+
+      // Orphan check: find block-level elements without numeric IDs
+      const orphans = findOrphanedNodes(bookId);
+      if (orphans.length > 0) {
+        console.warn(`[integrity] Post-paste orphan check: found ${orphans.length} orphaned node(s)`);
+        const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions.js');
+
+        const orphanedNodes = [];
+        for (const orphan of orphans) {
+          try {
+            const beforeId = findPreviousElementId(orphan.element);
+            const afterId = findNextElementId(orphan.element);
+            setElementIds(orphan.element, beforeId, afterId, bookId);
+            console.log(`[integrity] Assigned ID ${orphan.element.id} to orphaned <${orphan.tag}> element`);
+            queueNodeForSave(orphan.element.id, 'add', bookId);
+            orphanedNodes.push({
+              tag: orphan.tag,
+              textSnippet: orphan.textSnippet,
+              assignedId: orphan.element.id,
+            });
+          } catch (err) {
+            console.error(`[integrity] Failed to heal orphaned <${orphan.tag}>:`, err);
+            orphanedNodes.push({
+              tag: orphan.tag,
+              textSnippet: orphan.textSnippet,
+              healFailed: true,
+              error: err.message,
+            });
+          }
+        }
+
+        await flushAllPendingSaves();
+
+        reportIntegrityFailure({
+          bookId,
+          mismatches: [],
+          missingFromIDB: [],
+          duplicateIds: [],
+          orphanedNodes,
+          trigger: 'paste',
+          selfHealed: true,
+        });
       }
     } catch (e) {
       console.warn('[integrity] Post-paste verification error:', e);

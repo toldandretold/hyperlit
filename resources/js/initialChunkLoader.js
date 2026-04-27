@@ -8,6 +8,7 @@ import {
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
 import { OpenHyperlightID, OpenFootnoteID } from './app.js';
+import { gateQueryParam } from './components/gateFilter.js';
 
 /**
  * Fetch the initial chunk from the server for fast first-render loading.
@@ -18,6 +19,7 @@ export async function fetchInitialChunk(bookId) {
     try {
         // Build query params based on URL context
         const params = buildInitialChunkParams();
+        injectGateParam(params);
         const queryString = params.toString();
         const url = buildApiUrl(bookId, queryString);
 
@@ -149,6 +151,19 @@ function buildInitialChunkParams() {
 
     // Priority 4: Resume from saved position
     params.set('resume', 'true');
+    return params;
+}
+
+/**
+ * Inject gate filter param into a URLSearchParams (mutates in place).
+ */
+function injectGateParam(params) {
+    const gp = gateQueryParam();
+    if (gp) {
+        // gp is "gate=..." — extract the value part
+        const val = gp.substring(5); // skip "gate="
+        params.set('gate', decodeURIComponent(val));
+    }
     return params;
 }
 

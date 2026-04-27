@@ -7,6 +7,7 @@ import {
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
 import { buildFootnoteMap, updateFootnoteNumbersInDOM } from './footnotes/FootnoteNumberingService.js';
+import { appendGateParam } from './components/gateFilter.js';
 
 /**
  * After the first chunk is rendered, download ALL remaining book data
@@ -117,10 +118,13 @@ export function waitForBackgroundDownload(timeoutMs = 30000) {
  */
 function buildDataUrl(bookId) {
     const slashIndex = bookId.indexOf('/');
+    let url;
     if (slashIndex !== -1) {
         const parentBook = bookId.substring(0, slashIndex);
         const subId = bookId.substring(slashIndex + 1);
-        return `/api/database-to-indexeddb/books/${parentBook}/${subId}/data`;
+        url = `/api/database-to-indexeddb/books/${parentBook}/${subId}/data`;
+    } else {
+        url = `/api/database-to-indexeddb/books/${bookId}/data`;
     }
-    return `/api/database-to-indexeddb/books/${bookId}/data`;
+    return appendGateParam(url);
 }

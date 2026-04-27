@@ -12,6 +12,7 @@ class CitationPipelineCommand extends Command
                             {--skip-fetch : Skip vacuum + OCR steps}
                             {--skip-review : Stop after fetching content (no LLM review)}
                             {--force : Re-resolve all bibliography entries from scratch (ignore existing source links)}
+                            {--resume : Resume from the last completed step (skip already-finished steps)}
                             {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}
                             {--user-id= : User ID for billing}';
 
@@ -30,147 +31,197 @@ class CitationPipelineCommand extends Command
         }
 
         $this->info("Pipeline: {$book->title}");
+
+        // Load existing step timings when resuming
+        if ($this->option('resume')) {
+            $this->loadExistingTimings();
+            $skippable = collect($this->stepTimings)
+                ->filter(fn ($t) => !empty($t['completed_at']))
+                ->keys()
+                ->implode(', ');
+            if ($skippable) {
+                $this->info("Resuming — will skip completed steps: {$skippable}");
+            } else {
+                $this->info('Resuming — no completed steps found, running from start');
+            }
+        }
+
         $this->newLine();
 
         $summary = [];
 
         // Step 1: Scan bibliography (includes web fetch for URL-bearing entries)
-        $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
-        $this->info('Step 1/5: Scanning bibliography...');
-        $bibCountBefore = $db->table('bibliography')->where('book', $bookId)->count();
-        $bibArgs = ['target' => $bookId];
-        if ($this->option('force')) {
-            $bibArgs['--force'] = true;
+        if ($this->stepCompleted('bibliography')) {
+            $this->info('Step 1/5: Bibliography — already completed, skipping');
+        } else {
+            $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
+            $this->info('Step 1/5: Scanning bibliography...');
+            $bibArgs = ['target' => $bookId];
+            if ($this->option('force')) {
+                $bibArgs['--force'] = true;
+            }
+            $exit = $this->call('citation:scan-bibliography', $bibArgs);
+            if ($exit !== 0) {
+                $this->error('Bibliography scan failed. Aborting.');
+                return 1;
+            }
         }
-        $exit = $this->call('citation:scan-bibliography', $bibArgs);
-        if ($exit !== 0) {
-            $this->error('Bibliography scan failed. Aborting.');
-            return 1;
-        }
-        $bibCountAfter = $db->table('bibliography')->where('book', $bookId)->count();
-        $summary['bibliography'] = $bibCountAfter;
+        $summary['bibliography'] = $db->table('bibliography')->where('book', $bookId)->count();
         $this->newLine();
+
+        // If no bibliography entries exist, skip remaining steps — nothing to do
+        if ($summary['bibliography'] === 0) {
+            $this->warn('No bibliography entries — skipping content scan, vacuum, OCR, and review steps.');
+            $this->newLine();
+
+            // Finalize step timings
+            $this->finalizeStepTimings();
+
+            // Bump annotations_updated_at so the frontend syncs on next load
+            $now_ms = round(microtime(true) * 1000);
+            $db->table('library')
+                ->where('book', $bookId)
+                ->update(['annotations_updated_at' => $now_ms]);
+
+            $this->info('Pipeline complete:');
+            $this->line("  Bibliography:  0 entries scanned");
+
+            return 0;
+        }
 
         // Step 2: Scan content (informational — non-blocking)
-        $this->updatePipelineStep('content', 'Scanning in-text citations');
-        $this->info('Step 2/5: Scanning in-text citations...');
-        $this->call('citation:scan-content', ['bookId' => $bookId]);
+        if ($this->stepCompleted('content')) {
+            $this->info('Step 2/5: Content scan — already completed, skipping');
+        } else {
+            $this->updatePipelineStep('content', 'Scanning in-text citations');
+            $this->info('Step 2/5: Scanning in-text citations...');
+            $this->call('citation:scan-content', ['bookId' => $bookId]);
+        }
         $this->newLine();
 
-        // Step 3: Targeted vacuum + OCR
-        $vacuumFetched = 0;
-        $vacuumSkipped = 0;
-        $vacuumFailed = 0;
-
+        // Steps 3-4: Targeted vacuum + OCR
         if ($this->option('skip-fetch')) {
             $this->info('Step 3/5: Vacuum — skipped (--skip-fetch)');
             $this->info('Step 4/5: OCR — skipped (--skip-fetch)');
             $this->newLine();
         } else {
-            $this->updatePipelineStep('vacuum', 'Fetching source content');
-            $this->info('Step 3/5: Fetching source content...');
+            // Step 3: Vacuum
+            $vacuumFetched = 0;
+            $vacuumSkipped = 0;
+            $vacuumFailed = 0;
 
-            $sources = $db->table('bibliography as b')
-                ->join('library as l', 'l.book', '=', 'b.foundation_source')
-                ->where('b.book', $bookId)
-                ->where('l.has_nodes', false)
-                ->where(function ($q) {
-                    $q->where(function ($q2) {
-                        $q2->whereNotNull('l.oa_url')->where('l.oa_url', '!=', '');
-                    })->orWhere(function ($q2) {
-                        $q2->whereNotNull('l.pdf_url')->where('l.pdf_url', '!=', '');
-                    })->orWhere(function ($q2) {
-                        $q2->whereNotNull('l.doi')->where('l.doi', '!=', '');
-                    });
-                })
-                ->whereNull('l.pdf_url_status')
-                ->select(['l.book', 'l.title'])
-                ->distinct()
-                ->get();
-
-            if ($sources->isEmpty()) {
-                $this->line('  No sources need fetching.');
+            if ($this->stepCompleted('vacuum')) {
+                $this->info('Step 3/5: Vacuum — already completed, skipping');
             } else {
-                $this->line("  {$sources->count()} source(s) to fetch.");
-                $this->newLine();
+                $this->updatePipelineStep('vacuum', 'Fetching source content');
+                $this->info('Step 3/5: Fetching source content...');
 
-                foreach ($sources as $i => $source) {
-                    $title = $source->title ?: '(untitled)';
-                    $this->updatePipelineStep('vacuum', 'Fetching source ' . ($i + 1) . '/' . $sources->count());
-                    $this->line("  <fg=cyan>[" . ($i + 1) . "/{$sources->count()}] {$title}</>");
+                $sources = $db->table('bibliography as b')
+                    ->join('library as l', 'l.book', '=', 'b.foundation_source')
+                    ->where('b.book', $bookId)
+                    ->where('l.has_nodes', false)
+                    ->where(function ($q) {
+                        $q->where(function ($q2) {
+                            $q2->whereNotNull('l.oa_url')->where('l.oa_url', '!=', '');
+                        })->orWhere(function ($q2) {
+                            $q2->whereNotNull('l.pdf_url')->where('l.pdf_url', '!=', '');
+                        })->orWhere(function ($q2) {
+                            $q2->whereNotNull('l.doi')->where('l.doi', '!=', '');
+                        });
+                    })
+                    ->whereNull('l.pdf_url_status')
+                    ->select(['l.book', 'l.title'])
+                    ->distinct()
+                    ->get();
 
-                    $exit = $this->call('citation:vacuum', ['bookId' => $source->book]);
+                if ($sources->isEmpty()) {
+                    $this->line('  No sources need fetching.');
+                } else {
+                    $this->line("  {$sources->count()} source(s) to fetch.");
+                    $this->newLine();
 
-                    if ($exit === 0) {
-                        $vacuumFetched++;
-                    } else {
-                        $vacuumFailed++;
-                        $this->line("  <fg=yellow>Failed — continuing</>");
-                    }
+                    foreach ($sources as $i => $source) {
+                        $title = $source->title ?: '(untitled)';
+                        $this->updatePipelineStep('vacuum', 'Fetching source ' . ($i + 1) . '/' . $sources->count());
+                        $this->line("  <fg=cyan>[" . ($i + 1) . "/{$sources->count()}] {$title}</>");
 
-                    // Rate limit between sources
-                    if ($i < $sources->count() - 1) {
-                        sleep(1);
+                        $exit = $this->call('citation:vacuum', ['bookId' => $source->book]);
+
+                        if ($exit === 0) {
+                            $vacuumFetched++;
+                        } else {
+                            $vacuumFailed++;
+                            $this->line("  <fg=yellow>Failed — continuing</>");
+                        }
+
+                        // Rate limit between sources
+                        if ($i < $sources->count() - 1) {
+                            sleep(1);
+                        }
                     }
                 }
-            }
 
-            $vacuumSkipped = $summary['bibliography'] - $sources->count();
-            $summary['vacuum'] = ['fetched' => $vacuumFetched, 'failed' => $vacuumFailed, 'skipped' => max(0, $vacuumSkipped)];
+                $vacuumSkipped = $summary['bibliography'] - ($sources->count() ?? 0);
+                $summary['vacuum'] = ['fetched' => $vacuumFetched, 'failed' => $vacuumFailed, 'skipped' => max(0, $vacuumSkipped)];
+            }
             $this->newLine();
 
             // Step 4: Targeted OCR
-            $this->updatePipelineStep('ocr', 'Running OCR on downloaded PDFs');
-            $this->info('Step 4/5: Running OCR on downloaded PDFs...');
-
-            $downloaded = $db->table('bibliography as b')
-                ->join('library as l', 'l.book', '=', 'b.foundation_source')
-                ->where('b.book', $bookId)
-                ->where('l.has_nodes', false)
-                ->where('l.pdf_url_status', 'downloaded')
-                ->select(['l.book', 'l.title'])
-                ->distinct()
-                ->get();
-
             $ocrProcessed = 0;
             $ocrFailed = 0;
             $ocrTotalPages = 0;
 
-            if ($downloaded->isEmpty()) {
-                $this->line('  No PDFs awaiting OCR.');
+            if ($this->stepCompleted('ocr')) {
+                $this->info('Step 4/5: OCR — already completed, skipping');
             } else {
-                $this->line("  {$downloaded->count()} PDF(s) to process.");
-                $this->newLine();
+                $this->updatePipelineStep('ocr', 'Running OCR on downloaded PDFs');
+                $this->info('Step 4/5: Running OCR on downloaded PDFs...');
 
-                foreach ($downloaded as $i => $source) {
-                    $title = $source->title ?: '(untitled)';
-                    $this->updatePipelineStep('ocr', 'Processing PDF ' . ($i + 1) . '/' . $downloaded->count());
-                    $this->line("  <fg=cyan>[" . ($i + 1) . "/{$downloaded->count()}] {$title}</>");
+                $downloaded = $db->table('bibliography as b')
+                    ->join('library as l', 'l.book', '=', 'b.foundation_source')
+                    ->where('b.book', $bookId)
+                    ->where('l.has_nodes', false)
+                    ->where('l.pdf_url_status', 'downloaded')
+                    ->select(['l.book', 'l.title'])
+                    ->distinct()
+                    ->get();
 
-                    $exit = $this->call('citation:ocr', ['bookId' => $source->book]);
+                if ($downloaded->isEmpty()) {
+                    $this->line('  No PDFs awaiting OCR.');
+                } else {
+                    $this->line("  {$downloaded->count()} PDF(s) to process.");
+                    $this->newLine();
 
-                    if ($exit === 0) {
-                        $ocrProcessed++;
+                    foreach ($downloaded as $i => $source) {
+                        $title = $source->title ?: '(untitled)';
+                        $this->updatePipelineStep('ocr', 'Processing PDF ' . ($i + 1) . '/' . $downloaded->count());
+                        $this->line("  <fg=cyan>[" . ($i + 1) . "/{$downloaded->count()}] {$title}</>");
 
-                        // Count pages from cached OCR response
-                        $safeDir = str_replace('/', '_', $source->book);
-                        $ocrJson = resource_path("markdown/{$safeDir}/ocr_response.json");
-                        if (File::exists($ocrJson)) {
-                            $ocrData = json_decode(File::get($ocrJson), true);
-                            $ocrTotalPages += count($ocrData['pages'] ?? []);
+                        $exit = $this->call('citation:ocr', ['bookId' => $source->book]);
+
+                        if ($exit === 0) {
+                            $ocrProcessed++;
+
+                            // Count pages from cached OCR response
+                            $safeDir = str_replace('/', '_', $source->book);
+                            $ocrJson = resource_path("markdown/{$safeDir}/ocr_response.json");
+                            if (File::exists($ocrJson)) {
+                                $ocrData = json_decode(File::get($ocrJson), true);
+                                $ocrTotalPages += count($ocrData['pages'] ?? []);
+                            }
+                        } else {
+                            $ocrFailed++;
+                            $this->line("  <fg=yellow>OCR failed — continuing</>");
                         }
-                    } else {
-                        $ocrFailed++;
-                        $this->line("  <fg=yellow>OCR failed — continuing</>");
                     }
                 }
-            }
 
-            $summary['ocr'] = ['processed' => $ocrProcessed, 'failed' => $ocrFailed];
+                $summary['ocr'] = ['processed' => $ocrProcessed, 'failed' => $ocrFailed];
 
-            // Store OCR page count in step timings
-            if ($ocrTotalPages > 0 && isset($this->stepTimings['ocr'])) {
-                $this->stepTimings['ocr']['total_pages'] = $ocrTotalPages;
+                // Store OCR page count in step timings
+                if ($ocrTotalPages > 0 && isset($this->stepTimings['ocr'])) {
+                    $this->stepTimings['ocr']['total_pages'] = $ocrTotalPages;
+                }
             }
             $this->newLine();
         }
@@ -178,6 +229,9 @@ class CitationPipelineCommand extends Command
         // Step 5: Review
         if ($this->option('skip-review')) {
             $this->info('Step 5/5: Review — skipped (--skip-review)');
+            $this->newLine();
+        } elseif ($this->stepCompleted('review')) {
+            $this->info('Step 5/5: Review — already completed, skipping');
             $this->newLine();
         } else {
             $this->updatePipelineStep('review', 'Reviewing citations with LLM');
@@ -213,7 +267,8 @@ class CitationPipelineCommand extends Command
 
         if (isset($summary['vacuum'])) {
             $v = $summary['vacuum'];
-            $this->line("  Vacuum:        {$v['fetched']}/{$sources->count()} sources fetched ({$v['skipped']} skipped, {$v['failed']} failed)");
+            $fetchTotal = $v['fetched'] + $v['failed'] + $v['skipped'];
+            $this->line("  Vacuum:        {$v['fetched']}/{$fetchTotal} sources fetched ({$v['skipped']} skipped, {$v['failed']} failed)");
         }
 
         if (isset($summary['ocr'])) {
@@ -226,6 +281,35 @@ class CitationPipelineCommand extends Command
 
     private ?string $currentTimingStep = null;
     private array $stepTimings = [];
+
+    /**
+     * Load existing step timings from the DB (for resume).
+     */
+    private function loadExistingTimings(): void
+    {
+        $pipelineId = $this->option('pipeline-id');
+        if (!$pipelineId) return;
+
+        $pipeline = DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->first();
+
+        if ($pipeline && $pipeline->step_timings) {
+            $this->stepTimings = json_decode($pipeline->step_timings, true) ?? [];
+        }
+    }
+
+    /**
+     * Check if a step already completed (has a completed_at timestamp).
+     */
+    private function stepCompleted(string $step): bool
+    {
+        if (!$this->option('resume')) return false;
+
+        return isset($this->stepTimings[$step]['completed_at'])
+            && $this->stepTimings[$step]['completed_at'] !== null;
+    }
 
     private function updatePipelineStep(string $step, ?string $detail = null): void
     {

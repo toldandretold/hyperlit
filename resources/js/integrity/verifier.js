@@ -10,6 +10,7 @@
  */
 
 import { openDatabase } from '../indexedDB/core/connection.js';
+import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements.js';
 
 /**
  * Normalise text for comparison: trim and collapse all whitespace runs
@@ -18,6 +19,27 @@ import { openDatabase } from '../indexedDB/core/connection.js';
  */
 function normaliseText(str) {
   return (str || '').replace(/\u2060/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Find the first character index where two strings diverge.
+ * Returns an object with the diff index and ~50-char snippets around it.
+ */
+function findFirstDiff(a, b) {
+  const len = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < len && a[i] === b[i]) i++;
+  // If all shared chars match, the diff is at the length boundary
+  if (i === len && a.length === b.length) return null; // identical
+  const start = Math.max(0, i - 25);
+  const end = i + 25;
+  return {
+    diffIndex: i,
+    snippetA: a.slice(start, end),
+    snippetB: b.slice(start, end),
+    aLen: a.length,
+    bLen: b.length,
+  };
 }
 
 /**
@@ -113,11 +135,7 @@ async function _verifySync(bookId, nodeIds) {
       }
 
       // Skip inline formatting elements (browser artifacts from copy-paste)
-      const INLINE_TAGS = new Set([
-        'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
-        'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
-      ]);
-      if (INLINE_TAGS.has(domEl.tagName)) {
+      if (INLINE_SKIP_TAGS.has(domEl.tagName)) {
         return res(); // Not a real node — skip silently
       }
 
@@ -138,7 +156,7 @@ async function _verifySync(bookId, nodeIds) {
             startLine: String(nodeId),
             nodeId: dataNodeId,
             tag: domEl.tagName,
-            domText: domText.substring(0, 300),
+            domText,
           });
           return res();
         }
@@ -151,8 +169,9 @@ async function _verifySync(bookId, nodeIds) {
           mismatches.push({
             startLine: String(nodeId),
             nodeId: dataNodeId,
-            domText: domText.substring(0, 300),
-            idbText: idbText.substring(0, 300),
+            domText,
+            idbText,
+            diff: findFirstDiff(domText, idbText),
           });
         }
         res();
@@ -167,4 +186,49 @@ async function _verifySync(bookId, nodeIds) {
 
   await Promise.all(checks);
   return { ok, mismatches, missingFromIDB, duplicateIds };
+}
+
+/**
+ * Scan for block-level elements without numeric IDs ("orphaned nodes").
+ *
+ * These are elements that were inserted into the DOM (e.g. via paste) but
+ * never assigned an ID, so they are invisible to the save pipeline and
+ * will vanish on reload.
+ *
+ * @param {string} bookId - The book (or sub-book) to scan
+ * @returns {Array<{tag: string, textSnippet: string, element: HTMLElement}>}
+ */
+export function findOrphanedNodes(bookId) {
+
+  const container = document.querySelector(`[data-book-id="${bookId}"]`)
+    || document.getElementById(bookId);
+  if (!container) return [];
+
+  const orphans = [];
+
+  // For chunked books, iterate direct children of each chunk wrapper
+  const chunks = container.querySelectorAll('[data-chunk-id]');
+  const parents = chunks.length > 0 ? Array.from(chunks) : [container];
+
+  for (const parent of parents) {
+    for (const child of parent.children) {
+      // Skip chunk wrappers themselves
+      if (child.hasAttribute('data-chunk-id')) continue;
+      // Skip lazy-load sentinels
+      if (child.hasAttribute('data-sentinel')) continue;
+
+      if (!BLOCK_ELEMENT_TAGS.has(child.tagName)) continue;
+
+      // Has a valid numeric ID → not orphaned
+      if (child.id && /^\d+(\.\d+)*$/.test(child.id)) continue;
+
+      orphans.push({
+        tag: child.tagName,
+        textSnippet: (child.textContent || '').substring(0, 200),
+        element: child,
+      });
+    }
+  }
+
+  return orphans;
 }

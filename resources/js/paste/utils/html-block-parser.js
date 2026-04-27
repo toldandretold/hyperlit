@@ -9,15 +9,15 @@
  * - Preserves document structure
  */
 
+import { isStructuralBlockTag } from '../../utilities/blockElements.js';
+
 /**
  * Check if an element is a block-level element
  * @param {string} tagName - Tag name to check
  * @returns {boolean} - True if block-level element
  */
 export function isBlockElement(tagName) {
-  const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE',
-                     'UL', 'OL', 'LI', 'PRE', 'TABLE', 'FIGURE', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER'];
-  return blockTags.includes(tagName.toUpperCase());
+  return isStructuralBlockTag(tagName);
 }
 
 /**

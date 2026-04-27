@@ -19,6 +19,7 @@ import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePag
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index.js';
+import { showConversionFeedbackToast } from '../../conversion/feedbackToast.js';
 
 export class ImportBookTransition {
   /**
@@ -408,6 +409,15 @@ export class ImportBookTransition {
         shouldEnterEditMode: true
       });
       console.log('✅ Import transition execute completed');
+
+      // Show conversion feedback toast if stats are available
+      if (result.conversionStats) {
+        showConversionFeedbackToast({
+          bookId: result.bookId,
+          stats: result.conversionStats,
+          footnoteAudit: result.footnoteAudit,
+        });
+      }
 
       return result;
 

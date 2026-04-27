@@ -72,8 +72,21 @@
     @foreach($mismatches as $m)
     <div style="margin-bottom:16px; padding:12px; background:#2A2A2A; border-radius:6px;">
         <strong>Node {{ $m['nodeId'] ?? '?' }}</strong><br>
-        <span style="color:#888;">DOM:</span> {{ $m['domText'] ?? '' }}<br>
-        <span style="color:#888;">IDB:</span> {{ $m['idbText'] ?? '' }}
+        @if(!empty($m['diff']))
+        <div style="margin:6px 0; padding:8px; background:#1a1a1a; border-left:3px solid #EF8D34; border-radius:3px;">
+            <span style="color:#EF8D34;">Diff at char {{ $m['diff']['diffIndex'] }}</span>
+            (DOM {{ $m['diff']['aLen'] }} chars, IDB {{ $m['diff']['bLen'] }} chars)<br>
+            <span style="color:#ef4444;">DOM:</span> <code style="color:#fca5a5;">{{ $m['diff']['snippetA'] }}</code><br>
+            <span style="color:#22c55e;">IDB:</span> <code style="color:#86efac;">{{ $m['diff']['snippetB'] }}</code>
+        </div>
+        @endif
+        <details style="margin-top:6px;">
+            <summary style="color:#888; cursor:pointer;">Full text</summary>
+            <div style="margin-top:4px;">
+                <span style="color:#888;">DOM:</span> <span style="word-break:break-all;">{{ $m['domText'] ?? '' }}</span><br>
+                <span style="color:#888;">IDB:</span> <span style="word-break:break-all;">{{ $m['idbText'] ?? '' }}</span>
+            </div>
+        </details>
     </div>
     @endforeach
     @endif
@@ -93,6 +106,24 @@
     @if(!empty($duplicateIds))
     <h3 style="color:#a78bfa;">Duplicate IDs ({{ count($duplicateIds) }})</h3>
     <p>@foreach($duplicateIds as $d){{ $d['id'] }} (x{{ $d['count'] }}){{ !$loop->last ? ', ' : '' }}@endforeach</p>
+    @endif
+
+    @if(!empty($orphanedNodes))
+    <h3 style="color:#c084fc;">Orphaned Nodes ({{ count($orphanedNodes) }})</h3>
+    @foreach($orphanedNodes as $o)
+    <div style="margin-bottom:8px; padding:8px 12px; background:#2A2A2A; border-radius:6px;">
+        <strong>&lt;{{ $o['tag'] ?? '?' }}&gt;</strong>
+        @if(!empty($o['assignedId']))
+        <span style="color:#4ade80;">healed -> ID {{ $o['assignedId'] }}</span>
+        @endif
+        @if(!empty($o['healFailed']))
+        <span style="color:#ef4444;">HEAL FAILED{{ !empty($o['error']) ? ': '.$o['error'] : '' }}</span>
+        @endif
+        @if(!empty($o['textSnippet']))
+        <br><span style="color:#888;">Content:</span> {{ $o['textSnippet'] }}
+        @endif
+    </div>
+    @endforeach
     @endif
 
     @if(!empty($recentLogs))

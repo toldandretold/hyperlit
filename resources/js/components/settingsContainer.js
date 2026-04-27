@@ -97,6 +97,15 @@ export class SettingsContainerManager extends ContainerManager {
       return;
     }
 
+    // Handle gate filter button click
+    if (e.target.closest("#gateFilterButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Gate filter clicked via delegation', '/components/settingsContainer.js');
+      this._openGatePanel();
+      return;
+    }
+
     // Handle search button click
     if (e.target.closest("#searchButton")) {
       e.preventDefault();
@@ -120,13 +129,14 @@ export class SettingsContainerManager extends ContainerManager {
    * Update button active states based on current theme
    * Called on theme change events and after rebinding
    */
-  updateButtonStates() {
+  async updateButtonStates() {
     const currentTheme = getCurrentTheme();
 
     const darkButton = document.getElementById("darkModeButton");
     const lightButton = document.getElementById("lightModeButton");
     const sepiaButton = document.getElementById("sepiaModeButton");
     const vibeButton = document.getElementById("vibeCSSButton");
+    const gateButton = document.getElementById("gateFilterButton");
 
     // Remove all active classes
     darkButton?.classList.remove("active");
@@ -150,6 +160,13 @@ export class SettingsContainerManager extends ContainerManager {
         break;
     }
 
+    // Gate button: active (aqua) when filtering is on (mode !== 'all')
+    if (gateButton) {
+      try {
+        const { getGateSettings } = await import('./gateFilter.js');
+        gateButton.classList.toggle('active', getGateSettings().mode !== 'all');
+      } catch { /* module not loaded yet — leave default */ }
+    }
   }
 
   /**
@@ -169,6 +186,40 @@ export class SettingsContainerManager extends ContainerManager {
 
     // Always open the gallery
     this._openVibeGallery();
+  }
+
+  /**
+   * Replace settings panel content with gate filter sub-panel.
+   */
+  async _openGatePanel() {
+    const container = document.getElementById('bottom-up-container');
+    if (!container) return;
+
+    const savedHTML = container.innerHTML;
+
+    const restorePanel = () => {
+      container.innerHTML = savedHTML;
+      this.syncSliderUI();
+      this.updateButtonStates();
+    };
+
+    const { showGatePanel, getGateSettings, reapplyAnnotationsWithGate } = await import('./gateFilter.js');
+    const currentSettings = getGateSettings();
+
+    showGatePanel(container, currentSettings, {
+      onApply: async (newSettings) => {
+        // 1. Save to localStorage
+        localStorage.setItem('hyperlit_gate_filter', JSON.stringify(newSettings));
+        // 2. Sync to backend immediately
+        savePreference('gate_filter', newSettings);
+        // 3. Restore settings panel and close
+        restorePanel();
+        this.closeContainer();
+        // 4. Re-fetch and reprocess annotations
+        await reapplyAnnotationsWithGate();
+      },
+      onCancel: restorePanel,
+    });
   }
 
   /**

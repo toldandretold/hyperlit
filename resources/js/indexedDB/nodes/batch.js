@@ -12,6 +12,7 @@ import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnote
 import { withPending } from '../../utilities/operationState.js';
 import { queueForSync } from '../syncQueue/queue.js';
 import { reportIntegrityFailure } from '../../integrity/reporter.js';
+import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
 
 // Dependencies that change per-book
 let book;
@@ -727,11 +728,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
       }
 
       // Skip inline formatting artifacts (e.g. <font id="1"> from copy-paste)
-      const INLINE_TAGS = new Set([
-        'FONT','B','I','U','SPAN','STRONG','EM','A','SUB','SUP',
-        'MARK','S','SMALL','CODE','BR','ABBR','CITE','LATEX'
-      ]);
-      if (node && INLINE_TAGS.has(node.tagName)) {
+      if (node && INLINE_SKIP_TAGS.has(node.tagName)) {
         console.warn(`⚠️ Skipping batch update – inline element <${node.tagName}> for id ${IDnumerical}`);
         return;
       }

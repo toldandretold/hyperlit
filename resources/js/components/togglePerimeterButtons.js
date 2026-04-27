@@ -190,13 +190,11 @@ export default class TogglePerimeterButtons {
 shouldIgnoreEvent(event) {
   // Always ignore edit toolbar - let it handle its own events without toggling nav
   if (event.target.closest('#edit-toolbar')) {
-    console.log('TogglePerimeterButtons: Ignoring edit toolbar event - target:', event.target, 'type:', event.type);
     return true;
   }
 
   // Ignore events when search toolbar is open - allow search toolbar to handle clicks outside
   if (window.searchToolbarBlockingNavigation) {
-    console.log('TogglePerimeterButtons: Ignoring event - search toolbar is open');
     return true;
   }
 
@@ -256,12 +254,10 @@ shouldIgnoreEvent(event) {
     handleTouchStart(event) {
     // Early exit for edit toolbar to avoid any interference
     if (event.target.closest('#edit-toolbar')) {
-      console.log('TogglePerimeterButtons: Edit toolbar touchstart - EARLY EXIT - target:', event.target);
       return;
     }
 
     if (this.shouldIgnoreEvent(event)) {
-      console.log('TogglePerimeterButtons: Touch start ignored');
       return;
     }
     this.startX = event.touches[0].clientX;
@@ -272,12 +268,10 @@ shouldIgnoreEvent(event) {
   handleTouchEnd(event) {
     // Early exit for edit toolbar to avoid any interference
     if (event.target.closest('#edit-toolbar')) {
-      console.log('TogglePerimeterButtons: Edit toolbar touchend - EARLY EXIT - target:', event.target);
       return;
     }
 
     if (this.shouldIgnoreEvent(event)) {
-      console.log('TogglePerimeterButtons: Touch end ignored');
       return;
     }
 
@@ -301,7 +295,7 @@ shouldIgnoreEvent(event) {
     if (deltaX < this.tapThreshold && deltaY < this.tapThreshold && deltaTime < 500) {
       // Don't toggle nav visibility in edit mode
       if (window.isEditing) {
-        console.log(`🔗 TogglePerimeterButtons: Ignoring touch toggle - edit mode is active`);
+        // edit mode active — skip toggle
       } else {
         // Cancel any forced visibility from edit indicator
         cancelForcedVisibility();

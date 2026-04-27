@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\IntegrityReportMail;
 use App\Mail\PasteGlitchReportMail;
+use App\Mail\ConversionFeedbackMail;
 use App\Models\PgNodeChunk;
 
 class IntegrityReportController extends Controller
@@ -29,6 +30,12 @@ class IntegrityReportController extends Controller
             'duplicateIds'        => 'nullable|array|max:50',
             'duplicateIds.*.id'   => 'string|max:50',
             'duplicateIds.*.count' => 'integer|min:2',
+            'orphanedNodes'               => 'nullable|array|max:50',
+            'orphanedNodes.*.tag'         => 'nullable|string|max:20',
+            'orphanedNodes.*.textSnippet' => 'nullable|string|max:500',
+            'orphanedNodes.*.assignedId'  => 'nullable|string|max:50',
+            'orphanedNodes.*.healFailed'  => 'nullable|boolean',
+            'orphanedNodes.*.error'       => 'nullable|string|max:500',
             'recentLogs'        => 'nullable|array|max:50',
             'recentLogs.*.level' => 'nullable|string|max:10',
             'recentLogs.*.ts'    => 'nullable|numeric',
@@ -122,6 +129,40 @@ class IntegrityReportController extends Controller
             'status' => 'granted',
             'premium_granted' => true,
         ]);
+    }
+
+    public function conversionFeedback(Request $request)
+    {
+        $data = $request->validate([
+            'bookId'              => 'required|string|max:500',
+            'rating'              => 'required|string|in:good,bad',
+            'conversionStats'     => 'nullable|array',
+            'footnoteAudit'       => 'nullable|array',
+            'userAgent'           => 'nullable|string|max:1000',
+            'timestamp'           => 'nullable|string|max:100',
+        ]);
+
+        $user = Auth::user();
+        $data['userId'] = $user?->id;
+        $data['userName'] = $user?->name ?? 'anonymous';
+
+        // Resolve the path to conversion artifacts
+        $data['artifactPath'] = resource_path("markdown/{$data['bookId']}");
+
+        Log::info('Conversion feedback received', [
+            'bookId' => $data['bookId'],
+            'rating' => $data['rating'],
+        ]);
+
+        try {
+            Mail::send(new ConversionFeedbackMail($data));
+        } catch (\Exception $e) {
+            Log::error('Failed to send conversion feedback email', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json(['status' => 'received']);
     }
 
     private function grepLaravelLog(string $bookId, int $limit): array

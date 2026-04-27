@@ -138,8 +138,8 @@ class CitationReviewCommand extends Command
         $this->newLine();
 
         if ($resolved === 0) {
-            $this->error('No resolved sources. Run citation:scan-bibliography first.');
-            return 1;
+            $this->warn('No resolved sources — nothing to review.');
+            return 0;
         }
 
         // Run pipeline with progress output

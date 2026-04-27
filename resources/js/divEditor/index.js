@@ -76,6 +76,7 @@ import {
 } from '../utilities/BroadcastListener.js';
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
+import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
 
 import {
   trackChunkNodeCount,
@@ -439,7 +440,7 @@ export async function startObserving(editableDiv, bookId = null) {
       // Strip browser-injected inline style attributes (e.g. font-family from execCommand)
       // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner
       parentWithId.querySelectorAll('[style]').forEach(el => {
-        if (!el.matches('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, ul, ol, li, table')) {
+        if (!el.matches(BLOCK_ELEMENT_SELECTOR + ', li')) {
           el.removeAttribute('style');
         }
       });

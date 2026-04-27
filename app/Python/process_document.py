@@ -522,10 +522,26 @@ def generate_ref_keys(text, context_text=""):
     text = text.replace('\u2019', "'").replace('\u2018', "'").replace('\u02BC', "'")
     context_text = context_text.replace('\u2019', "'").replace('\u2018', "'").replace('\u02BC', "'")
     processed_text = re.sub(r'\[\d{4}\]\s*', '', text)
-    year_match = re.search(r'(\d{4}[a-z]?)', processed_text)
+    # Prefer parenthesized year (common in bibliography: "Author (2022). Title...")
+    paren_year = re.search(r'\((\d{4}[a-z]?)\)', processed_text)
+    if paren_year:
+        year_match = paren_year
+    else:
+        # For entries without parenthesized year, find the LAST plausible year (1900-2099)
+        # to avoid picking up title numbers like "Scopus 1900–2020" or arXiv IDs like "2601"
+        plausible_years = list(re.finditer(r'(?<!\d)(\d{4}[a-z]?)(?!\d)', processed_text))
+        plausible_years = [m for m in plausible_years if 1900 <= int(re.match(r'\d{4}', m.group(1)).group()) <= 2099]
+        year_match = plausible_years[-1] if plausible_years else None
     if not year_match: return []
     year = year_match.group(1)
     authors_part = text.split(year)[0]
+    # For bare-year entries (no parens), the year is near the end so authors_part
+    # includes the title. Limit to the initial author block (before first ". " + uppercase).
+    # Use lookbehind to avoid matching single-letter initials like "G. Otis" or "D. Lawrence".
+    if not paren_year and '. ' in authors_part:
+        author_block_end = re.search(r'(?<=[a-z]{2})\.\s+[A-Z]', authors_part)
+        if author_block_end:
+            authors_part = authors_part[:author_block_end.start()]
     keys = set()
     # Check for any letter (including Unicode) in authors_part
     has_author = re.search(r'[a-zA-ZÀ-ÿßẞ]', authors_part)
@@ -555,6 +571,19 @@ def generate_ref_keys(text, context_text=""):
             keys.add(surnames[0] + year)
             surnames.sort()
             keys.add("".join(surnames) + year)
+            # Also generate keys using last-word-of-each-author-group as surnames
+            # (handles "FirstName LastName and FirstName LastName" bibliography patterns)
+            groups = re.split(r'\s+and\s+|,\s*and\s+|,\s+(?=[A-Z])', author_source)
+            group_surnames = []
+            for group in groups:
+                words = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", group)
+                words = [w for w in words if w not in excluded and len(w) > 1]
+                if words:
+                    group_surnames.append(normalize_unicode_name(words[-1].replace("'s", "")).lower())
+            if group_surnames and set(group_surnames) != set(surnames):
+                keys.add(group_surnames[0] + year)
+                group_surnames.sort()
+                keys.add("".join(group_surnames) + year)
 
     acronyms = re.findall(r'\b[A-Z]{2,}\b', author_source)
     for acronym in acronyms: keys.add(acronym.lower() + year)
@@ -887,6 +916,19 @@ def main(html_file_path, output_dir, book_id):
             json.dump(audit_data, f, ensure_ascii=False, indent=4)
         print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
 
+        # Write conversion_stats.json (STEM path)
+        conversion_stats = {
+            'references_found': len(references_data),
+            'citations_total': stem_cites,
+            'citations_linked': stem_cites,
+            'footnotes_matched': 0,
+            'footnote_strategy': 'stem_bibliography',
+            'citation_style': 'numbered-bracket',
+        }
+        with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
+            json.dump(conversion_stats, f, ensure_ascii=False, indent=4)
+        print(f"Successfully created {os.path.join(output_dir, 'conversion_stats.json')}")
+
     # ========================================================================
     # STANDARD PROCESSING: PASS 1 + PASS 2 + AUDIT (skipped for STEM)
     # ========================================================================
@@ -970,12 +1012,23 @@ def main(html_file_path, output_dir, book_id):
 
         print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
 
+        # Detect markdown list markers (- or *) used consistently across entries
+        list_marker_count = sum(
+            1 for p in reference_p_tags
+            if re.match(r'^\s*[-*]\s', p.get_text(" ", strip=True))
+        )
+        strip_list_marker = list_marker_count > len(reference_p_tags) * 0.5
+        if strip_list_marker:
+            print(f"  📋 Detected list-marker format ({list_marker_count}/{len(reference_p_tags)} entries) — stripping '- ' prefixes")
+
         seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
         used_ids = set()      # all entry_ids actually assigned (including suffixed)
         last_bib_author = ""  # Track last author for em-dash (—) repeat-author entries
 
         for p in reference_p_tags:
             text = p.get_text(" ", strip=True)
+            if strip_list_marker:
+                text = re.sub(r'^\s*[-*]\s+', '', text)
 
             # Handle em-dash repeat-author entries (e.g. "—. 2014. Title...")
             # Common academic convention: — means "same author as previous entry"
@@ -992,6 +1045,45 @@ def main(html_file_path, output_dir, book_id):
                     year_match = re.search(r'\d{4}', text)
                     if year_match:
                         last_bib_author = text[:year_match.start()].rstrip(' .,;:(')
+                # For entries with prefix year (Author (YEAR1)) that also have a different
+                # publication year in the body (YEAR2), generate keys for both years
+                # to handle OCR errors in the prefix year
+                if keys:
+                    paren_yr = re.search(r'\((\d{4}[a-z]?)\)', text)
+                    if paren_yr:
+                        prefix_yr = paren_yr.group(1)
+                        body_text = text[paren_yr.end():]
+                        body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', body_text))
+                        body_years = [m for m in body_years if 1900 <= int(m.group(1)) <= 2099 and m.group(1) != prefix_yr]
+                        if body_years:
+                            alt_yr = body_years[-1].group(1)
+                            alt_keys = [k.replace(prefix_yr, alt_yr) for k in keys if prefix_yr in k]
+                            keys = list(set(keys + alt_keys))
+
+            if not keys:
+                # Fallback: for entries with garbled prefix initials like "K. E. (2005) Daniel Kennefick..."
+                # extract author names from the text AFTER the parenthesized year prefix
+                paren_year_match = re.search(r'\((\d{4}[a-z]?)\)', text)
+                if paren_year_match:
+                    remainder = text[paren_year_match.end():].strip()
+                    prefix_year = paren_year_match.group(1)
+                    # Extract author block from remainder (before title start: ". " after 2+ lowercase chars + uppercase)
+                    # Avoids matching initials like "H. G" or "D. L"
+                    author_block_match = re.search(r'(?<=[a-z]{2})\.\s+[A-Z]', remainder)
+                    if author_block_match:
+                        author_text = remainder[:author_block_match.start()] + " " + prefix_year
+                    else:
+                        author_text = remainder.split('.')[0] + " " + prefix_year
+                    keys = generate_ref_keys(author_text)
+                    # Also generate keys with alternative years from body text
+                    body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', remainder))
+                    body_years = [m for m in body_years if 1900 <= int(m.group(1)) <= 2099 and m.group(1) != prefix_year]
+                    if body_years:
+                        alt_year = body_years[-1].group(1)
+                        alt_keys = generate_ref_keys(author_text.replace(prefix_year, alt_year))
+                        keys = list(set(keys + alt_keys))
+                    if keys:
+                        print(f"  🔄 Fallback keys from post-prefix text: {keys}")
 
             if not keys:
                 print(f"  ⚠️ No keys generated for: {text[:60]}...")
@@ -1317,6 +1409,20 @@ def main(html_file_path, output_dir, book_id):
                         citation_block = match.group(1)
                         new_content.append(NavigableString("("))
                         sub_citations = re.split(r";\s*", citation_block)
+                        # Further split comma-separated citations: "Author1, 2020, Author2, 2021"
+                        refined = []
+                        for _sub in sub_citations:
+                            _years = list(re.finditer(r'\d{4}[a-z]?', _sub))
+                            if len(_years) > 1:
+                                parts = re.split(r',\s*(?=[A-Z])', _sub)
+                                for part in parts:
+                                    if re.search(r'\d{4}', part):
+                                        refined.append(part.strip())
+                                    elif refined:
+                                        refined[-1] += ', ' + part.strip()
+                            else:
+                                refined.append(_sub.strip())
+                        sub_citations = refined
                         for i, sub_cite_raw in enumerate(sub_citations):
                             sub_cite = sub_cite_raw.strip()
                             if not sub_cite: continue
@@ -1383,6 +1489,31 @@ def main(html_file_path, output_dir, book_id):
                                     linked = True
                                     citations_linked += 1
                                     break
+                            # Fuzzy year fallback: try ±1, ±2, ±3 year variants for OCR year errors
+                            if not linked and keys:
+                                year_in_cite = re.search(r'(\d{4})', sub_cite)
+                                if year_in_cite:
+                                    orig_year = year_in_cite.group(1)
+                                    for offset in [1, -1, 2, -2, 3, -3]:
+                                        if linked: break
+                                        alt_year = str(int(orig_year) + offset)
+                                        for key in keys:
+                                            alt_key = key.replace(orig_year, alt_year)
+                                            if alt_key in bibliography_map:
+                                                author_part = sub_cite[:year_in_cite.start(0)]
+                                                year_part = year_in_cite.group(0)
+                                                trailing_part = sub_cite[year_in_cite.end(0):]
+                                                if author_part:
+                                                    new_content.append(NavigableString(author_part))
+                                                a_tag = soup.new_tag("a", href=f"#{bibliography_map[alt_key]}")
+                                                a_tag['class'] = 'in-text-citation'
+                                                a_tag.string = year_part
+                                                new_content.append(a_tag)
+                                                if trailing_part:
+                                                    new_content.append(NavigableString(trailing_part))
+                                                linked = True
+                                                citations_linked += 1
+                                                break
                             if not linked:
                                 new_content.append(NavigableString(sub_cite))
                                 citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
@@ -1406,6 +1537,20 @@ def main(html_file_path, output_dir, book_id):
                         citation_block = match.group(1)
                         new_content.append(NavigableString("["))
                         sub_citations = re.split(r";\s*", citation_block)
+                        # Further split comma-separated citations: "Author1, 2020, Author2, 2021"
+                        refined = []
+                        for _sub in sub_citations:
+                            _years = list(re.finditer(r'\d{4}[a-z]?', _sub))
+                            if len(_years) > 1:
+                                parts = re.split(r',\s*(?=[A-Z])', _sub)
+                                for part in parts:
+                                    if re.search(r'\d{4}', part):
+                                        refined.append(part.strip())
+                                    elif refined:
+                                        refined[-1] += ', ' + part.strip()
+                            else:
+                                refined.append(_sub.strip())
+                        sub_citations = refined
                         for i, sub_cite_raw in enumerate(sub_citations):
                             sub_cite = sub_cite_raw.strip()
                             if not sub_cite: continue
@@ -1470,6 +1615,31 @@ def main(html_file_path, output_dir, book_id):
                                     linked = True
                                     citations_linked += 1
                                     break
+                            # Fuzzy year fallback: try ±1, ±2, ±3 year variants for OCR year errors
+                            if not linked and keys:
+                                year_in_cite = re.search(r'(\d{4})', sub_cite)
+                                if year_in_cite:
+                                    orig_year = year_in_cite.group(1)
+                                    for offset in [1, -1, 2, -2, 3, -3]:
+                                        if linked: break
+                                        alt_year = str(int(orig_year) + offset)
+                                        for key in keys:
+                                            alt_key = key.replace(orig_year, alt_year)
+                                            if alt_key in bibliography_map:
+                                                author_part = sub_cite[:year_in_cite.start(0)]
+                                                year_part = year_in_cite.group(0)
+                                                trailing_part = sub_cite[year_in_cite.end(0):]
+                                                if author_part:
+                                                    new_content.append(NavigableString(author_part))
+                                                a_tag = soup.new_tag("a", href=f"#{bibliography_map[alt_key]}")
+                                                a_tag['class'] = 'in-text-citation'
+                                                a_tag.string = year_part
+                                                new_content.append(a_tag)
+                                                if trailing_part:
+                                                    new_content.append(NavigableString(trailing_part))
+                                                linked = True
+                                                citations_linked += 1
+                                                break
                             if not linked:
                                 new_content.append(NavigableString(sub_cite))
                                 citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
@@ -1800,6 +1970,27 @@ def main(html_file_path, output_dir, book_id):
         with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
             json.dump(audit_data, f, ensure_ascii=False, indent=4)
         print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
+
+        # Write conversion_stats.json (standard path)
+        # Determine citation style from what was detected
+        if len(references_data) > 0 and citations_found > 0:
+            citation_style = 'author-year-bracket'
+        elif len(references_data) > 0:
+            citation_style = 'bibliography-only'
+        else:
+            citation_style = 'none'
+
+        conversion_stats = {
+            'references_found': len(references_data),
+            'citations_total': citations_found,
+            'citations_linked': citations_linked,
+            'footnotes_matched': len(all_footnotes_data),
+            'footnote_strategy': strategy,
+            'citation_style': citation_style,
+        }
+        with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
+            json.dump(conversion_stats, f, ensure_ascii=False, indent=4)
+        print(f"Successfully created {os.path.join(output_dir, 'conversion_stats.json')}")
 
     # ========================================================================
     # PASS 3: GENERATE FINAL JSON OUTPUT
