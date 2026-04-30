@@ -932,6 +932,18 @@ class DbNodeChunkController extends Controller
             return 0;
         }
 
+        // Deduplicate by node_id — keep last occurrence so latest client state wins.
+        // Duplicate node_ids in a single INSERT cause "ON CONFLICT DO UPDATE cannot affect row a second time".
+        $deduped = [];
+        foreach ($items as $item) {
+            if (isset($item['node_id']) && $item['node_id'] !== null) {
+                $deduped[$item['node_id']] = $item;
+            } else {
+                $deduped[] = $item;
+            }
+        }
+        $items = array_values($deduped);
+
         // Pre-clear conflicting startLines (different node_ids claiming same startLine)
         // This handles undo scenarios where restored nodes need their original startLines back
         $startLines = [];

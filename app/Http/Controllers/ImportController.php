@@ -747,7 +747,7 @@ class ImportController extends Controller
                         ->update([
                             'content'       => $content,
                             'sub_book_id'   => $subBookId,
-                            'preview_nodes' => json_encode($previewNodes),
+                            'preview_nodes' => $previewNodes,
                         ]);
                 } else {
                     PgFootnote::create([

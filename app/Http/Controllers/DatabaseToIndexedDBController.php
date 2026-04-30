@@ -662,6 +662,7 @@ class DatabaseToIndexedDBController extends Controller
                             ->where('annotation', '!=', '');
                     })->orWhere(function ($sub) {
                         $sub->whereNotNull('preview_nodes')
+                            ->whereRaw("jsonb_typeof(preview_nodes) = 'array'")
                             ->whereRaw("EXISTS (SELECT 1 FROM jsonb_array_elements(preview_nodes) AS elem WHERE regexp_replace(elem->>'content', '<[^>]*>', '', 'g') ~ '\\S')");
                     });
                 });
@@ -781,9 +782,15 @@ class DatabaseToIndexedDBController extends Controller
                     'node_id' => json_decode($hyperlight->node_id ?? '[]', true),
                     'charData' => json_decode($hyperlight->charData ?? '{}', true),
                     'annotation' => $hyperlight->annotation,
-                    'preview_nodes' => $hyperlight->preview_nodes
-                        ? json_decode($hyperlight->preview_nodes, true)
-                        : null,
+                    'preview_nodes' => (function () use ($hyperlight) {
+                        if (!$hyperlight->preview_nodes) return null;
+                        $decoded = json_decode($hyperlight->preview_nodes, true);
+                        if (is_string($decoded)) {
+                            // Double-encoded — decode again to break the cycle
+                            $decoded = json_decode($decoded, true);
+                        }
+                        return $decoded;
+                    })(),
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
                     'startLine' => $hyperlight->startLine,
