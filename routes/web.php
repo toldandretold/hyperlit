@@ -55,6 +55,10 @@ Route::get('/{book}/AIreview', function (Request $request, $book) {
     ]);
 })->where('book', '[A-Za-z0-9_-]+')->name('book.aireview');
 
+// Conversion test dashboard (dev tool, admin-only — auth handled in controller)
+Route::get('/dev/conversion-tests', [App\Http\Controllers\ConversionTestController::class, 'dashboard'])
+    ->name('conversion-tests.dashboard');
+
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
     ->middleware('author')

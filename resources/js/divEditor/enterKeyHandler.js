@@ -337,11 +337,29 @@ export class EnterKeyHandler {
           "LI",
           "BLOCKQUOTE",
           "PRE",
+          "IMG",
+          "FIGURE",
+          "TABLE",
+          "HR",
         ].includes(blockElement.tagName)
       ) {
         blockElement = blockElement.parentElement;
       }
       if (!blockElement) return;
+
+      // Safety guard: never let blockElement be the chunk container itself.
+      // If an unhandled tag causes the walk-up to reach the chunk div,
+      // create a <p> at cursor position rather than splitting the container.
+      if (blockElement.classList.contains('chunk')) {
+        event.preventDefault();
+        const newParagraph = document.createElement('p');
+        newParagraph.innerHTML = '<br>';
+        // Insert at cursor position within the chunk
+        range.insertNode(newParagraph);
+        moveCaretTo(newParagraph, 0);
+        this.enterCount = 0;
+        return;
+      }
       const chunkContainer = blockElement.closest(".chunk");
       if (!chunkContainer) return;
       const isHeading = /^H[1-6]$/.test(blockElement.tagName);
@@ -839,6 +857,29 @@ export class EnterKeyHandler {
           moveCaretTo(newLI, 0);
           queueNodeForSave(parentList.id, 'update');
         }
+
+        this.enterCount = 0;
+        return;
+      }
+
+      // SECTION 2.6: Handle non-splittable block elements (IMG, FIGURE, TABLE, HR)
+      // These elements cannot be "split" — the only sensible Enter behavior
+      // is to create a new empty paragraph after them.
+      if (["IMG", "FIGURE", "TABLE", "HR"].includes(blockElement.tagName)) {
+        event.preventDefault();
+
+        ensureNodeHasValidId(blockElement);
+        if (!blockElement.id) {
+          console.error("Could not assign ID to block element. Aborting.", blockElement);
+          return;
+        }
+
+        const newParagraph = createAndInsertParagraph(
+          blockElement,
+          chunkContainer,
+          null,
+          selection
+        );
 
         this.enterCount = 0;
         return;

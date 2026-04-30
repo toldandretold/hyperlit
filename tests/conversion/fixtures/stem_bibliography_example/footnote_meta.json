@@ -1,0 +1,460 @@
+{
+  "version": 1,
+  "classification": "wackSTEMbibliographyNotes",
+  "confidence": 0.7,
+  "signals": {
+    "total_pages": 39,
+    "pages_with_refs": 26,
+    "pages_with_defs": 4,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.1026,
+    "reset_count": 7,
+    "reset_frequency": 0.2692,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 3,
+    "numbers_on_multiple_pages": 19,
+    "max_ref_number": 135
+  },
+  "page_summary": [
+    {
+      "index": 0,
+      "refs": [
+        1,
+        2,
+        3
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 1,
+      "refs": [
+        2,
+        8,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 2,
+      "refs": [
+        20,
+        24
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 4,
+      "refs": [
+        21,
+        25,
+        26,
+        27,
+        28
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 5,
+      "refs": [
+        29,
+        30
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 6,
+      "refs": [
+        31
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 7,
+      "refs": [
+        32
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 8,
+      "refs": [
+        33
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 9,
+      "refs": [
+        34,
+        35
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 10,
+      "refs": [
+        33,
+        34,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 11,
+      "refs": [
+        21,
+        35,
+        36,
+        37,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 14,
+      "refs": [
+        34,
+        35
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 17,
+      "refs": [
+        45,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 18,
+      "refs": [
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 19,
+      "refs": [
+        39,
+        68,
+        69,
+        70,
+        71
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 20,
+      "refs": [
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 21,
+      "refs": [
+        79,
+        80,
+        81,
+        82
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 22,
+      "refs": [
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 24,
+      "refs": [
+        68,
+        69,
+        70,
+        73,
+        74,
+        75
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 25,
+      "refs": [
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 26,
+      "refs": [
+        24,
+        98,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 27,
+      "refs": [
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 28,
+      "refs": [
+        116,
+        117,
+        118,
+        119,
+        120,
+        121
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 29,
+      "refs": [
+        108,
+        122,
+        123,
+        124
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 30,
+      "refs": [
+        125,
+        126,
+        127,
+        130,
+        131
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 31,
+      "refs": [
+        15,
+        132,
+        133,
+        134,
+        135
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 32,
+      "refs": [],
+      "defs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 33,
+      "refs": [],
+      "defs": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 34,
+      "refs": [],
+      "defs": [
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 37,
+      "refs": [],
+      "defs": [
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123
+      ],
+      "trailing_number": null
+    }
+  ]
+}

@@ -18,7 +18,7 @@ import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements
  * differences between live DOM and stored HTML.
  */
 function normaliseText(str) {
-  return (str || '').replace(/\u2060/g, '').replace(/\s+/g, ' ').trim();
+  return (str || '').replace(/[\u200B\u2060]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /**

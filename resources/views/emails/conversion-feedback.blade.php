@@ -80,7 +80,7 @@
     @endif
 
     <p style="color:#888; margin-top:20px; font-size:11px;">
-        Attached: ocr_response.json, debug_converted.html, references.json (if available)
+        Attached: ocr_response.json, debug_converted.html, references.json, conversion_stats.json (if available)
     </p>
 </body>
 </html>

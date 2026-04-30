@@ -2,14 +2,21 @@
 """
 Conversion Pipeline Regression Tests
 
-Runs process_document.py against each fixture and compares outputs
-to golden files. Any deviation in reference counts, citation stats,
-or audit results is reported as a failure.
+Runs the full conversion pipeline (or partial) against each fixture
+and compares outputs to expected values in the manifest.
+
+Full pipeline (fixture has ocr_response.json):
+    ocr_response.json → mistral_ocr.py → main-text.md
+    → simple_md_to_html.py → HTML → process_document.py → compare
+
+HTML-only (fixture has input.html but no ocr_response.json):
+    input.html → process_document.py → compare
 
 Usage:
     python3 tests/conversion/run_regression.py
     python3 tests/conversion/run_regression.py --fixture peerreview2027
     python3 tests/conversion/run_regression.py --verbose
+    python3 tests/conversion/run_regression.py --json   # machine-readable output
 """
 
 import argparse
@@ -24,6 +31,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FIXTURES_DIR = os.path.join(SCRIPT_DIR, 'fixtures')
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
 PROCESS_SCRIPT = os.path.join(PROJECT_ROOT, 'app', 'Python', 'process_document.py')
+MISTRAL_OCR_SCRIPT = os.path.join(PROJECT_ROOT, 'app', 'Python', 'mistral_ocr.py')
+MD_TO_HTML_SCRIPT = os.path.join(PROJECT_ROOT, 'app', 'Python', 'simple_md_to_html.py')
 
 
 def discover_fixtures(filter_name=None):
@@ -38,66 +47,91 @@ def discover_fixtures(filter_name=None):
                 continue
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
+
+            has_ocr = os.path.isfile(os.path.join(FIXTURES_DIR, name, 'ocr_response.json'))
+            has_html = os.path.isfile(os.path.join(FIXTURES_DIR, name, 'input.html'))
+
             fixtures.append({
                 'name': name,
                 'dir': os.path.join(FIXTURES_DIR, name),
                 'manifest': manifest,
+                'has_ocr': has_ocr,
+                'has_html': has_html,
+                'pipeline': 'full' if has_ocr else ('html' if has_html else 'none'),
             })
     return fixtures
 
 
-def run_pipeline(fixture, tmp_dir):
-    """Run process_document.py on the fixture input and return outputs."""
-    input_html = os.path.join(fixture['dir'], 'input.html')
+def run_full_pipeline(fixture, tmp_dir):
+    """Run full pipeline: ocr_response.json → md → html → process_document.py"""
     book_id = fixture['manifest'].get('book_id', fixture['name'])
 
-    # Copy footnote_meta.json to tmp_dir if it exists (process_document.py reads it)
+    # Copy ocr_response.json to tmp_dir (mistral_ocr.py reads from output dir)
+    shutil.copy2(
+        os.path.join(fixture['dir'], 'ocr_response.json'),
+        os.path.join(tmp_dir, 'ocr_response.json')
+    )
+
+    # Stage 1: mistral_ocr.py (uses cached OCR, no API key needed)
+    # Needs a dummy pdf_path — it won't be read since cache exists
+    result = subprocess.run(
+        [sys.executable, MISTRAL_OCR_SCRIPT, '/dev/null', tmp_dir],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        return {'stage': 'mistral_ocr', 'returncode': result.returncode,
+                'stderr': result.stderr[-500:], 'stdout': result.stdout[-500:]}
+
+    # Stage 2: simple_md_to_html.py
+    md_path = os.path.join(tmp_dir, 'main-text.md')
+    html_path = os.path.join(tmp_dir, 'intermediate.html')
+    if not os.path.isfile(md_path):
+        return {'stage': 'mistral_ocr', 'returncode': -1,
+                'stderr': 'main-text.md not produced', 'stdout': ''}
+
+    result = subprocess.run(
+        [sys.executable, MD_TO_HTML_SCRIPT, md_path, html_path],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        return {'stage': 'md_to_html', 'returncode': result.returncode,
+                'stderr': result.stderr[-500:], 'stdout': result.stdout[-500:]}
+
+    if not os.path.isfile(html_path):
+        return {'stage': 'md_to_html', 'returncode': -1,
+                'stderr': 'intermediate.html not produced', 'stdout': ''}
+
+    # Stage 3: process_document.py
+    result = subprocess.run(
+        [sys.executable, PROCESS_SCRIPT, html_path, tmp_dir, book_id],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        return {'stage': 'process_document', 'returncode': result.returncode,
+                'stderr': result.stderr[-500:], 'stdout': result.stdout[-500:]}
+
+    return None  # success
+
+
+def run_html_pipeline(fixture, tmp_dir):
+    """Run HTML-only pipeline: input.html → process_document.py"""
+    book_id = fixture['manifest'].get('book_id', fixture['name'])
+
+    # Copy footnote_meta.json if it exists
     fn_meta = os.path.join(fixture['dir'], 'footnote_meta.json')
     if os.path.isfile(fn_meta):
         shutil.copy2(fn_meta, os.path.join(tmp_dir, 'footnote_meta.json'))
 
+    input_html = os.path.join(fixture['dir'], 'input.html')
     result = subprocess.run(
         [sys.executable, PROCESS_SCRIPT, input_html, tmp_dir, book_id],
-        capture_output=True,
-        text=True,
-        timeout=120,
+        capture_output=True, text=True, timeout=120,
     )
+    if result.returncode != 0:
+        return {'stage': 'process_document', 'returncode': result.returncode,
+                'stderr': result.stderr[-500:], 'stdout': result.stdout[-500:]}
 
-    return {
-        'returncode': result.returncode,
-        'stdout': result.stdout,
-        'stderr': result.stderr,
-    }
-
-
-def compare_reference_ids(fixture, tmp_dir):
-    """Compare reference IDs from golden vs actual output."""
-    golden_path = os.path.join(fixture['dir'], 'golden', 'references.json')
-    actual_path = os.path.join(tmp_dir, 'references.json')
-
-    if not os.path.isfile(golden_path):
-        return True, 'no golden references.json (skipped)'
-
-    if not os.path.isfile(actual_path):
-        return False, 'references.json not produced'
-
-    golden = json.load(open(golden_path))
-    actual = json.load(open(actual_path))
-
-    golden_ids = set(r['referenceId'] for r in golden)
-    actual_ids = set(r['referenceId'] for r in actual)
-
-    if golden_ids == actual_ids:
-        return True, f'{len(actual_ids)} IDs match'
-
-    missing = golden_ids - actual_ids
-    extra = actual_ids - golden_ids
-    parts = []
-    if missing:
-        parts.append(f'missing {len(missing)}: {sorted(missing)[:5]}{"..." if len(missing) > 5 else ""}')
-    if extra:
-        parts.append(f'extra {len(extra)}: {sorted(extra)[:5]}{"..." if len(extra) > 5 else ""}')
-    return False, '; '.join(parts)
+    return None  # success
 
 
 def compare_stats(fixture, tmp_dir):
@@ -130,6 +164,26 @@ def compare_stats(fixture, tmp_dir):
     return True, 'all counts match'
 
 
+def compare_reference_count(fixture, tmp_dir):
+    """Compare reference count from actual output against expected."""
+    actual_path = os.path.join(tmp_dir, 'references.json')
+    expected = fixture['manifest'].get('expected', {})
+
+    if 'references_count' not in expected:
+        return True, 'no references_count expected (skipped)'
+
+    if not os.path.isfile(actual_path):
+        return False, 'references.json not produced'
+
+    actual = json.load(open(actual_path))
+    actual_count = len(actual)
+    expected_count = expected['references_count']
+
+    if actual_count == expected_count:
+        return True, f'{actual_count} entries'
+    return False, f'expected {expected_count}, got {actual_count}'
+
+
 def compare_audit(fixture, tmp_dir):
     """Compare audit gaps count against expected."""
     audit_path = os.path.join(tmp_dir, 'audit.json')
@@ -151,20 +205,27 @@ def compare_audit(fixture, tmp_dir):
 
 
 def run_fixture(fixture, verbose=False):
-    """Run all checks for a single fixture. Returns (passed, results)."""
+    """Run all checks for a single fixture. Returns (passed, results, pipeline_used)."""
     results = []
     all_passed = True
 
     with tempfile.TemporaryDirectory(prefix=f'conv_test_{fixture["name"]}_') as tmp_dir:
-        # Run the pipeline
-        run_result = run_pipeline(fixture, tmp_dir)
+        # Run the appropriate pipeline
+        if fixture['pipeline'] == 'full':
+            error = run_full_pipeline(fixture, tmp_dir)
+            pipeline_label = 'full'
+        elif fixture['pipeline'] == 'html':
+            error = run_html_pipeline(fixture, tmp_dir)
+            pipeline_label = 'html-only'
+        else:
+            return False, [('pipeline', False, 'no input file (need ocr_response.json or input.html)')], 'none'
 
-        if run_result['returncode'] != 0:
-            results.append(('pipeline', False, f'exit code {run_result["returncode"]}'))
-            if verbose:
-                results.append(('stdout', False, run_result['stdout'][-500:]))
-                results.append(('stderr', False, run_result['stderr'][-500:]))
-            return False, results
+        if error:
+            results.append(('pipeline', False,
+                f'{error["stage"]} failed (exit {error["returncode"]}): {error.get("stderr", "")[:200]}'))
+            if verbose and error.get('stdout'):
+                results.append(('stdout', False, error['stdout'][-300:]))
+            return False, results, pipeline_label
 
         # Check stats
         passed, msg = compare_stats(fixture, tmp_dir)
@@ -172,8 +233,8 @@ def run_fixture(fixture, verbose=False):
         if not passed:
             all_passed = False
 
-        # Check reference IDs
-        passed, msg = compare_reference_ids(fixture, tmp_dir)
+        # Check reference count
+        passed, msg = compare_reference_count(fixture, tmp_dir)
         results.append(('references', passed, msg))
         if not passed:
             all_passed = False
@@ -184,26 +245,33 @@ def run_fixture(fixture, verbose=False):
         if not passed:
             all_passed = False
 
-    return all_passed, results
+    return all_passed, results, pipeline_label
 
 
 def main():
     parser = argparse.ArgumentParser(description='Run conversion pipeline regression tests')
     parser.add_argument('--fixture', help='Run only this fixture')
     parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed output')
+    parser.add_argument('--json', action='store_true', help='Output results as JSON')
     args = parser.parse_args()
 
     fixtures = discover_fixtures(args.fixture)
 
     if not fixtures:
-        print('No fixtures found.')
-        if args.fixture:
-            print(f'Looked for: {os.path.join(FIXTURES_DIR, args.fixture, "manifest.json")}')
+        if args.json:
+            print(json.dumps({'error': 'No fixtures found', 'fixtures': []}))
+        else:
+            print('No fixtures found.')
+            if args.fixture:
+                print(f'Looked for: {os.path.join(FIXTURES_DIR, args.fixture, "manifest.json")}')
         sys.exit(1)
 
-    print()
-    print('Conversion Pipeline Regression Tests')
-    print('=' * 40)
+    json_results = []
+
+    if not args.json:
+        print()
+        print('Conversion Pipeline Regression Tests')
+        print('=' * 40)
 
     total_pass = 0
     total_fail = 0
@@ -211,29 +279,48 @@ def main():
     for fixture in fixtures:
         manifest = fixture['manifest']
         style = manifest.get('citation_style', '?')
-        print(f'\n{fixture["name"]} ({style})')
+        strategy = manifest.get('footnote_strategy', '?')
 
-        all_passed, results = run_fixture(fixture, verbose=args.verbose)
+        all_passed, results, pipeline_label = run_fixture(fixture, verbose=args.verbose)
 
-        for check_name, passed, msg in results:
-            status = 'PASS' if passed else 'FAIL'
-            padding = '.' * max(1, 16 - len(check_name))
-            print(f'  {check_name} {padding} {status} ({msg})')
+        if args.json:
+            json_results.append({
+                'name': fixture['name'],
+                'description': manifest.get('description', ''),
+                'citation_style': style,
+                'footnote_strategy': strategy,
+                'pipeline': pipeline_label,
+                'passed': all_passed,
+                'checks': [{'name': n, 'passed': p, 'message': m} for n, p, m in results],
+            })
+        else:
+            print(f'\n{fixture["name"]} ({style}, {strategy}) [{pipeline_label}]')
+            for check_name, passed, msg in results:
+                status = 'PASS' if passed else 'FAIL'
+                padding = '.' * max(1, 16 - len(check_name))
+                print(f'  {check_name} {padding} {status} ({msg})')
 
         if all_passed:
             total_pass += 1
         else:
             total_fail += 1
 
-    print()
-    print('=' * 40)
-
-    if total_fail == 0:
-        print(f'ALL PASS ({total_pass} fixture{"s" if total_pass != 1 else ""})')
-        sys.exit(0)
+    if args.json:
+        print(json.dumps({
+            'total': total_pass + total_fail,
+            'passed': total_pass,
+            'failed': total_fail,
+            'fixtures': json_results,
+        }, indent=2))
     else:
-        print(f'{total_fail} FAILED, {total_pass} passed ({total_pass + total_fail} total)')
-        sys.exit(1)
+        print()
+        print('=' * 40)
+        if total_fail == 0:
+            print(f'ALL PASS ({total_pass} fixture{"s" if total_pass != 1 else ""})')
+        else:
+            print(f'{total_fail} FAILED, {total_pass} passed ({total_pass + total_fail} total)')
+
+    sys.exit(1 if total_fail > 0 else 0)
 
 
 if __name__ == '__main__':

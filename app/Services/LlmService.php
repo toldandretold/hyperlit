@@ -385,6 +385,108 @@ class LlmService
     }
 
     /**
+     * Extract structured metadata from multiple footnote citations concurrently.
+     * Unlike extractCitationMetadataBatch(), this handles multi-citation footnotes
+     * (e.g. "Millstone (2016); Sommerville (2014); Ashton (1979)") by instructing
+     * the LLM to return a JSON array of citation objects — one per distinct cited work.
+     *
+     * @param array $citations Array of footnote HTML strings keyed by footnote ID
+     * @return array<string, array<int, array>> Keyed by footnote ID, each value is an array of normalised citation metadata objects
+     */
+    public function extractFootnoteCitationsBatch(array $citations): array
+    {
+        $systemPrompt = <<<'PROMPT'
+Extract structured metadata from this footnote. This is a footnote from an academic text. It may contain one or more citations separated by semicolons.
+
+Return a JSON array of citation objects — one per distinct cited work. Each object has these fields:
+{"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|commentary|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null"}
+
+IMPORTANT RULES:
+- For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year and "original_year" the original publication year. For non-reprints, "original_year" is null.
+- Use null for any field you cannot determine. The year must be an integer or null.
+- Authors must be an array of strings in "Lastname, Firstname" format.
+- For abbreviated references like "CJ, I, p. 919", "Ibid., p. 42", or archival codes, classify as type "archival-source".
+- If the footnote is not a citation (commentary, cross-reference, explanatory note), return [{"type": "commentary", "title": null, "authors": [], "year": null, "original_year": null, "journal": null, "publisher": null, "doi": null, "url": null}].
+- Always return a JSON array, even for single citations: [{"title": "...", ...}]
+PROMPT;
+
+        $requests = [];
+        foreach ($citations as $key => $html) {
+            $requests[$key] = [
+                'system'           => $systemPrompt,
+                'user'             => strip_tags($html),
+                'max_tokens'       => 500,
+                'temperature'      => 0.0,
+                'reasoning_effort' => 'none',
+            ];
+        }
+
+        $batchSize = 30;
+        $keys = array_keys($requests);
+        $chunks = array_chunk($keys, $batchSize);
+        $allResults = [];
+
+        foreach ($chunks as $chunkIndex => $chunkKeys) {
+            $batchRequests = [];
+            foreach ($chunkKeys as $k) {
+                $batchRequests[$k] = $requests[$k];
+            }
+
+            $rawResponses = $this->chatBatch($batchRequests, 30);
+
+            foreach ($rawResponses as $k => $raw) {
+                if (!$raw) {
+                    $allResults[$k] = [null];
+                    continue;
+                }
+
+                $raw = trim($raw);
+                $raw = preg_replace('/^```(?:json)?\s*/i', '', $raw);
+                $raw = preg_replace('/\s*```$/', '', $raw);
+
+                $parsed = json_decode($raw, true);
+
+                // Handle single object response — wrap in array
+                if (is_array($parsed) && !empty($parsed['title'])) {
+                    $parsed = [$parsed];
+                }
+
+                if (!is_array($parsed) || empty($parsed)) {
+                    Log::warning('LLM footnote extraction: invalid JSON response', ['raw' => $raw]);
+                    $allResults[$k] = [null];
+                    continue;
+                }
+
+                $normalised = [];
+                foreach ($parsed as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    $normalised[] = [
+                        'title'         => is_string($item['title'] ?? null) ? trim($item['title']) : null,
+                        'authors'       => is_array($item['authors'] ?? null) ? $item['authors'] : [],
+                        'year'          => is_numeric($item['year'] ?? null) ? (int) $item['year'] : null,
+                        'original_year' => is_numeric($item['original_year'] ?? null) ? (int) $item['original_year'] : null,
+                        'journal'       => is_string($item['journal'] ?? null) ? trim($item['journal']) : null,
+                        'publisher'     => is_string($item['publisher'] ?? null) ? trim($item['publisher']) : null,
+                        'type'          => is_string($item['type'] ?? null) ? trim($item['type']) : null,
+                        'doi'           => is_string($item['doi'] ?? null) ? trim($item['doi']) : null,
+                        'url'           => is_string($item['url'] ?? null) ? trim($item['url']) : null,
+                    ];
+                }
+
+                $allResults[$k] = !empty($normalised) ? $normalised : [null];
+            }
+
+            if ($chunkIndex < count($chunks) - 1) {
+                usleep(250_000);
+            }
+        }
+
+        return $allResults;
+    }
+
+    /**
      * Extract the title of the cited work from a raw citation string using the LLM.
      */
     public function extractCitationTitle(string $citationHtml): ?string

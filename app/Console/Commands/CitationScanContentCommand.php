@@ -88,6 +88,18 @@ class CitationScanContentCommand extends Command
         // O(1) lookup set for bibliography referenceIds
         $bibRefIdSet = array_flip(array_keys($bibPlainTexts));
 
+        // Footnote-only: when bibliography is empty, citation-classified footnotes are valid IDs
+        $isFootnoteOnly = empty($bibRefIdSet);
+        $fnRefIdSet = [];
+        if ($isFootnoteOnly) {
+            $fnRefIdSet = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('is_citation', true)
+                ->pluck('footnoteId')
+                ->flip()
+                ->toArray();
+        }
+
         // Pre-build footnote → refIds map for footnote-based citations
         $footnoteMap = $this->buildFootnoteCitationMap($db, $bookId, $bibRefIdSet);
 
@@ -322,10 +334,18 @@ class CitationScanContentCommand extends Command
             ->first();
 
         if (!$bibEntry) {
-            return $result;
+            // Fall through to footnotes for footnote-only books
+            $fnEntry = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('footnoteId', $refId)
+                ->first();
+            if (!$fnEntry) {
+                return $result;
+            }
+            $foundationSource = $fnEntry->foundation_source ?? null;
+        } else {
+            $foundationSource = $bibEntry->foundation_source ?? null;
         }
-
-        $foundationSource = $bibEntry->foundation_source ?? null;
 
         if (!$foundationSource || $foundationSource === 'unknown') {
             return $result;
@@ -459,6 +479,20 @@ class CitationScanContentCommand extends Command
      */
     private function buildFootnoteCitationMap($db, string $bookId, array $bibRefIdSet): array
     {
+        // Footnote-only: each citation-classified footnote maps to itself
+        if (empty($bibRefIdSet)) {
+            $footnotes = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('is_citation', true)
+                ->select(['footnoteId'])
+                ->get();
+            $map = [];
+            foreach ($footnotes as $fn) {
+                $map[$fn->footnoteId] = [$fn->footnoteId];
+            }
+            return $map;
+        }
+
         $footnotes = $db->table('footnotes')
             ->where('book', $bookId)
             ->select(['footnoteId', 'preview_nodes', 'content'])

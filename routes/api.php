@@ -301,6 +301,16 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/scrape/novel/chapter', [ScrapeController::class, 'novelChapter']);
 });
 
+// Conversion test routes (admin-only)
+Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::post('/conversion-tests/run', [\App\Http\Controllers\ConversionTestController::class, 'runTests'])
+        ->middleware('throttle:5,1');
+    Route::post('/conversion-tests/add-fixture', [\App\Http\Controllers\ConversionTestController::class, 'addFixture'])
+        ->middleware('throttle:5,1');
+    Route::post('/conversion-tests/upload-fixture', [\App\Http\Controllers\ConversionTestController::class, 'uploadFixture'])
+        ->middleware('throttle:5,1');
+});
+
 // Snapshots endpoint — outside author middleware so public book readers can see version history
 Route::get('/books/{book}/snapshots', [NodeHistoryController::class, 'getSnapshots']);
 

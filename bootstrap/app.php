@@ -65,6 +65,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'book.owner' => \App\Http\Middleware\CheckBookOwnership::class,
             'author'     => \App\Http\Middleware\RequireAuthor::class,
             'cors'       => \App\Http\Middleware\CorsMiddleware::class, // Add alias for manual use
+            'admin'      => \App\Http\Middleware\RequireAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -203,8 +203,13 @@ export class SettingsContainerManager extends ContainerManager {
       this.updateButtonStates();
     };
 
-    const { showGatePanel, getGateSettings, reapplyAnnotationsWithGate } = await import('./gateFilter.js');
+    const { showGatePanel, getGateSettings, getBookGateDefaults, setBookGateDefaults, reapplyAnnotationsWithGate } = await import('./gateFilter.js');
+    const { canUserEditBook } = await import('../utilities/auth.js');
     const currentSettings = getGateSettings();
+
+    const bookId = document.querySelector('.main-content')?.id;
+    const isOwner = bookId ? await canUserEditBook(bookId) : false;
+    const bookGateDefaults = getBookGateDefaults();
 
     showGatePanel(container, currentSettings, {
       onApply: async (newSettings) => {
@@ -219,7 +224,37 @@ export class SettingsContainerManager extends ContainerManager {
         await reapplyAnnotationsWithGate();
       },
       onCancel: restorePanel,
-    });
+      onSaveBookDefault: async (defaults) => {
+        // 1. Update module cache
+        setBookGateDefaults(defaults);
+
+        // 2. Update IndexedDB library record + queue for sync
+        if (bookId) {
+          const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+          const { openDatabase } = await import('../indexedDB/index.js');
+          const { queueForSync } = await import('../indexedDB/syncQueue/queue.js');
+
+          const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+          if (libraryRecord) {
+            const originalRecord = structuredClone(libraryRecord);
+            libraryRecord.gate_defaults = defaults;
+            const db = await openDatabase();
+            const tx = db.transaction('library', 'readwrite');
+            tx.objectStore('library').put(libraryRecord);
+            await new Promise((resolve, reject) => {
+              tx.oncomplete = resolve;
+              tx.onerror = () => reject(tx.error);
+            });
+            queueForSync('library', bookId, 'update', libraryRecord, originalRecord, true);
+          }
+        }
+
+        // 3. Close panel and reapply
+        restorePanel();
+        this.closeContainer();
+        await reapplyAnnotationsWithGate();
+      },
+    }, { isOwner, bookGateDefaults });
   }
 
   /**

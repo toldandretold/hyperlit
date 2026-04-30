@@ -52,10 +52,15 @@ class CitationScanBibliographyCommand extends Command
         } else {
             $entryCount = $db->table('bibliography')->where('book', $bookId)->count();
             if ($entryCount === 0) {
-                $this->warn('No bibliography entries found for this book.');
-                return 0;
+                $entryCount = $db->table('footnotes')->where('book', $bookId)->count();
+                if ($entryCount === 0) {
+                    $this->warn('No bibliography or footnote entries found.');
+                    return 0;
+                }
+                $this->info("No bibliography — using {$entryCount} footnotes as citation sources.");
+            } else {
+                $this->info("Bibliography entries: {$entryCount}");
             }
-            $this->info("Bibliography entries: {$entryCount}");
         }
 
         $this->newLine();

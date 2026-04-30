@@ -10,6 +10,11 @@
  * Critical rule: a user's own highlights/hypercites ALWAYS pass through the gate.
  */
 
+// ─── Book-level gate defaults (set by book creator) ─────────────────────
+let _bookGateDefaults = null;
+export function setBookGateDefaults(defaults) { _bookGateDefaults = defaults; }
+export function getBookGateDefaults() { return _bookGateDefaults; }
+
 const STORAGE_KEY = 'hyperlit_gate_filter';
 
 const DEFAULT_SETTINGS = {
@@ -39,7 +44,15 @@ function saveGateSettings(settings) {
 export function gateQueryParam() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return '';            // no setting stored — let server use its default
-  return `gate=${encodeURIComponent(raw)}`;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.mode === 'default' && _bookGateDefaults) {
+      parsed.bookDefaults = _bookGateDefaults;
+    }
+    return `gate=${encodeURIComponent(JSON.stringify(parsed))}`;
+  } catch {
+    return `gate=${encodeURIComponent(raw)}`;
+  }
 }
 
 /**
@@ -98,7 +111,19 @@ export function applyGateFilter(items, type) {
     if (type === 'hypercite' && item.is_user_hypercite) return true;
 
     if (settings.mode === 'default') {
-      // Default mode: filter hyperlights only; hypercites pass
+      if (_bookGateDefaults) {
+        // Book creator has set custom defaults — apply to both types
+        const { hideAI, hideAnonymous, hideNoAnnotation } = _bookGateDefaults;
+        if (hideAI && item.creator?.startsWith('AIreview:')) return false;
+        if (hideAnonymous && !item.creator) return false;
+        if (hideNoAnnotation && type === 'hyperlight') {
+          const hasContent = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
+          if (!hasContent) return false;
+        }
+        return true;
+      }
+
+      // Global default: filter hyperlights only; hypercites pass
       if (type === 'hypercite') return true;
 
       // Hide AI-generated highlights
@@ -147,7 +172,12 @@ export async function reapplyAnnotationsWithGate(bookId) {
   if (!bookId) return;
 
   const { syncAnnotationsOnly } = await import('../postgreSQL.js');
-  await syncAnnotationsOnly(bookId);
+  const syncResult = await syncAnnotationsOnly(bookId);
+
+  if (!syncResult?.success) {
+    console.error('❌ Gate reapply aborted: annotation sync failed', syncResult);
+    return;
+  }
 
   // Gather visible node IDs from DOM (same pattern as initializePage.js:1212-1217)
   const visibleNodeIds = Array.from(
@@ -161,6 +191,7 @@ export async function reapplyAnnotationsWithGate(bookId) {
   const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild.js');
   const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
 
+  // Read freshly-synced nodes from IndexedDB
   const allNodes = await getNodeChunksFromIndexedDB(bookId);
   const visibleDataNodeIDs = allNodes
     .filter(n => visibleNodeIds.includes(String(n.startLine)))
@@ -173,8 +204,11 @@ export async function reapplyAnnotationsWithGate(bookId) {
     await rebuildNodeArrays(nodesToRebuild);
   }
 
+  // Re-read nodes after rebuild so reprocessHighlightsForNodes uses the freshest data
+  const freshNodes = await getNodeChunksFromIndexedDB(bookId);
+
   const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion.js');
-  await reprocessHighlightsForNodes(bookId, visibleNodeIds);
+  await reprocessHighlightsForNodes(bookId, visibleNodeIds, freshNodes);
 }
 
 // ─── Gate panel UI ──────────────────────────────────────────────────────
@@ -186,21 +220,32 @@ export async function reapplyAnnotationsWithGate(bookId) {
  * @param {object} currentSettings — current gate settings object
  * @param {object} callbacks — { onApply(settings), onCancel() }
  */
-export function showGatePanel(container, currentSettings, callbacks) {
+export function showGatePanel(container, currentSettings, callbacks, options = {}) {
+  const { isOwner = false, bookGateDefaults = null } = options;
+
   // Working copy so we don't mutate until Apply
   const draft = {
     mode: currentSettings.mode,
     custom: { ...currentSettings.custom },
   };
 
+  // What "Default" means for this book — book overrides or global hardcoded
+  const defaultChecks = bookGateDefaults
+    ? { hideAI: !!bookGateDefaults.hideAI, hideAnonymous: !!bookGateDefaults.hideAnonymous, hideNoAnnotation: !!bookGateDefaults.hideNoAnnotation }
+    : { hideAI: true, hideAnonymous: false, hideNoAnnotation: true };
+
   // Visual checkbox state: in default/all/hideAll modes, show what those modes imply
   const visualChecks = draft.mode === 'default'
-    ? { hideAI: true, hideAnonymous: false, hideNoAnnotation: true }
+    ? defaultChecks
     : draft.mode === 'all'
       ? { hideAI: false, hideAnonymous: false, hideNoAnnotation: false }
       : draft.mode === 'hideAll'
         ? { hideAI: true, hideAnonymous: true, hideNoAnnotation: true }
         : draft.custom;
+
+  // Owner on default tab: checkboxes are enabled so they can edit the book default
+  const defaultEditable = isOwner && draft.mode === 'default';
+  const optionsEnabled = draft.mode === 'custom' || defaultEditable;
 
   container.innerHTML = `
     <div class="gate-panel">
@@ -211,23 +256,27 @@ export function showGatePanel(container, currentSettings, callbacks) {
         <button type="button" class="gate-mode-btn${draft.mode === 'custom' ? ' active' : ''}" data-mode="custom">Custom</button>
       </div>
 
-      <div class="gate-options${draft.mode === 'custom' ? '' : ' disabled'}">
+      <div class="gate-options${optionsEnabled ? '' : ' disabled'}">
         <div class="gate-options-heading">Restrict highlights &amp; hypercites from:</div>
         <label class="gate-option">
-          <input type="checkbox" data-key="hideAI" ${visualChecks.hideAI ? 'checked' : ''} ${draft.mode !== 'custom' ? 'disabled' : ''}>
+          <input type="checkbox" data-key="hideAI" ${visualChecks.hideAI ? 'checked' : ''} ${!optionsEnabled ? 'disabled' : ''}>
           <span>AI (like citation review)</span>
         </label>
         <label class="gate-option">
-          <input type="checkbox" data-key="hideAnonymous" ${visualChecks.hideAnonymous ? 'checked' : ''} ${draft.mode !== 'custom' ? 'disabled' : ''}>
+          <input type="checkbox" data-key="hideAnonymous" ${visualChecks.hideAnonymous ? 'checked' : ''} ${!optionsEnabled ? 'disabled' : ''}>
           <span>Anonymous users</span>
         </label>
         <label class="gate-option">
-          <input type="checkbox" data-key="hideNoAnnotation" ${visualChecks.hideNoAnnotation ? 'checked' : ''} ${draft.mode !== 'custom' ? 'disabled' : ''}>
+          <input type="checkbox" data-key="hideNoAnnotation" ${visualChecks.hideNoAnnotation ? 'checked' : ''} ${!optionsEnabled ? 'disabled' : ''}>
           <span>Highlights with no annotation</span>
         </label>
       </div>
 
       <div class="gate-actions">
+        ${isOwner && draft.mode === 'default' ? `
+          <button type="button" class="vibe-submit-btn gate-save-book-default-btn">Save as Book Default</button>
+          ${bookGateDefaults ? '<button type="button" class="vibe-cancel-btn gate-reset-book-default-btn">Reset to Global Default</button>' : ''}
+        ` : ''}
         <button type="button" class="vibe-submit-btn gate-apply-btn">Apply</button>
         <button type="button" class="vibe-cancel-btn gate-cancel-btn">Cancel</button>
       </div>
@@ -250,22 +299,58 @@ export function showGatePanel(container, currentSettings, callbacks) {
       const optionsDiv = panel.querySelector('.gate-options');
       const checkboxes = panel.querySelectorAll('.gate-option input[type="checkbox"]');
 
-      if (draft.mode === 'custom') {
+      const editable = draft.mode === 'custom' || (isOwner && draft.mode === 'default');
+
+      if (editable) {
         optionsDiv.classList.remove('disabled');
         checkboxes.forEach(cb => { cb.disabled = false; });
       } else {
         optionsDiv.classList.add('disabled');
         checkboxes.forEach(cb => { cb.disabled = true; });
+      }
 
-        // Default pre-checks AI + no annotation; All unchecks all
-        if (draft.mode === 'default') {
-          panel.querySelector('[data-key="hideAI"]').checked = true;
-          panel.querySelector('[data-key="hideAnonymous"]').checked = false;
-          panel.querySelector('[data-key="hideNoAnnotation"]').checked = true;
-        } else if (draft.mode === 'all') {
-          checkboxes.forEach(cb => { cb.checked = false; });
-        } else if (draft.mode === 'hideAll') {
-          checkboxes.forEach(cb => { cb.checked = true; });
+      // Set checkbox values for the mode
+      if (draft.mode === 'default') {
+        panel.querySelector('[data-key="hideAI"]').checked = defaultChecks.hideAI;
+        panel.querySelector('[data-key="hideAnonymous"]').checked = defaultChecks.hideAnonymous;
+        panel.querySelector('[data-key="hideNoAnnotation"]').checked = defaultChecks.hideNoAnnotation;
+      } else if (draft.mode === 'all') {
+        checkboxes.forEach(cb => { cb.checked = false; });
+      } else if (draft.mode === 'hideAll') {
+        checkboxes.forEach(cb => { cb.checked = true; });
+      }
+
+      // Show/hide book default buttons
+      const actionsDiv = panel.querySelector('.gate-actions');
+      const existingSave = actionsDiv.querySelector('.gate-save-book-default-btn');
+      const existingReset = actionsDiv.querySelector('.gate-reset-book-default-btn');
+      if (existingSave) existingSave.remove();
+      if (existingReset) existingReset.remove();
+
+      if (isOwner && draft.mode === 'default') {
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'vibe-submit-btn gate-save-book-default-btn';
+        saveBtn.textContent = 'Save as Book Default';
+        saveBtn.addEventListener('click', () => {
+          const flags = {
+            hideAI: panel.querySelector('[data-key="hideAI"]').checked,
+            hideAnonymous: panel.querySelector('[data-key="hideAnonymous"]').checked,
+            hideNoAnnotation: panel.querySelector('[data-key="hideNoAnnotation"]').checked,
+          };
+          if (callbacks.onSaveBookDefault) callbacks.onSaveBookDefault(flags);
+        });
+        actionsDiv.insertBefore(saveBtn, actionsDiv.firstChild);
+
+        if (bookGateDefaults) {
+          const resetBtn = document.createElement('button');
+          resetBtn.type = 'button';
+          resetBtn.className = 'vibe-cancel-btn gate-reset-book-default-btn';
+          resetBtn.textContent = 'Reset to Global Default';
+          resetBtn.addEventListener('click', () => {
+            if (callbacks.onSaveBookDefault) callbacks.onSaveBookDefault(null);
+          });
+          saveBtn.after(resetBtn);
         }
       }
     });
@@ -282,7 +367,7 @@ export function showGatePanel(container, currentSettings, callbacks) {
   panel.querySelector('.gate-apply-btn').addEventListener('click', () => {
     // Sync checkbox state back for non-custom modes too (visual state)
     if (draft.mode === 'default') {
-      draft.custom = { hideAI: true, hideAnonymous: false, hideNoAnnotation: true };
+      draft.custom = { ...defaultChecks };
     } else if (draft.mode === 'all') {
       draft.custom = { hideAI: false, hideAnonymous: false, hideNoAnnotation: false };
     } else if (draft.mode === 'hideAll') {
@@ -295,4 +380,25 @@ export function showGatePanel(container, currentSettings, callbacks) {
   panel.querySelector('.gate-cancel-btn').addEventListener('click', () => {
     callbacks.onCancel();
   });
+
+  // Save as Book Default (owner only) — initial buttons wired here;
+  // mode-switch handler creates new ones dynamically when switching back to default
+  const saveDefaultBtn = panel.querySelector('.gate-save-book-default-btn');
+  if (saveDefaultBtn) {
+    saveDefaultBtn.addEventListener('click', () => {
+      const flags = {
+        hideAI: panel.querySelector('[data-key="hideAI"]').checked,
+        hideAnonymous: panel.querySelector('[data-key="hideAnonymous"]').checked,
+        hideNoAnnotation: panel.querySelector('[data-key="hideNoAnnotation"]').checked,
+      };
+      if (callbacks.onSaveBookDefault) callbacks.onSaveBookDefault(flags);
+    });
+  }
+
+  const resetDefaultBtn = panel.querySelector('.gate-reset-book-default-btn');
+  if (resetDefaultBtn) {
+    resetDefaultBtn.addEventListener('click', () => {
+      if (callbacks.onSaveBookDefault) callbacks.onSaveBookDefault(null);
+    });
+  }
 }

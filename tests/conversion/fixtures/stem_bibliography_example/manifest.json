@@ -1,0 +1,15 @@
+{
+    "name": "stem_bibliography_example",
+    "description": "wackSTEMbibliographyNotes footnotes",
+    "book_id": "stem_bibliography_example",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 5,
+        "citations_linked": 0,
+        "citations_total": 10,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

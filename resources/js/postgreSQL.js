@@ -1045,5 +1045,9 @@ export async function loadLibraryToIndexedDB(db, library) {
     request.onerror = () => reject(request.error);
   });
 
+  // Keep the gate filter's book-level defaults cache in sync
+  const { setBookGateDefaults } = await import('./components/gateFilter.js');
+  setBookGateDefaults(library.gate_defaults || null);
+
   verbose.content('Loaded library data (cleaned)', 'postgreSQL.js');
 }

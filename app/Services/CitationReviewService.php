@@ -115,6 +115,17 @@ class CitationReviewService
             ->flip()
             ->toArray();
 
+        // Footnote-only: when bibliography is empty, citation-classified footnotes are valid IDs
+        if (empty($bibRefIds)) {
+            $fnCitationIds = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('is_citation', true)
+                ->pluck('footnoteId')
+                ->flip()
+                ->toArray();
+            $bibRefIds = $fnCitationIds;
+        }
+
         // Pre-build footnote → refIds map for footnote-based citations
         $footnoteMap = $this->buildFootnoteCitationMap($bookId);
 
@@ -271,6 +282,18 @@ class CitationReviewService
             ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score'])
             ->get()
             ->keyBy('referenceId');
+
+        // Check footnotes for any IDs not found in bibliography
+        $missingIds = array_diff($allRefIds, $bibEntries->keys()->toArray());
+        if (!empty($missingIds)) {
+            $fnEntries = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->whereIn('footnoteId', $missingIds)
+                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score'])
+                ->get()
+                ->keyBy('referenceId');
+            $bibEntries = $bibEntries->merge($fnEntries);
+        }
 
         // Collect foundation_source book IDs for library lookup
         $sourceBookIds = [];
@@ -1735,6 +1758,26 @@ class CitationReviewService
     {
         $db = DB::connection('pgsql_admin');
 
+        // Load bibliography referenceIds for link validation
+        $bibRefIdSet = $db->table('bibliography')
+            ->where('book', $bookId)
+            ->pluck('referenceId')
+            ->flip()
+            ->toArray();
+
+        // Footnote-only: each citation-classified footnote maps to itself
+        if (empty($bibRefIdSet)) {
+            $fnCitations = $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('is_citation', true)
+                ->pluck('footnoteId');
+            $map = [];
+            foreach ($fnCitations as $fnId) {
+                $map[$fnId] = [$fnId];
+            }
+            return $map;
+        }
+
         $footnotes = $db->table('footnotes')
             ->where('book', $bookId)
             ->select(['footnoteId', 'preview_nodes', 'content'])
@@ -1743,13 +1786,6 @@ class CitationReviewService
         if ($footnotes->isEmpty()) {
             return [];
         }
-
-        // Load bibliography referenceIds for link validation
-        $bibRefIdSet = $db->table('bibliography')
-            ->where('book', $bookId)
-            ->pluck('referenceId')
-            ->flip()
-            ->toArray();
 
         // Load bibliography entries with llm_metadata for author+year matching
         $bibMetadata = [];

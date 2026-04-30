@@ -557,6 +557,7 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'mode' => $gate['mode'],
                     'custom' => array_merge($defaults['custom'], $gate['custom'] ?? []),
+                    'bookDefaults' => $gate['bookDefaults'] ?? null,
                 ];
             }
         }
@@ -576,6 +577,17 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Get the book creator's gate defaults for a given book.
+     * Returns decoded array or null if the book has no overrides.
+     */
+    private function getBookGateDefaults(string $bookId): ?array
+    {
+        $row = DB::table('library')->where('book', $bookId)->select('gate_defaults')->first();
+        if (!$row || !$row->gate_defaults) return null;
+        return json_decode($row->gate_defaults, true);
+    }
+
+    /**
      * Apply gate filter WHERE clauses to an annotation query.
      * The user's own rows always pass through (ownership bypass in every clause).
      *
@@ -584,8 +596,9 @@ class DatabaseToIndexedDBController extends Controller
      * @param string $type          'hyperlight' or 'hypercite'
      * @param mixed  $user          Auth::user() or null
      * @param string|null $anonToken Anonymous token cookie
+     * @param array|null $bookGateDefaults Book-level default overrides (from library.gate_defaults)
      */
-    private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken): void
+    private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken, ?array $bookGateDefaults = null): void
     {
         if ($gate['mode'] === 'all') return;
 
@@ -605,10 +618,19 @@ class DatabaseToIndexedDBController extends Controller
         $hideNoAnnotation = false;
 
         if ($gate['mode'] === 'default') {
-            // Default: only filter hyperlights — hide AI + empty annotation
-            if ($type === 'hypercite') return;
-            $hideAI = true;
-            $hideNoAnnotation = true;
+            // Prefer client-provided bookDefaults (avoids race with async DB save)
+            $effectiveDefaults = $gate['bookDefaults'] ?? $bookGateDefaults;
+            if ($effectiveDefaults !== null) {
+                // Book creator has set custom defaults — apply to both types
+                $hideAI = $effectiveDefaults['hideAI'] ?? false;
+                $hideAnonymous = $effectiveDefaults['hideAnonymous'] ?? false;
+                $hideNoAnnotation = $effectiveDefaults['hideNoAnnotation'] ?? false;
+            } else {
+                // Global default: only filter hyperlights — hide AI + empty annotation
+                if ($type === 'hypercite') return;
+                $hideAI = true;
+                $hideNoAnnotation = true;
+            }
         } elseif ($gate['mode'] === 'custom') {
             $hideAI = $gate['custom']['hideAI'] ?? false;
             $hideAnonymous = $gate['custom']['hideAnonymous'] ?? false;
@@ -681,11 +703,41 @@ class DatabaseToIndexedDBController extends Controller
 
         // Server-side gate filter — exclude gated highlights before download
         $gate = $this->getGatePreferences();
-        $this->applyGateFilters($query, $gate, 'hyperlight', $user, $anonymousToken);
+        $bookGateDefaults = $this->getBookGateDefaults($bookId);
+        $this->applyGateFilters($query, $gate, 'hyperlight', $user, $anonymousToken, $bookGateDefaults);
 
-        $hyperlights = $query
+        $rows = $query
             ->orderBy('hyperlight_id')
-            ->get()
+            ->get();
+
+        // Filter out highlights whose sub-book is private and doesn't belong to the current user.
+        // Use admin connection to bypass RLS so we can actually see private library records.
+        $subBookIds = $rows->pluck('sub_book_id')->filter()->unique()->values()->toArray();
+        $privateSubBookInfo = []; // sub_book_id => ['creator' => ..., 'creator_token' => ...]
+        if (!empty($subBookIds)) {
+            $privateRows = DB::connection('pgsql_admin')->table('library')
+                ->whereIn('book', $subBookIds)
+                ->where('visibility', 'private')
+                ->get(['book', 'creator', 'creator_token']);
+            foreach ($privateRows as $row) {
+                $privateSubBookInfo[$row->book] = [
+                    'creator' => $row->creator,
+                    'creator_token' => $row->creator_token,
+                ];
+            }
+        }
+
+        $rows = $rows->filter(function ($h) use ($user, $anonymousToken, $privateSubBookInfo) {
+            if (!$h->sub_book_id) return true;
+            if (!array_key_exists($h->sub_book_id, $privateSubBookInfo)) return true; // not private
+            // Private sub-book — only include if current user is the creator
+            $info = $privateSubBookInfo[$h->sub_book_id];
+            if ($user && $info['creator'] === $user->name) return true;
+            if ($anonymousToken && $info['creator_token'] && $info['creator_token'] === $anonymousToken) return true;
+            return false;
+        });
+
+        $hyperlights = $rows
             ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId) {
                 // Determine if this highlight belongs to the current user
                 // Prioritized auth: if highlight has username (creator), ONLY use username-based auth
@@ -766,9 +818,10 @@ class DatabaseToIndexedDBController extends Controller
         $query = DB::table('hypercites')
             ->where('book', $bookId);
 
-        // Server-side gate filter — only applied in custom mode (default leaves hypercites unfiltered)
+        // Server-side gate filter
         $gate = $this->getGatePreferences();
-        $this->applyGateFilters($query, $gate, 'hypercite', $user, $anonymousToken);
+        $bookGateDefaults = $this->getBookGateDefaults($bookId);
+        $this->applyGateFilters($query, $gate, 'hypercite', $user, $anonymousToken, $bookGateDefaults);
 
         $hypercites = $query
             ->orderBy('hyperciteId')
@@ -876,6 +929,7 @@ class DatabaseToIndexedDBController extends Controller
             'listed' => $library->listed ?? true,
             'license' => $library->license ?? null,
             'custom_license_text' => $library->custom_license_text ?? null,
+            'gate_defaults' => $library->gate_defaults ? json_decode($library->gate_defaults, true) : null,
             'raw_json' => $rawJson,
         ];
     }

@@ -1,0 +1,15 @@
+{
+    "total_refs": 1,
+    "total_defs": 2,
+    "gaps": [],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "seq1_Fn1777525722899_5sha",
+            "number": "2",
+            "section": "1",
+            "definition_preview": "This analysis draws quite a bit on Mikesell (1966). He outlined four direct precedents for the emergence of the IBRD: first, the growth of private finance and lending; second, war loans, third, intern"
+        }
+    ]
+}

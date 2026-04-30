@@ -146,7 +146,7 @@ class BackendHighlightService
             'type'          => 'sub_book',
             'creator'       => $parent->creator ?? null,
             'creator_token' => $parent->creator_token ?? null,
-            'visibility'    => $parent->visibility ?? 'public',
+            'visibility'    => 'public',
             'listed'        => false,
             'has_nodes'     => true,
             'timestamp'     => round(microtime(true) * 1000),

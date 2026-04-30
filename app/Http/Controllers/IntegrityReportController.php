@@ -145,14 +145,24 @@ class IntegrityReportController extends Controller
         $user = Auth::user();
         $data['userId'] = $user?->id;
         $data['userName'] = $user?->name ?? 'anonymous';
-
-        // Resolve the path to conversion artifacts
         $data['artifactPath'] = resource_path("markdown/{$data['bookId']}");
 
         Log::info('Conversion feedback received', [
             'bookId' => $data['bookId'],
             'rating' => $data['rating'],
         ]);
+
+        // Mark this book as user-consented for regression test usage
+        $bookDir = resource_path("markdown/{$data['bookId']}");
+        if (is_dir($bookDir)) {
+            $consent = [
+                'rating' => $data['rating'],
+                'userId' => $data['userId'],
+                'userName' => $data['userName'],
+                'timestamp' => $data['timestamp'] ?? now()->toISOString(),
+            ];
+            file_put_contents("{$bookDir}/feedback_consented.json", json_encode($consent, JSON_PRETTY_PRINT));
+        }
 
         try {
             Mail::send(new ConversionFeedbackMail($data));

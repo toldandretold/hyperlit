@@ -172,7 +172,9 @@ class SubBookController extends Controller
                 [
                     'creator'       => $creator,
                     'creator_token' => $creatorToken,
-                    'visibility'    => $this->getParentLibraryVisibility($parentBook) ?? 'private',
+                    'visibility'    => $type === 'footnote'
+                        ? ($this->getParentLibraryVisibility($parentBook) ?? 'private')
+                        : 'public',
                     'title'         => "Annotation: {$itemId}",
                     'type'          => 'sub_book',
                     'has_nodes'     => true,

@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "classification": "document_endnotes",
+  "confidence": 0.7,
+  "signals": {
+    "total_pages": 46,
+    "pages_with_refs": 1,
+    "pages_with_defs": 4,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.087,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 1,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 1
+  },
+  "page_summary": [
+    {
+      "index": 18,
+      "refs": [],
+      "defs": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 19,
+      "refs": [],
+      "defs": [
+        5,
+        6
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 20,
+      "refs": [
+        1
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 26,
+      "refs": [],
+      "defs": [
+        1,
+        2,
+        3
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 31,
+      "refs": [],
+      "defs": [
+        1,
+        2
+      ],
+      "trailing_number": null
+    }
+  ]
+}

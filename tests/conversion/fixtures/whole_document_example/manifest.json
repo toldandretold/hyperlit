@@ -1,0 +1,15 @@
+{
+    "name": "whole_document_example",
+    "description": "document_endnotes footnotes",
+    "book_id": "whole_document_example",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 243,
+        "citations_linked": 79,
+        "citations_total": 111,
+        "footnotes_count": 2,
+        "audit_gaps": 0
+    }
+}

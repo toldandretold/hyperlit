@@ -114,11 +114,26 @@ class CitationReviewCommand extends Command
 
         // Pre-flight checks
         $bibTotal = $db->table('bibliography')->where('book', $bookId)->count();
+        $fnCitationTotal = $db->table('footnotes')->where('book', $bookId)
+            ->where('is_citation', true)->count();
+        $isFootnoteOnly = $bibTotal === 0 && $fnCitationTotal > 0;
+
         $resolved = $db->table('bibliography')
             ->where('book', $bookId)
             ->whereNotNull('foundation_source')
             ->where('foundation_source', '!=', 'unknown')
             ->count();
+
+        // Add footnote resolved count for footnote-only books
+        if ($isFootnoteOnly) {
+            $resolved += $db->table('footnotes')
+                ->where('book', $bookId)
+                ->where('is_citation', true)
+                ->whereNotNull('foundation_source')
+                ->where('foundation_source', '!=', 'unknown')
+                ->count();
+        }
+
         $withAbstracts = $db->table('bibliography as b')
             ->join('library as l', 'l.book', '=', 'b.foundation_source')
             ->where('b.book', $bookId)
@@ -130,9 +145,30 @@ class CitationReviewCommand extends Command
             ->where('l.has_nodes', true)
             ->count();
 
+        if ($isFootnoteOnly) {
+            $withAbstracts += $db->table('footnotes as f')
+                ->join('library as l', 'l.book', '=', 'f.foundation_source')
+                ->where('f.book', $bookId)
+                ->where('f.is_citation', true)
+                ->whereNotNull('l.abstract')
+                ->count();
+            $withContent += $db->table('footnotes as f')
+                ->join('library as l', 'l.book', '=', 'f.foundation_source')
+                ->where('f.book', $bookId)
+                ->where('f.is_citation', true)
+                ->where('l.has_nodes', true)
+                ->count();
+        }
+
+        $sourceTotal = $isFootnoteOnly ? $fnCitationTotal : $bibTotal;
+
         $this->info('Pre-flight:');
-        $this->line("  Bibliography entries:     {$bibTotal}");
-        $this->line("  Resolved sources:         {$resolved}/{$bibTotal}  " . ($resolved > 0 ? '<fg=green>(scan-bibliography ✓)</>' : '<fg=red>(scan-bibliography not run)</>'));
+        if ($isFootnoteOnly) {
+            $this->line("  Footnote citations:      {$fnCitationTotal}");
+        } else {
+            $this->line("  Bibliography entries:     {$bibTotal}");
+        }
+        $this->line("  Resolved sources:         {$resolved}/{$sourceTotal}  " . ($resolved > 0 ? '<fg=green>(scan-bibliography ✓)</>' : '<fg=red>(scan-bibliography not run)</>'));
         $this->line("  Sources with abstracts:   {$withAbstracts}/{$resolved}");
         $this->line("  Sources with content:     {$withContent}/{$resolved}  " . ($withContent > 0 ? '(vacuum/ocr ✓)' : ''));
         $this->newLine();

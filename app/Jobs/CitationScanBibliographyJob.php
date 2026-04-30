@@ -28,6 +28,14 @@ class CitationScanBibliographyJob implements ShouldQueue
         'conference-paper', 'thesis', 'report',
     ];
 
+    private const CITABLE_TYPES = [
+        'book', 'journal-article', 'book-chapter',
+        'conference-paper', 'thesis', 'report',
+        'web_page', 'chapter',
+    ];
+
+    private string $sourceTable = 'bibliography';
+
     public function __construct(
         private string $scanId,
         private string $bookId,
@@ -54,6 +62,23 @@ class CitationScanBibliographyJob implements ShouldQueue
             }
             $entries = $query->get();
 
+            // Footnote-only: when bibliography is empty, use footnotes as citation sources
+            if ($entries->isEmpty() && !$this->referenceId) {
+                $entries = $db->table('footnotes')
+                    ->where('book', $this->bookId)
+                    ->get()
+                    ->map(function ($fn) {
+                        $fn->referenceId = $fn->footnoteId;
+                        $fn->source_id = $fn->source_id ?? null;
+                        return $fn;
+                    });
+                $this->sourceTable = 'footnotes';
+                Log::info('No bibliography — using footnotes as citation sources', [
+                    'scan_id' => $this->scanId,
+                    'count'   => $entries->count(),
+                ]);
+            }
+
             $totalEntries    = $entries->count();
             $alreadyLinked   = 0;
             $newlyResolved   = 0;
@@ -67,11 +92,12 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // Force mode: clear existing matches so entries go through resolution fresh
             if ($this->force) {
-                $resetQuery = $db->table('bibliography')->where('book', $this->bookId);
+                $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
+                $resetQuery = $db->table($this->sourceTable)->where('book', $this->bookId);
                 if ($this->referenceId) {
-                    $resetQuery->where('referenceId', $this->referenceId);
+                    $resetQuery->where($idColumn, $this->referenceId);
                 }
-                $resetCount = $resetQuery->update([
+                $resetData = [
                     'source_id'         => null,
                     'foundation_source' => null,
                     'match_method'      => null,
@@ -79,19 +105,30 @@ class CitationScanBibliographyJob implements ShouldQueue
                     'match_diagnostics' => null,
                     'llm_metadata'      => null,
                     'updated_at'        => now(),
-                ]);
+                ];
+                if ($this->sourceTable === 'footnotes') {
+                    $resetData['is_citation'] = false;
+                }
+                $resetCount = $resetQuery->update($resetData);
 
                 Log::info('Force mode: cleared matches', [
-                    'scan_id' => $this->scanId,
-                    'reset'   => $resetCount,
+                    'scan_id'      => $this->scanId,
+                    'source_table' => $this->sourceTable,
+                    'reset'        => $resetCount,
                 ]);
 
                 // Re-fetch entries after reset so in-memory objects reflect nulled columns
-                $refetchQuery = $db->table('bibliography')->where('book', $this->bookId);
+                $refetchQuery = $db->table($this->sourceTable)->where('book', $this->bookId);
                 if ($this->referenceId) {
-                    $refetchQuery->where('referenceId', $this->referenceId);
+                    $refetchQuery->where($idColumn, $this->referenceId);
                 }
                 $entries = $refetchQuery->get();
+                if ($this->sourceTable === 'footnotes') {
+                    $entries = $entries->map(function ($fn) {
+                        $fn->referenceId = $fn->footnoteId;
+                        return $fn;
+                    });
+                }
             }
 
             // Separate entries: already_linked (skip) vs needs_resolution
@@ -143,19 +180,85 @@ class CitationScanBibliographyJob implements ShouldQueue
                         'scan_id' => $this->scanId,
                         'count'   => count($toExtract),
                     ]);
-                    $extracted = $llm->extractCitationMetadataBatch($toExtract);
-                    $llmMetadataMap = array_merge($llmMetadataMap, $extracted);
 
-                    // Cache newly extracted metadata on bibliography rows
-                    foreach ($extracted as $refId => $metadata) {
-                        $db->table('bibliography')
-                            ->where('book', $this->bookId)
-                            ->where('referenceId', $refId)
-                            ->update([
-                                'llm_metadata' => json_encode($metadata),
-                                'updated_at'   => now(),
-                            ]);
+                    if ($this->sourceTable === 'footnotes') {
+                        // Footnote path: use multi-citation-aware extraction
+                        $extractedMulti = $llm->extractFootnoteCitationsBatch($toExtract);
+                        foreach ($extractedMulti as $refId => $citationArray) {
+                            $primary = $citationArray[0] ?? null;
+                            if ($primary) {
+                                // Store sub-citations (index 1+) on the primary metadata
+                                if (count($citationArray) > 1) {
+                                    $primary['sub_citations'] = array_slice($citationArray, 1);
+                                }
+                                $llmMetadataMap[$refId] = $primary;
+                            } else {
+                                $llmMetadataMap[$refId] = null;
+                            }
+                        }
+                    } else {
+                        // Bibliography path: unchanged
+                        $extracted = $llm->extractCitationMetadataBatch($toExtract);
+                        $llmMetadataMap = array_merge($llmMetadataMap, $extracted);
                     }
+
+                    // Cache newly extracted metadata on source rows
+                    $newlyExtracted = $this->sourceTable === 'footnotes'
+                        ? array_intersect_key($llmMetadataMap, $toExtract)
+                        : $extracted;
+                    foreach ($newlyExtracted as $refId => $metadata) {
+                        $this->updateSourceEntry($db, $refId, [
+                            'llm_metadata' => json_encode($metadata),
+                        ]);
+                    }
+                }
+
+                // Footnote-only: classify each footnote as citation or not
+                if ($this->sourceTable === 'footnotes') {
+                    foreach ($llmMetadataMap as $refId => $meta) {
+                        if (!$meta) {
+                            $this->updateSourceEntry($db, $refId, ['is_citation' => false]);
+                            foreach ($needsResolution as $k => $entry) {
+                                if ($entry->referenceId === $refId) {
+                                    unset($needsResolution[$k]);
+                                    break;
+                                }
+                            }
+                            continue;
+                        }
+                        // A footnote is a citation if the primary OR any sub-citation has a citable type
+                        $isCitation = in_array($meta['type'] ?? null, self::CITABLE_TYPES, true);
+                        if (!$isCitation && !empty($meta['sub_citations'])) {
+                            foreach ($meta['sub_citations'] as $subCit) {
+                                if (in_array($subCit['type'] ?? null, self::CITABLE_TYPES, true)) {
+                                    $isCitation = true;
+                                    break;
+                                }
+                            }
+                        }
+                        $this->updateSourceEntry($db, $refId, ['is_citation' => $isCitation]);
+                        if (!$isCitation) {
+                            // Remove from needsResolution — don't resolve non-citation footnotes
+                            foreach ($needsResolution as $k => $entry) {
+                                if ($entry->referenceId === $refId) {
+                                    unset($needsResolution[$k]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    $needsResolution = array_values($needsResolution);
+                    $citationCount = count(array_filter($llmMetadataMap, function ($m) {
+                        if (!$m) return false;
+                        if (in_array($m['type'] ?? null, self::CITABLE_TYPES, true)) return true;
+                        foreach ($m['sub_citations'] ?? [] as $sub) {
+                            if (in_array($sub['type'] ?? null, self::CITABLE_TYPES, true)) return true;
+                        }
+                        return false;
+                    }));
+                    Log::info("Footnote classification: {$citationCount}/" . count($llmMetadataMap) . " are citations", [
+                        'scan_id' => $this->scanId,
+                    ]);
                 }
             }
 
@@ -202,13 +305,9 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $meta['url_flags'] = $flags;
 
                     // Update cached metadata with flags
-                    $db->table('bibliography')
-                        ->where('book', $this->bookId)
-                        ->where('referenceId', $refId)
-                        ->update([
-                            'llm_metadata' => json_encode($meta),
-                            'updated_at'   => now(),
-                        ]);
+                    $this->updateSourceEntry($db, $refId, [
+                        'llm_metadata' => json_encode($meta),
+                    ]);
                 }
             }
             unset($meta);
@@ -255,6 +354,37 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ];
             }
 
+            // Expand pool for multi-citation footnotes: create sub-entries
+            $subCitationExpanded = 0;
+            foreach (array_keys($pool) as $refId) {
+                $subCitations = $pool[$refId]['llmMetadata']['sub_citations'] ?? [];
+                if (empty($subCitations)) {
+                    continue;
+                }
+                foreach ($subCitations as $subIndex => $subMeta) {
+                    if (!$subMeta || empty($subMeta['title'])) {
+                        continue;
+                    }
+                    $subKey = $refId . '::sub' . ($subIndex + 1);
+                    $pool[$subKey] = $pool[$refId]; // clone parent
+                    $pool[$subKey]['referenceId']   = $subKey;
+                    $pool[$subKey]['parentRefId']   = $refId;
+                    $pool[$subKey]['llmMetadata']   = $subMeta;
+                    $pool[$subKey]['searchedTitle'] = $subMeta['title'];
+                    $pool[$subKey]['doi']           = null;
+                    $pool[$subKey]['isAcademic']    = in_array($subMeta['type'] ?? null, self::ACADEMIC_TYPES, true)
+                                                      || ($subMeta['type'] ?? null) === null;
+                    $subCitationExpanded++;
+                }
+            }
+            if ($subCitationExpanded > 0) {
+                Log::info('Pool expanded with sub-citations', [
+                    'scan_id'     => $this->scanId,
+                    'sub_entries' => $subCitationExpanded,
+                    'pool_size'   => count($pool),
+                ]);
+            }
+
             $nonAcademicCount = count(array_filter($pool, fn($item) => !$item['isAcademic']));
             Log::info('Wave resolution starting', [
                 'scan_id'             => $this->scanId,
@@ -296,13 +426,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if ($match) {
                         $item = $pool[$refId];
                         $updateData = $item['isLinked']
-                            ? ['foundation_source' => $match->book, 'updated_at' => now()]
-                            : ['source_id' => $match->book, 'foundation_source' => $match->book, 'updated_at' => now()];
+                            ? ['foundation_source' => $match->book]
+                            : ['source_id' => $match->book, 'foundation_source' => $match->book];
 
-                        $db->table('bibliography')
-                            ->where('book', $this->bookId)
-                            ->where('referenceId', $refId)
-                            ->update($updateData);
+                        $this->updateSourceEntry($db, $refId, $updateData);
 
                         $results[] = [
                             'referenceId'        => $refId,
@@ -316,7 +443,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                             'llm_metadata'       => $item['llmMetadata'],
                         ];
                         $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
-                        unset($pool[$refId]);
+                        $this->removeRelatedPoolEntries($pool, $refId, $db, $match->book);
                         unset($doisToLookup[$refId]);
                     }
                 }
@@ -341,7 +468,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'enriched'       => $enrichedExisting++,
                                 default          => $failedToResolve++,
                             };
-                            unset($pool[$refId]);
+                            $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                         }
                     }
                 }
@@ -362,13 +489,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if ($localMatch) {
                         $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
                         $updateData = $item['isLinked']
-                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson, 'updated_at' => now()]
-                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson, 'updated_at' => now()];
+                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
+                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson];
 
-                        $db->table('bibliography')
-                            ->where('book', $this->bookId)
-                            ->where('referenceId', $refId)
-                            ->update($updateData);
+                        $this->updateSourceEntry($db, $refId, $updateData);
 
                         $results[] = [
                             'referenceId'        => $refId,
@@ -383,7 +507,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                             'llm_metadata'       => $item['llmMetadata'],
                         ];
                         $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
-                        unset($pool[$refId]);
+                        $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
                     } elseif ($localNearMiss && $localNearMiss['score'] > ($nearMisses[$refId]['score'] ?? 0.0)) {
                         $nearMisses[$refId] = $localNearMiss;
                     }
@@ -450,15 +574,35 @@ class CitationScanBibliographyJob implements ShouldQueue
                             ]);
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
+                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
+                                Log::info('Wave 4: year mismatch rejection', [
+                                    'refId'          => $refId,
+                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
+                                    'resultTitle'    => $bestMatch['title'] ?? null,
+                                    'score'          => round($bestScore, 3),
+                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
+                                    'candidate_year' => $bestMatch['year'] ?? null,
+                                ]);
+                                $nearMisses[$refId] = [
+                                    'score'           => round($bestScore, 3),
+                                    'title'           => $bestMatch['title'] ?? null,
+                                    'author'          => $bestMatch['author'] ?? null,
+                                    'year'            => $bestMatch['year'] ?? null,
+                                    'source'          => 'openalex',
+                                    'diagnostics'     => $bestDiagnostics,
+                                    'rejected_reason' => 'year_mismatch',
+                                ];
+                            } else {
+                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
+                                if ($result) {
+                                    $results[] = $result;
+                                    match ($result['status']) {
+                                        'newly_resolved' => $newlyResolved++,
+                                        'enriched'       => $enrichedExisting++,
+                                        default          => $failedToResolve++,
+                                    };
+                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
+                                }
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -524,15 +668,35 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
+                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
+                                Log::info('Wave 5: year mismatch rejection', [
+                                    'refId'          => $refId,
+                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
+                                    'resultTitle'    => $bestMatch['title'] ?? null,
+                                    'score'          => round($bestScore, 3),
+                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
+                                    'candidate_year' => $bestMatch['year'] ?? null,
+                                ]);
+                                $nearMisses[$refId] = [
+                                    'score'           => round($bestScore, 3),
+                                    'title'           => $bestMatch['title'] ?? null,
+                                    'author'          => $bestMatch['author'] ?? null,
+                                    'year'            => $bestMatch['year'] ?? null,
+                                    'source'          => 'open_library',
+                                    'diagnostics'     => $bestDiagnostics,
+                                    'rejected_reason' => 'year_mismatch',
+                                ];
+                            } else {
+                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
+                                if ($result) {
+                                    $results[] = $result;
+                                    match ($result['status']) {
+                                        'newly_resolved' => $newlyResolved++,
+                                        'enriched'       => $enrichedExisting++,
+                                        default          => $failedToResolve++,
+                                    };
+                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
+                                }
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -596,15 +760,35 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                         }
                         if ($bestMatch && $bestScore > 0.3) {
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                unset($pool[$refId]);
+                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
+                                Log::info('Wave 7: year mismatch rejection', [
+                                    'refId'          => $refId,
+                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
+                                    'resultTitle'    => $bestMatch['title'] ?? null,
+                                    'score'          => round($bestScore, 3),
+                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
+                                    'candidate_year' => $bestMatch['year'] ?? null,
+                                ]);
+                                $nearMisses[$refId] = [
+                                    'score'           => round($bestScore, 3),
+                                    'title'           => $bestMatch['title'] ?? null,
+                                    'author'          => $bestMatch['author'] ?? null,
+                                    'year'            => $bestMatch['year'] ?? null,
+                                    'source'          => 'semantic_scholar',
+                                    'diagnostics'     => $bestDiagnostics,
+                                    'rejected_reason' => 'year_mismatch',
+                                ];
+                            } else {
+                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
+                                if ($result) {
+                                    $results[] = $result;
+                                    match ($result['status']) {
+                                        'newly_resolved' => $newlyResolved++,
+                                        'enriched'       => $enrichedExisting++,
+                                        default          => $failedToResolve++,
+                                    };
+                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
+                                }
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -698,7 +882,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'enriched'       => $enrichedExisting++,
                                 default          => $failedToResolve++,
                             };
-                            unset($pool[$refId]);
+                            $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                         }
                     }
                     if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -772,7 +956,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                     'enriched'       => $enrichedExisting++,
                                     default          => $failedToResolve++,
                                 };
-                                unset($pool[$refId]);
+                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -851,7 +1035,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                     'enriched'       => $enrichedExisting++,
                                     default          => $failedToResolve++,
                                 };
-                                unset($pool[$refId]);
+                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -928,7 +1112,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                     'enriched'       => $enrichedExisting++,
                                     default          => $failedToResolve++,
                                 };
-                                unset($pool[$refId]);
+                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                             }
                         }
                         if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
@@ -1003,7 +1187,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'enriched'       => $enrichedExisting++,
                                 default          => $failedToResolve++,
                             };
-                            unset($pool[$refId]);
+                            $this->removeRelatedPoolEntries($pool, $refId, $db, $stubBookId);
                         }
                     }
                 }
@@ -1040,13 +1224,17 @@ class CitationScanBibliographyJob implements ShouldQueue
                             'enriched'       => $enrichedExisting++,
                             default          => $failedToResolve++,
                         };
-                        unset($pool[$refId]);
+                        $this->removeRelatedPoolEntries($pool, $refId, $db, $stubBookId);
                     }
                 }
             }
 
             // ── Mark remaining as no_match ──
             foreach ($pool as $refId => $item) {
+                // Skip sub-citation entries — only mark the parent as no_match
+                if (str_contains($refId, '::sub')) {
+                    continue;
+                }
                 $nearMiss = $nearMisses[$refId] ?? null;
 
                 // If no near-miss candidate was found, create diagnostic from wave results
@@ -1066,9 +1254,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                     ];
                 }
 
-                $db->table('bibliography')
+                $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
+                $db->table($this->sourceTable)
                     ->where('book', $this->bookId)
-                    ->where('referenceId', $refId)
+                    ->where($idColumn, $refId)
                     ->whereNull('foundation_source')
                     ->update([
                         'foundation_source'  => 'unknown',
@@ -1154,16 +1343,12 @@ class CitationScanBibliographyJob implements ShouldQueue
 
         if ($isLinked) {
             // Only set foundation_source — DO NOT modify source_id
-            $db->table('bibliography')
-                ->where('book', $this->bookId)
-                ->where('referenceId', $refId)
-                ->update([
-                    'foundation_source'  => $stubBookId,
-                    'match_method'       => $matchMethod,
-                    'match_score'        => $score,
-                    'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
-                    'updated_at'         => now(),
-                ]);
+            $this->updateSourceEntry($db, $refId, [
+                'foundation_source'  => $stubBookId,
+                'match_method'       => $matchMethod,
+                'match_score'        => $score,
+                'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
+            ]);
 
             return [
                 'referenceId'        => $refId,
@@ -1183,17 +1368,13 @@ class CitationScanBibliographyJob implements ShouldQueue
         }
 
         // Unlinked: set both source_id and foundation_source
-        $db->table('bibliography')
-            ->where('book', $this->bookId)
-            ->where('referenceId', $refId)
-            ->update([
-                'source_id'          => $stubBookId,
-                'foundation_source'  => $stubBookId,
-                'match_method'       => $matchMethod,
-                'match_score'        => $score,
-                'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
-                'updated_at'         => now(),
-            ]);
+        $this->updateSourceEntry($db, $refId, [
+            'source_id'          => $stubBookId,
+            'foundation_source'  => $stubBookId,
+            'match_method'       => $matchMethod,
+            'match_score'        => $score,
+            'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
+        ]);
 
         return [
             'referenceId'        => $refId,
@@ -1223,15 +1404,11 @@ class CitationScanBibliographyJob implements ShouldQueue
 
         if ($isLinked) {
             // Only set foundation_source — DO NOT modify source_id
-            $db->table('bibliography')
-                ->where('book', $this->bookId)
-                ->where('referenceId', $refId)
-                ->update([
-                    'foundation_source' => $stubBookId,
-                    'match_method'      => $matchMethod,
-                    'match_score'       => null,
-                    'updated_at'        => now(),
-                ]);
+            $this->updateSourceEntry($db, $refId, [
+                'foundation_source' => $stubBookId,
+                'match_method'      => $matchMethod,
+                'match_score'       => null,
+            ]);
 
             return [
                 'referenceId'        => $refId,
@@ -1245,16 +1422,12 @@ class CitationScanBibliographyJob implements ShouldQueue
         }
 
         // Unlinked: set both source_id and foundation_source
-        $db->table('bibliography')
-            ->where('book', $this->bookId)
-            ->where('referenceId', $refId)
-            ->update([
-                'source_id'         => $stubBookId,
-                'foundation_source' => $stubBookId,
-                'match_method'      => $matchMethod,
-                'match_score'       => null,
-                'updated_at'        => now(),
-            ]);
+        $this->updateSourceEntry($db, $refId, [
+            'source_id'         => $stubBookId,
+            'foundation_source' => $stubBookId,
+            'match_method'      => $matchMethod,
+            'match_score'       => null,
+        ]);
 
         return [
             'referenceId'        => $refId,
@@ -1265,6 +1438,18 @@ class CitationScanBibliographyJob implements ShouldQueue
             'foundation_book_id' => $stubBookId,
             'llm_metadata'       => $poolItem['llmMetadata'],
         ];
+    }
+
+    /**
+     * Write back to the correct source table (bibliography or footnotes).
+     */
+    private function updateSourceEntry($db, string $refId, array $data): void
+    {
+        $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
+        $db->table($this->sourceTable)
+            ->where('book', $this->bookId)
+            ->where($idColumn, $refId)
+            ->update(array_merge($data, ['updated_at' => now()]));
     }
 
     /**
@@ -1353,6 +1538,81 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'results'           => json_encode($results),
                 'updated_at'        => now(),
             ]);
+    }
+
+    /**
+     * Check whether a candidate should be rejected due to a large year gap.
+     * Applied to full-title waves (4, 5, 7) where the threshold is 0.3 and
+     * year weight alone isn't enough to prevent false matches.
+     *
+     * Returns true if the match should be REJECTED.
+     */
+    private function hasYearMismatchRejection(?array $llmMeta, array $candidate, float $score): bool
+    {
+        if (!$llmMeta || $score >= 0.6) {
+            return false; // High-scoring matches pass through (editions/reprints)
+        }
+
+        $candidateYear = isset($candidate['year']) ? (int) $candidate['year'] : null;
+        if ($candidateYear === null) {
+            return false;
+        }
+
+        // Check both year and original_year — use whichever is closest
+        $llmYears = array_filter([
+            isset($llmMeta['year']) ? (int) $llmMeta['year'] : null,
+            isset($llmMeta['original_year']) ? (int) $llmMeta['original_year'] : null,
+        ], fn($y) => $y !== null);
+
+        if (empty($llmYears)) {
+            return false;
+        }
+
+        $closestGap = min(array_map(fn($y) => abs($y - $candidateYear), $llmYears));
+
+        return $closestGap > 5;
+    }
+
+    /**
+     * Remove all related pool entries (parent + sub-citations) when any citation resolves.
+     * When a sub-citation resolves, also writes foundation_source back to the parent footnote.
+     */
+    private function removeRelatedPoolEntries(array &$pool, string $resolvedRefId, $db, ?string $stubBookId = null): void
+    {
+        $parentRefId = $pool[$resolvedRefId]['parentRefId'] ?? null;
+        $baseRefId = $parentRefId ?? $resolvedRefId;
+
+        // If a sub-citation resolved, write foundation_source to the parent footnote (only if not already set)
+        if ($parentRefId && $stubBookId && $this->sourceTable === 'footnotes') {
+            $parent = $db->table('footnotes')
+                ->where('book', $this->bookId)
+                ->where('footnoteId', $parentRefId)
+                ->first(['foundation_source']);
+            if ($parent && empty($parent->foundation_source)) {
+                $this->updateSourceEntry($db, $parentRefId, [
+                    'foundation_source' => $stubBookId,
+                ]);
+            }
+        }
+
+        // Remove the resolved entry itself
+        unset($pool[$resolvedRefId]);
+
+        // Remove all related entries (parent and all its subs)
+        $keysToRemove = [];
+        foreach ($pool as $key => $item) {
+            // This is a sub of the same parent
+            if (($item['parentRefId'] ?? null) === $baseRefId) {
+                $keysToRemove[] = $key;
+            }
+            // This is the parent itself
+            if ($key === $baseRefId) {
+                $keysToRemove[] = $key;
+            }
+        }
+        foreach ($keysToRemove as $key) {
+            unset($pool[$key]);
+        }
     }
 
     /**

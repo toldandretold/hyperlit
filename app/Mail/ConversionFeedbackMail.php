@@ -31,13 +31,14 @@ class ConversionFeedbackMail extends Mailable implements ShouldQueue
                      ->subject($subject)
                      ->view('emails.conversion-feedback', $this->data);
 
-        // Attach conversion artifacts if they exist
+        // Attach conversion artifacts so the conversion can be reproduced
         $basePath = $this->data['artifactPath'] ?? null;
         if ($basePath) {
             $attachments = [
                 'ocr_response.json' => 'application/json',
                 'debug_converted.html' => 'text/html',
                 'references.json' => 'application/json',
+                'conversion_stats.json' => 'application/json',
             ];
 
             foreach ($attachments as $filename => $mime) {

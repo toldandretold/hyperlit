@@ -2,10 +2,13 @@
  * Conversion feedback toast — shown after PDF import completes.
  * Glassmorphism toast (matches paste toast pattern), fixed top-center.
  *
- * Shows conversion stats and lets user flag issues:
- *   "Looks good" → dismiss (no data sent)
- *   "Report issue" → sends stats-only email (no document content)
- *   × (dismiss) → no data sent
+ * Shows conversion stats and lets user send feedback:
+ *   "Looks good" → sends report with "good" rating (seeds test fixture)
+ *   "Report issue" → sends report with "bad" rating (prioritises debugging)
+ *   × (cancel) → dismiss, nothing sent
+ *
+ * Both feedback buttons send stats + bookId so server can attach
+ * ocr_response.json / debug_converted.html for reproduction.
  */
 
 const TOAST_ID = 'conversion-feedback-toast';
@@ -102,47 +105,47 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   const btnRow = document.createElement('div');
   Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
 
-  // Looks good — just dismiss, no data sent
+  // Looks good — send positive report
   const goodBtn = document.createElement('button');
   goodBtn.textContent = 'Looks good';
   applyBtnStyle(goodBtn);
   goodBtn.addEventListener('click', () => {
-    hideConversionFeedbackToast();
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'good' });
   });
 
-  // Report issue — sends stats only (no document content)
+  // Report issue — send negative report
   const badBtn = document.createElement('button');
   badBtn.textContent = 'Report issue';
   applyBtnStyle(badBtn);
   badBtn.addEventListener('click', () => {
-    sendIssueReport(toast, { bookId, stats, footnoteAudit });
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad' });
   });
 
-  // Dismiss (×)
-  const dismissBtn = document.createElement('button');
-  dismissBtn.textContent = '\u00d7';
-  applyBtnStyle(dismissBtn);
-  Object.assign(dismissBtn.style, { padding: '5px 10px', fontSize: '16px' });
-  dismissBtn.addEventListener('click', () => {
+  // Cancel (×) — dismiss, nothing sent
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '\u00d7';
+  applyBtnStyle(cancelBtn);
+  Object.assign(cancelBtn.style, { padding: '5px 10px', fontSize: '16px' });
+  cancelBtn.addEventListener('click', () => {
     hideConversionFeedbackToast();
   });
 
   btnRow.appendChild(goodBtn);
   btnRow.appendChild(badBtn);
-  btnRow.appendChild(dismissBtn);
+  btnRow.appendChild(cancelBtn);
 
   toast.appendChild(text);
   toast.appendChild(btnRow);
 }
 
-/* ── send issue report (stats only, no document content) ──── */
-async function sendIssueReport(toast, { bookId, stats, footnoteAudit }) {
+/* ── send feedback (both good and bad) ────────────────────── */
+async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating }) {
   // Disable buttons while sending
   toast.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
   const payload = {
     bookId: bookId || 'unknown',
-    rating: 'bad',
+    rating,
     conversionStats: stats,
     footnoteAudit: footnoteAudit || null,
     userAgent: navigator.userAgent,

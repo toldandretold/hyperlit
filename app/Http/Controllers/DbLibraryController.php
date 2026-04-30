@@ -228,6 +228,9 @@ public function upsert(Request $request)
                     'visibility' => $visibility,
                     'listed' => $data['listed'] ?? $libraryRecord->listed,
                     'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
+                    'gate_defaults' => array_key_exists('gate_defaults', $data)
+                        ? $data['gate_defaults']
+                        : $libraryRecord->gate_defaults,
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {

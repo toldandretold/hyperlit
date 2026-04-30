@@ -67,11 +67,13 @@ class CitationPipelineCommand extends Command
             }
         }
         $summary['bibliography'] = $db->table('bibliography')->where('book', $bookId)->count();
+        $summary['footnote_citations'] = $db->table('footnotes')
+            ->where('book', $bookId)->where('is_citation', true)->count();
         $this->newLine();
 
-        // If no bibliography entries exist, skip remaining steps — nothing to do
-        if ($summary['bibliography'] === 0) {
-            $this->warn('No bibliography entries — skipping content scan, vacuum, OCR, and review steps.');
+        // If no bibliography entries and no citation footnotes, skip remaining steps
+        if ($summary['bibliography'] === 0 && $summary['footnote_citations'] === 0) {
+            $this->warn('No bibliography entries and no citation footnotes — skipping remaining steps.');
             $this->newLine();
 
             // Finalize step timings
@@ -85,6 +87,7 @@ class CitationPipelineCommand extends Command
 
             $this->info('Pipeline complete:');
             $this->line("  Bibliography:  0 entries scanned");
+            $this->line("  Footnote citations:  0");
 
             return 0;
         }
@@ -95,7 +98,11 @@ class CitationPipelineCommand extends Command
         } else {
             $this->updatePipelineStep('content', 'Scanning in-text citations');
             $this->info('Step 2/5: Scanning in-text citations...');
-            $this->call('citation:scan-content', ['bookId' => $bookId]);
+            $exit = $this->call('citation:scan-content', ['bookId' => $bookId]);
+            if ($exit !== 0) {
+                $this->error('Content scan failed. Aborting.');
+                return 1;
+            }
         }
         $this->newLine();
 
@@ -134,6 +141,28 @@ class CitationPipelineCommand extends Command
                     ->distinct()
                     ->get();
 
+                // Footnote-only: check footnotes → library when bibliography is empty
+                if ($sources->isEmpty() && $summary['bibliography'] === 0) {
+                    $sources = $db->table('footnotes as f')
+                        ->join('library as l', 'l.book', '=', 'f.foundation_source')
+                        ->where('f.book', $bookId)
+                        ->where('f.is_citation', true)
+                        ->where('l.has_nodes', false)
+                        ->where(function ($q) {
+                            $q->where(function ($q2) {
+                                $q2->whereNotNull('l.oa_url')->where('l.oa_url', '!=', '');
+                            })->orWhere(function ($q2) {
+                                $q2->whereNotNull('l.pdf_url')->where('l.pdf_url', '!=', '');
+                            })->orWhere(function ($q2) {
+                                $q2->whereNotNull('l.doi')->where('l.doi', '!=', '');
+                            });
+                        })
+                        ->whereNull('l.pdf_url_status')
+                        ->select(['l.book', 'l.title'])
+                        ->distinct()
+                        ->get();
+                }
+
                 if ($sources->isEmpty()) {
                     $this->line('  No sources need fetching.');
                 } else {
@@ -161,7 +190,8 @@ class CitationPipelineCommand extends Command
                     }
                 }
 
-                $vacuumSkipped = $summary['bibliography'] - ($sources->count() ?? 0);
+                $sourceTotal = $summary['bibliography'] > 0 ? $summary['bibliography'] : $summary['footnote_citations'];
+                $vacuumSkipped = $sourceTotal - ($sources->count() ?? 0);
                 $summary['vacuum'] = ['fetched' => $vacuumFetched, 'failed' => $vacuumFailed, 'skipped' => max(0, $vacuumSkipped)];
             }
             $this->newLine();
@@ -185,6 +215,19 @@ class CitationPipelineCommand extends Command
                     ->select(['l.book', 'l.title'])
                     ->distinct()
                     ->get();
+
+                // Footnote-only: check footnotes → library when bibliography is empty
+                if ($downloaded->isEmpty() && $summary['bibliography'] === 0) {
+                    $downloaded = $db->table('footnotes as f')
+                        ->join('library as l', 'l.book', '=', 'f.foundation_source')
+                        ->where('f.book', $bookId)
+                        ->where('f.is_citation', true)
+                        ->where('l.has_nodes', false)
+                        ->where('l.pdf_url_status', 'downloaded')
+                        ->select(['l.book', 'l.title'])
+                        ->distinct()
+                        ->get();
+                }
 
                 if ($downloaded->isEmpty()) {
                     $this->line('  No PDFs awaiting OCR.');
@@ -264,6 +307,9 @@ class CitationPipelineCommand extends Command
         $this->newLine();
         $this->info('Pipeline complete:');
         $this->line("  Bibliography:  {$summary['bibliography']} entries scanned");
+        if ($summary['footnote_citations'] > 0) {
+            $this->line("  Footnote citations:  {$summary['footnote_citations']}");
+        }
 
         if (isset($summary['vacuum'])) {
             $v = $summary['vacuum'];

@@ -215,6 +215,33 @@ def renumber_page_footnotes(page_md, global_counter):
         flags=re.DOTALL
     )
 
+    # Convert N. / N text definitions at page bottom matching known refs.
+    # Two guards: (1) number must match a ref on this page,
+    # (2) must be in the trailing section — scan stops at first non-match.
+    ref_nums = set(int(m.group(1)) for m in re.finditer(r'\[\^(\d+)\]', page_md))
+    if ref_nums:
+        lines = page_md.split('\n')
+        i = len(lines) - 1
+        while i >= 0:
+            stripped = lines[i].strip()
+            # Skip blank lines and page-number anchors
+            if not stripped or re.match(r'^<a class="pageNumber"', stripped):
+                i -= 1
+                continue
+            # Match "N. text" or "N Text" (uppercase/quote start)
+            m = re.match(r'^(\d{1,3})\.?\s+([\S].+)', stripped)
+            if m and int(m.group(1)) in ref_nums:
+                num = m.group(1)
+                rest = m.group(2)
+                has_period = stripped[len(num)] == '.'
+                if has_period or re.match(r'[A-Z\u2018\u201c\'"]', rest):
+                    leading = len(lines[i]) - len(lines[i].lstrip())
+                    lines[i] = ' ' * leading + f'[^{num}]: {rest}'
+                    i -= 1
+                    continue
+            break
+        page_md = '\n'.join(lines)
+
     # Collect unique local footnote numbers in order of first appearance
     seen = set()
     local_numbers = []
@@ -1245,15 +1272,17 @@ def main():
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("MISTRAL_OCR_API_KEY")
-    if not api_key:
-        print("Error: No API key provided. Use --api-key or set MISTRAL_OCR_API_KEY.", file=sys.stderr)
-        sys.exit(1)
 
     pdf_path = Path(args.pdf_path)
     output_dir = Path(args.output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     json_cache = output_dir / "ocr_response.json"
+
+    # API key only required when there's no cached OCR response
+    if not api_key and not json_cache.exists():
+        print("Error: No API key provided. Use --api-key or set MISTRAL_OCR_API_KEY.", file=sys.stderr)
+        sys.exit(1)
 
     if not pdf_path.exists() and not json_cache.exists():
         print(f"Error: PDF not found: {pdf_path}", file=sys.stderr)

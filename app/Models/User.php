@@ -66,6 +66,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'credits',
         'debits',
         'preferences',
+        'is_admin',
     ];
 
     /**
@@ -92,6 +93,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'credits' => 'decimal:4',
             'debits' => 'decimal:4',
             'preferences' => 'array',
+            'is_admin' => 'boolean',
         ];
     }
 
@@ -103,6 +105,17 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getBalanceAttribute(): float
     {
         return (float) $this->credits - (float) $this->debits;
+    }
+
+    public function isAdmin(): bool
+    {
+        // Check via admin connection to bypass RLS on the users table.
+        // The default connection's RLS policy requires session vars that
+        // may not be set yet when the User model is first loaded.
+        return (bool) DB::connection('pgsql_admin')
+            ->table('users')
+            ->where('id', $this->id)
+            ->value('is_admin');
     }
 
     public function isPremium(): bool
