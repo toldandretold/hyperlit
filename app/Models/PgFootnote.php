@@ -25,6 +25,9 @@ class PgFootnote extends Model
         'preview_nodes',
     ];
 
+    // WARNING: Columns cast to 'array' are auto-encoded by Eloquent.
+    // NEVER json_encode() values before passing them to Eloquent for these columns,
+    // or you'll get double-encoded JSONB strings in the database.
     protected $casts = [
         'preview_nodes' => 'array',
     ];

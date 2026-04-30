@@ -32,6 +32,11 @@ class PgHyperlight extends Model
         'hidden'
     ];
 
+    // WARNING: Columns cast to 'array' are auto-encoded by Eloquent.
+    // NEVER json_encode() values before passing them to Eloquent for these columns,
+    // or you'll get double-encoded JSONB strings in the database.
+    // NOTE: raw_json is NOT cast here — it uses a custom accessor instead,
+    // so raw_json DOES need json_encode() in write paths (e.g. BeaconSyncController).
     protected $casts = [
         'node_id' => 'array',
         'charData' => 'array',

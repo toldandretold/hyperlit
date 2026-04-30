@@ -20,6 +20,9 @@ class PgNodeChunk extends Model
         'raw_json'
     ];
 
+    // WARNING: Columns cast to 'array' are auto-encoded by Eloquent.
+    // NEVER json_encode() values before passing them to Eloquent for these columns,
+    // or you'll get double-encoded JSONB strings in the database.
     protected $casts = [
         'chunk_id' => 'float',
         'startLine' => 'float',

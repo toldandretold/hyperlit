@@ -80,7 +80,8 @@ class BeaconSyncController extends Controller
 
                 if (!empty($updates['hyperlights'])) {
                     foreach ($updates['hyperlights'] as $light) {
-                        // ✅ FIX: Add 'raw_json' here too
+                        // json_encode is correct here: PgHyperlight does NOT cast raw_json
+                        // (it uses a custom accessor). See PgHyperlight $casts.
                         $lightData = array_merge($light, [
                             $ownerKey => $ownerValue,
                             'raw_json' => json_encode($light),
@@ -95,10 +96,11 @@ class BeaconSyncController extends Controller
 
                 if (!empty($updates['hypercites'])) {
                     foreach ($updates['hypercites'] as $cite) {
-                        // ✅ FIX: Add 'raw_json' here too
+                        // Pass array directly: PgHypercite casts raw_json as 'array',
+                        // so Eloquent handles json_encode. Do NOT json_encode() here.
                         $citeData = array_merge($cite, [
                             $ownerKey => $ownerValue,
-                            'raw_json' => json_encode($cite)
+                            'raw_json' => $cite
                         ]);
                         PgHypercite::updateOrCreate(
                             ['book' => $bookId, 'hyperciteId' => $cite['hyperciteId']],
