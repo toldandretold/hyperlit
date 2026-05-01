@@ -82,7 +82,8 @@ class EditToolbar {
       buttonStateManager: this.buttonStateManager,
       currentBookId: this.currentBookId,
       formatBlockCallback: (type, level) => this.formatBlock(type, level),
-      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html)
+      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
+      undoManager: this.undoManager
     });
 
     // Get all buttons except citation button for hiding during citation mode

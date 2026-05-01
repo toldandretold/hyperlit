@@ -11,7 +11,6 @@
 import {
   hasParentWithTag,
   findClosestBlockParent,
-  getFirstTextNode,
   setCursorAtTextOffset,
 } from "./toolbarDOMUtils.js";
 
@@ -26,6 +25,7 @@ export class HeadingSubmenu {
     this.selectionManager = options.selectionManager || null;
     this.buttonStateManager = options.buttonStateManager || null;
     this.currentBookId = options.currentBookId || null;
+    this.undoManager = options.undoManager || null;
     this.formatBlockCallback = options.formatBlockCallback || null;
     this.saveToIndexedDBCallback = options.saveToIndexedDBCallback || null;
 
@@ -252,49 +252,50 @@ export class HeadingSubmenu {
       return;
     }
 
-    // Save references for ID reassignment after formatBlock
-    const oldId = blockParent.id;
-    const oldNodeId = blockParent.getAttribute('data-node-id');
-    const prevSib = blockParent.previousElementSibling;
-    const nextSib = blockParent.nextElementSibling;
-
-    // Place cursor inside the heading so formatBlock targets it
-    const firstTextNode = getFirstTextNode(blockParent);
-    if (firstTextNode) {
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.setStart(firstTextNode, 0);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
+    // Create replacement <p>, preserving content and identity
+    const newEl = document.createElement('p');
+    newEl.innerHTML = blockParent.innerHTML;
+    newEl.id = blockParent.id;
+    if (blockParent.hasAttribute('data-node-id')) {
+      newEl.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
     }
 
-    // Use native formatBlock for undoable heading→paragraph conversion
-    document.execCommand('formatBlock', false, 'p');
-
-    // Find the new element and reassign id + data-node-id if the browser dropped them
-    let newEl = oldId ? document.getElementById(oldId) : null;
-    if (!newEl) {
-      newEl = prevSib ? prevSib.nextElementSibling
-                      : (nextSib ? nextSib.previousElementSibling : null);
+    // Record for undo/redo
+    if (this.undoManager) {
+      const oldTag = blockParent.tagName.toLowerCase();
+      this.undoManager.recordFormat(
+        blockParent.id,
+        (el) => {
+          const r = document.createElement(oldTag);
+          r.innerHTML = el.innerHTML;
+          r.id = el.id;
+          if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+          el.parentNode.replaceChild(r, el);
+          return r;
+        },
+        (el) => {
+          const r = document.createElement('p');
+          r.innerHTML = el.innerHTML;
+          r.id = el.id;
+          if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+          el.parentNode.replaceChild(r, el);
+          return r;
+        },
+        this.currentBookId,
+        0
+      );
     }
-    if (newEl) {
-      if (oldId && newEl.id !== oldId) newEl.id = oldId;
-      if (oldNodeId && !newEl.getAttribute('data-node-id')) {
-        newEl.setAttribute('data-node-id', oldNodeId);
-      }
-    }
 
-    const insertedP = newEl || blockParent;
-    setCursorAtTextOffset(insertedP, 0);
+    blockParent.parentNode.replaceChild(newEl, blockParent);
+    setCursorAtTextOffset(newEl, 0);
 
     // Update button states after cursor is set
     this.selectionManager.currentSelection = window.getSelection();
     this.buttonStateManager.updateButtonStates();
 
     // Save to IndexedDB
-    if (this.currentBookId && insertedP.id && this.saveToIndexedDBCallback) {
-      await this.saveToIndexedDBCallback(insertedP.id, insertedP.outerHTML);
+    if (this.currentBookId && newEl.id && this.saveToIndexedDBCallback) {
+      await this.saveToIndexedDBCallback(newEl.id, newEl.outerHTML);
     }
   }
 

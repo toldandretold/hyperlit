@@ -7,9 +7,9 @@
  * - Code block formatting - wrapping/unwrapping with HTML preservation
  * - Paragraph conversion from headings
  *
- * Cursor-only heading changes use document.execCommand('formatBlock') for
- * simplicity. Complex operations (blockquote/code wrap/unwrap,
- * multi-block heading, pre→heading) use replaceChild + UndoManager.recordFormat().
+ * All heading changes (cursor-only and multi-block) use replaceChild +
+ * UndoManager.recordFormat(). Complex operations (blockquote/code wrap/unwrap)
+ * also use replaceChild + UndoManager.recordFormat().
  */
 
 import {
@@ -155,30 +155,6 @@ export class BlockFormatter {
         this.isFormatting = false;
       }, 100);
     }
-  }
-
-  /**
-   * After execCommand('formatBlock'), find the new element and reassign
-   * its id + data-node-id if the browser dropped them.
-   */
-  _findAndReassign(oldId, oldNodeId, prevSib, nextSib) {
-    // Try by ID first (some browsers preserve it)
-    let newEl = oldId ? document.getElementById(oldId) : null;
-
-    if (!newEl) {
-      // Walk siblings to find the new element
-      newEl = prevSib ? prevSib.nextElementSibling
-                      : (nextSib ? nextSib.previousElementSibling : null);
-    }
-
-    if (newEl) {
-      if (oldId && newEl.id !== oldId) newEl.id = oldId;
-      if (oldNodeId && !newEl.getAttribute('data-node-id')) {
-        newEl.setAttribute('data-node-id', oldNodeId);
-      }
-    }
-
-    return newEl;
   }
 
   /**
@@ -372,29 +348,48 @@ export class BlockFormatter {
         this.selectionManager.currentSelection.focusOffset
       );
 
-      // Save references for ID reassignment after formatBlock
-      const oldId = headingElement.id;
-      const oldNodeId = headingElement.getAttribute('data-node-id');
-      const prevSib = headingElement.previousElementSibling;
-      const nextSib = headingElement.nextElementSibling;
+      // Determine target tag: toggle to <p> if same level, otherwise new heading
+      const targetTag = (currentHeadingLevel === headingLevel) ? 'p' : headingLevel;
 
-      if (currentHeadingLevel === headingLevel) {
-        // Same level - convert to paragraph (toggle off) via native formatBlock
-        document.execCommand('formatBlock', false, 'p');
-        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
-        if (newElement) {
-          setCursorAtTextOffset(newElement, currentOffset);
-          modifiedElementId = newElement.id;
-        }
-      } else {
-        // Different level - convert to new heading level via native formatBlock
-        document.execCommand('formatBlock', false, headingLevel);
-        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
-        if (newElement) {
-          setCursorAtTextOffset(newElement, currentOffset);
-          modifiedElementId = newElement.id;
-        }
+      // Create replacement element, preserving content and identity
+      const newEl = document.createElement(targetTag);
+      newEl.innerHTML = headingElement.innerHTML;
+      newEl.id = headingElement.id;
+      if (headingElement.hasAttribute('data-node-id')) {
+        newEl.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
       }
+
+      // Record for undo/redo
+      if (this.undoManager) {
+        const oldTag = currentHeadingLevel;
+        const newTag = targetTag;
+        this.undoManager.recordFormat(
+          headingElement.id,
+          (el) => {
+            const r = document.createElement(oldTag);
+            r.innerHTML = el.innerHTML;
+            r.id = el.id;
+            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+            el.parentNode.replaceChild(r, el);
+            return r;
+          },
+          (el) => {
+            const r = document.createElement(newTag);
+            r.innerHTML = el.innerHTML;
+            r.id = el.id;
+            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+            el.parentNode.replaceChild(r, el);
+            return r;
+          },
+          this.currentBookId,
+          currentOffset
+        );
+      }
+
+      headingElement.parentNode.replaceChild(newEl, headingElement);
+      setCursorAtTextOffset(newEl, currentOffset);
+      modifiedElementId = newEl.id;
+      newElement = newEl;
 
       this.selectionManager.currentSelection = window.getSelection();
     } else if (blockParent) {
@@ -462,18 +457,45 @@ export class BlockFormatter {
         modifiedElementId = headingElement.id;
         newElement = headingElement;
       } else {
-        // Paragraph → heading via native formatBlock
-        const oldId = blockParent.id;
-        const oldNodeId = blockParent.getAttribute('data-node-id');
-        const prevSib = blockParent.previousElementSibling;
-        const nextSib = blockParent.nextElementSibling;
-
-        document.execCommand('formatBlock', false, headingLevel);
-        newElement = this._findAndReassign(oldId, oldNodeId, prevSib, nextSib);
-        if (newElement) {
-          setCursorAtTextOffset(newElement, currentOffset);
-          modifiedElementId = newElement.id;
+        // Paragraph → heading via replaceChild
+        const newEl = document.createElement(headingLevel);
+        newEl.innerHTML = blockParent.innerHTML;
+        newEl.id = blockParent.id;
+        if (blockParent.hasAttribute('data-node-id')) {
+          newEl.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
         }
+
+        // Record for undo/redo
+        if (this.undoManager) {
+          const oldTag = blockParent.tagName.toLowerCase();
+          const newTag = headingLevel;
+          this.undoManager.recordFormat(
+            blockParent.id,
+            (el) => {
+              const r = document.createElement(oldTag);
+              r.innerHTML = el.innerHTML;
+              r.id = el.id;
+              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+              el.parentNode.replaceChild(r, el);
+              return r;
+            },
+            (el) => {
+              const r = document.createElement(newTag);
+              r.innerHTML = el.innerHTML;
+              r.id = el.id;
+              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
+              el.parentNode.replaceChild(r, el);
+              return r;
+            },
+            this.currentBookId,
+            currentOffset
+          );
+        }
+
+        blockParent.parentNode.replaceChild(newEl, blockParent);
+        setCursorAtTextOffset(newEl, currentOffset);
+        modifiedElementId = newEl.id;
+        newElement = newEl;
       }
 
       this.selectionManager.currentSelection = window.getSelection();
