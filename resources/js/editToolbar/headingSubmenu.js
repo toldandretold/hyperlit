@@ -28,6 +28,7 @@ export class HeadingSubmenu {
     this.undoManager = options.undoManager || null;
     this.formatBlockCallback = options.formatBlockCallback || null;
     this.saveToIndexedDBCallback = options.saveToIndexedDBCallback || null;
+    this.onUndoStackChanged = options.onUndoStackChanged || null;
 
     // Flag to prevent double-firing on mobile (when submenu button is clicked)
     this.submenuButtonJustClicked = false;
@@ -288,6 +289,9 @@ export class HeadingSubmenu {
 
     blockParent.parentNode.replaceChild(newEl, blockParent);
     setCursorAtTextOffset(newEl, 0);
+
+    // Notify toolbar that undo stack changed (enables undo button)
+    this.onUndoStackChanged?.();
 
     // Update button states after cursor is set
     this.selectionManager.currentSelection = window.getSelection();

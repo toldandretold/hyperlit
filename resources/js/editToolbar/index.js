@@ -83,7 +83,8 @@ class EditToolbar {
       currentBookId: this.currentBookId,
       formatBlockCallback: (type, level) => this.formatBlock(type, level),
       saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
-      undoManager: this.undoManager
+      undoManager: this.undoManager,
+      onUndoStackChanged: () => this._updateUndoRedoButtons(this.currentBookId)
     });
 
     // Get all buttons except citation button for hiding during citation mode
@@ -625,7 +626,8 @@ class EditToolbar {
    * Delegated to BlockFormatter
    */
   async formatBlock(type, headingLevel = "h2") {
-    return this.blockFormatter.formatBlock(type, headingLevel);
+    await this.blockFormatter.formatBlock(type, headingLevel);
+    this._updateUndoRedoButtons(this.currentBookId);
   }
 
   /**
