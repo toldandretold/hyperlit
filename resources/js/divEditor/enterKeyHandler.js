@@ -159,12 +159,13 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     container.appendChild(newParagraph);
   }
 
+  // Always queue new paragraph for save — don't rely solely on MutationObserver,
+  // which gets blocked during chunk overflow
+  queueNodeForSave(newParagraph.id, 'add');
+
   // Check if renumbering was flagged during ID generation
   if (window.__pendingRenumbering) {
-    console.log('🔄 Renumbering flagged - queueing new element and triggering renumbering');
-
-    // Immediately queue this new element for saving
-    queueNodeForSave(newParagraph.id, 'add');
+    console.log('🔄 Renumbering flagged - triggering renumbering');
 
     // Import and trigger renumbering
     import('../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {

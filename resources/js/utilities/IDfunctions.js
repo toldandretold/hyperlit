@@ -94,6 +94,8 @@ async function renumberAllNodes() {
     // 1. Get all nodes from IndexedDB
     const indexedDBNodes = await getAllNodeChunksForBook(book);
     const indexedDBNodeIds = new Set((indexedDBNodes || []).map(n => n.node_id));
+    // Map node_id → old chunk_id so we can detect chunk reassignments later
+    const indexedDBNodeMap = new Map((indexedDBNodes || []).map(n => [n.node_id, n.chunk_id]));
 
     // 2. Find orphaned DOM elements (in DOM but not in IndexedDB)
     const allDomElements = document.querySelectorAll('[data-node-id]');
@@ -202,10 +204,22 @@ async function renumberAllNodes() {
     // 6. Sync to PostgreSQL using SAFE executeSyncPayload (UPDATE by node_id, no DELETE ALL)
     // This uses /api/db/unified-sync → bulkTargetedUpsert which does:
     // ON CONFLICT (book, node_id) DO UPDATE SET startLine = ...
+    //
+    // Only sync nodes whose startLine or chunk_id actually changed —
+    // most renumbering runs only shift a handful of nodes while the
+    // rest keep their 100-gap positions.
+    const changedNodes = updates.filter(u => {
+      const oldChunkId = indexedDBNodeMap.get(u.node_id);
+      return u.oldStartLine !== u.newStartLine
+        || (oldChunkId !== undefined && oldChunkId !== u.chunk_id);
+    });
+
+    console.log(`🔄 RENUMBERING: ${changedNodes.length}/${updates.length} nodes actually changed — syncing only changed`);
+
     const syncPayload = {
       book: book,
       updates: {
-        nodes: updates.map(u => ({
+        nodes: changedNodes.map(u => ({
           book: u.book,
           startLine: u.newStartLine,
           chunk_id: u.chunk_id,
@@ -227,32 +241,34 @@ async function renumberAllNodes() {
       }
     };
 
-    // Save to historyLog WAL. Renumbering touches every node in the book
-    // (potentially tens of thousands) so we NEVER attempt an inline sync —
-    // the server's 30-second timeout can't handle it. Instead, save as
-    // "pending" and let retryFailedBatches send it in chunks when online.
-    const logEntry = {
-      timestamp: Date.now(),
-      bookId: book,
-      status: "pending",
-      payload: syncPayload,
-    };
+    // Save to historyLog WAL. If many nodes changed, we save as "pending"
+    // and let retryFailedBatches send it in chunks so the server doesn't timeout.
+    if (changedNodes.length > 0) {
+      const logEntry = {
+        timestamp: Date.now(),
+        bookId: book,
+        status: "pending",
+        payload: syncPayload,
+      };
 
-    const walDb = await openDatabase();
-    const walTx = walDb.transaction("historyLog", "readwrite");
-    const walStore = walTx.objectStore("historyLog");
-    const walId = await new Promise((resolve, reject) => {
-      const request = walStore.add(logEntry);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = (e) => reject(e.target.error);
-    });
-    logEntry.id = walId;
-    await new Promise((resolve, reject) => {
-      walTx.oncomplete = () => resolve();
-      walTx.onerror = () => reject(walTx.error);
-    });
-    console.log(`📦 RENUMBERING: WAL entry ${logEntry.id} saved (${updates.length} nodes, deferred sync)`);
-    glowCloudLocalSave();
+      const walDb = await openDatabase();
+      const walTx = walDb.transaction("historyLog", "readwrite");
+      const walStore = walTx.objectStore("historyLog");
+      const walId = await new Promise((resolve, reject) => {
+        const request = walStore.add(logEntry);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (e) => reject(e.target.error);
+      });
+      logEntry.id = walId;
+      await new Promise((resolve, reject) => {
+        walTx.oncomplete = () => resolve();
+        walTx.onerror = () => reject(walTx.error);
+      });
+      console.log(`📦 RENUMBERING: WAL entry ${logEntry.id} saved (${changedNodes.length} changed nodes, deferred sync)`);
+      glowCloudLocalSave();
+    } else {
+      console.log('✅ RENUMBERING: No nodes changed — skipping WAL/sync');
+    }
 
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
     const clearedCount = clearPendingSyncsForBook(book);

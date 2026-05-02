@@ -1,0 +1,31 @@
+======================================================================
+EPUB NORMALIZER - Transform Pipeline
+======================================================================
+Input: --help
+Output: 
+Book ID: book_1777679692
+Mode: .epub file
+
+--- Loading EPUB Content ---
+
+--- ERROR ---
+[Errno 2] No such file or directory: '--help'
+Traceback (most recent call last):
+  File "/Users/samuelnicholls/Herd/Hyperlit/app/Python/epub_normalizer.py", line 2572, in process
+    self._load_from_epub_file()
+  File "/Users/samuelnicholls/Herd/Hyperlit/app/Python/epub_normalizer.py", line 2838, in _load_from_epub_file
+    book = epub.read_epub(self.input_path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/ebooklib/epub.py", line 1768, in read_epub
+    book = reader.load()
+           ^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/ebooklib/epub.py", line 1410, in load
+    self._load()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/ebooklib/epub.py", line 1714, in _load
+    self.zf = zipfile.ZipFile(self.file_name, 'r', compression=zipfile.ZIP_DEFLATED, allowZip64=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/zipfile/__init__.py", line 1331, in __init__
+    self.fp = io.open(file, filemode)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '--help'
+

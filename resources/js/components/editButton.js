@@ -396,28 +396,56 @@ export function disableEditMode() {
 
     await stopObserving();
 
-    // Check if renumbering is needed (any ID is not a clean 100-multiple)
+    // Flush pending saves BEFORE integrity check so queued nodes
+    // are written to IDB before verification
+    flushInputDebounce();
+    await flushAllPendingSaves();
+
+    // Verify all saved nodes made it to IDB before leaving edit mode
+    try {
+      const { verifyNodesIntegrity, findOrphanedNodes } = await import('../integrity/verifier.js');
+      const container = document.getElementById(book);
+      if (container) {
+        const nodeEls = container.querySelectorAll('[id]');
+        const nodeIds = [];
+        nodeEls.forEach(el => {
+          if (/^\d+(\.\d+)*$/.test(el.id)) nodeIds.push(el.id);
+        });
+        if (nodeIds.length > 0) {
+          const result = await verifyNodesIntegrity(book, nodeIds);
+          const orphans = findOrphanedNodes(book);
+          if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0 || orphans.length > 0) {
+            const { reportIntegrityFailure } = await import('../integrity/reporter.js');
+            reportIntegrityFailure({
+              bookId: book,
+              mismatches: result.mismatches,
+              missingFromIDB: result.missingFromIDB,
+              duplicateIds: result.duplicateIds,
+              orphanedNodes: orphans,
+              trigger: 'edit-mode-exit',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[integrity] Edit-exit verification failed:', e);
+    }
+
+    // Check if renumbering is needed (only when decimals are deeply nested)
+    const MAX_DECIMAL_DEPTH = 3;
     const needsRenumbering = Array.from(
       document.querySelectorAll('[data-node-id]')
     ).some(el => {
       if (!el.id) return false;
-      // Fast check for decimals first
-      if (el.id.includes('.')) return true;
-      // Then check for non-100-multiples
-      const id = parseInt(el.id, 10);
-      return !isNaN(id) && id % 100 !== 0;
+      const decimalPart = el.id.split('.')[1];
+      return decimalPart && decimalPart.length >= MAX_DECIMAL_DEPTH;
     });
 
     if (needsRenumbering) {
       console.log('🔄 IDs need cleanup - triggering renumbering on edit exit');
-      // Renumbering will flush pending saves internally
       import('../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
         triggerRenumberingWithModal(0);
       });
-    } else {
-      // No decimals - just flush pending saves
-      flushInputDebounce();
-      await flushAllPendingSaves();
     }
   }).catch(err => {
     console.warn('Edit modules not loaded:', err);

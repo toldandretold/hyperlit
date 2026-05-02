@@ -780,6 +780,22 @@ class DivToSemanticConverter(EpubTransform):
     name = "DivToSemanticConverter"
     description = "Convert styled divs to semantic HTML (headings, blockquotes)"
 
+    # USFM (Unified Standard Format Markers) classes used in Bible EPUBs
+    USFM_HEADING_CLASSES = {
+        'mt':         'h1',   # Main Title (e.g., "Genesis")
+        'mt1':        'h1',   # Main Title level 1
+        'mte':        'h1',   # Main Title at Ending
+        'mte1':       'h1',   # Main Title at Ending level 1
+        'mt2':        'h2',   # Subtitle
+        'mte2':       'h2',   # Subtitle at Ending
+        'mt3':        'h3',   # Sub-subtitle (rare)
+        'mte3':       'h3',   # Sub-subtitle at Ending (rare)
+        's':          'h3',   # Section heading
+        's1':         'h3',   # Section heading level 1
+        's2':         'h4',   # Subsection heading
+        'psalmlabel': 'h2',   # Chapter/psalm number
+    }
+
     def detect(self, soup) -> bool:
         # Always run - it's a cleanup pass
         return True
@@ -791,7 +807,24 @@ class DivToSemanticConverter(EpubTransform):
         # Pass 1: Divs to headings
         # Patterns: 'heading', 'title', or publisher patterns like 'fmhT' (front matter heading)
         for div in body.find_all('div'):
-            class_str = ' '.join(div.get('class', [])).lower()
+            classes = div.get('class', [])
+            class_str = ' '.join(classes).lower()
+
+            # Check for USFM classes (exact match) before general pattern matching
+            usfm_tag = None
+            for cls in classes:
+                if cls.lower() in self.USFM_HEADING_CLASSES:
+                    usfm_tag = self.USFM_HEADING_CLASSES[cls.lower()]
+                    break
+            if usfm_tag:
+                div.name = usfm_tag
+                preserved_id = div.get('id')
+                div.attrs = {}
+                if preserved_id:
+                    div['id'] = preserved_id
+                changes['headings'] += 1
+                continue
+
             if 'heading' in class_str or 'title' in class_str or re.search(r'fmh|bmh|chap', class_str):
                 level = 2  # Default to h2 for publisher heading classes
                 match = re.search(r'[h_s]?(?P<level>\d+)', class_str)
@@ -812,6 +845,17 @@ class DivToSemanticConverter(EpubTransform):
                 if preserved_id:
                     div['id'] = preserved_id
                 changes['headings'] += 1
+
+        # Pass 1b: Convert verse number spans to <br> (USFM Bible pattern)
+        for span in body.find_all('span', class_='verse'):
+            verse_text = span.string or span.get_text()
+            br_tag = soup.new_tag('br')
+            preserved_id = span.get('id')
+            if preserved_id:
+                br_tag['id'] = preserved_id
+            span.replace_with(br_tag)
+            br_tag.insert_after(verse_text)
+            changes['headings'] += 1
 
         # Pass 2: Divs to blockquotes (conservative - only explicit quote classes)
         for div in body.find_all('div'):
@@ -2591,7 +2635,15 @@ class EpubNormalizer:
                             all_footnotes.append(fn)
 
                 if 'noterefs' in result:
-                    all_noterefs.extend(result['noterefs'])
+                    # Deduplicate by element identity (same DOM node found by multiple detectors)
+                    seen_noteref_elements = {id(nr['element']) for nr in all_noterefs if nr.get('element')}
+                    for nr in result['noterefs']:
+                        elem = nr.get('element')
+                        if elem and id(elem) not in seen_noteref_elements:
+                            seen_noteref_elements.add(id(elem))
+                            all_noterefs.append(nr)
+                        elif not elem:
+                            all_noterefs.append(nr)
 
                 # Store other results
                 self.results[transform.name] = result
