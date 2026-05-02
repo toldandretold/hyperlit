@@ -10,9 +10,18 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class HtmlProcessor implements ProcessorInterface
 {
+    use StreamsProgress;
+
+    private ?\Closure $onProgress = null;
+
     public function __construct(
         private SanitizationService $sanitizer
     ) {}
+
+    public function setProgressCallback(\Closure $callback): void
+    {
+        $this->onProgress = $callback;
+    }
 
     public function supportedExtensions(): array
     {
@@ -81,7 +90,7 @@ class HtmlProcessor implements ProcessorInterface
                 $inputPath,
                 $preprocessedHtmlPath
             ]);
-            $preprocessProcess->setTimeout(300);
+            $preprocessProcess->setTimeout(900);
             $preprocessProcess->run();
 
             $preprocessDuration = round((microtime(true) - $preprocessStart) * 1000, 2);
@@ -122,8 +131,8 @@ class HtmlProcessor implements ProcessorInterface
                 $outputPath,
                 $bookId
             ]);
-            $pythonProcess->setTimeout(300);
-            $pythonProcess->run();
+            $pythonProcess->setTimeout(900);
+            $this->runWithProgress($pythonProcess, $this->onProgress);
 
             $pythonScriptDuration = round((microtime(true) - $pythonScriptStart) * 1000, 2);
 

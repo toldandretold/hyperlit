@@ -2548,6 +2548,11 @@ class EpubNormalizer:
         self.debug_log = None
         self.results = {}  # Accumulated results from all transforms
 
+    def _progress(self, pct, stage, detail=""):
+        """Emit a machine-readable progress line for the PHP job runner."""
+        import json as _json
+        print("PROGRESS:" + _json.dumps({"percent": pct, "stage": stage, "detail": detail}), flush=True)
+
     def process(self):
         """Run the full normalization pipeline."""
         debug_log_path = os.path.join(self.output_dir, 'epub_normalizer_debug.txt')
@@ -2566,6 +2571,7 @@ class EpubNormalizer:
             try:
                 # Step 1: Load and combine EPUB content
                 self._log("--- Loading EPUB Content ---")
+                self._progress(5, "epub_load", "Loading EPUB content")
                 if self.is_directory:
                     self._load_from_directory()
                 else:
@@ -2573,20 +2579,27 @@ class EpubNormalizer:
 
                 # Step 2: Run transform pipeline
                 self._log("\n--- Running Transform Pipeline ---")
+                self._progress(15, "epub_transforms", "Normalizing document structure")
                 self._run_pipeline()
+                self._progress(30, "epub_transforms", "Transforms complete")
 
                 # Step 3: Convert footnotes to Hyperlit format
                 self._log("\n--- Converting Footnotes ---")
+                self._progress(35, "epub_footnotes", "Detecting footnotes")
                 self._convert_footnotes()
+                fn_count = len(self.results.get('footnotes_json', []))
+                self._progress(35, "epub_footnotes", f"Detected {fn_count} footnotes")
 
                 # Step 4: Sanitize for security
                 self._log("\n--- Sanitizing HTML ---")
+                self._progress(40, "epub_sanitize", "Sanitizing HTML")
                 final_html = str(self.combined_soup)
                 sanitized_html = sanitize_html(final_html)
                 self._log(f"Sanitized: {len(final_html)} -> {len(sanitized_html)} chars")
 
                 # Step 5: Write output
                 self._log("\n--- Writing Output ---")
+                self._progress(43, "epub_write", "Writing output files")
                 output_file = os.path.join(self.output_dir, 'main-text.html')
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(sanitized_html)
@@ -2594,6 +2607,7 @@ class EpubNormalizer:
 
                 # Step 6: Write footnotes.json
                 self._write_footnotes_json()
+                self._progress(45, "epub_complete", "EPUB normalization complete")
 
                 # Summary
                 self._log("\n" + "=" * 70)

@@ -11,11 +11,22 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class PdfProcessor implements ProcessorInterface
 {
+    use StreamsProgress;
+
+    private ?\Closure $onProgress = null;
+
     public function __construct(
         private MarkdownProcessor $markdownProcessor,
         private FileHelpers $helpers,
         private ValidationService $validator
     ) {}
+
+    public function setProgressCallback(\Closure $callback): void
+    {
+        $this->onProgress = $callback;
+        // Propagate to the inner MarkdownProcessor
+        $this->markdownProcessor->setProgressCallback($callback);
+    }
 
     public function supportedExtensions(): array
     {
@@ -49,8 +60,8 @@ class PdfProcessor implements ProcessorInterface
 
         $script = base_path('app/Python/mistral_ocr.py');
         $process = new Process(['python3', $script, $inputPath, $outputPath, '--api-key', $apiKey]);
-        $process->setTimeout(600); // 10 min for large PDFs
-        $process->run();
+        $process->setTimeout(900);
+        $this->runWithProgress($process, $this->onProgress);
 
         $ocrDuration = round((microtime(true) - $processStart) * 1000, 2);
 

@@ -10,11 +10,19 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class EpubProcessor implements ProcessorInterface
 {
+    use StreamsProgress;
+
     private const VENV_PYTHON = '/var/www/hyperlit/venv/bin/python3';
+    private ?\Closure $onProgress = null;
 
     public function __construct(
         private FileHelpers $helpers
     ) {}
+
+    public function setProgressCallback(\Closure $callback): void
+    {
+        $this->onProgress = $callback;
+    }
 
     /**
      * Get the Python executable path - uses venv on prod, system python locally
@@ -106,8 +114,8 @@ class EpubProcessor implements ProcessorInterface
                     $outputPath,
                     $bookId
                 ]);
-                $process->setTimeout(300);
-                $process->run();
+                $process->setTimeout(900);
+                $this->runWithProgress($process, $this->onProgress);
 
                 if (!$process->isSuccessful()) {
                     Log::error("Python script process_document.py failed for EPUB", [
@@ -181,8 +189,8 @@ class EpubProcessor implements ProcessorInterface
                 $path,      // output directory
                 $bookId     // book ID for image storage
             ]);
-            $process->setTimeout(300);
-            $process->run();
+            $process->setTimeout(900);
+            $this->runWithProgress($process, $this->onProgress);
 
             // Always log the output for debugging purposes
             $stdout = $process->getOutput();

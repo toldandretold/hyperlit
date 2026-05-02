@@ -31,6 +31,11 @@ use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\ScrapeController;
 
 
+// Import progress polling — lightweight, no auth needed (bookId is unguessable)
+Route::get('/import-progress/{bookId}', [ImportController::class, 'importProgress'])
+    ->where('bookId', '[a-zA-Z0-9_-]+')
+    ->middleware('throttle:120,1');
+
 // Stripe webhook — must be outside auth (Stripe calls it directly)
 Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 

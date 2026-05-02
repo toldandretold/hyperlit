@@ -11,10 +11,19 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class MarkdownProcessor implements ProcessorInterface
 {
+    use StreamsProgress;
+
+    private ?\Closure $onProgress = null;
+
     public function __construct(
         private SanitizationService $sanitizer,
         private FileHelpers $helpers
     ) {}
+
+    public function setProgressCallback(\Closure $callback): void
+    {
+        $this->onProgress = $callback;
+    }
 
     public function supportedExtensions(): array
     {
@@ -90,7 +99,7 @@ class MarkdownProcessor implements ProcessorInterface
                 $inputPath,
                 $htmlOutputPath
             ]);
-            $markdownProcess->setTimeout(300); // 5 minutes timeout
+            $markdownProcess->setTimeout(900);
             $markdownProcess->run();
 
             $mdToHtmlDuration = round((microtime(true) - $mdToHtmlStart) * 1000, 2);
@@ -146,8 +155,8 @@ class MarkdownProcessor implements ProcessorInterface
                 $outputPath,
                 $bookId
             ]);
-            $pythonProcess->setTimeout(300);
-            $pythonProcess->run();
+            $pythonProcess->setTimeout(900);
+            $this->runWithProgress($pythonProcess, $this->onProgress);
 
             $pythonScriptDuration = round((microtime(true) - $pythonScriptStart) * 1000, 2);
 

@@ -34,6 +34,28 @@ ALLOWED_ATTRS = {
 # Dangerous URL patterns
 DANGEROUS_URL_PATTERN = re.compile(r'^(javascript|vbscript|data|file):', re.IGNORECASE)
 
+# Fast pre-check: skip expensive bleach parse when content is already clean
+_ALLOWED_TAGS_SET = set(ALLOWED_TAGS)
+_TAG_NAME_RE = re.compile(r'</?([a-zA-Z][a-zA-Z0-9-]*)')
+_DANGEROUS_ATTR_RE = re.compile(r'\bon[a-z]+\s*=|javascript:|vbscript:|data:', re.IGNORECASE)
+
+
+def _needs_sanitization(html_string):
+    """Quick check: does this HTML contain anything bleach would change?"""
+    # Check for dangerous attributes/URLs
+    if _DANGEROUS_ATTR_RE.search(html_string):
+        return True
+    # Check for disallowed tags
+    for m in _TAG_NAME_RE.finditer(html_string):
+        if m.group(1).lower() not in _ALLOWED_TAGS_SET:
+            return True
+    return False
+
+
+def emit_progress(pct, stage, detail=""):
+    """Emit a machine-readable progress line for the PHP job runner."""
+    print("PROGRESS:" + json.dumps({"percent": pct, "stage": stage, "detail": detail}), flush=True)
+
 
 def sanitize_url(url):
     """Sanitize a URL to prevent XSS."""
@@ -49,13 +71,21 @@ def sanitize_url(url):
 
 def sanitize_html(html_string):
     """Sanitize HTML to prevent XSS."""
+    # Fast path: skip expensive bleach parse when content only has allowed tags
+    # and no dangerous patterns. Covers 99%+ of Pandoc output.
+    if not _needs_sanitization(html_string):
+        # Still need to check URLs if present
+        if 'href=' not in html_string and 'src=' not in html_string:
+            return html_string
     cleaned = bleach.clean(
         html_string,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRS,
         strip=True
     )
-    # Sanitize URLs
+    # Only parse with BeautifulSoup if there are URLs to sanitize
+    if 'href=' not in cleaned and 'src=' not in cleaned:
+        return cleaned
     soup = BeautifulSoup(cleaned, 'html.parser')
     for elem in soup.find_all(href=True):
         safe_url = sanitize_url(elem['href'])
@@ -809,6 +839,7 @@ def is_likely_reference(p_tag):
 # --- MAIN PROCESSING LOGIC ---
 
 def main(html_file_path, output_dir, book_id):
+    emit_progress(48, "doc_parse", "Parsing HTML document")
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
 
@@ -937,6 +968,7 @@ def main(html_file_path, output_dir, book_id):
         # ========================================================================
         # PASS 1: EXTRACT ALL DEFINITIONS
         # ========================================================================
+        emit_progress(52, "doc_bibliography", "Scanning for bibliography")
         print("--- PASS 1: Extracting All Definitions ---")
 
         # --- 1A: Process Bibliography / References ---
@@ -1354,10 +1386,12 @@ def main(html_file_path, output_dir, book_id):
         footnotes_data = all_footnotes_data
         total_footnotes = sum(len(section_footnotes) for section_footnotes in sectioned_footnote_map.values())
         print(f"Found and extracted {total_footnotes} footnote definitions across {len(footnote_sections)} sections.")
+        emit_progress(62, "doc_footnotes", f"Found {total_footnotes} footnotes across {len(footnote_sections)} sections")
 
         # ========================================================================
         # PASS 2: LINK ALL IN-TEXT MARKERS
         # ========================================================================
+        emit_progress(68, "doc_linking", "Linking in-text citations")
         print("\n--- PASS 2: Linking All In-Text Markers ---")
 
         # --- 2A: Link References ---
@@ -1396,7 +1430,33 @@ def main(html_file_path, output_dir, book_id):
         print(f"  - Pre-linked anchors converted: {anchor_converted}")
         print(f"  - Pre-linked anchors unmatched: {anchor_unmatched}")
 
-        for text_node in soup.find_all(string=True):
+        # Guard: skip expensive per-node scan if there's nothing to link against
+        _skip_citation_scan = False
+        if not bibliography_map:
+            print("  ⏭️ No bibliography entries — skipping in-text citation scan")
+            _skip_citation_scan = True
+        else:
+            # Quick pre-check on full text before walking every DOM node
+            _full_text = soup.get_text()
+            _has_citation_patterns = bool(re.search(r"\([^)]*?\d{4}[^)]*?\)", _full_text))
+            del _full_text  # free memory
+            if not _has_citation_patterns:
+                print("  ⏭️ No parenthesized citation patterns found — skipping text node scan")
+                _skip_citation_scan = True
+            else:
+                print(f"  📝 Found citation patterns, scanning text nodes against {len(bibliography_map)} bibliography keys...")
+
+        if not _skip_citation_scan:
+          _all_text_nodes = soup.find_all(string=True)
+          _total_text_nodes = len(_all_text_nodes)
+          _last_progress_pct = 68
+          for _tn_idx, text_node in enumerate(_all_text_nodes):
+            # Emit progress every ~1% of text nodes scanned
+            if _total_text_nodes > 100:
+                _pct = 68 + int((_tn_idx / _total_text_nodes) * 7)  # 68% → 75%
+                if _pct > _last_progress_pct:
+                    _last_progress_pct = _pct
+                    emit_progress(_pct, "doc_linking", f"Scanning text nodes ({_tn_idx}/{_total_text_nodes})")
             if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
                 text = str(text_node)
                 matches = list(re.finditer(r"\(([^)]*?\d{4}[^)]*?)\)", text))
@@ -1523,8 +1583,8 @@ def main(html_file_path, output_dir, book_id):
                     new_content.append(NavigableString(text[last_index:]))
                     text_node.replace_with(*new_content)
 
-        # --- 2A-bracket: Link [Author Year] square-bracket citations ---
-        for text_node in soup.find_all(string=True):
+          # --- 2A-bracket: Link [Author Year] square-bracket citations ---
+          for text_node in soup.find_all(string=True):
             if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
                 text = str(text_node)
                 matches = list(re.finditer(r"\[([^\]]*?\d{4}[^\]]*?)\]", text))
@@ -1650,6 +1710,7 @@ def main(html_file_path, output_dir, book_id):
                     text_node.replace_with(*new_content)
 
         # Citation linking summary
+        emit_progress(75, "doc_linking", f"Linked {citations_linked} of {citations_found} citations")
         print(f"\n📖 Citation linking summary:")
         print(f"  - Total in-text citations found: {citations_found}")
         print(f"  - Successfully linked: {citations_linked}")
@@ -1660,7 +1721,24 @@ def main(html_file_path, output_dir, book_id):
                 print(f"    • '{item['citation']}' → keys tried: {item['generated_keys']}")
         print(f"  - Bibliography map keys ({len(bibliography_map)}): {sorted(bibliography_map.keys())}")
 
+        emit_progress(76, "doc_footnote_linking", "Linking footnote references")
         # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
+
+        # Pre-build element position index for O(1) lookups instead of O(n) .index() calls
+        _element_pos = {id(elem): i for i, elem in enumerate(all_elements)}
+
+        def _elem_position(element):
+            """O(1) position lookup, walking up to parent if element isn't in the index."""
+            pos = _element_pos.get(id(element))
+            if pos is not None:
+                return pos
+            parent = element.parent
+            while parent:
+                pos = _element_pos.get(id(parent))
+                if pos is not None:
+                    return pos
+                parent = parent.parent
+            return 0
 
         # Pre-build ref section positions for sequential strategy
         if strategy == 'sequential':
@@ -1668,11 +1746,7 @@ def main(html_file_path, output_dir, book_id):
             ref_section_positions = []
             for marker in ref_markers:
                 section_num = marker.get('id', '').replace('fnRefSection_', '')
-                try:
-                    pos = all_elements.index(marker)
-                except ValueError:
-                    pos = 0
-                ref_section_positions.append((pos, section_num))
+                ref_section_positions.append((_elem_position(marker), section_num))
             # Sort by position ascending
             ref_section_positions.sort(key=lambda x: x[0])
 
@@ -1694,19 +1768,7 @@ def main(html_file_path, output_dir, book_id):
         def find_footnote_in_sequential(identifier, current_element):
             """Find footnote data by determining which ref section the element falls in,
             then looking up the matching definition section."""
-            # Get position of current element
-            try:
-                current_pos = all_elements.index(current_element)
-            except ValueError:
-                parent = current_element.parent
-                while parent:
-                    try:
-                        current_pos = all_elements.index(parent)
-                        break
-                    except ValueError:
-                        parent = parent.parent
-                else:
-                    current_pos = 0
+            current_pos = _elem_position(current_element)
 
             # Find which ref section this element falls in (last marker before current_pos)
             section_num = None
@@ -1732,20 +1794,7 @@ def main(html_file_path, output_dir, book_id):
     
         def find_footnote_in_sections(identifier, current_element):
             """Find footnote data by determining which section's text area this element is in"""
-            # Get position of current element in document
-            try:
-                current_pos = all_elements.index(current_element)
-            except ValueError:
-                # If element not found, find closest parent that is
-                parent = current_element.parent
-                while parent:
-                    try:
-                        current_pos = all_elements.index(parent)
-                        break
-                    except ValueError:
-                        parent = parent.parent
-                else:
-                    current_pos = 0
+            current_pos = _elem_position(current_element)
 
             # Find which section this element belongs to by checking explicit text ranges
             for section in footnote_sections:
@@ -1795,7 +1844,14 @@ def main(html_file_path, output_dir, book_id):
                 # Keep text content as-is (already identifier)
 
         # Handle [^identifier] patterns in text (but NOT footnote definitions)
-        for text_node in soup.find_all(string=True):
+        # Quick pre-check: skip expensive text node walk if no [^...] or [...] patterns exist
+        _fn_full_text = soup.get_text()
+        _has_bracket_fn = re.search(r'\[\^?\w+\]', _fn_full_text)
+        del _fn_full_text
+        if not _has_bracket_fn:
+            print("  ⏭️ No [^identifier] patterns found — skipping text node scan for footnotes")
+
+        for text_node in (soup.find_all(string=True) if _has_bracket_fn else []):
             if not text_node.parent.name in ['style', 'script', 'a']:
                 text = str(text_node)
                 matches = list(re.finditer(r'\[\^?(\w+)\]', text))
@@ -1836,6 +1892,7 @@ def main(html_file_path, output_dir, book_id):
         # ========================================================================
         # AUDIT PASS: Validate footnote linking
         # ========================================================================
+        emit_progress(77, "doc_audit", "Validating footnote linking")
         print("\n--- AUDIT: Validating footnote linking ---")
         audit_data = {
             'total_refs': 0,
@@ -1995,6 +2052,7 @@ def main(html_file_path, output_dir, book_id):
     # ========================================================================
     # PASS 3: GENERATE FINAL JSON OUTPUT
     # ========================================================================
+    emit_progress(78, "doc_json_gen", "Building node chunks")
     print("\n--- PASS 3: Generating Final JSON Output ---")
     # Use the passed book_id parameter instead of generating a new one
     node_chunks_data = []
@@ -2097,6 +2155,7 @@ def main(html_file_path, output_dir, book_id):
         }
         node_chunks_data.append(node_object)
 
+    emit_progress(80, "doc_sanitize", "Sanitizing output")
     print("\n--- Sanitizing and writing JSON output files ---")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -2109,12 +2168,14 @@ def main(html_file_path, output_dir, book_id):
         {"footnoteId": f.get("footnoteId", ""), "content": sanitize_html(f.get("content", ""))}
         for f in footnotes_data
     ]
+    total_nodes = len(node_chunks_data)
     sanitized_nodes = []
-    for node in node_chunks_data:
+    for i, node in enumerate(node_chunks_data):
         sanitized_node = node.copy()
         sanitized_node["content"] = sanitize_html(node.get("content", ""))
-        # plainText doesn't need sanitization as it's text-only
         sanitized_nodes.append(sanitized_node)
+        if (i + 1) % 5000 == 0:
+            emit_progress(80 + int((i / total_nodes) * 4), "doc_sanitize", f"Sanitized {i + 1} / {total_nodes} nodes")
 
     with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f:
         json.dump(sanitized_references, f, ensure_ascii=False, indent=4)
@@ -2127,6 +2188,7 @@ def main(html_file_path, output_dir, book_id):
     with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f:
         json.dump(sanitized_nodes, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'nodes.json')}")
+    emit_progress(85, "doc_json_written", f"Written {len(sanitized_nodes)} nodes, {len(sanitized_footnotes)} footnotes, {len(sanitized_references)} references")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a document to extract references, footnotes, and content chunks.")

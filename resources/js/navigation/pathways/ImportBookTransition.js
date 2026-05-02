@@ -293,17 +293,176 @@ export class ImportBookTransition {
     }
   }
 
+  // Stage labels for progress UI
+  static STAGE_LABELS = {
+    queued: 'Waiting to start...',
+    starting: 'Starting document processing...',
+    epub_load: 'Loading EPUB content...',
+    epub_transforms: 'Normalizing document structure...',
+    epub_footnotes: 'Detecting footnotes...',
+    epub_sanitize: 'Sanitizing HTML...',
+    epub_write: 'Writing output files...',
+    epub_complete: 'EPUB normalization complete',
+    doc_parse: 'Parsing document...',
+    doc_bibliography: 'Scanning bibliography...',
+    doc_footnotes: 'Processing footnotes...',
+    doc_linking: 'Linking citations...',
+    doc_footnote_linking: 'Linking footnotes...',
+    doc_audit: 'Validating footnotes...',
+    doc_json_gen: 'Building content...',
+    doc_sanitize: 'Sanitizing output...',
+    doc_json_written: 'Output files written',
+    docx_converting: 'Converting document...',
+    db_write: 'Saving to database...',
+    db_footnotes: 'Saving footnotes...',
+    db_references: 'Saving references...',
+    complete: 'Import complete!',
+  };
+
+  /**
+   * Create progress UI by replacing form content
+   */
+  static createImportProgressUI() {
+    const container = document.getElementById('newbook-container');
+    const citeForm = container?.querySelector('#cite-form');
+    const targetEl = citeForm || container;
+
+    if (!targetEl) {
+      console.warn('Could not find form container for progress UI');
+      return null;
+    }
+
+    // Save original content and layout for potential restoration
+    const savedHtml = targetEl.innerHTML;
+    const scroller = container?.querySelector('.scroller');
+    const savedScrollerPosition = scroller?.style.position;
+    const savedScrollerHeight = scroller?.style.height;
+    const savedContainerHeight = container?.style.height;
+
+    // Switch scroller from absolute to relative so it contributes to flow height,
+    // then let the container shrink-wrap the progress content
+    if (scroller) {
+      scroller.style.position = 'relative';
+      scroller.style.height = 'auto';
+    }
+    if (container) {
+      container.style.height = 'auto';
+      container.style.transition = 'height 0.3s ease-out';
+    }
+
+    targetEl.innerHTML = `
+      <div style="padding: 40px 20px; text-align: center; max-width: 480px; margin: 0 auto;">
+        <h3 style="margin: 0 0 24px; font-size: 18px; font-weight: 600; color: var(--text-color, #fff);">
+          Importing document...
+        </h3>
+        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 16px;">
+          <div id="import-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4EACAE, #EF8D34); border-radius: 2px; transition: width 0.4s ease;"></div>
+        </div>
+        <p id="import-stage-text" style="margin: 0 0 6px; font-size: 14px; color: var(--text-color, #ccc);">
+          Waiting to start...
+        </p>
+        <p id="import-detail-text" style="margin: 0 0 20px; font-size: 12px; color: var(--text-muted, #888);">
+        </p>
+        <p style="margin: 0; font-size: 12px; color: var(--text-muted, #666);">
+          You can close this tab &mdash; we'll email you when done.
+        </p>
+      </div>
+    `;
+
+    const progressBar = document.getElementById('import-progress-bar');
+    const stageText = document.getElementById('import-stage-text');
+    const detailText = document.getElementById('import-detail-text');
+
+    return {
+      update(pct, msg, detail) {
+        if (progressBar) progressBar.style.width = `${Math.min(pct, 100)}%`;
+        if (stageText && msg) stageText.textContent = msg;
+        if (detailText) detailText.textContent = detail || '';
+      },
+      showError(msg) {
+        if (stageText) {
+          stageText.textContent = msg || 'Processing failed';
+          stageText.style.color = '#CC8888';
+        }
+        if (progressBar) progressBar.style.background = '#CC8888';
+      },
+      restoreForm() {
+        targetEl.innerHTML = savedHtml;
+        if (scroller) {
+          scroller.style.position = savedScrollerPosition || '';
+          scroller.style.height = savedScrollerHeight || '';
+        }
+        if (container) {
+          container.style.height = savedContainerHeight || '';
+        }
+      },
+    };
+  }
+
+  /**
+   * Poll import progress endpoint
+   */
+  static async pollImportProgress(bookId, progressUI) {
+    const poll = async () => {
+      try {
+        const resp = await fetch(`/api/import-progress/${bookId}`);
+        if (!resp.ok) {
+          // 404 means progress file not yet written, keep polling
+          if (resp.status === 404) {
+            progressUI.update(0, 'Waiting to start...', '');
+            await new Promise(r => setTimeout(r, 2000));
+            return poll();
+          }
+          throw new Error(`Poll failed: ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        if (data.status === 'complete') {
+          progressUI.update(100, 'Import complete!', '');
+          return data;
+        } else if (data.status === 'failed') {
+          throw new Error(data.detail || 'Processing failed');
+        }
+
+        // Staleness check: if progress hasn't updated in 5 minutes, assume the job died
+        if (data.updated_at && data.status === 'processing') {
+          const updatedAt = new Date(data.updated_at).getTime();
+          const now = Date.now();
+          if (now - updatedAt > 300_000) {
+            throw new Error('Import appears to have stalled. Check your email for updates, or try again.');
+          }
+        }
+
+        const label = this.STAGE_LABELS[data.stage] || data.stage || '';
+        progressUI.update(data.percent || 0, label, data.detail || '');
+
+        await new Promise(r => setTimeout(r, 2000));
+        return poll();
+      } catch (err) {
+        // Network errors — retry a few times
+        if (err.message?.startsWith('Poll failed') || err.name === 'TypeError') {
+          await new Promise(r => setTimeout(r, 3000));
+          return poll();
+        }
+        throw err;
+      }
+    };
+
+    return poll();
+  }
+
   /**
    * Handle form submission and backend processing
    * This is the main entry point from newBookForm.js
    */
   static async handleFormSubmissionAndTransition(formData, submitButton) {
-    console.log('📥 ImportBookTransition: Starting form submission and transition');
-    
+    console.log('ImportBookTransition: Starting form submission and transition');
+
     try {
       // Get CSRF token
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-      
+
       // Submit to Laravel backend
       const response = await fetch('/import-file', {
         method: 'POST',
@@ -319,15 +478,14 @@ export class ImportBookTransition {
         const errorText = await response.text();
         let errorDetails;
         let isProcessingError = false;
-        
+
         try {
           const errorJson = JSON.parse(errorText);
-          console.error('❌ Server validation errors:', errorJson);
-          
-          // Check if this is a file processing error (vs validation error)
+          console.error('Server validation errors:', errorJson);
+
           if (errorJson.error && errorJson.error.includes('Failed to process file')) {
             isProcessingError = true;
-            errorDetails = `File processing failed: ${errorJson.error}\n\nThis may be due to:\n• Document format issues\n• Backend processing script errors\n• File complexity\n\nTry with a simpler document or check the backend logs.`;
+            errorDetails = `File processing failed: ${errorJson.error}`;
           } else if (errorJson.errors) {
             const validationErrors = Object.entries(errorJson.errors)
               .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -337,11 +495,10 @@ export class ImportBookTransition {
             errorDetails = errorJson.message || errorJson.error || errorText;
           }
         } catch (e) {
-          console.error('❌ Server error (not JSON):', errorText);
+          console.error('Server error (not JSON):', errorText);
           errorDetails = errorText;
         }
-        
-        // Create a more specific error for processing failures
+
         const error = new Error(`Server responded with ${response.status}: ${errorDetails}`);
         error.isProcessingError = isProcessingError;
         error.status = response.status;
@@ -349,8 +506,101 @@ export class ImportBookTransition {
       }
 
       const result = await response.json();
-      console.log('✅ Import completed:', result);
+      console.log('Import response:', result);
 
+      if (!result.bookId) {
+        throw new Error('No bookId returned from backend');
+      }
+
+      // Save the authoritative library record from server immediately
+      if (result.library) {
+        const db = await openDatabase();
+        const tx = db.transaction('library', 'readwrite');
+        tx.objectStore('library').put(result.library);
+        await new Promise((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        console.log('Server library record saved to IndexedDB');
+      }
+
+      // If status is 'processing', show progress UI and poll
+      if (result.status === 'processing') {
+        console.log('Import dispatched to background, starting progress polling');
+
+        const progressUI = this.createImportProgressUI();
+
+        if (!progressUI) {
+          // Fallback: can't show progress UI, just wait
+          console.warn('Could not create progress UI, falling back');
+        }
+
+        try {
+          const completeData = await this.pollImportProgress(result.bookId, progressUI || {
+            update() {},
+            showError() {},
+            restoreForm() {},
+          });
+
+          // Check for footnote audit issues
+          const completedResult = completeData?.result || completeData;
+          if (completedResult?.hasFootnoteIssues && completedResult?.footnoteAudit) {
+            const userChoice = await this.showFootnoteAuditModal(completedResult.footnoteAudit, result.bookId);
+
+            if (userChoice === 'resubmit') {
+              await this.deleteImportedBook(result.bookId);
+              if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit';
+              }
+              if (progressUI) progressUI.restoreForm();
+              return null;
+            }
+          }
+
+          // Pre-load the book's content into IndexedDB
+          try {
+            await loadFromJSONFiles(result.bookId);
+            console.log('Pre-loaded imported book content');
+          } catch (e) {
+            console.warn('Preloading JSON failed; continuing with reader fallback:', e);
+          }
+
+          this.clearFormData();
+
+          await this.execute({
+            bookId: result.bookId,
+            shouldEnterEditMode: true
+          });
+          console.log('Import transition complete');
+
+          // Show conversion feedback toast if stats are available
+          const stats = completedResult?.conversionStats;
+          if (stats) {
+            showConversionFeedbackToast({
+              bookId: result.bookId,
+              stats,
+              footnoteAudit: completedResult?.footnoteAudit,
+            });
+          }
+
+          return completedResult;
+
+        } catch (pollError) {
+          console.error('Import polling failed:', pollError);
+          // Restore the form so the user can see the container and try again
+          if (progressUI) {
+            progressUI.restoreForm();
+          }
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit';
+          }
+          throw pollError;
+        }
+      }
+
+      // Synchronous completion (no-file imports, etc.)
       if (!result.bookId) {
         throw new Error('No bookId returned from backend');
       }
@@ -360,57 +610,31 @@ export class ImportBookTransition {
         const userChoice = await this.showFootnoteAuditModal(result.footnoteAudit, result.bookId);
 
         if (userChoice === 'resubmit') {
-          // Delete the book and reset for re-upload
           await this.deleteImportedBook(result.bookId);
 
           if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Submit';
           }
-          return null; // Signal that user chose to re-submit
+          return null;
         }
-        // 'proceed' falls through to normal flow
-      }
-
-      // Save the authoritative library record from server
-      if (result.library) {
-        const db = await openDatabase();
-        const tx = db.transaction('library', 'readwrite');
-        tx.objectStore('library').put(result.library);
-
-        // Wait for transaction to complete using proper IndexedDB API
-        await new Promise((resolve, reject) => {
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        });
-
-        console.log('✅ Server library record saved to IndexedDB');
       }
 
       // Pre-load the book's content into IndexedDB
-      console.log('🔥 DEBUG: About to pre-load book content for:', result.bookId);
       try {
-        console.log('🔥 DEBUG: loadFromJSONFiles imported, calling it now...');
         await loadFromJSONFiles(result.bookId);
-        console.log('✅ Pre-loaded imported book content');
+        console.log('Pre-loaded imported book content');
       } catch (e) {
-        console.error('❌ DEBUG: Preloading JSON failed with error:', e);
         console.warn('Preloading JSON failed; continuing with reader fallback:', e);
       }
-      console.log('🔥 DEBUG: Finished preloading section (after try-catch)');
 
-      // Clear form data since import was successful
       this.clearFormData();
 
-      // Execute the import transition
-      console.log('🚀 About to execute import transition for bookId:', result.bookId);
       await this.execute({
         bookId: result.bookId,
         shouldEnterEditMode: true
       });
-      console.log('✅ Import transition execute completed');
 
-      // Show conversion feedback toast if stats are available
       if (result.conversionStats) {
         showConversionFeedbackToast({
           bookId: result.bookId,
@@ -422,14 +646,14 @@ export class ImportBookTransition {
       return result;
 
     } catch (error) {
-      console.error('❌ Import failed:', error);
-      
+      console.error('Import failed:', error);
+
       // Re-enable submit button on failure
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = 'Submit';
       }
-      
+
       throw error;
     }
   }

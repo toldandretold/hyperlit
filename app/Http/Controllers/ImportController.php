@@ -21,6 +21,7 @@ use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
 use App\Services\BillingService;
+use App\Jobs\ProcessDocumentImportJob;
 
 class ImportController extends Controller
 {
@@ -76,8 +77,6 @@ class ImportController extends Controller
 
     public function store(Request $request)
     {
-        $startTime = microtime(true);
-
         // Validation
         $request->validate([
             'book' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
@@ -121,16 +120,15 @@ class ImportController extends Controller
         }
 
         // Clean stale output files from any previous import to this book ID.
-        // process_document.py caches footnotes.json — a leftover from a prior run
-        // would cause it to skip footnote linking on the fresh HTML.
-        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
+        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html', 'progress.json'] as $staleFile) {
             $staleFilePath = "{$path}/{$staleFile}";
             if (File::exists($staleFilePath)) {
                 File::delete($staleFilePath);
             }
         }
 
-        $isDocxProcessing = false;
+        $extension = null;
+        $isNoFileUpload = false;
 
         if ($request->hasFile('markdown_file')) {
             $files = $request->file('markdown_file');
@@ -147,9 +145,9 @@ class ImportController extends Controller
 
                 if ($hasMd) {
                     $this->zipProcessor->processFolderFiles($files, $path, $bookId);
-                    $isDocxProcessing = true;
+                    $extension = 'md'; // folder upload produces main-text.md
                 } else {
-                    $file = $files[0];
+                    $file = is_array($files) ? $files[0] : $files;
                     $extension = strtolower($file->getClientOriginalExtension());
                 }
             } else {
@@ -158,7 +156,7 @@ class ImportController extends Controller
             }
 
             // Process single file if not handled by folder upload
-            if (!$isDocxProcessing && isset($file)) {
+            if (isset($file)) {
                 // SECURITY: Validate file content before processing
                 if (!$this->validator->validateUploadedFile($file)) {
                     Log::warning('File validation failed', [
@@ -177,7 +175,7 @@ class ImportController extends Controller
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
                 }
 
-                // Pay-as-you-go users need positive balance (refresh to get current credits/debits)
+                // Pay-as-you-go users need positive balance (reject before queuing)
                 if ($extension === 'pdf') {
                     Auth::user()?->refresh();
                 }
@@ -195,35 +193,20 @@ class ImportController extends Controller
                 $originalFilePath = "{$path}/{$originalFilename}";
                 $file->move($path, $originalFilename);
                 chmod($originalFilePath, 0644);
-
-                $isDocxProcessing = $this->processFile($originalFilePath, $path, $bookId, $extension);
             }
         } else {
+            // No file upload — create basic markdown
             $this->helpers->createBasicMarkdown($request, $path);
+            $isNoFileUpload = true;
         }
 
-        // Wait for processing to complete
-        $finalPath = $isDocxProcessing ? "{$path}/nodes.json" : "{$path}/main-text.md";
-        $fileDescription = $isDocxProcessing ? "nodes.json" : "main-text.md";
-
-        $attempts = 0;
-        while (!File::exists($finalPath) && $attempts < 15) {
-            sleep(2);
-            $attempts++;
-        }
-
-        if (File::exists($finalPath)) {
+        // For no-file uploads, handle synchronously (just creates a blank book)
+        if ($isNoFileUpload) {
             $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
-
             if (!$creatorInfo['valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid session'
-                ], 401);
+                return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
             }
 
-            // IMPORTANT: Create library record FIRST (before nodes)
-            // RLS policy requires a matching library record to INSERT nodes
             $createdRecord = PgLibrary::updateOrCreate(
                 ['book' => $bookId],
                 [
@@ -251,62 +234,103 @@ class ImportController extends Controller
                 ]
             );
 
-            // Save node chunks to database AFTER library record exists
-            // (RLS policy checks for matching library.creator/creator_token)
-            if ($isDocxProcessing) {
-                $this->saveNodeChunksToDatabase($path, $bookId);
-                $this->saveFootnotesToDatabase($path, $bookId);
-                $this->saveReferencesToDatabase($path, $bookId);
-            }
-
-            // Bill OCR cost for PDF imports
-            if ($extension === 'pdf') {
-                $this->billOcrImport(Auth::user(), $bookId, $path);
-            }
-
-            $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
-
             if ($request->expectsJson()) {
-                $auditPath = "{$path}/audit.json";
-                $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
-                $hasIssues = $auditData && (
-                    count($auditData['gaps'] ?? []) > 0 ||
-                    count($auditData['unmatched_refs'] ?? []) > 0 ||
-                    count($auditData['unmatched_defs'] ?? []) > 0 ||
-                    count($auditData['duplicates'] ?? []) > 0
-                );
-
-                $statsPath = "{$path}/conversion_stats.json";
-                $conversionStats = File::exists($statsPath) ? json_decode(File::get($statsPath), true) : null;
-
                 return response()->json([
                     'success' => true,
                     'bookId' => $bookId,
                     'library' => $createdRecord,
-                    'processing_time_ms' => $totalProcessingTime,
-                    'footnoteAudit' => $auditData,
-                    'hasFootnoteIssues' => $hasIssues,
-                    'conversionStats' => $conversionStats,
                 ]);
             }
-
-            return redirect("/{$bookId}")->with('success', 'File processed successfully!');
+            return redirect("/{$bookId}")->with('success', 'Book created successfully!');
         }
 
-        // Failure case
-        Log::error('File processing failed: Timed out waiting for output file.', [
-            'book' => $bookId,
-            'expected_path' => $finalPath
+        // --- Async path: dispatch background job ---
+
+        $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+        if (!$creatorInfo['valid']) {
+            return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
+        }
+
+        // Create library record immediately so the book "exists" in the UI
+        $createdRecord = PgLibrary::updateOrCreate(
+            ['book' => $bookId],
+            [
+                'title' => $request->input('title'),
+                'author' => $request->input('author'),
+                'type' => $request->input('type') ?? 'book',
+                'year' => $request->input('year'),
+                'url' => $request->input('url'),
+                'pages' => $request->input('pages'),
+                'journal' => $request->input('journal'),
+                'publisher' => $request->input('publisher'),
+                'school' => $request->input('school'),
+                'note' => $request->input('note'),
+                'bibtex' => $request->input('bibtex'),
+                'volume' => $request->input('volume'),
+                'issue' => $request->input('issue'),
+                'booktitle' => $request->input('booktitle'),
+                'chapter' => $request->input('chapter'),
+                'editor' => $request->input('editor'),
+                'timestamp' => round(microtime(true) * 1000),
+                'visibility' => 'private',
+                'creator' => $creatorInfo['creator'],
+                'creator_token' => $creatorInfo['creator_token'],
+                'raw_json' => json_encode($request->all())
+            ]
+        );
+
+        // Write initial progress.json
+        File::put("{$path}/progress.json", json_encode([
+            'status' => 'queued',
+            'percent' => 0,
+            'stage' => 'queued',
+            'detail' => 'Waiting to start...',
+            'updated_at' => now()->toIso8601String(),
+        ], JSON_PRETTY_PRINT));
+
+        // Collect form data for the job
+        $formData = $request->only([
+            'title', 'author', 'type', 'year', 'url', 'pages',
+            'journal', 'publisher', 'school', 'note', 'bibtex',
+            'volume', 'issue', 'booktitle', 'chapter', 'editor',
         ]);
+
+        // Dispatch the background job
+        ProcessDocumentImportJob::dispatch(
+            $bookId,
+            $extension,
+            Auth::id(),
+            $formData,
+            $creatorInfo,
+        );
+
+        Log::info('Import job dispatched', ['book' => $bookId, 'extension' => $extension]);
 
         if ($request->expectsJson()) {
             return response()->json([
-                'success' => false,
-                'error' => 'Failed to process file. It may be too large or complex. Please try again.'
-            ], 500);
+                'success' => true,
+                'bookId' => $bookId,
+                'status' => 'processing',
+                'library' => $createdRecord,
+            ]);
         }
 
-        return redirect()->back()->with('error', 'Failed to process file. Please try again.');
+        return redirect("/{$bookId}")->with('success', 'File is being processed!');
+    }
+
+    /**
+     * Poll import progress for a book
+     */
+    public function importProgress(string $bookId)
+    {
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bookId);
+        $path = resource_path("markdown/{$bookId}/progress.json");
+
+        if (!File::exists($path)) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        return response()->json(json_decode(File::get($path), true));
     }
 
     public function createNewMarkdown(Request $request)
