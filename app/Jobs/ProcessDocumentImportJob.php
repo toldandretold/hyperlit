@@ -23,6 +23,7 @@ use App\Services\DocumentImport\Processors\PdfProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\BillingService;
+use App\Services\DocumentImport\MetadataExtractor;
 use App\Mail\ImportCompleteMail;
 use App\Mail\ImportFailedMail;
 use App\Models\User;
@@ -53,6 +54,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         ZipProcessor $zipProcessor,
         FileHelpers $helpers,
         BillingService $billing,
+        MetadataExtractor $metadataExtractor,
     ): void {
         $path = resource_path("markdown/{$this->bookId}");
         $inputPath = "{$path}/original.{$this->extension}";
@@ -170,6 +172,10 @@ class ProcessDocumentImportJob implements ShouldQueue
             $this->writeProgress($path, 'processing', 95, 'db_references', 'Saving references to database');
             $this->saveReferencesToDatabase($path, $this->bookId);
 
+            // Extract metadata and update library record for empty fields
+            $this->writeProgress($path, 'processing', 96, 'metadata', 'Checking metadata');
+            $this->updateLibraryMetadata($path, $metadataExtractor);
+
             // Bill OCR cost for PDF imports
             if ($this->extension === 'pdf' && $this->userId) {
                 $user = User::find($this->userId);
@@ -230,12 +236,15 @@ class ProcessDocumentImportJob implements ShouldQueue
             $statsPath = "{$path}/conversion_stats.json";
             $conversionStats = File::exists($statsPath) ? json_decode(File::get($statsPath), true) : null;
 
+            $updatedLibrary = PgLibrary::where('book', $this->bookId)->first();
+
             $result = [
                 'success' => true,
                 'bookId' => $this->bookId,
                 'footnoteAudit' => $auditSummary,
                 'hasFootnoteIssues' => $hasIssues,
                 'conversionStats' => $conversionStats,
+                'updatedLibrary' => $updatedLibrary,
             ];
 
             // Write complete status
@@ -755,5 +764,54 @@ class ProcessDocumentImportJob implements ShouldQueue
             ]],
             ['book' => $bookId],
         );
+    }
+
+    private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void
+    {
+        $library = PgLibrary::where('book', $this->bookId)->first();
+        if (!$library) {
+            return;
+        }
+
+        $isEmpty = fn($val) => !$val || $val === 'Untitled' || trim($val) === '';
+
+        // If all fields already populated, skip
+        if (!$isEmpty($library->title) && !$isEmpty($library->author) && !$isEmpty($library->year)) {
+            return;
+        }
+
+        $inputPath = "{$path}/original.{$this->extension}";
+        if (!File::exists($inputPath) && $this->extension === 'md' && File::exists("{$path}/main-text.md")) {
+            $inputPath = "{$path}/main-text.md";
+        }
+
+        $meta = $extractor->extract($inputPath, $this->extension);
+
+        // Fallback: first heading from nodes.jsonl as title
+        if ($isEmpty($meta['title'])) {
+            $meta['title'] = $extractor->extractFirstHeading($path) ?? '';
+        }
+
+        $updates = [];
+        if ($isEmpty($library->title) && $meta['title']) {
+            $updates['title'] = $meta['title'];
+        }
+        if ($isEmpty($library->author) && $meta['author']) {
+            $updates['author'] = $meta['author'];
+        }
+        if ($isEmpty($library->year) && $meta['year']) {
+            $updates['year'] = $meta['year'];
+        }
+        if (empty($library->publisher) && !empty($meta['publisher'])) {
+            $updates['publisher'] = $meta['publisher'];
+        }
+
+        if (!empty($updates)) {
+            PgLibrary::where('book', $this->bookId)->update($updates);
+            Log::info('Library metadata updated from file extraction', [
+                'book' => $this->bookId,
+                'fields' => array_keys($updates),
+            ]);
+        }
     }
 }

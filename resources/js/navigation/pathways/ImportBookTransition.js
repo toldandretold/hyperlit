@@ -604,6 +604,22 @@ export class ImportBookTransition {
             }
           }
 
+          // Update IndexedDB library record with server-extracted metadata
+          if (completedResult?.updatedLibrary) {
+            try {
+              const db = await openDatabase();
+              const tx = db.transaction('library', 'readwrite');
+              tx.objectStore('library').put(completedResult.updatedLibrary);
+              await new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+              });
+              console.log('Updated library record saved to IndexedDB from post-processing');
+            } catch (libErr) {
+              console.warn('Failed to update library in IndexedDB (non-fatal):', libErr);
+            }
+          }
+
           // Data is already in PostgreSQL from the background job.
           // Skip loadFromJSONFiles (downloads entire JSON via HTTP — too large for big books).
           // The reader's normal chunked loading (database-to-indexeddb API) will handle it.

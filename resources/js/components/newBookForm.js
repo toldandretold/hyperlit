@@ -187,6 +187,57 @@ function handlePdfCostEstimate(fileInput) {
     }
 }
 
+async function handleFileMetadataExtraction(fileInput) {
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        hidePdfCostEstimate();
+        return;
+    }
+    const file = fileInput.files[0];
+    const name = file.name.toLowerCase();
+
+    // PDF: delegate to existing cost estimate + metadata path
+    if (name.endsWith('.pdf')) {
+        showPdfCostEstimate(file);
+        return;
+    }
+
+    hidePdfCostEstimate();
+
+    // Non-PDF: extract metadata from file contents
+    const ext = name.split('.').pop();
+    if (!['md', 'epub', 'docx', 'html', 'htm'].includes(ext)) return;
+
+    try {
+        const { extractFileMetadata } = await import('../utilities/fileMetadataExtractor.js');
+        const meta = await extractFileMetadata(file);
+
+        const setIfEmpty = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && !el.value.trim() && val) {
+                el.value = val;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+        setIfEmpty('title', meta.title);
+        setIfEmpty('author', meta.author);
+        setIfEmpty('year', meta.year);
+
+        // Auto-generate book ID if empty
+        const bookField = document.getElementById('book');
+        if (bookField && !bookField.value.trim() && (meta.title || meta.author)) {
+            const generatedId = generateBookIdFromMetadata(null, meta.title, meta.author, meta.year);
+            if (generatedId) {
+                const availableId = await findAvailableBookId(generatedId);
+                bookField.value = availableId;
+                updateBookUrlPreview(availableId);
+                bookField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    } catch (err) {
+        console.warn('File metadata extraction failed (non-fatal):', err);
+    }
+}
+
 // Add the helper functions from createNewBook.js
 function generateUUID() {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
@@ -1679,7 +1730,7 @@ function setupRealTimeValidation() {
             // Pass field base id 'file' so showValidationMessage targets #file-validation
             showValidationMessage('file', result);
             validateForm();
-            handlePdfCostEstimate(this);
+            handleFileMetadataExtraction(this);
         });
     }
     
