@@ -290,6 +290,13 @@ export async function startObserving(editableDiv, bookId = null) {
         nodeEl.innerHTML = '<br>';
       }
 
+      // Explicitly save the parent node to IDB.
+      // Don't rely on MutationObserver alone — on iOS, tapping contenteditable="false"
+      // buttons can cause focus loss before the RAF-deferred mutation processing runs.
+      if (nodeEl?.id && saveQueue) {
+        saveQueue.queueNode(nodeEl.id, 'update');
+      }
+
       // Place cursor in the parent node
       if (nodeEl) {
         const range = document.createRange();

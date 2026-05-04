@@ -2104,7 +2104,7 @@ class CitationReviewService
         File::put("{$path}/original.md", $md);
 
         // Clean stale outputs from previous runs
-        foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html'] as $f) {
+        foreach (['nodes.json', 'nodes.jsonl', 'footnotes.json', 'footnotes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'notify_email.json'] as $f) {
             if (File::exists("{$path}/{$f}")) {
                 File::delete("{$path}/{$f}");
             }

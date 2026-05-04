@@ -1802,9 +1802,11 @@ class HeuristicFootnoteDetector(EpubTransform):
         seen_fn_ids = set()
 
         # Pattern 1a: <sup><a href="#..."> - superscript containing link
+        # Skip when inner <a> has a class attribute — in EPUBs, verse numbers use
+        # <sup><a class="StartVersenum"> while footnote refs use plain <a> without class.
         for sup in soup.find_all('sup'):
             a_tag = sup.find('a')
-            if a_tag:
+            if a_tag and not a_tag.get('class'):
                 href = a_tag.get('href', '')
                 target_id = self._extract_target_id(href)
                 if target_id and target_id not in seen_ref_ids:
@@ -1905,13 +1907,18 @@ class HeuristicFootnoteDetector(EpubTransform):
         # Matches asterisks (*), daggers (†‡), numbers, letters used as footnote refs
         # Also matches bracketed numbers like [1], [2] (common in Marxists.org, Calibre EPUBs)
         # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>, <a href="#intro1">[1]</a>
-        footnote_symbols = re.compile(r'^(?:\[\d+\]|[\d*†‡§¶#a-zA-Z]{1,3}\.?)$')
+        footnote_symbols = re.compile(r'^(?:\[\d+\]|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
+        # Bare digits only when the <a> has an id (indicating a back-linkable reference)
+        bare_digit = re.compile(r'^\d{1,3}\.?$')
         for a_tag in soup.find_all('a', href=True):
             # Skip if already in <sup> (handled by Pattern 1a)
             if a_tag.find_parent('sup'):
                 continue
             # Skip if contains <sup> (handled by Pattern 1b)
             if a_tag.find('sup'):
+                continue
+            # Skip if has class — verse numbers and navigation links have classes
+            if a_tag.get('class'):
                 continue
 
             href = a_tag.get('href', '')
@@ -1921,7 +1928,12 @@ class HeuristicFootnoteDetector(EpubTransform):
 
             # Check if link text looks like a footnote reference
             link_text = a_tag.get_text(strip=True)
-            if footnote_symbols.match(link_text):
+            is_match = footnote_symbols.match(link_text)
+            # For bare digits (no brackets/symbols), require an id attribute —
+            # real footnote refs need an id for back-linking, verse cross-refs often don't
+            if not is_match and bare_digit.match(link_text) and a_tag.get('id'):
+                is_match = True
+            if is_match:
                 seen_ref_ids.add(target_id)
                 noterefs.append({
                     'element': a_tag,
@@ -2156,6 +2168,48 @@ class FootnoteConverter(EpubTransform):
 
         # Build set of all footnote definition IDs (for reverse-mapping references)
         all_footnote_ids = {fn.get('id', '') for fn in all_footnotes if fn.get('id')}
+
+        # Reverse-definition detection: find footnote definitions that match
+        # reference targets but weren't caught by any detector.
+        # Handles publisher-specific ID formats where IDs don't match common patterns.
+        unmatched_targets = set()
+        for ref in all_noterefs:
+            target_id = ref.get('target_id', '')
+            if target_id and target_id not in all_footnote_ids:
+                unmatched_targets.add(target_id)
+
+        if unmatched_targets:
+            log(f"  Reverse-definition lookup: {len(unmatched_targets)} unmatched targets")
+            # Pre-build ID->element lookup for O(1) access
+            id_lookup = {}
+            for elem in soup.find_all(id=True):
+                elem_id = elem.get('id', '')
+                if elem_id:
+                    id_lookup[elem_id] = elem
+
+            found = 0
+            skipped = 0
+            # Block-level tags that can contain footnote definitions
+            block_tags = {'p', 'div', 'li', 'aside', 'section', 'blockquote', 'td'}
+            for target_id in unmatched_targets:
+                if target_id not in id_lookup:
+                    continue
+                elem = id_lookup[target_id]
+                # Skip inline elements like <a> — these are typically verse anchors
+                # or navigation targets, not footnote definitions. Real footnote defs
+                # are block-level elements (p, div, li, etc.) with actual content.
+                if elem.name not in block_tags:
+                    skipped += 1
+                    continue
+                all_footnotes.append({
+                    'id': target_id,
+                    'element': elem,
+                    'type': 'footnote',
+                    'strategy': 'reverse_definition'
+                })
+                all_footnote_ids.add(target_id)
+                found += 1
+            log(f"  Found {found} definitions via reverse-definition lookup (skipped {skipped} non-block elements)")
 
         # Reverse-mapping: Find all <a> links pointing to footnote IDs that weren't
         # detected by the normal reference detectors. This catches publisher-specific

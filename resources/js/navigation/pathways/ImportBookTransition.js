@@ -322,7 +322,7 @@ export class ImportBookTransition {
   /**
    * Create progress UI by replacing form content
    */
-  static createImportProgressUI() {
+  static createImportProgressUI(bookId) {
     const container = document.getElementById('newbook-container');
     const citeForm = container?.querySelector('#cite-form');
     const targetEl = citeForm || container;
@@ -363,8 +363,11 @@ export class ImportBookTransition {
         </p>
         <p id="import-detail-text" style="margin: 0 0 20px; font-size: 12px; color: var(--text-muted, #888);">
         </p>
-        <p style="margin: 0; font-size: 12px; color: var(--text-muted, #666);">
-          You can close this tab &mdash; we'll email you when done.
+        <p id="import-notify-row" style="margin: 0; font-size: 12px; color: var(--text-muted, #666);">
+          <a href="#" id="import-notify-btn"
+             style="color: var(--text-muted, #888); text-decoration: underline; cursor: pointer;">
+            Email me when done
+          </a>
         </p>
       </div>
     `;
@@ -373,9 +376,38 @@ export class ImportBookTransition {
     const stageText = document.getElementById('import-stage-text');
     const detailText = document.getElementById('import-detail-text');
 
+    const notifyBtn = document.getElementById('import-notify-btn');
+    const notifyRow = document.getElementById('import-notify-row');
+    if (notifyBtn) {
+      notifyBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        notifyBtn.style.pointerEvents = 'none';
+        notifyBtn.textContent = 'Requesting...';
+        try {
+          const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+          const resp = await fetch(`/api/import-progress/${bookId}/notify`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-TOKEN': csrfToken,
+            },
+            credentials: 'include',
+          });
+          if (resp.ok) {
+            notifyRow.textContent = "We'll email you when done. You can close this tab.";
+          } else {
+            const data = await resp.json().catch(() => ({}));
+            notifyRow.textContent = data.message || 'Could not set up email notification.';
+          }
+        } catch {
+          notifyRow.textContent = 'Could not set up email notification.';
+        }
+      });
+    }
+
     return {
       update(pct, msg, detail) {
-        if (progressBar) progressBar.style.width = `${Math.min(pct, 100)}%`;
+        if (progressBar && pct != null) progressBar.style.width = `${Math.min(pct, 100)}%`;
         if (stageText && msg) stageText.textContent = msg;
         if (detailText) detailText.textContent = detail || '';
       },
@@ -403,6 +435,9 @@ export class ImportBookTransition {
    * Poll import progress endpoint
    */
   static async pollImportProgress(bookId, progressUI) {
+    let networkRetries = 0;
+    const MAX_NETWORK_RETRIES = 30;
+
     const poll = async () => {
       try {
         const resp = await fetch(`/api/import-progress/${bookId}`);
@@ -415,6 +450,9 @@ export class ImportBookTransition {
           }
           throw new Error(`Poll failed: ${resp.status}`);
         }
+
+        // Successful response — reset network retry counter
+        networkRetries = 0;
 
         const data = await resp.json();
 
@@ -440,9 +478,17 @@ export class ImportBookTransition {
         await new Promise(r => setTimeout(r, 2000));
         return poll();
       } catch (err) {
-        // Network errors — retry a few times
+        console.warn(`[poll] error: ${err.name}: ${err.message}`);
+        // Network/server errors — retry with backoff
         if (err.message?.startsWith('Poll failed') || err.name === 'TypeError') {
-          await new Promise(r => setTimeout(r, 3000));
+          networkRetries++;
+          if (networkRetries > MAX_NETWORK_RETRIES) {
+            throw new Error('Lost connection to server. Check your email for updates, or try again.');
+          }
+          // Backoff: 3s, 3s, 3s, 5s, 5s, 8s... capped at 10s
+          const delay = Math.min(10000, networkRetries <= 3 ? 3000 : networkRetries <= 5 ? 5000 : 8000);
+          progressUI.update(null, 'Reconnecting...', `Attempt ${networkRetries}/${MAX_NETWORK_RETRIES}`);
+          await new Promise(r => setTimeout(r, delay));
           return poll();
         }
         throw err;
@@ -528,7 +574,7 @@ export class ImportBookTransition {
       if (result.status === 'processing') {
         console.log('Import dispatched to background, starting progress polling');
 
-        const progressUI = this.createImportProgressUI();
+        const progressUI = this.createImportProgressUI(result.bookId);
 
         if (!progressUI) {
           // Fallback: can't show progress UI, just wait
@@ -558,12 +604,13 @@ export class ImportBookTransition {
             }
           }
 
-          // Pre-load the book's content into IndexedDB
-          try {
-            await loadFromJSONFiles(result.bookId);
-            console.log('Pre-loaded imported book content');
-          } catch (e) {
-            console.warn('Preloading JSON failed; continuing with reader fallback:', e);
+          // Data is already in PostgreSQL from the background job.
+          // Skip loadFromJSONFiles (downloads entire JSON via HTTP — too large for big books).
+          // The reader's normal chunked loading (database-to-indexeddb API) will handle it.
+          console.log('Background import complete — reader will load from database');
+
+          if (progressUI) {
+            progressUI.update(100, 'Import complete! Opening book...', '');
           }
 
           this.clearFormData();

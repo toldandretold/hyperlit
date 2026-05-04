@@ -646,7 +646,7 @@ class ContentFetchService
 
         try {
             // 1. Clean stale output files
-            foreach (['nodes.json', 'footnotes.json', 'audit.json', 'references.json', 'intermediate.html', 'main-text.md'] as $staleFile) {
+            foreach (['nodes.json', 'nodes.jsonl', 'footnotes.json', 'footnotes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'main-text.md', 'notify_email.json'] as $staleFile) {
                 $staleFilePath = "{$path}/{$staleFile}";
                 if (File::exists($staleFilePath)) {
                     File::delete($staleFilePath);

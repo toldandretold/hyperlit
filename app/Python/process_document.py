@@ -1906,9 +1906,11 @@ def main(html_file_path, output_dir, book_id):
         # Walk all footnote-ref sup elements in document order
         all_ref_sups = soup.find_all('sup', class_='footnote-ref')
         audit_data['total_refs'] = len(all_ref_sups)
+        emit_progress(77, "doc_audit", f"Validating {len(all_ref_sups)} footnote refs")
 
         # Group into sequences (restart when fn-count-id goes back to lower number)
-        sequences = []
+        # Only store lightweight data per ref; gather expensive context on demand.
+        sequences = []  # list of lists of (num, sup_element) tuples
         current_sequence = []
         last_num = 0
 
@@ -1921,58 +1923,80 @@ def main(html_file_path, output_dir, book_id):
             if num <= last_num and current_sequence:
                 sequences.append(current_sequence)
                 current_sequence = []
-            # Gather rich context for each ref
-            section_id = sup.get('fn-section-id', '')
-            prev_heading = sup.find_previous(['h1','h2','h3','h4','h5','h6'])
-            heading_text = prev_heading.get_text()[:60].strip() if prev_heading else ''
-            context_text = sup.parent.get_text()[:120].strip() if sup.parent else ''
-            current_sequence.append({
-                'num': num,
-                'id': sup.get('id', ''),
-                'context': context_text,
-                'section_id': section_id,
-                'heading': heading_text,
-            })
+            current_sequence.append((num, sup))
             last_num = num
 
         if current_sequence:
             sequences.append(current_sequence)
 
+        def _audit_context(sup_elem):
+            """Extract heading/context for a ref — only called for gaps/duplicates."""
+            section_id = sup_elem.get('fn-section-id', '')
+            prev_heading = sup_elem.find_previous(['h1','h2','h3','h4','h5','h6'])
+            heading_text = prev_heading.get_text()[:60].strip() if prev_heading else ''
+            context_text = sup_elem.parent.get_text()[:120].strip() if sup_elem.parent else ''
+            return section_id, heading_text, context_text
+
         # Check for gaps and duplicates within each sequence
         for seq_idx, sequence in enumerate(sequences):
-            numbers_in_seq = [item['num'] for item in sequence]
+            numbers_in_seq = [item[0] for item in sequence]
 
-            # Check for gaps
+            # Check for gaps (cap per-gap expansion to avoid millions of entries
+            # when lettered footnotes cause sparse numeric sequences)
+            MAX_GAP_EXPANSION = 50
             if numbers_in_seq:
                 for i in range(len(numbers_in_seq) - 1):
                     current = numbers_in_seq[i]
                     next_num = numbers_in_seq[i + 1]
-                    if next_num - current > 1:
-                        for missing in range(current + 1, next_num):
+                    gap_size = next_num - current - 1
+                    if gap_size > 0:
+                        after_sid, after_heading, after_ctx = _audit_context(sequence[i][1])
+                        before_sid, before_heading, before_ctx = _audit_context(sequence[i + 1][1])
+                        if gap_size > MAX_GAP_EXPANSION:
+                            # Record as a single summary entry instead of expanding
                             audit_data['gaps'].append({
-                                'missing': missing,
+                                'missing': f"{current + 1}-{next_num - 1}",
                                 'after_ref': current,
                                 'before_ref': next_num,
                                 'section': seq_idx + 1,
-                                'after_ref_context': sequence[i]['context'],
-                                'after_ref_section_id': sequence[i]['section_id'],
-                                'after_ref_heading': sequence[i]['heading'],
-                                'before_ref_context': sequence[i + 1]['context'],
-                                'before_ref_section_id': sequence[i + 1]['section_id'],
-                                'before_ref_heading': sequence[i + 1]['heading'],
+                                'gap_size': gap_size,
+                                'after_ref_context': after_ctx,
+                                'after_ref_section_id': after_sid,
+                                'after_ref_heading': after_heading,
+                                'before_ref_context': before_ctx,
+                                'before_ref_section_id': before_sid,
+                                'before_ref_heading': before_heading,
                             })
+                        else:
+                            for missing in range(current + 1, next_num):
+                                audit_data['gaps'].append({
+                                    'missing': missing,
+                                    'after_ref': current,
+                                    'before_ref': next_num,
+                                    'section': seq_idx + 1,
+                                    'after_ref_context': after_ctx,
+                                    'after_ref_section_id': after_sid,
+                                    'after_ref_heading': after_heading,
+                                    'before_ref_context': before_ctx,
+                                    'before_ref_section_id': before_sid,
+                                    'before_ref_heading': before_heading,
+                                })
 
             # Check for duplicates
             num_counts = Counter(numbers_in_seq)
             for num, count in num_counts.items():
                 if count > 1:
-                    dup_item = next((item for item in sequence if item['num'] == num), None)
+                    dup_item = next((item for item in sequence if item[0] == num), None)
+                    if dup_item:
+                        dup_sid, dup_heading, dup_ctx = _audit_context(dup_item[1])
+                    else:
+                        dup_sid, dup_heading, dup_ctx = '', '', ''
                     audit_data['duplicates'].append({
                         'number': num,
                         'section': seq_idx + 1,
                         'count': count,
-                        'context': dup_item['context'] if dup_item else '',
-                        'heading': dup_item['heading'] if dup_item else '',
+                        'context': dup_ctx,
+                        'heading': dup_heading,
                     })
 
         # Check for unmatched refs (ref exists but no definition linked)
@@ -2177,17 +2201,25 @@ def main(html_file_path, output_dir, book_id):
         if (i + 1) % 5000 == 0:
             emit_progress(80 + int((i / total_nodes) * 4), "doc_sanitize", f"Sanitized {i + 1} / {total_nodes} nodes")
 
+    emit_progress(84, "doc_json_write", "Writing output files")
+
     with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f:
-        json.dump(sanitized_references, f, ensure_ascii=False, indent=4)
+        json.dump(sanitized_references, f, ensure_ascii=False)
     print(f"Successfully created {os.path.join(output_dir, 'references.json')}")
 
-    with open(os.path.join(output_dir, 'footnotes.json'), 'w', encoding='utf-8') as f:
-        json.dump(sanitized_footnotes, f, ensure_ascii=False, indent=4)
-    print(f"Successfully created {os.path.join(output_dir, 'footnotes.json')}")
+    # Write footnotes as JSONL for memory-efficient PHP streaming
+    footnotes_path = os.path.join(output_dir, 'footnotes.jsonl')
+    with open(footnotes_path, 'w', encoding='utf-8') as f:
+        for fn in sanitized_footnotes:
+            f.write(json.dumps(fn, ensure_ascii=False) + '\n')
+    print(f"Successfully created {footnotes_path}")
 
-    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f:
-        json.dump(sanitized_nodes, f, ensure_ascii=False, indent=4)
-    print(f"Successfully created {os.path.join(output_dir, 'nodes.json')}")
+    # Write nodes as JSONL (one JSON object per line) for memory-efficient PHP streaming
+    nodes_path = os.path.join(output_dir, 'nodes.jsonl')
+    with open(nodes_path, 'w', encoding='utf-8') as f:
+        for node in sanitized_nodes:
+            f.write(json.dumps(node, ensure_ascii=False) + '\n')
+    print(f"Successfully created {nodes_path}")
     emit_progress(85, "doc_json_written", f"Written {len(sanitized_nodes)} nodes, {len(sanitized_footnotes)} footnotes, {len(sanitized_references)} references")
 
 if __name__ == "__main__":

@@ -67,6 +67,55 @@ class ProcessDocumentImportJob implements ShouldQueue
             'extension' => $this->extension,
         ]);
 
+        // Register shutdown handler to catch fatal errors (OOM, segfault, etc.)
+        // that kill the process before catch/failed() can run.
+        $bookId = $this->bookId;
+        $userId = $this->userId;
+        $formData = $this->formData;
+        register_shutdown_function(function () use ($path, $bookId, $userId, $formData) {
+            $error = error_get_last();
+            if ($error && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                $progressFile = "{$path}/progress.json";
+                $current = file_exists($progressFile) ? json_decode(file_get_contents($progressFile), true) : [];
+                // Only write if not already marked complete/failed
+                if (($current['status'] ?? '') === 'processing') {
+                    $msg = $error['message'] ?? 'Process crashed unexpectedly';
+                    // Truncate long OOM messages
+                    if (str_contains($msg, 'memory size')) {
+                        $msg = 'Out of memory — document too large. Please try again or contact support.';
+                    }
+                    file_put_contents($progressFile, json_encode([
+                        'status' => 'failed',
+                        'percent' => 0,
+                        'stage' => 'error',
+                        'detail' => $msg,
+                        'updated_at' => gmdate('c'),
+                    ], JSON_PRETTY_PRINT));
+                    Log::error('ProcessDocumentImportJob fatal crash', [
+                        'book' => $bookId,
+                        'error' => $error['message'],
+                    ]);
+
+                    // Best-effort email if user requested it
+                    if ($userId && file_exists("{$path}/notify_email.json")) {
+                        try {
+                            $user = \App\Models\User::find($userId);
+                            if ($user?->email) {
+                                \Illuminate\Support\Facades\Mail::send(new \App\Mail\ImportFailedMail(
+                                    $user->email,
+                                    $formData['title'] ?? $bookId,
+                                    $bookId,
+                                    $msg,
+                                ));
+                            }
+                        } catch (\Throwable $e) {
+                            error_log("Import crash email failed for {$bookId}: {$e->getMessage()}");
+                        }
+                    }
+                }
+            }
+        });
+
         $progressCallback = function (int $pct, string $stage, string $detail = '') use ($path) {
             $this->writeProgress($path, 'processing', $pct, $stage, $detail);
         };
@@ -99,8 +148,8 @@ class ProcessDocumentImportJob implements ShouldQueue
                 $processor->process($inputPath, $path, $this->bookId);
             }
 
-            // Wait for nodes.json if not yet present
-            $nodesPath = "{$path}/nodes.json";
+            // Wait for nodes.jsonl if not yet present
+            $nodesPath = "{$path}/nodes.jsonl";
             $attempts = 0;
             while (!File::exists($nodesPath) && $attempts < 15) {
                 sleep(2);
@@ -108,7 +157,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             }
 
             if (!File::exists($nodesPath)) {
-                throw new \RuntimeException('nodes.json was not created after processing');
+                throw new \RuntimeException('nodes.jsonl was not created after processing');
             }
 
             // Save to database
@@ -130,14 +179,53 @@ class ProcessDocumentImportJob implements ShouldQueue
             }
 
             // Build the result data
+            // Stream-read audit.json to extract summary counts without loading the
+            // entire file (can be 900MB+ when gap detection produces millions of entries).
             $auditPath = "{$path}/audit.json";
-            $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
-            $hasIssues = $auditData && (
-                count($auditData['gaps'] ?? []) > 0 ||
-                count($auditData['unmatched_refs'] ?? []) > 0 ||
-                count($auditData['unmatched_defs'] ?? []) > 0 ||
-                count($auditData['duplicates'] ?? []) > 0
-            );
+            $auditSummary = null;
+            $hasIssues = false;
+            if (File::exists($auditPath)) {
+                $auditSize = filesize($auditPath);
+                if ($auditSize < 10 * 1024 * 1024) {
+                    // Small enough to load directly
+                    $auditData = json_decode(File::get($auditPath), true);
+                    $hasIssues = $auditData && (
+                        count($auditData['gaps'] ?? []) > 0 ||
+                        count($auditData['unmatched_refs'] ?? []) > 0 ||
+                        count($auditData['unmatched_defs'] ?? []) > 0 ||
+                        count($auditData['duplicates'] ?? []) > 0
+                    );
+                    $auditSummary = $auditData;
+                } else {
+                    // Too large — extract counts via streaming regex
+                    $handle = fopen($auditPath, 'r');
+                    $header = fread($handle, 4096);
+                    fclose($handle);
+                    $auditSummary = [
+                        'total_refs' => 0,
+                        'total_defs' => 0,
+                        'gaps_count' => 0,
+                        'duplicates_count' => 0,
+                        'unmatched_refs_count' => 0,
+                        'unmatched_defs_count' => 0,
+                        '_truncated' => true,
+                    ];
+                    if (preg_match('/"total_refs":\s*(\d+)/', $header, $m)) {
+                        $auditSummary['total_refs'] = (int) $m[1];
+                    }
+                    if (preg_match('/"total_defs":\s*(\d+)/', $header, $m)) {
+                        $auditSummary['total_defs'] = (int) $m[1];
+                    }
+                    // Check if arrays are non-empty by looking for first element
+                    foreach (['gaps', 'duplicates', 'unmatched_refs', 'unmatched_defs'] as $key) {
+                        // Match "key": [ followed by non-] (i.e. array has at least one element)
+                        if (preg_match('/"' . $key . '":\s*\[\s*\{/', file_get_contents($auditPath, false, null, 0, 64 * 1024), $m)) {
+                            $auditSummary["{$key}_count"] = -1; // unknown but non-zero
+                            $hasIssues = true;
+                        }
+                    }
+                }
+            }
 
             $statsPath = "{$path}/conversion_stats.json";
             $conversionStats = File::exists($statsPath) ? json_decode(File::get($statsPath), true) : null;
@@ -145,7 +233,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             $result = [
                 'success' => true,
                 'bookId' => $this->bookId,
-                'footnoteAudit' => $auditData,
+                'footnoteAudit' => $auditSummary,
                 'hasFootnoteIssues' => $hasIssues,
                 'conversionStats' => $conversionStats,
             ];
@@ -156,16 +244,23 @@ class ProcessDocumentImportJob implements ShouldQueue
                 'result' => $result,
             ]);
 
-            // Send success email
-            if ($this->userId) {
+            // Send success email (only if user opted in)
+            if ($this->shouldSendEmail($path) && $this->userId) {
                 $user = User::find($this->userId);
                 if ($user?->email) {
-                    Mail::send(new ImportCompleteMail(
-                        $user->email,
-                        $this->formData['title'] ?? $this->bookId,
-                        $this->bookId,
-                        $conversionStats,
-                    ));
+                    try {
+                        Mail::send(new ImportCompleteMail(
+                            $user->email,
+                            $this->formData['title'] ?? $this->bookId,
+                            $this->bookId,
+                            $conversionStats,
+                        ));
+                        Log::info('Import success email sent', ['book' => $this->bookId, 'to' => $user->email]);
+                    } catch (\Throwable $mailErr) {
+                        Log::warning('Failed to send import success email', [
+                            'book' => $this->bookId, 'error' => $mailErr->getMessage(),
+                        ]);
+                    }
                 }
             }
 
@@ -179,16 +274,23 @@ class ProcessDocumentImportJob implements ShouldQueue
 
             $this->writeProgress($path, 'failed', 0, 'error', $e->getMessage());
 
-            // Send failure email
-            if ($this->userId) {
+            // Send failure email (only if user opted in)
+            if ($this->shouldSendEmail($path) && $this->userId) {
                 $user = User::find($this->userId);
                 if ($user?->email) {
-                    Mail::send(new ImportFailedMail(
-                        $user->email,
-                        $this->formData['title'] ?? $this->bookId,
-                        $this->bookId,
-                        $e->getMessage(),
-                    ));
+                    try {
+                        Mail::send(new ImportFailedMail(
+                            $user->email,
+                            $this->formData['title'] ?? $this->bookId,
+                            $this->bookId,
+                            $e->getMessage(),
+                        ));
+                        Log::info('Import failure email sent', ['book' => $this->bookId, 'to' => $user->email]);
+                    } catch (\Throwable $mailErr) {
+                        Log::warning('Failed to send import failure email', [
+                            'book' => $this->bookId, 'error' => $mailErr->getMessage(),
+                        ]);
+                    }
                 }
             }
 
@@ -205,17 +307,29 @@ class ProcessDocumentImportJob implements ShouldQueue
         $path = resource_path("markdown/{$this->bookId}");
         $this->writeProgress($path, 'failed', 0, 'error', $exception->getMessage());
 
-        if ($this->userId) {
+        if ($this->shouldSendEmail($path) && $this->userId) {
             $user = User::find($this->userId);
             if ($user?->email) {
-                Mail::send(new ImportFailedMail(
-                    $user->email,
-                    $this->formData['title'] ?? $this->bookId,
-                    $this->bookId,
-                    $exception->getMessage(),
-                ));
+                try {
+                    Mail::send(new ImportFailedMail(
+                        $user->email,
+                        $this->formData['title'] ?? $this->bookId,
+                        $this->bookId,
+                        $exception->getMessage(),
+                    ));
+                    Log::info('Import failure email sent (failed handler)', ['book' => $this->bookId, 'to' => $user->email]);
+                } catch (\Throwable $mailErr) {
+                    Log::warning('Failed to send import failure email (failed handler)', [
+                        'book' => $this->bookId, 'error' => $mailErr->getMessage(),
+                    ]);
+                }
             }
         }
+    }
+
+    private function shouldSendEmail(string $path): bool
+    {
+        return File::exists("{$path}/notify_email.json");
     }
 
     private function writeProgress(string $path, string $status, int $percent, string $stage, string $detail, array $extra = []): void
@@ -282,18 +396,29 @@ class ProcessDocumentImportJob implements ShouldQueue
 
     private function saveNodeChunksToDatabase(string $path, string $bookId, FileHelpers $helpers): void
     {
-        $nodesPath = "{$path}/nodes.json";
+        $nodesPath = "{$path}/nodes.jsonl";
 
         if (!File::exists($nodesPath)) {
-            Log::warning('nodes.json not found for database save', ['book' => $bookId]);
+            Log::warning('nodes.jsonl not found for database save', ['book' => $bookId]);
             return;
         }
 
-        $nodesData = json_decode(File::get($nodesPath), true);
-        $totalNodes = count($nodesData);
+        // Count lines for progress reporting without loading file into memory
+        $totalNodes = 0;
+        $countHandle = fopen($nodesPath, 'r');
+        while (fgets($countHandle) !== false) {
+            $totalNodes++;
+        }
+        fclose($countHandle);
 
         // Disable versioning trigger during bulk import — this is fresh data, no history needed
         $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER nodes_versioning_trigger');
+
+        // Prepare renumbered nodes.json output (streamed)
+        $jsonOutPath = "{$path}/nodes.json";
+        $jsonOut = fopen($jsonOutPath, 'w');
+        fwrite($jsonOut, '[');
+        $firstJsonNode = true;
 
         try {
             // Only delete if this book already has nodes (re-import). Skip for fresh imports.
@@ -303,24 +428,35 @@ class ProcessDocumentImportJob implements ShouldQueue
                 $this->db()->table('nodes')->where('book', 'LIKE', "{$bookId}/%")->delete();
             }
 
-            $insertData = [];
-            $now = now();
-            $nodesPerChunk = 100;
+            $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', "Inserting {$totalNodes} nodes");
 
-            foreach ($nodesData as $index => $chunk) {
+            $columns = ['book', 'startLine', 'chunk_id', 'node_id', 'content', 'footnotes', 'plainText', 'type', 'raw_json', 'created_at', 'updated_at'];
+            $now = (string) now();
+            $nodesPerChunk = 100;
+            $batch = [];
+            $index = 0;
+
+            // Stream-read JSONL: one JSON object per line, constant memory
+            $handle = fopen($nodesPath, 'r');
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') continue;
+
+                $chunk = json_decode($line, true);
+                if ($chunk === null) continue;
+
                 $newStartLine = ($index + 1) * 100;
                 $chunkIndex = floor($index / $nodesPerChunk);
                 $newChunkId = $chunkIndex * 100;
                 $nodeId = $helpers->generateNodeId($bookId);
                 $content = $helpers->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
 
-                $rawJson = $chunk;
-                $rawJson['startLine'] = $newStartLine;
-                $rawJson['chunk_id'] = $newChunkId;
-                $rawJson['node_id'] = $nodeId;
-                $rawJson['content'] = $content;
+                $chunk['startLine'] = $newStartLine;
+                $chunk['chunk_id'] = $newChunkId;
+                $chunk['node_id'] = $nodeId;
+                $chunk['content'] = $content;
 
-                $insertData[] = [
+                $batch[] = [
                     'book' => $bookId,
                     'startLine' => $newStartLine,
                     'chunk_id' => $newChunkId,
@@ -329,38 +465,62 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
                     'plainText' => $chunk['plainText'] ?? '',
                     'type' => $chunk['type'] ?? 'p',
-                    'raw_json' => json_encode($rawJson),
+                    'raw_json' => json_encode($chunk),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
+
+                // Stream renumbered node to nodes.json
+                if (!$firstJsonNode) fwrite($jsonOut, ',');
+                fwrite($jsonOut, json_encode($chunk, JSON_UNESCAPED_SLASHES));
+                $firstJsonNode = false;
+
+                // Flush batch every 5000 rows to limit memory
+                if (count($batch) >= 5000) {
+                    $this->bulkCopy('nodes', $columns, $batch);
+                    $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', "Inserted " . ($index + 1) . " / {$totalNodes} nodes");
+                    $batch = [];
+                }
+
+                $index++;
             }
+            fclose($handle);
 
-            $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', "Inserting {$totalNodes} nodes");
+            // Flush remaining
+            if (!empty($batch)) {
+                $this->bulkCopy('nodes', $columns, $batch);
+            }
+            unset($batch);
 
-            $columns = ['book', 'startLine', 'chunk_id', 'node_id', 'content', 'footnotes', 'plainText', 'type', 'raw_json', 'created_at', 'updated_at'];
-            $this->bulkCopy('nodes', $columns, $insertData);
+            fwrite($jsonOut, ']');
+            fclose($jsonOut);
+            $jsonOut = null;
         } finally {
+            if (isset($jsonOut) && $jsonOut) {
+                fclose($jsonOut);
+            }
             $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER nodes_versioning_trigger');
         }
 
         \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
-
-        $renumberedJson = [];
-        foreach ($insertData as $record) {
-            $renumberedJson[] = json_decode($record['raw_json'], true);
-        }
-        File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function saveFootnotesToDatabase(string $path, string $bookId): void
     {
-        $footnotesPath = "{$path}/footnotes.json";
-        if (!File::exists($footnotesPath)) {
+        $footnotesJsonlPath = "{$path}/footnotes.jsonl";
+        if (!File::exists($footnotesJsonlPath)) {
             return;
         }
 
-        $footnotesData = json_decode(File::get($footnotesPath), true);
-        if (empty($footnotesData)) {
+        // Count lines for progress without loading entire file
+        $totalFootnotes = 0;
+        $countHandle = fopen($footnotesJsonlPath, 'r');
+        while (fgets($countHandle) !== false) {
+            $totalFootnotes++;
+        }
+        fclose($countHandle);
+
+        if ($totalFootnotes === 0) {
             return;
         }
 
@@ -371,86 +531,16 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
 
         $now = now();
-        $totalFootnotes = count($footnotesData);
         $this->writeProgress($path, 'processing', 91, 'db_footnotes', "Preparing {$totalFootnotes} footnotes");
-
-        // Build all insert arrays in one pass
-        $footnoteInserts = [];
-        $libraryInserts = [];
-        $nodeInserts = [];
-        $enrichedForJson = [];
-
-        foreach ($footnotesData as $footnote) {
-            $footnoteId = $footnote['footnoteId'] ?? null;
-            $content = $footnote['content'] ?? '';
-            if (!$footnoteId) {
-                continue;
-            }
-
-            $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
-            $uuid = (string) Str::uuid();
-            $plainText = strip_tags($content);
-            $safeHtml = strip_tags($content, '<a><em><strong><i><b>');
-            $nodeHtml = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
-                . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
-
-            $previewNodes = [[
-                'book' => $subBookId,
-                'chunk_id' => 0,
-                'startLine' => 1.0,
-                'node_id' => $uuid,
-                'content' => $nodeHtml,
-                'footnotes' => [],
-                'hyperlights' => [],
-                'hypercites' => [],
-            ]];
-
-            $footnoteInserts[] = [
-                'book' => $bookId,
-                'footnoteId' => $footnoteId,
-                'content' => $content,
-                'sub_book_id' => $subBookId,
-                'preview_nodes' => json_encode($previewNodes),
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-
-            $libraryInserts[] = [
-                'book' => $subBookId,
-                'creator' => $library->creator,
-                'creator_token' => $library->creator_token,
-                'visibility' => $library->visibility,
-                'listed' => false,
-                'title' => "Annotation: {$footnoteId}",
-                'type' => 'sub_book',
-                'has_nodes' => true,
-                'raw_json' => json_encode([]),
-                'timestamp' => round(microtime(true) * 1000),
-                'updated_at' => $now,
-                'created_at' => $now,
-            ];
-
-            $nodeInserts[] = [
-                'book' => $subBookId,
-                'node_id' => $uuid,
-                'chunk_id' => 0,
-                'startLine' => 1,
-                'content' => $nodeHtml,
-                'plainText' => $plainText,
-                'raw_json' => json_encode([]),
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-
-            $enrichedForJson[] = [
-                'footnoteId' => $footnoteId,
-                'content' => $content,
-                'preview_nodes' => $previewNodes,
-            ];
-        }
 
         // Only delete if this book already has footnotes (re-import)
         $hasExisting = $this->db()->table('footnotes')->where('book', $bookId)->exists();
+
+        // Stream enriched footnotes.json output
+        $enrichedJsonPath = "{$path}/footnotes.json";
+        $enrichedFile = fopen($enrichedJsonPath, 'w');
+        fwrite($enrichedFile, '[');
+        $firstEnriched = true;
 
         $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER nodes_versioning_trigger');
         try {
@@ -461,19 +551,129 @@ class ProcessDocumentImportJob implements ShouldQueue
                 $this->db()->table('nodes')->where('book', 'LIKE', "{$bookId}/Fn%")->delete();
             }
 
-            // Bulk insert all three tables via COPY
             $this->writeProgress($path, 'processing', 93, 'db_footnotes', "Inserting {$totalFootnotes} footnotes");
 
-            $this->bulkCopy('footnotes', ['book', 'footnoteId', 'content', 'sub_book_id', 'preview_nodes', 'created_at', 'updated_at'], $footnoteInserts);
-            $this->bulkCopy('library', ['book', 'creator', 'creator_token', 'visibility', 'listed', 'title', 'type', 'has_nodes', 'raw_json', 'timestamp', 'updated_at', 'created_at'], $libraryInserts);
-            $this->bulkCopy('nodes', ['book', 'node_id', 'chunk_id', 'startLine', 'content', 'plainText', 'raw_json', 'created_at', 'updated_at'], $nodeInserts);
+            $chunkSize = 500;
+            $footnoteInserts = [];
+            $libraryInserts = [];
+            $nodeInserts = [];
+            $processed = 0;
+
+            // Stream-read JSONL: one JSON object per line, constant memory
+            $handle = fopen($footnotesJsonlPath, 'r');
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') continue;
+
+                $footnote = json_decode($line, true);
+                if ($footnote === null) continue;
+
+                $footnoteId = $footnote['footnoteId'] ?? null;
+                $content = $footnote['content'] ?? '';
+                if (!$footnoteId) {
+                    continue;
+                }
+
+                $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
+                $uuid = (string) Str::uuid();
+                $plainText = strip_tags($content);
+                $safeHtml = strip_tags($content, '<a><em><strong><i><b>');
+                $nodeHtml = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
+                    . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
+
+                $previewNodes = [[
+                    'book' => $subBookId,
+                    'chunk_id' => 0,
+                    'startLine' => 1.0,
+                    'node_id' => $uuid,
+                    'content' => $nodeHtml,
+                    'footnotes' => [],
+                    'hyperlights' => [],
+                    'hypercites' => [],
+                ]];
+
+                $footnoteInserts[] = [
+                    'book' => $bookId,
+                    'footnoteId' => $footnoteId,
+                    'content' => $content,
+                    'sub_book_id' => $subBookId,
+                    'preview_nodes' => json_encode($previewNodes),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                $libraryInserts[] = [
+                    'book' => $subBookId,
+                    'creator' => $library->creator,
+                    'creator_token' => $library->creator_token,
+                    'visibility' => $library->visibility,
+                    'listed' => false,
+                    'title' => "Annotation: {$footnoteId}",
+                    'type' => 'sub_book',
+                    'has_nodes' => true,
+                    'raw_json' => json_encode([]),
+                    'timestamp' => round(microtime(true) * 1000),
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ];
+
+                $nodeInserts[] = [
+                    'book' => $subBookId,
+                    'node_id' => $uuid,
+                    'chunk_id' => 0,
+                    'startLine' => 1,
+                    'content' => $nodeHtml,
+                    'plainText' => $plainText,
+                    'raw_json' => json_encode([]),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                // Stream enriched entry to footnotes.json
+                $enrichedEntry = json_encode([
+                    'footnoteId' => $footnoteId,
+                    'content' => $content,
+                    'preview_nodes' => $previewNodes,
+                ], JSON_UNESCAPED_SLASHES);
+                if (!$firstEnriched) {
+                    fwrite($enrichedFile, ',');
+                }
+                fwrite($enrichedFile, $enrichedEntry);
+                $firstEnriched = false;
+
+                $processed++;
+
+                // Flush batch every $chunkSize rows
+                if (count($footnoteInserts) >= $chunkSize) {
+                    $this->db()->table('footnotes')->insert($footnoteInserts);
+                    $this->db()->table('library')->insert($libraryInserts);
+                    $this->db()->table('nodes')->insert($nodeInserts);
+                    $footnoteInserts = [];
+                    $libraryInserts = [];
+                    $nodeInserts = [];
+                    $this->writeProgress($path, 'processing', 93, 'db_footnotes', "Inserted {$processed} / {$totalFootnotes} footnotes");
+                }
+            }
+            fclose($handle);
+
+            // Flush remaining
+            if (!empty($footnoteInserts)) {
+                $this->db()->table('footnotes')->insert($footnoteInserts);
+                $this->db()->table('library')->insert($libraryInserts);
+                $this->db()->table('nodes')->insert($nodeInserts);
+            }
+
+            fwrite($enrichedFile, ']');
+            fclose($enrichedFile);
+            $enrichedFile = null;
         } finally {
+            if (isset($enrichedFile) && $enrichedFile) {
+                fclose($enrichedFile);
+            }
             $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER nodes_versioning_trigger');
         }
 
         $this->writeProgress($path, 'processing', 94, 'db_footnotes', "Saved {$totalFootnotes} footnotes");
-
-        File::put($footnotesPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function saveReferencesToDatabase(string $path, string $bookId): void
@@ -514,7 +714,9 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
         $insertData = array_values($deduped);
 
-        $this->bulkCopy('bibliography', ['book', 'referenceId', 'source_id', 'content', 'created_at', 'updated_at'], $insertData);
+        foreach (array_chunk($insertData, 500) as $batch) {
+            $this->db()->table('bibliography')->insert($batch);
+        }
     }
 
     private function billOcrImport(User $user, string $bookId, string $path, BillingService $billing): void

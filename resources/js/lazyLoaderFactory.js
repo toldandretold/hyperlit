@@ -1195,6 +1195,19 @@ export function createChunkElement(nodes, instance) {
       embed.appendChild(wrapper);
     });
 
+    // 🖼️ RECONSTRUCT: Broken image wrappers after sanitization
+    // DOMPurify strips button + contenteditable attr, leaving "×" as plain text.
+    // Unwrap the stale wrapper so handleBrokenImages() recreates it with a working button.
+    temp.querySelectorAll('.broken-image-wrapper').forEach(wrapper => {
+      const img = wrapper.querySelector('img');
+      if (img) {
+        img.classList.remove('broken-image');
+        wrapper.replaceWith(img);
+      } else {
+        wrapper.remove();
+      }
+    });
+
     // 🔄 NORMALIZE: Migrate old hypercite format to new single-element format
     // Old: <a><sup class="open-icon">↗</sup></a> or flipped <sup class="open-icon"><a>↗</a></sup>
     // New: <a class="open-icon">↗</a>

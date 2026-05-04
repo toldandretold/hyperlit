@@ -457,9 +457,29 @@ export async function loadHyperText(bookId, progressCallback = null) {
       if (editBtn) {
         editBtn.style.opacity = '0.3';
         editBtn.style.pointerEvents = 'none';
-        window.addEventListener('backgroundDownloadComplete', () => {
+
+        const enableEdit = () => {
           editBtn.style.opacity = '';
           editBtn.style.pointerEvents = '';
+          editBtn.title = '';
+        };
+
+        window.addEventListener('backgroundDownloadComplete', enableEdit, { once: true });
+
+        window.addEventListener('backgroundDownloadFailed', () => {
+          editBtn.title = 'Download incomplete \u2014 tap to retry';
+          editBtn.style.opacity = '0.3';
+          editBtn.style.pointerEvents = '';  // Make clickable for retry
+          editBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            editBtn.style.pointerEvents = 'none';
+            editBtn.title = 'Retrying download\u2026';
+            // Re-listen for success on retry
+            window.addEventListener('backgroundDownloadComplete', enableEdit, { once: true });
+            const { backgroundDownloadRemainingChunks } = await import('./backgroundDownloader.js');
+            backgroundDownloadRemainingChunks(currentBook, currentLazyLoader);
+          }, { once: true });
         }, { once: true });
       }
 

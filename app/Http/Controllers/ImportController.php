@@ -120,7 +120,7 @@ class ImportController extends Controller
         }
 
         // Clean stale output files from any previous import to this book ID.
-        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html', 'progress.json'] as $staleFile) {
+        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'progress.json', 'notify_email.json'] as $staleFile) {
             $staleFilePath = "{$path}/{$staleFile}";
             if (File::exists($staleFilePath)) {
                 File::delete($staleFilePath);
@@ -331,6 +331,31 @@ class ImportController extends Controller
         }
 
         return response()->json(json_decode(File::get($path), true));
+    }
+
+    /**
+     * Register opt-in email notification for an in-progress import
+     */
+    public function requestEmailNotification(string $bookId)
+    {
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bookId);
+        $path = resource_path("markdown/{$bookId}");
+
+        if (!File::exists("{$path}/progress.json")) {
+            return response()->json(['message' => 'Import not found'], 404);
+        }
+
+        $progress = json_decode(File::get("{$path}/progress.json"), true);
+        if (in_array($progress['status'] ?? '', ['complete', 'failed'])) {
+            return response()->json(['message' => 'Import already finished'], 422);
+        }
+
+        File::put("{$path}/notify_email.json", json_encode([
+            'requested' => true,
+            'requested_at' => now()->toIso8601String(),
+        ]));
+
+        return response()->json(['ok' => true]);
     }
 
     public function createNewMarkdown(Request $request)
@@ -591,7 +616,7 @@ class ImportController extends Controller
         }
 
         // 4. Clean stale output files
-        foreach (['footnotes.json', 'nodes.json', 'audit.json', 'references.json', 'intermediate.html'] as $staleFile) {
+        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'notify_email.json'] as $staleFile) {
             $f = "{$path}/{$staleFile}";
             if (File::exists($f)) File::delete($f);
         }

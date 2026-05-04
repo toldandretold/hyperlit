@@ -942,6 +942,132 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Get headings for a book (lightweight endpoint for TOC when not fully loaded).
+     * Scans nodes.content for <h1> through <h6> with id attributes.
+     */
+    public function getBookHeadings(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $bookId = BookSlugHelper::resolve($bookId);
+
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            $nodes = DB::table('nodes')
+                ->where('book', $bookId)
+                ->where('content', 'LIKE', '<h_%')
+                ->select('content', 'startLine')
+                ->orderBy('startLine')
+                ->get();
+
+            $headings = [];
+            foreach ($nodes as $node) {
+                if (preg_match('/^<(h[1-6])[^>]*\sid="([^"]+)"[^>]*>([\s\S]*?)<\/h[1-6]>/i', $node->content, $match)) {
+                    $cleanText = strip_tags($match[3]);
+                    $cleanText = trim(html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                    if ($cleanText) {
+                        $headings[] = [
+                            'id' => $match[2],
+                            'type' => strtolower($match[1]),
+                            'text' => $cleanText,
+                        ];
+                    }
+                }
+            }
+
+            return response()->json($headings);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching book headings', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'message' => 'Failed to fetch headings'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get a batch of nodes by chunk_id range (for batched background download).
+     * Accepts ?from=0&to=49 chunk_id range (inclusive).
+     * Returns same node format as getBookData but only for the requested range.
+     */
+    public function getBookDataBatch(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $bookId = BookSlugHelper::resolve($bookId);
+
+            $authError = $this->checkBookAuthorization($request, $bookId);
+            if ($authError) {
+                return $authError;
+            }
+
+            $from = (int) $request->query('from', 0);
+            $to = (int) $request->query('to', PHP_INT_MAX);
+
+            // Fetch annotations ONCE for the entire request
+            $hyperlights = $this->getHyperlights($bookId);
+            $hypercites = $this->getHypercites($bookId);
+
+            $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
+            $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
+
+            // Get nodes within the chunk_id range
+            $nodes = DB::table('nodes')
+                ->where('book', $bookId)
+                ->whereBetween('chunk_id', [$from, $to])
+                ->orderBy('chunk_id')
+                ->get()
+                ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
+                    $nodeUUID = $chunk->node_id;
+
+                    return [
+                        'book' => $chunk->book,
+                        'chunk_id' => (int) $chunk->chunk_id,
+                        'startLine' => (float) $chunk->startLine,
+                        'node_id' => $chunk->node_id,
+                        'content' => $chunk->content,
+                        'plainText' => $chunk->plainText,
+                        'type' => $chunk->type,
+                        'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
+                        'hypercites' => $hypercitesByNode[$nodeUUID] ?? [],
+                        'hyperlights' => array_values($hyperlightsByNode[$nodeUUID] ?? []),
+                        'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
+                    ];
+                })
+                ->toArray();
+
+            return response()->json([
+                'nodes' => $nodes,
+                'metadata' => [
+                    'book_id' => $bookId,
+                    'from' => $from,
+                    'to' => $to,
+                    'node_count' => count($nodes),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching book data batch', [
+                'book_id' => $bookId,
+                'from' => $request->query('from'),
+                'to' => $request->query('to'),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'message' => 'Failed to fetch book data batch'
+            ], 500);
+        }
+    }
+
+    /**
      * Get just library data for a specific book
      */
     public function getBookLibrary(Request $request, string $bookId): JsonResponse

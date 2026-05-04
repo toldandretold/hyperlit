@@ -50,7 +50,8 @@ function findFirstDiff(a, b) {
 function textFromStoredHTML(html) {
   if (!html) return '';
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || '';
+  const el = doc.body.firstElementChild;
+  return (el ? el.textContent : doc.body.textContent) || '';
 }
 
 /**

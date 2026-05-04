@@ -21,6 +21,14 @@ window.addEventListener('backgroundDownloadComplete', () => {
   }
 });
 
+// Also invalidate on failure — TOC still works via server fallback
+window.addEventListener('backgroundDownloadFailed', () => {
+  if (tocCache) {
+    tocCache.data = null;
+    tocCache.lastScanTime = 0;
+  }
+});
+
 // Create a custom TOC manager that generates content before opening
 let tocManager = null;
 
@@ -107,11 +115,32 @@ function isTocCacheValid() {
 }
 
 /**
- * Scan nodes content for heading elements
+ * Scan nodes content for heading elements.
+ * When the book is not fully loaded, fetches headings from the server
+ * instead of scanning IndexedDB (which only has a partial dataset).
  */
 async function scanForHeadings() {
+  // If not fully loaded, fetch headings from server endpoint
+  if (!currentLazyLoader?.isFullyLoaded) {
+    try {
+      console.log("📖 Book not fully loaded — fetching headings from server...");
+      const url = `/api/database-to-indexeddb/books/${book}/headings`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const headings = await resp.json();
+        // Server returns sorted [{id, type, text}] — add link property
+        const withLinks = headings.map(h => ({ ...h, link: `#${h.id}` }));
+        console.log(`📖 Server returned ${withLinks.length} headings`);
+        return withLinks;
+      }
+    } catch (e) {
+      console.warn('Server headings fetch failed, falling back to IndexedDB:', e);
+    }
+  }
+
+  // Existing IndexedDB scan (used when fully loaded or server fails)
   console.log("📖 Scanning nodes for headings...");
-  
+
   let nodes = [];
   try {
     nodes = await getNodeChunksFromIndexedDB(book);
@@ -126,7 +155,7 @@ async function scanForHeadings() {
 
   for (const chunk of nodes) {
     if (!chunk.content) continue;
-    
+
     const match = chunk.content.match(headingRegex);
     if (match) {
       const [, tagName, id, textContent] = match;
@@ -135,7 +164,7 @@ async function scanForHeadings() {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = textContent.replace(/<[^>]*>/g, '');
       const cleanText = tempDiv.textContent.trim();
-      
+
       if (cleanText) {
         headings.push({
           id,

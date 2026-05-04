@@ -36,6 +36,11 @@ Route::get('/import-progress/{bookId}', [ImportController::class, 'importProgres
     ->where('bookId', '[a-zA-Z0-9_-]+')
     ->middleware('throttle:120,1');
 
+// Opt-in email notification for imports
+Route::post('/import-progress/{bookId}/notify', [ImportController::class, 'requestEmailNotification'])
+    ->where('bookId', '[a-zA-Z0-9_-]+')
+    ->middleware('throttle:10,1');
+
 // Stripe webhook — must be outside auth (Stripe calls it directly)
 Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 
@@ -347,6 +352,14 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{parentBook}/{subId}/annotations', [DatabaseToIndexedDBController::class, 'getSubBookAnnotations'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-annotations');
+
+    // Headings (lightweight TOC data when not fully loaded)
+    Route::get('books/{bookId}/headings', [DatabaseToIndexedDBController::class, 'getBookHeadings'])
+        ->name('api.database-to-indexeddb.book-headings');
+
+    // Batched data download (chunk_id range)
+    Route::get('books/{bookId}/data/batch', [DatabaseToIndexedDBController::class, 'getBookDataBatch'])
+        ->name('api.database-to-indexeddb.book-data-batch');
 
     // Chunked lazy loading: initial chunk + manifest
     Route::get('books/{bookId}/initial', [DatabaseToIndexedDBController::class, 'getInitialChunk'])

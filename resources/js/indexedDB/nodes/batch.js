@@ -324,6 +324,22 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     el.textContent = '';
   });
 
+  // 🧹 STRIP broken-image wrappers — the broken-image state is reconstructed
+  // at render time via the img error event in lazyLoaderFactory.
+  // Saving the wrapper + button to IDB causes: (1) DOMPurify strips the button
+  // but KEEP_CONTENT leaves "×" as plain text, (2) the img already has
+  // class="broken-image" so the error handler skips it → no delete button.
+  contentClone.querySelectorAll('.broken-image-wrapper').forEach(wrapper => {
+    const img = wrapper.querySelector('img');
+    if (img) {
+      img.classList.remove('broken-image');
+      img.removeAttribute('alt');
+      wrapper.replaceWith(img);
+    } else {
+      wrapper.remove();
+    }
+  });
+
   const result = {
     content: contentClone.outerHTML,
     hyperlights,
