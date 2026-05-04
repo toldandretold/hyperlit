@@ -2186,6 +2186,10 @@ body[data-page="timemachine"] #main-content {
   border-color: rgba(78,172,174,0.3);
 }
 
+.version-history-condensed .snapshot-detail {
+  font-style: italic;
+}
+
 /* ───── AI Citation Review in source container ───── */
 
 #ai-review-section #ai-review-btn:not(:disabled):hover {

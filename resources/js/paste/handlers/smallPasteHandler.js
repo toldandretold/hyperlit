@@ -5,7 +5,7 @@
  * Integrates with UndoManager for undo/redo support.
  */
 
-import { setElementIds } from '../../utilities/IDfunctions.js';
+import { setElementIds, compareDecimalStrings, isDuplicateId } from '../../utilities/IDfunctions.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
@@ -371,12 +371,27 @@ function _blockPaste(currentBlock, html, book, undoManager, cursorBefore) {
          (!nextStableElement.id || !/^\d+(\.\d+)*$/.test(nextStableElement.id))) {
     nextStableElement = nextStableElement.nextElementSibling;
   }
-  const nextStableId = nextStableElement ? nextStableElement.id : null;
+  let nextStableId = nextStableElement ? nextStableElement.id : null;
+  if (nextStableId !== null && compareDecimalStrings(currentBlock.id, nextStableId) >= 0) {
+    console.warn(`[Paste] nextStableId "${nextStableId}" ≤ currentBlock.id "${currentBlock.id}" — nullifying`);
+    nextStableId = null;
+  }
 
   let lastKnownId = currentBlock.id;
   for (const element of insertedElements) {
     if (element.matches(BLOCK_ELEMENT_SELECTOR)) {
       setElementIds(element, lastKnownId, nextStableId, book);
+
+      if (isDuplicateId(element.id)) {
+        console.warn(`[Paste] Duplicate ID "${element.id}" — regenerating`);
+        setElementIds(element, lastKnownId, null, book);
+        if (isDuplicateId(element.id)) {
+          let suffix = 1;
+          while (isDuplicateId(lastKnownId + '.' + suffix)) suffix++;
+          element.id = lastKnownId + '.' + suffix;
+        }
+      }
+
       console.log(`Assigned ID ${element.id} to pasted block element`);
       queueNodeForSave(element.id, 'add', book);
       lastKnownId = element.id;

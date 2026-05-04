@@ -674,7 +674,7 @@ export class SourceContainerManager extends ContainerManager {
     if (!listEl) return;
 
     try {
-      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/snapshots?limit=20`, {
+      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/snapshots`, {
         credentials: 'include'
       });
 
@@ -695,6 +695,7 @@ export class SourceContainerManager extends ContainerManager {
         const a = document.createElement('a');
         a.href = `/${encodeURIComponent(book)}/timemachine?at=${encodeURIComponent(snap.changed_at)}`;
         a.className = 'version-history-item';
+        if (snap.is_condensed) a.classList.add('version-history-condensed');
 
         const timeSpan = document.createElement('span');
         timeSpan.className = 'snapshot-time';
@@ -702,7 +703,8 @@ export class SourceContainerManager extends ContainerManager {
 
         const detailSpan = document.createElement('span');
         detailSpan.className = 'snapshot-detail';
-        detailSpan.textContent = `${snap.nodes_changed} node${snap.nodes_changed == 1 ? '' : 's'}`;
+        const nodeLabel = `${snap.nodes_changed} node${snap.nodes_changed == 1 ? '' : 's'}`;
+        detailSpan.textContent = snap.is_condensed ? `${nodeLabel} (hourly)` : nodeLabel;
 
         a.appendChild(timeSpan);
         a.appendChild(detailSpan);

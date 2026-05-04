@@ -52,36 +52,59 @@ class NodeHistoryController extends Controller
             ], 403);
         }
 
-        $limit = min($request->input('limit', 20), 200);
-
         try {
             // Fetch current library timestamp so we can exclude the "now" snapshot
-            // (the restore/save creates history rows whose upper(sys_period) ≈ library timestamp)
             $library = PgLibrary::where('book', $book)->first();
             $libraryTimestamp = $library?->timestamp;
 
             $excludeClause = '';
-            $params = [$book];
+            $params = [];
 
+            // Recent query params: $book, optionally $libraryTimestamp
+            $params[] = $book;
             if ($libraryTimestamp) {
                 $excludeClause = "AND upper(sys_period) < to_timestamp(? / 1000.0) - interval '2 seconds'";
                 $params[] = $libraryTimestamp;
             }
 
-            $params[] = $limit;
+            // Older query params: $book, optionally $libraryTimestamp
+            $params[] = $book;
+            if ($libraryTimestamp) {
+                $params[] = $libraryTimestamp;
+            }
 
             $snapshots = DB::select("
-                SELECT
-                    upper(sys_period) as changed_at,
-                    COUNT(*) as nodes_changed,
-                    array_agg(DISTINCT type) as types_changed
-                FROM nodes_history
-                WHERE book = ?
-                AND upper(sys_period) IS NOT NULL
-                {$excludeClause}
-                GROUP BY upper(sys_period)
-                ORDER BY upper(sys_period) DESC
-                LIMIT ?
+                (
+                    -- Recent (last 24h): individual snapshots
+                    SELECT
+                        upper(sys_period) as changed_at,
+                        COUNT(*) as nodes_changed,
+                        array_agg(DISTINCT type) as types_changed,
+                        false as is_condensed
+                    FROM nodes_history
+                    WHERE book = ?
+                    AND upper(sys_period) IS NOT NULL
+                    AND upper(sys_period) >= NOW() - interval '24 hours'
+                    {$excludeClause}
+                    GROUP BY upper(sys_period)
+                )
+                UNION ALL
+                (
+                    -- Older (before 24h): one entry per hour
+                    SELECT
+                        MAX(upper(sys_period)) as changed_at,
+                        COUNT(*) as nodes_changed,
+                        array_agg(DISTINCT type) as types_changed,
+                        true as is_condensed
+                    FROM nodes_history
+                    WHERE book = ?
+                    AND upper(sys_period) IS NOT NULL
+                    AND upper(sys_period) < NOW() - interval '24 hours'
+                    {$excludeClause}
+                    GROUP BY date_trunc('hour', upper(sys_period))
+                )
+                ORDER BY changed_at DESC
+                LIMIT 2000
             ", $params);
 
             return response()->json([

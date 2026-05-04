@@ -441,8 +441,8 @@ export function generateIdBetween(beforeId, afterId) {
     const beforeFloor = Math.floor(beforeNum);
     const nextInteger = beforeFloor + 100;
 
-    // isDuplicateId check is kept as per your original code
-    if (isDuplicateId(nextInteger.toString())) {
+    // isIdInUse: true when ANY element already has this ID (prevents creating a duplicate)
+    if (isIdInUse(nextInteger.toString())) {
       console.warn(
         `Next integer ${nextInteger} already exists, falling back to decimal`
       );
@@ -639,6 +639,13 @@ export function isDuplicateId(id) {
     });
   }
   return isDuplicate;
+}
+
+// Check if any element in the document already uses this ID (even a single one).
+// Unlike isDuplicateId (which returns true only for 2+ elements), this returns
+// true when 1+ element has the ID — used to prevent *creating* a duplicate.
+export function isIdInUse(id) {
+  return document.querySelector(`#${CSS.escape(id)}`) !== null;
 }
 
 // New helper for generating an ID when inserting a new node with decimal logic.
