@@ -1202,7 +1202,12 @@ export function createChunkElement(nodes, instance) {
       const img = wrapper.querySelector('img');
       if (img) {
         img.classList.remove('broken-image');
-        wrapper.replaceWith(img);
+        // Wrap in <p> so the firstElement extraction (line 1244) sets data-node-id
+        // on the <p>, not on the bare <img> which will get re-wrapped by the
+        // error handler inside a new .broken-image-wrapper.
+        const p = document.createElement('p');
+        p.appendChild(img);
+        wrapper.replaceWith(p);
       } else {
         wrapper.remove();
       }
