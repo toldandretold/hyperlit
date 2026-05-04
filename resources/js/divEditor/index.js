@@ -276,38 +276,65 @@ export async function startObserving(editableDiv, bookId = null) {
     const isImage = deleteBtn.dataset.action === 'delete-broken-image';
 
     if (isImage) {
-      // Broken image: wrapper sits INSIDE a node element — remove just the wrapper
       const wrapper = deleteBtn.closest('.broken-image-wrapper');
       if (!wrapper) return;
 
-      const nodeEl = wrapper.closest('[data-node-id]');
-      console.log(`🗑️ Deleting broken image in node: ${nodeEl?.id}`);
+      const wrapperIsNode = wrapper.hasAttribute('data-node-id');
+      const nodeEl = wrapperIsNode ? wrapper : wrapper.closest('[data-node-id]');
+      console.log(`🗑️ Deleting broken image in node: ${nodeEl?.id}, wrapperIsNode: ${wrapperIsNode}`);
 
-      wrapper.remove();
+      if (wrapperIsNode) {
+        // The broken-image-wrapper IS the node element (image-only node).
+        // Replace it with an empty <p> that inherits its id/data-node-id,
+        // mirroring the video embed standalone deletion path.
+        const replacementP = document.createElement('p');
+        replacementP.id = wrapper.id;
+        replacementP.setAttribute('data-node-id', wrapper.getAttribute('data-node-id'));
+        replacementP.innerHTML = '<br>';
 
-      // If the node is now empty, give it a <br> so it stays editable
-      if (nodeEl && nodeEl.textContent.trim() === '' && !nodeEl.querySelector('img, iframe, video')) {
-        nodeEl.innerHTML = '<br>';
-      }
+        wrapper.parentNode.insertBefore(replacementP, wrapper);
+        wrapper.remove();
 
-      // Explicitly save the parent node to IDB.
-      // Don't rely on MutationObserver alone — on iOS, tapping contenteditable="false"
-      // buttons can cause focus loss before the RAF-deferred mutation processing runs.
-      if (nodeEl?.id && saveQueue) {
-        saveQueue.queueNode(nodeEl.id, 'update');
-      }
+        if (saveQueue) {
+          saveQueue.queueNode(replacementP.id, 'update');
+        }
 
-      // Place cursor in the parent node
-      if (nodeEl) {
         const range = document.createRange();
         const selection = window.getSelection();
-        range.selectNodeContents(nodeEl);
-        range.collapse(false);
+        range.setStart(replacementP, 0);
+        range.collapse(true);
         selection.removeAllRanges();
         selection.addRange(range);
-      }
 
-      console.log(`✅ Broken image removed`);
+        console.log(`✅ Broken image node ${replacementP.id} replaced with empty paragraph`);
+      } else {
+        // Wrapper is inside a parent node — remove just the wrapper
+        wrapper.remove();
+
+        // If the node is now empty, give it a <br> so it stays editable
+        if (nodeEl && nodeEl.textContent.trim() === '' && !nodeEl.querySelector('img, iframe, video')) {
+          nodeEl.innerHTML = '<br>';
+        }
+
+        // Explicitly save the parent node to IDB.
+        // Don't rely on MutationObserver alone — on iOS, tapping contenteditable="false"
+        // buttons can cause focus loss before the RAF-deferred mutation processing runs.
+        if (nodeEl?.id && saveQueue) {
+          saveQueue.queueNode(nodeEl.id, 'update');
+        }
+
+        // Place cursor in the parent node
+        if (nodeEl) {
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(nodeEl);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        console.log(`✅ Broken image removed from node ${nodeEl?.id}`);
+      }
     } else {
       // Video embed: the .video-embed IS the node element
       const videoEmbed = deleteBtn.closest('.video-embed');
