@@ -89,17 +89,15 @@ export class BlockFormatter {
       const parentElement = this.selectionManager.getSelectionParentElement();
 
       // Check if we're in a list item
-      // For blockquote conversion from a single-item list, handle directly with undo
-      // For multi-item lists or other types, delegate to list converter
+      // For blockquote/code: convert entire list to a single block (items joined by <br>)
+      // For heading: delegate to list converter (splits list — each item becomes heading)
       const listItem = findClosestListItem(parentElement);
       if (listItem && type !== "list" && type !== "remove-list") {
         const parentList = listItem.parentElement;
-        const isSingleItemList = parentList &&
-          (parentList.tagName === "UL" || parentList.tagName === "OL") &&
-          parentList.querySelectorAll(":scope > li").length === 1;
 
-        if (isSingleItemList && (type === "blockquote" || type === "code")) {
-          // Single-item list → blockquote/code: handle with proper undo
+        if (type === "blockquote" || type === "code") {
+          // List → blockquote/code: convert entire list to a single block
+          // with items joined by <br> (blockquote) or newlines (code)
           const result = await this.handleListToBlock(parentList, listItem, type);
           this.buttonStateManager.updateButtonStates();
 
@@ -114,7 +112,7 @@ export class BlockFormatter {
           }
           return;
         } else if (this.convertListItemToBlockCallback) {
-          // Multi-item list or heading: delegate to list converter (splits list)
+          // Heading: delegate to list converter (splits list — each item becomes heading)
           await this.convertListItemToBlockCallback(listItem, type);
           this.buttonStateManager.updateButtonStates();
           return;
@@ -145,7 +143,8 @@ export class BlockFormatter {
         case "list":
           ({ modifiedElementId, newElement } = await this.handleListFormat(
             headingLevel, // repurposed as listType: "ul" or "ol"
-            parentElement
+            parentElement,
+            isTextSelected
           ));
           break;
 
@@ -561,8 +560,11 @@ export class BlockFormatter {
       // Only allow paragraph elements for blockquote/code conversion
       const paragraphBlocks = affectedBlocks.filter(block => block.tagName === 'P');
 
-      if (paragraphBlocks.length > 0) {
-        // Convert each paragraph to its own block (1:1 conversion)
+      if (paragraphBlocks.length > 1 && type === "blockquote") {
+        // Multiple paragraphs → merge into a single blockquote (items joined by <br>)
+        return await this._mergeBlocksIntoBlockquote(paragraphBlocks);
+      } else if (paragraphBlocks.length > 0) {
+        // Single paragraph or code: convert each paragraph to its own block (1:1)
         // This preserves node_ids so highlights stay connected
         const createdBlocks = [];
 
@@ -806,11 +808,12 @@ export class BlockFormatter {
   }
 
   /**
-   * Handle list formatting — wrap a paragraph in <ul> or <ol>
+   * Handle list formatting — wrap paragraph(s) in <ul> or <ol>
    * @param {string} listType - "ul" or "ol"
    * @param {HTMLElement} parentElement - the element containing the cursor
+   * @param {boolean} isTextSelected - whether text is selected across blocks
    */
-  async handleListFormat(listType, parentElement) {
+  async handleListFormat(listType, parentElement, isTextSelected = false) {
     let modifiedElementId = null;
     let newElement = null;
 
@@ -818,6 +821,17 @@ export class BlockFormatter {
     const sel = this.selectionManager.currentSelection;
     const focusNode = sel.focusNode;
     const focusOffset = sel.focusOffset;
+
+    // Multi-paragraph selection → merge into a single list
+    if (isTextSelected) {
+      const range = sel.getRangeAt(0);
+      const affectedBlocks = getBlockElementsInRange(range);
+      const paragraphBlocks = affectedBlocks.filter(block => block.tagName === 'P');
+
+      if (paragraphBlocks.length > 1) {
+        return await this._mergeBlocksIntoList(paragraphBlocks, listType);
+      }
+    }
 
     // Check if already inside a list — swap UL↔OL in place
     const listItem = findClosestListItem(parentElement);
@@ -885,6 +899,7 @@ export class BlockFormatter {
     let fromBlockquote = false;
 
     // If cursor is in a blockquote, convert directly to list (single undo step)
+    // Splits on <br> to restore multiple list items
     if (blockParent && blockParent.tagName === 'BLOCKQUOTE') {
       fromBlockquote = true;
       const currentOffset = getTextOffsetInElement(blockParent, focusNode, focusOffset);
@@ -893,41 +908,48 @@ export class BlockFormatter {
       let content = blockParent.innerHTML;
       if (content.endsWith("<br>")) content = content.slice(0, -4);
 
-      // Build list element directly from blockquote content
+      // Split on <br> to create multiple list items
+      const parts = content.split(/<br\s*\/?>/i).filter(part => part.trim() !== "");
+
+      // Build list element with one <li> per part
       const listEl = document.createElement(listType);
-      const li = document.createElement("li");
-      li.innerHTML = content;
-      listEl.appendChild(li);
+      for (const part of parts) {
+        const li = document.createElement("li");
+        li.innerHTML = part;
+        listEl.appendChild(li);
+      }
 
       listEl.id = blockParent.id;
       if (blockParent.hasAttribute("data-node-id")) {
         listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id"));
       }
 
+      // Snapshot blockquote HTML for undo
+      const originalBlockquoteHTML = blockParent.outerHTML;
+
       // Record single undo entry: list ↔ blockquote (no intermediate paragraph)
       if (this.undoManager) {
         this.undoManager.recordFormat(
           blockParent.id,
-          // Undo: list → blockquote
+          // Undo: list → blockquote (restore original)
           (el) => {
-            const bq = document.createElement("blockquote");
-            const firstLi = el.querySelector("li");
-            let bqContent = firstLi ? firstLi.innerHTML : el.innerHTML;
-            if (bqContent && !bqContent.endsWith("<br>")) bqContent += "<br>";
-            bq.innerHTML = bqContent;
-            bq.id = el.id;
-            if (el.hasAttribute("data-node-id")) bq.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-            el.parentNode.replaceChild(bq, el);
-            return bq;
+            const temp = document.createElement("div");
+            temp.innerHTML = originalBlockquoteHTML;
+            const restored = temp.firstElementChild;
+            el.parentNode.replaceChild(restored, el);
+            return restored;
           },
-          // Redo: blockquote → list
+          // Redo: blockquote → list (split on <br>)
           (el) => {
-            const list = document.createElement(listType);
-            const newLi = document.createElement("li");
             let c = el.innerHTML;
             if (c.endsWith("<br>")) c = c.slice(0, -4);
-            newLi.innerHTML = c;
-            list.appendChild(newLi);
+            const ps = c.split(/<br\s*\/?>/i).filter(p => p.trim() !== "");
+            const list = document.createElement(listType);
+            for (const p of ps) {
+              const newLi = document.createElement("li");
+              newLi.innerHTML = p;
+              list.appendChild(newLi);
+            }
             list.id = el.id;
             if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
             el.parentNode.replaceChild(list, el);
@@ -939,7 +961,9 @@ export class BlockFormatter {
       }
 
       blockParent.parentNode.replaceChild(listEl, blockParent);
-      setCursorAtTextOffset(li, currentOffset);
+      // Place cursor in the first <li>
+      const firstLi = listEl.querySelector("li");
+      if (firstLi) setCursorAtTextOffset(firstLi, Math.min(currentOffset, firstLi.textContent.length));
 
       modifiedElementId = listEl.id;
       newElement = listEl;
@@ -1010,10 +1034,11 @@ export class BlockFormatter {
   }
 
   /**
-   * Handle converting a single-item list directly to a blockquote or code block.
-   * Records proper undo so list ↔ blockquote round-trips correctly.
-   * @param {HTMLElement} listEl - The UL/OL element (must have single li)
-   * @param {HTMLElement} listItem - The LI element
+   * Handle converting a list to a blockquote or code block.
+   * Joins all <li> items with <br> (blockquote) or newlines (code).
+   * Records proper undo so list ↔ block round-trips correctly.
+   * @param {HTMLElement} listEl - The UL/OL element
+   * @param {HTMLElement} listItem - The LI element the cursor is in
    * @param {string} blockType - "blockquote" or "code"
    */
   async handleListToBlock(listEl, listItem, blockType) {
@@ -1029,19 +1054,21 @@ export class BlockFormatter {
       } catch (e) { /* ignore */ }
     }
 
-    const listTag = listEl.tagName.toLowerCase(); // "ul" or "ol"
+    const allItems = Array.from(listEl.querySelectorAll(":scope > li"));
 
-    // Build the target block element
+    // Snapshot original list HTML for undo
+    const originalListHTML = listEl.outerHTML;
+
+    // Build the target block element from ALL list items
     let newBlock;
     if (blockType === "blockquote") {
       newBlock = document.createElement("blockquote");
-      let content = listItem.innerHTML;
-      if (content && !content.endsWith("<br>")) content += "<br>";
-      newBlock.innerHTML = content;
+      const content = allItems.map(li => li.innerHTML).join("<br>");
+      newBlock.innerHTML = content + "<br>";
     } else {
       newBlock = document.createElement("pre");
       const code = document.createElement("code");
-      code.textContent = listItem.textContent.trim();
+      code.textContent = allItems.map(li => li.textContent.trim()).join("\n");
       newBlock.appendChild(code);
     }
 
@@ -1051,41 +1078,30 @@ export class BlockFormatter {
       newBlock.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
     }
 
-    // Record undo: blockquote/code ↔ list (single step)
+    // Record undo: block ↔ list (single step)
     if (this.undoManager) {
       this.undoManager.recordFormat(
         listEl.id,
-        // Undo: blockquote/code → list
+        // Undo: blockquote/code → list (restore original)
         (el) => {
-          const list = document.createElement(listTag);
-          const li = document.createElement("li");
-          if (el.tagName === "PRE") {
-            const codeEl = el.querySelector("code");
-            li.innerHTML = codeEl ? codeEl.innerHTML : el.innerHTML;
-          } else {
-            let c = el.innerHTML;
-            if (c.endsWith("<br>")) c = c.slice(0, -4);
-            li.innerHTML = c;
-          }
-          list.appendChild(li);
-          list.id = el.id;
-          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-          el.parentNode.replaceChild(list, el);
-          return list;
+          const temp = document.createElement("div");
+          temp.innerHTML = originalListHTML;
+          const restored = temp.firstElementChild;
+          el.parentNode.replaceChild(restored, el);
+          return restored;
         },
         // Redo: list → blockquote/code
         (el) => {
           let block;
-          const firstLi = el.querySelector("li");
+          const items = Array.from(el.querySelectorAll(":scope > li"));
           if (blockType === "blockquote") {
             block = document.createElement("blockquote");
-            let c = firstLi ? firstLi.innerHTML : el.innerHTML;
-            if (c && !c.endsWith("<br>")) c += "<br>";
-            block.innerHTML = c;
+            const c = items.map(li => li.innerHTML).join("<br>");
+            block.innerHTML = c + "<br>";
           } else {
             block = document.createElement("pre");
             const code = document.createElement("code");
-            code.textContent = firstLi ? firstLi.textContent.trim() : el.textContent.trim();
+            code.textContent = items.map(li => li.textContent.trim()).join("\n");
             block.appendChild(code);
           }
           block.id = el.id;
@@ -1106,6 +1122,179 @@ export class BlockFormatter {
     this.selectionManager.currentSelection = window.getSelection();
 
     return { modifiedElementId, newElement };
+  }
+
+  /**
+   * Merge multiple paragraphs into a single list.
+   * First paragraph's ID/node_id is inherited by the list; extras are deleted.
+   * @param {HTMLElement[]} paragraphs - Array of <p> elements to merge
+   * @param {string} listType - "ul" or "ol"
+   */
+  async _mergeBlocksIntoList(paragraphs, listType) {
+    const listEl = document.createElement(listType);
+
+    for (const p of paragraphs) {
+      const li = document.createElement("li");
+      li.innerHTML = p.innerHTML;
+      listEl.appendChild(li);
+    }
+
+    // Inherit identity from first paragraph
+    const firstP = paragraphs[0];
+    listEl.id = firstP.id;
+    if (firstP.hasAttribute("data-node-id")) {
+      listEl.setAttribute("data-node-id", firstP.getAttribute("data-node-id"));
+    }
+
+    // Snapshot for undo
+    const originalParagraphsHTML = paragraphs.map(p => p.outerHTML);
+    const extraIds = paragraphs.slice(1).map(p => p.id);
+
+    // Record undo
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        firstP.id,
+        // Undo: list → paragraphs (restore originals)
+        (el) => {
+          const parent = el.parentNode;
+          // Insert all paragraphs before the list element, then remove it
+          for (const html of originalParagraphsHTML) {
+            const temp = document.createElement("div");
+            temp.innerHTML = html;
+            parent.insertBefore(temp.firstElementChild, el);
+          }
+          parent.removeChild(el);
+          return document.getElementById(firstP.id);
+        },
+        // Redo: paragraphs → list
+        (el) => {
+          const parent = el.parentNode;
+          const list = document.createElement(listType);
+          // Gather all the paragraphs (first el + extras by ID)
+          const allParas = [el, ...extraIds.map(id => document.getElementById(id)).filter(Boolean)];
+          for (const p of allParas) {
+            const li = document.createElement("li");
+            li.innerHTML = p.innerHTML;
+            list.appendChild(li);
+          }
+          list.id = el.id;
+          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          // Remove extras
+          for (const p of allParas.slice(1)) {
+            p.remove();
+          }
+          parent.replaceChild(list, el);
+          return list;
+        },
+        this.currentBookId,
+        0
+      );
+    }
+
+    // Insert list where first paragraph was, remove all paragraphs
+    firstP.parentNode.insertBefore(listEl, firstP);
+    for (const p of paragraphs) {
+      p.remove();
+    }
+
+    // Save list to IndexedDB
+    if (this.saveToIndexedDBCallback) {
+      await this.saveToIndexedDBCallback(listEl.id, listEl.outerHTML);
+    }
+
+    // Delete extra paragraphs from IndexedDB
+    if (this.deleteFromIndexedDBCallback) {
+      for (const id of extraIds) {
+        await this.deleteFromIndexedDBCallback(id);
+      }
+    }
+
+    this.selectionManager.currentSelection = window.getSelection();
+    const firstLi = listEl.querySelector("li");
+    if (firstLi) setCursorAtTextOffset(firstLi, 0);
+
+    return { modifiedElementId: listEl.id, newElement: listEl };
+  }
+
+  /**
+   * Merge multiple paragraphs into a single blockquote (items joined by <br>).
+   * First paragraph's ID/node_id is inherited; extras are deleted.
+   * @param {HTMLElement[]} paragraphs - Array of <p> elements to merge
+   */
+  async _mergeBlocksIntoBlockquote(paragraphs) {
+    const bq = document.createElement("blockquote");
+    const content = paragraphs.map(p => p.innerHTML).join("<br>");
+    bq.innerHTML = content + "<br>";
+
+    // Inherit identity from first paragraph
+    const firstP = paragraphs[0];
+    bq.id = firstP.id;
+    if (firstP.hasAttribute("data-node-id")) {
+      bq.setAttribute("data-node-id", firstP.getAttribute("data-node-id"));
+    }
+
+    // Snapshot for undo
+    const originalParagraphsHTML = paragraphs.map(p => p.outerHTML);
+    const extraIds = paragraphs.slice(1).map(p => p.id);
+
+    // Record undo
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        firstP.id,
+        // Undo: blockquote → paragraphs (restore originals)
+        (el) => {
+          const parent = el.parentNode;
+          // Insert all paragraphs before the blockquote, then remove it
+          for (const html of originalParagraphsHTML) {
+            const temp = document.createElement("div");
+            temp.innerHTML = html;
+            parent.insertBefore(temp.firstElementChild, el);
+          }
+          parent.removeChild(el);
+          return document.getElementById(firstP.id);
+        },
+        // Redo: paragraphs → blockquote
+        (el) => {
+          const parent = el.parentNode;
+          const newBq = document.createElement("blockquote");
+          const allParas = [el, ...extraIds.map(id => document.getElementById(id)).filter(Boolean)];
+          const c = allParas.map(p => p.innerHTML).join("<br>");
+          newBq.innerHTML = c + "<br>";
+          newBq.id = el.id;
+          if (el.hasAttribute("data-node-id")) newBq.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          for (const p of allParas.slice(1)) {
+            p.remove();
+          }
+          parent.replaceChild(newBq, el);
+          return newBq;
+        },
+        this.currentBookId,
+        0
+      );
+    }
+
+    // Insert blockquote where first paragraph was, remove all paragraphs
+    firstP.parentNode.insertBefore(bq, firstP);
+    for (const p of paragraphs) {
+      p.remove();
+    }
+
+    // Save blockquote to IndexedDB
+    if (this.saveToIndexedDBCallback) {
+      await this.saveToIndexedDBCallback(bq.id, bq.outerHTML);
+    }
+
+    // Delete extra paragraphs from IndexedDB
+    if (this.deleteFromIndexedDBCallback) {
+      for (const id of extraIds) {
+        await this.deleteFromIndexedDBCallback(id);
+      }
+    }
+
+    this.selectionManager.currentSelection = window.getSelection();
+    setCursorAtTextOffset(bq, 0);
+
+    return { modifiedElementId: bq.id, newElement: bq };
   }
 
   /**
