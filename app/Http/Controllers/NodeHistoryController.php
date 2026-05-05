@@ -330,7 +330,7 @@ class NodeHistoryController extends Controller
                     true as is_current
                 FROM nodes
                 WHERE book = ?
-                AND sys_period @> ?::timestamptz
+                AND sys_period @> (?::timestamptz - interval '1 microsecond')
 
                 UNION ALL
 
@@ -341,7 +341,7 @@ class NodeHistoryController extends Controller
                     false as is_current
                 FROM nodes_history
                 WHERE book = ?
-                AND sys_period @> ?::timestamptz
+                AND sys_period @> (?::timestamptz - interval '1 microsecond')
 
                 ORDER BY \"startLine\"
             ", [$book, $timestamp, $book, $timestamp]);
@@ -581,7 +581,7 @@ class NodeHistoryController extends Controller
                     \"plainText\", type, raw_json, footnotes, created_at, updated_at
                 FROM nodes
                 WHERE book = ?
-                AND sys_period @> ?::timestamptz
+                AND sys_period @> (?::timestamptz - interval '1 microsecond')
 
                 UNION ALL
 
@@ -590,7 +590,7 @@ class NodeHistoryController extends Controller
                     \"plainText\", type, raw_json, footnotes, created_at, updated_at
                 FROM nodes_history
                 WHERE book = ?
-                AND sys_period @> ?::timestamptz
+                AND sys_period @> (?::timestamptz - interval '1 microsecond')
 
                 ORDER BY \"startLine\"
             ", [$book, $timestamp, $book, $timestamp]);
@@ -696,7 +696,7 @@ class NodeHistoryController extends Controller
                     id, book, node_id, \"startLine\", chunk_id, content,
                     \"plainText\", type, raw_json, footnotes
                 FROM nodes
-                WHERE book = ? AND sys_period @> ?::timestamptz
+                WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
 
                 UNION ALL
 
@@ -705,7 +705,7 @@ class NodeHistoryController extends Controller
                     id, book, node_id, \"startLine\", chunk_id, content,
                     \"plainText\", type, raw_json, footnotes
                 FROM nodes_history
-                WHERE book = ? AND sys_period @> ?::timestamptz
+                WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
             ", [$book, $timestamp, $book, $timestamp]);
 
             if (empty($historicalNodes)) {

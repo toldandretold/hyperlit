@@ -5,6 +5,7 @@ import {
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
+    clearBookDataFromIndexedDB,
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
 import { OpenHyperlightID, OpenFootnoteID } from './app.js';
@@ -33,8 +34,11 @@ export async function fetchInitialChunk(bookId) {
 
         const data = await response.json();
 
-        // Store to IndexedDB (put semantics — does NOT clear first)
+        // Store to IndexedDB
         const db = await openDatabase();
+        // Clear stale data for this book to prevent duplicate node_ids
+        // (server may have renumbered startLines since last cache)
+        await clearBookDataFromIndexedDB(db, bookId);
         await Promise.allSettled([
             loadNodeChunksToIndexedDB(db, data.initial_chunk),
             loadFootnotesToIndexedDB(db, data.footnotes),

@@ -48,10 +48,6 @@ export async function initializeTimeMachine() {
     }
 
     const data = await resp.json();
-    console.log('[TimeMachine] response:', {
-      node_count: data.nodes?.length,
-      library: !!data.library
-    });
 
     if (!data.nodes || data.nodes.length === 0) {
       showError('No content found for this version.');
