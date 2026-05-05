@@ -1020,6 +1020,89 @@ body[data-page="home"] #topRightContainer::after {
   color: var(--icon-hover-stroke);
 }
 
+/* Block Format Submenu (blockquote/list) */
+.blockquote-submenu {
+  position: absolute;
+  background: color-mix(in srgb, var(--icon-background) 85%, transparent);
+  backdrop-filter: blur(10px);
+  border: .25px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1001;
+  display: flex;
+  gap: 4px;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+}
+
+.blockquote-submenu.hidden {
+  display: none;
+}
+
+.block-type-btn,
+.block-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.block-type-btn svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+.block-type-btn svg circle {
+  fill: var(--icon-stroke-primary);
+  stroke: none;
+}
+
+.block-type-btn svg text {
+  fill: var(--icon-stroke-primary);
+  stroke: none;
+}
+
+.block-type-btn:hover svg {
+  stroke: var(--icon-hover-stroke);
+}
+
+.block-type-btn:hover svg circle {
+  fill: var(--icon-hover-stroke);
+}
+
+.block-type-btn:hover svg text {
+  fill: var(--icon-hover-stroke);
+}
+
+.block-remove-btn {
+  font-size: 18px;
+  padding: 6px 10px;
+  display: none; /* Hidden by default */
+}
+
+.block-remove-btn.visible {
+  display: flex;
+}
+
+.block-type-btn:hover,
+.block-remove-btn:hover {
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
+}
+
 /* end  */
 
 /*

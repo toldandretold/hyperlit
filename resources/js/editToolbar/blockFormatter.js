@@ -85,17 +85,40 @@ export class BlockFormatter {
         || document.querySelector(this.editableSelector);
       if (!editableContent) return;
 
-      editableContent.focus();
-
       const isTextSelected = !this.selectionManager.currentSelection.isCollapsed;
       const parentElement = this.selectionManager.getSelectionParentElement();
 
-      // Check if we're in a list item - delegate to list converter
+      // Check if we're in a list item
+      // For blockquote conversion from a single-item list, handle directly with undo
+      // For multi-item lists or other types, delegate to list converter
       const listItem = findClosestListItem(parentElement);
-      if (listItem && this.convertListItemToBlockCallback) {
-        await this.convertListItemToBlockCallback(listItem, type);
-        this.buttonStateManager.updateButtonStates();
-        return;
+      if (listItem && type !== "list" && type !== "remove-list") {
+        const parentList = listItem.parentElement;
+        const isSingleItemList = parentList &&
+          (parentList.tagName === "UL" || parentList.tagName === "OL") &&
+          parentList.querySelectorAll(":scope > li").length === 1;
+
+        if (isSingleItemList && (type === "blockquote" || type === "code")) {
+          // Single-item list → blockquote/code: handle with proper undo
+          const result = await this.handleListToBlock(parentList, listItem, type);
+          this.buttonStateManager.updateButtonStates();
+
+          // Re-focus after cursor positioned
+          if (!editableContent.contains(document.activeElement)) {
+            editableContent.focus({ preventScroll: true });
+          }
+
+          // Save to IndexedDB
+          if (result.modifiedElementId && result.newElement && this.saveToIndexedDBCallback) {
+            await this.saveToIndexedDBCallback(result.modifiedElementId, result.newElement.outerHTML);
+          }
+          return;
+        } else if (this.convertListItemToBlockCallback) {
+          // Multi-item list or heading: delegate to list converter (splits list)
+          await this.convertListItemToBlockCallback(listItem, type);
+          this.buttonStateManager.updateButtonStates();
+          return;
+        }
       }
 
       let modifiedElementId = null;
@@ -118,6 +141,25 @@ export class BlockFormatter {
             parentElement
           ));
           break;
+
+        case "list":
+          ({ modifiedElementId, newElement } = await this.handleListFormat(
+            headingLevel, // repurposed as listType: "ul" or "ol"
+            parentElement
+          ));
+          break;
+
+        case "remove-list":
+          ({ modifiedElementId, newElement } = await this.handleRemoveList(parentElement));
+          break;
+      }
+
+      // Re-focus the editable AFTER cursor has been positioned by the handler.
+      // This avoids the flash-at-position-0 caused by focusing before the DOM swap,
+      // while still ensuring the caret is visible after replaceChild.
+      if (!editableContent.contains(document.activeElement)) {
+        // Use preventScroll to avoid the page jumping
+        editableContent.focus({ preventScroll: true });
       }
 
       this.buttonStateManager.updateButtonStates();
@@ -602,6 +644,13 @@ export class BlockFormatter {
    * Unwrap a blockquote or code block back to paragraph(s)
    */
   async unwrapBlock(blockToUnwrap, type) {
+    // Capture cursor offset before DOM replacement
+    const currentOffset = getTextOffsetInElement(
+      blockToUnwrap,
+      this.selectionManager.currentSelection.focusNode,
+      this.selectionManager.currentSelection.focusOffset
+    );
+
     const newElement = this._contentPreservingUnwrap(blockToUnwrap, type);
     const modifiedElementId = newElement.id;
 
@@ -611,11 +660,11 @@ export class BlockFormatter {
         (el) => this._contentPreservingWrap(el, type),
         (el) => this._contentPreservingUnwrap(el, type),
         this.currentBookId,
-        0
+        currentOffset
       );
     }
 
-    setCursorAtTextOffset(newElement, 0);
+    setCursorAtTextOffset(newElement, currentOffset);
 
     await batchUpdateIndexedDBRecords([{ id: newElement.id, html: newElement.outerHTML }]);
 
@@ -754,6 +803,451 @@ export class BlockFormatter {
       id: pElement.id,
       element: pElement,
     };
+  }
+
+  /**
+   * Handle list formatting — wrap a paragraph in <ul> or <ol>
+   * @param {string} listType - "ul" or "ol"
+   * @param {HTMLElement} parentElement - the element containing the cursor
+   */
+  async handleListFormat(listType, parentElement) {
+    let modifiedElementId = null;
+    let newElement = null;
+
+    // Capture cursor offset before any DOM changes
+    const sel = this.selectionManager.currentSelection;
+    const focusNode = sel.focusNode;
+    const focusOffset = sel.focusOffset;
+
+    // Check if already inside a list — swap UL↔OL in place
+    const listItem = findClosestListItem(parentElement);
+    if (listItem) {
+      let listEl = listItem.parentElement;
+      if (listEl && (listEl.tagName === "UL" || listEl.tagName === "OL")) {
+        const currentTag = listEl.tagName.toLowerCase();
+        if (currentTag === listType) {
+          // Already the same list type — nothing to do
+          return { modifiedElementId, newElement };
+        }
+
+        const currentOffset = getTextOffsetInElement(listItem, focusNode, focusOffset);
+
+        // Swap list tag: create new list, move all children over
+        const newListEl = document.createElement(listType);
+        newListEl.id = listEl.id;
+        if (listEl.hasAttribute("data-node-id")) {
+          newListEl.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+        }
+        while (listEl.firstChild) {
+          newListEl.appendChild(listEl.firstChild);
+        }
+
+        // Record for undo/redo
+        if (this.undoManager) {
+          const oldTag = currentTag;
+          const newTag = listType;
+          this.undoManager.recordFormat(
+            listEl.id,
+            (el) => {
+              const r = document.createElement(oldTag);
+              r.id = el.id;
+              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+              while (el.firstChild) r.appendChild(el.firstChild);
+              el.parentNode.replaceChild(r, el);
+              return r;
+            },
+            (el) => {
+              const r = document.createElement(newTag);
+              r.id = el.id;
+              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+              while (el.firstChild) r.appendChild(el.firstChild);
+              el.parentNode.replaceChild(r, el);
+              return r;
+            },
+            this.currentBookId,
+            currentOffset
+          );
+        }
+
+        listEl.parentNode.replaceChild(newListEl, listEl);
+
+        // Restore cursor inside the same li (it was moved, not recreated)
+        setCursorAtTextOffset(listItem, currentOffset);
+
+        modifiedElementId = newListEl.id;
+        newElement = newListEl;
+        this.selectionManager.currentSelection = window.getSelection();
+        return { modifiedElementId, newElement };
+      }
+    }
+
+    let blockParent = findClosestBlockParent(parentElement);
+    let fromBlockquote = false;
+
+    // If cursor is in a blockquote, convert directly to list (single undo step)
+    if (blockParent && blockParent.tagName === 'BLOCKQUOTE') {
+      fromBlockquote = true;
+      const currentOffset = getTextOffsetInElement(blockParent, focusNode, focusOffset);
+
+      // Extract content from blockquote (strip trailing <br> that blockquote adds)
+      let content = blockParent.innerHTML;
+      if (content.endsWith("<br>")) content = content.slice(0, -4);
+
+      // Build list element directly from blockquote content
+      const listEl = document.createElement(listType);
+      const li = document.createElement("li");
+      li.innerHTML = content;
+      listEl.appendChild(li);
+
+      listEl.id = blockParent.id;
+      if (blockParent.hasAttribute("data-node-id")) {
+        listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id"));
+      }
+
+      // Record single undo entry: list ↔ blockquote (no intermediate paragraph)
+      if (this.undoManager) {
+        this.undoManager.recordFormat(
+          blockParent.id,
+          // Undo: list → blockquote
+          (el) => {
+            const bq = document.createElement("blockquote");
+            const firstLi = el.querySelector("li");
+            let bqContent = firstLi ? firstLi.innerHTML : el.innerHTML;
+            if (bqContent && !bqContent.endsWith("<br>")) bqContent += "<br>";
+            bq.innerHTML = bqContent;
+            bq.id = el.id;
+            if (el.hasAttribute("data-node-id")) bq.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+            el.parentNode.replaceChild(bq, el);
+            return bq;
+          },
+          // Redo: blockquote → list
+          (el) => {
+            const list = document.createElement(listType);
+            const newLi = document.createElement("li");
+            let c = el.innerHTML;
+            if (c.endsWith("<br>")) c = c.slice(0, -4);
+            newLi.innerHTML = c;
+            list.appendChild(newLi);
+            list.id = el.id;
+            if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+            el.parentNode.replaceChild(list, el);
+            return list;
+          },
+          this.currentBookId,
+          currentOffset
+        );
+      }
+
+      blockParent.parentNode.replaceChild(listEl, blockParent);
+      setCursorAtTextOffset(li, currentOffset);
+
+      modifiedElementId = listEl.id;
+      newElement = listEl;
+      this.selectionManager.currentSelection = window.getSelection();
+      return { modifiedElementId, newElement };
+    }
+
+    if (!blockParent || blockParent.tagName !== 'P') {
+      console.warn(`Cannot convert ${blockParent?.tagName || 'unknown'} to list — only paragraphs allowed`);
+      return { modifiedElementId, newElement };
+    }
+
+    const currentOffset = getTextOffsetInElement(blockParent, focusNode, focusOffset);
+
+    // Build list element
+    const listEl = document.createElement(listType);
+    const li = document.createElement("li");
+    li.innerHTML = blockParent.innerHTML;
+    listEl.appendChild(li);
+
+    // Transfer identity from the paragraph to the list
+    listEl.id = blockParent.id;
+    if (blockParent.hasAttribute("data-node-id")) {
+      listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id"));
+    }
+
+    // Record for undo/redo
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        blockParent.id,
+        // Undo: list → paragraph
+        (el) => {
+          const p = document.createElement("p");
+          const firstLi = el.querySelector("li");
+          p.innerHTML = firstLi ? firstLi.innerHTML : el.innerHTML;
+          p.id = el.id;
+          if (el.hasAttribute("data-node-id")) p.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          el.parentNode.replaceChild(p, el);
+          return p;
+        },
+        // Redo: paragraph → list
+        (el) => {
+          const list = document.createElement(listType);
+          const newLi = document.createElement("li");
+          newLi.innerHTML = el.innerHTML;
+          list.appendChild(newLi);
+          list.id = el.id;
+          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          el.parentNode.replaceChild(list, el);
+          return list;
+        },
+        this.currentBookId,
+        currentOffset
+      );
+    }
+
+    blockParent.parentNode.replaceChild(listEl, blockParent);
+
+    // Place cursor inside the <li>
+    setCursorAtTextOffset(li, currentOffset);
+
+    modifiedElementId = listEl.id;
+    newElement = listEl;
+
+    this.selectionManager.currentSelection = window.getSelection();
+
+    return { modifiedElementId, newElement };
+  }
+
+  /**
+   * Handle converting a single-item list directly to a blockquote or code block.
+   * Records proper undo so list ↔ blockquote round-trips correctly.
+   * @param {HTMLElement} listEl - The UL/OL element (must have single li)
+   * @param {HTMLElement} listItem - The LI element
+   * @param {string} blockType - "blockquote" or "code"
+   */
+  async handleListToBlock(listEl, listItem, blockType) {
+    let modifiedElementId = null;
+    let newElement = null;
+
+    // Capture cursor offset before DOM changes
+    const sel = this.selectionManager.currentSelection;
+    let currentOffset = 0;
+    if (sel && sel.focusNode) {
+      try {
+        currentOffset = getTextOffsetInElement(listItem, sel.focusNode, sel.focusOffset);
+      } catch (e) { /* ignore */ }
+    }
+
+    const listTag = listEl.tagName.toLowerCase(); // "ul" or "ol"
+
+    // Build the target block element
+    let newBlock;
+    if (blockType === "blockquote") {
+      newBlock = document.createElement("blockquote");
+      let content = listItem.innerHTML;
+      if (content && !content.endsWith("<br>")) content += "<br>";
+      newBlock.innerHTML = content;
+    } else {
+      newBlock = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = listItem.textContent.trim();
+      newBlock.appendChild(code);
+    }
+
+    // Transfer identity
+    newBlock.id = listEl.id;
+    if (listEl.hasAttribute("data-node-id")) {
+      newBlock.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+    }
+
+    // Record undo: blockquote/code ↔ list (single step)
+    if (this.undoManager) {
+      this.undoManager.recordFormat(
+        listEl.id,
+        // Undo: blockquote/code → list
+        (el) => {
+          const list = document.createElement(listTag);
+          const li = document.createElement("li");
+          if (el.tagName === "PRE") {
+            const codeEl = el.querySelector("code");
+            li.innerHTML = codeEl ? codeEl.innerHTML : el.innerHTML;
+          } else {
+            let c = el.innerHTML;
+            if (c.endsWith("<br>")) c = c.slice(0, -4);
+            li.innerHTML = c;
+          }
+          list.appendChild(li);
+          list.id = el.id;
+          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          el.parentNode.replaceChild(list, el);
+          return list;
+        },
+        // Redo: list → blockquote/code
+        (el) => {
+          let block;
+          const firstLi = el.querySelector("li");
+          if (blockType === "blockquote") {
+            block = document.createElement("blockquote");
+            let c = firstLi ? firstLi.innerHTML : el.innerHTML;
+            if (c && !c.endsWith("<br>")) c += "<br>";
+            block.innerHTML = c;
+          } else {
+            block = document.createElement("pre");
+            const code = document.createElement("code");
+            code.textContent = firstLi ? firstLi.textContent.trim() : el.textContent.trim();
+            block.appendChild(code);
+          }
+          block.id = el.id;
+          if (el.hasAttribute("data-node-id")) block.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          el.parentNode.replaceChild(block, el);
+          return block;
+        },
+        this.currentBookId,
+        currentOffset
+      );
+    }
+
+    listEl.parentNode.replaceChild(newBlock, listEl);
+    setCursorAtTextOffset(newBlock, currentOffset);
+
+    modifiedElementId = newBlock.id;
+    newElement = newBlock;
+    this.selectionManager.currentSelection = window.getSelection();
+
+    return { modifiedElementId, newElement };
+  }
+
+  /**
+   * Handle removing a list — unwrap list items back to paragraphs
+   * @param {HTMLElement} parentElement - the element containing the cursor
+   */
+  async handleRemoveList(parentElement) {
+    let modifiedElementId = null;
+    let newElement = null;
+
+    // Capture cursor offset before any DOM changes
+    const sel = this.selectionManager.currentSelection;
+    const cursorLi = findClosestListItem(parentElement);
+    let cursorOffset = 0;
+    if (cursorLi && sel.focusNode) {
+      try {
+        cursorOffset = getTextOffsetInElement(cursorLi, sel.focusNode, sel.focusOffset);
+      } catch (e) { /* ignore */ }
+    }
+
+    // Walk up to find the containing list element with an ID
+    let listEl = parentElement;
+    while (listEl && listEl.tagName !== "UL" && listEl.tagName !== "OL") {
+      listEl = listEl.parentElement;
+    }
+    if (!listEl || !listEl.id) {
+      console.warn("Cannot remove list — no list element with ID found");
+      return { modifiedElementId, newElement };
+    }
+
+    const listItems = Array.from(listEl.querySelectorAll(":scope > li"));
+    if (listItems.length === 0) {
+      return { modifiedElementId, newElement };
+    }
+
+    // Determine which li index the cursor was in (for restoring position)
+    let cursorLiIndex = cursorLi ? listItems.indexOf(cursorLi) : 0;
+    if (cursorLiIndex < 0) cursorLiIndex = 0;
+
+    const listParent = listEl.parentNode;
+    const listTag = listEl.tagName.toLowerCase();
+    const paragraphs = [];
+
+    for (let i = 0; i < listItems.length; i++) {
+      const li = listItems[i];
+      const p = document.createElement("p");
+      p.innerHTML = li.innerHTML || "\u00A0";
+
+      if (i === 0) {
+        // First paragraph inherits the list's identity
+        p.id = listEl.id;
+        if (listEl.hasAttribute("data-node-id")) {
+          p.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+        }
+      } else {
+        // Subsequent paragraphs get new IDs
+        const prevId = paragraphs[i - 1].id;
+        const afterId = findNextElementId(listEl);
+        setElementIds(p, prevId, afterId, this.currentBookId);
+      }
+
+      paragraphs.push(p);
+    }
+
+    // Record for undo/redo
+    if (this.undoManager) {
+      const oldListHTML = listEl.outerHTML;
+      const listId = listEl.id;
+      const extraParagraphIds = paragraphs.slice(1).map(p => p.id);
+
+      this.undoManager.recordFormat(
+        listId,
+        // Undo: paragraphs → list (restore original)
+        (el) => {
+          // el is the first paragraph; remove extra paragraphs and restore list
+          for (const extraId of extraParagraphIds) {
+            const extra = document.getElementById(extraId);
+            if (extra) extra.remove();
+          }
+          const temp = document.createElement("div");
+          temp.innerHTML = oldListHTML;
+          const restored = temp.firstElementChild;
+          el.parentNode.replaceChild(restored, el);
+          return restored;
+        },
+        // Redo: list → paragraphs
+        (el) => {
+          // el is the list; unwrap again
+          const items = Array.from(el.querySelectorAll(":scope > li"));
+          const ps = [];
+          for (let i = 0; i < items.length; i++) {
+            const newP = document.createElement("p");
+            newP.innerHTML = items[i].innerHTML || "\u00A0";
+            if (i === 0) {
+              newP.id = el.id;
+              if (el.hasAttribute("data-node-id")) newP.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+            } else {
+              newP.id = extraParagraphIds[i - 1] || "";
+            }
+            ps.push(newP);
+          }
+          const parent = el.parentNode;
+          for (const newP of ps) {
+            parent.insertBefore(newP, el);
+          }
+          parent.removeChild(el);
+          return ps[0];
+        },
+        this.currentBookId,
+        0
+      );
+    }
+
+    // Insert all paragraphs before the list, then remove the list
+    for (const p of paragraphs) {
+      listParent.insertBefore(p, listEl);
+    }
+    listParent.removeChild(listEl);
+
+    // Restore cursor in the paragraph that corresponds to the li the cursor was in
+    const targetParagraph = paragraphs[cursorLiIndex] || paragraphs[0];
+    setCursorAtTextOffset(targetParagraph, cursorOffset);
+
+    modifiedElementId = paragraphs[0].id;
+    newElement = paragraphs[0];
+
+    this.selectionManager.currentSelection = window.getSelection();
+
+    // Save all paragraphs to IndexedDB
+    if (this.saveToIndexedDBCallback) {
+      for (const p of paragraphs) {
+        if (p.id) {
+          await this.saveToIndexedDBCallback(p.id, p.outerHTML);
+        }
+      }
+    }
+
+    // Delete the original list from IndexedDB (only if there were extra items)
+    // The first paragraph inherited the list's ID, so that record gets updated above.
+    // Extra paragraphs are new records. No separate delete needed since the ID was reused.
+
+    return { modifiedElementId, newElement };
   }
 
   /**

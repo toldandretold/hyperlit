@@ -127,7 +127,7 @@ export function isRealLink(href) {
  * @param {HTMLElement} container - Container to clean
  */
 export function removeEmptyBlocks(container) {
-  container.querySelectorAll("p, blockquote, h1, h2, h3, li").forEach((el) => {
+  container.querySelectorAll("p, blockquote, h1, h2, h3").forEach((el) => {
     if (
       !el.textContent.trim() &&
       !el.querySelector("img") &&

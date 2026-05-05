@@ -9,6 +9,7 @@ import {
 import { SelectionManager } from "./selectionManager.js";
 import { ButtonStateManager } from "./buttonStateManager.js";
 import { HeadingSubmenu } from "./headingSubmenu.js";
+import { BlockSubmenu } from "./blockSubmenu.js";
 import { CitationMode } from "./citationMode.js";
 import { TextFormatter } from "./textFormatter.js";
 import { ListConverter } from "./listConverter.js";
@@ -42,6 +43,7 @@ class EditToolbar {
     this.italicButton = document.getElementById("italicButton");
     this.headingButton = document.getElementById("headingButton");
     this.headingSubmenu = document.getElementById("heading-submenu");
+    this.blockquoteSubmenu = document.getElementById("blockquote-submenu");
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
     this.footnoteButton = document.getElementById("footnoteButton");
@@ -85,6 +87,15 @@ class EditToolbar {
       saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
       undoManager: this.undoManager,
       onUndoStackChanged: () => this._updateUndoRedoButtons(this.currentBookId)
+    });
+
+    // Initialize BlockSubmenu
+    this.blockSubmenu_handler = new BlockSubmenu({
+      blockSubmenu: this.blockquoteSubmenu,
+      blockquoteButton: this.blockquoteButton,
+      selectionManager: this.selectionManager,
+      buttonStateManager: this.buttonStateManager,
+      formatBlockCallback: (type, listType) => this.formatBlock(type, listType),
     });
 
     // Get all buttons except citation button for hiding during citation mode
@@ -421,7 +432,13 @@ class EditToolbar {
       {
         element: this.blockquoteButton,
         name: "blockquote",
-        action: () => this.formatBlock("blockquote"),
+        action: () => {
+          // Don't toggle if submenu is already open (prevents double-firing on mobile)
+          if (this.blockquoteSubmenu && !this.blockquoteSubmenu.classList.contains("hidden")) {
+            return;
+          }
+          this.blockSubmenu_handler.toggleBlockSubmenu();
+        },
       },
       {
         element: this.codeButton,
@@ -480,6 +497,14 @@ class EditToolbar {
             // Special check for heading button: don't fire if submenu button was just clicked
             if (name === "heading") {
               const submenuButtonClicked = this.headingSubmenu_handler.wasSubmenuButtonJustClicked();
+              if (submenuButtonClicked) {
+                return;
+              }
+            }
+
+            // Special check for blockquote button: don't fire if submenu button was just clicked
+            if (name === "blockquote") {
+              const submenuButtonClicked = this.blockSubmenu_handler.wasSubmenuButtonJustClicked();
               if (submenuButtonClicked) {
                 return;
               }
@@ -595,6 +620,8 @@ class EditToolbar {
       this.tapExtender?.disable();
       // Close heading submenu if open
       this.closeHeadingSubmenu();
+      // Close block submenu if open
+      this.blockSubmenu_handler.closeBlockSubmenu();
       // Close citation mode if open
       if (this.citationMode.isOpen) {
         this.citationMode.close();

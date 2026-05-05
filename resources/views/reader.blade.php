@@ -253,6 +253,38 @@
     </svg>
   </button>
 
+    <div id="blockquote-submenu" class="blockquote-submenu hidden">
+      <button type="button" class="block-remove-btn" data-action="remove-block" title="Remove formatting">✕</button>
+      <button type="button" class="block-type-btn" data-block-type="ul" title="Bullet list">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="9" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="4.5" cy="6" r="1.5"/>
+          <circle cx="4.5" cy="12" r="1.5"/>
+          <circle cx="4.5" cy="18" r="1.5"/>
+        </svg>
+      </button>
+      <button type="button" class="block-type-btn" data-block-type="ol" title="Numbered list">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <text x="2" y="8" font-size="7" font-weight="600" font-family="system-ui, sans-serif">1</text>
+          <line x1="9" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
+          <text x="2" y="14" font-size="7" font-weight="600" font-family="system-ui, sans-serif">2</text>
+          <line x1="9" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round"/>
+          <text x="2" y="20" font-size="7" font-weight="600" font-family="system-ui, sans-serif">3</text>
+          <line x1="9" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button type="button" class="block-type-btn" data-block-type="blockquote" title="Blockquote">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="4" y1="4" x2="4" y2="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="8" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="8" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="8" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
     <button type="button" id="codeButton">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />

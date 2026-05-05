@@ -742,6 +742,21 @@ export class ChunkMutationHandler {
               }
             }
 
+            // Remove phantom block elements inside lists (iOS Safari contenteditable bug)
+            // When pressing Enter in a list item, iOS Safari sometimes creates a <p> or <div>
+            // as a direct child of <ol>/<ul> despite preventDefault(). This is always invalid HTML.
+            if (['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE'].includes(node.tagName) &&
+                node.parentElement && ['OL', 'UL'].includes(node.parentElement.tagName)) {
+              console.log(`🛑 Removing phantom <${node.tagName.toLowerCase()}> inside <${node.parentElement.tagName.toLowerCase()}> (iOS Safari list bug)${node.textContent ? ` — had text: "${node.textContent.slice(0, 50)}"` : ''}`);
+              const listParent = node.parentElement;
+              node.remove();
+              // Queue the parent list for save since its structure changed
+              if (listParent.id && this.queueNodeForSave) {
+                this.queueNodeForSave(listParent.id, 'update');
+              }
+              return;
+            }
+
             ensureNodeHasValidId(node);
             this.documentChanged.value = true;
             this.addedNodes.add(node);

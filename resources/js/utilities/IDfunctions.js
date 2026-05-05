@@ -851,8 +851,22 @@ export function ensureNodeHasValidId(node, options = {}) {
       console.log(`Assigned new id ${node.id} and data-node-id based on reference insertion direction.`);
     } else {
       // Find the node's position in the DOM and assign appropriate ID
-      const beforeId = findPreviousElementId(node);
-      const afterId = findNextElementId(node);
+      let beforeId = findPreviousElementId(node);
+      let afterId = findNextElementId(node);
+
+      // Parent-aware fallback: when both are null (e.g. node inside a list where
+      // siblings are LI elements with no numerical IDs), use the parent's context
+      // to avoid generating ID "1" which would place the node at the top of the doc.
+      if (beforeId === null && afterId === null && node.parentElement) {
+        const parent = node.parentElement;
+        const parentId = parent.id && /^\d+(\.\d+)?$/.test(parent.id) ? parent.id : null;
+        if (parentId) {
+          beforeId = parentId;
+        } else {
+          beforeId = findPreviousElementId(parent);
+          afterId = findNextElementId(parent);
+        }
+      }
 
       node.id = generateIdBetween(beforeId, afterId);
 

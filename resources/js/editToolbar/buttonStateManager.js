@@ -110,9 +110,11 @@ export class ButtonStateManager {
       }
     }
 
-    // Update blockquote button state
+    // Update blockquote button state (also active when in a list, since it triggers the block submenu)
     if (this.blockquoteButton) {
-      const isActive = hasParentWithTag(parentElement, "BLOCKQUOTE");
+      const isInBlockquote = hasParentWithTag(parentElement, "BLOCKQUOTE");
+      const isInList = hasParentWithTag(parentElement, "UL") || hasParentWithTag(parentElement, "OL");
+      const isActive = isInBlockquote || isInList;
       this.blockquoteButton.classList.toggle("active", isActive);
 
       // Disable if not in paragraph context (applies to both selection and cursor)
