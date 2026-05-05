@@ -96,3 +96,24 @@ export function convertDefinitionListTags(html) {
     .replace(/<dd[^>]*>([\s\S]*?)<\/dd>/gi, '<p>$1</p>')
     .replace(/<\/?dl[^>]*>/gi, '');
 }
+
+/**
+ * Strip <p> wrappers from inside <li> elements.
+ * marked produces <li><p>text</p></li> but our editor uses <li>text</li>.
+ *
+ * @param {string} html - HTML content that may contain <p> inside <li>
+ * @returns {string} - HTML with <p> unwrapped inside list items
+ */
+export function normalizeListItems(html) {
+  if (!html || (!html.includes('<li>') && !html.includes('<li '))) return html;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  temp.querySelectorAll('li > p').forEach(p => {
+    const li = p.parentElement;
+    while (p.firstChild) {
+      li.insertBefore(p.firstChild, p);
+    }
+    p.remove();
+  });
+  return temp.innerHTML;
+}

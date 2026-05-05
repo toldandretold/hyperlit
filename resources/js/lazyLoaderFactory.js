@@ -1170,6 +1170,16 @@ export function createChunkElement(nodes, instance) {
     // SECURITY: Sanitize HTML to prevent stored XSS from malicious EPUB uploads
     temp.innerHTML = sanitizeHtml(html);
 
+    // 🔄 NORMALIZE: Unwrap <p> inside <li> (marked produces these on paste, but the
+    // editor/mutation observer expects bare inline content inside <li>)
+    temp.querySelectorAll('li > p').forEach(p => {
+      const li = p.parentElement;
+      while (p.firstChild) {
+        li.insertBefore(p.firstChild, p);
+      }
+      p.remove();
+    });
+
     // 🎬 RECONSTRUCT: YouTube embeds after sanitization (iframe/button stripped by DOMPurify)
     temp.querySelectorAll('.video-embed[data-video-id]').forEach(embed => {
       const videoId = embed.dataset.videoId;

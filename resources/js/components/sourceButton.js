@@ -2901,6 +2901,15 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
               }
             });
 
+            // Unwrap <p> tags inside <li> content so they become inline runs
+            // (marked produces <li><p>text</p></li> but docx needs inline content for numbering)
+            tempDiv.querySelectorAll(':scope > p').forEach(p => {
+              while (p.firstChild) {
+                p.parentNode.insertBefore(p.firstChild, p);
+              }
+              p.remove();
+            });
+
             const liRuns = htmlElementToDocx(tempDiv, docxComponents, opts);
             const runs = liRuns.filter(item => !(item instanceof Paragraph));
             const paras = liRuns.filter(item => item instanceof Paragraph);

@@ -52,7 +52,7 @@ import { processMarkdownInChunks, preprocessMarkdownFootnotes, footnoteDefinitio
 import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
-import { stripMarkTags, convertDefinitionListTags } from './utils/normalizer.js';
+import { stripMarkTags, convertDefinitionListTags, normalizeListItems } from './utils/normalizer.js';
 import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
 import { startPasteCapture } from '../integrity/logCapture.js';
@@ -441,7 +441,7 @@ async function handlePaste(event) {
       // Clear rawHtml to force plaintext path, then convert to HTML
       rawHtml = '';
       const dirty = marked(transformedText);
-      htmlContent = sanitizeHtml(dirty);
+      htmlContent = normalizeListItems(sanitizeHtml(dirty));
       console.log(`✅ [${pasteOpId}] YouTube transcript transformed and converted to HTML`);
     }
 
@@ -575,7 +575,7 @@ async function handlePaste(event) {
           }
         } else {
           const dirty = marked(preprocessedText);
-          htmlContent = sanitizeHtml(dirty + footnoteSuffix);
+          htmlContent = normalizeListItems(sanitizeHtml(dirty + footnoteSuffix));
         }
       }
     }

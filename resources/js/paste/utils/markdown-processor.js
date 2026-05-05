@@ -11,6 +11,7 @@
  */
 
 import { marked } from 'marked';
+import { normalizeListItems } from './normalizer.js';
 
 /**
  * Pre-process markdown footnotes before passing to marked.
@@ -132,7 +133,7 @@ export async function processMarkdownInChunks(text, onProgress) {
     onProgress(progress, i + 1, chunks.length);
 
     // Process chunk (smart quotes already normalized at paste entry)
-    const chunkHtml = marked(chunks[i]);
+    const chunkHtml = normalizeListItems(marked(chunks[i]));
     result += chunkHtml;
 
     // Let browser breathe between chunks
