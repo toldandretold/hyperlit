@@ -53,7 +53,7 @@ class UserHomeServerController extends Controller
     /**
      * Show user's homepage (for subdomain routing)
      */
-    public function show(string $username)
+    public function show(string $username, ?string $shelfId = null)
     {
         // Check if user exists using RLS bypass function (returns only public fields)
         // This allows looking up other users' profiles without exposing sensitive data
@@ -97,8 +97,24 @@ class UserHomeServerController extends Controller
             $shelves = DB::table('shelves')
                 ->where('creator', $actualUsername)
                 ->orderByDesc('updated_at')
-                ->get(['id', 'name', 'description', 'visibility', 'default_sort'])
+                ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
                 ->toArray();
+        }
+
+        // Fetch public shelves for visitors (also useful for owner, but primarily for visitors)
+        $publicShelves = DB::connection('pgsql_admin')->table('shelves')
+            ->where('creator', $actualUsername)
+            ->where('visibility', 'public')
+            ->orderByDesc('updated_at')
+            ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
+            ->toArray();
+
+        // Validate activeShelfId: resolve by slug first, then fall back to UUID
+        $activeShelfId = null;
+        if ($shelfId) {
+            $validShelf = collect($publicShelves)->firstWhere('slug', $shelfId)
+                       ?? collect($publicShelves)->firstWhere('id', $shelfId);
+            $activeShelfId = $validShelf ? $validShelf->id : null;
         }
 
         // Return user.blade.php with user page data (use sanitized for book ID)
@@ -113,6 +129,8 @@ class UserHomeServerController extends Controller
             'pageDescription' => $pageDescription,
             'ogType' => 'profile',
             'shelves' => $shelves,
+            'publicShelves' => $publicShelves,
+            'activeShelfId' => $activeShelfId,
         ]);
     }
 
@@ -539,6 +557,93 @@ class UserHomeServerController extends Controller
         }
         if ($records->isEmpty()) {
             $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0, $visibility);
+        }
+        foreach (array_chunk($chunks, 500) as $batch) {
+            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
+        }
+
+        return response()->json(['bookId' => $syntheticBookId]);
+    }
+
+    /**
+     * Public sorted render of a user's public library (no auth required).
+     * Mirrors renderSorted() but resolves user by username, hardcodes public visibility.
+     */
+    public function publicRenderSorted(Request $request, string $username)
+    {
+        $request->validate([
+            'sort' => 'required|string|in:recent,connected,lit,title,author',
+        ]);
+
+        $user = \App\Models\User::findByNamePublic($username);
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $actualUsername = $user->name;
+        $sanitizedUsername = $this->sanitizeUsername($actualUsername);
+        $sort = $request->sort;
+
+        // "recent" = default book, no synthetic needed
+        if ($sort === 'recent') {
+            return response()->json(['bookId' => $sanitizedUsername]);
+        }
+
+        $syntheticBookId = $sanitizedUsername . '_public_' . $sort;
+
+        // Check cache
+        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()) {
+            return response()->json(['bookId' => $syntheticBookId]);
+        }
+
+        // Fetch + sort
+        $records = DB::connection('pgsql_admin')->table('library')
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights'])
+            ->where('creator', $actualUsername)
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->where('visibility', 'public')
+            ->get();
+
+        $records = match ($sort) {
+            'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
+            'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
+            'connected' => $records->sortByDesc('total_citations'),
+            'lit' => $records->sortByDesc(fn($r) => ($r->total_citations ?? 0) + ($r->total_highlights ?? 0)),
+            default => $records->sortByDesc('created_at'),
+        };
+        $records = $records->values();
+
+        // Create synthetic library entry + nodes
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+            ['book' => $syntheticBookId],
+            [
+                'title' => $actualUsername . "'s library ({$sort})",
+                'visibility' => 'public',
+                'listed' => false,
+                'creator' => $actualUsername,
+                'creator_token' => null,
+                'raw_json' => json_encode(['type' => 'user_home_sorted', 'username' => $actualUsername, 'visibility' => 'public', 'sort' => $sort]),
+                'timestamp' => round(microtime(true) * 1000),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
+
+        $generator = new LibraryCardGenerator();
+        $chunks = [];
+        $positionId = 100;
+        foreach ($records as $i => $record) {
+            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, false, false, $i);
+            $positionId++;
+        }
+        if ($records->isEmpty()) {
+            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, false, true, 0, 'public');
         }
         foreach (array_chunk($chunks, 500) as $batch) {
             DB::connection('pgsql_admin')->table('nodes')->insert($batch);

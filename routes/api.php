@@ -118,7 +118,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{shelfKey}/pins', [ShelfController::class, 'pin']);
         Route::delete('/{shelfKey}/pins/{book}', [ShelfController::class, 'unpin']);
         Route::get('/{id}/render', [ShelfController::class, 'render']);
+        Route::get('/{id}/search', [ShelfController::class, 'search']);
     });
+});
+
+// Public shelf endpoints — no auth, throttled
+Route::prefix('public/shelves')->middleware('throttle:60,1')->group(function () {
+    Route::get('/{id}/render', [ShelfController::class, 'publicRender']);
+    Route::get('/{id}/search', [ShelfController::class, 'publicSearch']);
+});
+
+// Public system shelf endpoints — no auth, throttled
+Route::prefix('public/library')->middleware('throttle:60,1')->group(function () {
+    Route::get('/{username}/render', [UserHomeServerController::class, 'publicRenderSorted']);
+    Route::get('/{username}/search', [ShelfController::class, 'publicSystemSearch']);
 });
 
 // Public vibes gallery — no auth, throttled

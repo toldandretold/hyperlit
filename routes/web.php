@@ -340,6 +340,11 @@ Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')
      ->name('book.edit');
 
+// User pages - /u/{username}/shelf/{shelfId} (must be before /u/{username})
+Route::get('/u/{username}/shelf/{shelfId}', function($username, $shelfId) {
+    return app(\App\Http\Controllers\UserHomeServerController::class)->show($username, $shelfId);
+})->where(['username' => '[A-Za-z0-9_-]+', 'shelfId' => '[a-zA-Z0-9_-]+'])->name('user.shelf');
+
 // User pages - /u/{username}
 Route::get('/u/{username}', function($username) {
     return app(\App\Http\Controllers\UserHomeServerController::class)->show($username);

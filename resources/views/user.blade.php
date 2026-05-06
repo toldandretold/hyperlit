@@ -80,6 +80,13 @@
         <button class="arranger-button" data-content="{{ $book }}Account" data-filter="account">Account</button>
         <button type="button" id="shelf-picker-trigger" class="shelf-picker-trigger" title="Shelves">+</button>
       </div>
+      @elseif(!empty($publicShelves))
+      <div class="arranger-buttons-container">
+        <button class="arranger-button{{ empty($activeShelfId) ? ' active' : '' }}" data-content="{{ $book }}" data-filter="public">Public</button>
+        @foreach($publicShelves as $pShelf)
+        <button class="arranger-button visitor-shelf-tab{{ ($activeShelfId ?? '') === $pShelf->id ? ' active' : '' }}" data-content="" data-filter="shelf" data-shelf-id="{{ $pShelf->id }}" data-shelf-slug="{{ $pShelf->slug }}" data-sort="{{ $pShelf->default_sort ?? 'recent' }}" data-shelf-name="{{ $pShelf->name }}">{{ $pShelf->name }}</button>
+        @endforeach
+      </div>
       @endif
     </div>
     <!-- User page content container - single book, filtered by public/private -->
@@ -209,6 +216,8 @@
     window.username = "{{ $username }}";
     window.isOwner = {{ $isOwner ? 'true' : 'false' }};
     window.userShelves = @json($shelves ?? []);
+    window.publicShelves = @json($publicShelves ?? []);
+    window.activeShelfId = @json($activeShelfId ?? null);
 </script>
 @vite([
     'resources/js/readerDOMContentLoaded.js'

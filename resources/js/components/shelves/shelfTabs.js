@@ -85,6 +85,7 @@ function createTabButton(shelfId, shelfName, sort, persist) {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'shelf-tab-name';
     nameSpan.textContent = shelfName;
+    btn.title = shelfName;
     btn.appendChild(nameSpan);
 
     const closeSpan = document.createElement('span');
@@ -138,6 +139,7 @@ async function activateTab(btn) {
             isSystemShelf: false,
             isOwner: true,
             username: window.username,
+            slug: shelf?.slug || null,
         });
         return;
     }
@@ -174,6 +176,7 @@ async function activateTab(btn) {
             isSystemShelf: false,
             isOwner: true,
             username: window.username,
+            slug: shelf?.slug || null,
         });
     } catch (err) {
         console.error('Failed to open shelf:', err);
@@ -292,12 +295,14 @@ function renderShelfPicker(shelves, trigger) {
         dropdown.appendChild(item);
     }
 
-    // Position below trigger
+    // Position below trigger, clamped to viewport
     const rect = trigger.getBoundingClientRect();
     dropdown.style.position = 'absolute';
     dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    dropdown.style.left = rect.left + 'px';
     document.body.appendChild(dropdown);
+    const dropdownWidth = dropdown.offsetWidth;
+    const maxLeft = window.innerWidth - dropdownWidth - 8;
+    dropdown.style.left = Math.min(rect.left, maxLeft) + 'px';
 
     // Dismiss on outside click
     const dismiss = (e) => {

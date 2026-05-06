@@ -90,47 +90,136 @@ export async function initializeHomepageButtons() {
   // Initialize the default active content on page load
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
-    const initialTargetId = activeButton.dataset.content;
-    await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+    const filter = activeButton.dataset.filter;
 
-    // Show shelf header for initial Public/Private tab on user page
-    if (window.isUserPage) {
-      const filter = activeButton.dataset.filter;
-      if (filter === 'public' || filter === 'private') {
-        const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
-        const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
-        showShelfHeader({
-          shelfId: null,
-          shelfName: filter === 'public' ? 'Public' : 'Private',
-          visibility: filter,
-          currentSort: savedSort,
-          isSystemShelf: true,
-          isOwner: window.isOwner,
-          username: window.username,
-        });
+    // Visitor shelf tab: load via public API
+    if (filter === 'shelf' && !window.isOwner && window.isUserPage) {
+      const shelfId = activeButton.dataset.shelfId;
+      const sort = activeButton.dataset.sort || 'recent';
+      const shelfName = activeButton.dataset.shelfName || 'Shelf';
+      const shelfSlug = activeButton.dataset.shelfSlug || null;
+      try {
+        const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
+        const data = await resp.json();
+        if (data.bookId) {
+          activeButton.dataset.content = data.bookId;
+          await transitionToBookContent(data.bookId, false);
+          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          showShelfHeader({
+            shelfId,
+            shelfName,
+            visibility: 'public',
+            currentSort: sort,
+            isSystemShelf: false,
+            isOwner: false,
+            username: window.username,
+            slug: shelfSlug,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load public shelf:', err);
+        // Fall back to public content
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent && mainContent.id) {
+          await transitionToBookContent(mainContent.id, false);
+        }
+      }
+    } else {
+      const initialTargetId = activeButton.dataset.content;
+      await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+
+      // Show shelf header for initial Public/Private tab on user page
+      if (window.isUserPage) {
+        if (filter === 'public' || filter === 'private') {
+          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
+          showShelfHeader({
+            shelfId: null,
+            shelfName: filter === 'public' ? 'Public' : 'Private',
+            visibility: filter,
+            currentSort: savedSort,
+            isSystemShelf: true,
+            isOwner: window.isOwner,
+            username: window.username,
+          });
+        }
       }
     }
   } else {
-    // No buttons exist (e.g., non-owner viewing user page)
+    // No buttons exist (e.g., non-owner viewing user page with no public shelves)
     // Load the public content by default using the main-content div's ID
     const mainContent = document.querySelector('.main-content');
     if (mainContent && mainContent.id) {
       console.log(`📄 No arranger buttons found, loading default content: ${mainContent.id}`);
-      transitionToBookContent(mainContent.id, false);
+      await transitionToBookContent(mainContent.id, false);
+
+      // Show shelf header for visitors so search works on public tab
+      if (window.isUserPage && !window.isOwner) {
+        const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+        showShelfHeader({
+          shelfId: null,
+          shelfName: 'Public',
+          visibility: 'public',
+          currentSort: 'recent',
+          isSystemShelf: true,
+          isOwner: false,
+          username: window.username,
+        });
+      }
     }
   }
   
   document.querySelectorAll('.arranger-button').forEach(button => {
     const handler = async function() {
-      const targetId = this.dataset.content;
-
       if (this.classList.contains('active')) {
-        console.log(`📄 ${targetId} is already active, skipping reinitialization`);
         return;
       }
 
       document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
       this.classList.add('active');
+
+      const filter = this.dataset.filter;
+
+      // Visitor shelf tab click
+      if (filter === 'shelf' && !window.isOwner && window.isUserPage) {
+        const shelfId = this.dataset.shelfId;
+        const sort = this.dataset.sort || 'recent';
+        const shelfName = this.dataset.shelfName || 'Shelf';
+        const shelfSlug = this.dataset.shelfSlug || null;
+        let bookId = this.dataset.content;
+
+        if (!bookId) {
+          try {
+            const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
+            const data = await resp.json();
+            if (data.bookId) {
+              bookId = data.bookId;
+              this.dataset.content = bookId;
+            }
+          } catch (err) {
+            console.error('Failed to load public shelf:', err);
+            return;
+          }
+        }
+
+        if (bookId) {
+          await transitionToBookContent(bookId, true);
+          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          showShelfHeader({
+            shelfId,
+            shelfName,
+            visibility: 'public',
+            currentSort: sort,
+            isSystemShelf: false,
+            isOwner: false,
+            username: window.username,
+            slug: shelfSlug,
+          });
+        }
+        return;
+      }
+
+      const targetId = this.dataset.content;
 
       // Save active button to localStorage
       localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, targetId);
@@ -139,7 +228,6 @@ export async function initializeHomepageButtons() {
 
       // Show/hide shelf header on user page
       if (window.isUserPage) {
-        const filter = this.dataset.filter;
         if (filter === 'public' || filter === 'private') {
           const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
           const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';

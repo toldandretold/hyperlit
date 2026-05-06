@@ -2469,23 +2469,10 @@ mark.search-highlight.current {
   margin-left: 20px;
 }
 
-/* User page only — horizontal scrollable tabs */
+/* User page only — horizontal tab bar */
 .user-content-wrapper .arranger-buttons-container {
   flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.15) transparent;
-  -webkit-overflow-scrolling: touch;
-}
-.user-content-wrapper .arranger-buttons-container::-webkit-scrollbar {
-  height: 4px;
-}
-.user-content-wrapper .arranger-buttons-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-.user-content-wrapper .arranger-buttons-container::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
-  border-radius: 2px;
+  overflow: hidden;
 }
 
 .fixed-header {
@@ -2503,10 +2490,16 @@ mark.search-highlight.current {
   font-size: 14px;
 }
 
-/* User page only — prevent tab buttons from shrinking/wrapping */
+/* User page only — system tabs + picker don't shrink */
 .user-content-wrapper .arranger-button {
-  flex-shrink: 0;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+.user-content-wrapper .arranger-button.shelf-tab {
+  flex-shrink: 1;
+  min-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .arranger-button:hover {
@@ -3417,12 +3410,13 @@ mark.search-highlight.current {
 /* ===== SHELF TAB (dynamic multi-tab) ===== */
 .shelf-tab {
   position: relative;
-  white-space: nowrap;
-  flex-shrink: 0;
   padding-right: 24px;
 }
 .shelf-tab-name {
   pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 .shelf-tab-close {
   position: absolute;
@@ -3433,7 +3427,7 @@ mark.search-highlight.current {
   line-height: 1;
   opacity: 0;
   cursor: pointer;
-  color: var(--color-text, #CBCCCC);
+  color: currentColor;
   transition: opacity 0.15s;
 }
 .shelf-tab:hover .shelf-tab-close,
@@ -3450,15 +3444,18 @@ mark.search-highlight.current {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  padding: 10px 20px 6px;
+  padding: 10px 40px 6px;
+  max-width: var(--content-width, 40ch);
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .shelf-header-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1 1 auto;
-  min-width: 180px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .shelf-header-title {
@@ -3492,60 +3489,141 @@ mark.search-highlight.current {
 .shelf-header-visibility-icon:hover { opacity: 1; }
 .shelf-header-visibility-icon svg { width: 16px; height: 16px; fill: var(--color-text); }
 
-.shelf-header-share-btn {
-  background: none;
-  border: 1px solid var(--resize-edge-tint);
-  border-radius: var(--border-radius-md);
-  color: var(--color-text);
-  padding: 3px 8px;
-  font-size: 0.8em;
+.shelf-header-copy-btn {
   cursor: pointer;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.2s ease;
 }
-.shelf-header-share-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
+.shelf-header-copy-btn:hover { opacity: 1; }
+.shelf-header-copy-btn svg { width: 16px; height: 16px; fill: var(--color-text); }
+.shelf-header-copy-btn.copied svg { fill: var(--color-accent); }
 
 .shelf-header-controls { display: flex; align-items: center; gap: 12px; }
 
-@media (max-width: 600px) {
-  .shelf-header { flex-direction: column; align-items: flex-start; }
-  .shelf-header-title-row { width: 100%; }
-  .shelf-header-controls { width: 100%; }
+.shelf-header-search {
+  flex: 1 1 240px;
+  order: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* ===== SHELF SHARE MODAL ===== */
-.shelf-share-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 9999;
-  display: flex; align-items: center; justify-content: center;
-}
-.shelf-share-modal {
+.shelf-header-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
   background: var(--color-background);
-  border: 1px solid var(--resize-edge-tint);
-  border-radius: var(--border-radius-xl);
-  padding: 24px;
-  max-width: 480px; width: 90%;
   color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: var(--border-radius-md);
+  font-size: 0.85em;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
 }
-.shelf-share-modal h3 {
+
+.shelf-header-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.shelf-header-search-input::placeholder {
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+/* Shelf full-text toggle */
+.shelf-fulltext-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.shelf-fulltext-checkbox {
+  display: none;
+}
+
+.shelf-fulltext-slider {
+  position: relative;
+  width: 28px;
+  height: 14px;
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: 7px;
+  transition: background 0.2s ease;
+}
+
+.shelf-fulltext-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background: var(--color-text);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.shelf-fulltext-checkbox:checked + .shelf-fulltext-slider {
+  background: var(--color-accent, #4EACAE);
+}
+
+.shelf-fulltext-checkbox:checked + .shelf-fulltext-slider::before {
+  transform: translateX(14px);
+}
+
+.shelf-fulltext-text {
+  font-size: 9px;
   color: var(--color-text);
+  opacity: 0.7;
 }
-.shelf-share-citation {
-  font-size: 0.9em; line-height: 1.6;
-  padding: 12px; border-radius: var(--border-radius-md);
-  background: var(--editable-bg);
-  border: 1px solid var(--resize-edge-tint);
-  margin: 12px 0; user-select: all;
+
+/* Inline full-text search results */
+.shelf-fts-results {
+  /* Wrapper sitting inside main-content */
 }
-.shelf-share-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.shelf-share-actions button {
-  padding: 6px 14px; border-radius: var(--border-radius-md); cursor: pointer;
-  font-size: 0.85em; border: 1px solid var(--resize-edge-tint);
-  background: none; color: var(--color-text);
+
+.shelf-fts-snippet {
+  font-size: 0.9em;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid var(--color-accent, #4EACAE);
+  margin: 4px 0;
+  color: var(--color-text);
+  opacity: 0.85;
+  cursor: pointer;
 }
-.shelf-share-actions button:hover { background: var(--editable-bg); }
+
+.shelf-fts-snippet:hover {
+  opacity: 1;
+}
+
+.shelf-fts-snippet mark {
+  background: rgba(255, 200, 0, 0.4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.shelf-fts-snippet a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shelf-fts-status {
+  padding: 16px 0;
+  font-size: 0.9em;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
 
 /* ===== SHELF VISIBILITY CONFIRM ===== */
 .shelf-visibility-confirm {
@@ -3708,4 +3786,27 @@ mark.search-highlight.current {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Locked library card (private book in public shelf) */
+.libraryCard-locked {
+  opacity: 0.6;
+}
+.libraryCard-locked .locked-icon {
+  display: inline-flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.libraryCard-locked .locked-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: #cc4444;
+}
+
+/* Visitor shelf tabs: no close button, less padding */
+.visitor-shelf-tab {
+  padding-right: 12px;
 }
