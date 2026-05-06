@@ -73,9 +73,10 @@ class UserHomeServerController extends Controller
         // Ensure user home books exist (only regenerate on first visit)
         $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'public');
 
-        // Only generate private book and account book if owner
+        // Only generate private book, all book, and account book if owner
         if ($isOwner) {
             $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'private');
+            $this->generateAllUserHomeBookIfNeeded($actualUsername);
             $this->generateAccountBookIfNeeded($actualUsername);
         }
 
@@ -121,6 +122,7 @@ class UserHomeServerController extends Controller
         return view('user', [
             'pageType' => 'user',
             'book' => $sanitizedUsername,
+            'allBook' => $sanitizedUsername . 'All',
             'username' => $actualUsername,
             'isOwner' => $isOwner,
             'libraryTitle' => $title,
@@ -150,6 +152,7 @@ class UserHomeServerController extends Controller
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
@@ -175,6 +178,105 @@ class UserHomeServerController extends Controller
             ]);
             $this->generateUserHomeBook($username, $isOwner, $visibility);
         }
+    }
+
+    private function generateAllUserHomeBookIfNeeded(string $username): void
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $bookName = $sanitizedUsername . 'All';
+
+        if (!DB::table('library')->where('book', $bookName)->exists()) {
+            $this->generateAllUserHomeBook($username);
+            return;
+        }
+
+        // Failsafe: regenerate if actual book IDs don't match
+        $libraryBooks = DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'All')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->whereIn('visibility', ['public', 'private'])
+            ->pluck('book')
+            ->sort()
+            ->values();
+
+        $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $bookName)
+            ->where('startLine', '>', 0)
+            ->pluck('raw_json')
+            ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
+            ->filter()
+            ->sort()
+            ->values();
+
+        if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
+            Log::info('Regenerating All home book due to book ID mismatch.', [
+                'username' => $username,
+                'missing' => $libraryBooks->diff($nodeBooks)->values(),
+                'extra' => $nodeBooks->diff($libraryBooks)->values(),
+            ]);
+            $this->generateAllUserHomeBook($username);
+        }
+    }
+
+    public function generateAllUserHomeBook(string $username): array
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $bookName = $sanitizedUsername . 'All';
+
+        // Query ALL books (public + private)
+        $records = DB::connection('pgsql_admin')->table('library')
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'visibility'])
+            ->where('creator', $username)
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'All')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->whereIn('visibility', ['public', 'private'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+            ['book' => $bookName],
+            [
+                'author' => null, 'title' => $username . "'s library", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
+                'creator_token' => null,
+                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => 'all']),
+                'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
+            ]
+        );
+
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
+
+        // Invalidate sorted "all" variants
+        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+
+        $chunks = [];
+        $positionId = 100;
+        $generator = new LibraryCardGenerator();
+
+        foreach ($records as $i => $record) {
+            $isPrivate = ($record->visibility === 'private');
+            $chunks[] = $generator->generateLibraryCardChunk($record, $bookName, $positionId, true, false, $i, 'public', false, $isPrivate);
+            $positionId++;
+        }
+
+        if ($records->isEmpty()) {
+            $chunks[] = $generator->generateLibraryCardChunk(null, $bookName, 1, true, true, 0, 'public');
+        }
+
+        foreach (array_chunk($chunks, 500) as $batch) {
+            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
+        }
+
+        return ['success' => true, 'count' => count($chunks)];
     }
 
     private function generateAccountBookIfNeeded(string $username): void
@@ -203,6 +305,7 @@ class UserHomeServerController extends Controller
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
@@ -289,6 +392,12 @@ class UserHomeServerController extends Controller
             DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
+        // Invalidate the "All" book so it regenerates on next visit
+        $allBookName = $sanitizedUsername . 'All';
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $allBookName)->delete();
+        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+
         return ['success' => true];
     }
 
@@ -326,6 +435,36 @@ class UserHomeServerController extends Controller
 
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookName)
+                ->update(['timestamp' => round(microtime(true) * 1000)]);
+        }
+
+        // Also update the card in the "All" book if it exists
+        $allBookName = $sanitizedUsername . 'All';
+        $allNodeId = $allBookName . '_' . $bookRecord->book . '_card';
+        $allChunk = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $allBookName)
+            ->where('node_id', $allNodeId)
+            ->first();
+
+        if ($allChunk) {
+            $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
+            $isPrivate = ($bookRecord->visibility === 'private');
+            $newContent = (new LibraryCardGenerator())->generateLibraryCardHtml($bookRecord, $allChunk->startLine, $isOwner, $allNodeId, false, $isPrivate);
+            $newRawJson = json_encode([
+                'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $allChunk->startLine,
+                'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
+            ]);
+            $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
+
+            DB::connection('pgsql_admin')->table('nodes')->where('id', $allChunk->id)->update([
+                'content' => $newContent,
+                'raw_json' => $newRawJson,
+                'plainText' => $newPlainText,
+                'updated_at' => now(),
+            ]);
+
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $allBookName)
                 ->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
@@ -460,14 +599,14 @@ class UserHomeServerController extends Controller
         return ['success' => true, 'count' => count($chunks)];
     }
 
-    private function generateLibraryCardChunk($record, string $bookName, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0, string $visibility = 'public')
+    private function generateLibraryCardChunk($record, string $bookName, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0, string $visibility = 'public', bool $locked = false, bool $isPrivate = false)
     {
-        return (new LibraryCardGenerator())->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, $isEmpty, $index, $visibility);
+        return (new LibraryCardGenerator())->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, $isEmpty, $index, $visibility, $locked, $isPrivate);
     }
 
-    private function generateLibraryCardHtml($record, int $positionId, bool $isOwner, string $nodeId): string
+    private function generateLibraryCardHtml($record, int $positionId, bool $isOwner, string $nodeId, bool $locked = false, bool $isPrivate = false): string
     {
-        return (new LibraryCardGenerator())->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId);
+        return (new LibraryCardGenerator())->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId, $locked, $isPrivate);
     }
 
     private function generateCitationHtml($record)
@@ -482,7 +621,7 @@ class UserHomeServerController extends Controller
     public function renderSorted(Request $request)
     {
         $request->validate([
-            'visibility' => 'required|string|in:public,private',
+            'visibility' => 'required|string|in:public,private,all',
             'sort' => 'required|string|in:recent,connected,lit,title,author',
         ]);
 
@@ -498,7 +637,13 @@ class UserHomeServerController extends Controller
 
         // "recent" = default book, no synthetic needed
         if ($sort === 'recent') {
-            $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+            if ($visibility === 'all') {
+                $bookName = $sanitizedUsername . 'All';
+            } elseif ($visibility === 'private') {
+                $bookName = $sanitizedUsername . 'Private';
+            } else {
+                $bookName = $sanitizedUsername;
+            }
             return response()->json(['bookId' => $bookName]);
         }
 
@@ -510,16 +655,23 @@ class UserHomeServerController extends Controller
         }
 
         // Fetch + sort
-        $records = DB::connection('pgsql_admin')->table('library')
-            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights'])
+        $query = DB::connection('pgsql_admin')->table('library')
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights', 'visibility'])
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->where('visibility', $visibility)
-            ->get();
+            ->where('book', 'NOT LIKE', 'shelf_%');
+
+        if ($visibility === 'all') {
+            $query->whereIn('visibility', ['public', 'private']);
+        } else {
+            $query->where('visibility', $visibility);
+        }
+
+        $records = $query->get();
 
         $records = match ($sort) {
             'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
@@ -535,7 +687,7 @@ class UserHomeServerController extends Controller
             ['book' => $syntheticBookId],
             [
                 'title' => $username . "'s library ({$sort})",
-                'visibility' => $visibility,
+                'visibility' => $visibility === 'all' ? 'private' : $visibility,
                 'listed' => false,
                 'creator' => $username,
                 'creator_token' => null,
@@ -552,11 +704,12 @@ class UserHomeServerController extends Controller
         $chunks = [];
         $positionId = 100;
         foreach ($records as $i => $record) {
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, true, false, $i);
+            $isPrivate = ($visibility === 'all' && ($record->visibility ?? 'public') === 'private');
+            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, true, false, $i, 'public', false, $isPrivate);
             $positionId++;
         }
         if ($records->isEmpty()) {
-            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0, $visibility);
+            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0, $visibility === 'all' ? 'public' : $visibility);
         }
         foreach (array_chunk($chunks, 500) as $batch) {
             DB::connection('pgsql_admin')->table('nodes')->insert($batch);

@@ -109,7 +109,9 @@ export function initializeUserProfilePage() {
     });
 
     // Book actions menu (replaces old .delete-book handler)
+    // Only handle on user pages — homepage has its own handler in homepage.js
     document.addEventListener('click', async (e) => {
+        if (!window.isUserPage) return;
         const target = e.target.closest('.book-actions');
         if (!target) return;
         e.preventDefault();
@@ -118,24 +120,28 @@ export function initializeUserProfilePage() {
         const bookId = target.getAttribute('data-book');
         if (!bookId) return;
 
-        // Prefetch the citation in parallel with menu render so the Share
-        // handler can copy synchronously inside its user-gesture window.
-        const citationPromise = (async () => {
-            const { prepareCitationShare } = await import('../utilities/bibtexProcessor.js');
-            return prepareCitationShare(bookId);
-        })().catch(err => { console.error('Citation prep failed:', err); return null; });
-
-        // Determine context: are we on a shelf tab?
-        const activeTab = document.querySelector('.arranger-button.active');
-        const isShelfTab = activeTab?.dataset.filter === 'shelf';
-        const deleteLabel = isShelfTab ? 'Remove from shelf' : 'Delete book';
-
         const menuItems = [
             { id: 'preview', label: 'Preview', icon: '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
             { id: 'add-to-shelf', label: 'Add to shelf', icon: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
-            { id: 'share', label: 'Share', icon: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' },
-            { id: 'delete', label: deleteLabel, icon: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' },
         ];
+
+        // Owner-only: prefetch citation for Share, and add Share + Delete items
+        let citationPromise = null;
+        if (window.isOwner) {
+            citationPromise = (async () => {
+                const { prepareCitationShare } = await import('../utilities/bibtexProcessor.js');
+                return prepareCitationShare(bookId);
+            })().catch(err => { console.error('Citation prep failed:', err); return null; });
+
+            const activeTab = document.querySelector('.arranger-button.active');
+            const isShelfTab = activeTab?.dataset.filter === 'shelf';
+            const deleteLabel = isShelfTab ? 'Remove from shelf' : 'Delete book';
+
+            menuItems.push(
+                { id: 'share', label: 'Share', icon: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' },
+                { id: 'delete', label: deleteLabel, icon: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' },
+            );
+        }
 
         const { showFloatingMenu } = await import('./floatingActionMenu.js');
         showFloatingMenu(target, menuItems, async (action) => {

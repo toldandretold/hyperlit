@@ -125,18 +125,29 @@ export async function initializeHomepageButtons() {
         }
       }
     } else {
-      const initialTargetId = activeButton.dataset.content;
+      let initialTargetId = activeButton.dataset.content;
+
+      // For owner on library tab, respect saved filter preference
+      if (window.isUserPage && window.isOwner && filter === 'library') {
+        const savedFilter = localStorage.getItem('user_library_filter') || 'all';
+        if (savedFilter === 'public' && window.userPageBook) {
+          initialTargetId = window.userPageBook;
+        } else if (savedFilter === 'private' && window.userPageBook) {
+          initialTargetId = window.userPageBook + 'Private';
+        }
+      }
+
       await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
 
-      // Show shelf header for initial Public/Private tab on user page
+      // Show shelf header for initial Library tab on user page
       if (window.isUserPage) {
-        if (filter === 'public' || filter === 'private') {
+        if (filter === 'library') {
           const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
-          const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
+          const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
-            shelfName: filter === 'public' ? 'Public' : 'Private',
-            visibility: filter,
+            shelfName: 'Library',
+            visibility: window.isOwner ? 'all' : 'public',
             currentSort: savedSort,
             isSystemShelf: true,
             isOwner: window.isOwner,
@@ -153,12 +164,12 @@ export async function initializeHomepageButtons() {
       console.log(`📄 No arranger buttons found, loading default content: ${mainContent.id}`);
       await transitionToBookContent(mainContent.id, false);
 
-      // Show shelf header for visitors so search works on public tab
+      // Show shelf header for visitors so search works on library tab
       if (window.isUserPage && !window.isOwner) {
         const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
         showShelfHeader({
           shelfId: null,
-          shelfName: 'Public',
+          shelfName: 'Library',
           visibility: 'public',
           currentSort: 'recent',
           isSystemShelf: true,
@@ -219,22 +230,32 @@ export async function initializeHomepageButtons() {
         return;
       }
 
-      const targetId = this.dataset.content;
+      let targetId = this.dataset.content;
+
+      // For owner on library tab, respect saved filter preference
+      if (window.isUserPage && window.isOwner && filter === 'library') {
+        const savedFilter = localStorage.getItem('user_library_filter') || 'all';
+        if (savedFilter === 'public' && window.userPageBook) {
+          targetId = window.userPageBook;
+        } else if (savedFilter === 'private' && window.userPageBook) {
+          targetId = window.userPageBook + 'Private';
+        }
+      }
 
       // Save active button to localStorage
-      localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, targetId);
+      localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, this.dataset.content);
 
       await transitionToBookContent(targetId, true);
 
       // Show/hide shelf header on user page
       if (window.isUserPage) {
-        if (filter === 'public' || filter === 'private') {
+        if (filter === 'library') {
           const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
-          const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
+          const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
-            shelfName: filter === 'public' ? 'Public' : 'Private',
-            visibility: filter,
+            shelfName: 'Library',
+            visibility: window.isOwner ? 'all' : 'public',
             currentSort: savedSort,
             isSystemShelf: true,
             isOwner: window.isOwner,

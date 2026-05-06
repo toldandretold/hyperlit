@@ -20,6 +20,7 @@ let currentUsername = null;
 const LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>';
 const GLOBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
 const COPY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+const DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 
 function getXsrf() {
     return decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
@@ -40,7 +41,8 @@ function getXsrf() {
 export function showShelfHeader(opts) {
     removeShelfHeader();
 
-    const { shelfId, shelfName, visibility, currentSort, isSystemShelf, isOwner, username, slug } = opts;
+    const { shelfId, shelfName, currentSort, isSystemShelf, isOwner, username, slug } = opts;
+    let visibility = opts.visibility;
 
     // Track ownership at module level for search/sort routing
     currentIsOwner = isOwner;
@@ -49,7 +51,8 @@ export function showShelfHeader(opts) {
     currentUsername = username;
 
     // Determine the API id param for shelf search
-    const searchShelfId = isSystemShelf ? visibility : shelfId;
+    // For owner on system shelf, use 'all' to search both public and private books
+    let searchShelfId = isSystemShelf ? (isOwner ? 'all' : visibility) : shelfId;
 
     const header = document.createElement('div');
     header.id = 'shelf-header';
@@ -61,42 +64,140 @@ export function showShelfHeader(opts) {
 
     const title = document.createElement('h2');
     title.className = 'shelf-header-title';
-    title.textContent = shelfName;
 
-    const canEdit = !isSystemShelf && isOwner;
-    title.contentEditable = canEdit ? 'true' : 'false';
+    // --- Library filter dropdown for owner on system shelf ---
+    if (isSystemShelf && isOwner) {
+        const filterLabels = { all: 'All', public: 'Public', private: 'Private' };
+        const savedFilter = localStorage.getItem('user_library_filter') || 'all';
+        let currentFilter = savedFilter;
 
-    if (canEdit) {
-        title.addEventListener('input', () => {
-            clearTimeout(titleDebounceTimer);
-            // Enforce max length
-            if (title.textContent.length > 100) {
-                title.textContent = title.textContent.slice(0, 100);
+        // Update visibility and searchShelfId from saved filter
+        visibility = currentFilter;
+        searchShelfId = currentFilter;
+
+        title.textContent = filterLabels[currentFilter];
+        title.classList.add('clickable');
+        title.innerHTML = `${filterLabels[currentFilter]}<span class="filter-indicator">\u25BE</span>`;
+
+        // Wrap title in a positioned container for the dropdown
+        const titleWrapper = document.createElement('span');
+        titleWrapper.style.position = 'relative';
+        titleWrapper.style.display = 'inline-block';
+
+        let dropdownOpen = false;
+        let dropdown = null;
+
+        function closeDropdown() {
+            if (dropdown) {
+                dropdown.remove();
+                dropdown = null;
             }
-            titleDebounceTimer = setTimeout(() => {
-                const newName = title.textContent.trim();
-                if (!newName || !shelfId) return;
-                // Update the tab label
-                const tabName = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"] .shelf-tab-name`);
-                if (tabName) tabName.textContent = newName;
-                // Save to API
-                fetch(`/api/shelves/${shelfId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
-                    credentials: 'include',
-                    body: JSON.stringify({ name: newName }),
+            dropdownOpen = false;
+        }
+
+        function openDropdown() {
+            if (dropdownOpen) { closeDropdown(); return; }
+
+            dropdown = document.createElement('div');
+            dropdown.className = 'library-filter-dropdown';
+
+            ['all', 'public', 'private'].forEach(filterValue => {
+                const btn = document.createElement('button');
+                btn.textContent = filterLabels[filterValue];
+                if (filterValue === currentFilter) btn.classList.add('active');
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    currentFilter = filterValue;
+
+                    // Update title text
+                    title.innerHTML = `${filterLabels[filterValue]}<span class="filter-indicator">\u25BE</span>`;
+
+                    // Update visibility and searchShelfId for sort/search
+                    visibility = filterValue;
+                    searchShelfId = filterValue;
+
+                    // Determine book to load
+                    let bookId;
+                    if (filterValue === 'all') {
+                        bookId = window.allBook;
+                    } else if (filterValue === 'public') {
+                        bookId = window.userPageBook;
+                    } else {
+                        bookId = window.userPageBook + 'Private';
+                    }
+
+                    // Save preference
+                    localStorage.setItem('user_library_filter', filterValue);
+
+                    closeDropdown();
+
+                    // Load the book
+                    if (bookId) {
+                        await transitionToBookContent(bookId, true);
+                    }
                 });
-            }, 1000);
+                dropdown.appendChild(btn);
+            });
+
+            titleWrapper.appendChild(dropdown);
+            dropdownOpen = true;
+
+            // Close on outside click
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!titleWrapper.contains(e.target)) {
+                        closeDropdown();
+                        document.removeEventListener('click', handler);
+                    }
+                });
+            }, 0);
+        }
+
+        title.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDropdown();
         });
-        // Prevent Enter from creating newlines
-        title.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                title.blur();
-            }
-        });
+
+        titleWrapper.appendChild(title);
+        titleRow.appendChild(titleWrapper);
+    } else {
+        title.textContent = shelfName;
+
+        const canEdit = !isSystemShelf && isOwner;
+        title.contentEditable = canEdit ? 'true' : 'false';
+
+        if (canEdit) {
+            title.addEventListener('input', () => {
+                clearTimeout(titleDebounceTimer);
+                // Enforce max length
+                if (title.textContent.length > 100) {
+                    title.textContent = title.textContent.slice(0, 100);
+                }
+                titleDebounceTimer = setTimeout(() => {
+                    const newName = title.textContent.trim();
+                    if (!newName || !shelfId) return;
+                    // Update the tab label
+                    const tabName = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"] .shelf-tab-name`);
+                    if (tabName) tabName.textContent = newName;
+                    // Save to API
+                    fetch(`/api/shelves/${shelfId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
+                        credentials: 'include',
+                        body: JSON.stringify({ name: newName }),
+                    });
+                }, 1000);
+            });
+            // Prevent Enter from creating newlines
+            title.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    title.blur();
+                }
+            });
+        }
+        titleRow.appendChild(title);
     }
-    titleRow.appendChild(title);
 
     // --- Visibility icon (custom shelves only) ---
     let currentVisibility = visibility;
@@ -154,6 +255,39 @@ export function showShelfHeader(opts) {
             });
         });
         titleRow.appendChild(shareBtn);
+
+        // --- Delete button (owner only, custom shelves) ---
+        if (isOwner) {
+            const deleteBtn = document.createElement('span');
+            deleteBtn.className = 'shelf-header-delete-btn';
+            deleteBtn.title = 'Delete shelf';
+            deleteBtn.innerHTML = DELETE_SVG;
+            deleteBtn.addEventListener('click', async () => {
+                const confirmed = await showDeleteConfirm(title.textContent.trim());
+                if (!confirmed) return;
+
+                try {
+                    await fetch(`/api/shelves/${shelfId}`, {
+                        method: 'DELETE',
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
+                        credentials: 'include',
+                    });
+
+                    // Invalidate shelf cache so picker refreshes
+                    const { invalidateShelfCache, closeTab } = await import('./shelfTabs.js');
+                    invalidateShelfCache();
+
+                    // Close the tab
+                    const tab = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"]`);
+                    if (tab) {
+                        closeTab(tab);
+                    }
+                } catch (err) {
+                    console.error('Failed to delete shelf:', err);
+                }
+            });
+            titleRow.appendChild(deleteBtn);
+        }
     }
 
     header.appendChild(titleRow);
@@ -287,7 +421,7 @@ export function showShelfHeader(opts) {
             }
         } else if (isSystemShelf) {
             // Owner on system shelf: render sorted via backend
-            localStorage.setItem('user_shelf_sort_' + visibility, newSort);
+            localStorage.setItem('user_shelf_sort_library', newSort);
             try {
                 const resp = await fetch('/api/user-home/render', {
                     method: 'POST',
@@ -567,6 +701,52 @@ function showVisibilityConfirm(shelfName, newVis) {
             <div class="shelf-visibility-confirm-actions">
                 <button class="confirm-cancel">Cancel</button>
                 <button class="confirm-action">${confirmLabel}</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        modal.querySelector('.confirm-cancel').addEventListener('click', () => {
+            overlay.remove();
+            resolve(false);
+        });
+
+        modal.querySelector('.confirm-action').addEventListener('click', () => {
+            overlay.remove();
+            resolve(true);
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(false);
+            }
+        });
+    });
+}
+
+/**
+ * Show a confirmation dialog before deleting a shelf.
+ * Returns a Promise that resolves to true (confirmed) or false (cancelled).
+ */
+function showDeleteConfirm(shelfName) {
+    const message = `Delete <strong>${escapeHtml(shelfName)}</strong>? This will remove the shelf and unlink all books from it. The books themselves will not be deleted.`;
+
+    return new Promise((resolve) => {
+        const existing = document.querySelector('.shelf-visibility-confirm');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'shelf-visibility-confirm';
+
+        const modal = document.createElement('div');
+        modal.className = 'shelf-visibility-confirm-modal';
+        modal.innerHTML = `
+            <p>${message}</p>
+            <div class="shelf-visibility-confirm-actions">
+                <button class="confirm-cancel">Cancel</button>
+                <button class="confirm-action confirm-danger">Delete</button>
             </div>
         `;
 

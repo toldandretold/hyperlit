@@ -186,7 +186,7 @@ async function activateTab(btn) {
 /**
  * Close a shelf tab. If it was active, activate the previous tab or Public.
  */
-function closeTab(btn) {
+export function closeTab(btn) {
     const wasActive = btn.classList.contains('active');
     const allTabs = Array.from(document.querySelectorAll('.shelf-tab'));
     const idx = allTabs.indexOf(btn);

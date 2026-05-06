@@ -119,6 +119,11 @@ function positionNearAnchor(menu, anchor) {
         top = window.scrollY + 8;
     }
 
+    // Prevent going off bottom of screen
+    if (top + menuHeight > window.scrollY + window.innerHeight - 8) {
+        top = window.scrollY + window.innerHeight - menuHeight - 8;
+    }
+
     menu.style.position = 'absolute';
     menu.style.top = top + 'px';
     menu.style.left = left + 'px';

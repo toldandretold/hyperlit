@@ -81,49 +81,51 @@ export async function showShelfPreview(bookId) {
         });
         actionBar.appendChild(shelfBtn);
 
-        // Delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'shelf-preview-action-btn';
-        deleteBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete';
-        deleteBtn.addEventListener('click', async () => {
-            if (!confirm(`Delete "${bookId}" and all associated data?`)) return;
+        // Delete button — only for owners on their own page
+        if (window.isOwner) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'shelf-preview-action-btn';
+            deleteBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete';
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete "${bookId}" and all associated data?`)) return;
 
-            hideShelfPreview();
+                hideShelfPreview();
 
-            // Remove card from DOM
-            const card = document.querySelector(`.book-actions[data-book="${bookId}"]`);
-            const libraryCard = card?.closest('.libraryCard');
-            if (libraryCard) libraryCard.remove();
+                // Remove card from DOM
+                const card = document.querySelector(`.book-actions[data-book="${bookId}"]`);
+                const libraryCard = card?.closest('.libraryCard');
+                if (libraryCard) libraryCard.remove();
 
-            // Delete from IndexedDB
-            const { deleteBookFromIndexedDB } = await import('../../indexedDB/index.js');
-            await deleteBookFromIndexedDB(bookId);
+                // Delete from IndexedDB
+                const { deleteBookFromIndexedDB } = await import('../../indexedDB/index.js');
+                await deleteBookFromIndexedDB(bookId);
 
-            // Server delete
-            try {
-                const { refreshAuth } = await import('../../utilities/auth.js');
-                await refreshAuth();
-                const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
-                const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    credentials: 'include',
-                });
-                if (!resp.ok) {
-                    const txt = await resp.text();
-                    throw new Error(`${resp.status} ${txt}`);
+                // Server delete
+                try {
+                    const { refreshAuth } = await import('../../utilities/auth.js');
+                    await refreshAuth();
+                    const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
+                    const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        credentials: 'include',
+                    });
+                    if (!resp.ok) {
+                        const txt = await resp.text();
+                        throw new Error(`${resp.status} ${txt}`);
+                    }
+                    console.log(`Book ${bookId} deletion request sent to server.`);
+                } catch (err) {
+                    console.error('Server delete failed:', err);
                 }
-                console.log(`Book ${bookId} deletion request sent to server.`);
-            } catch (err) {
-                console.error('Server delete failed:', err);
-            }
-        });
-        actionBar.appendChild(deleteBtn);
+            });
+            actionBar.appendChild(deleteBtn);
+        }
 
         previewContainer.appendChild(actionBar);
     } catch (err) {

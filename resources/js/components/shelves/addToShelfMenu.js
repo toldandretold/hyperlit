@@ -219,6 +219,16 @@ function positionMenu(menu, anchor) {
         left = window.innerWidth - menuWidth - 8;
     }
 
+    // If the menu overflows below the viewport, position it above the anchor instead
+    const menuHeight = menu.offsetHeight || 200;
+    if (rect.bottom + offset + menuHeight > window.innerHeight) {
+        top = rect.top + window.scrollY - menuHeight - offset;
+        // If that would go above the viewport, clamp to top
+        if (top < window.scrollY) {
+            top = window.scrollY + 8;
+        }
+    }
+
     menu.style.top = top + 'px';
     menu.style.left = left + 'px';
 }

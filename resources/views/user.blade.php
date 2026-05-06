@@ -73,16 +73,13 @@
       </div>
       @if($isOwner)
       <div class="arranger-buttons-container">
-        <!-- User page: public/private toggle - load different books based on visibility -->
-        <!-- Only visible to page owner -->
-        <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
-        <button class="arranger-button" data-content="{{ $book }}Private" data-filter="private">Private</button>
+        <button class="arranger-button active" data-content="{{ $allBook }}" data-filter="library">Library</button>
         <button class="arranger-button" data-content="{{ $book }}Account" data-filter="account">Account</button>
         <button type="button" id="shelf-picker-trigger" class="shelf-picker-trigger" title="Shelves">+</button>
       </div>
       @elseif(!empty($publicShelves))
       <div class="arranger-buttons-container">
-        <button class="arranger-button{{ empty($activeShelfId) ? ' active' : '' }}" data-content="{{ $book }}" data-filter="public">Public</button>
+        <button class="arranger-button{{ empty($activeShelfId) ? ' active' : '' }}" data-content="{{ $book }}" data-filter="library">Library</button>
         @foreach($publicShelves as $pShelf)
         <button class="arranger-button visitor-shelf-tab{{ ($activeShelfId ?? '') === $pShelf->id ? ' active' : '' }}" data-content="" data-filter="shelf" data-shelf-id="{{ $pShelf->id }}" data-shelf-slug="{{ $pShelf->slug }}" data-sort="{{ $pShelf->default_sort ?? 'recent' }}" data-shelf-name="{{ $pShelf->name }}">{{ $pShelf->name }}</button>
         @endforeach
@@ -213,6 +210,7 @@
     // Pass user page data to JavaScript
     window.isUserPage = true;
     window.userPageBook = "{{ $book }}";
+    window.allBook = "{{ $allBook ?? '' }}";
     window.username = "{{ $username }}";
     window.isOwner = {{ $isOwner ? 'true' : 'false' }};
     window.userShelves = @json($shelves ?? []);

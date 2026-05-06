@@ -633,7 +633,20 @@ class ShelfController extends Controller
         }
 
         // Resolve the book list for this shelf
-        if ($id === 'public' || $id === 'private') {
+        if ($id === 'all') {
+            $sanitized = str_replace(' ', '', $user->name);
+            $books = DB::table('library')
+                ->where('creator', $user->name)
+                ->whereIn('visibility', ['public', 'private'])
+                ->whereRaw("book NOT LIKE '%/%'")
+                ->where('book', '!=', $sanitized)
+                ->where('book', '!=', $sanitized . 'Private')
+                ->where('book', '!=', $sanitized . 'All')
+                ->where('book', '!=', $sanitized . 'Account')
+                ->where('book', 'NOT LIKE', 'shelf_%')
+                ->pluck('book')
+                ->toArray();
+        } elseif ($id === 'public' || $id === 'private') {
             $books = DB::table('library')
                 ->where('creator', $user->name)
                 ->where('visibility', $id)
