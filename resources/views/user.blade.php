@@ -207,6 +207,7 @@
     window.isUserPage = true;
     window.userPageBook = "{{ $book }}";
     window.username = "{{ $username }}";
+    window.isOwner = {{ $isOwner ? 'true' : 'false' }};
     window.userShelves = @json($shelves ?? []);
 </script>
 @vite([

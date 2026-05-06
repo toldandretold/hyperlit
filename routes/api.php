@@ -77,6 +77,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/billing/checkout', [StripeController::class, 'createCheckoutSession']);
     Route::post('/billing/tier', [UserHomeServerController::class, 'updateTier']);
 
+    // User home sorted rendering
+    Route::post('/user-home/render', [UserHomeServerController::class, 'renderSorted']);
+
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);
     Route::get('/citation-scanner/status/{scanId}', [CitationScannerController::class, 'status']);

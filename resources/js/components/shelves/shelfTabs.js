@@ -126,6 +126,19 @@ async function activateTab(btn) {
 
         const transitionToBookContent = await getTransitionFn();
         await transitionToBookContent(btn.dataset.content, true);
+
+        // Show shelf header for custom shelf
+        const { showShelfHeader } = await import('./shelfHeader.js');
+        const shelf = window.userShelves?.find(s => s.id == shelfId);
+        showShelfHeader({
+            shelfId,
+            shelfName: btn.querySelector('.shelf-tab-name')?.textContent || '',
+            visibility: shelf?.visibility || 'private',
+            currentSort: sort,
+            isSystemShelf: false,
+            isOwner: true,
+            username: window.username,
+        });
         return;
     }
 
@@ -149,6 +162,19 @@ async function activateTab(btn) {
 
         const transitionToBookContent = await getTransitionFn();
         await transitionToBookContent(data.bookId, true);
+
+        // Show shelf header for custom shelf
+        const { showShelfHeader } = await import('./shelfHeader.js');
+        const shelf = window.userShelves?.find(s => s.id == shelfId);
+        showShelfHeader({
+            shelfId,
+            shelfName: btn.querySelector('.shelf-tab-name')?.textContent || '',
+            visibility: shelf?.visibility || 'private',
+            currentSort: sort,
+            isSystemShelf: false,
+            isOwner: true,
+            username: window.username,
+        });
     } catch (err) {
         console.error('Failed to open shelf:', err);
     }

@@ -91,7 +91,25 @@ export async function initializeHomepageButtons() {
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
     const initialTargetId = activeButton.dataset.content;
-    transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+    await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+
+    // Show shelf header for initial Public/Private tab on user page
+    if (window.isUserPage) {
+      const filter = activeButton.dataset.filter;
+      if (filter === 'public' || filter === 'private') {
+        const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+        const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
+        showShelfHeader({
+          shelfId: null,
+          shelfName: filter === 'public' ? 'Public' : 'Private',
+          visibility: filter,
+          currentSort: savedSort,
+          isSystemShelf: true,
+          isOwner: window.isOwner,
+          username: window.username,
+        });
+      }
+    }
   } else {
     // No buttons exist (e.g., non-owner viewing user page)
     // Load the public content by default using the main-content div's ID
@@ -118,6 +136,27 @@ export async function initializeHomepageButtons() {
       localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, targetId);
 
       await transitionToBookContent(targetId, true);
+
+      // Show/hide shelf header on user page
+      if (window.isUserPage) {
+        const filter = this.dataset.filter;
+        if (filter === 'public' || filter === 'private') {
+          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const savedSort = localStorage.getItem('user_shelf_sort_' + filter) || 'recent';
+          showShelfHeader({
+            shelfId: null,
+            shelfName: filter === 'public' ? 'Public' : 'Private',
+            visibility: filter,
+            currentSort: savedSort,
+            isSystemShelf: true,
+            isOwner: window.isOwner,
+            username: window.username,
+          });
+        } else {
+          const { removeShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          removeShelfHeader();
+        }
+      }
     };
     button.addEventListener('click', handler);
     buttonHandlers.set(button, handler); // Store handler for cleanup

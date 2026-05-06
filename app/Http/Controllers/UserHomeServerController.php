@@ -217,6 +217,10 @@ class UserHomeServerController extends Controller
 
         DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
 
+        // Invalidate sorted variants when the default book is regenerated
+        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
+        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
+
         $chunks = [];
 
         $positionId = 100;
@@ -451,6 +455,96 @@ class UserHomeServerController extends Controller
     private function generateCitationHtml($record)
     {
         return (new LibraryCardGenerator())->generateCitationHtml($record);
+    }
+
+    /**
+     * Render a sorted view of the user's public or private library.
+     * Creates a synthetic book with nodes sorted by the requested criteria.
+     */
+    public function renderSorted(Request $request)
+    {
+        $request->validate([
+            'visibility' => 'required|string|in:public,private',
+            'sort' => 'required|string|in:recent,connected,lit,title,author',
+        ]);
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $username = $user->name;
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $visibility = $request->visibility;
+        $sort = $request->sort;
+
+        // "recent" = default book, no synthetic needed
+        if ($sort === 'recent') {
+            $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+            return response()->json(['bookId' => $bookName]);
+        }
+
+        $syntheticBookId = $sanitizedUsername . '_' . $visibility . '_' . $sort;
+
+        // Check cache
+        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()) {
+            return response()->json(['bookId' => $syntheticBookId]);
+        }
+
+        // Fetch + sort
+        $records = DB::connection('pgsql_admin')->table('library')
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights'])
+            ->where('creator', $username)
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
+            ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->where('visibility', $visibility)
+            ->get();
+
+        $records = match ($sort) {
+            'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
+            'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
+            'connected' => $records->sortByDesc('total_citations'),
+            'lit' => $records->sortByDesc(fn($r) => ($r->total_citations ?? 0) + ($r->total_highlights ?? 0)),
+            default => $records->sortByDesc('created_at'),
+        };
+        $records = $records->values();
+
+        // Create synthetic library entry + nodes
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+            ['book' => $syntheticBookId],
+            [
+                'title' => $username . "'s library ({$sort})",
+                'visibility' => $visibility,
+                'listed' => false,
+                'creator' => $username,
+                'creator_token' => null,
+                'raw_json' => json_encode(['type' => 'user_home_sorted', 'username' => $username, 'visibility' => $visibility, 'sort' => $sort]),
+                'timestamp' => round(microtime(true) * 1000),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
+
+        $generator = new LibraryCardGenerator();
+        $chunks = [];
+        $positionId = 100;
+        foreach ($records as $i => $record) {
+            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, true, false, $i);
+            $positionId++;
+        }
+        if ($records->isEmpty()) {
+            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0, $visibility);
+        }
+        foreach (array_chunk($chunks, 500) as $batch) {
+            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
+        }
+
+        return response()->json(['bookId' => $syntheticBookId]);
     }
 
 }

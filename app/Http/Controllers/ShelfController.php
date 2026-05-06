@@ -92,7 +92,7 @@ class ShelfController extends Controller
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'visibility' => 'nullable|string|in:private,public',
-            'default_sort' => 'nullable|string|in:recent,views,added,manual',
+            'default_sort' => 'nullable|string|in:recent,views,added,manual,connected,lit,title,author',
         ]);
 
         $user = Auth::user();
@@ -298,14 +298,18 @@ class ShelfController extends Controller
             ->select([
                 'library.book', 'library.title', 'library.author', 'library.year',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
-                'library.total_views', 'library.total_citations',
+                'library.total_views', 'library.total_citations', 'library.total_highlights',
                 'shelf_items.added_at', 'shelf_items.manual_position',
             ])
             ->get();
 
         // Apply sort
         $items = match ($sort) {
+            'title' => $items->sortBy(fn($i) => mb_strtolower($i->title ?? '')),
+            'author' => $items->sortBy(fn($i) => mb_strtolower($i->author ?? '')),
             'views' => $items->sortByDesc('total_views'),
+            'connected' => $items->sortByDesc('total_citations'),
+            'lit' => $items->sortByDesc(fn($i) => ($i->total_citations ?? 0) + ($i->total_highlights ?? 0)),
             'added' => $items->sortByDesc('added_at'),
             'manual' => $items->sortBy('manual_position'),
             default => $items->sortByDesc('created_at'), // 'recent'
