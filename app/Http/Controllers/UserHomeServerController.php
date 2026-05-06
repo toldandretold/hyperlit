@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\PgLibrary;
+use App\Services\LibraryCardGenerator;
 use Illuminate\Http\Request;
 
 class UserHomeServerController extends Controller
@@ -90,6 +91,16 @@ class UserHomeServerController extends Controller
         $pageTitle = "{$title} - Hyperlit";
         $pageDescription = $bio ? \Illuminate\Support\Str::limit(strip_tags($bio), 160) : "{$actualUsername}'s library on Hyperlit";
 
+        // Fetch user's shelves if owner
+        $shelves = [];
+        if ($isOwner) {
+            $shelves = DB::table('shelves')
+                ->where('creator', $actualUsername)
+                ->orderByDesc('updated_at')
+                ->get(['id', 'name', 'description', 'visibility', 'default_sort'])
+                ->toArray();
+        }
+
         // Return user.blade.php with user page data (use sanitized for book ID)
         return view('user', [
             'pageType' => 'user',
@@ -101,6 +112,7 @@ class UserHomeServerController extends Controller
             'pageTitle' => $pageTitle,
             'pageDescription' => $pageDescription,
             'ogType' => 'profile',
+            'shelves' => $shelves,
         ]);
     }
 
@@ -122,6 +134,7 @@ class UserHomeServerController extends Controller
             ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
             ->where('visibility', $visibility)
             ->pluck('book')
             ->sort()
@@ -174,6 +187,7 @@ class UserHomeServerController extends Controller
             ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('book', '!=', $sanitizedUsername . 'Account')
             ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
             ->where('visibility', $visibility)
             ->orderByDesc('created_at')
             ->get();
@@ -426,104 +440,17 @@ class UserHomeServerController extends Controller
 
     private function generateLibraryCardChunk($record, string $bookName, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0, string $visibility = 'public')
     {
-        $now = Carbon::now();
-
-        if ($isEmpty || !$record) {
-            $emptyMessage = $visibility === 'private'
-                ? '<em>no private hypertext</em>'
-                : '<em>no public hypertext</em>';
-
-            $emptyNodeId = $bookName . '_empty_card';
-            return [
-                'raw_json' => json_encode(['original_book' => null, 'position_type' => 'user_home', 'position_id' => 1, 'empty' => true]),
-                'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $emptyNodeId,
-                'footnotes' => null,
-                'content' => '<p class="libraryCard" id="1" data-node-id="' . $emptyNodeId . '">' . $emptyMessage . '</p>',
-                'plainText' => strip_tags($emptyMessage), 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
-            ];
-        }
-
-        // Generate unique node_id using pattern: {username}_{bookId}_card
-        $nodeId = $bookName . '_' . $record->book . '_card';
-        $content = $this->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId);
-
-        return [
-            'raw_json' => json_encode([
-                'original_book' => $record->book, 'position_type' => 'user_home', 'position_id' => $positionId,
-                'bibtex' => $record->bibtex, 'title' => $record->title ?? null, 'author' => $record->author ?? null, 'year' => $record->year ?? null,
-            ]),
-            'book' => $bookName,
-            'chunk_id' => ($index < 0) ? 0 : floor($index / 100),
-            'startLine' => $positionId,
-            'node_id' => $nodeId,
-            'footnotes' => null,
-            'content' => $content,
-            'plainText' => strip_tags($this->generateCitationHtml($record)),
-            'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
-        ];
+        return (new LibraryCardGenerator())->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, $isEmpty, $index, $visibility);
     }
 
     private function generateLibraryCardHtml($record, int $positionId, bool $isOwner, string $nodeId): string
     {
-        $citationHtml = $this->generateCitationHtml($record);
-        $content = '<p class="libraryCard" id="' . $positionId . '" data-node-id="' . $nodeId . '">' . $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>';
-
-        if ($isOwner) {
-            $content .= '<a href="#" class="delete-book" data-book="' . $record->book . '" title="Delete" aria-label="Delete">'
-                . '<svg id="svgDeleter" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-                . '<path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'
-                . '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'
-                . '</svg></a>';
-        }
-        $content .= '</p>';
-        return $content;
+        return (new LibraryCardGenerator())->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId);
     }
 
     private function generateCitationHtml($record)
     {
-        $hasTitle = !empty($record->title);
-        $hasAuthor = !empty($record->author);
-        $hasYear = !empty($record->year);
-        $hasPublisher = !empty($record->publisher);
-        $hasJournal = !empty($record->journal);
-
-        if (!$hasTitle && !$hasAuthor && !$hasYear && !$hasPublisher && !$hasJournal) {
-            return 'Anon., <em>Unreferenced</em>';
-        }
-
-        $html = '';
-        if ($hasAuthor) {
-            $html .= '<strong>' . e($record->author) . '</strong>. ';
-        } else {
-            $html .= '<strong>Anon.</strong> ';
-        }
-
-        if ($hasTitle) {
-            if ($hasJournal) {
-                $html .= '"' . e($record->title) . '." ';
-            } else {
-                $html .= '<em>' . e($record->title) . '</em>. ';
-            }
-        } else {
-            $html .= '<em>Unreferenced</em>. ';
-        }
-
-        if ($hasJournal) {
-            $html .= '<em>' . e($record->journal) . '</em>. ';
-        }
-        if ($hasPublisher && !$hasJournal) {
-            $html .= e($record->publisher) . '. ';
-        }
-        if ($hasYear) {
-            $html .= e($record->year);
-        }
-
-        $html = preg_replace('/\s+/', ' ', $html);
-        $html = trim($html);
-        if (!empty($html) && !in_array(substr($html, -1), ['.', '!', '?'])) {
-            $html .= '.';
-        }
-        return $html;
+        return (new LibraryCardGenerator())->generateCitationHtml($record);
     }
 
 }

@@ -5,7 +5,7 @@
  */
 
 import { normalizeContent } from '../utils/normalizer.js';
-import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements, visuallyStartsWith } from '../utils/dom-utils.js';
+import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements, visuallyStartsWith, unwrapNonContentContainers } from '../utils/dom-utils.js';
 import { generateReferenceKeys } from '../utils/reference-key-generator.js';
 import { processInTextCitations } from '../utils/citation-linker.js';
 import { processFootnoteReferences } from '../utils/footnote-linker.js';
@@ -236,6 +236,10 @@ export class BaseFormatProcessor {
    * @param {HTMLElement} dom - DOM element
    */
   cleanup(dom) {
+    // Unwrap non-content containers (div, article, section, etc.) — must run
+    // before removeEmptyBlocks so promoted children are evaluated correctly.
+    unwrapNonContentContainers(dom);
+
     // Remove empty block elements
     removeEmptyBlocks(dom);
 

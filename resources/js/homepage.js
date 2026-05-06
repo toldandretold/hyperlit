@@ -54,6 +54,43 @@ export async function initializeHomepage() {
   // Initialize homepage buttons - this will handle loading the initial content
   initializeHomepageButtons();
 
+  // Homepage book actions menu (Preview + Add to shelf only)
+  // User page has its own handler with more options (Share, Delete)
+  document.addEventListener('click', async (e) => {
+    if (window.isUserPage) return;
+    const target = e.target.closest('.book-actions');
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const bookId = target.getAttribute('data-book');
+    if (!bookId) return;
+
+    const menuItems = [
+      { id: 'preview', label: 'Preview', icon: '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
+      { id: 'add-to-shelf', label: 'Add to shelf', icon: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
+    ];
+
+    const { showFloatingMenu } = await import('./components/floatingActionMenu.js');
+    showFloatingMenu(target, menuItems, async (action) => {
+      switch (action) {
+        case 'preview':
+          const { showShelfPreview } = await import('./components/shelves/shelfPreview.js');
+          showShelfPreview(bookId);
+          break;
+        case 'add-to-shelf':
+          const { showAddToShelfMenu } = await import('./components/shelves/addToShelfMenu.js');
+          showAddToShelfMenu(target, bookId);
+          break;
+      }
+    });
+  });
+
+  // Initialize shelf tabs (if on user page with owner access)
+  if (window.isUserPage) {
+    import('./components/shelves/shelfTabs.js').then(mod => mod.initializeShelfTabs());
+  }
+
   // Note: Homepage search is initialized via ButtonRegistry in registerComponents.js
 
   updatePageLoadProgress(70, "Interface ready...");

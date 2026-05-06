@@ -28,6 +28,8 @@ return [
         'http://127.0.0.1:8000',
         'http://localhost:8000',
         'http://localhost:5173',
+        'http://hyperlit.test',
+        'https://hyperlit.test',
         'https://libzen.com',
         'https://libzen.io',
         'https://hyperlit.io',

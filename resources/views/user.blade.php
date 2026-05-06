@@ -78,6 +78,7 @@
         <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
         <button class="arranger-button" data-content="{{ $book }}Private" data-filter="private">Private</button>
         <button class="arranger-button" data-content="{{ $book }}Account" data-filter="account">Account</button>
+        <button type="button" id="shelf-picker-trigger" class="shelf-picker-trigger" title="Shelves">+</button>
       </div>
       @endif
     </div>
@@ -206,6 +207,7 @@
     window.isUserPage = true;
     window.userPageBook = "{{ $book }}";
     window.username = "{{ $username }}";
+    window.userShelves = @json($shelves ?? []);
 </script>
 @vite([
     'resources/js/readerDOMContentLoaded.js'

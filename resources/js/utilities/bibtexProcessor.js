@@ -171,3 +171,130 @@ export function buildBibtexEntry({ book, title, author }) {
   year   = {${new Date().getFullYear()}},
 }`;
 }
+
+/**
+ * Build a shareable citation for a book: human-readable HTML + plain text,
+ * with the Hyperlit URL embedded and appended.
+ * Tries IndexedDB first, falls back to server API, then builds a minimal entry.
+ * Has no clipboard side effects — call this ahead of time and pass the result
+ * to copyCitationToClipboard from inside a synchronous user-gesture handler.
+ * @param {string} bookId - The book identifier
+ * @returns {Promise<{html: string, text: string, url: string, bibtex: string}>}
+ */
+export async function prepareCitationShare(bookId) {
+  const url = window.location.origin + '/' + bookId;
+  let record = null;
+
+  try {
+    const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+    record = await getLibraryObjectFromIndexedDB(bookId);
+  } catch (_) {}
+
+  if (!record) {
+    try {
+      const { getLibraryRecordFromServer } = await import('../indexedDB/core/library.js');
+      record = await getLibraryRecordFromServer(bookId);
+    } catch (_) {}
+  }
+
+  let bibtex;
+  if (record?.bibtex) {
+    bibtex = record.bibtex.replace(/\}\s*$/, `  url    = {${url}}\n}`);
+  } else {
+    const author = record?.author || 'Unknown';
+    const title = record?.title || bookId;
+    const year = record?.year || '';
+    const type = record?.type || 'misc';
+
+    let fields = `  author = {${author}},\n  title  = {${title}},\n`;
+    if (year) fields += `  year   = {${year}},\n`;
+    if (record?.publisher) fields += `  publisher = {${record.publisher}},\n`;
+    if (record?.journal) fields += `  journal = {${record.journal}},\n`;
+    fields += `  url    = {${url}}\n`;
+
+    bibtex = `@${type}{${bookId},\n${fields}}`;
+  }
+
+  const citationHtml = await formatBibtexToCitation(bibtex);
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = citationHtml;
+  const citationText = (tmp.textContent || tmp.innerText || '').trim();
+
+  const html = `${citationHtml}<br><a href="${url}">${url}</a>`;
+  const text = `${citationText}\n${url}`;
+
+  return { html, text, url, bibtex };
+}
+
+/**
+ * Synchronously copy a prepared citation to the clipboard.
+ * Multi-method to survive the strictest user-activation rules (Safari):
+ *   1) contentEditable div + execCommand('copy') — preserves HTML formatting
+ *   2) navigator.clipboard.write([ClipboardItem(...)]) — fire-and-forget
+ *   3) textarea + execCommand('copy') — plain-text fallback
+ * Pattern mirrors resources/js/hypercites/copy.js.
+ * Must be called from inside a user gesture (no awaits between click and call).
+ * @param {{html: string, text: string}} payload
+ * @returns {boolean} true if at least one method reported success
+ */
+export function copyCitationToClipboard({ html, text }) {
+  const sel = window.getSelection();
+  const savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+  let success = false;
+
+  try {
+    const tempDiv = document.createElement('div');
+    tempDiv.contentEditable = 'true';
+    tempDiv.innerHTML = html;
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(tempDiv);
+    tempDiv.focus();
+
+    const range = document.createRange();
+    range.selectNodeContents(tempDiv);
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    success = document.execCommand('copy');
+    document.body.removeChild(tempDiv);
+  } catch (err) {
+    console.warn('contentEditable copy failed:', err);
+  }
+
+  if (!success && navigator.clipboard && window.ClipboardItem) {
+    try {
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+      });
+      navigator.clipboard.write([item]).catch(err => console.warn('Modern clipboard write failed:', err));
+      success = true;
+    } catch (err) {
+      console.warn('ClipboardItem setup failed:', err);
+    }
+  }
+
+  if (!success) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:absolute;left:-9999px;top:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      success = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (err) {
+      console.warn('Plain-text fallback failed:', err);
+    }
+  }
+
+  if (savedRange) {
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  }
+
+  return success;
+}

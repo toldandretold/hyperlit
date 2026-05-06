@@ -181,7 +181,14 @@ class HomePageServerController extends Controller
 
             // Generate content with citation
             $citationHtml = $this->generateCitationHtml($record);
-            $content = '<p class="libraryCard" id="' . $positionId . '">' . $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span>' . '</p>';
+            $content = '<p class="libraryCard" id="' . $positionId . '">'
+                    . $citationHtml
+                    . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>'
+                    . '<a href="#" class="book-actions" data-book="' . $record->book . '" title="Actions" aria-label="Actions">'
+                    . '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                    . '<circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>'
+                    . '</svg></a>'
+                    . '</p>';
 
             // Create the chunk entry
             $chunks[] = [

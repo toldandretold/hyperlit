@@ -171,6 +171,7 @@ export class LinkNavigationHandler {
     const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target') || link.querySelector(':scope > u.couple, :scope > u.poly');
     const isTocLink = link.closest('#toc-container');
     const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
+    const isBookActions = link.classList.contains('book-actions') || link.closest('.book-actions');
     const isStripeTopup = link.classList.contains('stripe-topup') || link.closest('.stripe-topup');
     const isTierSelector = link.classList.contains('tier-selector') || link.closest('.tier-selector');
     const isTierOption = link.classList.contains('tier-option') || link.closest('.tier-option');
@@ -181,7 +182,7 @@ export class LinkNavigationHandler {
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
 
-    if (isHypercite || isTocLink || isDeleteButton || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink) {
+    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink) {
       return true;
     }
 

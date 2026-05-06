@@ -140,7 +140,7 @@ export function destroyHomepageDisplayUnit() {
   // Note: Homepage search cleanup is handled by ButtonRegistry
 }
 
-async function transitionToBookContent(bookId, showLoader = true) {
+export async function transitionToBookContent(bookId, showLoader = true) {
   try {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);

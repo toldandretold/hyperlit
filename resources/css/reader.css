@@ -2,10 +2,12 @@
 
 @import url('./theme/variables.css');
 
-/* User-home delete icon sizing and alignment */
+/* User-home delete/actions icon sizing and alignment */
 .libraryCard { position: relative; padding-right: 28px; }
 .libraryCard .delete-book { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
 .libraryCard .delete-book svg { width: 16px; height: 16px; stroke: currentColor; display: inline-block; vertical-align: middle; }
+.libraryCard .book-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
+.libraryCard .book-actions svg { width: 16px; height: 16px; fill: currentColor; display: inline-block; vertical-align: middle; }
 
 /* Account page — balance header */
 .totalCredit {
@@ -260,11 +262,15 @@
 }
 
 
-/* Ensure delete icon inherits text color across browsers */
+/* Ensure delete/actions icon inherits text color across browsers */
 .libraryCard .delete-book,
 .libraryCard .delete-book:visited,
 .libraryCard .delete-book:hover,
-.libraryCard .delete-book:active {
+.libraryCard .delete-book:active,
+.libraryCard .book-actions,
+.libraryCard .book-actions:visited,
+.libraryCard .book-actions:hover,
+.libraryCard .book-actions:active {
   color: inherit;
 }
 

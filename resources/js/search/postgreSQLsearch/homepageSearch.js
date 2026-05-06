@@ -210,13 +210,24 @@ function renderResults(results, mode) {
     } else {
         // Full-text results: grouped by book with multiple matches
         results.forEach(bookResult => {
+            const isSubbook = bookResult.is_subbook;
+            const displayTitle = isSubbook
+                ? (bookResult.parent_title || 'Untitled')
+                : (bookResult.title || 'Untitled');
+            const displayAuthor = isSubbook
+                ? (bookResult.parent_author || 'Unknown')
+                : (bookResult.author || 'Unknown');
+            const kindLabel = isSubbook
+                ? (bookResult.subbook_kind === 'highlight' ? 'Highlight in ' : 'Footnote in ')
+                : '';
+
             html += `
-                <li class="search-result-book">
+                <li class="search-result-book${isSubbook ? ' search-result-subbook' : ''}">
                     <div class="search-result-book-header">
                         <a href="/${encodeURIComponent(bookResult.book)}" class="search-result-book-title">
-                            ${escapeHtml(bookResult.title || 'Untitled')}
+                            ${kindLabel ? `<span class="search-result-subbook-label">${kindLabel}</span>` : ''}${escapeHtml(displayTitle)}
                         </a>
-                        <span class="search-result-book-author">${escapeHtml(bookResult.author || 'Unknown')}</span>
+                        <span class="search-result-book-author">${escapeHtml(displayAuthor)}</span>
                     </div>
                     <ul class="search-result-matches">
             `;

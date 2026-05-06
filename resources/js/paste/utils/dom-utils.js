@@ -55,6 +55,18 @@ export function unwrap(el) {
   el.remove();
 }
 
+// Tags that are never allowed to remain as block containers in Hyperlit content.
+export const NON_CONTENT_BLOCK_TAGS = ['div', 'article', 'section', 'main', 'header', 'footer', 'aside', 'nav', 'button'];
+
+export function unwrapNonContentContainers(container, doc = document) {
+  const selector = NON_CONTENT_BLOCK_TAGS.join(', ');
+  const containers = Array.from(container.querySelectorAll(selector)).reverse();
+  containers.forEach(el => {
+    wrapLooseNodes(el, doc);
+    unwrap(el);
+  });
+}
+
 /**
  * Wrap loose inline nodes in a container element
  * Useful for ensuring all content is in proper block-level containers

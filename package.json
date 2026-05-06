@@ -2,8 +2,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "php": "php artisan serve --host=127.0.0.1 --port=8001",
-        "php:network": "php artisan serve --host=0.0.0.0 --port=8001",
+        "php": "php artisan serve --host=127.0.0.1 --port=8000",
+        "php:network": "php artisan serve --host=0.0.0.0 --port=8000",
         "queue": "php artisan queue:work --queue=citation-pipeline,default --timeout=7200",
         "dev": "vite",
         "mail": "lsof -i :1025 -P -n -sTCP:LISTEN >/dev/null 2>&1 && echo 'Mailpit already running, skipping' && tail -f /dev/null || mailpit",

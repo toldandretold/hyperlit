@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\SearchService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -213,7 +214,8 @@ class SearchController extends Controller
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
                 ) as headline
             ", [$tsQuery, $tsQuery])
-            ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery]);
+            ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery])
+            ->whereRaw("book NOT LIKE '%/%'"); // exclude footnote/highlight sub-books
 
         $this->applyVisibilityFilter($dbQuery, $request);
 
@@ -254,41 +256,52 @@ class SearchController extends Controller
                 ]);
             }
 
-            // Check if simple config has matches and if it's a high-frequency term
-            $simpleCheck = $this->checkNodeMatches($tsQuery, 'simple', 'search_vector_simple');
+            $userKey = Auth::id() ?? $request->cookie('anon_token') ?? 'guest';
+            $cacheKey = "search:nodes:{$userKey}:{$tsQuery}:{$limit}";
 
-            if ($simpleCheck['has_match']) {
-                $results = $this->executeNodeSearch($request, $tsQuery, 'simple', 'search_vector_simple', $limit, $simpleCheck['is_high_frequency']);
+            $payload = Cache::remember($cacheKey, 60, function () use ($request, $tsQuery, $limit) {
+                $results = $this->executeNodeSearch($request, $tsQuery, 'simple', 'search_vector_simple', $limit);
                 $searchType = 'exact';
-            } else {
-                // Fallback to english - check if high frequency
-                $englishCheck = $this->checkNodeMatches($tsQuery, 'english', 'search_vector');
-                $results = $this->executeNodeSearch($request, $tsQuery, 'english', 'search_vector', $limit, $englishCheck['is_high_frequency']);
-                $searchType = 'stemmed';
-            }
 
-            // Group results by book for better UX
-            $groupedResults = $results->groupBy('book')->map(function ($bookResults) {
-                $first = $bookResults->first();
+                if ($results->isEmpty()) {
+                    $results = $this->executeNodeSearch($request, $tsQuery, 'english', 'search_vector', $limit);
+                    $searchType = 'stemmed';
+                }
+
+                $groupedResults = $results->groupBy('book')->map(function ($bookResults) {
+                    $first = $bookResults->first();
+                    $isSubbook = (bool) $first->is_subbook;
+                    return [
+                        'book' => $first->book,
+                        'title' => $first->title,
+                        'author' => $first->author,
+                        'is_subbook' => $isSubbook,
+                        'subbook_kind' => $isSubbook ? $first->subbook_kind : null,
+                        'parent_book' => $isSubbook ? $first->parent_book : null,
+                        'parent_title' => $isSubbook ? $first->parent_title : null,
+                        'parent_author' => $isSubbook ? $first->parent_author : null,
+                        'matches' => $bookResults->map(fn($r) => [
+                            'node_id' => $r->node_id,
+                            'startLine' => $r->startLine,
+                            'headline' => $r->headline
+                        ])->values()
+                    ];
+                })->values();
+
                 return [
-                    'book' => $first->book,
-                    'title' => $first->title,
-                    'author' => $first->author,
-                    'matches' => $bookResults->map(fn($r) => [
-                        'node_id' => $r->node_id,
-                        'startLine' => $r->startLine,
-                        'headline' => $r->headline
-                    ])->values()
+                    'results' => $groupedResults,
+                    'search_type' => $searchType,
+                    'count' => $results->count(),
                 ];
-            })->values();
+            });
 
             return response()->json([
                 'success' => true,
-                'results' => $groupedResults,
+                'results' => $payload['results'],
                 'query' => $query,
                 'mode' => 'fulltext',
-                'search_type' => $searchType,
-                'count' => $results->count()
+                'search_type' => $payload['search_type'],
+                'count' => $payload['count'],
             ]);
 
         } catch (\Exception $e) {
@@ -306,44 +319,14 @@ class SearchController extends Controller
     private const ALLOWED_VECTOR_COLUMNS = ['search_vector', 'search_vector_simple'];
 
     /**
-     * Check if matches exist and estimate if it's a high-frequency term
-     * Returns: ['has_match' => bool, 'is_high_frequency' => bool]
+     * Execute node search with specified text search configuration.
+     *
+     * Uses a subquery to LIMIT first (by ts_rank_cd) so ts_headline only runs
+     * on the top N rows. Joins library twice: once for the matched book's own
+     * row (for visibility filtering) and once via split_part(book, '/', 1)
+     * to surface the foundation book's title/author for sub-book results.
      */
-    private function checkNodeMatches(string $tsQuery, string $config, string $vectorColumn): array
-    {
-        // 🔒 SECURITY: Validate config and vectorColumn against whitelist
-        if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
-            throw new \InvalidArgumentException("Invalid search config: {$config}");
-        }
-        if (!in_array($vectorColumn, self::ALLOWED_VECTOR_COLUMNS, true)) {
-            throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
-        }
-
-        // Check if we get more than 1000 results quickly (high-frequency threshold)
-        // Using LIMIT 1001 and counting - if we hit 1001, it's high frequency
-        $result = DB::selectOne("
-            SELECT COUNT(*) as cnt FROM (
-                SELECT 1 FROM nodes
-                WHERE {$vectorColumn} @@ to_tsquery('{$config}', ?)
-                AND book NOT IN ('most-recent', 'most-connected', 'most-lit')
-                LIMIT 1001
-            ) sub
-        ", [$tsQuery]);
-
-        $count = $result->cnt ?? 0;
-
-        return [
-            'has_match' => $count > 0,
-            'is_high_frequency' => $count > 1000
-        ];
-    }
-
-    /**
-     * Execute node search with specified text search configuration
-     * Uses subquery to LIMIT first, then compute ts_headline only for matched rows
-     * Skips ORDER BY for high-frequency terms to maintain speed
-     */
-    private function executeNodeSearch(Request $request, string $tsQuery, string $config, string $vectorColumn, int $limit, bool $isHighFrequency = false)
+    private function executeNodeSearch(Request $request, string $tsQuery, string $config, string $vectorColumn, int $limit)
     {
         // 🔒 SECURITY: Validate config and vectorColumn against whitelist
         if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
@@ -356,7 +339,6 @@ class SearchController extends Controller
         $user = Auth::user();
         $anonymousToken = $request->cookie('anon_token');
 
-        // Build visibility conditions
         $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
         $visibilityParams = [];
 
@@ -372,11 +354,10 @@ class SearchController extends Controller
 
         $visibilityClause = '(' . implode(' OR ', $visibilityConditions) . ')';
 
-        // Skip ORDER BY for high-frequency terms (>1000 matches) - too slow
-        $orderClause = $isHighFrequency ? '' : 'ORDER BY library.created_at DESC';
-
-        // Use subquery: first get top N rows, THEN compute headline
-        // This avoids computing ts_headline for all matching rows
+        // Two-stage: inner subquery uses no ORDER BY so the GIN scan can
+        // stream-and-stop at LIMIT (cheap regardless of match cardinality).
+        // Outer query computes ts_headline + ts_rank_cd on just those rows
+        // and orders them by relevance (cheap — only $limit rows).
         $sql = "
             SELECT
                 sub.book,
@@ -384,6 +365,11 @@ class SearchController extends Controller
                 sub.\"startLine\",
                 sub.title,
                 sub.author,
+                sub.is_subbook,
+                sub.subbook_kind,
+                sub.parent_book,
+                sub.parent_title,
+                sub.parent_author,
                 ts_headline('{$config}', sub.text_content,
                     to_tsquery('{$config}', ?),
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15'
@@ -395,22 +381,30 @@ class SearchController extends Controller
                     nodes.\"startLine\",
                     library.title,
                     library.author,
-                    library.created_at,
-                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content
+                    (nodes.book LIKE '%/%') AS is_subbook,
+                    CASE WHEN nodes.book ~ 'HL_[^/]*\$' THEN 'highlight' ELSE 'footnote' END AS subbook_kind,
+                    split_part(nodes.book, '/', 1) AS parent_book,
+                    parent_lib.title AS parent_title,
+                    parent_lib.author AS parent_author,
+                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
+                    nodes.{$vectorColumn} AS vec
                 FROM nodes
                 JOIN library ON nodes.book = library.book
+                LEFT JOIN library AS parent_lib
+                    ON nodes.book LIKE '%/%'
+                    AND parent_lib.book = split_part(nodes.book, '/', 1)
                 WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
                     AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
                     AND {$visibilityClause}
-                {$orderClause}
                 LIMIT ?
             ) sub
+            ORDER BY ts_rank_cd(sub.vec, to_tsquery('{$config}', ?)) DESC
         ";
 
         $params = array_merge(
             [$tsQuery, $tsQuery],
             $visibilityParams,
-            [$limit]
+            [$limit, $tsQuery]
         );
 
         return collect(DB::select($sql, $params));

@@ -29,6 +29,7 @@ use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibesController;
 use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\ScrapeController;
+use App\Http\Controllers\ShelfController;
 
 
 // Import progress polling — lightweight, no auth needed (bookId is unguessable)
@@ -102,6 +103,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vibes', [VibesController::class, 'store']);
     Route::patch('/vibes/{id}', [VibesController::class, 'update']);
     Route::delete('/vibes/{id}', [VibesController::class, 'destroy']);
+
+    // Shelves
+    Route::prefix('shelves')->group(function () {
+        Route::get('/', [ShelfController::class, 'index']);
+        Route::post('/', [ShelfController::class, 'store']);
+        Route::patch('/{id}', [ShelfController::class, 'update']);
+        Route::delete('/{id}', [ShelfController::class, 'destroy']);
+        Route::post('/{id}/items', [ShelfController::class, 'addItem']);
+        Route::delete('/{id}/items/{book}', [ShelfController::class, 'removeItem']);
+        Route::post('/{shelfKey}/pins', [ShelfController::class, 'pin']);
+        Route::delete('/{shelfKey}/pins/{book}', [ShelfController::class, 'unpin']);
+        Route::get('/{id}/render', [ShelfController::class, 'render']);
+    });
 });
 
 // Public vibes gallery — no auth, throttled

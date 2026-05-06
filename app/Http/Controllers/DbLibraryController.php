@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AnonymousSession;
 use App\Services\BookDeletionService;
+use App\Services\ShelfCacheInvalidator;
 
 class DbLibraryController extends Controller
 {
@@ -69,6 +70,11 @@ class DbLibraryController extends Controller
         }
 
         try {
+            // Remove from all shelves and invalidate their caches
+            $invalidator = new ShelfCacheInvalidator();
+            $invalidator->removeBookFromAllShelves($book);
+            $invalidator->flushUserHomeShelves($record->creator);
+
             $service = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
             $stats = $service->deleteBook($book);
 

@@ -28,6 +28,7 @@ export async function initializeReader(bookId, progressCallback) {
 
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
+    window.isUserPage = false;
 
     // Initialize reader functionality
     // Already imported statically
@@ -70,6 +71,7 @@ export async function initializeHome(bookId, progressCallback) {
 
     // Ensure data-page is set to "home"
     document.body.setAttribute('data-page', 'home');
+    window.isUserPage = false;
 
     // CRITICAL: Reinitialize container managers BEFORE universalPageInitializer
     await reinitializeContainerManagers();
@@ -112,6 +114,7 @@ export async function initializeUser(bookId, progressCallback) {
 
     // Ensure data-page is set to "user"
     document.body.setAttribute('data-page', 'user');
+    window.isUserPage = true;
 
     // Initialize user-specific features (e.g., profile editor)
     await initializeUserSpecificFeatures(bookId);
@@ -159,6 +162,14 @@ export async function initializeUserSpecificFeatures(bookId) {
       if (typeof initializeUserProfilePage === 'function') {
         initializeUserProfilePage();
       }
+    }
+
+    // Initialize shelf tabs for user page
+    try {
+      const { initializeShelfTabs } = await import('../../components/shelves/shelfTabs.js');
+      initializeShelfTabs();
+    } catch (e) {
+      console.warn('Shelf tabs initialization failed:', e);
     }
   } catch (error) {
     console.warn('User-specific feature initialization failed:', error);
