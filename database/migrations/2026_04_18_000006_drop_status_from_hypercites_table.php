@@ -8,9 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('hypercites', function (Blueprint $table) {
-            $table->dropColumn('status');
-        });
+        if (Schema::hasColumn('hypercites', 'status')) {
+            Schema::table('hypercites', function (Blueprint $table) {
+                $table->dropColumn('status');
+            });
+        }
     }
 
     public function down(): void
