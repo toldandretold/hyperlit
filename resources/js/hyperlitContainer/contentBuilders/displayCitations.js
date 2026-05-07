@@ -328,16 +328,19 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
  * @param {Object} contentType - The hypercite-citation content type
  * @param {IDBDatabase|null} db - Optional reused database connection
  */
-export async function resolveButtonStatus(contentType, db) {
+export async function resolveButtonStatus(contentType, db, container = null) {
   try {
     const { targetBook, targetHyperciteId } = contentType;
 
-    // Guard: return early if container closed
-    const container = document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
-    if (!container) return;
+    // Prefer caller-provided container so we don't depend on `.open` having been
+    // applied yet (stacked layers add it via double rAF after this runs).
+    // Fall back to the legacy query for callers that don't pass one.
+    const root = container
+      || document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
+    if (!root || !document.body.contains(root)) return;
 
     // Handle access check for private books
-    const accessCheckBtn = container.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
+    const accessCheckBtn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
     if (accessCheckBtn) {
       const { canUserEditBook } = await import('../../utilities/auth.js');
       const bookId = accessCheckBtn.getAttribute('data-book-id');
@@ -370,7 +373,7 @@ export async function resolveButtonStatus(contentType, db) {
     }
 
     // Handle ancestor check for dead books
-    const ancestorCheckEl = container.querySelector('[data-needs-ancestor-check="true"]');
+    const ancestorCheckEl = root.querySelector('[data-needs-ancestor-check="true"]');
     if (ancestorCheckEl) {
       const hyperciteBook = ancestorCheckEl.getAttribute('data-hypercite-book');
       if (hyperciteBook) {

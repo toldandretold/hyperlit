@@ -27,7 +27,7 @@ if (showNetwork) {
   console.log('\n🌐 Network Access Information:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`\n📱 Access from your phone using:\n`);
-  console.log(`   http://${ip}:8001\n`);
+  console.log(`   http://${ip}:8000\n`);
   console.log('Make sure your phone is on the same WiFi network\n');
 }
 

@@ -10,6 +10,21 @@ const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
 let resizeHandler = null;
 const buttonHandlers = new Map();
 
+// Mirror the active arranger-button into history.state so the browser
+// back/forward restores the correct tab per history entry.
+function persistActiveTabToHistory(filter, content, shelfId = null) {
+  try {
+    const currentState = history.state || {};
+    history.replaceState(
+      { ...currentState, userPageActiveTab: { filter, content, shelfId } },
+      '',
+      window.location.href
+    );
+  } catch (e) {
+    // replaceState can throw in rare cross-origin / sandboxed contexts; fail silently
+  }
+}
+
 // Fix header spacing dynamically based on actual header height
 export function fixHeaderSpacing() {
   const header = document.querySelector('.fixed-header');
@@ -75,10 +90,50 @@ export async function initializeHomepageButtons() {
   };
   window.addEventListener('resize', resizeHandler);
 
-  // Restore saved active button state from localStorage
+  // Restore saved active tab — prefer history.state (per-entry, survives back/forward)
+  // over localStorage (cross-session fallback).
+  const histActiveTab = history.state?.userPageActiveTab || null;
   const savedActiveButton = localStorage.getItem(STORAGE_KEY_ACTIVE_BUTTON);
-  if (savedActiveButton) {
-    // Update DOM to reflect saved state
+
+  // Owner shelf tabs are dynamic — created later by initializeShelfTabs. Only
+  // defer when (a) the current page actually hosts shelf tabs (the picker is
+  // user.blade-only — window.isOwner/isUserPage globals can leak across SPA
+  // body swaps, so we check DOM presence instead), (b) the saved active tab
+  // is a shelf, and (c) that shelf appears in the persisted open-shelves list.
+  // Skipping the default load when any of these fail would leave the page empty.
+  let deferToShelfTabs = false;
+  const hasShelfTabsUI = !!document.getElementById('shelf-picker-trigger');
+  if (hasShelfTabsUI && window.isOwner === true) {
+    const histShelfId = histActiveTab?.filter === 'shelf' ? histActiveTab.shelfId : null;
+    const lsShelfId = !histActiveTab ? localStorage.getItem('homepage_active_shelf_id') : null;
+    const targetShelfId = histShelfId || lsShelfId;
+    if (targetShelfId) {
+      try {
+        const openShelves = JSON.parse(localStorage.getItem('homepage_open_shelves') || '[]');
+        deferToShelfTabs = Array.isArray(openShelves) && openShelves.some(t => t.shelfId === targetShelfId);
+      } catch (e) {
+        // malformed JSON — fall through to default content load
+      }
+    }
+  }
+
+  if (deferToShelfTabs) {
+    document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
+  } else if (histActiveTab?.filter === 'shelf' && histActiveTab.shelfId) {
+    // Visitor shelf tab — server-rendered, match by data-shelf-id
+    document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
+    const visitorShelf = document.querySelector(`.arranger-button[data-filter="shelf"][data-shelf-id="${histActiveTab.shelfId}"]`);
+    if (visitorShelf) visitorShelf.classList.add('active');
+  } else if (histActiveTab?.filter && histActiveTab.filter !== 'shelf') {
+    // library / account — match by filter (more robust than data-content)
+    document.querySelectorAll('.arranger-button').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.filter === histActiveTab.filter) {
+        btn.classList.add('active');
+      }
+    });
+  } else if (savedActiveButton) {
+    // Legacy localStorage path: match by data-content
     document.querySelectorAll('.arranger-button').forEach(btn => {
       btn.classList.remove('active');
       if (btn.dataset.content === savedActiveButton) {
@@ -87,8 +142,9 @@ export async function initializeHomepageButtons() {
     });
   }
 
-  // Initialize the default active content on page load
-  const activeButton = document.querySelector('.arranger-button.active');
+  // Initialize the default active content on page load — but skip the content
+  // load when deferring to initializeShelfTabs, which will activate the right shelf.
+  const activeButton = deferToShelfTabs ? null : document.querySelector('.arranger-button.active');
   if (activeButton) {
     const filter = activeButton.dataset.filter;
 
@@ -156,7 +212,7 @@ export async function initializeHomepageButtons() {
         }
       }
     }
-  } else {
+  } else if (!deferToShelfTabs) {
     // No buttons exist (e.g., non-owner viewing user page with no public shelves)
     // Load the public content by default using the main-content div's ID
     const mainContent = document.querySelector('.main-content');
@@ -226,6 +282,7 @@ export async function initializeHomepageButtons() {
             username: window.username,
             slug: shelfSlug,
           });
+          persistActiveTabToHistory('shelf', bookId, shelfId);
         }
         return;
       }
@@ -242,8 +299,9 @@ export async function initializeHomepageButtons() {
         }
       }
 
-      // Save active button to localStorage
+      // Save active button to localStorage and history.state (per-entry restore)
       localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, this.dataset.content);
+      persistActiveTabToHistory(filter, this.dataset.content, this.dataset.shelfId || null);
 
       await transitionToBookContent(targetId, true);
 

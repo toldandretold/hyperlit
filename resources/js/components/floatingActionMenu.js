@@ -5,6 +5,7 @@
  */
 
 let activeMenu = null;
+let activeBackdrop = null;
 let dismissHandler = null;
 
 /**
@@ -17,6 +18,13 @@ export function showFloatingMenu(anchorEl, items, onSelect) {
     hideFloatingMenu();
 
     const isMobile = window.innerWidth < 768;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'floating-action-menu-backdrop';
+    backdrop.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideFloatingMenu();
+    });
 
     const menu = document.createElement('div');
     menu.className = 'floating-action-menu' + (isMobile ? ' floating-action-menu--mobile' : '');
@@ -48,26 +56,22 @@ export function showFloatingMenu(anchorEl, items, onSelect) {
         menu.appendChild(menuItem);
     }
 
-    if (isMobile) {
-        // Bottom sheet: fixed at bottom
-        document.body.appendChild(menu);
-    } else {
-        // Position near anchor
-        document.body.appendChild(menu);
+    document.body.appendChild(backdrop);
+    document.body.appendChild(menu);
+    if (!isMobile) {
         positionNearAnchor(menu, anchorEl);
     }
 
     activeMenu = menu;
+    activeBackdrop = backdrop;
 
-    // Dismiss on outside click, ESC, or scroll
+    // ESC + scroll still close (the backdrop handles outside clicks).
     dismissHandler = (e) => {
         if (e.type === 'keydown' && e.key !== 'Escape') return;
-        if (e.type === 'click' && menu.contains(e.target)) return;
         hideFloatingMenu();
     };
 
     setTimeout(() => {
-        document.addEventListener('click', dismissHandler);
         document.addEventListener('keydown', dismissHandler);
         document.addEventListener('scroll', dismissHandler, { once: true, passive: true });
     }, 0);
@@ -81,8 +85,11 @@ export function hideFloatingMenu() {
         activeMenu.remove();
         activeMenu = null;
     }
+    if (activeBackdrop) {
+        activeBackdrop.remove();
+        activeBackdrop = null;
+    }
     if (dismissHandler) {
-        document.removeEventListener('click', dismissHandler);
         document.removeEventListener('keydown', dismissHandler);
         document.removeEventListener('scroll', dismissHandler);
         dismissHandler = null;

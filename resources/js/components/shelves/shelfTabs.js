@@ -14,6 +14,32 @@ const ACTIVE_SHELF_KEY = 'homepage_active_shelf_id';
 let shelvesCache = null;
 let pickerVisible = false;
 
+// Mirror the active shelf into history.state so back/forward restores
+// the correct tab per history entry.
+function persistActiveShelfToHistory(shelfId, content) {
+    try {
+        const currentState = history.state || {};
+        history.replaceState(
+            { ...currentState, userPageActiveTab: { filter: 'shelf', content, shelfId } },
+            '',
+            window.location.href
+        );
+    } catch (e) {
+        // ignore
+    }
+}
+
+function clearActiveTabFromHistory() {
+    try {
+        const currentState = history.state || {};
+        if (!currentState.userPageActiveTab) return;
+        const { userPageActiveTab, ...rest } = currentState;
+        history.replaceState(rest, '', window.location.href);
+    } catch (e) {
+        // ignore
+    }
+}
+
 /**
  * Initialize the shelf tab system.
  * Call once on page load after homepage buttons are initialized.
@@ -31,7 +57,11 @@ export function initializeShelfTabs() {
         try {
             const tabs = JSON.parse(saved);
             if (Array.isArray(tabs)) {
-                const activeShelfId = localStorage.getItem(ACTIVE_SHELF_KEY);
+                // Prefer history.state (per-entry restore) over localStorage cross-session value
+                const histShelfId = history.state?.userPageActiveTab?.filter === 'shelf'
+                    ? history.state.userPageActiveTab.shelfId
+                    : null;
+                const activeShelfId = histShelfId || localStorage.getItem(ACTIVE_SHELF_KEY);
                 for (const tab of tabs) {
                     createTabButton(tab.shelfId, tab.shelfName, tab.sort, false);
                 }
@@ -124,6 +154,7 @@ async function activateTab(btn) {
 
         localStorage.setItem(ACTIVE_SHELF_KEY, shelfId);
         localStorage.setItem('homepage_active_button', btn.dataset.content);
+        persistActiveShelfToHistory(shelfId, btn.dataset.content);
 
         const transitionToBookContent = await getTransitionFn();
         await transitionToBookContent(btn.dataset.content, true);
@@ -161,6 +192,7 @@ async function activateTab(btn) {
 
         localStorage.setItem(ACTIVE_SHELF_KEY, shelfId);
         localStorage.setItem('homepage_active_button', data.bookId);
+        persistActiveShelfToHistory(shelfId, data.bookId);
 
         const transitionToBookContent = await getTransitionFn();
         await transitionToBookContent(data.bookId, true);
@@ -203,6 +235,7 @@ export function closeTab(btn) {
         } else {
             // No shelf tabs left — activate Public
             localStorage.removeItem(ACTIVE_SHELF_KEY);
+            clearActiveTabFromHistory();
             const publicBtn = document.querySelector('.arranger-button[data-filter="public"]');
             if (publicBtn) {
                 publicBtn.click();
@@ -376,6 +409,29 @@ function showNewShelfForm(dropdown) {
 }
 
 /**
+ * Destroy the shelf tab system — clean up listeners and DOM elements.
+ */
+export function destroyShelfTabs() {
+    const picker = document.getElementById('shelf-picker-trigger');
+    if (picker) {
+        picker.removeEventListener('click', toggleShelfPicker);
+    }
+
+    // Remove any open dropdown
+    const dropdown = document.getElementById('shelf-picker-dropdown');
+    if (dropdown) {
+        dropdown.remove();
+    }
+
+    // Remove dynamically created shelf tab buttons
+    document.querySelectorAll('.shelf-tab').forEach(btn => btn.remove());
+
+    // Reset module state
+    shelvesCache = null;
+    pickerVisible = false;
+}
+
+/**
  * Invalidate the shelf cache (call after mutations).
  */
 export function invalidateShelfCache() {
@@ -388,5 +444,6 @@ export function invalidateShelfCache() {
 export function clearActiveShelf() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(ACTIVE_SHELF_KEY);
+    clearActiveTabFromHistory();
     document.querySelectorAll('.shelf-tab').forEach(btn => btn.remove());
 }

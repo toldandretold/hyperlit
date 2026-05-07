@@ -36,3 +36,9 @@ public/fonts/inter/info/
 # Log files
 storage/logs/*.log
 !storage/logs/.gitignore
+
+# Playwright E2E
+tests/e2e/.env.e2e
+tests/e2e/fixtures/.auth-state.json
+tests/e2e/report/
+tests/e2e/test-results/

@@ -6,7 +6,6 @@
 import { cleanupReaderView } from '../../viewManager.js';
 import { resetEditModeState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
-import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
 import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../components/logoNavToggle.js';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index.js';
@@ -60,10 +59,6 @@ export async function cleanupHome() {
     const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
     if (typeof destroyNewBookContainer === 'function') {
       destroyNewBookContainer();
-    }
-
-    if (typeof destroyHomepageDisplayUnit === 'function') {
-      destroyHomepageDisplayUnit();
     }
 
     // Close any open containers

@@ -9,7 +9,7 @@ import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
 import { setCurrentBook, setCurrentBookSlug } from '../../app.js';
 import { updateDatabaseBookId } from '../../indexedDB/index.js';
-import { resetCurrentLazyLoader, loadHyperText, currentLazyLoader } from '../../initializePage.js';
+import { resetCurrentLazyLoader, currentLazyLoader } from '../../initializePage.js';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
 // import { togglePerimeterButtons } from '../../readerDOMContentLoaded.js';
 import { destroyLogoNav, initializeLogoNav } from '../../components/logoNavToggle.js';
@@ -73,6 +73,17 @@ export async function replaceBodyContent(htmlString) {
     document.body.setAttribute(name, value);
   }
 
+  // Execute inline scripts that were in the fetched HTML
+  // (innerHTML assignment does not execute script tags).
+  // Wrap each in an IIFE so top-level `const`/`let` don't collide with the
+  // previous evaluation's bindings in the global lexical environment when
+  // the same script is re-injected during SPA navigation.
+  document.body.querySelectorAll('script:not([src])').forEach(oldScript => {
+    const newScript = document.createElement('script');
+    newScript.textContent = `(function(){\n${oldScript.textContent}\n})();`;
+    oldScript.replaceWith(newScript);
+  });
+
   // Update document title
   document.title = newDoc.title;
 
@@ -133,9 +144,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
     // Reset the current lazy loader so a fresh one gets created
     // Already imported statically
     resetCurrentLazyLoader();
-
-    // Use the same loading pipeline as regular page transitions
-    await loadHyperText(bookId);
 
     // 🔧 CRITICAL: Reinitialize homepage display unit after content load
     // Already imported statically

@@ -3228,6 +3228,12 @@ mark.search-highlight.current {
 }
 
 /* ===== FLOATING ACTION MENU ===== */
+.floating-action-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+}
 .floating-action-menu {
   display: flex;
   flex-direction: column;
@@ -3312,6 +3318,12 @@ mark.search-highlight.current {
 }
 
 /* ===== ADD TO SHELF MENU ===== */
+.add-to-shelf-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: transparent;
+}
 .add-to-shelf-menu {
   min-width: 180px;
 }
@@ -3430,12 +3442,23 @@ mark.search-highlight.current {
   color: currentColor;
   transition: opacity 0.15s;
 }
-.shelf-tab:hover .shelf-tab-close,
 .shelf-tab.active .shelf-tab-close {
   opacity: 0.6;
 }
-.shelf-tab-close:hover {
-  opacity: 1 !important;
+@media (hover: hover) {
+  .shelf-tab:hover .shelf-tab-close {
+    opacity: 0.6;
+  }
+  .shelf-tab-close:hover {
+    opacity: 1 !important;
+  }
+}
+@media (hover: none) {
+  /* Touch devices: descendant hover causes iOS to require two taps to activate
+     the parent button. Always show the close × so no hover toggle is needed. */
+  .shelf-tab .shelf-tab-close {
+    opacity: 0.6;
+  }
 }
 
 /* ===== SHELF HEADER ===== */

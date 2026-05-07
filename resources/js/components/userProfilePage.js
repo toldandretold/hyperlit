@@ -2,6 +2,37 @@
 
 let userProfilePageInitialized = false;
 
+// Stored handler references for cleanup
+let tierSelectorToggleHandler = null;
+let tierOptionSelectionHandler = null;
+let tierDropdownOutsideClickHandler = null;
+let stripeTopUpHandler = null;
+let userBookActionsHandler = null;
+
+export function destroyUserProfilePage() {
+    if (tierSelectorToggleHandler) {
+        document.removeEventListener('click', tierSelectorToggleHandler);
+        tierSelectorToggleHandler = null;
+    }
+    if (tierOptionSelectionHandler) {
+        document.removeEventListener('click', tierOptionSelectionHandler);
+        tierOptionSelectionHandler = null;
+    }
+    if (tierDropdownOutsideClickHandler) {
+        document.removeEventListener('click', tierDropdownOutsideClickHandler);
+        tierDropdownOutsideClickHandler = null;
+    }
+    if (stripeTopUpHandler) {
+        document.removeEventListener('click', stripeTopUpHandler);
+        stripeTopUpHandler = null;
+    }
+    if (userBookActionsHandler) {
+        document.removeEventListener('click', userBookActionsHandler);
+        userBookActionsHandler = null;
+    }
+    userProfilePageInitialized = false;
+}
+
 export function initializeUserProfilePage() {
     if (userProfilePageInitialized) {
         console.log("User profile page already initialized, skipping");
@@ -13,17 +44,18 @@ export function initializeUserProfilePage() {
     userProfilePageInitialized = true;
 
     // Tier selector toggle (delegated — survives DOMPurify sanitization)
-    document.addEventListener('click', (e) => {
+    tierSelectorToggleHandler = (e) => {
         const selector = e.target.closest('.tier-selector');
         if (!selector) return;
         e.preventDefault();
         e.stopPropagation();
         const dropdown = selector.nextElementSibling; // .tier-dropdown
         if (dropdown) dropdown.classList.toggle('hidden');
-    });
+    };
+    document.addEventListener('click', tierSelectorToggleHandler);
 
     // Tier option selection
-    document.addEventListener('click', async (e) => {
+    tierOptionSelectionHandler = async (e) => {
         const option = e.target.closest('.tier-option');
         if (!option) return;
         e.preventDefault();
@@ -76,17 +108,19 @@ export function initializeUserProfilePage() {
         } catch (err) {
             console.error('Tier update failed:', err);
         }
-    });
+    };
+    document.addEventListener('click', tierOptionSelectionHandler);
 
     // Close tier dropdown on outside click
-    document.addEventListener('click', (e) => {
+    tierDropdownOutsideClickHandler = (e) => {
         if (!e.target.closest('.tier-dropdown') && !e.target.closest('.tier-selector')) {
             document.querySelectorAll('.tier-dropdown').forEach(d => d.classList.add('hidden'));
         }
-    });
+    };
+    document.addEventListener('click', tierDropdownOutsideClickHandler);
 
     // Stripe top-up button handler (delegated — survives DOMPurify sanitization)
-    document.addEventListener('click', async (e) => {
+    stripeTopUpHandler = async (e) => {
         const topup = e.target.closest('.stripe-topup');
         if (!topup) return;
         e.preventDefault();
@@ -106,11 +140,12 @@ export function initializeUserProfilePage() {
         } catch (err) {
             console.error('Stripe checkout failed:', err);
         }
-    });
+    };
+    document.addEventListener('click', stripeTopUpHandler);
 
     // Book actions menu (replaces old .delete-book handler)
     // Only handle on user pages — homepage has its own handler in homepage.js
-    document.addEventListener('click', async (e) => {
+    userBookActionsHandler = async (e) => {
         if (!window.isUserPage) return;
         const target = e.target.closest('.book-actions');
         if (!target) return;
@@ -172,7 +207,8 @@ export function initializeUserProfilePage() {
                     break;
             }
         });
-    });
+    };
+    document.addEventListener('click', userBookActionsHandler);
 }
 
 /**

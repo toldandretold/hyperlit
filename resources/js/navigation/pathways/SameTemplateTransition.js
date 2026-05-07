@@ -101,49 +101,23 @@ export class SameTemplateTransition {
 
 
   /**
-   * Handle user→user transition (content swap only)
-   * Same pattern as home→home
+   * Handle user→user transition (full body replacement)
+   * User→User requires full body replacement because ownership,
+   * arranger buttons, shelves, and globals all change between users
    */
   static async handleUserToUser(options = {}) {
-    const { toBook, hash = '', isPopstate = false, progressCallback } = options;
+    const { targetUrl, hash = '', isPopstate = false, progressCallback } = options;
 
-    console.log('👤 SameTemplateTransition: User→User content swap', { toBook });
+    console.log('👤 SameTemplateTransition: User→User delegating to DifferentTemplateTransition');
 
-    try {
-      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('content-swap');
-
-      progress(10, `Loading ${toBook}...`);
-
-      // Use the shared swapHomeContent utility (works for both home and user pages)
-      await swapHomeContent(toBook, true);
-
-      // Update URL with state preservation for back button (using shared utility)
-      const newUrl = `/${toBook}${hash}`;
-      const { LinkNavigationHandler } = await import('../LinkNavigationHandler.js');
-      const currentBook = LinkNavigationHandler.getBookIdFromUrl(window.location.pathname);
-      updateUrl(newUrl, {
-        fromBook: currentBook,
-        toBook: toBook,
-        fromStructure: 'user',
-        toStructure: 'user',
-        transitionType: 'content-swap',
-        isPopstate
-      });
-
-      // Handle hash navigation if present (using shared utility)
-      if (hash) {
-        progress(90, 'Navigating to target...');
-        await navigateToHash(hash, 'user');
-      }
-
-      progress(100, 'Complete!');
-
-      console.log('✅ SameTemplateTransition: User→User transition complete');
-      // NOTE: NavigationManager will hide the overlay when this returns
-
-    } catch (error) {
-      console.error('❌ SameTemplateTransition: User→User transition failed:', error);
-      throw error;
-    }
+    const { DifferentTemplateTransition } = await import('./DifferentTemplateTransition.js');
+    return await DifferentTemplateTransition.execute({
+      fromStructure: 'user',
+      toStructure: 'user',
+      targetUrl,
+      hash,
+      isPopstate,
+      progressCallback,
+    });
   }
 }

@@ -858,7 +858,8 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // This avoids the "open empty then expand" jank since content may be a
     // skeleton until the async sub-book loads.
     prepareHyperlitContainer(unifiedContent, isBackNavigation);
-    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db, options);
+    const baseContainerEl = document.getElementById('hyperlit-container');
+    await handlePostOpenActions(contentTypes, newHighlightIds, focusPreserver, isNewFootnote, hasAnyEditPermission, false, db, { ...options, containerEl: baseContainerEl });
     animateHyperlitContainerOpen();
 
     // Release the guard after container open is complete
@@ -1432,8 +1433,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
   // Defer hypercite-citation button resolution (access check, ancestor check, node pre-cache)
   const hcCitationType = contentTypes.find(ct => ct.type === 'hypercite-citation');
   if (hcCitationType) {
+    // Pass the container element so resolveButtonStatus can target it directly,
+    // even before `.open` has been applied (stacked layers defer that to rAF).
+    const containerEl = options.containerEl || null;
     import('./contentBuilders/displayCitations.js').then(({ resolveButtonStatus }) => {
-      resolveButtonStatus(hcCitationType, db);
+      resolveButtonStatus(hcCitationType, db, containerEl);
     });
   }
 
@@ -1685,7 +1689,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
 
   if (isFootnoteStacked) {
     // Load content while container is off-screen
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, options);
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, { ...options, containerEl: newContainer });
 
     // Now animate the container in at full height
     requestAnimationFrame(() => {
@@ -1701,7 +1705,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
       });
     });
 
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, options);
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, isNewFootnote, hasAnyEditPermission, false, null, { ...options, containerEl: newContainer });
   }
 
   // Set contentMetadata on the new stacked layer for serialization

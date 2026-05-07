@@ -15,6 +15,47 @@ async function doInvalidateShelfCache() {
 }
 
 /**
+ * Build the menu shell (root + backdrop), apply mobile-vs-desktop styling,
+ * and wire up dismiss handlers. Returns the empty menu and a close() function
+ * the caller uses to tear everything down (including the backdrop).
+ */
+function buildMenuShell(anchorEl) {
+    const isMobile = window.innerWidth < 768;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'add-to-shelf-backdrop';
+
+    const menu = document.createElement('div');
+    menu.className = 'floating-action-menu add-to-shelf-menu' + (isMobile ? ' floating-action-menu--mobile' : '');
+    menu.style.zIndex = '10001';
+    if (!isMobile) {
+        menu.style.position = 'absolute';
+    }
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(menu);
+    if (!isMobile) positionMenu(menu, anchorEl);
+
+    let closed = false;
+    const close = () => {
+        if (closed) return;
+        closed = true;
+        backdrop.remove();
+        menu.remove();
+        document.removeEventListener('click', dismiss);
+    };
+
+    backdrop.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+
+    const dismiss = (e) => {
+        if (!menu.contains(e.target)) close();
+    };
+    setTimeout(() => document.addEventListener('click', dismiss), 0);
+
+    return { menu, close };
+}
+
+/**
  * Show the "Add to shelf" submenu for a given book.
  * @param {HTMLElement} anchorEl - Position anchor
  * @param {string} bookId - The book to add/remove
@@ -26,10 +67,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
     // Auth gate — prompt login/register for unauthenticated users
     const loggedIn = await isLoggedIn();
     if (!loggedIn) {
-        const menu = document.createElement('div');
-        menu.className = 'floating-action-menu add-to-shelf-menu';
-        menu.style.position = 'absolute';
-        menu.style.zIndex = '10001';
+        const { menu, close } = buildMenuShell(anchorEl);
 
         const msg = document.createElement('div');
         msg.className = 'floating-action-menu-item';
@@ -41,7 +79,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         loginBtn.className = 'floating-action-menu-item';
         loginBtn.textContent = 'Log in';
         loginBtn.addEventListener('click', async () => {
-            menu.remove();
+            close();
             const { initializeUserContainer } = await import('../userContainer.js');
             const mgr = initializeUserContainer();
             if (mgr) mgr.showLoginForm();
@@ -51,7 +89,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         registerBtn.className = 'floating-action-menu-item';
         registerBtn.textContent = 'Register';
         registerBtn.addEventListener('click', async () => {
-            menu.remove();
+            close();
             const { initializeUserContainer } = await import('../userContainer.js');
             const mgr = initializeUserContainer();
             if (mgr) mgr.showRegisterForm();
@@ -60,26 +98,12 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         menu.appendChild(msg);
         menu.appendChild(loginBtn);
         menu.appendChild(registerBtn);
-        document.body.appendChild(menu);
-        positionMenu(menu, anchorEl);
-
-        // Dismiss on outside click
-        const dismiss = (e) => {
-            if (!menu.contains(e.target)) {
-                menu.remove();
-                document.removeEventListener('click', dismiss);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', dismiss), 0);
         return;
     }
 
     const shelves = await fetchShelvesWithMembership(bookId);
 
-    const menu = document.createElement('div');
-    menu.className = 'floating-action-menu add-to-shelf-menu';
-    menu.style.position = 'absolute';
-    menu.style.zIndex = '10001';
+    const { menu, close } = buildMenuShell(anchorEl);
 
     // "New shelf..." at top
     const newItem = document.createElement('button');
@@ -88,7 +112,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
     newItem.textContent = '+ New shelf...';
     newItem.addEventListener('click', async (e) => {
         e.stopPropagation();
-        menu.remove();
+        close();
         await createShelfAndAdd(anchorEl, bookId);
     });
     menu.appendChild(newItem);
@@ -112,18 +136,6 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         item.appendChild(label);
         menu.appendChild(item);
     }
-
-    document.body.appendChild(menu);
-    positionMenu(menu, anchorEl);
-
-    // Dismiss on outside click
-    const dismiss = (e) => {
-        if (!menu.contains(e.target)) {
-            menu.remove();
-            document.removeEventListener('click', dismiss);
-        }
-    };
-    setTimeout(() => document.addEventListener('click', dismiss), 0);
 }
 
 /**
@@ -132,16 +144,13 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
 async function fetchShelvesWithMembership(bookId) {
     try {
         const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
-        const resp = await fetch('/api/shelves', {
+        const resp = await fetch(`/api/shelves?book=${encodeURIComponent(bookId)}`, {
             headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
             credentials: 'include',
         });
         const data = await resp.json();
         const shelves = data.shelves || [];
-
-        // TODO: In a future iteration, fetch membership status from a batch endpoint.
-        // For now, return all shelves without membership info (unchecked by default).
-        return shelves.map(s => ({ ...s, isMember: false }));
+        return shelves.map(s => ({ ...s, isMember: !!s.is_member }));
     } catch (err) {
         console.error('Failed to fetch shelves for add-to-shelf:', err);
         return [];

@@ -9,8 +9,6 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
 import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { initializeUserProfilePage } from '../../components/userProfilePage.js';
-import { initializeHomepageButtons } from '../../homepageDisplayUnit.js';
 import { currentLazyLoader } from '../../initializePage.js';
 
 /**
@@ -152,24 +150,13 @@ export async function initializeUserSpecificFeatures(bookId) {
 
   try {
     // Initialize user profile editor if it exists
+    // Note: userProfilePage and shelfTabs are now initialized via ButtonRegistry
     const userLibraryContainer = document.getElementById('userLibraryContainer');
     if (userLibraryContainer) {
       // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
         await initializeUserProfileEditor(bookId);
       }
-      // Initialize user profile page functionality (delete buttons, etc.)
-      if (typeof initializeUserProfilePage === 'function') {
-        initializeUserProfilePage();
-      }
-    }
-
-    // Initialize shelf tabs for user page
-    try {
-      const { initializeShelfTabs } = await import('../../components/shelves/shelfTabs.js');
-      initializeShelfTabs();
-    } catch (e) {
-      console.warn('Shelf tabs initialization failed:', e);
     }
   } catch (error) {
     console.warn('User-specific feature initialization failed:', error);
@@ -191,10 +178,9 @@ export async function reinitializeContainerManagers() {
     }
 
     // Dynamically import to avoid circular dependency
+    // Note: initializeHomepageButtons is now handled via ButtonRegistry
     const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
     initializeNewBookContainer();
-
-    initializeHomepageButtons();
 
   } catch (error) {
     console.warn('❌ Could not reinitialize container managers:', error);

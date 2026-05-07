@@ -53,6 +53,7 @@ class ShelfController extends Controller
 
     /**
      * List current user's shelves.
+     * Pass ?book=<id> to also receive an is_member boolean per shelf.
      */
     public function index(Request $request)
     {
@@ -61,10 +62,30 @@ class ShelfController extends Controller
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
-        $shelves = DB::table('shelves')
-            ->where('creator', $user->name)
-            ->orderByDesc('updated_at')
-            ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort', 'created_at', 'updated_at']);
+        $bookId = $request->query('book');
+
+        $columns = [
+            'shelves.id',
+            'shelves.name',
+            'shelves.slug',
+            'shelves.description',
+            'shelves.visibility',
+            'shelves.default_sort',
+            'shelves.created_at',
+            'shelves.updated_at',
+        ];
+
+        $query = DB::table('shelves')->where('shelves.creator', $user->name);
+
+        if ($bookId) {
+            $query->leftJoin('shelf_items', function ($j) use ($bookId) {
+                $j->on('shelf_items.shelf_id', '=', 'shelves.id')
+                  ->where('shelf_items.book', '=', $bookId);
+            });
+            $columns[] = DB::raw('(shelf_items.shelf_id IS NOT NULL) as is_member');
+        }
+
+        $shelves = $query->orderByDesc('shelves.updated_at')->get($columns);
 
         return response()->json(['shelves' => $shelves]);
     }

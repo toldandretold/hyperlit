@@ -87,18 +87,16 @@ function initializeHyperlitManagerInternal() {
     hyperlitManager = null;
   }
 
-  // Check if container exists in the DOM (should be there from blade template)
+  // Check if container exists in the DOM (only present on reader pages)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
-    console.error("❌ hyperlit-container not found in DOM! Check reader.blade.php");
-    return;
+    return; // Not a reader page — nothing to initialize
   }
 
-  // Check if overlay exists (should be there from blade template)
+  // Check if overlay exists (only present on reader pages)
   const overlay = document.getElementById("ref-overlay");
   if (!overlay) {
-    console.error("❌ ref-overlay not found in DOM! Check reader.blade.php");
-    return;
+    return; // Not a reader page — nothing to initialize
   }
 
   // Now create the manager with the existing container and overlay

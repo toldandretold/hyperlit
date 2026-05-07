@@ -60,6 +60,26 @@ import {
 } from '../search/postgreSQLsearch/homepageSearch.js';
 
 import {
+  initializeHomepageButtons,
+  destroyHomepageDisplayUnit
+} from '../homepageDisplayUnit.js';
+
+import {
+  initializeHomepageBookActions,
+  destroyHomepageListeners
+} from '../homepage.js';
+
+import {
+  initializeUserProfilePage,
+  destroyUserProfilePage
+} from './userProfilePage.js';
+
+import {
+  initializeShelfTabs,
+  destroyShelfTabs
+} from './shelves/shelfTabs.js';
+
+import {
   initializeFootnoteCitationListeners,
   destroyFootnoteCitationListeners
 } from '../footnotesCitations.js';
@@ -243,6 +263,52 @@ export function registerAllComponents() {
     destroyFn: destroyHomepageSearch,
     pages: ['home'],
     dependencies: [],
+    required: false
+  });
+
+  // ====================================================================
+  // HOME/USER PAGE CONTENT
+  // Components that manage homepage display and book actions
+  // ====================================================================
+
+  buttonRegistry.register({
+    name: 'homepageDisplayUnit',
+    initFn: initializeHomepageButtons,
+    destroyFn: destroyHomepageDisplayUnit,
+    pages: ['home', 'user'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'homepageBookActions',
+    initFn: initializeHomepageBookActions,
+    destroyFn: destroyHomepageListeners,
+    pages: ['home', 'user'],
+    dependencies: ['homepageDisplayUnit'],
+    required: false
+  });
+
+  // ====================================================================
+  // USER-ONLY COMPONENTS
+  // Only needed on user profile pages
+  // ====================================================================
+
+  buttonRegistry.register({
+    name: 'userProfilePage',
+    initFn: initializeUserProfilePage,
+    destroyFn: destroyUserProfilePage,
+    pages: ['user'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'shelfTabs',
+    initFn: initializeShelfTabs,
+    destroyFn: destroyShelfTabs,
+    pages: ['user'],
+    dependencies: ['homepageDisplayUnit'],
     required: false
   });
 

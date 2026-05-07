@@ -209,7 +209,7 @@ shouldIgnoreEvent(event) {
   // Ignore other UI elements
   if (
     event.target.closest(
-      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #settingsButton, #bottom-up-container, #citation-toolbar, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container",
+      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #settingsButton, #bottom-up-container, #citation-toolbar, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container, #shelf-preview-overlay, .shelf-preview-overlay, .add-to-shelf-menu, .add-to-shelf-backdrop, .floating-action-menu, .floating-action-menu-backdrop",
     )
   ) {
     return true;
@@ -234,7 +234,7 @@ shouldIgnoreEvent(event) {
   }
   
   if (
-    event.target.matches(
+    event.target.closest(
       'button, a, input, select, textarea, [role="button"]',
     )
   ) {

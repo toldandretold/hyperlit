@@ -141,7 +141,8 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
 
     // Two-phase open: prepare off-screen → load content → animate in
     prepareHyperlitContainer(html, true); // isBackNavigation = true
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, skipAutoFocus);
+    const baseContainerEl = document.getElementById('hyperlit-container');
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, skipAutoFocus, null, { containerEl: baseContainerEl });
     animateHyperlitContainerOpen();
 
     // Push layer 0 into the stack
@@ -282,7 +283,7 @@ export async function restoreStackedLayer(containerState) {
     });
 
     // Handle post-open actions
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, true);
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, true, null, { containerEl: newContainer });
 
     // Sync stack to history.state
     syncStackToHistoryState();
