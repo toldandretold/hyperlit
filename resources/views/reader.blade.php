@@ -143,6 +143,8 @@
   </button>
 </div>
 
+<div id="word-count-display" style="display: none;"></div>
+
   <div id="bottom-left-buttons" class="loading"> <!-- bottom left buttons -->
       <button type="button" id="settingsButton">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50" height="50">

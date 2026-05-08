@@ -4,6 +4,7 @@ import { isContentLink } from '../hyperlights/deletion.js';
 
 let hyperlightButtons = null;
 let originalParent = null;
+let wordCountDisplay = null;
 
 /**
  * Removes the toolbar separator if it exists.
@@ -36,6 +37,12 @@ function handleSelection() {
     // Hide undo/redo buttons while hyperlight buttons are visible
     if (editToolbar) {
       editToolbar.classList.add("hyperlight-selection-active");
+    }
+
+    if (wordCountDisplay) {
+      const words = selectedText.split(/\s+/).filter(Boolean).length;
+      wordCountDisplay.textContent = String(words);
+      wordCountDisplay.style.display = "block";
     }
 
     if (window.innerWidth <= 768) {
@@ -123,6 +130,8 @@ function handleSelection() {
     hyperlightButtons.classList.remove("mobile-fixed-bottom");
     document.getElementById("delete-hyperlight").style.display = "none";
 
+    if (wordCountDisplay) wordCountDisplay.style.display = "none";
+
     // Show undo/redo buttons again when selection is cleared
     const editToolbar = document.getElementById("edit-toolbar");
     if (editToolbar) {
@@ -139,6 +148,7 @@ export function initializeSelectionHandler() {
     return;
   }
   originalParent = hyperlightButtons.parentElement;
+  wordCountDisplay = document.getElementById("word-count-display");
 
   document.addEventListener("selectionchange", handleSelection);
 }
@@ -147,4 +157,5 @@ export function destroySelectionHandler() {
   document.removeEventListener("selectionchange", handleSelection);
   hyperlightButtons = null;
   originalParent = null;
+  wordCountDisplay = null;
 }

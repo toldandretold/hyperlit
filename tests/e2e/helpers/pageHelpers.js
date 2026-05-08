@@ -32,6 +32,7 @@ export async function waitForSpaTransitionComplete(page, { timeout = 15000 } = {
         const style = window.getComputedStyle(overlay);
         return style.display !== 'none' && style.visibility !== 'hidden';
       },
+      null,
       { timeout: 5000 }
     );
   } catch {
@@ -46,6 +47,7 @@ export async function waitForSpaTransitionComplete(page, { timeout = 15000 } = {
       const style = window.getComputedStyle(overlay);
       return style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
     },
+    null,
     { timeout }
   );
 
@@ -250,6 +252,147 @@ export async function navigateToUserPage(page) {
 
   // Click "My Books" to trigger SPA navigation to /u/username
   await page.click('#myBooksBtn');
+}
+
+/**
+ * Programmatically select text within an element using Range/Selection APIs.
+ * More reliable than click-and-drag in contenteditable.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} selector - CSS selector for the element containing the text
+ * @param {number} startOffset - Character offset where selection starts
+ * @param {number} endOffset - Character offset where selection ends
+ */
+export async function selectTextInElement(page, selector, startOffset, endOffset) {
+  await page.evaluate(({ selector, startOffset, endOffset }) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`Element not found: ${selector}`);
+
+    // Walk text nodes to find correct start/end positions
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+    let charCount = 0;
+    let startNode = null, startNodeOffset = 0;
+    let endNode = null, endNodeOffset = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+      const nodeLength = node.textContent.length;
+      if (!startNode && charCount + nodeLength > startOffset) {
+        startNode = node;
+        startNodeOffset = startOffset - charCount;
+      }
+      if (!endNode && charCount + nodeLength >= endOffset) {
+        endNode = node;
+        endNodeOffset = endOffset - charCount;
+        break;
+      }
+      charCount += nodeLength;
+    }
+
+    if (!startNode || !endNode) {
+      throw new Error(`Could not find text nodes for offsets ${startOffset}-${endOffset} in "${element.textContent.substring(0, 80)}"`);
+    }
+
+    const range = document.createRange();
+    range.setStart(startNode, startNodeOffset);
+    range.setEnd(endNode, endNodeOffset);
+
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // Dispatch mouseup to trigger handleSelection (shows hyperlight buttons)
+    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  }, { selector, startOffset, endOffset });
+}
+
+/**
+ * Wait for edit mode to be active.
+ * Checks window.isEditing === true and #edit-toolbar visibility.
+ */
+export async function waitForEditMode(page) {
+  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 10000 });
+  await page.waitForSelector('#edit-toolbar', { state: 'visible', timeout: 5000 });
+}
+
+/**
+ * Get the current book ID from the page.
+ * Returns window.book or falls back to .main-content id.
+ */
+export async function getCurrentBookId(page) {
+  return page.evaluate(() => {
+    return window.book || document.querySelector('.main-content')?.id || null;
+  });
+}
+
+/**
+ * Wait for hyperlight buttons to become visible (display: flex).
+ * They are hidden with display: none by default and shown when text is selected.
+ */
+export async function waitForHyperlightButtons(page) {
+  await page.waitForFunction(() => {
+    const buttons = document.getElementById('hyperlight-buttons');
+    return buttons && window.getComputedStyle(buttons).display === 'flex';
+  }, null, { timeout: 5000 });
+}
+
+/**
+ * Close the hyperlit container.
+ * Uses JavaScript to click the overlay (bypasses Playwright actionability checks
+ * since the overlay may have visibility:hidden timing issues).
+ * Falls back to direct DOM class manipulation if click doesn't work.
+ */
+export async function closeHyperlitContainer(page) {
+  // Try clicking the overlay via JavaScript (bypasses visibility check)
+  await page.evaluate(() => {
+    const overlay = document.getElementById('ref-overlay');
+    if (overlay) overlay.click();
+  });
+
+  // Wait for the container to lose .open class
+  try {
+    await page.waitForFunction(() => {
+      const container = document.getElementById('hyperlit-container');
+      return container && !container.classList.contains('open');
+    }, null, { timeout: 5000 });
+  } catch {
+    // Fallback: force-close via DOM manipulation
+    await page.evaluate(() => {
+      const container = document.getElementById('hyperlit-container');
+      if (container) {
+        container.classList.remove('open');
+        container.classList.add('hidden');
+      }
+      const overlay = document.getElementById('ref-overlay');
+      if (overlay) overlay.classList.remove('active');
+      document.body.classList.remove('hyperlit-container-open');
+    });
+    await page.waitForTimeout(300);
+  }
+}
+
+/**
+ * Dispatch a synthetic paste event with custom clipboard data.
+ * Bypasses system clipboard issues in headless Chromium.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} htmlContent - HTML content for text/html
+ * @param {string} textContent - Plain text content for text/plain
+ */
+export async function pasteHyperciteContent(page, htmlContent, textContent) {
+  await page.evaluate(({ htmlContent, textContent }) => {
+    const activeElement = document.activeElement || document.querySelector('.main-content');
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData('text/html', htmlContent);
+    dataTransfer.setData('text/plain', textContent);
+
+    const pasteEvent = new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: dataTransfer,
+    });
+
+    activeElement.dispatchEvent(pasteEvent);
+  }, { htmlContent, textContent });
 }
 
 /**

@@ -1617,6 +1617,26 @@ body.hyperlit-container-open .reader-content-wrapper {
   transform: translateY(0);
 }
 
+/* Floating selection word-count pill — sits under #topRightContainer */
+#word-count-display {
+  position: fixed;
+  top: 40px;
+  right: 3px;
+  text-align: right;
+  background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.6));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 0.25em 0.6em;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--color-text, #fff);
+  opacity: 0.7;
+  z-index: 998;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* Settings button styling */
 .settings-button {
   padding: 0.75em 1em;

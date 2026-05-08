@@ -15,6 +15,12 @@ import {
   navigateToUserPage,
   clickFirstBookLink,
   navigateViaHypercite,
+  selectTextInElement,
+  waitForEditMode,
+  getCurrentBookId,
+  waitForHyperlightButtons,
+  closeHyperlitContainer,
+  pasteHyperciteContent,
 } from '../helpers/pageHelpers.js';
 
 /**
@@ -65,6 +71,12 @@ export const test = base.extend({
       navigateToUserPage,
       clickFirstBookLink,
       navigateViaHypercite,
+      selectTextInElement,
+      waitForEditMode,
+      getCurrentBookId,
+      waitForHyperlightButtons,
+      closeHyperlitContainer,
+      pasteHyperciteContent,
     });
   },
 });
