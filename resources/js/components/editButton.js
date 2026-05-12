@@ -403,9 +403,14 @@ export function disableEditMode() {
 
     // Verify all saved nodes made it to IDB before leaving edit mode
     try {
-      const { verifyNodesIntegrity, findOrphanedNodes } = await import('../integrity/verifier.js');
+      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../integrity/verifier.js');
       const container = document.getElementById(book);
       if (container) {
+        // Auto-heal verbatim DOM duplicates BEFORE counting nodes so the
+        // verifier sees the cleaned DOM (same data-node-id + identical
+        // innerHTML is data-safe to drop).
+        const healedIds = healVerbatimDuplicates(book);
+
         const nodeEls = container.querySelectorAll('[id]');
         const nodeIds = [];
         nodeEls.forEach(el => {
@@ -423,6 +428,8 @@ export function disableEditMode() {
               duplicateIds: result.duplicateIds,
               orphanedNodes: orphans,
               trigger: 'edit-mode-exit',
+              selfHealed: healedIds.length > 0,
+              selfHealedNodeIds: healedIds,
             });
           }
         }

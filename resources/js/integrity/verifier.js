@@ -225,6 +225,29 @@ export function findVerbatimDuplicates(bookId) {
 }
 
 /**
+ * Remove every verbatim DOM duplicate found by `findVerbatimDuplicates`.
+ * Safe to run at any time — same data-node-id + identical innerHTML means no
+ * data is lost. Returns the list of `id` attributes that were removed (used
+ * by callers to attach to the self-heal report).
+ *
+ * @param {string} bookId
+ * @returns {string[]}
+ */
+export function healVerbatimDuplicates(bookId) {
+  const verbatim = findVerbatimDuplicates(bookId);
+  if (verbatim.length === 0) return [];
+  const removedIds = [];
+  for (const { dataNodeId, duplicates } of verbatim) {
+    for (const dup of duplicates) {
+      removedIds.push(dup.id || dataNodeId);
+      dup.remove();
+    }
+    console.log(`[integrity] Removed ${duplicates.length} verbatim DOM duplicate(s) for data-node-id=${dataNodeId}`);
+  }
+  return removedIds;
+}
+
+/**
  * Scan for block-level elements without numeric IDs ("orphaned nodes").
  *
  * These are elements that were inserted into the DOM (e.g. via paste) but

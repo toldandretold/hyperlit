@@ -19,7 +19,7 @@ import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 import { TAB_ID } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
-import { verifyNodesIntegrity, findOrphanedNodes, findVerbatimDuplicates } from '../integrity/verifier.js';
+import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
 import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
@@ -513,7 +513,7 @@ export class SaveQueue {
             }
           } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
             const verbatimHealed = !this._selfHealingInProgress
-              ? await this._healVerbatimDuplicates(effectiveBookId)
+              ? healVerbatimDuplicates(effectiveBookId)
               : [];
 
             let finalResult = result;
@@ -552,26 +552,6 @@ export class SaveQueue {
       }
       });
     }, 500);
-  }
-
-  /**
-   * Remove DOM elements that share a `data-node-id` AND identical innerHTML with
-   * another sibling — these are render duplicates produced by editor/browser
-   * artifacts and can be dropped without losing data. Returns the list of `id`
-   * attributes that were removed (for the self-heal report payload).
-   */
-  async _healVerbatimDuplicates(bookId) {
-    const verbatim = findVerbatimDuplicates(bookId);
-    if (verbatim.length === 0) return [];
-    const removedIds = [];
-    for (const { dataNodeId, duplicates } of verbatim) {
-      for (const dup of duplicates) {
-        removedIds.push(dup.id || dataNodeId);
-        dup.remove();
-      }
-      console.log(`[integrity] Removed ${duplicates.length} verbatim DOM duplicate(s) for data-node-id=${dataNodeId}`);
-    }
-    return removedIds;
   }
 
   /**
@@ -688,7 +668,7 @@ export class SaveQueue {
             }
           } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
             const verbatimHealed = !this._selfHealingInProgress
-              ? await this._healVerbatimDuplicates(bookId)
+              ? healVerbatimDuplicates(bookId)
               : [];
 
             let finalResult = result;
