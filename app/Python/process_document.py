@@ -71,6 +71,7 @@ def sanitize_url(url):
 
 def sanitize_html(html_string):
     """Sanitize HTML to prevent XSS."""
+    html_string = html_string.replace('\x00', '')  # Strip null bytes (invalid in PostgreSQL)
     # Fast path: skip expensive bleach parse when content only has allowed tags
     # and no dangerous patterns. Covers 99%+ of Pandoc output.
     if not _needs_sanitization(html_string):
