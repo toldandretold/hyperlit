@@ -30,6 +30,12 @@ dump.rdb
 *.pdf
 *.epub
 
+# …but allow committed import-test fixtures (small, regenerable via _generate_synthetic.py)
+!/tests/conversion/import-samples/**/*.pdf
+!/tests/conversion/import-samples/**/*.epub
+# …except the 60 MB oversized blob — regenerate locally
+/tests/conversion/import-samples/bad/oversized.pdf
+
 # Font extras (full package not needed)
 public/fonts/inter/info/
 

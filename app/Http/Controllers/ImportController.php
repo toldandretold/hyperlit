@@ -152,8 +152,8 @@ class ImportController extends Controller
             // Check if this is a folder upload (multiple files with .md + images)
             if (is_array($files) && count($files) > 1) {
                 $hasMd = false;
-                foreach ($files as $file) {
-                    if (strtolower($file->getClientOriginalExtension()) === 'md') {
+                foreach ($files as $f) {
+                    if (strtolower($f->getClientOriginalExtension()) === 'md') {
                         $hasMd = true;
                         break;
                     }
@@ -162,6 +162,7 @@ class ImportController extends Controller
                 if ($hasMd) {
                     $this->zipProcessor->processFolderFiles($files, $path, $bookId);
                     $extension = 'md'; // folder upload produces main-text.md
+                    // No $file — processFolderFiles already handled the move/cleanup.
                 } else {
                     $file = is_array($files) ? $files[0] : $files;
                     $extension = strtolower($file->getClientOriginalExtension());
@@ -191,18 +192,22 @@ class ImportController extends Controller
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
                 }
 
-                // Pay-as-you-go users need positive balance (reject before queuing)
-                if ($extension === 'pdf') {
+                // Pay-as-you-go users need positive balance (reject before queuing).
+                // Bypass the check entirely when the env-guarded X-Test-Fixture header
+                // is set, so PDF regression tests don't need to fund a test user.
+                $isTestFixtureRequest = app()->environment(['local', 'testing'])
+                    && $request->header('X-Test-Fixture');
+                if ($extension === 'pdf' && !$isTestFixtureRequest) {
                     Auth::user()?->refresh();
-                }
-                if ($extension === 'pdf' && !$this->billing->canProceed(Auth::user())) {
-                    if ($request->expectsJson()) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Insufficient balance. Please top up your credits to continue.'
-                        ], 402);
+                    if (!$this->billing->canProceed(Auth::user())) {
+                        if ($request->expectsJson()) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Insufficient balance. Please top up your credits to continue.'
+                            ], 402);
+                        }
+                        return redirect()->back()->with('error', 'Insufficient balance. Please top up your credits.');
                     }
-                    return redirect()->back()->with('error', 'Insufficient balance. Please top up your credits.');
                 }
 
                 $originalFilename = "original.{$extension}";
@@ -310,6 +315,21 @@ class ImportController extends Controller
             'journal', 'publisher', 'school', 'note', 'bibtex',
             'volume', 'issue', 'booktitle', 'chapter', 'editor',
         ]);
+
+        // Test-only OCR side-load: copy a fixture's cached ocr_response.json
+        // into the book dir so mistral_ocr.py skips the API call. Header is a
+        // silent no-op outside local/testing envs and for non-PDF uploads.
+        if (app()->environment(['local', 'testing'])
+            && $extension === 'pdf'
+            && ($fixture = $request->header('X-Test-Fixture'))
+        ) {
+            $sanitised = preg_replace('/[^a-zA-Z0-9_-]/', '', $fixture);
+            $cachePath = base_path("tests/conversion/fixtures/{$sanitised}/ocr_response.json");
+            if ($sanitised !== '' && is_file($cachePath)) {
+                copy($cachePath, "{$path}/ocr_response.json");
+                Log::info('Test fixture OCR cache side-loaded', ['book' => $bookId, 'fixture' => $sanitised]);
+            }
+        }
 
         // Dispatch the background job
         ProcessDocumentImportJob::dispatch(

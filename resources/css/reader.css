@@ -197,6 +197,10 @@
   opacity: 1;
 }
 
+.broken-image-delete-btn::before {
+  content: '\00d7';
+}
+
 .broken-image-delete-btn:hover {
   background: #EE4A95;
   border-color: #fff;

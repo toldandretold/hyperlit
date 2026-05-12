@@ -153,7 +153,7 @@ function handleBrokenImages(container) {
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'broken-image-delete-btn';
       deleteBtn.setAttribute('data-action', 'delete-broken-image');
-      deleteBtn.textContent = '×';
+      deleteBtn.setAttribute('aria-label', 'Delete broken image');
       deleteBtn.title = 'Delete broken image';
 
       parent.insertBefore(wrapper, picture);

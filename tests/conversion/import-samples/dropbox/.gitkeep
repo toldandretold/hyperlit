@@ -1,0 +1,4 @@
+# Drop any importable file in this folder and re-run the Pest test:
+#     vendor/bin/pest tests/Feature/Import/ImportPipelineTest.php
+# Files here are treated as happy-path (must import successfully).
+# To assert a file should fail, place it in ../bad/ with a sibling .expected.json.
