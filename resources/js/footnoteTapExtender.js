@@ -25,7 +25,7 @@ export function initFootnoteTapExtender() {
 
   let touchState = null;
 
-  function findNearestTarget(x, y) {
+  function findNearestTarget(x, y, touchContext) {
     // Collect all footnote/citation elements currently in the DOM
     const selectors = 'sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]';
     const elements = document.querySelectorAll(selectors);
@@ -35,9 +35,11 @@ export function initFootnoteTapExtender() {
 
     for (const el of elements) {
       const rect = el.getBoundingClientRect();
+      // Only consider elements in the same visual layer as the touch
+      const elContainer = el.closest('#hyperlit-container, .hyperlit-container-stacked');
+      if (elContainer !== touchContext) continue;
       // Determine zone size: larger inside hyperlit containers
-      const inContainer = el.closest('#hyperlit-container, .hyperlit-container-stacked');
-      const zone = inContainer ? ZONE_CONTAINER : ZONE_MAIN;
+      const zone = elContainer ? ZONE_CONTAINER : ZONE_MAIN;
 
       const expanded = {
         left:   rect.left   - zone,
@@ -73,6 +75,14 @@ export function initFootnoteTapExtender() {
 
     const touch = e.touches[0];
 
+    // If the touch landed on an overlay, bail out — let the overlay's
+    // click handler close the container. We must not call preventDefault
+    // on touchend (which would suppress the synthetic click).
+    if (touch.target?.closest?.('#ref-overlay, .hyperlit-overlay-stacked')) {
+      touchState = null;
+      return;
+    }
+
     // If the touch directly hit a footnote/citation element, let the existing
     // click handler in footnotesCitations.js deal with it — return null target.
     const directHit = touch.target?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');
@@ -82,7 +92,8 @@ export function initFootnoteTapExtender() {
       return;
     }
 
-    const target = findNearestTarget(touch.clientX, touch.clientY);
+    const touchContainer = touch.target?.closest?.('#hyperlit-container, .hyperlit-container-stacked') || null;
+    const target = findNearestTarget(touch.clientX, touch.clientY, touchContainer);
     if (!target) {
       touchState = null;
       return;
