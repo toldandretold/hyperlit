@@ -190,6 +190,41 @@ async function _verifySync(bookId, nodeIds) {
 }
 
 /**
+ * Find pairs of block-level DOM elements that share the same data-node-id AND
+ * have byte-identical innerHTML. These are unambiguous render duplicates —
+ * the second one can be safely removed without losing data. Used by the
+ * periodic-save self-heal path.
+ *
+ * @param {string} bookId
+ * @returns {Array<{dataNodeId: string, keeper: HTMLElement, duplicates: HTMLElement[]}>}
+ */
+export function findVerbatimDuplicates(bookId) {
+  const container = document.querySelector(`[data-book-id="${bookId}"]`)
+    || document.getElementById(bookId);
+  if (!container) return [];
+
+  const byNodeId = new Map();
+  container.querySelectorAll('[data-node-id]').forEach(el => {
+    const id = el.getAttribute('data-node-id');
+    if (!id) return;
+    if (!byNodeId.has(id)) byNodeId.set(id, []);
+    byNodeId.get(id).push(el);
+  });
+
+  const verbatim = [];
+  for (const [dataNodeId, els] of byNodeId) {
+    if (els.length < 2) continue;
+    const keeper = els[0];
+    const html = keeper.innerHTML;
+    const duplicates = els.slice(1).filter(el => el.innerHTML === html);
+    if (duplicates.length > 0) {
+      verbatim.push({ dataNodeId, keeper, duplicates });
+    }
+  }
+  return verbatim;
+}
+
+/**
  * Scan for block-level elements without numeric IDs ("orphaned nodes").
  *
  * These are elements that were inserted into the DOM (e.g. via paste) but

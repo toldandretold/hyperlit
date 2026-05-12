@@ -11,6 +11,8 @@
  * ocr_response.json / debug_converted.html for reproduction.
  */
 
+import { getRecentLogs } from '../integrity/logCapture.js';
+
 const TOAST_ID = 'conversion-feedback-toast';
 
 /* ── shared button style ──────────────────────────────────── */
@@ -102,6 +104,23 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   text.textContent = buildSummaryText(stats);
   text.style.lineHeight = '1.4';
 
+  const textarea = document.createElement('textarea');
+  textarea.maxLength = 2000;
+  textarea.rows = 3;
+  textarea.placeholder = 'Anything to add about the conversion? (optional)';
+  Object.assign(textarea.style, {
+    width: '100%',
+    boxSizing: 'border-box',
+    background: 'rgba(0,0,0,0.3)',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '6px',
+    padding: '6px 8px',
+    fontFamily: 'inherit',
+    fontSize: '13px',
+    resize: 'vertical',
+  });
+
   const btnRow = document.createElement('div');
   Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
 
@@ -110,7 +129,7 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   goodBtn.textContent = 'Looks good';
   applyBtnStyle(goodBtn);
   goodBtn.addEventListener('click', () => {
-    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'good' });
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'good', comment: textarea.value.trim() });
   });
 
   // Report issue — send negative report
@@ -118,7 +137,7 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   badBtn.textContent = 'Report issue';
   applyBtnStyle(badBtn);
   badBtn.addEventListener('click', () => {
-    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad' });
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad', comment: textarea.value.trim() });
   });
 
   // Cancel (×) — dismiss, nothing sent
@@ -135,11 +154,12 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   btnRow.appendChild(cancelBtn);
 
   toast.appendChild(text);
+  toast.appendChild(textarea);
   toast.appendChild(btnRow);
 }
 
 /* ── send feedback (both good and bad) ────────────────────── */
-async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating }) {
+async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comment }) {
   // Disable buttons while sending
   toast.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
@@ -148,6 +168,8 @@ async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating }) {
     rating,
     conversionStats: stats,
     footnoteAudit: footnoteAudit || null,
+    comment: comment || null,
+    recentLogs: getRecentLogs(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
   };

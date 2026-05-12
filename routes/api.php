@@ -167,6 +167,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->middleware('throttle:120,1');
     Route::post('/integrity/conversion-feedback', [IntegrityReportController::class, 'conversionFeedback'])
         ->middleware('throttle:10,1');
+    Route::post('/integrity/import-failure', [IntegrityReportController::class, 'importFailureReport'])
+        ->middleware('throttle:10,1');
     Route::post('/integrity/claim-premium', [IntegrityReportController::class, 'claimPremium'])
         ->middleware(['auth:sanctum', 'throttle:5,1']);
 

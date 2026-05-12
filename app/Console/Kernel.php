@@ -22,6 +22,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('cleanup:anonymous-sessions')
                  ->daily();
 
+        // Sweep stale import-failure upload backups daily
+        $schedule->command('uploads:clean-import-failures')
+                 ->daily();
+
         // Cleanup old anonymous private books daily
         $schedule->job(\App\Jobs\DatabaseCleanupJob::class)
                  ->daily()

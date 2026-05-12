@@ -19,7 +19,7 @@ import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
 import { TAB_ID } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
-import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier.js';
+import { verifyNodesIntegrity, findOrphanedNodes, findVerbatimDuplicates } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
 import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
@@ -512,14 +512,36 @@ export class SaveQueue {
               this._selfHealingInProgress = false;
             }
           } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
-            // Can't self-heal duplicates or already healing — report immediately
-            reportIntegrityFailure({
-              bookId: effectiveBookId,
-              mismatches: result.mismatches,
-              missingFromIDB: result.missingFromIDB,
-              duplicateIds: result.duplicateIds,
-              trigger: 'save',
-            });
+            const verbatimHealed = !this._selfHealingInProgress
+              ? await this._healVerbatimDuplicates(effectiveBookId)
+              : [];
+
+            let finalResult = result;
+            if (verbatimHealed.length > 0) {
+              const freshNodeIds = this._collectNodeIds(effectiveBookId);
+              finalResult = await verifyNodesIntegrity(effectiveBookId, freshNodeIds);
+            }
+
+            if (verbatimHealed.length > 0 && finalResult.duplicateIds.length === 0
+                && finalResult.mismatches.length === 0 && finalResult.missingFromIDB.length === 0) {
+              reportIntegrityFailure({
+                bookId: effectiveBookId,
+                mismatches: result.mismatches,
+                missingFromIDB: result.missingFromIDB,
+                duplicateIds: result.duplicateIds,
+                trigger: 'save',
+                selfHealed: true,
+                selfHealedNodeIds: verbatimHealed,
+              });
+            } else {
+              reportIntegrityFailure({
+                bookId: effectiveBookId,
+                mismatches: finalResult.mismatches,
+                missingFromIDB: finalResult.missingFromIDB,
+                duplicateIds: finalResult.duplicateIds,
+                trigger: 'save',
+              });
+            }
           }
 
           // Schedule a full-book scan on a longer debounce
@@ -530,6 +552,42 @@ export class SaveQueue {
       }
       });
     }, 500);
+  }
+
+  /**
+   * Remove DOM elements that share a `data-node-id` AND identical innerHTML with
+   * another sibling — these are render duplicates produced by editor/browser
+   * artifacts and can be dropped without losing data. Returns the list of `id`
+   * attributes that were removed (for the self-heal report payload).
+   */
+  async _healVerbatimDuplicates(bookId) {
+    const verbatim = findVerbatimDuplicates(bookId);
+    if (verbatim.length === 0) return [];
+    const removedIds = [];
+    for (const { dataNodeId, duplicates } of verbatim) {
+      for (const dup of duplicates) {
+        removedIds.push(dup.id || dataNodeId);
+        dup.remove();
+      }
+      console.log(`[integrity] Removed ${duplicates.length} verbatim DOM duplicate(s) for data-node-id=${dataNodeId}`);
+    }
+    return removedIds;
+  }
+
+  /**
+   * Re-scan the DOM for the current numerical node ids of a book — mirrors the
+   * collection in `_scheduleFullVerification`. Used after a self-heal step
+   * that may have removed DOM elements.
+   */
+  _collectNodeIds(bookId) {
+    const container = document.querySelector(`[data-book-id="${bookId}"]`)
+      || document.getElementById(bookId);
+    if (!container) return [];
+    const ids = [];
+    container.querySelectorAll('[id]').forEach(el => {
+      if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) ids.push(el.id);
+    });
+    return ids;
   }
 
   /**
@@ -629,13 +687,36 @@ export class SaveQueue {
               this._selfHealingInProgress = false;
             }
           } else if (result.duplicateIds.length > 0 || this._selfHealingInProgress) {
-            reportIntegrityFailure({
-              bookId,
-              mismatches: result.mismatches,
-              missingFromIDB: result.missingFromIDB,
-              duplicateIds: result.duplicateIds,
-              trigger: 'periodic-save',
-            });
+            const verbatimHealed = !this._selfHealingInProgress
+              ? await this._healVerbatimDuplicates(bookId)
+              : [];
+
+            let finalResult = result;
+            if (verbatimHealed.length > 0) {
+              const freshNodeIds = this._collectNodeIds(bookId);
+              finalResult = await verifyNodesIntegrity(bookId, freshNodeIds);
+            }
+
+            if (verbatimHealed.length > 0 && finalResult.duplicateIds.length === 0
+                && finalResult.mismatches.length === 0 && finalResult.missingFromIDB.length === 0) {
+              reportIntegrityFailure({
+                bookId,
+                mismatches: result.mismatches,
+                missingFromIDB: result.missingFromIDB,
+                duplicateIds: result.duplicateIds,
+                trigger: 'periodic-save',
+                selfHealed: true,
+                selfHealedNodeIds: verbatimHealed,
+              });
+            } else {
+              reportIntegrityFailure({
+                bookId,
+                mismatches: finalResult.mismatches,
+                missingFromIDB: finalResult.missingFromIDB,
+                duplicateIds: finalResult.duplicateIds,
+                trigger: 'periodic-save',
+              });
+            }
           } else {
             verbose.content(`[integrity] Full-book verification: all ${result.ok.length} nodes OK`, 'divEditor/saveQueue.js');
           }

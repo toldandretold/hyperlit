@@ -400,6 +400,20 @@ export function setElementIds(element, beforeId, afterId, bookId) {
   // Generate and set the numerical ID
   element.id = generateIdBetween(beforeId, afterId);
 
+  // Defense in depth: generateIdBetween should produce a unique id, but if a
+  // future bug or stale state slips one through, bump to the next available
+  // decimal for the same base before the element is inserted into the DOM.
+  // The element here is typically detached, so isIdInUse only flags conflicts
+  // against other existing nodes.
+  if (isIdInUse(element.id)) {
+    const baseMatch = element.id.match(/^(\d+)/);
+    if (baseMatch) {
+      const bumpedId = getNextDecimalForBase(baseMatch[1]);
+      console.warn(`setElementIds: generated id ${element.id} already in use, bumping to ${bumpedId}`);
+      element.id = bumpedId;
+    }
+  }
+
   // Generate and set the permanent node_id if it doesn't exist
   if (!element.getAttribute('data-node-id')) {
     element.setAttribute('data-node-id', generateNodeId(bookId));
@@ -557,9 +571,22 @@ export function generateIdBetween(beforeId, afterId) {
     if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
       // ... (The fix above already handles the "3 and 5 -> 4" case, but this is fine as a fallback)
       if (afterNum - beforeNum === 1) {
-        return `${beforeNum}.1`;
+        const candidate = `${beforeNum}.1`;
+        // Guard against duplicates: a `${beforeNum}.1` may already exist further
+        // down in the DOM. Recurse with a tighter range so the next call goes
+        // through CASE 1 and yields `${beforeNum}.11` etc.
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 3 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
       } else if (afterNum - beforeNum > 1) {
-        return (beforeNum + 1).toString();
+        const candidate = (beforeNum + 1).toString();
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 3 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
       }
     }
 
@@ -568,12 +595,22 @@ export function generateIdBetween(beforeId, afterId) {
       // ... (The fix above already handles the "3.5 and 5 -> 4" case)
       const beforeInt = Math.floor(beforeNum);
       if (afterNum - beforeInt > 1) {
-        return (beforeInt + 1).toString();
+        const candidate = (beforeInt + 1).toString();
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 4 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
       } else {
         const [i, d = ""] = beforeId.split(".");
-        if (d.endsWith("9")) return `${i}.${d}1`;
-        const last = parseInt(d.slice(-1), 10);
-        return `${i}.${d.slice(0, -1)}${last + 1}`;
+        const candidate = d.endsWith("9")
+          ? `${i}.${d}1`
+          : `${i}.${d.slice(0, -1)}${parseInt(d.slice(-1), 10) + 1}`;
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 4 decimal candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
       }
     }
   }
@@ -764,6 +801,28 @@ export function ensureNodeHasValidId(node, options = {}) {
     return;
   }
   
+  // DEAD CODE — `window.__enterKeyInfo` is read here (and reset throughout the
+  // block below) but `grep -rn "__enterKeyInfo"` shows no assignment anywhere
+  // in the codebase. The intent was: on Enter, keydown stashes
+  // { nodeId, cursorPosition, timestamp } here, and ensureNodeHasValidId uses
+  // it to pick a cursor-aware reference instead of falling through to the
+  // generic `findPreviousElementId / findNextElementId` sibling scan below.
+  // Whoever started that path never wired up the writer.
+  //
+  // Would wiring it up have prevented the 2026-05-12 integrity mismatch
+  // (duplicate `6498.1`)? In that specific case yes — getNextDecimalForBase
+  // queries the DOM for existing `${base}.*` ids and increments past them,
+  // so it wouldn't have minted a colliding `6498.1`. But it's scoped to the
+  // first `.chunk` (line 753 — `document.querySelector('.chunk')`) so it
+  // can still miss decimals living in other chunks, and it only protects the
+  // Enter path. The real fix lives in `generateIdBetween` CASE 3 & 4 plus the
+  // post-check in `setElementIds`, which guard every call site.
+  //
+  // OPEN QUESTION: should this block be deleted? Pros: ~60 lines of dead
+  // code gone, no risk of future Enter-key changes accidentally bringing it
+  // back to life with stale logic. Cons: cursor-aware id assignment would
+  // be a genuine ergonomic win if someone wires up the writer side. Leaning
+  // toward delete unless someone commits to finishing the feature.
   if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
     const { nodeId: IDnumerical, cursorPosition } = window.__enterKeyInfo;
     // Scope lookup to the active book container to avoid cross-book ID collisions

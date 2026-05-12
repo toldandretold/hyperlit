@@ -5,6 +5,7 @@ import { getCurrentUser, getAnonymousToken, getCurrentUserInfo, isLoggedIn } fro
 import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 import DOMPurify from 'dompurify';
+import { showImportFailureModal } from '../conversion/bugReportModal.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // When the user clicks "Re-submit" from the footnote audit modal, the book ID
@@ -152,7 +153,7 @@ function hidePdfCostEstimate() {
     }
 }
 
-function showInsufficientBalanceBanner() {
+function showInsufficientBalanceBanner(errorContext = null) {
     // Remove any existing banner
     document.getElementById('insufficient-balance-banner')?.remove();
 
@@ -162,6 +163,21 @@ function showInsufficientBalanceBanner() {
     banner.innerHTML =
         '<strong>Insufficient balance.</strong> PDF import is billed per page. Please top up your credits to continue.' +
         '<br><a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="display:inline-block; margin-top:8px; padding:6px 14px; background:#d63384; color:#fff; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500;">Top Up Balance</a>';
+
+    if (errorContext) {
+        const reportLine = document.createElement('div');
+        reportLine.style.cssText = 'margin-top:8px; font-size:12px; color:#a3506e;';
+        const reportLink = document.createElement('a');
+        reportLink.href = '#';
+        reportLink.textContent = 'Something else wrong? Report it';
+        reportLink.style.cssText = 'color:#d63384; text-decoration:underline; cursor:pointer;';
+        reportLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showImportFailureModal(errorContext);
+        });
+        reportLine.appendChild(reportLink);
+        banner.appendChild(reportLine);
+    }
 
     // Insert after the pdf-cost-estimate div, or after the file validation div
     const anchor = document.getElementById('pdf-cost-estimate') || document.getElementById('file-validation');
@@ -829,7 +845,14 @@ function validateFileInput() {
         errorMsg.style.display = 'block';
         return false;
     }
-    
+
+    if (file.size > 50 * 1024 * 1024) {
+        const mb = (file.size / (1024 * 1024)).toFixed(1);
+        errorMsg.textContent = `File is too large (${mb} MB). Maximum size is 50 MB.`;
+        errorMsg.style.display = 'block';
+        return false;
+    }
+
     errorMsg.style.display = 'none';
     return true;
 }
@@ -1396,29 +1419,34 @@ async function submitToLaravelAndLoad(formData, submitButton) {
   } catch (error) {
     console.error("❌ Import failed:", error);
 
-    // Insufficient balance — show inline banner instead of alert
-    if (error.status === 402) {
-      showInsufficientBalanceBanner();
-    } else {
-      let userMessage = "Import failed: " + error.message;
-
-      if (error.isProcessingError) {
-        userMessage = "Document processing failed. This is likely a backend issue.\n\n" +
-                     "Please check:\n" +
-                     "• Document format and complexity\n" +
-                     "• Backend processing logs\n" +
-                     "• Try with a simpler test document\n\n" +
-                     "Technical details:\n" + error.message;
-      }
-
-      alert(userMessage);
-    }
-
     // Re-enable the button only on failure, since on success we navigate away.
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.textContent = "Submit";
     }
+
+    // Build the modal context (used by 402 banner link OR direct modal open)
+    const bookInput = document.getElementById('book');
+    const fileInput = document.getElementById('markdown_file') || document.querySelector('input[type="file"][name="markdown_file"]');
+    const originalFile = fileInput?.files?.[0] || null;
+    const modalContext = {
+      status: error.status != null ? String(error.status) : 'network',
+      errorMessage: error.message || String(error),
+      bookId: bookInput?.value?.trim() || null,
+      originalFile,
+      source: 'pre_conversion',
+    };
+
+    // Insufficient balance — show inline banner with embedded "Report it" link
+    if (error.status === 402) {
+      showInsufficientBalanceBanner(modalContext);
+      return;
+    }
+
+    // Poll-failure modal already shown — don't double-fire
+    if (error.handledByImportFailureModal) return;
+
+    showImportFailureModal(modalContext);
   }
 }
 

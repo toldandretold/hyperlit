@@ -20,6 +20,7 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index.js';
 import { showConversionFeedbackToast } from '../../conversion/feedbackToast.js';
+import { showImportFailureModal } from '../../conversion/bugReportModal.js';
 
 export class ImportBookTransition {
   /**
@@ -659,6 +660,21 @@ export class ImportBookTransition {
             submitButton.disabled = false;
             submitButton.textContent = 'Submit';
           }
+
+          // Show the import-failure bug-report modal. File is already on disk
+          // server-side at this point (job ran), so no client-side re-upload.
+          try {
+            await showImportFailureModal({
+              status: 'poll_failure',
+              errorMessage: pollError?.message || String(pollError),
+              bookId: result.bookId,
+              originalFile: null,
+              source: 'poll_failure',
+            });
+          } catch (_) { /* modal failures are non-fatal */ }
+
+          // Tag so the outer catch in newBookForm.js doesn't open a second modal.
+          pollError.handledByImportFailureModal = true;
           throw pollError;
         }
       }

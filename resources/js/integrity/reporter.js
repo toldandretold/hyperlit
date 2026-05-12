@@ -115,7 +115,19 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
     missingFromIDB: missingFromIDB.map(m =>
       typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
     ),
-    duplicateIds,
+    duplicateIds: duplicateIds.map(d => {
+      const elements = container
+        ? Array.from(container.querySelectorAll(`[id="${CSS.escape(d.id)}"]`))
+        : [];
+      return {
+        ...d,
+        elements: elements.map(el => ({
+          tag: el.tagName,
+          dataNodeId: el.getAttribute('data-node-id') || null,
+          outerHTML: (el.outerHTML || '').substring(0, 500),
+        })),
+      };
+    }),
     orphanedNodes: orphanedNodes.map(o => ({
       tag: o.tag || null,
       textSnippet: (o.textSnippet || '').substring(0, 500),

@@ -86,9 +86,25 @@ class ImportController extends Controller
             'markdown_file' => 'nullable|array',
             'markdown_file.*' => [
                 'nullable',
-                'file',
                 function ($attribute, $value, $fail) {
-                    if (!$value || !$value->isValid()) {
+                    if (!$value) {
+                        return;
+                    }
+
+                    if (!($value instanceof \Illuminate\Http\UploadedFile)) {
+                        $fail('The file must be a valid upload.');
+                        return;
+                    }
+
+                    if (!$value->isValid()) {
+                        $message = match ($value->getError()) {
+                            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The file is too large. Maximum size is 50MB.',
+                            UPLOAD_ERR_PARTIAL => 'The file was only partially uploaded. Please try again.',
+                            UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
+                            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'Server error: unable to save the uploaded file.',
+                            default => 'The file failed to upload (error ' . $value->getError() . '). Please try again.',
+                        };
+                        $fail($message);
                         return;
                     }
 

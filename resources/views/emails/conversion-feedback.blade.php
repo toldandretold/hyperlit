@@ -21,6 +21,11 @@
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Timestamp</td><td>{{ $timestamp ?? '' }}</td></tr>
     </table>
 
+    @if(!empty($comment))
+    <h3 style="color:#22c55e;">User comment</h3>
+    <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; white-space:pre-wrap; word-break:break-word;">{{ $comment }}</div>
+    @endif
+
     @if(!empty($conversionStats))
     <h3 style="color:#4EACAE;">Conversion Stats</h3>
     <table style="border-collapse:collapse; width:100%; margin-bottom:20px;">
@@ -77,6 +82,26 @@
             </td>
         </tr>
     </table>
+    @endif
+
+    @if(!empty($recentLogs))
+    <h3 style="color:#60a5fa;">Recent console logs ({{ count($recentLogs) }})</h3>
+    <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; overflow-x:auto;">
+    @foreach($recentLogs as $log)
+    <div style="margin-bottom:2px; color:{{ ($log['level'] ?? '') === 'error' ? '#ef4444' : (($log['level'] ?? '') === 'warn' ? '#f59e0b' : '#9ca3af') }};">
+        [{{ date('H:i:s', (int)(($log['ts'] ?? 0) / 1000)) }}] {{ $log['msg'] ?? '' }}
+    </div>
+    @endforeach
+    </div>
+    @endif
+
+    @if(!empty($laravelLogs))
+    <h3 style="color:#38bdf8;">Laravel log (grep {{ $bookId ?? '' }})</h3>
+    <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; overflow-x:auto;">
+    @foreach($laravelLogs as $line)
+    <div style="margin-bottom:2px; color:#9ca3af; white-space:pre-wrap; word-break:break-word;">{{ $line }}</div>
+    @endforeach
+    </div>
     @endif
 
     <p style="color:#888; margin-top:20px; font-size:11px;">

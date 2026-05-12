@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use App\Mail\IntegrityReportMail;
 use App\Mail\PasteGlitchReportMail;
 use App\Mail\ConversionFeedbackMail;
+use App\Mail\ImportFailureReportMail;
 use App\Models\PgNodeChunk;
 
 class IntegrityReportController extends Controller
@@ -138,6 +140,11 @@ class IntegrityReportController extends Controller
             'rating'              => 'required|string|in:good,bad',
             'conversionStats'     => 'nullable|array',
             'footnoteAudit'       => 'nullable|array',
+            'comment'             => 'nullable|string|max:2000',
+            'recentLogs'          => 'nullable|array|max:50',
+            'recentLogs.*.level'  => 'nullable|string|max:10',
+            'recentLogs.*.ts'     => 'nullable|numeric',
+            'recentLogs.*.msg'    => 'nullable|string|max:2000',
             'userAgent'           => 'nullable|string|max:1000',
             'timestamp'           => 'nullable|string|max:100',
         ]);
@@ -146,6 +153,7 @@ class IntegrityReportController extends Controller
         $data['userId'] = $user?->id;
         $data['userName'] = $user?->name ?? 'anonymous';
         $data['artifactPath'] = resource_path("markdown/{$data['bookId']}");
+        $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 20);
 
         Log::info('Conversion feedback received', [
             'bookId' => $data['bookId'],
@@ -168,6 +176,66 @@ class IntegrityReportController extends Controller
             Mail::send(new ConversionFeedbackMail($data));
         } catch (\Exception $e) {
             Log::error('Failed to send conversion feedback email', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json(['status' => 'received']);
+    }
+
+    public function importFailureReport(Request $request)
+    {
+        $data = $request->validate([
+            'bookId'              => 'nullable|string|max:500',
+            'errorMessage'        => 'nullable|string|max:5000',
+            'status'              => 'nullable|string|max:50',
+            'source'              => 'nullable|string|in:pre_conversion,poll_failure',
+            'comment'             => 'nullable|string|max:2000',
+            'recentLogs'          => 'nullable|array|max:50',
+            'recentLogs.*.level'  => 'nullable|string|max:10',
+            'recentLogs.*.ts'     => 'nullable|numeric',
+            'recentLogs.*.msg'    => 'nullable|string|max:2000',
+            'userAgent'           => 'nullable|string|max:1000',
+            'timestamp'           => 'nullable|string|max:100',
+            'original'            => 'nullable|file|max:25600',
+        ]);
+
+        $user = Auth::user();
+        $data['userId']   = $user?->id;
+        $data['userName'] = $user?->name ?? 'anonymous';
+
+        $data['serverOriginalPath'] = null;
+        if (!empty($data['bookId'])) {
+            $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 30);
+            $bookDir = resource_path("markdown/{$data['bookId']}");
+            if (is_dir($bookDir)) {
+                foreach (glob("{$bookDir}/original.*") ?: [] as $candidate) {
+                    $data['serverOriginalPath'] = $candidate;
+                    break;
+                }
+            }
+        }
+
+        if ($request->hasFile('original')) {
+            $f = $request->file('original');
+            $uploadDir = storage_path('app/import-failure-uploads');
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0750, true);
+            }
+            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $f->getClientOriginalName() ?: 'upload');
+            $storedName = Str::uuid() . '-' . $safeName;
+            $f->move($uploadDir, $storedName);
+            $data['storedUploadPath'] = "{$uploadDir}/{$storedName}";
+            $data['uploadedFilename'] = $f->getClientOriginalName() ?: $storedName;
+            $data['uploadedSize']     = filesize($data['storedUploadPath']) ?: null;
+        }
+
+        Log::warning('Import failure report', array_diff_key($data, ['storedUploadPath' => 1]));
+
+        try {
+            Mail::send(new ImportFailureReportMail($data));
+        } catch (\Exception $e) {
+            Log::error('Failed to send import-failure report email', [
                 'error' => $e->getMessage(),
             ]);
         }
