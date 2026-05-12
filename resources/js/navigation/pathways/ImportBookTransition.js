@@ -510,18 +510,65 @@ export class ImportBookTransition {
       // Get CSRF token
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
-      // Submit to Laravel backend
-      const response = await fetch('/import-file', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'X-CSRF-TOKEN': csrfToken,
-        },
+      // Sum total bytes of File entries in the FormData so we can show an
+      // accurate "X / Y MB" during upload (large PDFs can take 30s+ to upload
+      // before the server even starts processing).
+      let totalUploadBytes = 0;
+      for (const [, value] of formData.entries()) {
+        if (value && typeof value === 'object' && typeof value.size === 'number') {
+          totalUploadBytes += value.size;
+        }
+      }
+      const originalButtonText = submitButton ? submitButton.textContent : null;
+      const totalMB = (totalUploadBytes / 1024 / 1024).toFixed(1);
+
+      // Submit via XHR (instead of fetch) to get upload-progress events.
+      const response = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/import-file');
+        xhr.withCredentials = true;
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (csrfToken) xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (!submitButton) return;
+          if (e.lengthComputable && e.total > 0) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            const loadedMB = (e.loaded / 1024 / 1024).toFixed(1);
+            submitButton.textContent = `Uploading ${pct}% (${loadedMB} / ${totalMB} MB)`;
+          } else if (totalUploadBytes > 0) {
+            submitButton.textContent = `Uploading ${totalMB} MB…`;
+          }
+        });
+
+        xhr.upload.addEventListener('load', () => {
+          if (submitButton) {
+            submitButton.textContent = totalUploadBytes > 0
+              ? `Upload complete (${totalMB} MB) — server processing…`
+              : 'Server processing…';
+          }
+        });
+
+        xhr.onload = () => {
+          // Adapt the XHR response to a fetch-like shape so the rest of this
+          // function (which was written for fetch) keeps working unchanged.
+          resolve({
+            ok: xhr.status >= 200 && xhr.status < 300,
+            status: xhr.status,
+            text: () => Promise.resolve(xhr.responseText || ''),
+            json: () => Promise.resolve(JSON.parse(xhr.responseText || 'null')),
+          });
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onabort = () => reject(new Error('Upload aborted'));
+        xhr.ontimeout = () => reject(new Error('Upload timed out'));
+
+        xhr.send(formData);
       });
 
       if (!response.ok) {
+        // Restore the button text on failure so the next try doesn't read "Server processing…".
+        if (submitButton && originalButtonText) submitButton.textContent = originalButtonText;
         const errorText = await response.text();
         let errorDetails;
         let isProcessingError = false;
