@@ -22,6 +22,23 @@ function normaliseText(str) {
 }
 
 /**
+ * Extract textContent from an element while canonicalising <latex> and
+ * <latex-block> elements. KaTeX renders math by injecting visible glyphs +
+ * accessibility annotations *inside* the `<latex>` element, so live-DOM
+ * textContent diverges from stored HTML (which keeps the element empty with
+ * the LaTeX source in `data-math`). We replace either side with the same
+ * stable string \u2014 the data-math attribute \u2014 so the comparison is consistent.
+ */
+function textContentCanonical(node) {
+  if (!node) return '';
+  const clone = node.cloneNode(true);
+  clone.querySelectorAll('latex, latex-block').forEach((el) => {
+    el.textContent = el.getAttribute('data-math') || '';
+  });
+  return clone.textContent || '';
+}
+
+/**
  * Find the first character index where two strings diverge.
  * Returns an object with the diff index and ~50-char snippets around it.
  */
@@ -45,13 +62,14 @@ function findFirstDiff(a, b) {
 /**
  * Parse stored HTML content and extract its textContent using DOMParser.
  * This mirrors what the browser would render, minus any inline artefacts
- * that batch.js strips on save.
+ * that batch.js strips on save. Uses textContentCanonical so <latex>
+ * elements are compared by their data-math attribute, not rendered output.
  */
 function textFromStoredHTML(html) {
   if (!html) return '';
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const el = doc.body.firstElementChild;
-  return (el ? el.textContent : doc.body.textContent) || '';
+  return textContentCanonical(el || doc.body);
 }
 
 /**
@@ -140,7 +158,7 @@ async function _verifySync(bookId, nodeIds) {
         return res(); // Not a real node — skip silently
       }
 
-      const domText = normaliseText(domEl.textContent);
+      const domText = normaliseText(textContentCanonical(domEl));
 
       const numericId = typeof nodeId === 'number' ? nodeId : parseFloat(nodeId);
       if (isNaN(numericId)) return res();

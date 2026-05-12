@@ -87,7 +87,7 @@ export function showConversionFeedbackToast({ bookId, stats, footnoteAudit }) {
     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
     opacity: '0',
     transition: 'opacity 0.2s ease',
-    maxWidth: '520px',
+    maxWidth: 'min(900px, calc(100vw - 32px))',
   });
 
   renderInitialState(toast, { bookId, stats, footnoteAudit });

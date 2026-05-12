@@ -846,9 +846,9 @@ function validateFileInput() {
         return false;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
+    if (file.size > 250 * 1024 * 1024) {
         const mb = (file.size / (1024 * 1024)).toFixed(1);
-        errorMsg.textContent = `File is too large (${mb} MB). Maximum size is 50 MB.`;
+        errorMsg.textContent = `File is too large (${mb} MB). Maximum size is 250 MB.`;
         errorMsg.style.display = 'block';
         return false;
     }
@@ -1597,8 +1597,8 @@ function setupRealTimeValidation() {
                 return { valid: false, message: `Please select a valid file (${extList})` };
             }
             
-            if (file.size > 50 * 1024 * 1024) { // 50MB
-                return { valid: false, message: 'File size must be less than 50MB' };
+            if (file.size > 250 * 1024 * 1024) { // 250MB
+                return { valid: false, message: 'File size must be less than 250MB' };
             }
             
             return { valid: true, message: 'Valid file selected' };

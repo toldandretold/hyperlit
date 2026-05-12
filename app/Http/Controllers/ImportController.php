@@ -98,7 +98,7 @@ class ImportController extends Controller
 
                     if (!$value->isValid()) {
                         $message = match ($value->getError()) {
-                            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The file is too large. Maximum size is 50MB.',
+                            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The file is too large. Maximum size is 250MB.',
                             UPLOAD_ERR_PARTIAL => 'The file was only partially uploaded. Please try again.',
                             UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
                             UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'Server error: unable to save the uploaded file.',
@@ -116,8 +116,8 @@ class ImportController extends Controller
                         return;
                     }
 
-                    if ($value->getSize() > 50 * 1024 * 1024) {
-                        $fail('File must be less than 50MB.');
+                    if ($value->getSize() > 250 * 1024 * 1024) {
+                        $fail('File must be less than 250MB.');
                     }
                 }
             ]
@@ -668,16 +668,37 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'Conversion failed: ' . $e->getMessage()], 500);
         }
 
-        // 7. Wait for nodes.json
-        $nodesPath = "{$path}/nodes.json";
+        // 7. Wait for nodes.jsonl (the Python pipeline writes JSONL, not JSON)
+        $jsonlPath = "{$path}/nodes.jsonl";
         $attempts = 0;
-        while (!File::exists($nodesPath) && $attempts < 15) {
+        while (!File::exists($jsonlPath) && $attempts < 15) {
             sleep(2);
             $attempts++;
         }
-        if (!File::exists($nodesPath)) {
-            return response()->json(['success' => false, 'message' => 'Timed out waiting for nodes.json'], 500);
+        if (!File::exists($jsonlPath)) {
+            return response()->json(['success' => false, 'message' => 'Timed out waiting for nodes.jsonl'], 500);
         }
+
+        // 7b. Convert nodes.jsonl → nodes.json (single JSON array) so the
+        // legacy DB-save path can consume it. Mirrors the inline conversion
+        // ProcessDocumentImportJob does for fresh imports.
+        $nodesPath = "{$path}/nodes.json";
+        $jsonOut = fopen($nodesPath, 'w');
+        fwrite($jsonOut, '[');
+        $first = true;
+        $handle = fopen($jsonlPath, 'r');
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') continue;
+            // Validate JSON before writing
+            if (json_decode($line, true) === null) continue;
+            if (!$first) fwrite($jsonOut, ',');
+            fwrite($jsonOut, $line);
+            $first = false;
+        }
+        fclose($handle);
+        fwrite($jsonOut, ']');
+        fclose($jsonOut);
 
         // 8. Save to database
         $this->saveNodeChunksToDatabase($path, $book);

@@ -243,9 +243,12 @@ class ZipProcessor implements ProcessorInterface
             throw new \RuntimeException("No markdown files found in folder upload");
         }
 
-        // Use the first markdown file (or could merge multiple)
+        // Use the first markdown file (or could merge multiple).
+        // Save as main-text.md so ProcessDocumentImportJob's fallback finds
+        // it (the job's $inputPath logic comments: "Folder uploads create
+        // main-text.md directly").
         $markdownFile = $markdownFiles[0];
-        $markdownPath = "{$outputPath}/folder_markdown.md";
+        $markdownPath = "{$outputPath}/main-text.md";
 
         // SECURITY: Validate markdown file before processing
         if (!$this->validator->validateUploadedFile($markdownFile)) {
@@ -257,7 +260,7 @@ class ZipProcessor implements ProcessorInterface
         }
 
         // Move markdown file
-        $markdownFile->move($outputPath, 'folder_markdown.md');
+        $markdownFile->move($outputPath, 'main-text.md');
         chmod($markdownPath, 0644);
 
         Log::info('Markdown file processed', [

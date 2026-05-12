@@ -847,9 +847,14 @@ def main(html_file_path, output_dir, book_id):
     # Check if this is a STEM bibliography-style document
     footnote_meta_path = os.path.join(output_dir, 'footnote_meta.json')
     is_stem = False
+    footnote_warnings = []
+    segment_boundaries = []
     if os.path.exists(footnote_meta_path):
         with open(footnote_meta_path, 'r') as f:
-            is_stem = json.load(f).get('classification') == 'wackSTEMbibliographyNotes'
+            footnote_meta = json.load(f)
+            is_stem = footnote_meta.get('classification') == 'wackSTEMbibliographyNotes'
+            footnote_warnings = footnote_meta.get('footnote_warnings', []) or []
+            segment_boundaries = footnote_meta.get('segment_boundaries', []) or []
     if is_stem:
         print("📐 STEM bibliography mode detected — using wackSTEM marker conversion")
 
@@ -942,7 +947,9 @@ def main(html_file_path, output_dir, book_id):
             'total_refs': stem_cites,
             'total_defs': len(references_data),
             'gaps': [], 'duplicates': [],
-            'unmatched_refs': [], 'unmatched_defs': []
+            'unmatched_refs': [], 'unmatched_defs': [],
+            'font_encoding_warnings': footnote_warnings,
+            'segment_boundaries': segment_boundaries,
         }
         with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
             json.dump(audit_data, f, ensure_ascii=False, indent=4)
@@ -956,6 +963,8 @@ def main(html_file_path, output_dir, book_id):
             'footnotes_matched': 0,
             'footnote_strategy': 'stem_bibliography',
             'citation_style': 'numbered-bracket',
+            'font_encoding_warning_count': len(footnote_warnings),
+            'segment_count': len(segment_boundaries) + 1 if segment_boundaries else 1,
         }
         with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
             json.dump(conversion_stats, f, ensure_ascii=False, indent=4)
@@ -2047,6 +2056,10 @@ def main(html_file_path, output_dir, book_id):
               f"{len(audit_data['gaps'])} gaps, {len(audit_data['duplicates'])} duplicates, "
               f"{len(audit_data['unmatched_refs'])} unmatched refs, {len(audit_data['unmatched_defs'])} unmatched defs")
 
+        # Annotate audit with mojibake warnings + segment info pulled from footnote_meta.json
+        audit_data['font_encoding_warnings'] = footnote_warnings
+        audit_data['segment_boundaries'] = segment_boundaries
+
         # Write audit.json
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, 'audit.json'), 'w', encoding='utf-8') as f:
@@ -2069,6 +2082,8 @@ def main(html_file_path, output_dir, book_id):
             'footnotes_matched': len(all_footnotes_data),
             'footnote_strategy': strategy,
             'citation_style': citation_style,
+            'font_encoding_warning_count': len(footnote_warnings),
+            'segment_count': len(segment_boundaries) + 1 if segment_boundaries else 1,
         }
         with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
             json.dump(conversion_stats, f, ensure_ascii=False, indent=4)

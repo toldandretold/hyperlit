@@ -21,9 +21,19 @@ import base64
 from pathlib import Path
 from statistics import median
 from mistralai.client import Mistral
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 SUPERSCRIPT_MAP = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079", "0123456789")
+
+# Mistral OCR enforces a 50MB-per-document limit. PDFs above CHUNK_TARGET_BYTES
+# are split with pypdf, OCR'd per chunk, then merged into a single response.
+MISTRAL_MAX_BYTES = 50 * 1024 * 1024
+CHUNK_TARGET_BYTES = 40 * 1024 * 1024
+
+
+def emit_progress(percent, stage, detail):
+    """Emit a progress event consumed by StreamsProgress (PHP side) and written to progress.json."""
+    print("PROGRESS:" + json.dumps({"percent": percent, "stage": stage, "detail": detail}), flush=True)
 
 
 def convert_footnotes(text):
@@ -319,6 +329,118 @@ def fetch_ocr(pdf_path, api_key):
     return response_dict
 
 
+def split_pdf_into_chunks(pdf_path, target_bytes, work_dir):
+    """Split a PDF into chunks each under the Mistral 50MB limit.
+
+    Strategy: estimate pages-per-chunk from average page size (with headroom for PDF
+    overhead), write each chunk to disk, and if a chunk still exceeds the hard limit,
+    halve it recursively. Returns chunk paths in original page order.
+    """
+    reader = PdfReader(str(pdf_path))
+    total_pages = len(reader.pages)
+    file_size = pdf_path.stat().st_size
+
+    chunks_dir = work_dir / "chunks"
+    chunks_dir.mkdir(parents=True, exist_ok=True)
+
+    chunk_paths = []
+    counter = {"i": 0}
+
+    def flush(pages):
+        if not pages:
+            return
+        writer = PdfWriter()
+        for p in pages:
+            writer.add_page(p)
+        chunk_path = chunks_dir / f"chunk_{counter['i']:03d}.pdf"
+        with open(chunk_path, "wb") as f:
+            writer.write(f)
+        size = chunk_path.stat().st_size
+        if size > MISTRAL_MAX_BYTES:
+            chunk_path.unlink()
+            if len(pages) == 1:
+                raise RuntimeError(
+                    f"Single PDF page is {size / 1024 / 1024:.1f}MB, exceeding Mistral's 50MB limit. "
+                    f"This page cannot be OCR'd."
+                )
+            mid = len(pages) // 2
+            flush(pages[:mid])
+            flush(pages[mid:])
+        else:
+            chunk_paths.append(chunk_path)
+            counter["i"] += 1
+
+    avg_page_bytes = file_size / max(total_pages, 1)
+    # Leave 15% headroom for PDF trailer/xref overhead per chunk.
+    pages_per_chunk = max(1, int((target_bytes * 0.85) / avg_page_bytes))
+
+    for start in range(0, total_pages, pages_per_chunk):
+        end = min(start + pages_per_chunk, total_pages)
+        flush([reader.pages[i] for i in range(start, end)])
+
+    return chunk_paths
+
+
+def fetch_ocr_chunked(pdf_path, api_key, work_dir):
+    """For PDFs over Mistral's 50MB limit: split, OCR each chunk, merge responses.
+
+    Image IDs are namespaced per chunk (e.g. c0-img-0.jpeg) to prevent collisions
+    when save_images() writes them to media/. Markdown image refs in each page are
+    rewritten to match.
+    """
+    file_mb = pdf_path.stat().st_size / 1024 / 1024
+    emit_progress(
+        5, "pdf_splitting",
+        f"Large PDF detected ({file_mb:.0f}MB). Splitting into chunks for OCR — this takes longer than smaller files."
+    )
+
+    chunk_paths = split_pdf_into_chunks(pdf_path, CHUNK_TARGET_BYTES, work_dir)
+    n = len(chunk_paths)
+    emit_progress(8, "pdf_splitting", f"Split into {n} chunks. Starting OCR...")
+
+    merged_pages = []
+    chunk_boundary_indices = []  # page index where each chunk (after the first) begins
+    for i, chunk_path in enumerate(chunk_paths):
+        percent = 10 + int(68 * i / n)
+        emit_progress(
+            percent, "ocr_chunk",
+            f"Running OCR on chunk {i + 1} of {n} (each chunk takes around 30-60 seconds)..."
+        )
+        chunk_response = fetch_ocr(chunk_path, api_key)
+
+        if i > 0:
+            chunk_boundary_indices.append(len(merged_pages))
+
+        for page in chunk_response.get("pages", []):
+            md = page.get("markdown", "")
+            for img in page.get("images", []):
+                old_id = img.get("id", "")
+                if not old_id:
+                    continue
+                new_id = f"c{i}-{old_id}"
+                md = md.replace(old_id, new_id)
+                img["id"] = new_id
+            page["markdown"] = md
+            merged_pages.append(page)
+
+    # Cleanup chunk PDFs (the merged ocr_response.json is now the only artifact we need).
+    for p in chunk_paths:
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    try:
+        (work_dir / "chunks").rmdir()
+    except OSError:
+        pass
+
+    emit_progress(78, "ocr_chunk", f"OCR complete for all {n} chunks. Assembling document...")
+    return {
+        "pages": merged_pages,
+        "_chunk_boundaries": chunk_boundary_indices,
+    }
+
+
 def is_page_number_header(header_text):
     """Check if a header line is just a page number."""
     if not header_text:
@@ -393,6 +515,320 @@ def rejoin_page_breaks(text):
         i += 1
 
     return '\n'.join(result)
+
+
+def compute_printable_ratio(text):
+    """Ratio of characters in `text` that are 'good' printable / common chars.
+
+    Used to detect OCR mojibake from PDFs whose fonts lack a ToUnicode CMap.
+    Returns 1.0 for empty strings (no signal).
+    """
+    if not text:
+        return 1.0
+    good = 0
+    total = 0
+    for ch in text:
+        total += 1
+        cp = ord(ch)
+        # ASCII printable + tab/newline
+        if 0x20 <= cp <= 0x7E or cp in (0x09, 0x0A, 0x0D):
+            good += 1
+            continue
+        # Latin-1 supplement, Latin Extended A/B, IPA, common diacritics, Greek, Cyrillic
+        if 0x00A0 <= cp <= 0x052F:
+            good += 1
+            continue
+        # General punctuation (curly quotes, en/em dash, ellipsis, etc.)
+        if 0x2000 <= cp <= 0x206F:
+            good += 1
+            continue
+        # Currency, super/subscript digits, letterlike symbols, number forms
+        if 0x2070 <= cp <= 0x218F:
+            good += 1
+            continue
+        # Math operators (sometimes legitimately in academic text)
+        if 0x2200 <= cp <= 0x22FF:
+            good += 1
+            continue
+        # CJK (legitimate when present)
+        if 0x3000 <= cp <= 0x9FFF:
+            good += 1
+            continue
+    return good / total if total else 1.0
+
+
+def _collect_page_refs_and_defs(md):
+    """Return (sorted unique refs, sorted unique defs) for a single page's markdown.
+
+    Lightweight version of classify_footnotes per-page logic — used by
+    renumber_chunk_footnotes which runs *before* the classifier.
+    """
+    md = convert_footnotes(md)
+    refs = set()
+    for m in re.finditer(r'\[\^?(\d+)\]', md):
+        num = int(m.group(1))
+        if num > 500 or num < 1:
+            continue
+        pos = m.start()
+        if pos == 0 or md[pos - 1] == '\n':
+            continue
+        refs.add(num)
+    defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
+    defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
+    defs |= set(int(n) for n in re.findall(r'^(\d{1,3}) [A-Z‘“\'"]', md, re.MULTILINE))
+    return sorted(refs), sorted(defs)
+
+
+def renumber_chunk_footnotes(response_dict, chunk_boundary_indices=None):
+    """Renumber footnote IDs across chunk boundaries so they stay globally unique.
+
+    When a >50MB PDF is split for OCR, each chunk's Mistral response starts its
+    footnote numbering from 1, so the merged response contains duplicate [^N]
+    markers. This pass walks pages in order, tracks the running max footnote
+    number, and when it sees a reset (lowest ref drops to 1 while running max
+    >= 5) it offsets that page and everything after it by the running max.
+
+    `chunk_boundary_indices` (optional): when called from fetch_ocr_chunked,
+    we know exactly where chunks begin — passing these page indices makes
+    detection deterministic. When None (cache re-runs), fall back to heuristic
+    detection based on number resets alone.
+
+    Idempotent via response_dict["_footnote_renumber_version"] marker.
+    Mutates page["markdown"] in place. Returns the response_dict.
+    """
+    if response_dict.get("_footnote_renumber_version"):
+        return response_dict
+
+    pages = response_dict.get("pages", [])
+    if not pages:
+        response_dict["_footnote_renumber_version"] = 1
+        return response_dict
+
+    # Collect per-page refs+defs
+    per_page = [_collect_page_refs_and_defs(p.get("markdown", "")) for p in pages]
+
+    boundary_hint = set(chunk_boundary_indices or [])
+    running_max = 0
+    total_offset = 0
+    reset_boundaries = []  # list of (page_idx, offset_to_add)
+
+    for i, (refs, defs) in enumerate(per_page):
+        if not refs and not defs:
+            continue
+        page_min = min(refs) if refs else (min(defs) if defs else None)
+        page_max = max(refs + defs) if (refs or defs) else 0
+
+        # Detect reset: page_min == 1 AND running_max sufficiently above 1 AND
+        # either the boundary_hint matches OR running_max is large enough that
+        # an organic restart is implausible without a real document break.
+        is_reset = (
+            page_min == 1
+            and running_max >= 5
+            and (i in boundary_hint or running_max >= 5)
+        )
+        if is_reset:
+            total_offset += running_max
+            reset_boundaries.append((i, total_offset))
+            running_max = page_max  # reset tracking for this new sub-sequence
+        else:
+            running_max = max(running_max, page_max)
+
+    # Apply offsets. Iterate boundaries in reverse so later offsets apply first
+    # (we walk forward but each boundary's offset replaces the prior one).
+    page_offsets = [0] * len(pages)
+    if reset_boundaries:
+        # Build per-page offset lookup
+        active_offset = 0
+        boundary_map = {idx: off for idx, off in reset_boundaries}
+        for i in range(len(pages)):
+            if i in boundary_map:
+                active_offset = boundary_map[i]
+            page_offsets[i] = active_offset
+
+        for i, page in enumerate(pages):
+            off = page_offsets[i]
+            if off <= 0:
+                continue
+            md = page.get("markdown", "")
+
+            # Normalize superscripts and LaTeX-superscripts to [^N] before
+            # shifting, otherwise non-[^N] forms slip through unchanged and
+            # collide with the un-shifted IDs from earlier pages.
+            md = convert_footnotes(md)
+            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+
+            # Renumber [^N] (refs and defs alike)
+            def _shift_footnote_ref(m, _off=off):
+                return f'[^{int(m.group(1)) + _off}]'
+            md = re.sub(r'\[\^(\d+)\]', _shift_footnote_ref, md)
+
+            # Renumber bracket-form [N] line-starts only when small N (defs),
+            # so we don't corrupt things like [2015]
+            def _shift_bracket_def(m, _off=off):
+                num = int(m.group(1))
+                if num < 1 or num > 500:
+                    return m.group(0)
+                return f'[{num + _off}]{m.group(2)}'
+            md = re.sub(r'^\[(\d+)\]( .)', _shift_bracket_def, md, flags=re.MULTILINE)
+
+            # Renumber "N. text" line-starts (numbered def lists on notes pages).
+            # Only shift when the original N is small (def-sized) to avoid
+            # renumbering legitimate numbered lists in body prose.
+            def _shift_numdot_def(m, _off=off):
+                num = int(m.group(1))
+                if num < 1 or num > 200:
+                    return m.group(0)
+                return f'{num + _off}. {m.group(2)}'
+            md = re.sub(r'^(\d{1,3})\. (\S)', _shift_numdot_def, md, flags=re.MULTILINE)
+
+            page["markdown"] = md
+
+    response_dict["_footnote_renumber_version"] = 1
+    response_dict["_footnote_renumber_boundaries"] = [b[0] for b in reset_boundaries]
+    response_dict["_footnote_renumber_page_offsets"] = page_offsets
+    return response_dict
+
+
+def detect_segment_boundaries(response_dict, footnote_meta):
+    """Identify multi-paper boundaries from footnote-number resets, anchored to headings.
+
+    Only renumber-detected resets are treated as candidates for being paper
+    boundaries — most documents that legitimately have many `# ` headings
+    (multi-chapter books) DO NOT restart footnote numbering between chapters,
+    so the reset signal is what distinguishes an anthology from a single work.
+
+    For each renumber boundary we anchor to the nearest top-level `# ` heading
+    (on the boundary page itself or the one before — paper titles often sit
+    on a page just before the first footnote ref of the new paper). Resets
+    that don't correlate with any nearby `# ` heading are dropped, on the
+    assumption that they're chunking artifacts rather than real paper breaks.
+
+    Returns a sorted, deduplicated list of page indices. Empty for documents
+    with no inter-paper resets.
+    """
+    if not footnote_meta:
+        return []
+    pages = response_dict.get("pages", [])
+    if not pages:
+        return []
+
+    raw_boundaries = sorted(set(response_dict.get("_footnote_renumber_boundaries") or []))
+    if not raw_boundaries:
+        return []
+
+    confirmed = set()
+    for page_idx in raw_boundaries:
+        if page_idx <= 0 or page_idx >= len(pages):
+            continue
+        md = pages[page_idx].get("markdown", "") or ""
+        prev_md = pages[page_idx - 1].get("markdown", "") or ""
+        if re.search(r'^# [^#]', md, re.MULTILINE):
+            confirmed.add(page_idx)
+        elif re.search(r'^# [^#]', prev_md, re.MULTILINE):
+            confirmed.add(page_idx - 1)
+        # No nearby heading → almost certainly a chunking artifact; skip.
+
+    # Dedupe near-adjacent boundaries (within 2 pages = same paper break)
+    if not confirmed:
+        return []
+    sorted_b = sorted(confirmed)
+    merged = [sorted_b[0]]
+    for b in sorted_b[1:]:
+        if b - merged[-1] <= 2:
+            continue
+        merged.append(b)
+    return merged
+
+
+def scan_footnote_mojibake(response_dict, footnote_meta, pdf_path,
+                            threshold=0.85):
+    """Detect mojibake on footnote-definition pages and try pypdf fallback.
+
+    Looks at every page in page_summary that has defs. Slices the def text
+    region (from the first def marker to end of page or next non-def block)
+    and computes printable_ratio. Below `threshold` → attempt pypdf for that
+    page; accept its def text only if its printable_ratio also clears
+    `threshold`. Recovered defs are appended to the page markdown as
+    `[^N]: text` lines so the assembler picks them up.
+
+    Returns a list of warning dicts.
+    """
+    warnings = []
+    if not footnote_meta or not pdf_path:
+        return warnings
+
+    page_summary = footnote_meta.get("page_summary", [])
+    pages = response_dict.get("pages", [])
+    if not page_summary or not pages:
+        return warnings
+
+    pypdf_defs_cache = None  # Lazily computed only if a mojibake page is found
+
+    for entry in page_summary:
+        defs = entry.get("defs", [])
+        if not defs:
+            continue
+        idx = entry["index"]
+        if idx >= len(pages):
+            continue
+        md = pages[idx].get("markdown", "") or ""
+
+        # Slice the def section: first def marker → end of page
+        def_match = re.search(
+            r'^(?:\[\^?\d{1,3}\][:\s]|\d{1,3}\.?\s+[A-Z‘“\'"])',
+            md, re.MULTILINE
+        )
+        if not def_match:
+            continue
+        def_section = md[def_match.start():]
+        ratio = compute_printable_ratio(def_section)
+        if ratio >= threshold:
+            continue
+
+        # Try pypdf for this page (lazy init of full extraction)
+        if pypdf_defs_cache is None:
+            try:
+                pypdf_defs_cache = extract_pypdf_footnote_defs(pdf_path)
+            except Exception as e:
+                pypdf_defs_cache = {}
+                print(f"  pypdf fallback unavailable: {e}")
+
+        page_defs = pypdf_defs_cache.get(idx, [])
+        recovered_lines = []
+        recovered_nums = []
+        unrecovered_nums = []
+        for fn_num, fn_text in page_defs:
+            if fn_num not in defs:
+                continue
+            if compute_printable_ratio(fn_text) >= threshold:
+                recovered_lines.append(f'[^{fn_num}]: {fn_text}')
+                recovered_nums.append(fn_num)
+            else:
+                unrecovered_nums.append(fn_num)
+
+        # Any defs we couldn't recover at all (no pypdf entry)
+        for d in defs:
+            if d not in recovered_nums and d not in unrecovered_nums:
+                unrecovered_nums.append(d)
+
+        if recovered_lines:
+            # Strip the mojibake def section and replace with recovered defs.
+            # The body (everything before the first def marker) is preserved.
+            body = md[:def_match.start()].rstrip()
+            pages[idx]["markdown"] = body + "\n\n" + "\n\n".join(recovered_lines) + "\n"
+
+        warnings.append({
+            "page": idx,
+            "fn_numbers": sorted(defs),
+            "printable_ratio": round(ratio, 3),
+            "recovered": sorted(recovered_nums),
+            "unrecovered": sorted(unrecovered_nums),
+            # We saw unreadable glyphs in the def-section slice. Could be
+            # broken font CMap, could be non-def content on this page entirely.
+            "reason": "unreadable_glyphs_in_def_region" if ratio < threshold else "ok",
+        })
+
+    return warnings
 
 
 def classify_footnotes(response_dict):
@@ -858,31 +1294,55 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     return result
 
 
-def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number):
+def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
+                          page_offsets=None, targeted_pages=None,
+                          allow_overwrite=False):
     """Return list of (number, text) for footnotes missing from OCR.
 
     Args:
         ocr_defs_set: set of footnote numbers already present as definitions
         pypdf_defs_by_page: output from extract_pypdf_footnote_defs()
         max_ref_number: highest footnote ref number in the document
+        page_offsets: optional dict[page_idx, int] of offsets to add to each
+            pypdf-extracted fn_num before matching. Used for multi-paper PDFs
+            where the assembled doc has shifted IDs but pypdf returns originals.
+        targeted_pages: optional set of page indices to restrict scanning to.
+            When provided, only those pages are considered.
+        allow_overwrite: when True, defs are emitted even if their number is
+            already in ocr_defs_set (used for mojibake recovery where the
+            existing OCR def is corrupt).
     """
     recovered = []
     seen = set()
+    page_offsets = page_offsets or {}
     for page_idx in sorted(pypdf_defs_by_page.keys()):
+        if targeted_pages is not None and page_idx not in targeted_pages:
+            continue
+        offset = page_offsets.get(page_idx, 0)
         for fn_num, fn_text in pypdf_defs_by_page[page_idx]:
-            if fn_num in ocr_defs_set:
+            shifted_num = fn_num + offset
+            if shifted_num in ocr_defs_set and not allow_overwrite:
                 continue
-            if fn_num < 1 or fn_num > max_ref_number:
+            if shifted_num < 1 or shifted_num > max_ref_number:
                 continue
-            if fn_num in seen:
+            if shifted_num in seen:
                 continue
-            seen.add(fn_num)
-            recovered.append((fn_num, fn_text))
+            seen.add(shifted_num)
+            recovered.append((shifted_num, fn_text))
     return recovered
 
 
-def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None):
-    """Assemble pages into markdown, injecting section headings from headers."""
+def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
+                       segment_boundaries=None, footnote_warnings=None):
+    """Assemble pages into markdown, injecting section headings from headers.
+
+    segment_boundaries (optional list[int]): page indices where a new paper
+        begins in a multi-paper PDF. Each segment after the first gets a
+        footnote-number offset so IDs stay globally unique.
+    footnote_warnings (optional list[dict]): mojibake warnings from
+        scan_footnote_mojibake. When non-empty, the pypdf def-recovery pass
+        runs regardless of classification.
+    """
     pages = response_dict["pages"]
 
     # Extract page number offset for stripping trailing page numbers
@@ -1198,8 +1658,12 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined = fix_mangled_urls(combined, pdf_path)
 
     # --- pypdf fallback: recover missing footnote definitions ---
-    # Skip for chapter_endnotes — renumbered offsets don't match pypdf's original numbers
-    if pdf_path and classification not in ("wackSTEMbibliographyNotes", "chapter_endnotes"):
+    # Skip for chapter_endnotes — renumbered offsets don't match pypdf's original numbers,
+    # UNLESS we have explicit mojibake warnings (in which case we target only the affected pages).
+    has_warnings = bool(footnote_warnings)
+    skip_recovery = classification in ("wackSTEMbibliographyNotes", "chapter_endnotes") and not has_warnings
+    pypdf_rejected_mojibake = []  # list of {page, fn_num, ratio}
+    if pdf_path and not skip_recovery:
         # Collect definition numbers already in the assembled text
         ocr_def_nums = set(int(n) for n in re.findall(r'^\[\^(\d+)\]\s*:', combined, re.MULTILINE))
         # Collect all inline ref numbers
@@ -1208,12 +1672,63 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         missing = ref_nums - ocr_def_nums
         if missing:
             max_ref = max(ref_nums) if ref_nums else 0
-            pypdf_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
-            recovered = recover_missing_defs(ocr_def_nums, pypdf_defs, max_ref)
+            try:
+                pypdf_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
+            except Exception as e:
+                print(f"  pypdf fallback skipped (cannot read PDF: {e.__class__.__name__})")
+                pypdf_defs = {}
+            # Build per-page offsets map so pypdf-extracted numbers (always
+            # originals) line up with the shifted IDs we wrote into `combined`.
+            renumber_offsets = response_dict.get("_footnote_renumber_page_offsets") or []
+            page_offsets_map = {i: off for i, off in enumerate(renumber_offsets) if off}
+
+            # Reject pypdf defs whose text is mojibake (broken font CMap) —
+            # injecting them just spreads garbage. Record them as warnings so
+            # the user knows the source PDF needs a different OCR pass.
+            MOJIBAKE_THRESHOLD = 0.85
+            clean_pypdf_defs = {}
+            for page_idx, page_defs in pypdf_defs.items():
+                clean = []
+                for fn_num, fn_text in page_defs:
+                    ratio = compute_printable_ratio(fn_text)
+                    if ratio < MOJIBAKE_THRESHOLD:
+                        pypdf_rejected_mojibake.append({
+                            "page": page_idx,
+                            "fn_num": fn_num + page_offsets_map.get(page_idx, 0),
+                            "printable_ratio": round(ratio, 3),
+                        })
+                    else:
+                        clean.append((fn_num, fn_text))
+                if clean:
+                    clean_pypdf_defs[page_idx] = clean
+
+            recovered = recover_missing_defs(
+                ocr_def_nums, clean_pypdf_defs, max_ref,
+                page_offsets=page_offsets_map,
+            )
             if recovered:
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
                 combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
                 print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
+            if pypdf_rejected_mojibake:
+                # These are "candidate" defs pypdf pattern-matched (^N + Uppercase)
+                # on the source PDF — but the text payload was unreadable glyphs.
+                # On excerpt/selection PDFs this is usually a false match on
+                # non-def content (cover art, decoration, page metadata), not
+                # actual broken footnote defs. So report it conservatively.
+                print(f"  pypdf fallback: skipped {len(pypdf_rejected_mojibake)} unreadable candidate def(s) "
+                      f"— either source omits def pages, or those pages use non-Unicode font encodings.")
+                if footnote_warnings is None:
+                    footnote_warnings = []
+                for entry in pypdf_rejected_mojibake:
+                    footnote_warnings.append({
+                        "page": entry["page"],
+                        "fn_numbers": [entry["fn_num"]],
+                        "printable_ratio": entry["printable_ratio"],
+                        "recovered": [],
+                        "unrecovered": [entry["fn_num"]],
+                        "reason": "unreadable_pypdf_candidate",
+                    })
 
     # --- Convert <url> autolinks to clickable links ---
     # Angle-bracket URLs like <https://example.com> get stripped by HTML parsers.
@@ -1291,30 +1806,83 @@ def main():
     media_dir = output_dir / "media"
 
     # Fetch or load cached OCR response
+    cache_was_loaded = False
     if json_cache.exists() and not args.no_cache:
         print(f"Using cached OCR response: {json_cache}")
         response_dict = json.loads(json_cache.read_text(encoding="utf-8"))
+        cache_was_loaded = True
     else:
-        response_dict = fetch_ocr(pdf_path, api_key)
+        if pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
+            response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir)
+        else:
+            response_dict = fetch_ocr(pdf_path, api_key)
         json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
         print(f"Cached raw response to: {json_cache}")
 
-    # Classify footnote style
+    # Initial classification (used to gate the renumber pass — chapter_endnotes
+    # books have their own per-chapter offset machinery and we must not double-shift).
     footnote_meta = classify_footnotes(response_dict)
-    meta_path = output_dir / "footnote_meta.json"
-    meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")
     print(f"Footnote classification: {footnote_meta['classification']} "
           f"(confidence: {footnote_meta['confidence']:.2f})")
+
+    # Renumber footnote IDs across chunk and multi-paper resets — skip for
+    # chapter_endnotes (existing chapter_fn_offsets handles those). Idempotent
+    # via the marker on response_dict.
+    pre_renumber = response_dict.get("_footnote_renumber_version")
+    if footnote_meta['classification'] != "chapter_endnotes":
+        renumber_chunk_footnotes(
+            response_dict,
+            response_dict.get("_chunk_boundaries"),
+        )
+        # If renumber shifted anything, re-classify so page_summary reflects the
+        # corrected IDs.
+        if response_dict.get("_footnote_renumber_boundaries"):
+            footnote_meta = classify_footnotes(response_dict)
+
+    if response_dict.get("_footnote_renumber_version") and not pre_renumber:
+        # Persist the renumbered response so subsequent re-runs see the new IDs
+        json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
+        if cache_was_loaded:
+            print("Renumbered chunk footnotes in cached response.")
+
+    # Detect multi-paper segment boundaries (anthology PDFs)
+    segment_boundaries = detect_segment_boundaries(response_dict, footnote_meta)
+    if segment_boundaries:
+        print(f"Detected {len(segment_boundaries)} segment boundary/boundaries at pages: {segment_boundaries}")
+    footnote_meta["segment_boundaries"] = segment_boundaries
+
+    # Scan for OCR mojibake on def pages and attempt pypdf fallback
+    footnote_warnings = []
+    if pdf_path.exists():
+        footnote_warnings = scan_footnote_mojibake(response_dict, footnote_meta, pdf_path)
+        if footnote_warnings:
+            unrec = sum(len(w["unrecovered"]) for w in footnote_warnings)
+            rec = sum(len(w["recovered"]) for w in footnote_warnings)
+            print(f"Font-encoding mojibake on {len(footnote_warnings)} page(s): "
+                  f"recovered {rec} defs via pypdf, {unrec} unrecoverable.")
+    footnote_meta["footnote_warnings"] = footnote_warnings
 
     # Save images to media/ subdirectory
     img_count = save_images(response_dict, media_dir)
     if img_count:
         print(f"Saved {img_count} images to {media_dir}")
 
-    # Assemble markdown
+    # Assemble markdown — may append additional mojibake warnings to
+    # `footnote_warnings` for pypdf-extracted defs we had to reject.
     print("Assembling markdown...")
-    markdown = assemble_markdown(response_dict, classification=footnote_meta['classification'], footnote_meta=footnote_meta, pdf_path=pdf_path)
+    markdown = assemble_markdown(
+        response_dict,
+        classification=footnote_meta['classification'],
+        footnote_meta=footnote_meta,
+        pdf_path=pdf_path,
+        segment_boundaries=segment_boundaries,
+        footnote_warnings=footnote_warnings,
+    )
     output_md.write_text(markdown, encoding="utf-8")
+
+    # Persist footnote_meta.json after assemble (which may have added warnings)
+    meta_path = output_dir / "footnote_meta.json"
+    meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")
 
     # Stats
     fn_count = len(re.findall(r'\[\^\d+\]', markdown))

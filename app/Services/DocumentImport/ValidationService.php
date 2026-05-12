@@ -12,11 +12,11 @@ class ValidationService
      */
     public function validateUploadedFile(UploadedFile $file): bool
     {
-        // Check file size (50MB max)
-        if ($file->getSize() > 50 * 1024 * 1024) {
+        // Check file size (250MB max — PDFs above Mistral's 50MB API limit are chunked in mistral_ocr.py)
+        if ($file->getSize() > 250 * 1024 * 1024) {
             Log::debug('File validation failed: size too large', [
                 'size' => $file->getSize(),
-                'max_size' => 50 * 1024 * 1024
+                'max_size' => 250 * 1024 * 1024
             ]);
             return false;
         }
@@ -314,9 +314,9 @@ class ValidationService
             return false;
         }
 
-        // 50MB max
+        // 250MB max — chunked OCR handles PDFs above the 50MB Mistral API limit by splitting in mistral_ocr.py
         $fileSize = filesize($filePath);
-        if ($fileSize > 50 * 1024 * 1024) {
+        if ($fileSize > 250 * 1024 * 1024) {
             Log::warning('PDF file too large', ['path' => basename($filePath), 'size' => $fileSize]);
             return false;
         }
