@@ -389,13 +389,14 @@ class ProcessDocumentImportJob implements ShouldQueue
                         $values[] = $val ? 't' : 'f';
                     } else {
                         $val = (string) $val;
+                        // Strip null bytes/sequences before COPY escaping
+                        $val = str_replace("\x00", '', $val);
+                        $val = str_replace('\\u0000', '', $val);
                         // COPY text format escaping
                         $val = str_replace('\\', '\\\\', $val);
                         $val = str_replace("\t", '\\t', $val);
                         $val = str_replace("\n", '\\n', $val);
                         $val = str_replace("\r", '\\r', $val);
-                        $val = str_replace("\x00", '', $val);  // Strip literal null bytes (invalid in PostgreSQL text)
-                        $val = str_replace('\\u0000', '', $val);  // Strip JSON-escaped null bytes (invalid in PostgreSQL JSONB)
                         $values[] = $val;
                     }
                 }
