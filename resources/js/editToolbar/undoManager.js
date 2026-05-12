@@ -36,9 +36,14 @@ function resolveBookId(target) {
 function findBlockFromTarget(target) {
   const el = target?.nodeType === Node.TEXT_NODE ? target.parentElement : target;
   if (!el) return null;
-  const block = findClosestBlockParent(el);
+  let block = findClosestBlockParent(el);
   // Never return the contenteditable container itself — it's not a content block
   if (block && block.hasAttribute('contenteditable')) return null;
+  // <li> elements never have IDs — walk up to the parent <ol>/<ul> which does
+  if (block && block.tagName === 'LI') {
+    const listParent = block.closest('ol, ul');
+    if (listParent && listParent.id) block = listParent;
+  }
   return block;
 }
 

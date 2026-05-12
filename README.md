@@ -4,7 +4,7 @@ Read and self-publish hypertext literature.
 
 [https://hyperlit.io](https://hyperlit.io)
 
-## Why?
+## [Why?](https://hyperlit.io/welcome)
 
 I am a historian. I made this site to publish research with two-way hyperlink citations.[^1]
 
@@ -13,6 +13,8 @@ I import sources to read. I cite by copying passages and pasting them into my ow
 This means readers of my work can be taken directly to the cited passages in the source material.
 
 You might want to use it for something else.
+
+[Read more here](https://hyperlit.io/welcome)
 
 ## Features
 ### Free 
@@ -184,29 +186,6 @@ php artisan route:list       # View all registered routes
 php artisan tinker           # Interactive PHP REPL with your app loaded
 ```
 
-### Book Version Control
-
-The nodes table has automatic version history. Every edit is archived, allowing you to restore books to previous states.
-
-**View snapshots (points in time when book changed):**
-```sh
-php artisan book:snapshots {book-id}
-```
-
-**Preview what book looked like at a previous version:**
-```sh
-php artisan book:preview {book-id} --at=1    # 1 snapshot back
-php artisan book:preview {book-id} --at=3    # 3 snapshots back
-```
-
-**Restore book to a previous version:**
-```sh
-php artisan book:restore {book-id} --at=2 --dry-run   # Preview changes
-php artisan book:restore {book-id} --at=2             # Actually restore
-```
-
-The `--at` parameter accepts a number (snapshots back) or a timestamp like `--at="2026-02-06 10:00:00"`.
-
 ## Architectural Overview
 
 ### Hypertext Loading 
@@ -258,15 +237,63 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 2. we don't want users editing the nodes data table of another user's book. (hyperlights and hypercites are treated as the sovereign data of their users, and not tied to the sovereign data of other users, except via the relation of node_id)
 3. this also enables us to have a ghost hypercite system, which [is done](https://hyperlit.io/book_1776498326506).
 
+## Tests
+
+### Regression Tests
+
+End-to-end tests use [Playwright](https://playwright.dev/) to drive a real browser against a running local instance of Hyperlit.
+
+#### Prerequisites
+
+- Local dev server running (`npm run dev:all`)
+- A test user account (the auth setup project in the Playwright config handles login via `.auth-state.json`)
+
+#### Running Tests
+
+Run all E2E tests:
+```sh
+npx playwright test --config tests/e2e/playwright.config.js
+```
+
+Run a specific test file:
+```sh
+npx playwright test tests/e2e/specs/workflows/authoring-workflow.spec.js --config tests/e2e/playwright.config.js
+```
+
+Watch the tests run in a visible browser (useful for debugging and demos):
+```sh
+npx playwright test tests/e2e/specs/workflows/authoring-workflow.spec.js --headed --config tests/e2e/playwright.config.js
+```
+
+#### What the Tests Cover
+
+**SPA Navigation Tests** (`tests/e2e/specs/navigation/`) — 24 tests covering every SPA transition path (home→reader, reader→home, reader→user, etc.), verifying that the navigation overlay lifecycle, `buttonRegistry` component initialization, page structure detection, and listener cleanup all work correctly after each transition.
+
+**Authoring Workflow Test** (`tests/e2e/specs/workflows/authoring-workflow.spec.js`) — a single end-to-end test that exercises the full authoring lifecycle:
+
+1. **Create a book** from the homepage via the [+] button
+2. **Type and format text** using the edit toolbar (bold, italic, heading, blockquote, list)
+3. **Highlight text** with a hyperlight and verify the highlight renders
+4. **Create a hypercite** by selecting source text and copying it
+5. **Navigate home** and create a second book
+6. **Paste the hypercite** into the second book and verify the citation link (↗) appears
+7. **Click the hypercite link** to navigate back to the source text in book 1 via the "See in source text" button
+8. **Browser back/forward** navigation between the two books
+9. **Health checks** — verifies no console errors, correct page structure, and healthy `buttonRegistry` state throughout
+
+#### Still not covered
+- tests do not yet cover deeply nested notes. For example: highlights within highlights within footnotes within footnotes, etc. 
+- tests check that the buttons work, and that hyperciting works, but this only tests that things have worked on front end. It is possible that data has not been saved to postgresql, and we do not currently test for this.
+- this will required doing sql queries after the test, which I will work on eventually. 
+- similarly, there are no backend tests being done, say on APIs, routes, etc. For example, to ensure that all routes are only accessible via the correctly logged in user, etc. 
+
 
 ## Roadmap
 
 1. Hyperlight-ghost system (user can still see their own highlights in text, if original nodes were removed by crreator).
 2. See all hyperlights of one book in a seperate book, with links back to in-text hyperlights.
 3. Pre-inject first chunk for faster load time and SEO.
-4. More security vulnerability testing.
-5. Update user page, need overhaul of the page creation on backend, maybe even create it on front end. 
-6. fix/update re-do undo redo system... its a nightmare out there.
+4. More security vulnerability testing. 
 
 
 ## Contributing
@@ -296,7 +323,7 @@ Leave a hyperlight in [my hypertext library](https://hyperlit.io/u/toldandretold
 
 
 ## Notes
-[^1]: two-way hyperlinks was a core idea of Ted Nelson's ideas for a Docuverse. Linking directly to the cited text was a feature of the original hypertext editors. See: Belinda Barnet, ["Crafting the User-Centered Document Interface: The Hypertext Editing System (HES) and the File Retrieval and Editing System (FRESS)"](https://dhq.digitalhumanities.org/vol/4/1/000081/000081.html)
+[^1]: two-way hyperlinks was a core idea of Ted Nelson's ideas for a Docuverse. Linking directly to the cited text was a feature of the original hypertext editors. See: Belinda Barnet, ["Crafting the User-Centered Document Interface: The Hypertext Editing System (HES) and the File Retrieval and Editing System (FRESS)"](https://hyperlit.io/craftingtheuser)
 
 [^2]: Knowledge is freely given according to ones abilities, and freely enjoyed according to ones needs.
 

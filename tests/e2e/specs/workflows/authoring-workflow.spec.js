@@ -44,7 +44,6 @@ test.describe('Full authoring workflow', () => {
     // ──────────────────────────────────────────────────────────
     // Phase 2: Type Text
     // ──────────────────────────────────────────────────────────
-
     await page.click('h1[id="100"]');
     await page.keyboard.type('My Test Book');
     await page.keyboard.press('Enter');
@@ -66,7 +65,6 @@ test.describe('Full authoring workflow', () => {
     // Phase 3: Edit Toolbar Formatting
     // ──────────────────────────────────────────────────────────
 
-
     // Helper: move cursor to end of the very last block element in document order
     const moveCursorToEnd = async () => {
       await page.evaluate(() => {
@@ -86,12 +84,10 @@ test.describe('Full authoring workflow', () => {
     // Helper: find a paragraph by its text content and return a selector
     const findParagraphByText = async (searchText) => {
       return page.evaluate((text) => {
-        // Search all block elements, not just <p>
         const blocks = document.querySelectorAll('.main-content p, .main-content h1, .main-content h2, .main-content h3, .main-content h4, .main-content h5, .main-content h6, .main-content li, .main-content blockquote');
         for (const el of blocks) {
           if (el.textContent.includes(text)) {
             if (el.id) return `${el.tagName.toLowerCase()}[id="${el.id}"]`;
-            // Build nth-of-type selector as fallback
             const tag = el.tagName.toLowerCase();
             const parent = el.parentElement;
             const siblings = parent.querySelectorAll(`:scope > ${tag}`);
@@ -115,7 +111,6 @@ test.describe('Full authoring workflow', () => {
     expect(hasBold).toBeGreaterThanOrEqual(1);
 
     // Italic: select "italic text" in first <p>
-    // Re-read text after bold formatting may have changed offsets
     const firstPText2 = await page.locator(firstP).textContent();
     const italicStart = firstPText2.indexOf('italic text');
     expect(italicStart).toBeGreaterThanOrEqual(0);
@@ -125,8 +120,7 @@ test.describe('Full authoring workflow', () => {
     const hasItalic = await page.locator(`${firstP} em, ${firstP} i`).count();
     expect(hasItalic).toBeGreaterThanOrEqual(1);
 
-    // Move cursor to end of the very last block element before typing new blocks
-    // (prevents Enter from splitting the currently-selected paragraph)
+    // Move cursor to end before typing new blocks
     await moveCursorToEnd();
     await page.waitForTimeout(200);
 
@@ -173,7 +167,6 @@ test.describe('Full authoring workflow', () => {
     // ──────────────────────────────────────────────────────────
     // Phase 4: Create Highlight
     // ──────────────────────────────────────────────────────────
-    console.log(elapsed(), 'Phase 4: start');
 
     // Exit list context and position at the very end
     await page.keyboard.press('Enter');
@@ -196,42 +189,34 @@ test.describe('Full authoring workflow', () => {
     await spa.selectTextInElement(page, hlSelector, hlStart, hlStart + 'highlighted for annotation'.length);
 
     // Wait for hyperlight buttons to appear
-    console.log(elapsed(), 'Phase 4: waiting for hyperlight buttons');
     await spa.waitForHyperlightButtons(page);
 
     // Click highlight button
-    console.log(elapsed(), 'Phase 4: clicking copy-hyperlight');
     await page.click('#copy-hyperlight');
 
     // Wait for hyperlit container to open
-    console.log(elapsed(), 'Phase 4: waiting for container open');
     await page.waitForFunction(() => {
       const container = document.getElementById('hyperlit-container');
       return container && container.classList.contains('open');
     }, null, { timeout: 10000 });
 
     // Assert highlight mark exists
-    console.log(elapsed(), 'Phase 4: checking highlight mark');
     const hasHighlightMark = await page.locator('.main-content mark.user-highlight, .main-content mark.highlight').count();
     expect(hasHighlightMark).toBeGreaterThanOrEqual(1);
 
     // Close the hyperlit container
-    console.log(elapsed(), 'Phase 4: closing container');
     await spa.closeHyperlitContainer(page);
 
     // Verify container is closed
-    console.log(elapsed(), 'Phase 4: verifying container closed');
     const containerClosed = await page.evaluate(() => {
       const container = document.getElementById('hyperlit-container');
       return container && !container.classList.contains('open');
     });
     expect(containerClosed).toBe(true);
-    console.log(elapsed(), 'Phase 4: done');
 
     // ──────────────────────────────────────────────────────────
     // Phase 5: Create Hypercite (Copy)
     // ──────────────────────────────────────────────────────────
-    console.log(elapsed(), 'Phase 5: start');
 
     // Type new paragraph for hypercite source
     await moveCursorToEnd();
@@ -250,18 +235,14 @@ test.describe('Full authoring workflow', () => {
     await spa.selectTextInElement(page, hcSelector, hcStart, hcStart + 'quoted source text'.length);
 
     // Wait for hyperlight buttons
-    console.log(elapsed(), 'Phase 5: waiting for hyperlight buttons');
     await spa.waitForHyperlightButtons(page);
 
     // Click copy-hypercite button
-    console.log(elapsed(), 'Phase 5: clicking copy-hypercite');
     await page.click('#copy-hypercite');
     await page.waitForTimeout(500);
 
     // Assert hypercite <u> element exists in DOM
-    console.log(elapsed(), 'Phase 5: waiting for u.single element');
     await page.waitForSelector('u[id^="hypercite_"].single', { timeout: 5000 });
-    console.log(elapsed(), 'Phase 5: done');
 
     // Capture hypercite data from DOM for later paste
     const hyperciteData = await page.evaluate(() => {
@@ -286,7 +267,6 @@ test.describe('Full authoring workflow', () => {
     // ──────────────────────────────────────────────────────────
     // Phase 6: Navigate to Homepage
     // ──────────────────────────────────────────────────────────
-    console.log(elapsed(), 'Phase 6: start');
 
     // Wait for book 1 to sync (green cloud indicator or generous timeout)
     try {
@@ -367,7 +347,7 @@ test.describe('Full authoring workflow', () => {
 
     // Exit edit mode — clicking <a> in contenteditable may just place cursor
     await page.click('#editButton');
-    await page.waitForFunction(() => window.isEditing === false, { timeout: 5000 });
+    await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
 
     // Wait for book 2 sync before leaving
     try {
@@ -389,8 +369,6 @@ test.describe('Full authoring workflow', () => {
     }, null, { timeout: 10000 });
 
     // Click "See in source text" to navigate to book 1
-    const seeInSourceSelector = 'a.citation-link, button.citation-link, .see-in-source, a:has-text("See in source text")';
-    // Use a more reliable text-based click
     await page.getByText('See in source text').click();
 
     // Wait for SPA transition to book 1
