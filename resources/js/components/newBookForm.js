@@ -1865,6 +1865,13 @@ function setupRealTimeValidation() {
             validateForm();
             handleFileMetadataExtraction(this);
         });
+        // If a file was pre-attached BEFORE this listener was wired (e.g. via
+        // the page-level drag-drop overlay, which fires `change` on the input
+        // ~100ms before initializeCitationFormListeners runs), fire the
+        // validation + metadata-extraction pipeline now so autofill still happens.
+        if (fileField.files && fileField.files.length > 0) {
+            fileField.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     }
     
     const yearField = document.getElementById('year');

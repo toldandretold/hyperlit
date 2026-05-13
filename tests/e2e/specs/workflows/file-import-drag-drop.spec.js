@@ -169,6 +169,25 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     });
     expect(freshOverlayHidden).toBe(true);
 
+    // CRITICAL: actually drop a file AFTER SPA navigation. Just checking the
+    // registry says we're "active" isn't enough — listeners can fail to re-attach
+    // while the registry still reports the component. The form must open and the
+    // file must attach.
+    await dropFileOnWindow(page, {
+      name: 'after-spa-nav.md',
+      type: 'text/markdown',
+      content: '# Post-SPA-Nav Drop\n\nTesting drop after SPA reader→home transition.',
+    });
+    await page.waitForSelector('#cite-form', { timeout: 5000 });
+    const postNavFileName = await page.evaluate(() => {
+      const input = document.getElementById('markdown_file');
+      return input && input.files && input.files[0] ? input.files[0].name : null;
+    });
+    expect(postNavFileName).toBe('after-spa-nav.md');
+
+    // Close the form so we don't try to submit a second book in this test
+    await page.evaluate(() => document.getElementById('clearButton')?.click());
+
     // ──────────────────────────────────────────────────────────
     // Phase 6: SPA + console health on final state
     // ──────────────────────────────────────────────────────────
