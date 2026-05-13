@@ -87,7 +87,8 @@ export function showConversionFeedbackToast({ bookId, stats, footnoteAudit }) {
     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
     opacity: '0',
     transition: 'opacity 0.2s ease',
-    maxWidth: 'min(900px, calc(100vw - 32px))',
+    width: 'calc(100vw - 32px)',
+    maxWidth: '720px',
   });
 
   renderInitialState(toast, { bookId, stats, footnoteAudit });
@@ -106,7 +107,7 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
 
   const textarea = document.createElement('textarea');
   textarea.maxLength = 2000;
-  textarea.rows = 3;
+  textarea.rows = 2;
   textarea.placeholder = 'Anything to add about the conversion? (optional)';
   Object.assign(textarea.style, {
     width: '100%',

@@ -37,6 +37,11 @@ import {
   destroyNewBookContainer
 } from './newBookButton.js';
 
+import {
+  initializeHomepageDropTarget,
+  destroyHomepageDropTarget
+} from './homepageDropTarget.js';
+
 import TogglePerimeterButtons from './togglePerimeterButtons.js';
 
 import {
@@ -254,6 +259,15 @@ export function registerAllComponents() {
     destroyFn: destroyNewBookContainer,
     pages: ['home', 'user'],
     dependencies: ['userContainer'], // Needs user auth state
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'homepageDropTarget',
+    initFn: initializeHomepageDropTarget,
+    destroyFn: destroyHomepageDropTarget,
+    pages: ['home', 'user'],
+    dependencies: ['newBookButton'], // Drop opens the import form via #importBook
     required: false
   });
 

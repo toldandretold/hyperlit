@@ -6,6 +6,7 @@ import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 import DOMPurify from 'dompurify';
 import { showImportFailureModal } from '../conversion/bugReportModal.js';
+import { attachFilesToInput } from '../utilities/fileImportHelpers.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // When the user clicks "Re-submit" from the footnote audit modal, the book ID
@@ -1080,6 +1081,110 @@ export function initializeCitationFormListeners() {
     setupBookUrlPreview();
     setupBibtexModeAutoReveal();
     setupBookIdSanitization();
+
+    // Inline dropzone (sits below the file input; reuses the file input's
+    // change-event pipeline by feeding files into it via attachFilesToInput).
+    setupInlineDropzone();
+}
+
+function setupInlineDropzone() {
+    const dz = document.getElementById('markdown-file-dropzone');
+    const fileInput = document.getElementById('markdown_file');
+    if (!dz || !fileInput) return;
+
+    const iconEl = dz.querySelector('.markdown-file-dropzone-icon');
+    const textEl = dz.querySelector('.markdown-file-dropzone-text');
+    const COLORS = {
+        idle: 'rgba(136,136,136,0.4)',
+        hover: '#EF8D34',     // accent orange (used for active drag-over)
+        ready: '#2ecc71',     // green for "file ready" baseline
+    };
+
+    // Visual baseline reflects whether a file is currently attached.
+    // Drag-over state (orange) takes precedence while a drag is happening.
+    const refreshBaseline = () => {
+        const hasFile = fileInput.files && fileInput.files.length > 0;
+        dz.style.backgroundColor = '';
+        if (hasFile) {
+            dz.style.borderColor = COLORS.ready;
+            if (iconEl) {
+                iconEl.textContent = '✓';
+                iconEl.style.color = COLORS.ready;
+            }
+            if (textEl) {
+                const name = fileInput.files[0].name;
+                textEl.style.color = COLORS.ready;
+                textEl.innerHTML =
+                    `<strong>File ready:</strong> ${escapeHtml(name)} ` +
+                    `<span style="opacity:0.75;">— drop another to swap</span>`;
+            }
+        } else {
+            dz.style.borderColor = COLORS.idle;
+            if (iconEl) {
+                iconEl.textContent = '⤓';
+                iconEl.style.color = '#888';
+            }
+            if (textEl) {
+                textEl.style.color = '#888';
+                textEl.innerHTML = '<strong>Drop a file here</strong> or use the button above';
+            }
+        }
+    };
+
+    // Active-drag highlight: orange tint over whatever the baseline is.
+    const setDragActive = (on) => {
+        if (on) {
+            dz.style.borderColor = COLORS.hover;
+            dz.style.backgroundColor = 'rgba(239,141,52,0.06)';
+        } else {
+            // Clear the drag tint and re-derive from current state.
+            refreshBaseline();
+        }
+    };
+
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    ['dragenter', 'dragover'].forEach((ev) => {
+        dz.addEventListener(ev, (e) => {
+            e.preventDefault();
+            // Stop the page-level overlay from also triggering for drops landing
+            // on the inline dropzone — the inline drop is more specific.
+            e.stopPropagation();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            setDragActive(true);
+        });
+    });
+
+    ['dragleave', 'drop'].forEach((ev) => {
+        dz.addEventListener(ev, () => setDragActive(false));
+    });
+
+    dz.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        if (!files.length) return;
+        attachFilesToInput(fileInput, files);
+        // attachFilesToInput dispatches `change`, which triggers refreshBaseline.
+    });
+
+    // Keep the dropzone in sync when the file changes (drop, native picker,
+    // programmatic) and when the form is reset (Clear button calls form.reset()).
+    fileInput.addEventListener('change', refreshBaseline);
+    const form = document.getElementById('cite-form');
+    if (form) form.addEventListener('reset', () => {
+        // form.reset() runs after the listener — defer one tick so files is empty.
+        setTimeout(refreshBaseline, 0);
+    });
+
+    // Initial paint reflects any pre-restored state (rare for files, but safe).
+    refreshBaseline();
 }
 
 function setupFormSubmission() {
