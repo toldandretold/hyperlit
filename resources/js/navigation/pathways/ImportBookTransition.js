@@ -506,6 +506,10 @@ export class ImportBookTransition {
   static async handleFormSubmissionAndTransition(formData, submitButton) {
     console.log('ImportBookTransition: Starting form submission and transition');
 
+    // Hoisted so the outer catch can restore button layout regardless of
+    // where in the try block the failure occurred.
+    let restoreButtonLayout = () => {};
+
     try {
       // Get CSRF token
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -521,6 +525,26 @@ export class ImportBookTransition {
       }
       const originalButtonText = submitButton ? submitButton.textContent : null;
       const totalMB = (totalUploadBytes / 1024 / 1024).toFixed(1);
+
+      // Hide the Clear button and stretch the upload button to full width
+      // so the live "Uploading X / Y MB" text is easier to read for big files.
+      // Stash the prior styles so we can restore on failure.
+      const clearButton = document.getElementById('clearButton');
+      const stashedClearDisplay = clearButton ? clearButton.style.display : null;
+      const stashedSubmitWidth = submitButton ? submitButton.style.width : null;
+      const stashedSubmitFlex = submitButton ? submitButton.style.flex : null;
+      if (clearButton) clearButton.style.display = 'none';
+      if (submitButton) {
+        submitButton.style.width = '100%';
+        submitButton.style.flex = '1 1 100%';
+      }
+      restoreButtonLayout = () => {
+        if (clearButton) clearButton.style.display = stashedClearDisplay || '';
+        if (submitButton) {
+          submitButton.style.width = stashedSubmitWidth || '';
+          submitButton.style.flex = stashedSubmitFlex || '';
+        }
+      };
 
       // Submit via XHR (instead of fetch) to get upload-progress events.
       const response = await new Promise((resolve, reject) => {
@@ -567,8 +591,10 @@ export class ImportBookTransition {
       });
 
       if (!response.ok) {
-        // Restore the button text on failure so the next try doesn't read "Server processing…".
+        // Restore the button text + layout on failure so the next try doesn't
+        // read "Server processing…" against a hidden Clear button.
         if (submitButton && originalButtonText) submitButton.textContent = originalButtonText;
+        restoreButtonLayout();
         const errorText = await response.text();
         let errorDetails;
         let isProcessingError = false;
@@ -774,11 +800,12 @@ export class ImportBookTransition {
     } catch (error) {
       console.error('Import failed:', error);
 
-      // Re-enable submit button on failure
+      // Re-enable submit button + restore Clear button visibility on failure.
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = 'Submit';
       }
+      restoreButtonLayout();
 
       throw error;
     }

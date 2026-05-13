@@ -3,4 +3,5 @@ lxml
 pypandoc
 bleach
 python-docx
+Pillow>=10.0
 
