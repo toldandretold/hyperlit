@@ -446,10 +446,15 @@ class UserHomeServerController extends Controller
         $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
         $nowMs = round(microtime(true) * 1000);
 
-        // 1. Insert into the visibility-specific home book
+        // 1. Insert into the visibility-specific home book.
+        // Drop any empty-state card AND any pre-existing card for this book so
+        // the insert is idempotent (defends against inconsistent prior state).
         $admin->table('nodes')
             ->where('book', $bookName)
-            ->where('node_id', $bookName . '_empty_card')
+            ->whereIn('node_id', [
+                $bookName . '_empty_card',
+                $bookName . '_' . $bookRecord->book . '_card',
+            ])
             ->delete();
 
         $minStartLine = $admin->table('nodes')
@@ -470,7 +475,10 @@ class UserHomeServerController extends Controller
         if ($admin->table('library')->where('book', $allBookName)->exists()) {
             $admin->table('nodes')
                 ->where('book', $allBookName)
-                ->where('node_id', $allBookName . '_empty_card')
+                ->whereIn('node_id', [
+                    $allBookName . '_empty_card',
+                    $allBookName . '_' . $bookRecord->book . '_card',
+                ])
                 ->delete();
 
             $allMinStartLine = $admin->table('nodes')
@@ -540,10 +548,15 @@ class UserHomeServerController extends Controller
         }
 
         // 2. Insert the card into the new home book at minStartLine - 1
-        // Drop any existing empty-state card so it doesn't block placement
+        // Drop any existing empty-state card so it doesn't block placement,
+        // and any pre-existing card for this book in the destination so the
+        // insert is idempotent (defends against inconsistent prior state).
         $admin->table('nodes')
             ->where('book', $newHome)
-            ->where('node_id', $newHome . '_empty_card')
+            ->whereIn('node_id', [
+                $newHome . '_empty_card',
+                $newHome . '_' . $bookRecord->book . '_card',
+            ])
             ->delete();
 
         $minStartLine = $admin->table('nodes')
