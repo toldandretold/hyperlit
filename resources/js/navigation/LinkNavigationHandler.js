@@ -379,8 +379,13 @@ export class LinkNavigationHandler {
         linkUrl: linkUrl.href
       });
 
-      // Stamp current URL with clicked anchor's id so back-button can scroll to it
-      if (link.id) {
+      // Stamp current URL with clicked anchor's id so back-button can scroll
+      // back to it — but ONLY for links inside the content area. Chrome links
+      // like #homeButtonNav (the home button in the header) aren't valid
+      // scroll targets within .main-content, and stamping them causes the
+      // back-nav popstate handler to spend 5 seconds searching for a node
+      // that lives in the page header.
+      if (link.id && link.closest('.main-content')) {
         history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${link.id}`);
       }
 

@@ -105,35 +105,53 @@ class BookDeletionService
                     ->update(['visibility' => 'deleted']);
             }
 
-            // Also delete any reference from creator's library nodes (both public and private user home pages)
+            // Also delete any reference from creator's library nodes (public, private, and All home pages)
             if ($bookCreator) {
-                // Remove spaces from username to match user home book naming convention
                 $sanitizedCreator = str_replace(' ', '', $bookCreator);
+                $publicHome = $sanitizedCreator;
+                $privateHome = $sanitizedCreator . 'Private';
+                $allHome = $sanitizedCreator . 'All';
+                $nowMs = round(microtime(true) * 1000);
 
-                // Node ID pattern: {userHomeBook}_{deletedBookId}_card
-                $publicNodeId = $sanitizedCreator . '_' . $bookId . '_card';
-                $privateNodeId = $sanitizedCreator . 'Private_' . $bookId . '_card';
+                // Delete the card from each home book that may contain it
+                foreach ([$publicHome, $privateHome, $allHome] as $homeBook) {
+                    $db->table('nodes')
+                        ->where('book', $homeBook)
+                        ->where('node_id', $homeBook . '_' . $bookId . '_card')
+                        ->delete();
+                }
 
-                // Delete from public user home page
-                $db->table('nodes')
-                    ->where('book', $sanitizedCreator)
-                    ->where('node_id', $publicNodeId)
-                    ->delete();
+                // Insert an empty-state card into any home book that now has zero real cards
+                $generator = new \App\Services\LibraryCardGenerator();
+                foreach ([$publicHome => 'public', $privateHome => 'private', $allHome => 'public'] as $homeBook => $emptyVisibility) {
+                    if (!$db->table('library')->where('book', $homeBook)->exists()) {
+                        continue;
+                    }
+                    $realCardCount = $db->table('nodes')
+                        ->where('book', $homeBook)
+                        ->where('node_id', '!=', $homeBook . '_empty_card')
+                        ->count();
+                    if ($realCardCount === 0) {
+                        $db->table('nodes')
+                            ->where('book', $homeBook)
+                            ->where('node_id', $homeBook . '_empty_card')
+                            ->delete();
+                        $db->table('nodes')->insert(
+                            $generator->generateLibraryCardChunk(null, $homeBook, 1, true, true, 0, $emptyVisibility)
+                        );
+                    }
+                }
 
-                // Delete from private user home page
-                $db->table('nodes')
-                    ->where('book', $sanitizedCreator . 'Private')
-                    ->where('node_id', $privateNodeId)
-                    ->delete();
-
-                // Update timestamps on both user home pages
+                // Bump timestamps on all three home books
                 $db->table('library')
-                    ->where('book', $sanitizedCreator)
-                    ->update(['timestamp' => round(microtime(true) * 1000)]);
+                    ->whereIn('book', [$publicHome, $privateHome, $allHome])
+                    ->update(['timestamp' => $nowMs]);
 
-                $db->table('library')
-                    ->where('book', $sanitizedCreator . 'Private')
-                    ->update(['timestamp' => round(microtime(true) * 1000)]);
+                // Invalidate sorted variants (the deleted card may appear in any of them)
+                foreach (['public', 'private', 'all'] as $v) {
+                    $db->table('nodes')->where('book', 'LIKE', $sanitizedCreator . '_' . $v . '_%')->delete();
+                    $db->table('library')->where('book', 'LIKE', $sanitizedCreator . '_' . $v . '_%')->delete();
+                }
             }
 
             // 5. Mark hypercites as dead for ALL descendants (both categories)

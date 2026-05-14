@@ -179,11 +179,20 @@ export class NewBookContainerManager extends ContainerManager {
 
       // ✅ FIX: Wait for container animation to complete before setting up form
       // Use a more robust approach that waits for the container to be ready
+      // Defensive wait — the form should be in the DOM the moment
+      // showImportForm() returns, but during rapid open/close cycles or under
+      // animation pressure getElementById can briefly miss it. Retry quietly;
+      // only log at error level if we exhaust a generous retry budget.
+      let retryCount = 0;
+      const SETUP_FORM_MAX_RETRIES = 200; // 10s @ 50ms/retry — generous; the
+                                          // form normally appears on retry 1-3
       const setupForm = () => {
-        // Ensure form exists before trying to set up listeners
         const form = document.getElementById('cite-form');
         if (!form) {
-          console.error("🔥 DEBUG: Form not found, retrying in 50ms");
+          if (++retryCount > SETUP_FORM_MAX_RETRIES) {
+            console.error(`Import form failed to render after ${SETUP_FORM_MAX_RETRIES} retries`);
+            return;
+          }
           setTimeout(setupForm, 50);
           return;
         }

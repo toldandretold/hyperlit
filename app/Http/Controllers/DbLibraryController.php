@@ -279,11 +279,10 @@ public function upsert(Request $request)
                 $newVisibility = $libraryRecord->visibility;
 
                 if ($oldVisibility !== $newVisibility) {
-                    // Visibility changed — regenerate both home books so the card
-                    // moves from the old visibility's book to the new one
-                    $homeController = app(UserHomeServerController::class);
-                    $homeController->generateUserHomeBook($libraryRecord->creator, null, 'public');
-                    $homeController->generateUserHomeBook($libraryRecord->creator, null, 'private');
+                    // Visibility changed — move the card between home books in place
+                    // (O(1) instead of regenerating both home books)
+                    app(UserHomeServerController::class)
+                        ->moveBookBetweenHomeBooks($libraryRecord->creator, $libraryRecord, $oldVisibility, $newVisibility);
                 } else {
                     app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
                 }

@@ -11,11 +11,16 @@ const IGNORED_ERROR_PATTERNS = [
 
 /**
  * Filter console errors, removing known third-party noise.
+ * Also drops empty / whitespace-only messages — Playwright's `msg.text()`
+ * returns empty strings for `console.error(someObject)` calls (the actual
+ * payload is a JSHandle the test can't easily resolve), and those carry
+ * no signal for failure reporting.
  */
 export function filterConsoleErrors(errors) {
-  return errors.filter(msg =>
-    !IGNORED_ERROR_PATTERNS.some(pattern => msg.includes(pattern))
-  );
+  return errors.filter(msg => {
+    if (!msg || !msg.trim()) return false;
+    return !IGNORED_ERROR_PATTERNS.some(pattern => msg.includes(pattern));
+  });
 }
 
 /**

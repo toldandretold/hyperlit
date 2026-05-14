@@ -58,6 +58,20 @@ async function getBookDownloadName(bookId, ext) {
 }
 
 /**
+ * Synthetic book IDs that have no real library row on the server.
+ * Skipping the fallback fetch for these avoids noisy 404s.
+ */
+function isSyntheticBook(id) {
+  if (!id) return true;
+  if (id === 'most-recent' || id === 'most-connected') return true;
+  // Sorted variants like `username_public_title`, `username_all_connected`
+  if (/_(public|private|all)_/.test(id)) return true;
+  // User-home synthetics
+  if (id.endsWith('All') || id.endsWith('Private') || id.endsWith('Account')) return true;
+  return false;
+}
+
+/**
  * Build the inner-HTML for the source container:
  *  - fetch bibtex from IndexedDB
  *  - format it to a citation
@@ -67,9 +81,9 @@ async function buildSourceHtml(currentBookId) {
   const db = await openDatabase();
   let record = await getRecord(db, "library", book);
 
-  // If not in IndexedDB, try fetching from server
+  // If not in IndexedDB, try fetching from server (skip synthetic books that have no real row)
   let accessDenied = false;
-  if (!record) {
+  if (!record && !isSyntheticBook(book)) {
     try {
       const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(book)}/library`, {
         credentials: 'include'

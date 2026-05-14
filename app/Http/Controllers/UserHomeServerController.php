@@ -10,6 +10,76 @@ use App\Models\PgLibrary;
 use App\Services\LibraryCardGenerator;
 use Illuminate\Http\Request;
 
+/**
+ * Manages the four "home books" that back every user profile page.
+ *
+ * Each user has up to four pre-rendered virtual books — synthetic library
+ * rows whose nodes are library-card chunks rather than prose. They are what
+ * the user sees when they land on /{username}.
+ *
+ *   {sanitized}          public shelf — only their public books
+ *   {sanitized}Private   private shelf — only their private books (owner-only)
+ *   {sanitized}All       combined shelf — every book, each card flagged with
+ *                        an `isPrivate` bit so the dropdown UI can style
+ *                        private cards differently
+ *   {sanitized}Account   billing / ledger view (owner-only)
+ *
+ * The shelf-header dropdown (resources/js/components/shelves/shelfHeader.js)
+ * lets owners flip between All / Public / Private by switching which of these
+ * books the page loads — they are not redundant, each is its own pre-rendered
+ * chunk list. Sorted variants are cached on demand as
+ * `{sanitized}_{visibility}_{sort}` (see renderSorted / publicRenderSorted)
+ * and must be invalidated whenever the underlying shelf changes.
+ *
+ * Lifecycle / how the books stay consistent
+ * ------------------------------------------
+ * - On every profile visit, show() calls generateUserHomeBookIfNeeded() and
+ *   generateAllUserHomeBookIfNeeded(). These act as a failsafe: if the home
+ *   book is missing or its node list disagrees with the actual library rows,
+ *   they regenerate from scratch. So in the worst case a stale shelf
+ *   self-heals on the next page load.
+ *
+ * - On a write that mutates a single book, the controller does the targeted
+ *   update inline so the user sees the right state immediately:
+ *
+ *     New book created (DbLibraryController::bulkCreate)
+ *         → addBookToUserPage()         — inserts the card into the
+ *                                         visibility-specific home AND the
+ *                                         All book at minStartLine - 1
+ *
+ *     Book metadata edited (DbLibraryController::upsert, no visibility change)
+ *         → updateBookOnUserPage()      — rewrites the card in the
+ *                                         visibility-specific home AND the
+ *                                         All book in place
+ *
+ *     Visibility toggled (DbLibraryController::upsert, visibility changed)
+ *         → moveBookBetweenHomeBooks()  — deletes the card from the old
+ *                                         home, inserts at minStartLine - 1
+ *                                         in the new home, flips the
+ *                                         isPrivate flag on the All-book card
+ *
+ *     Book deleted (BookDeletionService::deleteBook)
+ *         → removes the card from public, private AND All home books;
+ *           inserts an empty-state card into any home that becomes empty
+ *
+ * In all of the above, sorted variants for the affected visibilities (and
+ * 'all') are deleted, and the affected home books' library timestamps are
+ * bumped so the client's IndexedDB cache refetches.
+ *
+ * Tests
+ * -----
+ * Regression coverage lives in:
+ *   tests/Feature/PrivacyToggleHomeBookTest.php   — moveBookBetweenHomeBooks
+ *   tests/Feature/CreateAndDeleteHomeBookTest.php — addBookToUserPage + delete
+ *   tests/Feature/HomeBookTestHelpers.php         — shared seed/cleanup
+ *
+ * Run them with:
+ *   ./vendor/bin/pest tests/Feature/PrivacyToggleHomeBookTest.php tests/Feature/CreateAndDeleteHomeBookTest.php
+ *
+ * The tests use the pgsql_admin connection for setup/teardown to bypass RLS,
+ * and key all fixtures off the username prefix `hb_test_` so they don't
+ * collide with real data.
+ */
 class UserHomeServerController extends Controller
 {
     /**
@@ -368,35 +438,163 @@ class UserHomeServerController extends Controller
 
     public function addBookToUserPage(string $username, PgLibrary $bookRecord)
     {
-        // Sanitize username for book IDs
         $sanitizedUsername = $this->sanitizeUsername($username);
-
-        // Determine which book to update based on visibility
         $visibility = $bookRecord->visibility ?? 'public';
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+        $allBookName = $sanitizedUsername . 'All';
+        $admin = DB::connection('pgsql_admin');
+        $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
+        $nowMs = round(microtime(true) * 1000);
 
-        $minStartLine = DB::table('nodes')
+        // 1. Insert into the visibility-specific home book
+        $admin->table('nodes')
+            ->where('book', $bookName)
+            ->where('node_id', $bookName . '_empty_card')
+            ->delete();
+
+        $minStartLine = $admin->table('nodes')
             ->where('book', $bookName)
             ->where('startLine', '>', 0)
             ->min('startLine');
-
         $newStartLine = ($minStartLine !== null) ? $minStartLine - 1 : 100;
 
         if ($newStartLine < 1) {
-            $this->generateUserHomeBook($username, null, $visibility);
+            $this->generateUserHomeBook($username, $isOwner, $visibility);
         } else {
-            // For addBookToUserPage, always use current auth state (compare sanitized)
-            $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
-            DB::connection('pgsql_admin')->table('nodes')->insert($chunk);
-            DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
+            $admin->table('nodes')->insert($chunk);
+            $admin->table('library')->where('book', $bookName)->update(['timestamp' => $nowMs]);
         }
 
-        // Invalidate the "All" book so it regenerates on next visit
-        $allBookName = $sanitizedUsername . 'All';
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $allBookName)->delete();
-        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
-        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+        // 2. Insert into the All book (only if it already exists; otherwise next-visit regen handles it)
+        if ($admin->table('library')->where('book', $allBookName)->exists()) {
+            $admin->table('nodes')
+                ->where('book', $allBookName)
+                ->where('node_id', $allBookName . '_empty_card')
+                ->delete();
+
+            $allMinStartLine = $admin->table('nodes')
+                ->where('book', $allBookName)
+                ->where('startLine', '>', 0)
+                ->min('startLine');
+            $allNewStartLine = ($allMinStartLine !== null) ? $allMinStartLine - 1 : 100;
+
+            if ($allNewStartLine < 1) {
+                $this->generateAllUserHomeBook($username);
+            } else {
+                $isPrivate = ($visibility === 'private');
+                $allChunk = (new LibraryCardGenerator())->generateLibraryCardChunk(
+                    $bookRecord, $allBookName, $allNewStartLine, $isOwner, false, -1, 'public', false, $isPrivate
+                );
+                $admin->table('nodes')->insert($allChunk);
+                $admin->table('library')->where('book', $allBookName)->update(['timestamp' => $nowMs]);
+            }
+        }
+
+        // 3. Invalidate sorted variants for both this visibility and 'all'
+        foreach ([$visibility, 'all'] as $v) {
+            $admin->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
+            $admin->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Move a single library card between the user's public and private home books.
+     * O(1) replacement for the previous "regenerate both home books" path on visibility toggles.
+     */
+    public function moveBookBetweenHomeBooks(string $username, PgLibrary $bookRecord, string $oldVisibility, string $newVisibility): array
+    {
+        if ($oldVisibility === $newVisibility) {
+            return ['success' => true, 'noop' => true];
+        }
+
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $oldHome = $oldVisibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+        $newHome = $newVisibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+        $allHome = $sanitizedUsername . 'All';
+        $admin = DB::connection('pgsql_admin');
+        $nowMs = round(microtime(true) * 1000);
+        $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
+
+        // 1. Remove the card from the old home book
+        $oldNodeId = $oldHome . '_' . $bookRecord->book . '_card';
+        $admin->table('nodes')
+            ->where('book', $oldHome)
+            ->where('node_id', $oldNodeId)
+            ->delete();
+
+        // If old home now has no real cards, drop in an empty-state card
+        $oldRealCardCount = $admin->table('nodes')
+            ->where('book', $oldHome)
+            ->where('node_id', '!=', $oldHome . '_empty_card')
+            ->count();
+        if ($oldRealCardCount === 0) {
+            $admin->table('nodes')
+                ->where('book', $oldHome)
+                ->where('node_id', $oldHome . '_empty_card')
+                ->delete();
+            $emptyChunk = $this->generateLibraryCardChunk(null, $oldHome, 1, $isOwner, true, 0, $oldVisibility);
+            $admin->table('nodes')->insert($emptyChunk);
+        }
+
+        // 2. Insert the card into the new home book at minStartLine - 1
+        // Drop any existing empty-state card so it doesn't block placement
+        $admin->table('nodes')
+            ->where('book', $newHome)
+            ->where('node_id', $newHome . '_empty_card')
+            ->delete();
+
+        $minStartLine = $admin->table('nodes')
+            ->where('book', $newHome)
+            ->where('startLine', '>', 0)
+            ->min('startLine');
+        $newStartLine = ($minStartLine !== null) ? $minStartLine - 1 : 100;
+
+        if ($newStartLine < 1) {
+            // Position space exhausted — fall back to full regen of the new home
+            $this->generateUserHomeBook($username, $isOwner, $newVisibility);
+        } else {
+            $newChunk = $this->generateLibraryCardChunk($bookRecord, $newHome, $newStartLine, $isOwner, false, -1);
+            $admin->table('nodes')->insert($newChunk);
+        }
+
+        // 3. Update the All-book card's isPrivate flag (if the All book exists)
+        $allNodeId = $allHome . '_' . $bookRecord->book . '_card';
+        $allChunk = $admin->table('nodes')
+            ->where('book', $allHome)
+            ->where('node_id', $allNodeId)
+            ->first();
+
+        if ($allChunk) {
+            $isPrivate = ($newVisibility === 'private');
+            $newContent = (new LibraryCardGenerator())->generateLibraryCardHtml(
+                $bookRecord, $allChunk->startLine, $isOwner, $allNodeId, false, $isPrivate
+            );
+            $newRawJson = json_encode([
+                'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $allChunk->startLine,
+                'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
+            ]);
+            $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
+            $admin->table('nodes')->where('id', $allChunk->id)->update([
+                'content' => $newContent,
+                'raw_json' => $newRawJson,
+                'plainText' => $newPlainText,
+                'updated_at' => now(),
+            ]);
+        }
+
+        // 4. Bump library timestamps so client IndexedDB caches refetch
+        $admin->table('library')
+            ->whereIn('book', [$oldHome, $newHome, $allHome])
+            ->update(['timestamp' => $nowMs]);
+
+        // 5. Invalidate sorted variants for both visibilities and 'all'
+        foreach ([$oldVisibility, $newVisibility, 'all'] as $v) {
+            $admin->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
+            $admin->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
+        }
 
         return ['success' => true];
     }
