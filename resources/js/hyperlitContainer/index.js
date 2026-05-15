@@ -372,6 +372,22 @@ async function handleEditButtonClick() {
       const { stopObserving } = await import('../divEditor/index.js');
       await stopObserving();
 
+      // Mirror editButton.js's exit-edit-mode integrity sweep for the
+      // sub-book whose edit mode we're exiting. Without this, sub-books
+      // could accumulate DOM-vs-IDB mismatches / orphaned nodes /
+      // duplicate ids and the user would never see the integrity modal —
+      // only the main book's #editButton triggers that path historically.
+      try {
+        const { runIntegritySweep } = await import('../integrity/verifier.js');
+        const editableSubBook = container?.querySelector('.sub-book-content[data-user-can-edit="true"]');
+        const subBookId = editableSubBook?.getAttribute('data-book-id');
+        if (editableSubBook && subBookId) {
+          await runIntegritySweep(subBookId, editableSubBook, 'hyperlit-edit-btn-off');
+        }
+      } catch (e) {
+        console.warn('[integrity] sub-book edit-off sweep failed:', e);
+      }
+
       // Toggle contenteditable AFTER the observer is disconnected.
       // The browser's text-node normalization from contenteditable=false generates
       // artifact childList mutations. By disconnecting first, those mutations are

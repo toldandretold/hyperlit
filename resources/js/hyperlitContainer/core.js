@@ -500,6 +500,23 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
         await cleanupContainerListeners();
         console.log('[HyperlitContainer] ✅ Cleanup complete');
 
+        // STEP 1b: Run an integrity sweep against every sub-book mounted in
+        // the container before we tear it down. This is the sub-book
+        // equivalent of the main book's #editButton-exit sweep — without
+        // it, mismatches / orphans / duplicate ids in a sub-book would
+        // pass silently on container close.
+        try {
+          const { runIntegritySweep } = await import('../integrity/verifier.js');
+          const container = document.getElementById('hyperlit-container');
+          const subBooks = container ? container.querySelectorAll('.sub-book-content[data-book-id]') : [];
+          for (const el of subBooks) {
+            const subBookId = el.getAttribute('data-book-id');
+            if (subBookId) await runIntegritySweep(subBookId, el, 'closeHyperlitContainer');
+          }
+        } catch (e) {
+          console.warn('[integrity] container-close sub-book sweep failed:', e);
+        }
+
         // STEP 2: Now safe to destroy sub-books (after saves complete)
         const { destroyAllSubBooks } = await import('./subBookLoader.js');
         await destroyAllSubBooks(); // DOM elements destroyed here

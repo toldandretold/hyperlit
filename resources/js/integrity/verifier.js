@@ -309,3 +309,80 @@ export function findOrphanedNodes(bookId) {
 
   return orphans;
 }
+
+/**
+ * Run the full integrity-sweep pipeline against a single book's DOM:
+ *   1. heal verbatim DOM duplicates first (data-safe drop of identical
+ *      data-node-id + identical innerHTML pairs)
+ *   2. collect all numeric ids from the container
+ *   3. verifyNodesIntegrity (DOM ↔ IDB text comparison)
+ *   4. findOrphanedNodes (in-DOM elements that should have ids but don't)
+ *   5. reportIntegrityFailure if any of (mismatches | missing | duplicates |
+ *      orphans) come back non-empty
+ *
+ * Mirrors the block in `components/editButton.js` that runs when the main
+ * book exits edit mode. Pull it out here so the sub-book equivalents
+ * (hyperlit-container edit-toggle off, container close) get exactly the
+ * same sweep — no asymmetry between main-book and sub-book paths.
+ *
+ * @param {string} bookId - The book id (main or sub-book like "book_X/Fn_Y")
+ * @param {Element} containerEl - The DOM root to scan (`.main-content` for
+ *   main book; `.sub-book-content[data-book-id="X"]` for a sub-book)
+ * @param {string} trigger - Free-form label to thread through reportIntegrityFailure
+ * @returns {Promise<{ok: boolean, mismatches, missingFromIDB, duplicateIds, orphans, healedIds}>}
+ */
+export async function runIntegritySweep(bookId, containerEl, trigger = 'unknown') {
+  if (!bookId || !containerEl) {
+    return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [] };
+  }
+
+  // 1. Heal verbatim duplicates BEFORE counting (so the verifier sees the cleaned DOM)
+  const healedIds = healVerbatimDuplicates(bookId);
+
+  // 2. Collect node ids
+  const nodeIds = [];
+  containerEl.querySelectorAll('[id]').forEach(el => {
+    if (/^\d+(\.\d+)*$/.test(el.id)) nodeIds.push(el.id);
+  });
+
+  if (nodeIds.length === 0) {
+    return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds };
+  }
+
+  // 3. Verify
+  const result = await verifyNodesIntegrity(bookId, nodeIds);
+  // 4. Orphans
+  const orphans = findOrphanedNodes(bookId);
+
+  const hasIssue = result.mismatches.length > 0
+    || result.missingFromIDB.length > 0
+    || result.duplicateIds.length > 0
+    || orphans.length > 0;
+
+  if (hasIssue) {
+    try {
+      const { reportIntegrityFailure } = await import('./reporter.js');
+      reportIntegrityFailure({
+        bookId,
+        mismatches: result.mismatches,
+        missingFromIDB: result.missingFromIDB,
+        duplicateIds: result.duplicateIds,
+        orphanedNodes: orphans,
+        trigger,
+        selfHealed: healedIds.length > 0,
+        selfHealedNodeIds: healedIds,
+      });
+    } catch (e) {
+      console.warn(`[integrity] runIntegritySweep failed to report for ${bookId} (${trigger}):`, e);
+    }
+  }
+
+  return {
+    ok: !hasIssue,
+    mismatches: result.mismatches,
+    missingFromIDB: result.missingFromIDB,
+    duplicateIds: result.duplicateIds,
+    orphans,
+    healedIds,
+  };
+}
