@@ -211,7 +211,7 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
  */
 function buildEditButtonHtml(isActive) {
   return `
-    <button id="hyperlit-edit-btn" class="${isActive ? 'inverted' : ''}"
+    <button class="hyperlit-edit-btn ${isActive ? 'inverted' : ''}"
             title="${isActive ? 'Exit edit mode' : 'Enter edit mode'}">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
         <path d="M12 20h9" stroke="#CBCCCC"></path>
@@ -299,7 +299,7 @@ export async function checkIfUserHasAnyEditPermission(contentTypes, newHighlight
 async function handleEditButtonClick() {
   const newState = toggleHyperlitEditMode();
   const container = getCurrentContainer();
-  const editBtn = container?.querySelector('#hyperlit-edit-btn');
+  const editBtn = container?.querySelector('.hyperlit-edit-btn');
   const scroller = container?.querySelector('.scroller');
 
   // Save scroll position BEFORE any DOM changes
@@ -494,7 +494,7 @@ export async function applyCurrentEditModeToLayer() {
   toggleContentEditableInPlace(isEdit);
 
   // Update the edit button visual in this container
-  const editBtn = container.querySelector('#hyperlit-edit-btn');
+  const editBtn = container.querySelector('.hyperlit-edit-btn');
   if (editBtn) {
     if (isEdit) {
       editBtn.classList.add('inverted');
@@ -1471,11 +1471,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
     if (hasAnyEditPermission && !options.brainModeHighlightId) {
       const container = getCurrentContainer();
       if (container) {
-        const existing = container.querySelector('#hyperlit-edit-btn');
+        const existing = container.querySelector('.hyperlit-edit-btn');
         if (existing) existing.remove();
 
         container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
-        const editBtn = container.querySelector('#hyperlit-edit-btn');
+        const editBtn = container.querySelector('.hyperlit-edit-btn');
         if (editBtn) {
           registerListener(editBtn, 'click', (e) => {
             e.preventDefault();

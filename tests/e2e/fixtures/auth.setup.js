@@ -19,8 +19,18 @@ setup('authenticate', async ({ page }) => {
   await page.fill('input[name="email"], input[type="email"]', process.env.E2E_USER_EMAIL || 'test@example.com');
   await page.fill('input[name="password"], input[type="password"]', process.env.E2E_USER_PASSWORD || 'password');
 
-  // Submit the form
-  await page.click('button[type="submit"]');
+  // Submit the form. Dispatch the click via page.evaluate so this works in
+  // --headed mode where the actual OS window may be shorter than the form,
+  // pushing the submit button below the viewport. Playwright's locator.click
+  // refuses to click elements outside the viewport even after scrolling
+  // (it auto-fails when scroll-into-view doesn't move them into the visible
+  // area, which happens when the form lives in a fixed-height non-scrolling
+  // panel). A JS click bypasses that actionability check.
+  await page.evaluate(() => {
+    const btn = document.querySelector('#loginSubmit')
+      || document.querySelector('button[type="submit"]');
+    if (btn) btn.click();
+  });
 
   // Wait for successful login — user container should change state
   await page.waitForFunction(() => {

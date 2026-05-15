@@ -733,13 +733,32 @@ async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = n
 
     // Container stack restoration — if history.state has a serialized stack,
     // restore all layers from it (handles back-nav, refresh, and SPA transitions).
-    // Only restore if the stack belongs to the current book — prevents stale
-    // state from book A leaking into book B during SPA transitions.
-    else if (history.state?.containerStack?.length > 0
-             && (!history.state.containerStackBookId || history.state.containerStackBookId === book)) {
-      pendingContainerRestorePromise = import('./hyperlitContainer/history.js').then(({ restoreContainerStack }) => {
-        return restoreContainerStack(history.state.containerStack);
-      });
+    //
+    // We gate on the actually-rendered reader-main element rather than the
+    // `book` global. `book` can be stale during a popstate that crosses
+    // from a reader page back to home (the global update lags behind the
+    // URL change), which previously let stale stacks restore onto the home
+    // page (URL `/`, but `book` still book_X, so the equality check
+    // wrongly passed). The reader-page main element is the source of truth
+    // for "we are actually rendering this book right now":
+    //   - reader.blade.php: <main class="main-content" id="book_X" ...>
+    //   - home.blade.php:   <main class="main-content" id="most-recent" ...>
+    // Slug-vs-id URL routing doesn't affect main.id, which is always the
+    // book's true id (set server-side from $book), so this is URL-agnostic.
+    else if (history.state?.containerStack?.length > 0) {
+      const readerMain = document.querySelector('main.main-content[id^="book_"]');
+      const renderedBookId = readerMain?.id;
+      const savedBookId = history.state.containerStackBookId;
+      const compatLegacyState = !savedBookId; // older entries didn't stamp the book id
+      if (renderedBookId && (compatLegacyState || savedBookId === renderedBookId)) {
+        pendingContainerRestorePromise = import('./hyperlitContainer/history.js').then(({ restoreContainerStack }) => {
+          return restoreContainerStack(history.state.containerStack, { callsite: 'initializePage.fresh' });
+        });
+      } else if (!renderedBookId) {
+        console.log('📚 [initializePage.fresh] Skipping container-stack restore — current page is not a reader (main.id is not book_*)');
+      } else {
+        console.log(`📚 [initializePage.fresh] Skipping container-stack restore — saved bookId "${savedBookId}" does not match rendered "${renderedBookId}"`);
+      }
     }
 
     // Legacy fallback: restore container from history.state.hyperlitContainer

@@ -346,7 +346,7 @@ black #221F20;
 
 /* ===== HYPERLIT CONTAINER EDIT BUTTON ===== */
 /* Edit button inside hyperlit-container for toggling edit mode */
-#hyperlit-edit-btn {
+.hyperlit-edit-btn {
   width: 24px;
   height: 24px;
   background: transparent;
@@ -363,34 +363,34 @@ black #221F20;
   pointer-events: auto !important;
 }
 
-#hyperlit-edit-btn svg {
+.hyperlit-edit-btn svg {
   width: 90% !important;
   height: 90% !important;
   pointer-events: none !important;
 }
 
-#hyperlit-edit-btn path {
+.hyperlit-edit-btn path {
   stroke: var(--icon-stroke-primary) !important;
   pointer-events: none !important;
 }
 
-#hyperlit-edit-btn.inverted {
+.hyperlit-edit-btn.inverted {
   background: var(--color-text);
   border-radius: 4px;
 }
 
-#hyperlit-edit-btn.inverted svg path {
+.hyperlit-edit-btn.inverted svg path {
   stroke: var(--color-background) !important;
 }
 
 /* Hover states — only on devices that support hover (not touch) */
 @media (hover: hover) {
-  #hyperlit-edit-btn:hover:not(.inverted) {
+  .hyperlit-edit-btn:hover:not(.inverted) {
     background-color: var(--icon-hover-background);
     border-radius: 4px;
   }
 
-  #hyperlit-edit-btn:hover:not(.inverted) svg path {
+  .hyperlit-edit-btn:hover:not(.inverted) svg path {
     stroke: var(--icon-hover-stroke) !important;
   }
 }

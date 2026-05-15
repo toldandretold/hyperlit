@@ -301,16 +301,54 @@ export async function restoreStackedLayer(containerState) {
  * Single entry point for all restoration (popstate, refresh, SPA transition).
  *
  * @param {Array} stack - Array of serialized layer objects from history.state.containerStack
+ * @param {Object} [opts]
+ * @param {string} [opts.callsite] - Free-form label naming the caller. Logged
+ *   with the restoration's pre-flight decisions so a forensic trace of who
+ *   tried to restore (and whether the guard accepted) is visible in the
+ *   browser console without grepping multiple files.
  * @returns {Promise<boolean>} True if successfully restored
  */
-export async function restoreContainerStack(stack) {
-  if (!stack?.length) return false;
+export async function restoreContainerStack(stack, opts = {}) {
+  const callsite = opts.callsite || 'unknown';
 
-  console.log(`📚 Restoring container stack (${stack.length} layers)...`);
+  if (!stack?.length) {
+    console.log(`📚 [${callsite}] restoreContainerStack noop — empty stack`);
+    return false;
+  }
+
+  // ── Guard: only restore onto the same book the stack was saved for ──
+  // The `book` global lags behind URL changes during cross-page popstates
+  // (book→home), so checking it directly produced false positives that let
+  // stale stacks be restored onto home. Use the actually-rendered reader
+  // main element as the source of truth — it's set server-side from the
+  // canonical $book id (URL-agnostic re slugs vs ids).
+  //   reader.blade.php: <main class="main-content" id="book_X" ...>
+  //   home.blade.php:   <main class="main-content" id="most-recent" ...>
+  const readerMain = typeof document !== 'undefined'
+    ? document.querySelector('main.main-content[id^="book_"]')
+    : null;
+  const renderedBookId = readerMain?.id || null;
+  const savedBookId = stack[0]?.contentMetadata?.bookId
+    || history.state?.containerStackBookId
+    || null;
+
+  if (!renderedBookId) {
+    console.log(`📚 [${callsite}] restoreContainerStack SKIPPED — current page is not a reader (no main.main-content[id^="book_"]). savedBookId=${savedBookId}, layers=${stack.length}`);
+    return false;
+  }
+  if (savedBookId && savedBookId !== renderedBookId) {
+    console.log(`📚 [${callsite}] restoreContainerStack SKIPPED — saved bookId "${savedBookId}" does not match rendered "${renderedBookId}". layers=${stack.length}`);
+    return false;
+  }
+
+  console.log(`📚 [${callsite}] restoreContainerStack START — ${stack.length} layers onto ${renderedBookId} (saved=${savedBookId || 'legacy/none'})`);
 
   // Layer 0: restore via existing path (opens base container + pushes layer 0)
   const restored = await restoreHyperlitContainerFromHistory(stack[0].contentMetadata);
-  if (!restored) return false;
+  if (!restored) {
+    console.log(`📚 [${callsite}] restoreContainerStack FAILED — layer 0 did not restore`);
+    return false;
+  }
 
   // Layers 1+: restore via direct stacking
   for (let i = 1; i < stack.length; i++) {
@@ -318,12 +356,12 @@ export async function restoreContainerStack(stack) {
     await new Promise(r => setTimeout(r, 300));
     const ok = await restoreStackedLayer(stack[i].contentMetadata);
     if (!ok) {
-      console.warn(`📚 Stack restoration stopped at layer ${i}`);
+      console.warn(`📚 [${callsite}] restoreContainerStack stopped at layer ${i}`);
       break;
     }
   }
 
-  console.log('📚 Container stack restoration complete');
+  console.log(`📚 [${callsite}] restoreContainerStack COMPLETE`);
   return true;
 }
 

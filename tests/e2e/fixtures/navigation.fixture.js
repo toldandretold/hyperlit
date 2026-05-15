@@ -1,6 +1,22 @@
 import { test as base, expect } from '@playwright/test';
 import { listenerMonitorScript } from '../helpers/listenerMonitor.js';
 import { restorationSpyScript } from '../helpers/restorationSpy.js';
+import { integrityCaptureScript } from '../helpers/integrityCapture.js';
+import {
+  createNewBook,
+  getStackDepth,
+  typeAtEndOfActiveEditor,
+  selectInActiveEditor,
+  insertFootnoteAtCaret,
+  hyperlightSelection,
+  closeTopContainer,
+  copyHyperciteFromActiveEditor,
+  toggleEditModeInActiveContainer,
+  clickIntoDeeperLevel,
+  pasteEnvProbe,
+  snapshotIntegrity,
+  readNestText,
+} from '../helpers/nestedAuthoring.js';
 import {
   waitForSpaTransitionComplete,
   getPageStructure,
@@ -50,6 +66,7 @@ export const test = base.extend({
     // Inject the listener monitor and restoration spy before any page scripts run
     await page.addInitScript(listenerMonitorScript);
     await page.addInitScript(restorationSpyScript);
+    await page.addInitScript(integrityCaptureScript);
 
     // Capture console errors
     const consoleErrors = [];
@@ -112,6 +129,20 @@ export const test = base.extend({
       openAndCloseFootnotes,
       openFootnoteStack,
       closeAllContainers,
+      // Nested authoring primitives
+      createNewBook,
+      getStackDepth,
+      typeAtEndOfActiveEditor,
+      selectInActiveEditor,
+      insertFootnoteAtCaret,
+      hyperlightSelection,
+      closeTopContainer,
+      copyHyperciteFromActiveEditor,
+      toggleEditModeInActiveContainer,
+      clickIntoDeeperLevel,
+      pasteEnvProbe,
+      snapshotIntegrity,
+      readNestText,
     });
   },
 });

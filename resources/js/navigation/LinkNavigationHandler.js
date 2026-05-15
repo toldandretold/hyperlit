@@ -575,7 +575,7 @@ export class LinkNavigationHandler {
     if (capturedStack?.length > 0) {
       try {
         const { restoreContainerStack } = await import('../hyperlitContainer/history.js');
-        await restoreContainerStack(capturedStack);
+        await restoreContainerStack(capturedStack, { callsite: 'LinkNavigationHandler.popstate' });
         // Scroll to the hash element (the link that triggered the container)
         if (window.location.hash && currentLazyLoader) {
           const targetId = window.location.hash.substring(1);
