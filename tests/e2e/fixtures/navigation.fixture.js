@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import { listenerMonitorScript } from '../helpers/listenerMonitor.js';
+import { restorationSpyScript } from '../helpers/restorationSpy.js';
 import {
   waitForSpaTransitionComplete,
   getPageStructure,
@@ -22,16 +23,33 @@ import {
   closeHyperlitContainer,
   pasteHyperciteContent,
 } from '../helpers/pageHelpers.js';
+import { dropFileOnWindow } from '../helpers/dropFile.js';
+import { importMarkdownBook, generateLongMarkdown } from '../helpers/bookContent.js';
+import {
+  openToc,
+  closeToc,
+  getTocEntries,
+  clickTocEntry,
+  isHeadingInViewportForHref,
+} from '../helpers/tocNav.js';
+import {
+  snapshotPageState,
+  summariseSnapshot,
+  detectAnomalies,
+  detectRestorationRace,
+} from '../helpers/stateSnapshot.js';
+import { openAndCloseFootnotes, openFootnoteStack, closeAllContainers } from '../helpers/stress.js';
 
 /**
- * Extended test fixture that installs the listener monitor,
+ * Extended test fixture that installs the listener monitor + restoration spy,
  * captures console errors, and provides SPA navigation helpers.
  */
 export const test = base.extend({
-  // Install listener monitor before each test
+  // Install init scripts + console capture before each test
   page: async ({ page }, use) => {
-    // Inject the listener monitor before any page scripts run
+    // Inject the listener monitor and restoration spy before any page scripts run
     await page.addInitScript(listenerMonitorScript);
+    await page.addInitScript(restorationSpyScript);
 
     // Capture console errors
     const consoleErrors = [];
@@ -57,6 +75,7 @@ export const test = base.extend({
   // Provide helper functions as a fixture
   spa: async ({}, use) => {
     await use({
+      // Existing
       waitForTransition: waitForSpaTransitionComplete,
       getStructure: getPageStructure,
       healthCheck: runHealthCheck,
@@ -77,6 +96,22 @@ export const test = base.extend({
       waitForHyperlightButtons,
       closeHyperlitContainer,
       pasteHyperciteContent,
+      // New: book + TOC + state snapshot + stress
+      dropFileOnWindow,
+      importMarkdownBook,
+      generateLongMarkdown,
+      openToc,
+      closeToc,
+      getTocEntries,
+      clickTocEntry,
+      isHeadingInViewportForHref,
+      snapshotPageState,
+      summariseSnapshot,
+      detectAnomalies,
+      detectRestorationRace,
+      openAndCloseFootnotes,
+      openFootnoteStack,
+      closeAllContainers,
     });
   },
 });

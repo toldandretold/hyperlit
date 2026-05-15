@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
+import { dropFileOnWindow } from '../../helpers/dropFile.js';
 
 /**
  * File-import drag-and-drop workflow.
@@ -14,22 +15,6 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  *   - Suppression of the page-level overlay while the form is already open
  *   - Reader pages do not register the drop target (registry filtering works)
  */
-
-/**
- * Dispatch a synthetic file drop on the window. Mirrors what an OS file drag
- * triggers — the same dataTransfer.types/files surface that our window listeners
- * read in homepageDropTarget.js.
- */
-async function dropFileOnWindow(page, { name, type, content }) {
-  await page.evaluate(({ name, type, content }) => {
-    const dt = new DataTransfer();
-    const file = new File([content], name, { type });
-    dt.items.add(file);
-    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true, cancelable: true }));
-    window.dispatchEvent(new DragEvent('dragover',  { dataTransfer: dt, bubbles: true, cancelable: true }));
-    window.dispatchEvent(new DragEvent('drop',      { dataTransfer: dt, bubbles: true, cancelable: true }));
-  }, { name, type, content });
-}
 
 const SAMPLE_MD = `# Drag Drop Test Book
 

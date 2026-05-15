@@ -488,12 +488,25 @@ export class LinkNavigationHandler {
    * Handle browser back/forward navigation
    */
   static async handlePopstate(event) {
-    // Prevent reload loops
+    // Prevent reload loops AND concurrent in-flight popstates. Without this
+    // flag actually being set, rapid back/forward fires multiple overlapping
+    // BookToBookTransition runs that race on body.innerHTML replacement and
+    // chunk appending, leaving the DOM with duplicate chunks (every
+    // data-node-id, Fn..., and hypercite_... id appearing twice).
     if (this.isReloading) {
       verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
       return;
     }
+    this.isReloading = true;
 
+    try {
+      await this._handlePopstateInner(event);
+    } finally {
+      this.isReloading = false;
+    }
+  }
+
+  static async _handlePopstateInner(event) {
     verbose.nav('Browser navigation detected (back/forward)', '/navigation/LinkNavigationHandler.js', {
       state: event.state,
       currentURL: window.location.href,

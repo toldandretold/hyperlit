@@ -16,6 +16,7 @@ import { createOverlappingPolyContainer } from './containers.js';
 import { handleUnifiedContentClick, closeHyperlitContainer } from '../hyperlitContainer/index.js';
 import { getCurrentContainer } from '../hyperlitContainer/stack.js';
 import { currentLazyLoader } from '../initializePage.js';
+import { showTargetNotFoundToast } from '../utilities/toast.js';
 
 /**
  * Handle couple click - navigates directly to the single citation
@@ -393,6 +394,7 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
         })
         .catch(() => {
           console.log(`⚠️ Hypercite ${internalId} not found in container after waiting`);
+          showTargetNotFoundToast({ target: internalId });
         });
     }
 

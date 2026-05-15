@@ -10,6 +10,7 @@ import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../../utilities/auth.js";
 import DOMPurify from 'dompurify';
 import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper.js';
+import { showTargetNotFoundToast } from '../../utilities/toast.js';
 
 /**
  * Build the full-data API URL, handling sub-book IDs with slashes.
@@ -136,10 +137,13 @@ export async function buildHyperciteContent(contentType, db = null) {
     }
 
     if (hyperciteDataArray.length === 0) {
+      const missingIds = (hyperciteIds || [hyperciteId]).filter(Boolean);
+      console.warn(`⚠️ Hypercite data not found in IndexedDB for: ${missingIds.join(', ')}`);
+      showTargetNotFoundToast({ target: missingIds[0] || 'hypercite' });
       return `
         <div class="hypercites-section">
           <b>Hypercite</b>
-          <div class="error">Hypercite data not found</div>
+          <div class="error">Hypercite data not found (id: ${missingIds.join(', ') || 'unknown'}). It may have been deleted, or this book hasn't finished loading yet.</div>
           <hr>
         </div>`;
     }

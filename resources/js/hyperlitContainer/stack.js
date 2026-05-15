@@ -167,6 +167,12 @@ export function clear() {
   const base = document.getElementById('hyperlit-container');
   if (base) base.style.pointerEvents = '';
 
+  // Drop ref-overlay's active class — the closeContainer path that normally
+  // removes it can race with rapid back/forward, leaving the overlay active
+  // while no container is open. That blocks clicks on logo/toc buttons.
+  const refOverlay = document.getElementById('ref-overlay');
+  if (refOverlay) refOverlay.classList.remove('active');
+
   layers.length = 0;
   cachedBaseWidthPx = null;
   cachedBaseRightPx = null;

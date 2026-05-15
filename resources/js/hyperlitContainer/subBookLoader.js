@@ -18,6 +18,23 @@ import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
 export { subBookLoaders };
 
 /**
+ * Strip duplicate `id="Fn..."` attributes from `<a fn-count-id>` anchors
+ * inside a sub-book container.
+ *
+ * The footnote's content includes an `<a fn-count-id="N" id="Fn..."></a>`
+ * marker (the anchor destination for in-document scroll). The parent book's
+ * `<sup fn-count-id="N" id="Fn..." class="footnote-ref">` also carries that
+ * same id (it's the click target). When the sub-book is rendered as a
+ * popup, both exist simultaneously → duplicate id, breaking any code that
+ * looks up the element by id. Strip the id from the in-popup anchor; the
+ * `fn-count-id` attribute is still there for any code that needs the pair.
+ */
+function stripDuplicateFnIdsInSubBook(rootEl) {
+  if (!rootEl) return;
+  rootEl.querySelectorAll('a[fn-count-id][id^="Fn"]').forEach(a => a.removeAttribute('id'));
+}
+
+/**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
  * Called when user clicks "[read more]" button.
  */
@@ -210,6 +227,7 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
 
       // Replace content in-place (preserving the chunk wrapper)
       chunkEl.innerHTML = newChunkEl.innerHTML;
+      stripDuplicateFnIdsInSubBook(chunkEl);
 
       // Re-attach listeners to the updated content
       attachMarkListeners(chunkEl);
@@ -541,6 +559,7 @@ export async function loadSubBook(
     for (const chunkId of uniqueChunkIds) {
       await loader.loadChunk(chunkId, 'down');
     }
+    stripDuplicateFnIdsInSubBook(containerDiv);
 
     // Register for cleanup
     subBookLoaders.set(subBookId, { loader, containerDiv });
@@ -612,6 +631,7 @@ export async function loadSubBook(
           setChunkLoadingInProgress(chunkId);
 
           chunkEl.innerHTML = newChunkEl.innerHTML;
+          stripDuplicateFnIdsInSubBook(chunkEl);
           attachMarkListeners(chunkEl);
           attachUnderlineClickListeners(chunkEl);
 
@@ -627,6 +647,8 @@ export async function loadSubBook(
       }
     }
   }
+
+  stripDuplicateFnIdsInSubBook(containerDiv);
 
   // Store preview node IDs on loader
   loader.previewNodeIds = previewNodeIds;
