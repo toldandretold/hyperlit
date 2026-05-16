@@ -62,8 +62,17 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  *         container visually closed while stacked layers floated over
  *         an empty body.
  *
- *   A forward-then-back cycle at the end verifies popstate restoration
+ *   A forward-then-back cycle within book A verifies popstate restoration
  *   is idempotent across multiple traversals.
+ *
+ *   FINALLY — cross-book forward-leak detection: walks FORWARD through
+ *   history until the SPA crosses out of book A into another book. At
+ *   that point, asserts (a) no containers are visible in the destination
+ *   book, and (b) no `.hyperlit-container-stacked` DOM node remains bound
+ *   to book A (the "zombie containers stuck on top of book B" bug
+ *   reported 2026-05-16). Container attribution is captured at every
+ *   step (which sub-book each open container's content belongs to) so
+ *   any failure pinpoints exactly which layers leaked.
  */
 
 const PHRASES = {
@@ -726,6 +735,273 @@ test.describe('Nested hypercite chain', () => {
       `stackedContainersOpen=${restoredAgain.stackedContainersOpen}. ` +
       `Snapshot: ${spa.summariseSnapshot(restoredAgain)}`
     ).toBe(3);
+
+    // ── ★ CROSS-BOOK FORWARD-LEAK DETECTION ★ ───────────────────────
+    // User-reported bug (2026-05-16): pressing forward from book A
+    // (containers open) into book B leaves book A's containers stuck
+    // on top of book B's content, AND they can't be closed (zombie
+    // overlays whose handlers are bound to a destroyed page context).
+    //
+    // The bug is the inverse of the back-restore path: we have a
+    // working test for "back to A restores stack", but NO test for
+    // "forward away from A tears down stack". The hyperlitManager
+    // rebind-instead-of-destroy logic added in core.js for in-use
+    // detection may be firing in the wrong context (cross-book book
+    // switch) and preventing the previous book's containers from
+    // being cleaned up.
+    //
+    // We currently sit at A-cs=3 (depth 3 restored). Forward history
+    // here only contains more book-A entries (the original cross-book
+    // entries got truncated during all the back-walking), so we can't
+    // simply press forward to reach book B. Instead we trigger a
+    // fresh SPA navigation A → B by clicking a programmatic anchor —
+    // exactly equivalent to clicking a hypercite that points to B.
+    //
+    // Then the test sequence is:
+    //   (a) After A → B SPA nav: assert no A-containers leaked into B.
+    //   (b) Press back → A-cs=3 restored to depth 3.
+    //   (c) Press forward → B (popstate, cross-book FORWARD): assert
+    //       no A-containers leaked. THIS is the path the user
+    //       reproduced manually.
+    //
+    // At every step capture container *attribution* (which book each
+    // open container's sub-book content belongs to) so any failure
+    // pinpoints exactly which layers are zombies.
+    const captureContainerAttribution = async () => {
+      return page.evaluate(() => {
+        const inspect = (el, layerName) => {
+          const subBook = el.querySelector('[data-book-id]');
+          const subBookId = subBook?.getAttribute('data-book-id') || null;
+          // ownerBook = the parent book this container's content lives in.
+          // data-book-id is either `book_<n>` or `book_<n>/<sub>`; the
+          // owner is everything before the first `/`.
+          const ownerBook = subBookId ? subBookId.split('/')[0] : null;
+          return {
+            layer: layerName,
+            classes: el.className,
+            isOpen: el.classList.contains('open'),
+            subBookId,
+            ownerBook,
+          };
+        };
+        const out = { currentBook: window.book || null, base: null, stacked: [], orphans: [] };
+        const base = document.querySelector('#hyperlit-container');
+        if (base && base.classList.contains('open')) {
+          out.base = inspect(base, 'base');
+        }
+        const allStacked = [...document.querySelectorAll('.hyperlit-container-stacked')];
+        allStacked.forEach((el, i) => {
+          const info = inspect(el, `stacked-${i}`);
+          if (info.isOpen) out.stacked.push(info);
+          else out.orphans.push(info); // present in DOM but not .open = zombie
+        });
+        return out;
+      });
+    };
+
+    const assertNoLeak = (snap, attr, label) => {
+      const visible = snap.stackedContainersOpen + (snap.openMainContainer ? 1 : 0);
+      expect(
+        visible,
+        `${label}: expected 0 hyperlit containers visible in destination book, ` +
+        `got ${visible} (openMainContainer=${snap.openMainContainer}, ` +
+        `stackedContainersOpen=${snap.stackedContainersOpen}). ` +
+        `Attribution: base=${JSON.stringify(attr.base)}, ` +
+        `stacked=${JSON.stringify(attr.stacked)}.`
+      ).toBe(0);
+
+      const all = [
+        ...(attr.base ? [attr.base] : []),
+        ...attr.stacked,
+        ...attr.orphans,
+      ];
+      const zombies = all.filter(
+        c => c.ownerBook && c.ownerBook !== snap.bookId
+      );
+      expect(
+        zombies,
+        `${label}: no hyperlit container in the DOM should be bound to a ` +
+        `different book. Currently in ${snap.bookId} but found ${zombies.length} ` +
+        `container(s) bound to other books: ${JSON.stringify(zombies, null, 2)}. ` +
+        `This is the "containers persist from book A into book B" bug.`
+      ).toEqual([]);
+    };
+
+    // The user's manual repro was navigating between two books that
+    // *both* have containers open. To genuinely trigger the leak we
+    // need B to have its own stack too — otherwise tearing down A
+    // into an empty B isn't testing the same code path as swapping
+    // one book's stack for another's.
+    //
+    // Sequence:
+    //   (a) A-cs=3 (depth 3) — current
+    //   (b) Synthetic anchor click → SPA nav to B (B-cs=0)
+    //   (c) Click pasted hypercite in B → opens reference container
+    //       in B (B-cs=1). Now both books have stacks in history.
+    //   (d) Back to B-cs=0 (close B's container via popstate)
+    //   (e) Back to A-cs=3 — assert A's depth 3 restored, NO B
+    //       remnants
+    //   (f) Forward to B-cs=0 — assert NO A containers leaked
+    //   (g) Forward to B-cs=1 — assert B's container restored, NO A
+    //       containers leaked
+    //
+    // At every step `captureContainerAttribution` records *which book*
+    // each open/orphan container's content belongs to. Any container
+    // whose `ownerBook` ≠ the current page's bookId is a zombie leak.
+    const logAttr = (label, attr) => {
+      // eslint-disable-next-line no-console
+      console.log(
+        `  attribution[${label}]: current=${attr.currentBook} ` +
+        `base=${attr.base ? attr.base.ownerBook : 'none'} ` +
+        `stacked=[${attr.stacked.map(c => c.ownerBook).join(',')}] ` +
+        `orphans=${attr.orphans.length}`
+      );
+    };
+
+    // (b) A-cs=3 → B via synthetic anchor click.
+    await page.evaluate((targetBookId) => {
+      const a = document.createElement('a');
+      a.href = `/${targetBookId}`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }, bookBId);
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(1000);
+    const inB0 = await snap('B-cs=0 reached via SPA nav from A-cs=3');
+    const inB0Attr = await captureContainerAttribution();
+    logAttr('B-cs=0', inB0Attr);
+    expect(inB0.bookId, 'SPA nav A→B should land in book B').toBe(bookBId);
+    assertNoLeak(inB0, inB0Attr, 'A→B SPA nav (A had depth 3, B should be clean)');
+
+    // (c) Click the pasted hypercite in B → opens reference container.
+    // This is real user behaviour and gives B its own depth-1 stack
+    // pushed onto history.
+    await page.click(`.main-content a.open-icon[href*="${clipDeepest.hyperciteId}"]`);
+    await page.waitForFunction(() => {
+      const base = document.querySelector('#hyperlit-container');
+      return base && base.classList.contains('open');
+    }, null, { timeout: 5000 });
+    await page.waitForTimeout(700);
+    const inB1 = await snap('B-cs=1: hypercite ref container opened in B');
+    const inB1Attr = await captureContainerAttribution();
+    logAttr('B-cs=1', inB1Attr);
+    expect(inB1.bookId, 'still in book B').toBe(bookBId);
+    const inB1Visible = inB1.stackedContainersOpen + (inB1.openMainContainer ? 1 : 0);
+    expect(
+      inB1Visible,
+      `B-cs=1 should have B's own container open (depth 1). ` +
+      `Got visibleStack=${inB1Visible}.`
+    ).toBeGreaterThanOrEqual(1);
+    // B's container's content should belong to A (the source-text panel
+    // shows A's content), but the BOOK we're navigating is still B.
+    // The leak check is for ORPHAN containers, not legitimate B
+    // containers showing A content. So skip leak check here — both
+    // are expected at this state.
+
+    // (d) Back: B-cs=1 → B-cs=0. B's container should close.
+    await page.goBack();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(800);
+    const backB0 = await snap('back B-cs=1 → B-cs=0 (B container should close)');
+    const backB0Attr = await captureContainerAttribution();
+    logAttr('back B-cs=0', backB0Attr);
+    expect(backB0.bookId, 'still in B').toBe(bookBId);
+    assertNoLeak(backB0, backB0Attr, 'B-cs=1 → B-cs=0 (same-book popstate close)');
+
+    // (e) Back: B-cs=0 → A-cs=3. THIS is the cross-book back path.
+    // A's depth-3 stack must restore from saved containerStack, and
+    // there must be no remnants of B's container.
+    await page.goBack();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(1000);
+    const backA3 = await snap('back B-cs=0 → A-cs=3 (★ swap B stack for A stack ★)');
+    const backA3Attr = await captureContainerAttribution();
+    logAttr('back A-cs=3', backA3Attr);
+    expect(backA3.bookId, 'back should land in book A').toBe(bookAId);
+    const backA3Visible = backA3.stackedContainersOpen + (backA3.openMainContainer ? 1 : 0);
+    expect(
+      backA3Visible,
+      `back from B-cs=0 to A-cs=3 must restore A's depth-3 stack from ` +
+      `saved containerStack. Got visibleStack=${backA3Visible}, ` +
+      `historyStackDepth=${backA3.historyStackDepth}.`
+    ).toBe(3);
+    // Orphan check: no zombies left behind from B's session.
+    expect(
+      backA3Attr.orphans.length,
+      `After cross-book back B → A, no orphan .hyperlit-container-stacked ` +
+      `DOM nodes should remain from B's session. Found ${backA3Attr.orphans.length}: ` +
+      `${JSON.stringify(backA3Attr.orphans, null, 2)}.`
+    ).toBe(0);
+
+    // (f) Forward: A-cs=3 → B-cs=0. ★ THE LOAD-BEARING USER REPRO ★
+    // Forward from book A (depth-3 stack visible) to book B (no
+    // containers expected). User reported A's containers persisting
+    // into B here.
+    await page.goForward();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(1000);
+    const fwdB0 = await snap('forward A-cs=3 → B-cs=0 (★ user-bug repro ★)');
+    const fwdB0Attr = await captureContainerAttribution();
+    logAttr('fwd B-cs=0', fwdB0Attr);
+    expect(fwdB0.bookId, 'forward should land in book B').toBe(bookBId);
+    assertNoLeak(fwdB0, fwdB0Attr, '★ A→B forward popstate (A had depth 3) — user-reported leak ★');
+
+    // (g) Forward: B-cs=0 → B-cs=1. B's container should restore.
+    //
+    // Note: B-cs=1 is B's citation-reference panel for the hypercite
+    // pasted from A, so the OPEN container legitimately mounts A's
+    // source-text content. We can't distinguish "leaked A container"
+    // from "legitimate B reference panel showing A content" by
+    // data-book-id alone — both look the same. The catchable invariant
+    // is COUNT vs historyStackDepth: containers visible must match the
+    // saved state's depth. If B-cs=1 saved depth=1 and 1 container is
+    // visible → OK. If 2 are visible → one is leaked.
+    await page.goForward();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(1000);
+    const fwdB1 = await snap('forward B-cs=0 → B-cs=1 (B container should restore)');
+    const fwdB1Attr = await captureContainerAttribution();
+    logAttr('fwd B-cs=1', fwdB1Attr);
+    expect(fwdB1.bookId, 'still in B').toBe(bookBId);
+    const fwdB1Visible = fwdB1.stackedContainersOpen + (fwdB1.openMainContainer ? 1 : 0);
+    expect(
+      fwdB1Visible,
+      `B-cs=1 popstate must restore exactly historyStackDepth containers — ` +
+      `extra containers indicate a leak from book A. ` +
+      `Got visibleStack=${fwdB1Visible}, historyStackDepth=${fwdB1.historyStackDepth}.`
+    ).toBe(fwdB1.historyStackDepth);
+    // Orphan check: no .hyperlit-container-stacked nodes should exist
+    // in the DOM without the .open class. Orphans are zombies left
+    // behind from the previous book's session.
+    expect(
+      fwdB1Attr.orphans.length,
+      `After forward popstate, no orphan .hyperlit-container-stacked ` +
+      `DOM nodes should remain. Found ${fwdB1Attr.orphans.length}: ` +
+      `${JSON.stringify(fwdB1Attr.orphans, null, 2)}.`
+    ).toBe(0);
+
+    // (h) Bonus: try to close any container in B by clicking the
+    // overlay. User reported "can't even be closed" — captured as
+    // forensic info regardless of pass/fail above.
+    const closeProbe = await page.evaluate(() => {
+      const overlays = [
+        ...document.querySelectorAll('.hyperlit-container-stacked .container-overlay'),
+        ...(document.querySelector('#hyperlit-container .container-overlay') ? [document.querySelector('#hyperlit-container .container-overlay')] : []),
+      ];
+      const results = [];
+      for (const overlay of overlays) {
+        try { overlay.click(); results.push({ ok: true }); }
+        catch (e) { results.push({ ok: false, error: String(e) }); }
+      }
+      return { count: overlays.length, results };
+    });
+    if (closeProbe.count > 0) {
+      await page.waitForTimeout(500);
+      const afterClose = await captureContainerAttribution();
+      logAttr('after close-probe click', afterClose);
+    }
 
     // ── Final forensics ─────────────────────────────────────────────
     await test.info().attach('cross-book-back-timeline.json', {

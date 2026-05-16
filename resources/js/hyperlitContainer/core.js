@@ -467,6 +467,19 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
       // Clear the base layer entry from the stack (if any)
       clearStack();
 
+      // Safety sweep: by contract no .hyperlit-container-stacked DOM
+      // nodes should remain after stack unwind + clear. Any survivors
+      // are zombies from a state-DOM desync — e.g. popstate-forward
+      // restoration mounted a stacked container in DOM but its layer
+      // entry wasn't tracked in the layers array, so the while-loop
+      // above didn't catch it. Cross-book SPA nav then leaves the
+      // zombie hanging on the new page. Remove them defensively.
+      const survivors = document.querySelectorAll('.hyperlit-container-stacked, .hyperlit-overlay-stacked');
+      if (survivors.length > 0) {
+        console.warn(`[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync)`);
+        survivors.forEach(el => el.remove());
+      }
+
       // Clear legacy hyperlitContainer state and strip ?cs= URL param.
       // Must run in both silent and non-silent modes — otherwise stale state
       // survives into cross-book transitions and triggers false restores.
