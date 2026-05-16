@@ -331,21 +331,37 @@ export function serializeStack() {
  * Also updates the URL with a ?cs=<depth> param so refresh/back-nav
  * know containers are open even if the URL path didn't change.
  * Called after every push/pop.
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.pushHistoryEntry=false] - When true, calls
+ *   `history.pushState` to create a NEW history entry for this state
+ *   change. Used by fresh container opens so back-button unwinds one
+ *   level at a time and the "book with nothing open" entry is preserved.
+ *   Default `false` keeps the legacy `replaceState` behaviour for stack
+ *   mutations that *aren't* a fresh open (pop, restore-from-state,
+ *   mutate-in-place).
  */
-export function syncStackToHistoryState() {
+export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride = null } = {}) {
   const serialized = serializeStack();
   const depth = serialized?.length ?? 0;
 
-  // Update URL with ?cs=<depth> marker (or strip it when stack is empty)
-  const url = new URL(window.location.href);
+  // Build the URL we'll write to the (new or current) history entry.
+  // When `urlOverride` is supplied, the caller has already computed the
+  // target URL (e.g. the cascade path for a fresh container open). Use it
+  // as the base — this lets us PUSH the new entry with the new URL in a
+  // single step, without first replacing the *previous* entry's URL
+  // (which would destroy the "book with nothing open" identity).
+  const baseHref = urlOverride
+    ? new URL(urlOverride, window.location.origin)
+    : new URL(window.location.href);
   if (depth > 0) {
-    url.searchParams.set('cs', String(depth));
+    baseHref.searchParams.set('cs', String(depth));
   } else {
-    url.searchParams.delete('cs');
+    baseHref.searchParams.delete('cs');
   }
-  const newUrl = url.pathname + url.search + url.hash;
+  const newUrl = baseHref.pathname + baseHref.search + baseHref.hash;
 
-  history.replaceState({
+  const newState = {
     ...history.state,
     containerStack: serialized,
     containerStackBookId: depth > 0 ? book : null,
@@ -353,8 +369,15 @@ export function syncStackToHistoryState() {
     hyperlitContainer: serialized?.length > 0
       ? serialized[serialized.length - 1].contentMetadata
       : null,
-  }, '', newUrl);
-  console.log(`📚 Stack synced to history.state (${depth} layers), URL: ${newUrl}`);
+  };
+
+  if (pushHistoryEntry) {
+    history.pushState(newState, '', newUrl);
+    console.log(`📚 Stack PUSHED to new history entry (${depth} layers), URL: ${newUrl}`);
+  } else {
+    history.replaceState(newState, '', newUrl);
+    console.log(`📚 Stack synced to history.state (${depth} layers), URL: ${newUrl}`);
+  }
 }
 
 // ============================================================================
@@ -466,9 +489,21 @@ async function _popTopLayerImpl() {
   const { savePreviewNodes } = await import('./core.js');
   await savePreviewNodes();
 
-  // 3. Now safe to destroy sub-books (saves already flushed)
-  const { destroyAllSubBooks } = await import('./subBookLoader.js');
-  await destroyAllSubBooks();
+  // 3. Destroy ONLY the sub-books that live inside the layer being popped.
+  // Previously this called `destroyAllSubBooks` which wiped every sub-book —
+  // including ones mounted in the layer BELOW that's about to become the
+  // visible top again. With the new pop-not-rebuild flow, no later step
+  // re-mounts those, so the underlying layer would render as an empty
+  // shell. Scoping the destroy to the popped layer's container keeps the
+  // layer-below's DOM intact.
+  const { subBookLoaders, destroySubBook } = await import('./subBookLoader.js');
+  const idsInTopLayer = [];
+  for (const [id, entry] of subBookLoaders) {
+    if (top.container && entry.containerDiv && top.container.contains(entry.containerDiv)) {
+      idsInTopLayer.push(id);
+    }
+  }
+  for (const id of idsInTopLayer) destroySubBook(id);
 
   // 4. Remove DOM elements for dynamic layers
   if (top.isDynamic) {

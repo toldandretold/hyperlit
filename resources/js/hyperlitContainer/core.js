@@ -81,22 +81,52 @@ export function initializeHyperlitManager() {
  * @private
  */
 function initializeHyperlitManagerInternal() {
-  // Destroy any existing manager to prevent handler accumulation on shared overlay
-  if (hyperlitManager) {
-    hyperlitManager.destroy();
-    hyperlitManager = null;
-  }
-
   // Check if container exists in the DOM (only present on reader pages)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
-    return; // Not a reader page — nothing to initialize
+    // Not a reader page — tear down anything stale and bail
+    if (hyperlitManager) {
+      hyperlitManager.destroy();
+      hyperlitManager = null;
+    }
+    return;
   }
 
-  // Check if overlay exists (only present on reader pages)
+  // Check if overlay exists
   const overlay = document.getElementById("ref-overlay");
   if (!overlay) {
-    return; // Not a reader page — nothing to initialize
+    if (hyperlitManager) {
+      hyperlitManager.destroy();
+      hyperlitManager = null;
+    }
+    return;
+  }
+
+  // If a manager already exists and the container is actively open (i.e.,
+  // there's a stack of layers being restored or in use), DO NOT destroy +
+  // recreate. destroy() would call closeContainer() because isOpen=true,
+  // which slams the base container shut underneath an in-progress
+  // restoration. Just rebind the manager to the (possibly new) DOM
+  // elements — same effect, no visual collapse.
+  if (hyperlitManager) {
+    // Detect "in use" by either manager state or actual DOM:
+    //   - manager.isOpen flag (covers most cases)
+    //   - base #hyperlit-container has .open class (visible base layer)
+    //   - any .hyperlit-container-stacked.open in DOM (stacked layers exist)
+    // If any are true, the container is being used (likely mid-restoration
+    // or normal interaction). Rebind to refresh listeners; do NOT destroy,
+    // because destroy() → closeContainer() would visually collapse the
+    // open layer.
+    const baseOpen = container.classList.contains('open');
+    const hasStacked = !!document.querySelector('.hyperlit-container-stacked.open');
+    if (hyperlitManager.isOpen || baseOpen || hasStacked) {
+      hyperlitManager.rebindElements();
+      log.init('Hyperlit Container Manager rebound (in use — preserved open state)', '/hyperlitContainer/core.js');
+      return;
+    }
+    // Stack is empty AND base not open — safe to destroy + recreate
+    hyperlitManager.destroy();
+    hyperlitManager = null;
   }
 
   // Now create the manager with the existing container and overlay

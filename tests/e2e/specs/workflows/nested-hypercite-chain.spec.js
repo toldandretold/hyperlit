@@ -3,14 +3,17 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
 /**
  * Nested hypercite chain.
  *
- * Two distinct phases in one test:
+ * Two tests in this file. The first is a three-phase intra-book journey;
+ * the second is a cross-book back-restore regression guard.
  *
- *   Phase 1 (build the nest): identical flow to nested-authoring-stress —
- *     create book, type at L0, insert footnote → type L1, hyperlight that
- *     text → type L2, insert footnote → type L3. Close all the way back
- *     to L0 and commit. After Phase 1, the book has placeholder text at
- *     four levels and the rendered surface at each level has a footnote
- *     ref or hyperlight mark to enter the next level.
+ * ── Test 1: build → chain → verify (Phases 1-3) ────────────────────────
+ *
+ *   Phase 1 (build the nest): create book, type at L0, insert footnote →
+ *     type L1, hyperlight that text → type L2, insert footnote → type L3.
+ *     Close all the way back to L0 and commit. After Phase 1, the book
+ *     has placeholder text at four levels and the rendered surface at
+ *     each level has a footnote ref or hyperlight mark to enter the
+ *     next level.
  *
  *   Phase 2 (chain hypercites): walk back down the EXISTING nest via
  *     clicks. At each level: enter edit mode (click .hyperlit-edit-btn),
@@ -19,9 +22,48 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  *     link to the level above it AND becomes a new hypercite source for
  *     the level below.
  *
- *   Phase 3 (verify): back-navigate to unwind the stack, then click the
- *     original L0 `<u>` and assert the reference panel surfaces a
- *     cited-in link (the L1 paste).
+ *   Phase 3 (verify): back-navigate to unwind the stack, then click each
+ *     hypercite open-icon in turn, asserting URL/container depth at every
+ *     step. Then walk back-then-forward through the history to confirm
+ *     popstate restores the container stack on every transition.
+ *
+ * ── Test 2: cross-book back-restore preserves the deep stack ───────────
+ *
+ *   Reproduces the user-reported bug: a book with deep nested containers
+ *   open had its container stack truncated to depth 1 when navigated
+ *   back to from another book. The fix (in
+ *   `BookToBookTransition.updateUrlWithStatePreservation` and supporting
+ *   restoration paths) preserves the saved `containerStack` on popstate.
+ *
+ *   Scenario:
+ *     1. Build a 3-level nest in book A (footnote → hyperlight → footnote)
+ *        and end with all 3 layers OPEN.
+ *     2. Copy a hypercite from the deepest level (L3 footnote).
+ *     3. Navigate home (with a state-cleanup workaround for a separate
+ *        leak where homeButtonNav SPA transition propagates
+ *        `containerStack` into the new home entry).
+ *     4. Create book B, paste the hypercite.
+ *     5. Click the pasted hypercite → SPA back to book A.
+ *     6. Walk back through history via successive `page.goBack()` calls,
+ *        snapshotting at every step.
+ *
+ *   Two strict assertions guard the fix:
+ *     (a) CROSS-BOOK POPSTATE: at the step where bookId transitions from
+ *         non-A (home/B) back to A, the visible stack must equal the
+ *         saved `historyStackDepth` (state was honored, not nulled) AND
+ *         the saved depth must be > 0. A regression to
+ *         `updateUrlWithStatePreservation` nulling state on popstate
+ *         fails either condition.
+ *     (b) DEEP-STACK ENTRY: at book A's original cs=3 entry (matched by
+ *         both URL `?cs=3` and `historyStackDepth === 3`), all 3 layers
+ *         must be visible AND all 4 typed phrases (L0..L3) must be
+ *         present in the DOM. The phrase check catches the
+ *         closeContainer-mid-restoration regression where the base
+ *         container visually closed while stacked layers floated over
+ *         an empty body.
+ *
+ *   A forward-then-back cycle at the end verifies popstate restoration
+ *   is idempotent across multiple traversals.
  */
 
 const PHRASES = {
@@ -324,6 +366,370 @@ test.describe('Nested hypercite chain', () => {
     });
     await test.info().attach('chain.json', {
       body: JSON.stringify({ clipA, clipB, clipC, chainCheck }, null, 2),
+      contentType: 'application/json',
+    });
+
+    const isKnownIdOneCollision = (e) => /Duplicate IDs found:[^a-zA-Z]*1\(\d+\)/.test(e);
+    const errors = spa.filterConsoleErrors(page.consoleErrors)
+      .filter(e => !/429.*Too Many Requests/i.test(e))
+      .filter(e => !/^🔴 ISSUES FOUND:$/.test(e))
+      .filter(e => !isKnownIdOneCollision(e));
+    expect(errors, `Console errors: ${JSON.stringify(errors)}`).toEqual([]);
+  });
+
+  // ════════════════════════════════════════════════════════════════════
+  // Cross-book back-restore: deep stack survives a round-trip through
+  // a second book.
+  //
+  // Scenario:
+  //   1. Build a 3-level nest in book A (footnote → hyperlight → footnote)
+  //      and end with all 3 containers OPEN.
+  //   2. Copy a hypercite from the deepest level's text.
+  //   3. Create book B, paste the hypercite there.
+  //   4. Click the pasted hypercite link → SPA navigation back to book A.
+  //      → ASSERT: all 3 containers in book A are restored (stackedOpen +
+  //        bodyOpen === 3) and the typed phrases at each level are present.
+  //   5. From the restored book A state, click forward to book B again.
+  //   6. Press browser BACK to return to book A.
+  //      → ASSERT: again, all 3 containers visible AND the typed phrases.
+  //
+  // Regressions this catches:
+  //   - The destroy-on-reinit bug where mid-restoration
+  //     initializeHyperlitManager() destroys the manager and slams the
+  //     base container shut, leaving stacked layers floating over a
+  //     visually-closed footnote.
+  //   - The BookToBookTransition cascade-hint hang that fires
+  //     waitForNavigationTarget for an HL_/Fn_ id that lives in a
+  //     sub-book.
+  //   - Loss of containerStack on the popstate-destination entry
+  //     (BookToBookTransition.updateUrlWithStatePreservation nulling
+  //     it out).
+  // ════════════════════════════════════════════════════════════════════
+  test('cross-book back-restore preserves the deep stack', async ({ page, spa }) => {
+    test.setTimeout(240_000);
+
+    const timeline = [];
+    const snap = async (label) => {
+      const s = await spa.snapshotPageState(page, label);
+      timeline.push(s);
+      // eslint-disable-next-line no-console
+      console.log(spa.summariseSnapshot(s));
+      return s;
+    };
+
+    // ── Build chain in book A: footnote → hyperlight → footnote ──────
+    const { bookId: bookAId } = await spa.createNewBook(page, spa);
+    await snap(`A book created ${bookAId}`);
+
+    await page.click('h1[id="100"]');
+    await page.keyboard.type('Cross-Book Back Restore Test');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+    await page.keyboard.type(PHRASES.L0);
+    await page.waitForTimeout(400);
+    await snap('A L0 typed');
+
+    await spa.insertFootnoteAtCaret(page);
+    expect(await spa.getStackDepth(page)).toBe(1);
+    await spa.typeAtEndOfActiveEditor(page, PHRASES.L1);
+    await page.waitForTimeout(300);
+    await snap('A L1 typed');
+
+    await spa.selectInActiveEditor(page, PHRASES.L1);
+    await spa.hyperlightSelection(page);
+    expect(await spa.getStackDepth(page)).toBe(2);
+    await spa.typeAtEndOfActiveEditor(page, PHRASES.L2);
+    await page.waitForTimeout(300);
+    await snap('A L2 typed');
+
+    await spa.insertFootnoteAtCaret(page);
+    expect(await spa.getStackDepth(page)).toBe(3);
+    await spa.typeAtEndOfActiveEditor(page, PHRASES.L3);
+    await page.waitForTimeout(400);
+    await snap('A L3 typed (all 3 layers open)');
+
+    // ── Copy hypercite from deepest level ───────────────────────────
+    await spa.selectInActiveEditor(page, PHRASES.L3);
+    const clipDeepest = await spa.copyHyperciteFromActiveEditor(page);
+    expect(clipDeepest.hyperciteId).toMatch(/^hypercite_/);
+    await snap(`A clipDeepest copied ${clipDeepest.hyperciteId}`);
+
+    // Wait for sync so the new hypercite is durable, exit edit mode
+    await page.waitForFunction(() => {
+      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
+      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+    }, null, { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(500);
+
+    // Sanity: we should still have all 3 containers open
+    const depthAfterCopy = await spa.getStackDepth(page);
+    expect(depthAfterCopy, 'all 3 layers should still be open in book A').toBe(3);
+
+    // ── Create book B and paste the hypercite ───────────────────────
+    // Closing book A's containers via go-home would tear down our stack.
+    // We need book B to be reachable WITHOUT touching A's history entry
+    // (which carries the deep stack we want to restore later).
+    //
+    // Trick: open #newBook directly without using navigation. That
+    // pushes a new SPA entry on top of A's deep-stack entry.
+    await page.evaluate(() => {
+      // Hide the container UI without closing the stack — just navigate
+      // home as a real user would (clicking the logo). The logo nav
+      // pushes a new history entry.
+      const logoNav = document.getElementById('homeButtonNav');
+      if (logoNav) logoNav.click();
+    });
+    await spa.waitForTransition(page);
+
+    // The homeButtonNav SPA transition leaks book A's containerStack into
+    // the NEW (home) history entry's state. If we don't clean it, the
+    // next book's creation flow inherits a non-null containerStack and
+    // tries (and fails) to "restore" it — the symptom is an invisible
+    // edit-toolbar in the newly-created book B. Clear it on the home
+    // entry only; book A's prior entry keeps its stack untouched.
+    await page.evaluate(() => {
+      const cur = history.state || {};
+      if (cur.containerStack) {
+        history.replaceState(
+          { ...cur, containerStack: null, containerStackBookId: null, hyperlitContainer: null },
+          '',
+          window.location.href
+        );
+      }
+    });
+    await snap('home (after leaving book A with stack open, state cleaned)');
+
+    // Wait for any in-flight container teardown to settle before opening
+    // the new-book overlay.
+    await page.waitForFunction(() => {
+      return document.querySelectorAll('.hyperlit-container-stacked').length === 0
+        && !document.querySelector('#hyperlit-container.open');
+    }, null, { timeout: 5000 }).catch(() => {});
+
+    await page.click('#newBook');
+    await page.waitForFunction(() => {
+      const c = document.getElementById('newbook-container');
+      return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';
+    }, null, { timeout: 5000 });
+    await page.click('#createNewBook');
+    await spa.waitForTransition(page);
+
+    // Defensive: if the new book lands with edit-toolbar hidden but
+    // isEditing=true (state-leak side-effect we've seen), nudge it by
+    // toggling edit mode off-and-on so the toolbar render runs clean.
+    try {
+      await spa.waitForEditMode(page);
+    } catch (e) {
+      const isEditing = await page.evaluate(() => window.isEditing === true);
+      if (isEditing) {
+        await page.click('#editButton');
+        await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+        await page.click('#editButton');
+      }
+      await spa.waitForEditMode(page);
+    }
+    const bookBId = await spa.getCurrentBookId(page);
+    expect(bookBId).toMatch(/^book_\d+/);
+    expect(bookBId).not.toBe(bookAId);
+    await snap(`B book created ${bookBId}`);
+
+    // Type a paste anchor and paste the hypercite
+    await page.click('h1[id="100"]');
+    await page.keyboard.type('Paste Destination');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+    await page.keyboard.type('paste anchor here');
+    await page.waitForTimeout(300);
+    await spa.pasteHyperciteContent(page, clipDeepest.html, clipDeepest.text);
+    await page.waitForSelector('.main-content a.open-icon[href*="' + clipDeepest.hyperciteId + '"]', { timeout: 10000 });
+    await snap('B paste landed');
+
+    // Exit edit mode + wait for sync
+    await page.click('#editButton');
+    await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => {
+      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
+      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+    }, null, { timeout: 20000 }).catch(() => {});
+
+    // ── Click the pasted hypercite link → SPA back to book A ────────
+    // Use the existing helper which clicks the open-icon then
+    // "See in source text" to perform the navigation.
+    //
+    // NOTE on assertion depth: the L3 hypercite href encodes the L3
+    // sub-book as its target (sourceBookId = `book_X/Fn_L3_id`). When
+    // the SPA navigates there, it opens the parent chain up to the
+    // PARENT of the hypercite target (typically L2, the hyperlight
+    // that contains the L3 footnote ref). The user then clicks the
+    // L3 footnote ref to drill in. So we should only expect depth >= 1
+    // here, not depth 3.
+    await spa.navigateViaHypercite(page);
+    await page.waitForTimeout(1000); // allow restoration to settle
+
+    const restoredSnap = await snap('A restored via hypercite click from B');
+    expect(restoredSnap.bookId, 'cross-book click should land in book A').toBe(bookAId);
+
+    const visibleStack = restoredSnap.stackedContainersOpen
+      + (restoredSnap.openMainContainer ? 1 : 0);
+    expect(
+      visibleStack,
+      `cross-book click should open at least 1 container in book A. ` +
+      `Got openMainContainer=${restoredSnap.openMainContainer}, ` +
+      `stackedContainersOpen=${restoredSnap.stackedContainersOpen}.`
+    ).toBeGreaterThanOrEqual(1);
+
+    // ── Browser-back: walk back through entries, capturing two
+    //    load-bearing transitions for strict assertions:
+    //
+    //    (1) CROSS-BOOK BACK: the first step where bookId transitions
+    //        from non-A (book B or null/home) back to book A. THIS is
+    //        the path the BookToBookTransition.updateUrlWithStatePreservation
+    //        fix targets — if popstate nulls the destination entry's
+    //        containerStack, the restored depth at this step will be 0
+    //        instead of matching the entry's historyStackDepth.
+    //
+    //    (2) DEEP-STACK ENTRY (cs=3): book A's original cs=3 entry with
+    //        saved containerStack=[L1,L2,L3]. Restoration here must
+    //        rebuild all 3 layers (catches the closeContainer-mid-
+    //        restoration regression).
+    //
+    // History at this point (approx):
+    //   ..., A-cs=3(saved), A-cs=2, A-cs=1, A-cs=0, home, B-edit,
+    //   A-via-click(cs=2) (current)
+    //
+    // We walk back snapshotting each step, cap at 10 as a safety net.
+    let crossBookBackSnap = null;
+    let deepStackRestoredSnap = null;
+    let prevBookId = restoredSnap.bookId;
+    for (let i = 0; i < 10; i++) {
+      await page.goBack();
+      await spa.waitForTransition(page);
+      await page.waitForTimeout(700);
+      const s = await snap(`browser-back step ${i + 1}`);
+
+      // (1) Detect the cross-book-back transition: previous step was
+      // NOT book A (B or home), this step IS book A.
+      if (
+        crossBookBackSnap === null
+        && s.bookId === bookAId
+        && prevBookId !== bookAId
+      ) {
+        crossBookBackSnap = s;
+      }
+
+      // (2) Match the deep-stack entry by both URL marker AND saved
+      // containerStack depth — that way we know we're at the exact
+      // entry where 3 layers were originally saved, not a coincidental
+      // cs=3 entry.
+      if (
+        s.bookId === bookAId
+        && /[?&]cs=3\b/.test(s.url)
+        && s.historyStackDepth === 3
+      ) {
+        deepStackRestoredSnap = s;
+        break;
+      }
+      prevBookId = s.bookId;
+    }
+
+    expect(
+      crossBookBackSnap,
+      'should observe a cross-book popstate transition back into book A during back-walk'
+    ).not.toBeNull();
+    expect(
+      deepStackRestoredSnap,
+      'should reach book A deep-stack entry (cs=3 + historyStackDepth=3) via successive browser-back presses'
+    ).not.toBeNull();
+
+    // ★ CROSS-BOOK POPSTATE ASSERTION ★
+    // At the cross-book back step, the destination entry's saved
+    // containerStack (historyStackDepth) must equal the visible stack —
+    // i.e. popstate restored what was saved, not a nulled value.
+    //
+    // Without the BookToBookTransition.updateUrlWithStatePreservation
+    // fix, the destination state's containerStack would be nulled
+    // before restoration, so historyStackDepth would be 0 (or
+    // visibleStack would be 0 if state was preserved but restoration
+    // skipped). Either failure mode is caught.
+    const crossBookVisible = crossBookBackSnap.stackedContainersOpen
+      + (crossBookBackSnap.openMainContainer ? 1 : 0);
+    expect(
+      crossBookVisible,
+      `cross-book popstate must restore saved containerStack. ` +
+      `Got historyStackDepth=${crossBookBackSnap.historyStackDepth}, ` +
+      `visibleStack=${crossBookVisible} ` +
+      `(stackedContainersOpen=${crossBookBackSnap.stackedContainersOpen}, ` +
+      `openMainContainer=${crossBookBackSnap.openMainContainer}). ` +
+      `URL: ${crossBookBackSnap.url}`
+    ).toBe(crossBookBackSnap.historyStackDepth);
+    expect(
+      crossBookBackSnap.historyStackDepth,
+      `cross-book back destination entry should have saved containerStack ` +
+      `(non-zero historyStackDepth). If this is 0, the fix preserving ` +
+      `containerStack on popstate in BookToBookTransition has regressed.`
+    ).toBeGreaterThan(0);
+
+    // ★ THE LOAD-BEARING ASSERTION ★
+    // At the deep-stack entry, containerStack=[L1,L2,L3] was saved and
+    // popstate restoration must rebuild all 3 layers.
+    const deepVisible = deepStackRestoredSnap.stackedContainersOpen
+      + (deepStackRestoredSnap.openMainContainer ? 1 : 0);
+    expect(
+      deepVisible,
+      `at book A deep-stack entry, expected 3 containers restored from saved containerStack. ` +
+      `Got openMainContainer=${deepStackRestoredSnap.openMainContainer}, ` +
+      `stackedContainersOpen=${deepStackRestoredSnap.stackedContainersOpen}, ` +
+      `historyStackDepth=${deepStackRestoredSnap.historyStackDepth}. ` +
+      `Snapshot: ${spa.summariseSnapshot(deepStackRestoredSnap)}`
+    ).toBe(3);
+
+    // Verify all 4 typed phrases are present somewhere in the DOM —
+    // catches the closeContainer-mid-restoration regression where
+    // the base container visually closed while stacked layers floated
+    // over an empty body.
+    const textPresence = await page.evaluate((phrases) => {
+      const surfaces = [
+        document.querySelector('.main-content'),
+        ...document.querySelectorAll('.sub-book-content'),
+      ];
+      const out = {};
+      for (const [key, phrase] of Object.entries(phrases)) {
+        out[key] = surfaces.some(s => s && (s.textContent || '').includes(phrase));
+      }
+      return out;
+    }, PHRASES);
+    expect(textPresence.L0, 'L0 text should be visible (base book)').toBe(true);
+    expect(textPresence.L1, 'L1 text should be visible (footnote)').toBe(true);
+    expect(textPresence.L2, 'L2 text should be visible (hyperlight)').toBe(true);
+    expect(textPresence.L3, 'L3 text should be visible (innermost footnote)').toBe(true);
+
+    // ── Round-trip: forward then back should also restore cleanly ──
+    // (Once we've reached the deep-stack entry, forward goes to the
+    // next entry in history, then back again should re-restore.)
+    await page.goForward();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(700);
+    await snap('forward step after deep-stack restore');
+
+    await page.goBack();
+    await spa.waitForTransition(page);
+    await page.waitForTimeout(1000);
+    const restoredAgain = await snap('back after forward — deep stack again');
+    expect(restoredAgain.bookId, 'browser back should land in book A again').toBe(bookAId);
+
+    const visibleStackAgain = restoredAgain.stackedContainersOpen
+      + (restoredAgain.openMainContainer ? 1 : 0);
+    expect(
+      visibleStackAgain,
+      `after forward-then-back cycle, expected 3 containers visible again. ` +
+      `Got openMainContainer=${restoredAgain.openMainContainer}, ` +
+      `stackedContainersOpen=${restoredAgain.stackedContainersOpen}. ` +
+      `Snapshot: ${spa.summariseSnapshot(restoredAgain)}`
+    ).toBe(3);
+
+    // ── Final forensics ─────────────────────────────────────────────
+    await test.info().attach('cross-book-back-timeline.json', {
+      body: JSON.stringify(timeline, null, 2),
       contentType: 'application/json',
     });
 

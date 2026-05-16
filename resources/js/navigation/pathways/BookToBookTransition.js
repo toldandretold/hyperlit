@@ -616,24 +616,37 @@ export class BookToBookTransition {
         // For book-to-book navigation, create a new history entry so back/forward works
         const currentState = history.state || {};
 
-        // Add book transition metadata while preserving container state
-        const newState = {
-          ...currentState,
-          hyperlitContainer: null,
-          containerStack: null,
-          bookTransition: {
-            fromBook: this.getCurrentBookId(),
-            toBook: bookId,
-            timestamp: Date.now()
-          }
+        const transitionMeta = {
+          fromBook: this.getCurrentBookId(),
+          toBook: bookId,
+          timestamp: Date.now(),
         };
 
         if (isPopstate) {
-          // Popstate: browser already set the URL — just update state, don't wipe forward history
-          history.replaceState(newState, '', newUrl);
+          // Popstate (browser back/forward): PRESERVE the destination entry's
+          // saved state. This entry was created when the user was previously
+          // here, and may carry containerStack / hyperlitContainer data that
+          // needs to drive the deep-stack restoration about to run in
+          // initializePage. Nulling those would defeat the whole back-restore
+          // mechanism. Only stamp the transition metadata; keep everything
+          // else intact.
+          const preservedState = {
+            ...currentState,
+            bookTransition: transitionMeta,
+          };
+          history.replaceState(preservedState, '', newUrl);
         } else {
-          // Normal navigation: create new history entry
-          history.pushState(newState, '', newUrl);
+          // Normal forward navigation (user clicked a link / hypercite):
+          // create a new history entry for the destination. The destination
+          // is a fresh visit to this book — start it with an empty stack.
+          const newEntryState = {
+            ...currentState,
+            hyperlitContainer: null,
+            containerStack: null,
+            containerStackBookId: null,
+            bookTransition: transitionMeta,
+          };
+          history.pushState(newEntryState, '', newUrl);
         }
       } else {
         console.log(`🔗 BookToBookTransition: Already at ${newUrl}`);

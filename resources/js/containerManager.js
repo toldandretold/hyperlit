@@ -123,22 +123,29 @@ export class ContainerManager {
         console.log(`[Overlay] click handler fired. containerId=${this.containerId}`);
         this._closePending = true;
         try {
-          // Use specialized close function for hyperlit-container to unlock body scroll
+          // For hyperlit-container: each open pushed a history entry, so
+          // closing should *consume* that entry by going back. The popstate
+          // handler's fast-path then runs popTopLayer / closeHyperlitContainer
+          // to update the DOM, which internally flushes pending saves. This
+          // keeps browser history aligned with the visible stack so
+          // back/forward behaves as the user expects (one container per step).
           if (this.containerId === 'hyperlit-container') {
-            // Guard: if a pop is already in flight, don't start another
-            const { isStackPopPending, isStacked, saveAndPopTopLayer } = await import('./hyperlitContainer/stack.js');
+            const { isStackPopPending } = await import('./hyperlitContainer/stack.js');
             if (isStackPopPending()) {
-              console.warn('Overlay click BLOCKED — saveAndPopTopLayer already in flight');
+              console.warn('Overlay click BLOCKED — pop already in flight');
               return;
             }
-            // Check if we have stacked layers — if so, peel off only the top
-            if (isStacked()) {
-              await saveAndPopTopLayer();
-            } else {
-              // 🔑 CRITICAL: Check if we need to save before closing
-              const { saveAndCloseHyperlitContainer } = await import('./hyperlitContainer/core.js');
-              await saveAndCloseHyperlitContainer();
+            // Flush any pending saves before navigating away from this state
+            // (popstate handler will flush again as part of its teardown,
+            // but flushing here too keeps autosave timing tight).
+            try {
+              const { flushInputDebounce, flushAllPendingSaves } = await import('./divEditor/index.js');
+              flushInputDebounce();
+              await flushAllPendingSaves();
+            } catch (err) {
+              console.warn('Pre-back flush failed (non-fatal):', err);
             }
+            history.back();
           } else {
             this.closeContainer();
           }

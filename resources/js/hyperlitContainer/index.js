@@ -753,6 +753,12 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
 
     console.log(`📊 Detected content types: ${contentTypes.map(c => c.type).join(', ')}`);
 
+    // Computed URL for the fresh-open history entry — set by the URL block
+    // below, consumed by the pushLayer + syncStackToHistoryState call further
+    // down. Stays null when the block is skipped (back nav, hypercite-preserve,
+    // multi-content, etc.) — in those cases pushState reuses the current URL.
+    let pendingUrlOverride = null;
+
     // Store container state in history for back button support
     if (!skipUrlUpdate && !isBackNavigation) {
       const containerState = {
@@ -780,43 +786,41 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
 
       console.log('📊 Storing hyperlit container state in history:', containerState);
 
-      // Determine if we should update URL (only for single content types)
+      // Determine if we should update URL (only for single content types).
+      // We COMPUTE the URL here but do NOT call replaceState — the URL change
+      // belongs to the new history entry that the upcoming push will create,
+      // not to the previous (book-empty) entry. The previous entry's URL
+      // must stay clean so back-button lands on it cleanly.
       const urlUpdate = determineSingleContentHash(contentTypes);
       if (urlUpdate) {
-        // Check if we already have a specific hypercite target that should be preserved
-        const currentHash = window.location.hash.substring(1); // Remove #
+        const currentHash = window.location.hash.substring(1);
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
 
-        if (isBackNavigation) {
-          // Browser has already set the URL via popstate — don't touch history
-          console.log('📊 Skipping URL update for back navigation');
-          history.replaceState(newState, '');
-        } else if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
-          // We're opening a highlight container but there's a specific hypercite target
+        if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // Preserve the original hypercite hash for in-container scrolling
           console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
-          history.replaceState(newState, '');
         } else if (urlUpdate.type === 'path') {
           // Path-based URL (for footnotes): /book/footnoteID
           const pathSegments = window.location.pathname.split('/').filter(Boolean);
           const bookSlug = pathSegments[0] || '';
-          const newUrl = `/${bookSlug}/${urlUpdate.value}${window.location.hash || ''}`;
-          console.log(`📊 Updating URL with path for footnote: ${newUrl}`);
-          history.replaceState(newState, '', newUrl);
+          pendingUrlOverride = `/${bookSlug}/${urlUpdate.value}${window.location.hash || ''}`;
+          console.log(`📊 Computed footnote URL for new entry: ${pendingUrlOverride}`);
         } else {
           // Hash-based URL (for hypercites, highlights, citations)
-          // Strip any stale cascade segments from pathname
           const segments = window.location.pathname.split('/').filter(Boolean);
           const cleanPath = `/${segments[0] || ''}`;
-          const newUrl = `${cleanPath}#${urlUpdate.value}`;
-          console.log(`📊 Updating URL for single content: ${newUrl}`);
-          history.replaceState(newState, '', newUrl);
+          pendingUrlOverride = `${cleanPath}#${urlUpdate.value}`;
+          console.log(`📊 Computed hash URL for new entry: ${pendingUrlOverride}`);
         }
       } else {
-        // Multi-content — just store in history state (containerStack handles restoration)
-        console.log(`📊 Multi-content: storing state in history (no URL change needed)`);
-        history.replaceState(newState, '');
+        console.log(`📊 Multi-content: no URL change needed`);
       }
+
+      // Write any non-URL state changes (e.g. hyperlitContainer metadata)
+      // into the CURRENT entry so legacy restoration paths can still find
+      // them — but DON'T touch the URL. The URL change is deferred to the
+      // pushState below.
+      history.replaceState(newState, '');
     }
 
     // =========================================================================
@@ -926,7 +930,16 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
           savedEditMode: getHyperlitEditMode(),
           contentMetadata: layerContainerState,
         });
-        syncStackToHistoryState();
+        // Fresh open: push a new history entry so browser back unwinds the
+        // open as its own step (rather than collapsing it into the prior
+        // entry's state, which would destroy the "book with nothing open"
+        // identity). Pass the URL we computed earlier so the *new* entry
+        // gets the footnote/hash path, while the previous entry (the
+        // book-empty state) keeps its original clean URL.
+        syncStackToHistoryState({
+          pushHistoryEntry: !isBackNavigation,
+          urlOverride: pendingUrlOverride,
+        });
       }
     }
 
@@ -1634,12 +1647,21 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const newDepth = getDepth();
   const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
 
-  // Attach overlay click handler to save-and-pop this layer
+  // Attach overlay click handler. Closing should consume the history
+  // entry that opening this layer pushed — call history.back() so the
+  // popstate handler's fast-path peels the top layer in DOM. Flush saves
+  // first so nothing in flight is lost.
   newOverlay.addEventListener('click', async (e) => {
     e.stopPropagation();
     e.preventDefault();
-    const { saveAndPopTopLayer } = await import('./stack.js');
-    await saveAndPopTopLayer();
+    try {
+      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+      flushInputDebounce();
+      await flushAllPendingSaves();
+    } catch (err) {
+      console.warn('Pre-back flush failed for stacked overlay (non-fatal):', err);
+    }
+    history.back();
   });
 
   // Push the new layer entry (representing the active layer)
@@ -1753,6 +1775,12 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   console.log(`📚 Stacked layer ${newDepth} opened successfully`);
 
   // --- 7. Update URL to reflect the new chain segment ---
+  // Same pattern as the layer-0 callsite: COMPUTE the URL here but DO NOT
+  // replaceState on it. The URL change is part of the *new* history entry
+  // that the pushState below creates — applying it to the previous entry
+  // would overwrite the parent layer's URL (destroying its identity for
+  // browser back).
+  let stackedPendingUrlOverride = null;
   if (!skipUrlUpdate) {
     const urlUpdate = determineSingleContentHash(contentTypes);
     if (urlUpdate) {
@@ -1772,9 +1800,8 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
       const subBookId = buildSubBookId(parentBook, urlUpdate.value);
 
       // Single-content stacked layer — URL is the sub-book path
-      const newUrl = '/' + subBookId;
-      console.log(`📚 URL update (sub_book_id): ${newUrl}`);
-      history.replaceState(history.state, '', newUrl);
+      stackedPendingUrlOverride = '/' + subBookId;
+      console.log(`📚 Computed sub-book URL for new entry: ${stackedPendingUrlOverride}`);
     } else {
       // Multi-content in stacked layer — save URL on layer below (containerStack handles restoration)
       const { getLayerBelow } = await import('./stack.js');
@@ -1786,9 +1813,16 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
     }
   }
 
-  // Sync the full stack to history.state
+  // Sync the full stack to history.state. This is the end of pushing a
+  // stacked layer (i.e., a fresh container open on top of an existing
+  // stack), so create a new history entry. Pass the computed URL so the
+  // new entry carries the sub-book path and the parent entry keeps its
+  // original URL untouched.
   const { syncStackToHistoryState } = await import('./stack.js');
-  syncStackToHistoryState();
+  syncStackToHistoryState({
+    pushHistoryEntry: true,
+    urlOverride: stackedPendingUrlOverride,
+  });
 }
 
 /**

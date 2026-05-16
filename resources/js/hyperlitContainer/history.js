@@ -237,12 +237,21 @@ export async function restoreStackedLayer(containerState) {
     const newDepth = getDepth();
     const { container: newContainer, overlay: newOverlay, scroller: newScroller } = createStackedContainerDOM(newDepth);
 
-    // Attach overlay click handler to pop this layer
+    // Attach overlay click handler. Closing should consume the history
+    // entry that opening this layer pushed — call history.back() so the
+    // popstate handler's fast-path peels the top layer in DOM. Flush
+    // saves first so nothing in flight is lost.
     newOverlay.addEventListener('click', async (e) => {
       e.stopPropagation();
       e.preventDefault();
-      const { popTopLayer } = await import('./stack.js');
-      await popTopLayer();
+      try {
+        const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+        flushInputDebounce();
+        await flushAllPendingSaves();
+      } catch (err) {
+        console.warn('Pre-back flush failed for restored stacked overlay (non-fatal):', err);
+      }
+      history.back();
     });
 
     // Push the new layer entry

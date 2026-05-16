@@ -267,25 +267,32 @@ npx playwright test tests/e2e/specs/workflows/authoring-workflow.spec.js --heade
 
 #### What the Tests Cover
 
-**SPA Navigation Tests** (`tests/e2e/specs/navigation/`) — 24 tests covering every SPA transition path (home→reader, reader→home, reader→user, etc.), verifying that the navigation overlay lifecycle, `buttonRegistry` component initialization, page structure detection, and listener cleanup all work correctly after each transition.
+Full per-spec breakdown lives in [`tests/e2e/README.md`](tests/e2e/README.md). Bird's-eye view:
 
-**Authoring Workflow Test** (`tests/e2e/specs/workflows/authoring-workflow.spec.js`) — a single end-to-end test that exercises the full authoring lifecycle:
+**Smoke** (`tests/e2e/specs/smoke/`) — fast sanity check. Cold-load home / reader / user, assert correct `data-page`, `buttonRegistry` healthy, no console errors. First thing to run when something feels broken.
 
-1. **Create a book** from the homepage via the [+] button
-2. **Type and format text** using the edit toolbar (bold, italic, heading, blockquote, list)
-3. **Highlight text** with a hyperlight and verify the highlight renders
-4. **Create a hypercite** by selecting source text and copying it
-5. **Navigate home** and create a second book
-6. **Paste the hypercite** into the second book and verify the citation link (↗) appears
-7. **Click the hypercite link** to navigate back to the source text in book 1 via the "See in source text" button
-8. **Browser back/forward** navigation between the two books
-9. **Health checks** — verifies no console errors, correct page structure, and healthy `buttonRegistry` state throughout
+**SPA Transitions** (`tests/e2e/specs/transitions/`) — every cross-template SPA navigation path (home↔reader, reader↔reader, home↔user, reader↔user, etc.). Each test clicks the realistic UI affordance (logo, book card, hypercite, "My Books"), waits for the transition, and asserts the destination structure + registry health.
+
+**Regression Tests** (`tests/e2e/specs/regression/`) — guards against bug classes that have bitten before:
+- `globals-after-spa.spec.js`: page-scoped globals (`window.isUserPage`, etc.) reflect the *current* page after SPA navigation, not the page we came from.
+- `listener-accumulation.spec.js`: `document` event listeners stay stable across home→reader→home cycles (cleanup-leak detection).
+- `registry-after-spa.spec.js`: `buttonRegistry` has exactly the components the new page needs — no leftovers, no missing entries.
+- `toc-deep-nav.spec.js`: TOC entries scroll their target heading into viewport, don't open hyperlit containers as a side-effect, and the TOC closes after each click.
+
+**Workflows** (`tests/e2e/specs/workflows/`) — multi-phase user journeys end-to-end:
+- `authoring-workflow.spec.js`: the flagship test — create book 1, type & format, create hyperlight + hypercite, navigate home, create book 2, paste hypercite, follow the citation back to book 1 via "See in source text", browser back/forward.
+- `file-import-drag-drop.spec.js`: drop a `.md` on home → import form auto-opens → submit → SPA-transition to the imported book → edit → exit edit mode (integrity verifier) → navigate home → drop target re-initializes cleanly. Plus negative cases for drop suppression when the form is already open and on reader pages.
+- `spa-grand-tour.spec.js`: catch-all 8-phase SPA correctness test — every transition path, three-lap state-accumulation runs, back/forward replay, post-authoring tour to confirm authoring didn't poison subsequent SPA cycles.
+- `nested-authoring-stress.spec.js`: build a 4-level nest (footnote → hyperlight → footnote → hyperlight), typing a known phrase at each level with a tight wait that races the debounced write against save-on-close. Navigate away and back, re-open every level, verify every phrase round-tripped through DOM → IndexedDB → Postgres.
+- `nested-hypercite-chain.spec.js`: two tests. (1) Build a 3-deep nest, copy hypercites from each level, paste at the level above so every level cites the level below. Verify the chain via clicks and the popstate cycle. (2) Cross-book back-restore — regression guard for the "press back from another book and the deep stack collapses" bug. Builds depth-3 stack in book A, navigates home → book B → pastes a hypercite → clicks it back to A → walks back through history. Strict assertions at the cross-book popstate boundary (state preserved, not nulled) and at the cs=3 entry (all 3 layers restored, all 4 typed phrases visible).
+- `cross-book-hypercite-tour.spec.js`: "nightmare scenario" stress — imports real long books (rockhill.epub), creates a hypercite mid-book post-lazy-load in Book A, pastes it on a deep paragraph in B reached via TOC. Then loops: TOC nav → footnote-stress → click hypercite → SPA back → rapid back/forward bursts. A restoration spy logs every hyperlit-container lifecycle event; on test end three forensic artifacts (timeline.json, summary, anomalies) are attached for diagnosis.
+
+**Editor** (`tests/e2e/specs/divEditor/`) — `id-collision.spec.js` pins the 2026-05-12 incident where `generateIdBetween` could mint a duplicate node ID and trip the integrity verifier.
 
 #### Still not covered
-- tests do not yet cover deeply nested notes. For example: highlights within highlights within footnotes within footnotes, etc. 
-- tests check that the buttons work, and that hyperciting works, but this only tests that things have worked on front end. It is possible that data has not been saved to postgresql, and we do not currently test for this.
-- this will required doing sql queries after the test, which I will work on eventually. 
-- similarly, there are no backend tests being done, say on APIs, routes, etc. For example, to ensure that all routes are only accessible via the correctly logged in user, etc. 
+- Frontend assertions only — the tests verify the DOM and IndexedDB reflect the right state, but do not currently SELECT from Postgres after a write to confirm it really landed. Adding post-test SQL queries would close this loop.
+- No backend test coverage. No API/route auth tests (e.g. that authenticated routes reject anonymous requests, that user A can't write to user B's data).
+- No mobile-touch event coverage (long-press, swipe gestures on the reader / containers).
 
 
 ## Roadmap

@@ -552,10 +552,26 @@ export class LinkNavigationHandler {
         isPopstate: true, // Don't pushState — browser already set the URL
       };
 
-      // Pass cascade segments so BookToBookTransition can rebuild nested containers
-      if (fnSegment) navOptions.footnoteId = fnSegment;
-      if (hlSegment) navOptions.hyperlightId = hlSegment;
-      if (hyperciteId && hyperciteId.startsWith('hypercite_')) navOptions.hyperciteId = hyperciteId;
+      // If the destination entry has a saved containerStack that will be
+      // restored after body replacement (via initializePage's restoration
+      // path), we DON'T also pass cascade hint options — they'd trigger a
+      // parallel navigateToInternalId that hangs for 5s waiting for an
+      // HL_/Fn_ element to appear in main content (the element actually
+      // lives in a sub-book mounted by the restoration). The restoration
+      // already opens the right containers and surfaces the right element.
+      const willRestoreStack = (history.state?.containerStack?.length || 0) > 0
+        && history.state?.containerStackBookId === urlBookId;
+      if (!willRestoreStack) {
+        // Pass cascade segments so BookToBookTransition can rebuild nested containers
+        if (fnSegment) navOptions.footnoteId = fnSegment;
+        if (hlSegment) navOptions.hyperlightId = hlSegment;
+        if (hyperciteId && hyperciteId.startsWith('hypercite_')) navOptions.hyperciteId = hyperciteId;
+      } else {
+        verbose.nav(
+          `Back nav into ${urlBookId} — skipping cascade hints (containerStack length=${history.state.containerStack.length} will restore them)`,
+          '/navigation/LinkNavigationHandler.js'
+        );
+      }
 
       // Use NEW structure-aware navigation system
       // NavigationManager already imported statically
@@ -565,6 +581,57 @@ export class LinkNavigationHandler {
     
     // Capture containerStack BEFORE close (closeHyperlitContainer clears it from history.state)
     const capturedStack = history.state?.containerStack || null;
+
+    // ── Fast path: same-book back/forward by exactly one container level ──
+    // When the user presses back from "depth N" to "depth N-1" (or forward
+    // from "depth N" to "depth N+1"), the two states share the bottom min
+    // layers. Rather than close-all and rebuild (visible flicker), apply
+    // the minimal mutation:
+    //   - back by one  → popTopLayer()
+    //   - forward by 1 → restoreStackedLayer(capturedStack[N].contentMetadata)
+    // Falls through to the full close+rebuild path for stack-shape changes
+    // that aren't one-level deltas (cross-book hops, sibling chains, etc.).
+    try {
+      const { getDepth, serializeStack, popTopLayer } = await import('../hyperlitContainer/stack.js');
+      const currentDepth = getDepth();
+      const savedDepth = capturedStack?.length || 0;
+      const currentSerialized = serializeStack();
+
+      // Compare the shared-prefix layers (up to min(current, saved)).
+      const sharedLayers = Math.min(currentDepth, savedDepth);
+      let bottomMatches = true;
+      for (let i = 0; i < sharedLayers; i++) {
+        const cur = currentSerialized[i]?.contentMetadata;
+        const sav = capturedStack[i]?.contentMetadata;
+        if (JSON.stringify(cur?.contentTypes) !== JSON.stringify(sav?.contentTypes)) {
+          bottomMatches = false;
+          break;
+        }
+      }
+
+      if (bottomMatches) {
+        // Back by exactly one
+        if (currentDepth > 0 && savedDepth === currentDepth - 1) {
+          console.log(`📚 [popstate] Fast-path BACK: popping top layer (${currentDepth} → ${savedDepth})`);
+          await popTopLayer();
+          return;
+        }
+        // Forward by exactly one — saved stack has one more layer than current,
+        // and the bottom layers already match. Just restore that new top.
+        if (savedDepth === currentDepth + 1) {
+          const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
+          if (newTopMeta?.contentTypes?.length) {
+            const { restoreStackedLayer } = await import('../hyperlitContainer/history.js');
+            console.log(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`);
+            const ok = await restoreStackedLayer(newTopMeta);
+            if (ok) return;
+            console.warn('Fast-path FORWARD: restoreStackedLayer returned false, falling back');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Fast-path one-level transition failed, falling back to full close+restore:', e);
+    }
 
     // Close any open container silently — the browser has already restored the URL via popstate
     try {
