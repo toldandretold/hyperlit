@@ -54,6 +54,7 @@ php artisan test tests/Feature/Security/
 
 Sub-folders:
 
+- **`Api/`** — JSON contract tests for endpoints the SPA depends on. Currently `AuthApiContractTest.php` pins the response shape of `/api/auth-check`, `/api/auth/session-info`, and `/api/anonymous-session`. Asserts status code + JSON structure, not full controller behaviour — the goal is to fail loudly if a refactor renames a key the frontend reads.
 - **`Auth/`** — login/registration flows, session management, password reset.
 - **`Import/`** — file-upload pipeline (`ImportPipelineTest.php`): validates the controller accepts/rejects file types, runs the conversion, and produces expected output.
 - **`Security/`** — XSS validation (`XssValidationTest.php`), SQL-injection war games (`SqlInjectionWarGameTest.php`), file-upload size/type guards (`FileUploadTest.php`), anonymous-content association rules (`AnonymousContentAssociationTest.php`).
@@ -72,6 +73,7 @@ npm run test:ui          # visual UI
 
 Covers:
 - `editToolbar/` — `blockFormatter`, `selectionManager`, `toolbarDOMUtils`.
+- `indexedDB/` — pure helpers extracted from `batch.js` (`resolveBookIdForBatch`) and `master.js` (`filterFreshNodesForBook`). These pin the sub-book attribution and cross-book sync-filter logic so the bugs they were extracted from can never silently come back.
 - `security/` — `sanitizeConfig` rules.
 - `setup/` — shared test setup (jsdom, mock IDB, etc.).
 - `hyperCites.test.js` — hypercite-link generation logic.

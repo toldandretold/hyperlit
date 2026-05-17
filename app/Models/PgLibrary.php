@@ -5,6 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Http\Controllers\HomePageServerController;
 
+/**
+ * A library row is one uploaded *version* of a work. When `canonical_source_id` is set,
+ * the row is recognised as a version of that canonical; the `canonical_match_score` and
+ * `canonical_metadata_score` columns describe how confident we are in the link and how
+ * clean the row's own metadata is. See docs/canonical-sources.md.
+ */
 class PgLibrary extends Model
 {
     protected $table = 'library';
@@ -66,6 +72,16 @@ class PgLibrary extends Model
         'language',
         'foundation_source',
         'abstract',
+        'canonical_source_id',
+        'conversion_method',
+        'human_reviewed_at',
+        'is_publisher_uploaded',
+        'credibility_score',
+        'canonical_match_score',
+        'canonical_metadata_score',
+        'canonical_match_method',
+        'canonical_matched_at',
+        'canonical_matched_by',
     ];
 
     protected $casts = [
@@ -80,6 +96,12 @@ class PgLibrary extends Model
         'has_nodes' => 'boolean',
         'is_oa' => 'boolean',
         'cited_by_count' => 'integer',
+        'human_reviewed_at' => 'datetime',
+        'is_publisher_uploaded' => 'boolean',
+        'credibility_score' => 'float',
+        'canonical_match_score' => 'float',
+        'canonical_metadata_score' => 'float',
+        'canonical_matched_at' => 'datetime',
     ];
 
     /**
@@ -95,6 +117,11 @@ class PgLibrary extends Model
         }
 
         return $data;
+    }
+
+    public function canonicalSource()
+    {
+        return $this->belongsTo(CanonicalSource::class, 'canonical_source_id', 'id');
     }
 
     protected static function booted()

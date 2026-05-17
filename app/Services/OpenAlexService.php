@@ -789,6 +789,26 @@ class OpenAlexService
         );
         $author = $authors ? implode('; ', $authors) : null;
 
+        // Structured author list incl. ORCID, for canonical_source.authorships.
+        // Future: ORCID match against a verified user → flag is_publisher_uploaded automatically.
+        $structuredAuthorships = array_map(function ($a) {
+            $rawAuthorId = $a['author']['id'] ?? null;
+            $authorId = $rawAuthorId ? basename($rawAuthorId) : null;
+
+            $orcid = $a['author']['orcid'] ?? null;
+            if ($orcid && str_starts_with($orcid, 'https://orcid.org/')) {
+                $orcid = substr($orcid, strlen('https://orcid.org/'));
+            }
+
+            return [
+                'name'               => $a['author']['display_name'] ?? null,
+                'openalex_author_id' => $authorId,
+                'orcid'              => $orcid,
+                'position'           => $a['author_position'] ?? null,
+                'is_corresponding'   => (bool) ($a['is_corresponding'] ?? false),
+            ];
+        }, $authorships);
+
         $rawId = $work['id'] ?? null;
         $openalexId = $rawId ? basename($rawId) : null;
 
@@ -833,6 +853,7 @@ class OpenAlexService
             'pages'          => ($firstPage && $lastPage) ? $firstPage . '–' . $lastPage : null,
             'bibtex'         => $this->generateBibtex($work),
             'abstract'       => self::reconstructAbstract($work['abstract_inverted_index'] ?? null),
+            'authorships'    => $structuredAuthorships,
         ];
     }
 

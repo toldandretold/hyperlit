@@ -13,6 +13,11 @@ import { withPending } from '../../utilities/operationState.js';
 import { queueForSync } from '../syncQueue/queue.js';
 import { reportIntegrityFailure } from '../../integrity/reporter.js';
 import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
+// Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
+// in isolation. Tests: tests/javascript/indexedDB/batch.test.js
+import { resolveBookIdForBatch } from './bookIdResolver.js';
+
+export { resolveBookIdForBatch };
 
 // Dependencies that change per-book
 let book;
@@ -639,12 +644,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
     // During new book creation, global variable may not be updated yet
     const mainContent = document.querySelector('.main-content');
     const firstRecordEl = document.getElementById(recordsToProcess[0]?.id);
-    const subBookFromDom = firstRecordEl?.closest('[data-book-id]');
-    const bookId = options?.bookId
-      || subBookFromDom?.dataset?.bookId
-      || mainContent?.id
-      || book
-      || "latest";
+    const bookId = resolveBookIdForBatch({
+      optionsBookId: options?.bookId,
+      firstRecordEl,
+      mainContent,
+      globalBook: book,
+    });
     console.log(
       `🔄 Batch updating ${recordsToProcess.length} IndexedDB records`,
     );

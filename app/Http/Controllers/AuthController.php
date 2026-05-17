@@ -140,6 +140,8 @@ class AuthController extends Controller
     }
 
     // Anonymous session methods - security enhanced
+    // Response shape pinned by tests/Feature/Api/AuthApiContractTest.php — the SPA
+    // boot path depends on `{token, type}` plus the HttpOnly anon_token cookie.
     public function createAnonymousSession(Request $request)
     {
         $maxTokensPerHour = 10;
@@ -235,6 +237,8 @@ class AuthController extends Controller
         }
     }
 
+    // Response shape pinned by tests/Feature/Api/AuthApiContractTest.php — the SPA
+    // expects `{authenticated, user, anonymous_token}` always returning 200 (never 401).
     public function checkAuth(Request $request)
     {
         if (Auth::check()) {
@@ -302,6 +306,8 @@ class AuthController extends Controller
         return $result->valid ?? false;
     }
 
+    // Response shape pinned by tests/Feature/Api/AuthApiContractTest.php — the SPA
+    // needs the `csrf_token` key on every response (auth'd, anon, or new visitor).
     public function getSessionInfo(Request $request)
     {
         // Case 1: User is fully authenticated via Sanctum

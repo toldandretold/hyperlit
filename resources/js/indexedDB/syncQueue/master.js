@@ -8,6 +8,11 @@ import { debounce } from '../../utilities/debounce.js';
 import { toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
 import { refreshCsrfToken } from '../../utilities/auth.js';
+// Pure helper extracted so the cross-book filter + fallback can be unit-tested
+// in isolation. Tests: tests/javascript/indexedDB/master.test.js
+import { filterFreshNodesForBook } from './freshNodeFilter.js';
+
+export { filterFreshNodesForBook };
 
 // Dependencies that will be injected
 let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave;
@@ -369,11 +374,13 @@ async function syncItemsForBook(bookId, bookItems) {
         // getNodesByDataNodeIDs may return a different book's record (alphabetically first)
         // when the same node_id exists across books (sub-book nodes share a node_id
         // prefix with the parent book because setElementIds uses the global `book`).
-        const correctFreshNodes = freshNodes.filter(n => n.book === bookId);
-        syncPayload.updates.nodes = correctFreshNodes.length > 0
-          ? correctFreshNodes
-          : syncPayload.updates.nodes;
-        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync (${correctFreshNodes.length} matched book ${bookId})`);
+        syncPayload.updates.nodes = filterFreshNodesForBook(
+          freshNodes,
+          syncPayload.updates.nodes,
+          bookId,
+        );
+        const matchedCount = freshNodes.filter(n => n.book === bookId).length;
+        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync (${matchedCount} matched book ${bookId})`);
       }
 
       // Add deletions (verify node still doesn't exist in IndexedDB)

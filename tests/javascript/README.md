@@ -118,10 +118,37 @@ tests/javascript/
     toolbarDOMUtils.test.js       ← Pure utility functions
     selectionManager.test.js      ← Class-based state management
     blockFormatter.test.js        ← Integration tests
+  indexedDB/
+    batch.test.js                 ← Sub-book bookId resolution (bookIdResolver.js)
+    master.test.js                ← Cross-book fresh-node filter (freshNodeFilter.js)
+  security/
+    sanitizeConfig.test.js        ← DOMPurify config rules
+  hyperCites.test.js              ← Hypercite-link parsing
   divEditor/
     [your tests here]
   README.md                       ← This file
 ```
+
+#### The `indexedDB/` tests — what they're for
+
+`batch.js` and `master.js` are I/O-heavy modules that touch IndexedDB, the DOM,
+and the editor lifecycle. You can't import them in a unit test without dragging
+in half the app (Vite tries to load `divEditor/index.js` → `viewManager.js` →
+...). The fix was to lift the small pure-logic pieces out into their own files:
+
+- `resources/js/indexedDB/nodes/bookIdResolver.js` — the priority chain
+  `optionsBookId → sub-book DOM walk → mainContent.id → globalBook → "latest"`.
+  Bug it guards against: a save inside a sub-book being attributed to the
+  parent book when the code skipped the `closest('[data-book-id]')` walk.
+- `resources/js/indexedDB/syncQueue/freshNodeFilter.js` — the
+  `freshNodes.filter(n => n.book === bookId)` step + fallback to the original
+  payload when nothing matches. Bug it guards against: an in-flight sync
+  payload being wiped to an empty array because `getNodesByDataNodeIDs`
+  returned rows from the parent book when the same `node_id` exists in both.
+
+Both files have headers pointing back at the test file, and `batch.js` /
+`master.js` import + re-export the helper with a comment pointing at the test
+so a future reader sees the connection from either direction.
 
 ### Basic Test Template
 

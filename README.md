@@ -188,6 +188,12 @@ php artisan tinker           # Interactive PHP REPL with your app loaded
 
 ## Architectural Overview
 
+### Canonical Sources & Versions
+
+Hyperlit separates the **citation identity of a work** (one row in `canonical_source`) from each **uploaded version** of it (one row in `library`). Multiple uploads of the same work — an author's PDF, a community-OCR'd copy, an OpenAlex stub — can share a single canonical. Verification signals stack on the canonical (`openalex_id`, `open_library_key`, `semantic_scholar_id`, `verified_by_publisher`, `commons_endorsements`), and each version carries its own provenance (`conversion_method`, `human_reviewed_at`, `is_publisher_uploaded`) plus a pair of scores against the canonical — one for identity confidence, one for metadata quality — so sloppy library rows are distinguishable from clean ones even when the DOI matches.
+
+Full breakdown: [`docs/canonical-sources.md`](docs/canonical-sources.md).
+
 ### Hypertext Loading 
 Each Hypertext 'book' is stored as html parent-nodes (paragraph, heading, table, blockquote, etc), in the content column of the nodes table in PostgreSQL.
 
