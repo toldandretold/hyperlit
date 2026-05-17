@@ -1,0 +1,67 @@
+name: security-audit
+
+# Flags known-vulnerable dependencies in composer.json and package.json.
+# Runs on every push to main and every PR so a new advisory affecting our
+# dependency tree surfaces immediately rather than being noticed months later.
+#
+# REPORT-ONLY MODE: both audit steps have `continue-on-error: true`, so a
+# vulnerability appears as an annotation in the run output but does NOT block
+# the PR. There are existing high/critical advisories in the dependency tree
+# (run `composer audit` / `npm audit` locally to see) that would otherwise
+# fail CI immediately. Once those are addressed, flip `continue-on-error` to
+# `false` on the audit steps below to make the workflow enforcing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Re-run weekly so newly-published advisories against unchanged dependencies surface.
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  composer-audit:
+    name: composer audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      # --no-scripts: package post-install scripts can't break the audit step
+      # on a CI host that doesn't have the full app environment.
+      - name: Install composer dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts --no-interaction
+
+      - name: Run composer audit
+        continue-on-error: true  # Report-only — flip to false to enforce.
+        run: composer audit --locked
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      # --audit-level=high: only fail on high or critical advisories. Lower-
+      # severity findings still appear in the log but don't trigger non-zero
+      # exit. Combined with continue-on-error this is purely informational
+      # for now.
+      - name: Run npm audit
+        continue-on-error: true  # Report-only — flip to false to enforce.
+        run: npm audit --audit-level=high
