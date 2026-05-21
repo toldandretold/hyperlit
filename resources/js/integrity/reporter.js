@@ -191,8 +191,11 @@ function _scheduleRetry() {
 async function _flushRetryQueue() {
   while (_retryQueue.length > 0) {
     const entry = _retryQueue[0];
-    const ok = await _doSend(entry.payload);
-    if (ok) {
+    const result = await _doSend(entry.payload);
+    if (result.ok) {
+      _retryQueue.shift();
+    } else if (!result.retryable) {
+      // Permanent failure — drop and move on instead of looping forever
       _retryQueue.shift();
     } else {
       entry.attempts++;
@@ -204,25 +207,31 @@ async function _flushRetryQueue() {
 
 /**
  * Send diagnostic report to backend.
- * On failure (429, network error, etc.) queues for automatic retry.
+ * On transient failure (network error, 5xx, 429) queues for automatic retry.
+ * Permanent failures (4xx other than 429) are dropped — retrying the same
+ * payload will produce the same error forever.
  */
 async function _sendReport(payload) {
-  const ok = await _doSend(payload);
-  if (!ok) {
-    if (_retryQueue.length < MAX_QUEUED) {
-      _retryQueue.push({ payload, attempts: 1 });
-      _scheduleRetry();
-    } else {
-      console.warn('[integrity] Retry queue full — dropping oldest report');
-      _retryQueue.shift();
-      _retryQueue.push({ payload, attempts: 1 });
-      _scheduleRetry();
-    }
+  const result = await _doSend(payload);
+  if (result.ok) return;
+  if (!result.retryable) return; // Permanent error — don't queue
+
+  if (_retryQueue.length < MAX_QUEUED) {
+    _retryQueue.push({ payload, attempts: 1 });
+    _scheduleRetry();
+  } else {
+    console.warn('[integrity] Retry queue full — dropping oldest report');
+    _retryQueue.shift();
+    _retryQueue.push({ payload, attempts: 1 });
+    _scheduleRetry();
   }
 }
 
 /**
- * Low-level fetch. Returns true on 2xx, false on anything else.
+ * Low-level fetch. Returns {ok, retryable}.
+ *   ok: true on 2xx
+ *   retryable: true for network errors, 5xx, and 429 (transient)
+ *              false for other 4xx (permanent — payload itself is bad)
  */
 async function _doSend(payload) {
   try {
@@ -238,13 +247,18 @@ async function _doSend(payload) {
     });
     if (resp.ok) {
       console.log('[integrity] Diagnostic report sent');
-      return true;
+      return { ok: true, retryable: false };
     }
-    console.warn(`[integrity] Report delivery failed (${resp.status}) — queued for retry`);
-    return false;
+    const retryable = resp.status >= 500 || resp.status === 429;
+    if (retryable) {
+      console.warn(`[integrity] Report delivery failed (${resp.status}) — queued for retry`);
+    } else {
+      console.error(`[integrity] Report delivery failed (${resp.status}) — permanent error, not retrying`);
+    }
+    return { ok: false, retryable };
   } catch (e) {
     console.error('[integrity] Failed to send diagnostic report:', e);
-    return false;
+    return { ok: false, retryable: true };
   }
 }
 
