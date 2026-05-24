@@ -1300,31 +1300,17 @@ export class SourceContainerManager extends ContainerManager {
     if (!section || !aiBtn || aiBtn.disabled) return; // not logged in or no section
 
     try {
-      // 1. Check if a completed AIreview sub-book already exists
+      // 1. Check if a completed AIreview sub-book already exists — try IndexedDB first (fast)
       const aiReviewBook = `${book}/AIreview`;
       let aiReviewExists = false;
-
-      // Try IndexedDB first (fast)
       try {
         const db = await openDatabase();
         const libRecord = await getRecord(db, "library", aiReviewBook);
         if (libRecord) aiReviewExists = true;
       } catch (_) { /* ignore IndexedDB errors */ }
 
-      // If not in IndexedDB, check backend
-      if (!aiReviewExists) {
-        try {
-          const libResp = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(aiReviewBook)}/library`, {
-            credentials: 'include',
-          });
-          if (libResp.ok) {
-            const libData = await libResp.json();
-            if (libData.success && libData.library) aiReviewExists = true;
-          }
-        } catch (_) { /* ignore fetch errors */ }
-      }
-
-      // 2. Check if a pipeline is currently running
+      // 2. Check pipeline status — response also tells us if AIreview exists on the server
+      //    (avoids a separate /library probe that 404s when no review has been run)
       const resp = await fetch(`/api/citation-pipeline/running/${encodeURIComponent(book)}`, {
         credentials: 'include',
       });
@@ -1333,6 +1319,7 @@ export class SourceContainerManager extends ContainerManager {
         return;
       }
       const data = await resp.json();
+      if (!aiReviewExists && data.ai_review_exists) aiReviewExists = true;
 
       if (data.pipeline) {
         this._pipelineId = data.pipeline.id;

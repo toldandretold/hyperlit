@@ -263,10 +263,47 @@ export class NewBookContainerManager extends ContainerManager {
       <div class="scroller">
       <form id="cite-form" action="/import-file" method="POST" enctype="multipart/form-data">
         <div class="form-header">
-          <h2 style="color: #EF8D34;">Import File</h2>
+          <h2 style="color: #EF8D34;">Import</h2>
         </div>
 
         <input type="hidden" name="_token" value="${csrfToken}" id="submitFile">
+
+        <!-- Source Toggle: URL import vs File upload -->
+        <div class="import-source-toggle" role="tablist" aria-label="Import source">
+          <button type="button" id="source-toggle-url" class="import-source-toggle-btn" role="tab" aria-selected="false">
+            Import from URL
+          </button>
+          <button type="button" id="source-toggle-file" class="import-source-toggle-btn active" role="tab" aria-selected="true">
+            Import a file
+          </button>
+        </div>
+
+        <!-- URL Import Panel (hidden by default; shown when source-toggle-url active) -->
+        <div id="import-source-url" class="import-source-panel" style="display:none;">
+          <div class="form-section">
+            <label for="import-url-input">arXiv URL or DOI</label>
+            <div class="import-url-input-row">
+              <input type="text" id="import-url-input" placeholder="https://arxiv.org/abs/… or 10.xxxx/…" autocomplete="off">
+              <button type="button" id="import-url-fetch" class="formButton import-url-fetch-btn">Fetch</button>
+            </div>
+            <div class="field-hint">Paste an arXiv link, a DOI, or a doi.org URL.</div>
+            <div id="import-url-status" class="validation-message"></div>
+          </div>
+          <div id="import-url-preview" class="import-url-preview" style="display:none;">
+            <div id="import-url-preview-body"></div>
+            <div class="form-section">
+              <label for="import-url-book">/url</label>
+              <input type="text" id="import-url-book" placeholder="e.g., nair2023-vr-ident" title="Only letters, numbers, underscores, and hyphens allowed">
+              <div class="field-hint">hyperlit.io/<strong id="import-url-book-preview">your-id</strong></div>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="import-url-commit" class="formButton">Create Book</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- File-import body (everything below is the existing flow) -->
+        <div id="import-source-file">
 
         <!-- Mode Selector Tabs -->
         <div class="import-mode-selector">
@@ -405,6 +442,8 @@ export class NewBookContainerManager extends ContainerManager {
           <button type="submit" id="createButton" class="formButton">Create Book</button>
           <button type="button" id="clearButton" class="formButton">Clear</button>
         </div>
+
+        </div> <!-- /#import-source-file -->
       </form>
       </div>
      <div class="mask-top"></div>

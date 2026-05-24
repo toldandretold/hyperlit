@@ -240,6 +240,7 @@ async function _doSend(payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
       },
       credentials: 'include',
@@ -249,12 +250,32 @@ async function _doSend(payload) {
       console.log('[integrity] Diagnostic report sent');
       return { ok: true, retryable: false };
     }
+    // Read body so we can show *what* the server rejected (Laravel 422 returns
+    // {message, errors: { 'field.path': ['rule failed'] }}). Without this the
+    // "integrity debugger" is itself a black box.
+    let body = null;
+    try {
+      const text = await resp.text();
+      try { body = JSON.parse(text); } catch { body = text; }
+    } catch { /* ignore */ }
     const retryable = resp.status >= 500 || resp.status === 429;
-    if (retryable) {
-      console.warn(`[integrity] Report delivery failed (${resp.status}) — queued for retry`);
-    } else {
-      console.error(`[integrity] Report delivery failed (${resp.status}) — permanent error, not retrying`);
-    }
+    const tag = retryable ? 'queued for retry' : 'permanent error, not retrying';
+    const log = retryable ? console.warn : console.error;
+    log(`[integrity] Report delivery failed (${resp.status}) — ${tag}`, {
+      status: resp.status,
+      errors: body?.errors ?? null,
+      message: body?.message ?? null,
+      bodyPreview: typeof body === 'string' ? body.slice(0, 500) : null,
+      payloadSizes: {
+        mismatches:        payload.mismatches?.length        ?? 0,
+        missingFromIDB:    payload.missingFromIDB?.length    ?? 0,
+        duplicateIds:      payload.duplicateIds?.length      ?? 0,
+        orphanedNodes:     payload.orphanedNodes?.length     ?? 0,
+        selfHealedNodeIds: payload.selfHealedNodeIds?.length ?? 0,
+        recentLogs:        payload.recentLogs?.length        ?? 0,
+        payloadBytes:      JSON.stringify(payload).length,
+      },
+    });
     return { ok: false, retryable };
   } catch (e) {
     console.error('[integrity] Failed to send diagnostic report:', e);

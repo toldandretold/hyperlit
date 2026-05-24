@@ -25,11 +25,31 @@ class SanitizationService
             // Allow safe structural and formatting tags (fragment-level only, no html/head/body)
             // Note: HTMLPurifier only supports HTML4 elements - HTML5 semantic elements get stripped
             // but their content is preserved
+            //
+            // `a[class|id]` is allowed so internal citation/bibliography anchors emitted by
+            // upstream Python preprocessors (e.g. ar5iv_preprocessor.py: in-text-citation,
+            // bib-entry) survive sanitization. The classes themselves are constrained below.
             $config->set('HTML.Allowed',
                 'div,span,p,h1,h2,h3,h4,h5,h6,br,strong,b,em,i,' .
-                'ul,ol,li,a[href|title],img[src|alt|title|width|height],blockquote,code,pre,' .
-                'table,tr,td,th,thead,tbody,hr,sup,sub,dl,dt,dd,abbr[title],cite,small,u,s'
+                'ul,ol,li,a[href|title|class|id],img[src|alt|title|width|height],blockquote,code,pre,' .
+                'table,tr,td,th,thead,tbody,hr,sup[class|id|fn-count-id],sub,dl,dt,dd,abbr[title],cite,small,u,s,' .
+                'latex[data-math],latex-block[data-math]'
             );
+
+            // Only allow the small set of functional classes Hyperlit's pipeline uses.
+            // Arbitrary classes from source HTML still get stripped — these are an allowlist,
+            // not a passthrough.
+            $config->set('Attr.AllowedClasses', [
+                'in-text-citation',
+                'bib-entry',
+                'footnote-ref',
+                'citation-ref',
+                'pageNumber',
+            ]);
+
+            // ar5iv anchors carry id="bib.bibN" which the citation-popup hrefs target.
+            // HTMLPurifier strips id="..." by default; enable it so internal anchors survive.
+            $config->set('Attr.EnableID', true);
 
             // Block dangerous URI schemes
             $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
@@ -46,6 +66,32 @@ class SanitizationService
                 mkdir($cacheDir, 0755, true);
             }
             $config->set('Cache.SerializerPath', $cacheDir);
+
+            // Custom-element + attribute registration must come LAST:
+            // maybeGetRawHTMLDefinition() finalises the config, and any
+            // config->set() call after this point throws "Cannot set directive
+            // after finalization".
+            //
+            // Bump DefinitionRev whenever the addElement / addAttribute calls
+            // below change so HTMLPurifier rebuilds its cached definition.
+            $config->set('HTML.DefinitionID', 'hyperlit-html-purifier');
+            $config->set('HTML.DefinitionRev', 4);
+            if ($def = $config->maybeGetRawHTMLDefinition()) {
+                $def->addAttribute('sup', 'fn-count-id', 'Text');
+
+                // <latex data-math="..."> and <latex-block data-math="...">
+                // are Hyperlit-internal math markers consumed by
+                // renderMathElements() in lazyLoaderFactory.js. base64-encoded
+                // LaTeX source lives in data-math; KaTeX renders client-side.
+                //
+                // Contents = 'Inline' (not 'Empty') so the ar5iv preprocessor
+                // can put the raw LaTeX as text content. That serves two
+                // purposes: (1) AutoFormat.RemoveEmpty doesn't prune the element
+                // (which would also prune its containing <p>), (2) the LaTeX
+                // source is a useful fallback if KaTeX rendering fails.
+                $def->addElement('latex',       'Inline', 'Inline', 'Common', ['data-math' => 'Text']);
+                $def->addElement('latex-block', 'Block',  'Inline', 'Common', ['data-math' => 'Text']);
+            }
 
             $this->htmlPurifier = new HTMLPurifier($config);
         }

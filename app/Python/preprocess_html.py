@@ -265,18 +265,28 @@ def clean_html_structure(soup):
     """
     print("--- Cleaning HTML structure ---")
     
-    # Remove empty paragraphs
-    empty_paragraphs = soup.find_all('p', string=re.compile(r'^\s*$'))
+    # Meaningful non-text inline content — paragraphs wrapping these aren't
+    # "empty" even if get_text() returns nothing (images don't contribute text).
+    MEANINGFUL_CHILDREN = ['img', 'latex', 'latex-block', 'video', 'audio', 'iframe', 'svg', 'picture']
+
+    # Remove empty paragraphs (no text at all between tags)
+    empty_paragraphs = [
+        p for p in soup.find_all('p', string=re.compile(r'^\s*$'))
+        if not p.find(MEANINGFUL_CHILDREN)
+    ]
     print(f"Removing {len(empty_paragraphs)} empty paragraphs")
     for p in empty_paragraphs:
         p.decompose()
-    
-    # Remove paragraphs with only whitespace
+
+    # Remove paragraphs with only whitespace text AND no meaningful children
     whitespace_paragraphs = []
     for p in soup.find_all('p'):
-        if not p.get_text().strip():
-            whitespace_paragraphs.append(p)
-    
+        if p.get_text().strip():
+            continue
+        if p.find(MEANINGFUL_CHILDREN):
+            continue
+        whitespace_paragraphs.append(p)
+
     print(f"Removing {len(whitespace_paragraphs)} whitespace-only paragraphs")
     for p in whitespace_paragraphs:
         p.decompose()

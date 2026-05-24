@@ -2226,6 +2226,214 @@ body[data-page="timemachine"] #main-content {
 }
 
 /* ========================================
+   Import Form: Source Toggle (URL vs File)
+   ======================================== */
+
+#newbook-container .import-source-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1em;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+#newbook-container .import-source-toggle-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
+  padding: 7px 10px !important;
+  font-size: 13px !important;
+  background: transparent !important;
+  color: var(--color-text) !important;
+  border: none !important;
+  border-right: 1px solid #444 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#newbook-container .import-source-toggle-btn:last-child {
+  border-right: none !important;
+}
+
+#newbook-container .import-source-toggle-btn.active {
+  background: var(--hyperlit-aqua, #4EACAE) !important;
+  color: var(--hyperlit-black, #000) !important;
+  font-weight: 600;
+}
+
+#newbook-container .import-source-toggle-btn:not(.active):hover {
+  background: rgba(78, 172, 174, 0.15) !important;
+}
+
+#newbook-container .import-url-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#newbook-container .import-url-input-row input[type="text"] {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+
+#newbook-container .import-url-fetch-btn {
+  flex: 0 0 auto;
+  width: auto !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+/* Lock button geometry across :hover/:active/:focus so the box doesn't
+   visibly shift size when colour changes. Global #newbook-container rules
+   define padding/border separately; this rule reasserts both. */
+#newbook-container #import-url-fetch,
+#newbook-container #import-url-commit {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  border: 1px solid currentColor !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+}
+#newbook-container #import-url-fetch:hover,
+#newbook-container #import-url-fetch:active,
+#newbook-container #import-url-fetch:focus,
+#newbook-container #import-url-commit:hover,
+#newbook-container #import-url-commit:active,
+#newbook-container #import-url-commit:focus {
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  border-width: 1px !important;
+  outline: none;
+}
+
+/* Spinner — a trailing animated dot triplet appended via ::after.
+   Used by the JS-toggled .is-loading class on Fetch and Create Book. */
+#newbook-container .formButton.is-loading::after {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-left: 0.5em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  animation: hyperlit-spin 0.7s linear infinite;
+}
+
+@keyframes hyperlit-spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-url-preview {
+  margin-top: 1em;
+}
+
+.import-url-preview-card {
+  padding: 10px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: rgba(78, 172, 174, 0.06);
+  margin-bottom: 0.75em;
+}
+
+.import-url-preview-card h3 {
+  margin: 0 0 0.25em;
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.import-url-preview-card .muted {
+  margin: 0 0 0.6em;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.import-url-preview-card p {
+  margin: 0.4em 0 0;
+  font-size: 13px;
+}
+
+.access-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+#newbook-container .import-url-access-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0.4em 0 0 !important;
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions {
+  margin-top: 0.75em;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 141, 52, 0.4);
+  border-radius: 6px;
+  background: rgba(239, 141, 52, 0.06);
+}
+
+#newbook-container .import-existing-versions p {
+  margin: 0 0 0.4em;
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions ul {
+  list-style: none;
+  margin: 0 0 0.5em;
+  padding: 0;
+}
+
+#newbook-container .import-existing-versions li {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions li:last-child {
+  border-bottom: none;
+}
+
+#newbook-container .import-existing-link {
+  color: var(--hyperlit-aqua, #4EACAE);
+  text-decoration: none;
+}
+
+#newbook-container .import-existing-link:hover {
+  text-decoration: underline;
+}
+
+.access-badge.open {
+  background: rgba(78, 172, 174, 0.25);
+  color: var(--hyperlit-aqua, #4EACAE);
+}
+
+.access-badge.closed {
+  background: rgba(239, 141, 52, 0.2);
+  color: var(--color-accent, #EF8D34);
+}
+
+/* ========================================
    Import Form: 3-Mode Interface
    ======================================== */
 

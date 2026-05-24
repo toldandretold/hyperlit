@@ -64,6 +64,35 @@ class HtmlProcessor implements ProcessorInterface
                 'contains_footnotes' => preg_match_all('/\[(?:\^|\d+)\]/', $originalHtmlContent, $matches)
             ]);
 
+            // Step 1.5: ar5iv-specific preprocessing (no-op for non-ar5iv HTML).
+            // Rewrites LaTeXML's <cite>/<li class="ltx_bibitem"> into Hyperlit's
+            // in-text-citation/bib-entry shape and writes references.json. Runs
+            // BEFORE sanitization because HTMLPurifier strips ltx_* class attributes;
+            // we need to translate those classes to Hyperlit's internal ones first
+            // (which are allowlisted in SanitizationService).
+            $ar5ivStart = microtime(true);
+            $ar5ivScriptPath = base_path('app/Python/ar5iv_preprocessor.py');
+            $ar5ivProcess = new Process([
+                'python3',
+                $ar5ivScriptPath,
+                $inputPath,
+                $outputPath,
+            ]);
+            $ar5ivProcess->setTimeout(300);
+            $ar5ivProcess->run();
+            if (!$ar5ivProcess->isSuccessful()) {
+                Log::warning('ar5iv preprocessor failed (continuing without it)', [
+                    'book' => $bookId,
+                    'stderr' => $ar5ivProcess->getErrorOutput(),
+                ]);
+            } else {
+                Log::info('ar5iv preprocessor completed', [
+                    'book' => $bookId,
+                    'duration_ms' => round((microtime(true) - $ar5ivStart) * 1000, 2),
+                    'stdout' => trim($ar5ivProcess->getOutput()),
+                ]);
+            }
+
             // Step 2: Sanitize the HTML file
             $sanitizeStart = microtime(true);
             $this->sanitizer->sanitizeHtmlFile($inputPath);
@@ -150,6 +179,12 @@ class HtmlProcessor implements ProcessorInterface
                 'python_duration_ms' => $pythonScriptDuration
             ]);
 
+            // Step 5: Convert nodes.json + footnotes.json (arrays) into nodes.jsonl + footnotes.jsonl.
+            // ProcessDocumentImportJob streams the JSONL forms, but html_footnote_processor.py only
+            // emits the array variants — so without this step the downstream save would 404.
+            $this->writeJsonlAlongsideJson("{$outputPath}/nodes.json", "{$outputPath}/nodes.jsonl");
+            $this->writeJsonlAlongsideJson("{$outputPath}/footnotes.json", "{$outputPath}/footnotes.jsonl");
+
         } catch (ProcessFailedException $exception) {
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::error("HTML processing failed for {$bookId}", [
@@ -171,6 +206,29 @@ class HtmlProcessor implements ProcessorInterface
                 'book' => $bookId,
                 'total_process_duration_ms' => $totalProcessDuration
             ]);
+        }
+    }
+
+    /**
+     * Convert a JSON array file into a JSONL file (one object per line). Used to bridge
+     * html_footnote_processor.py's array output to the JSONL stream the import job expects.
+     */
+    private function writeJsonlAlongsideJson(string $jsonPath, string $jsonlPath): void
+    {
+        if (!File::exists($jsonPath)) {
+            return;
+        }
+        $data = json_decode(File::get($jsonPath), true);
+        if (!is_array($data)) {
+            return;
+        }
+        $out = fopen($jsonlPath, 'w');
+        try {
+            foreach ($data as $row) {
+                fwrite($out, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+            }
+        } finally {
+            fclose($out);
         }
     }
 }

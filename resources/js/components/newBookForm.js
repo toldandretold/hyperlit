@@ -424,6 +424,287 @@ function switchImportMode(mode) {
     }
 }
 
+// ─── Source Toggle: URL vs File ──────────────────────────────────────
+function setupSourceToggle() {
+    const urlBtn = document.getElementById('source-toggle-url');
+    const fileBtn = document.getElementById('source-toggle-file');
+    const urlPanel = document.getElementById('import-source-url');
+    const filePanel = document.getElementById('import-source-file');
+    if (!urlBtn || !fileBtn || !urlPanel || !filePanel) return;
+
+    const setMode = (mode) => {
+        const isUrl = mode === 'url';
+        urlPanel.style.display = isUrl ? '' : 'none';
+        filePanel.style.display = isUrl ? 'none' : '';
+        urlBtn.classList.toggle('active', isUrl);
+        fileBtn.classList.toggle('active', !isUrl);
+        urlBtn.setAttribute('aria-selected', isUrl ? 'true' : 'false');
+        fileBtn.setAttribute('aria-selected', isUrl ? 'false' : 'true');
+        if (isUrl) {
+            document.getElementById('import-url-input')?.focus();
+        }
+    };
+
+    urlBtn.addEventListener('click', () => setMode('url'));
+    fileBtn.addEventListener('click', () => setMode('file'));
+}
+
+// ─── URL Import: inspect (preview) and commit ────────────────────────
+function setupUrlImport() {
+    const urlInput = document.getElementById('import-url-input');
+    const fetchBtn = document.getElementById('import-url-fetch');
+    const status = document.getElementById('import-url-status');
+    const preview = document.getElementById('import-url-preview');
+    const previewBody = document.getElementById('import-url-preview-body');
+    const bookInput = document.getElementById('import-url-book');
+    const bookPreview = document.getElementById('import-url-book-preview');
+    const commitBtn = document.getElementById('import-url-commit');
+    if (!urlInput || !fetchBtn || !commitBtn) return;
+
+    let lastInspected = null;
+
+    const setStatus = (text, isError = false) => {
+        if (!status) return;
+        status.textContent = text;
+        status.className = 'validation-message' + (isError ? ' error' : '');
+        status.style.display = text ? '' : 'none';
+    };
+
+    const hidePreview = () => {
+        if (preview) preview.style.display = 'none';
+        previewBody.innerHTML = '';
+        lastInspected = null;
+    };
+
+    const fmtAccess = (plan) => {
+        if (plan.access === 'open') {
+            return `<span class="access-badge open">Open&nbsp;Access</span>`;
+        }
+        return `<span class="access-badge closed">Closed&nbsp;Access</span> &nbsp;— switch to <em>Import a file</em> to upload the PDF.`;
+    };
+
+    const fmtExistingVersions = (versions) => {
+        if (!versions || !versions.length) return '';
+        const items = versions.map(v => {
+            const meta = [v.author, v.year].filter(Boolean).join(' · ');
+            return `
+              <li>
+                <a href="/${v.book}" class="import-existing-link">${escapeHtml(v.title || v.book)}</a>
+                ${meta ? ` <span class="muted">${escapeHtml(meta)}</span>` : ''}
+              </li>`;
+        }).join('');
+        return `
+          <div class="import-existing-versions">
+            <p><strong>This source is already in the library:</strong></p>
+            <ul>${items}</ul>
+            <p class="muted">Continue below to create your own version anyway.</p>
+          </div>`;
+    };
+
+    const renderPreview = (data) => {
+        const m = data.metadata || {};
+        const title = decodeEntities(m.title || '(untitled)');
+        const author = m.author || '';
+        const year = m.year || '';
+        const journal = m.journal || '';
+        const meta = [author, year, journal].filter(Boolean).join(' · ');
+
+        previewBody.innerHTML = `
+          <div class="import-url-preview-card">
+            <h3>${escapeHtml(title)}</h3>
+            ${meta ? `<p class="muted">${escapeHtml(meta)}</p>` : ''}
+            <p class="import-url-access-line">${fmtAccess(data.plan)}</p>
+          </div>
+          ${fmtExistingVersions(data.existing_versions)}
+        `;
+
+        const canCreate = data.plan.access === 'open';
+        commitBtn.disabled = !canCreate;
+        commitBtn.style.display = canCreate ? '' : 'none';
+        bookInput.style.display = canCreate ? '' : 'none';
+        bookInput.previousElementSibling && (bookInput.previousElementSibling.style.display = canCreate ? '' : 'none');
+
+        // Always prefer the server-supplied unique slug — the server has the
+        // authoritative view of which /url values are taken. Client-side
+        // suggestion is only a fallback if the server didn't send one.
+        if (canCreate) {
+            const slug = data.suggested_slug || suggestBookId(m);
+            bookInput.value = slug;
+            bookPreview.textContent = slug || 'your-id';
+        }
+        preview.style.display = '';
+        setStatus('');
+    };
+
+    function decodeEntities(s) {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = s;
+        return txt.value;
+    }
+
+    const inspect = async () => {
+        const url = urlInput.value.trim();
+        if (!url) return;
+        hidePreview();
+        setStatus('');
+        fetchBtn.disabled = true;
+        fetchBtn.classList.add('is-loading');
+        const originalFetchText = fetchBtn.textContent;
+        fetchBtn.textContent = 'Looking up…';
+        try {
+            const resp = await fetch('/import-url/inspect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ url }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+                setStatus(humanError(data.error) || 'Could not resolve this URL.', true);
+                return;
+            }
+            setStatus('');
+            lastInspected = data;
+            renderPreview(data);
+        } catch (e) {
+            console.error(e);
+            setStatus('Network error while fetching metadata.', true);
+        } finally {
+            fetchBtn.disabled = false;
+            fetchBtn.classList.remove('is-loading');
+            fetchBtn.textContent = originalFetchText;
+        }
+    };
+
+    fetchBtn.addEventListener('click', inspect);
+    urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); inspect(); }
+    });
+
+    bookInput.addEventListener('input', () => {
+        const sanitized = bookInput.value.replace(/[^a-zA-Z0-9_-]/g, '');
+        if (sanitized !== bookInput.value) bookInput.value = sanitized;
+        bookPreview.textContent = sanitized || 'your-id';
+    });
+
+    commitBtn.addEventListener('click', async () => {
+        if (!lastInspected) return;
+        const book = bookInput.value.trim();
+        if (!book) { setStatus('Pick a /url for this book.', true); return; }
+        commitBtn.disabled = true;
+        commitBtn.classList.add('is-loading');
+        commitBtn.textContent = 'Fetching content…';
+        try {
+            const resp = await fetch('/import-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ url: urlInput.value.trim(), book }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+                setStatus(humanError(data.error) || 'Import failed.', true);
+                commitBtn.disabled = false;
+                commitBtn.classList.remove('is-loading');
+                commitBtn.textContent = 'Create Book';
+                return;
+            }
+            // POST returned as soon as the job was dispatched. Poll until the worker
+            // has populated nodes before navigating — otherwise the book page loads
+            // against an empty DB and shows "Book not found".
+            commitBtn.textContent = 'Converting…';
+            const navigated = await waitForImportCompletion(data.bookId, (label, pct) => {
+                const human = STAGE_LABELS[label] || label || 'Working';
+                commitBtn.textContent = pct != null ? `${human} ${pct}%` : `${human}…`;
+            });
+            if (navigated === 'failed') {
+                setStatus('Import job failed. Check Laravel logs for details.', true);
+                commitBtn.disabled = false;
+                commitBtn.classList.remove('is-loading');
+                commitBtn.textContent = 'Create Book';
+                return;
+            }
+            window.location.href = `/${data.bookId}`;
+        } catch (e) {
+            console.error(e);
+            setStatus('Network error during import.', true);
+            commitBtn.disabled = false;
+            commitBtn.classList.remove('is-loading');
+            commitBtn.textContent = 'Create Book';
+        }
+    });
+}
+
+const STAGE_LABELS = {
+    queued: 'Queued',
+    starting: 'Starting',
+    doc_parse: 'Parsing',
+    doc_bibliography: 'Reading bibliography',
+    doc_footnotes: 'Reading footnotes',
+    doc_linking: 'Linking citations',
+    doc_footnote_linking: 'Linking footnotes',
+    doc_audit: 'Auditing',
+    doc_json_written: 'Writing nodes',
+    db_write: 'Saving nodes',
+    db_footnotes: 'Saving footnotes',
+    db_references: 'Saving references',
+    metadata: 'Finishing',
+    processing: 'Processing',
+};
+
+async function waitForImportCompletion(bookId, onProgress) {
+    const POLL_INTERVAL = 1500;
+    const MAX_WAIT_MS = 10 * 60 * 1000;
+    const start = Date.now();
+    while (Date.now() - start < MAX_WAIT_MS) {
+        try {
+            const resp = await fetch(`/api/import-progress/${bookId}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.status === 'complete') return 'complete';
+                if (data.status === 'failed') return 'failed';
+                onProgress?.(data.stage || 'processing', data.percent ?? null);
+            } else if (resp.status !== 404) {
+                // 404 just means progress.json hasn't been written yet; keep polling.
+                console.warn(`[urlImport] progress poll ${resp.status}`);
+            }
+        } catch (e) {
+            console.warn('[urlImport] progress poll network error', e);
+        }
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+    }
+    return 'timeout';
+}
+
+function suggestBookId(metadata) {
+    const author = (metadata.author || '').split(/[;,]/)[0].trim().split(/\s+/).pop() || '';
+    const year = metadata.year || '';
+    const titleSlug = (metadata.title || '').toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .split(/\s+/).slice(0, 3).join('-');
+    return [author.toLowerCase(), year, titleSlug].filter(Boolean).join('-').replace(/[^a-z0-9_-]/g, '');
+}
+
+function humanError(code) {
+    switch (code) {
+        case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL or DOI.";
+        case 'metadata_unavailable': return "Couldn't find metadata for this work.";
+        case 'metadata_unavailable_but_canonical_exists': return 'This source exists in the library, but external metadata could not be refreshed.';
+        case 'closed_access_requires_upload': return 'This work is not open access. Switch to "Import a file" to upload the PDF.';
+        case 'canonical_already_exists': return 'This source already exists in the library.';
+        case 'book_id_taken': return 'That /url is already taken — pick a different one.';
+        case 'content_fetch_failed': return 'We could not download the content. Try uploading the file instead.';
+        case 'invalid_session': return 'Please sign in first.';
+        default: return code ? code.replaceAll('_', ' ') : '';
+    }
+}
+
 // ─── Search Functionality ────────────────────────────────────────────
 function setupImportSearch() {
     const input = document.getElementById('import-search-input');
@@ -1081,6 +1362,10 @@ export function initializeCitationFormListeners() {
     setupBookUrlPreview();
     setupBibtexModeAutoReveal();
     setupBookIdSanitization();
+
+    // Top-level source toggle (URL vs file) + URL-import wiring.
+    setupSourceToggle();
+    setupUrlImport();
 
     // Inline dropzone (sits below the file input; reuses the file input's
     // change-event pipeline by feeding files into it via attachFilesToInput).

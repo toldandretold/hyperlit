@@ -64,6 +64,14 @@ Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'stor
     ->middleware('author')
     ->name('import.file');
 
+// URL-based import (arXiv URL, DOI, etc.). Two-phase: inspect (preview) + commit.
+Route::post('/import-url/inspect', [App\Http\Controllers\UrlImportController::class, 'inspect'])
+    ->middleware('author')
+    ->name('import.url.inspect');
+Route::post('/import-url', [App\Http\Controllers\UrlImportController::class, 'commit'])
+    ->middleware('author')
+    ->name('import.url');
+
 // JSON book route
 Route::get('/{book}/main-text-footnotes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);

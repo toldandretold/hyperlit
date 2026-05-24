@@ -25,9 +25,12 @@ class OpenAlexService
         $maxRetries = 3;
 
         for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+            // 10s connect / 15s total. OpenAlex is usually <1s; without a cap we'd
+            // block the synchronous import-inspect path for the full 30s PHP default
+            // if OpenAlex is slow.
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
-            ])->get($url, $query);
+            ])->connectTimeout(10)->timeout(15)->get($url, $query);
 
             if ($response->status() !== 429 || $attempt === $maxRetries) {
                 // Proactive throttle: sleep when remaining requests are low

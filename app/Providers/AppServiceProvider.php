@@ -15,6 +15,11 @@ use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\EpubProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
+use App\Services\SourceImport\ImportOrchestrator;
+use App\Services\SourceImport\Content\Ar5ivFetcher;
+use App\Services\SourceImport\Content\OpenAccessPdfFetcher;
+use App\Services\SourceImport\Metadata\ArxivMetadataResolver;
+use App\Services\SourceImport\Metadata\OpenAlexMetadataResolver;
 use App\Models\PgLibrary;
 use App\Models\PgHyperlight;
 use App\Models\PgHypercite;
@@ -39,6 +44,29 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EpubProcessor::class);
         $this->app->singleton(ZipProcessor::class);
         $this->app->singleton(DocxProcessor::class);
+
+        // SourceImport — URL/identifier-based imports (arXiv URL, DOI, etc.).
+        // Resolvers and fetchers are tagged so adding a new identifier type or
+        // content source later only means tagging the new class.
+        $this->app->tag([
+            OpenAlexMetadataResolver::class,
+            ArxivMetadataResolver::class,
+        ], 'source-import.resolvers');
+
+        $this->app->tag([
+            Ar5ivFetcher::class,
+            OpenAccessPdfFetcher::class,
+        ], 'source-import.fetchers');
+
+        $this->app->singleton(ImportOrchestrator::class, function ($app) {
+            return new ImportOrchestrator(
+                $app->make(\App\Services\SourceImport\Identifier\IdentifierNormalizer::class),
+                $app->make(\App\Services\SourceImport\CanonicalRegistry::class),
+                $app->make(\App\Services\SourceImport\Policy\AccessPolicy::class),
+                $app->tagged('source-import.resolvers'),
+                $app->tagged('source-import.fetchers'),
+            );
+        });
     }
 
     /**

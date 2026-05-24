@@ -88,6 +88,27 @@ class CanonicalSourceMatcher
         return $this->result(self::STATUS_NO_MATCH, null, null, null, 'no canonical or external match found');
     }
 
+    /**
+     * Promote an already-normalised work (OpenAlexService::normaliseWork shape) into
+     * a canonical_source row and link the given library row to it.
+     *
+     * Used by import flows that *already have* OpenAlex metadata in hand (e.g. the
+     * URL-import path resolves metadata during inspect), so we don't re-fetch what
+     * we already fetched. Returns the upserted CanonicalSource.
+     *
+     * @param array $normalised  Same shape as OpenAlexService::normaliseWork()
+     */
+    public function linkFromNormalisedWork(
+        PgLibrary $library,
+        array $normalised,
+        string $foundationSource = 'openalex_ingest',
+        string $method = 'openalex_doi'
+    ): CanonicalSource {
+        $canonical = $this->upsertCanonicalFromNormalised($normalised, $foundationSource, false);
+        $this->linkLibraryToCanonical($library, $canonical, 1.0, $method, false);
+        return $canonical;
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // Wave: external API attempts
     // ──────────────────────────────────────────────────────────────────

@@ -120,9 +120,49 @@ def create_node_chunks(soup, book_id):
     chunks = []
     chunk_size = 25  # Paragraphs per chunk
     
-    # Find all content elements
-    content_elements = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote'])
-    
+    # Find all content elements. <table> is included so each top-level table
+    # (e.g. ar5iv's lifted ltx_table figures) becomes its own node, and
+    # <ul>/<ol> so each list becomes a single chunk with its <li>s intact —
+    # otherwise the downstream DOM holds orphan <li>s whose marker falls into
+    # the left margin (the ul/ol CSS rules that normally fix the marker
+    # position never match).
+    #
+    # Anything NESTED inside <table>, <ul>, <ol>, or <li> is dropped — the
+    # outer container already captures it as one node, so re-emitting an inner
+    # <p>/<li>/sub-<table> would duplicate content. This is important for
+    # ar5iv list items which look like <li><p class="ltx_p">text</p></li>
+    # after the preprocessor strips the <div class="ltx_para"> wrapper;
+    # without this filter both the list wrapper and the inner <p> would
+    # become nodes and the reader would see each bullet twice.
+    raw_elements = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'table'])
+
+    def _is_nested(el):
+        for ancestor in el.parents:
+            if ancestor.name in ('ul', 'ol', 'li', 'table'):
+                return True
+        return False
+
+    content_elements = [el for el in raw_elements if not _is_nested(el)]
+
+    # Hyperlit's editor (resources/js/editToolbar/listConverter.js) walks UP
+    # from a <li> to find the parent <ul>/<ol> with an id, and saves the
+    # whole list as one IndexedDB record. So the list wrapper owns identity;
+    # <li>s carry no id of their own.
+    #
+    # preprocess_html.py:normalize_paragraph_ids runs earlier and assigns
+    # sequential numeric IDs to every <p>/<li>/<blockquote>/<div>/<h*> it
+    # finds — including descendants of <ul>/<ol>/<table> wrappers that the
+    # chunker now treats as single nodes. Those descendant IDs both violate
+    # the editor contract and collide with real chunk IDs assigned below.
+    # Strip only the numeric ones — footnote anchors (FnXXX) and any other
+    # meaningful IDs survive.
+    for el in content_elements:
+        if el.name in ('ul', 'ol', 'table'):
+            for descendant in el.find_all(True):
+                desc_id = descendant.attrs.get('id')
+                if desc_id and desc_id.isdigit():
+                    del descendant.attrs['id']
+
     print(f"Found {len(content_elements)} content elements")
     
     for i, element in enumerate(content_elements, 1):
@@ -211,17 +251,44 @@ def save_outputs(output_dir, chunks, footnotes, book_id):
         json.dump(chunks, f, ensure_ascii=False, indent=2)
     print(f"Saved {len(chunks)} chunks to: {chunks_file}")
     
-    # Save footnotes.json
+    # Save footnotes.json — but ONLY if no upstream step (e.g. ar5iv_preprocessor.py)
+    # already wrote a populated one. Same rationale as references.json below.
     footnotes_file = os.path.join(output_dir, 'footnotes.json')
-    with open(footnotes_file, 'w', encoding='utf-8') as f:
-        json.dump(footnotes, f, ensure_ascii=False, indent=2)
-    print(f"Saved {len(footnotes)} footnotes to: {footnotes_file}")
+    write_footnotes = True
+    if os.path.exists(footnotes_file):
+        try:
+            with open(footnotes_file, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+            if isinstance(existing, list) and existing:
+                print(f"Keeping existing footnotes.json with {len(existing)} entries")
+                write_footnotes = False
+        except Exception:
+            pass
+    if write_footnotes:
+        with open(footnotes_file, 'w', encoding='utf-8') as f:
+            json.dump(footnotes, f, ensure_ascii=False, indent=2)
+        print(f"Saved {len(footnotes)} footnotes to: {footnotes_file}")
     
-    # Save empty references.json for compatibility
+    # Save empty references.json for compatibility — but ONLY if no upstream step
+    # (e.g. ar5iv_preprocessor.py) already wrote a populated one.
     references_file = os.path.join(output_dir, 'references.json')
-    with open(references_file, 'w', encoding='utf-8') as f:
-        json.dump([], f)
-    print(f"Saved empty references to: {references_file}")
+    if not os.path.exists(references_file):
+        with open(references_file, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+        print(f"Saved empty references to: {references_file}")
+    else:
+        try:
+            with open(references_file, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+            if isinstance(existing, list) and existing:
+                print(f"Keeping existing references.json with {len(existing)} entries")
+            else:
+                # Existing file is empty or malformed — fine to rewrite as empty.
+                with open(references_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f)
+        except Exception:
+            with open(references_file, 'w', encoding='utf-8') as f:
+                json.dump([], f)
 
 def main():
     if len(sys.argv) != 4:

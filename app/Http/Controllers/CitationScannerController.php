@@ -337,9 +337,15 @@ class CitationScannerController extends Controller
         // If auto-failed, treat as no active pipeline
         $isActive = $pipeline && in_array($pipeline->status, ['pending', 'running']);
 
+        $aiReviewExists = DB::connection('pgsql_admin')
+            ->table('library')
+            ->where('book', $book . '/AIreview')
+            ->exists();
+
         return response()->json([
-            'success'  => true,
-            'pipeline' => $isActive ? [
+            'success'          => true,
+            'ai_review_exists' => $aiReviewExists,
+            'pipeline'         => $isActive ? [
                 'id'           => $pipeline->id,
                 'book'         => $pipeline->book,
                 'status'       => $pipeline->status,
