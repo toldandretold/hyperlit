@@ -8,18 +8,20 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Fetches the OA PDF that OpenAlex (or any other metadata resolver) flagged on
- * the work. Many publisher hosts return 403 for non-browser User-Agents even
- * when the paper is OA; that's a typed failure ('blocked'), not an exception.
+ * Cheap PHP probe at whatever pdf_url the metadata resolver supplied. OpenAlex's
+ * is_oa flag is unreliable (green OA, recently-flipped journals, author repos
+ * routinely slip through), so we ignore it — the %PDF magic-byte check at the
+ * end is the source of truth. On 403/timeout/HTML this returns a typed failure
+ * and the orchestrator falls through to PlaywrightPdfFetcher.
  */
 class OpenAccessPdfFetcher implements ContentFetcher
 {
-    private const TIMEOUT_SECONDS = 120;
+    private const TIMEOUT_SECONDS = 8;
     private const MAX_BYTES = 250 * 1024 * 1024;
 
     public function supports(Identifier $id, SourceMetadata $metadata): bool
     {
-        return $metadata->isOpenAccess() && $metadata->pdfUrl() !== null;
+        return $metadata->pdfUrl() !== null;
     }
 
     public function fetch(Identifier $id, SourceMetadata $metadata, string $destDir): FetchResult

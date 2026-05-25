@@ -40,6 +40,7 @@
     "dependencies": {
         "dompurify": "^3.2.6",
         "katex": "^0.16.38",
-        "marked": "^15.0.12"
+        "marked": "^15.0.12",
+        "playwright": "^1.60.0"
     }
 }

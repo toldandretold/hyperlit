@@ -156,8 +156,9 @@ class UrlImportController extends Controller
         // the user to the file-upload flow with metadata pre-filled.
         if ($result->plan->access !== 'open') {
             return response()->json([
-                'ok'    => false,
-                'error' => 'closed_access_requires_upload',
+                'ok'         => false,
+                'error'      => 'closed_access_requires_upload',
+                'source_url' => $result->identifier->url(),
                 'metadata' => [
                     'title'  => $result->metadata->title(),
                     'author' => $result->metadata->author(),
@@ -182,6 +183,12 @@ class UrlImportController extends Controller
             File::makeDirectory($path, 0755, true);
         }
 
+        // Frontend polls progress.json in parallel with the POST so it can
+        // render a live progress card during the sync fetch. Fetchers (and the
+        // Node script inside PlaywrightPdfFetcher) overwrite this with finer
+        // stages as they go.
+        $this->writeProgress($path, 'fetching_pdf', 'Fetching PDF…', 8, 'processing');
+
         $fetch = $this->orchestrator->fetchContent($result->identifier, $result->metadata, $path);
         if (!$fetch->ok) {
             Log::warning('URL import content fetch failed', [
@@ -190,10 +197,15 @@ class UrlImportController extends Controller
                 'reason'     => $fetch->reason,
                 'status'     => $fetch->httpStatus,
             ]);
+            $this->writeProgress($path, 'fetch_failed', $this->humanFetchFailure($fetch->reason), 0, 'failed');
             return response()->json([
-                'ok'     => false,
-                'error'  => 'content_fetch_failed',
-                'reason' => $fetch->reason,
+                'ok'         => false,
+                'error'      => 'content_fetch_failed',
+                'reason'     => $fetch->reason,
+                // Surfaced so the UI can offer "open publisher page" as a fallback
+                // when the automated fetch gives up (CF block, no PDF link, etc.).
+                'source_url' => $result->identifier->url(),
+                'pdf_url'    => $result->metadata->pdfUrl(),
             ], 502);
         }
 
@@ -290,5 +302,43 @@ class UrlImportController extends Controller
             'status'  => 'processing',
             'library' => $createdRecord,
         ]);
+    }
+
+    /**
+     * Best-effort write to progress.json. Same shape the processing pipeline
+     * and the frontend poller already use — `fetching_*` stages slot in
+     * alongside the existing `doc_parse`/`db_write`/etc. labels.
+     */
+    private function writeProgress(string $dir, string $stage, string $detail, int $percent, string $status = 'processing'): void
+    {
+        try {
+            File::put("{$dir}/progress.json", json_encode([
+                'status'     => $status,
+                'stage'      => $stage,
+                'percent'    => $percent,
+                'detail'     => $detail,
+                'updated_at' => now()->toIso8601String(),
+            ], JSON_PRETTY_PRINT));
+        } catch (\Throwable $e) {
+            // Progress writes are diagnostic only — never block the import path.
+        }
+    }
+
+    private function humanFetchFailure(?string $reason): string
+    {
+        return match ($reason) {
+            'cloudflare_block'        => 'Publisher blocked the download (Cloudflare).',
+            'playwright_timeout'      => 'The publisher took too long to respond.',
+            'no_pdf_link_found'       => 'No PDF link found on the publisher page.',
+            'not_a_pdf'               => 'Publisher returned an HTML page, not a PDF.',
+            'blocked'                 => 'Publisher refused the download (403).',
+            'http_error'              => 'Publisher returned an error.',
+            'navigation_failed'       => 'Could not load the publisher page.',
+            'node_unavailable'        => 'PDF fetch tool not available on the server.',
+            'playwright_not_installed' => 'PDF fetch tool not installed on the server.',
+            'playwright_crash'        => 'PDF fetch tool crashed.',
+            'no_fetcher_attempted'    => 'No PDF source available for this work.',
+            default                   => 'Fetch failed' . ($reason ? ": {$reason}" : '.'),
+        };
     }
 }

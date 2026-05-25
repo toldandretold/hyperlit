@@ -463,11 +463,59 @@ function setupUrlImport() {
 
     let lastInspected = null;
 
-    const setStatus = (text, isError = false) => {
+    const setStatus = (text, isError = false, link = null) => {
         if (!status) return;
+        // Built via DOM nodes (not innerHTML) so untrusted URLs/labels can't inject markup.
         status.textContent = text;
+        if (link?.url) {
+            status.appendChild(document.createTextNode(' '));
+            const a = document.createElement('a');
+            a.href = link.url;
+            a.textContent = link.label || link.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            status.appendChild(a);
+        }
         status.className = 'validation-message' + (isError ? ' error' : '');
-        status.style.display = text ? '' : 'none';
+        status.style.display = (text || link) ? '' : 'none';
+    };
+
+    // Mirror the file-upload form's auth gate: anonymous users get a clear "log in /
+    // register" prompt instead of a vague 401 from the backend's `author` middleware.
+    const renderAuthPrompt = () => {
+        if (!status) return;
+        status.textContent = '';
+        status.appendChild(document.createTextNode('You need to '));
+        const openUserContainer = (mode) => async (e) => {
+            e.preventDefault();
+            window.newBookManager?.closeContainer();
+            const { initializeUserContainer } = await import('../components/userContainer.js');
+            const mgr = initializeUserContainer();
+            if (!mgr) return;
+            mode === 'login' ? mgr.showLoginForm() : mgr.showRegisterForm();
+        };
+        const login = document.createElement('a');
+        login.href = '#';
+        login.textContent = 'log in';
+        login.className = 'import-auth-link import-auth-login';
+        login.addEventListener('click', openUserContainer('login'));
+        const register = document.createElement('a');
+        register.href = '#';
+        register.textContent = 'register';
+        register.className = 'import-auth-link import-auth-register';
+        register.addEventListener('click', openUserContainer('register'));
+        status.appendChild(login);
+        status.appendChild(document.createTextNode(' or '));
+        status.appendChild(register);
+        status.appendChild(document.createTextNode(' to import books.'));
+        status.className = 'validation-message error';
+        status.style.display = '';
+    };
+
+    const requireAuth = async () => {
+        if (await isLoggedIn()) return true;
+        renderAuthPrompt();
+        return false;
     };
 
     const hidePreview = () => {
@@ -545,6 +593,7 @@ function setupUrlImport() {
     const inspect = async () => {
         const url = urlInput.value.trim();
         if (!url) return;
+        if (!await requireAuth()) return;
         hidePreview();
         setStatus('');
         fetchBtn.disabled = true;
@@ -592,11 +641,31 @@ function setupUrlImport() {
 
     commitBtn.addEventListener('click', async () => {
         if (!lastInspected) return;
+        // Defensive re-check: session may have expired between inspect and commit.
+        if (!await requireAuth()) return;
         const book = bookInput.value.trim();
         if (!book) { setStatus('Pick a /url for this book.', true); return; }
         commitBtn.disabled = true;
         commitBtn.classList.add('is-loading');
-        commitBtn.textContent = 'Fetching content…';
+        commitBtn.textContent = 'Starting…';
+
+        // Poll progress.json in parallel with the POST so the user sees live
+        // "Opening browser / Locating PDF / Downloading PDF" updates during the
+        // sync fetch instead of a dead spinner. The slug is already known.
+        const pollCtl = { stop: false };
+        const pollPromise = waitForImportCompletion(book, (label, pct, detail) => {
+            if (pollCtl.stop) return;
+            const human = STAGE_LABELS[label] || label || 'Working';
+            commitBtn.textContent = pct != null ? `${human} ${pct}%` : `${human}…`;
+            if (detail) setStatus(detail, false);
+        }, pollCtl);
+
+        const resetButton = () => {
+            commitBtn.disabled = false;
+            commitBtn.classList.remove('is-loading');
+            commitBtn.textContent = 'Create Book';
+        };
+
         try {
             const resp = await fetch('/import-url', {
                 method: 'POST',
@@ -609,39 +678,42 @@ function setupUrlImport() {
             });
             const data = await resp.json();
             if (!resp.ok || !data.ok) {
-                setStatus(humanError(data.error) || 'Import failed.', true);
-                commitBtn.disabled = false;
-                commitBtn.classList.remove('is-loading');
-                commitBtn.textContent = 'Create Book';
+                pollCtl.stop = true;
+                await pollPromise.catch(() => {});
+                const reasonMsg = data.reason ? humanFetchReason(data.reason) : null;
+                const link = data.source_url
+                    ? { url: data.source_url, label: 'Open publisher page →' }
+                    : null;
+                setStatus(reasonMsg || humanError(data.error) || 'Import failed.', true, link);
+                resetButton();
                 return;
             }
-            // POST returned as soon as the job was dispatched. Poll until the worker
-            // has populated nodes before navigating — otherwise the book page loads
-            // against an empty DB and shows "Book not found".
-            commitBtn.textContent = 'Converting…';
-            const navigated = await waitForImportCompletion(data.bookId, (label, pct) => {
-                const human = STAGE_LABELS[label] || label || 'Working';
-                commitBtn.textContent = pct != null ? `${human} ${pct}%` : `${human}…`;
-            });
-            if (navigated === 'failed') {
-                setStatus('Import job failed. Check Laravel logs for details.', true);
-                commitBtn.disabled = false;
-                commitBtn.classList.remove('is-loading');
-                commitBtn.textContent = 'Create Book';
+            // POST returned (fetch succeeded, job dispatched). Polling continues
+            // through the queue processor until the worker has populated nodes.
+            const result = await pollPromise;
+            if (result.status === 'failed') {
+                setStatus(result.detail || 'Import job failed. Check Laravel logs for details.', true);
+                resetButton();
                 return;
             }
             window.location.href = `/${data.bookId}`;
         } catch (e) {
             console.error(e);
+            pollCtl.stop = true;
             setStatus('Network error during import.', true);
-            commitBtn.disabled = false;
-            commitBtn.classList.remove('is-loading');
-            commitBtn.textContent = 'Create Book';
+            resetButton();
         }
     });
 }
 
 const STAGE_LABELS = {
+    fetching_metadata: 'Looking up source',
+    fetching_pdf: 'Fetching PDF',
+    fetching_pdf_browser: 'Opening browser',
+    fetching_pdf_navigating: 'Navigating to publisher',
+    fetching_pdf_locating: 'Locating PDF',
+    fetching_pdf_downloading: 'Downloading PDF',
+    fetch_failed: 'Fetch failed',
     queued: 'Queued',
     starting: 'Starting',
     doc_parse: 'Parsing',
@@ -658,18 +730,19 @@ const STAGE_LABELS = {
     processing: 'Processing',
 };
 
-async function waitForImportCompletion(bookId, onProgress) {
+async function waitForImportCompletion(bookId, onProgress, ctl) {
     const POLL_INTERVAL = 1500;
     const MAX_WAIT_MS = 10 * 60 * 1000;
     const start = Date.now();
     while (Date.now() - start < MAX_WAIT_MS) {
+        if (ctl?.stop) return { status: 'cancelled' };
         try {
             const resp = await fetch(`/api/import-progress/${bookId}`);
             if (resp.ok) {
                 const data = await resp.json();
-                if (data.status === 'complete') return 'complete';
-                if (data.status === 'failed') return 'failed';
-                onProgress?.(data.stage || 'processing', data.percent ?? null);
+                if (data.status === 'complete') return { status: 'complete', detail: data.detail };
+                if (data.status === 'failed') return { status: 'failed', detail: data.detail };
+                onProgress?.(data.stage || 'processing', data.percent ?? null, data.detail);
             } else if (resp.status !== 404) {
                 // 404 just means progress.json hasn't been written yet; keep polling.
                 console.warn(`[urlImport] progress poll ${resp.status}`);
@@ -679,7 +752,24 @@ async function waitForImportCompletion(bookId, onProgress) {
         }
         await new Promise(r => setTimeout(r, POLL_INTERVAL));
     }
-    return 'timeout';
+    return { status: 'timeout' };
+}
+
+function humanFetchReason(reason) {
+    switch (reason) {
+        case 'cloudflare_block': return 'Publisher blocked the download (Cloudflare). Try uploading the PDF directly.';
+        case 'playwright_timeout': return 'Publisher took too long to respond. Try again, or upload the PDF directly.';
+        case 'no_pdf_link_found': return "Couldn't find a downloadable PDF on the publisher's page.";
+        case 'not_a_pdf': return 'Publisher returned a non-PDF response.';
+        case 'blocked': return 'Publisher refused the download.';
+        case 'http_error': return 'Publisher returned an error.';
+        case 'navigation_failed': return "Couldn't load the publisher's page.";
+        case 'node_unavailable': return 'PDF fetcher service is not available on the server.';
+        case 'playwright_not_installed': return 'PDF fetcher service is not installed on the server.';
+        case 'playwright_crash': return 'PDF fetcher crashed. Try again or upload the PDF directly.';
+        case 'no_fetcher_attempted': return 'No PDF source available for this work.';
+        default: return null;
+    }
 }
 
 function suggestBookId(metadata) {

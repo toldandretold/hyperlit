@@ -18,6 +18,7 @@ use App\Services\DocumentImport\Processors\DocxProcessor;
 use App\Services\SourceImport\ImportOrchestrator;
 use App\Services\SourceImport\Content\Ar5ivFetcher;
 use App\Services\SourceImport\Content\OpenAccessPdfFetcher;
+use App\Services\SourceImport\Content\PlaywrightPdfFetcher;
 use App\Services\SourceImport\Metadata\ArxivMetadataResolver;
 use App\Services\SourceImport\Metadata\OpenAlexMetadataResolver;
 use App\Models\PgLibrary;
@@ -53,9 +54,13 @@ class AppServiceProvider extends ServiceProvider
             ArxivMetadataResolver::class,
         ], 'source-import.resolvers');
 
+        // Order matters: orchestrator iterates and falls through on failure.
+        // arXiv fast-path first, then cheap PHP probe at metadata pdf_url, then
+        // headless-browser fallback that can handle Cloudflare / JS-gated sites.
         $this->app->tag([
             Ar5ivFetcher::class,
             OpenAccessPdfFetcher::class,
+            PlaywrightPdfFetcher::class,
         ], 'source-import.fetchers');
 
         $this->app->singleton(ImportOrchestrator::class, function ($app) {
