@@ -24,6 +24,10 @@ class CanonicalSourceMatcher
 
     public const TITLE_SEARCH_MIN_SCORE = 0.5;
 
+    /** Sentinel method written to library.canonical_match_method on no_match,
+     *  so subsequent --missing-only runs can skip recently-tried rows. */
+    public const NO_MATCH_METHOD = 'no_match_v1';
+
     /**
      * Identifier for the matcher version. Stored on library.canonical_matched_by
      * so future runs (or manual admin overrides) can be distinguished.
@@ -85,7 +89,33 @@ class CanonicalSourceMatcher
             if ($result = $this->tryTitleSearch($library, $shortened, 'short', $dryRun)) return $result;
         }
 
+        $this->stampNoMatch($library, $dryRun);
         return $this->result(self::STATUS_NO_MATCH, null, null, null, 'no canonical or external match found');
+    }
+
+    /**
+     * Record that the matcher tried this row and failed all waves. Lets future
+     * `--missing-only` runs skip rows tried recently, instead of re-burning
+     * three external API calls per row every run.
+     */
+    private function stampNoMatch(PgLibrary $library, bool $dryRun): void
+    {
+        if ($dryRun) return;
+
+        $now = now();
+        DB::connection('pgsql_admin')
+            ->table('library')
+            ->where('book', $library->book)
+            ->update([
+                'canonical_match_method' => self::NO_MATCH_METHOD,
+                'canonical_matched_at'   => $now,
+                'canonical_matched_by'   => self::MATCHER_IDENTITY,
+                'updated_at'             => $now,
+            ]);
+
+        $library->canonical_match_method = self::NO_MATCH_METHOD;
+        $library->canonical_matched_at   = $now;
+        $library->canonical_matched_by   = self::MATCHER_IDENTITY;
     }
 
     /**

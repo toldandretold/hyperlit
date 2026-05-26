@@ -16,7 +16,8 @@ class CanonicalizeLibraryCommand extends Command
     protected $signature = 'library:canonicalize
                             {--book= : Process one library row by book id}
                             {--limit=0 : Max rows to process (0 = unlimited)}
-                            {--missing-only : Skip rows that already have canonical_source_id}
+                            {--missing-only : Skip rows that already have canonical_source_id or were tried in the last N days (see --retry-after-days)}
+                            {--retry-after-days=30 : With --missing-only, re-try previously no_match rows after this many days. 0 disables the cooldown.}
                             {--force : Re-match even if canonical_source_id is already set}
                             {--dry-run : Do not write to the database}
                             {--sleep=0 : Seconds to sleep between rows (rate-limit cushion)}';
@@ -28,6 +29,7 @@ class CanonicalizeLibraryCommand extends Command
         $bookId = $this->option('book') ?: null;
         $limit = (int) $this->option('limit');
         $missingOnly = (bool) $this->option('missing-only');
+        $retryAfterDays = (int) $this->option('retry-after-days');
         $force = (bool) $this->option('force');
         $dryRun = (bool) $this->option('dry-run');
         $sleep = (int) $this->option('sleep');
@@ -50,6 +52,18 @@ class CanonicalizeLibraryCommand extends Command
 
             if ($missingOnly) {
                 $query->whereNull('canonical_source_id');
+                // Skip rows the matcher already tried and failed within the cooldown
+                // window. The stamp is canonical_match_method = 'no_match_v1' set on
+                // failure; canonical_matched_at is the timestamp. retry-after-days=0
+                // disables the skip so all NULL-canonical rows are re-tried.
+                if ($retryAfterDays > 0) {
+                    $cutoff = now()->subDays($retryAfterDays);
+                    $query->where(function ($q) use ($cutoff) {
+                        $q->whereNull('canonical_matched_at')
+                          ->orWhere('canonical_match_method', '!=', CanonicalSourceMatcher::NO_MATCH_METHOD)
+                          ->orWhere('canonical_matched_at', '<', $cutoff);
+                    });
+                }
             }
         }
 
