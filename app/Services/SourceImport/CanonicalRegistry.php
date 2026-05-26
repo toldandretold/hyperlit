@@ -40,6 +40,10 @@ class CanonicalRegistry
      *      matches. This catches imports that landed before this codebase auto-created
      *      canonical rows, and any future asymmetry where the matcher hasn't run.
      *
+     * Only rows with `has_nodes = true` are returned. Auto-created OpenAlex stub rows
+     * (placeholders so canonical_source has something to link to) are scaffolding —
+     * they have no readable content and would just point users at empty book pages.
+     *
      * The DOI compare is case-insensitive to handle arXiv DOIs that may appear as
      * "10.48550/arxiv.X" or "10.48550/arXiv.X" depending on the source.
      *
@@ -49,21 +53,26 @@ class CanonicalRegistry
     {
         if ($canonical = $this->findByIdentifier($id)) {
             return $canonical->versions()
+                ->where('has_nodes', true)
                 ->orderBy('timestamp', 'desc')
                 ->get()
                 ->all();
         }
 
-        $query = PgLibrary::query();
-        $applied = false;
-        foreach ($this->doiCandidates($id) as $doi) {
-            $query->orWhereRaw('LOWER(doi) = ?', [strtolower($doi)]);
-            $applied = true;
-        }
-        if (!$applied) {
+        $candidates = $this->doiCandidates($id);
+        if (empty($candidates)) {
             return [];
         }
-        return $query->orderBy('timestamp', 'desc')->get()->all();
+        return PgLibrary::query()
+            ->where('has_nodes', true)
+            ->where(function ($q) use ($candidates) {
+                foreach ($candidates as $doi) {
+                    $q->orWhereRaw('LOWER(doi) = ?', [strtolower($doi)]);
+                }
+            })
+            ->orderBy('timestamp', 'desc')
+            ->get()
+            ->all();
     }
 
     /**

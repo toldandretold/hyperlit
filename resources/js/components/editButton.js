@@ -399,7 +399,52 @@ export function disableEditMode() {
     // Flush pending saves BEFORE integrity check so queued nodes
     // are written to IDB before verification
     flushInputDebounce();
+
+    // [diagnostic] snapshot IDB node.content before flush so we can tell
+    // whether flushAllPendingSaves itself is mutating IDB content during
+    // edit-mode-exit (case a/b) vs the divergence pre-existing (case c).
+    let __preFlushSnapshot = null;
+    try {
+      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+      const preNodes = await getNodeChunksFromIndexedDB(book);
+      __preFlushSnapshot = new Map(
+        (preNodes || []).map(n => [String(n.startLine), n.content || ''])
+      );
+      console.log(`[diag][editButton] pre-flush IDB snapshot: ${__preFlushSnapshot.size} nodes for ${book}`);
+    } catch (e) {
+      console.warn('[diag][editButton] pre-flush snapshot failed', e);
+    }
+
     await flushAllPendingSaves();
+
+    // [diagnostic] diff IDB content after flush
+    if (__preFlushSnapshot) {
+      try {
+        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+        const postNodes = await getNodeChunksFromIndexedDB(book);
+        const changed = [];
+        for (const n of postNodes || []) {
+          const key = String(n.startLine);
+          const before = __preFlushSnapshot.get(key);
+          if (before !== undefined && before !== (n.content || '')) {
+            changed.push({
+              startLine: key,
+              beforeLen: before.length,
+              afterLen: (n.content || '').length,
+              beforeSample: before.slice(0, 200),
+              afterSample: (n.content || '').slice(0, 200),
+            });
+          }
+        }
+        if (changed.length > 0) {
+          console.log(`[diag][editButton] flushAllPendingSaves mutated ${changed.length} IDB nodes`, changed);
+        } else {
+          console.log('[diag][editButton] flushAllPendingSaves: no IDB content changes');
+        }
+      } catch (e) {
+        console.warn('[diag][editButton] post-flush snapshot failed', e);
+      }
+    }
 
     // Verify all saved nodes made it to IDB before leaving edit mode
     try {

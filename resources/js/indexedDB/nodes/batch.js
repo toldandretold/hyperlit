@@ -927,12 +927,19 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess, options = {}
                    JSON.stringify(oldIds) !== JSON.stringify(newIds);
             if (changed) {
               console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldIds.length} → ${newIds.length}`);
+              // [diagnostic] include old/new IDs and bookId so we can see what triggered renumber
+              console.log(`[diag][batch] footnote delta on ${bookId}/${node.startLine}: old=${JSON.stringify(oldIds)} new=${JSON.stringify(newIds)}`);
             }
             return changed;
           });
 
           if (nodesWithFootnoteChanges.length > 0) {
             console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
+            // [diagnostic] log caller context so we can see if this fires during
+            // post-import hydration (no user edits) or only after explicit edits
+            const __batchStack = new Error('batchUpdateIndexedDBRecords renumber trigger').stack;
+            console.log(`[diag][batch] auto-renumber trigger for bookId=${bookId} affectedCount=${nodesWithFootnoteChanges.length}`);
+            console.log(`[diag][batch] caller stack:\n${__batchStack}`);
             try {
               const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
               const { getNodeChunksFromIndexedDB } = await import('../index.js');

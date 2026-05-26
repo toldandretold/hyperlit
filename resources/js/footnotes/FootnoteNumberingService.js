@@ -194,8 +194,24 @@ export function getCurrentBookId() {
 export async function rebuildAndRenumber(bookId, nodes) {
   verbose.content(`Rebuilding footnote map for book ${bookId}`, 'FootnoteNumberingService.js');
 
+  // [diagnostic] capture caller + scope to debug integrity-mismatch
+  const __callerStack = new Error('rebuildAndRenumber caller').stack;
+  const __isSubBook = typeof bookId === 'string' && bookId.includes('/');
+  console.log(`[diag][renumber] called for bookId=${bookId} isSubBook=${__isSubBook} nodeCount=${(nodes||[]).length}`);
+  console.log(`[diag][renumber] caller stack:\n${__callerStack}`);
+
   buildFootnoteMap(bookId, nodes);
+
+  // [diagnostic] dump map after build
+  try {
+    const mapDump = Array.from(footnoteMap.entries()).map(([id, n]) => `${id}=${n}`);
+    console.log(`[diag][renumber] footnoteMap size=${footnoteMap.size}`, mapDump);
+  } catch (e) {}
+
   const affectedStartLines = updateFootnoteNumbersInDOM();
+
+  // [diagnostic] report which DOM nodes the renumber touched
+  console.log(`[diag][renumber] DOM updates affected ${affectedStartLines.size} startLines`, Array.from(affectedStartLines));
 
   // Persist the updated fn-count-id values to IndexedDB
   if (affectedStartLines.size > 0) {
@@ -323,7 +339,50 @@ async function persistRenumberedNodes(bookId, affectedStartLines) {
       id: startLine
     }));
 
+    // [diagnostic] dump DOM outerHTML for each affected startLine so we can
+    // see what the renumbered DOM actually looks like at the moment we're
+    // asking the batch path to persist. If the IDB content after this write
+    // doesn't match what's logged here, the batch write path is dropping it.
+    const bookContainer = document.querySelector(`[data-book-id="${bookId}"]`)
+      || document.getElementById(bookId);
+    if (bookContainer) {
+      for (const startLine of affectedStartLines) {
+        const el = bookContainer.querySelector(`[id="${startLine}"]`);
+        if (el) {
+          const html = el.outerHTML || '';
+          const sups = Array.from(el.querySelectorAll('sup[fn-count-id]')).map(s => ({
+            countId: s.getAttribute('fn-count-id'),
+            text: s.textContent,
+            id: s.id,
+          }));
+          console.log(`[diag][persist] startLine=${startLine} bookId=${bookId} sups=${JSON.stringify(sups)} htmlLen=${html.length}`);
+        } else {
+          console.log(`[diag][persist] startLine=${startLine} NOT FOUND in DOM (bookId=${bookId})`);
+        }
+      }
+    } else {
+      console.log(`[diag][persist] no container for bookId=${bookId} — sub-book closed?`);
+    }
+
     await batchUpdateIndexedDBRecords(recordsToUpdate, { bookId, skipFootnoteRenumber: true });
+
+    // [diagnostic] read back from IDB and report what actually got written
+    try {
+      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+      const after = await getNodeChunksFromIndexedDB(bookId);
+      const byId = new Map((after || []).map(n => [String(n.startLine), n.content || '']));
+      for (const startLine of affectedStartLines) {
+        const stored = byId.get(String(startLine));
+        if (stored === undefined) {
+          console.log(`[diag][persist:after] startLine=${startLine} MISSING in IDB`);
+          continue;
+        }
+        const m = stored.match(/<sup[^>]*fn-count-id="([^"]*)"[^>]*>([^<]*)</);
+        console.log(`[diag][persist:after] startLine=${startLine} firstSup=${m ? `count=${m[1]} text=${m[2]}` : 'none'} storedLen=${stored.length}`);
+      }
+    } catch (e) {
+      console.warn('[diag][persist:after] readback failed', e);
+    }
 
     verbose.content(`Persisted ${recordsToUpdate.length} renumbered nodes via batch update`, 'FootnoteNumberingService.js');
   } catch (error) {
