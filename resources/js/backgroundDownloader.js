@@ -6,7 +6,7 @@ import {
     loadHypercitesToIndexedDB,
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
-import { buildFootnoteMap, updateFootnoteNumbersInDOM } from './footnotes/FootnoteNumberingService.js';
+import { rebuildAndRenumber } from './footnotes/FootnoteNumberingService.js';
 import { appendGateParam } from './components/gateFilter.js';
 
 /**
@@ -123,10 +123,11 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
         if (allNodes.length) {
             window.nodes = allNodes;
 
-            // Rebuild footnote map with FULL dataset (initial chunk only had ~100 nodes)
-            buildFootnoteMap(bookId, allNodes);
-            // Fix corrupted fn-count-id on already-rendered DOM sups
-            updateFootnoteNumbersInDOM();
+            // Rebuild footnote map with FULL dataset (initial chunk only had ~100 nodes),
+            // update already-rendered DOM sups, AND persist the new numbers to IDB.
+            // The persist step is critical: without it, DOM and IDB diverge and the
+            // periodic integrity check trips a self-heal on every affected node.
+            await rebuildAndRenumber(bookId, allNodes);
         }
 
         verbose.content(
@@ -266,8 +267,8 @@ async function fullDownloadFallback(bookId, lazyLoader) {
     // Update window.nodes for other consumers
     if (data.nodes?.length) {
         window.nodes = data.nodes;
-        buildFootnoteMap(bookId, data.nodes);
-        updateFootnoteNumbersInDOM();
+        // Rebuild + update DOM + persist (see comment in main path above).
+        await rebuildAndRenumber(bookId, data.nodes);
     }
 
     verbose.content(
