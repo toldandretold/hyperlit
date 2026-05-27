@@ -28,18 +28,78 @@ import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
 import { restoreScrollAnchor } from './utilities/scrollAnchor.js';
 import { STRUCTURAL_BLOCK_TAGS } from './utilities/blockElements.js';
 
+// Module-level self-heal queue. When a chunk renders and the renderer detects
+// that the stored sup `fn-count-id` disagrees with the dynamic map, it queues
+// (bookId, startLine) here. A microtask-deferred flush then writes the
+// corrected DOM back to IDB via the same batch path the renumber uses.
+//
+// This is defense-in-depth: `rebuildAndRenumber` already reconciles stored
+// content on every footnote add/delete and after background download, but
+// render-time heal also catches:
+//   - Books whose IDB was stale from a session that predates the reconcile fix
+//   - Background download failures / offline loads
+//   - Cases where a chunk renders before any renumber has fired this session
+const _renderHealQueue = new Map(); // bookId -> Set<startLine string>
+let _renderHealTimer = null;
+
+function _scheduleRenderHealFlush() {
+  if (_renderHealTimer || _renderHealQueue.size === 0) return;
+  // setTimeout(0) defers until after the synchronous render task completes —
+  // by then the chunk is in the live DOM and batchUpdateIndexedDBRecords can
+  // find it via [data-node-id]/[id] selectors.
+  _renderHealTimer = setTimeout(async () => {
+    _renderHealTimer = null;
+    if (_renderHealQueue.size === 0) return;
+
+    // Snapshot + clear so concurrent appends accumulate to a fresh queue
+    const snapshot = [];
+    for (const [bookId, set] of _renderHealQueue) {
+      snapshot.push({ bookId, startLines: [...set] });
+    }
+    _renderHealQueue.clear();
+
+    let batchUpdateIndexedDBRecords;
+    try {
+      ({ batchUpdateIndexedDBRecords } = await import('./indexedDB/nodes/batch.js'));
+    } catch (e) {
+      console.warn('[render-heal] failed to import batch module:', e);
+      return;
+    }
+
+    for (const { bookId, startLines } of snapshot) {
+      try {
+        const records = startLines.map(id => ({ id }));
+        await batchUpdateIndexedDBRecords(records, { bookId, skipFootnoteRenumber: true });
+        verbose.content(
+          `[render-heal] persisted ${startLines.length} node(s) for ${bookId}`,
+          'lazyLoaderFactory.js'
+        );
+      } catch (e) {
+        console.warn(`[render-heal] persist failed for ${bookId}:`, e);
+      }
+    }
+  }, 0);
+}
+
 /**
  * Apply dynamic footnote numbers to rendered HTML element.
  * Looks up display numbers from FootnoteNumberingService and updates
  * the fn-count-id attribute and link text.
  *
- * @param {HTMLElement} element - The DOM element containing footnote references
+ * @param {HTMLElement} element - The DOM element (the temp wrapper containing
+ *   a single node's content; this runs BEFORE the chunk is appended to the
+ *   live DOM and BEFORE the firstElement's id="<startLine>" gets set).
+ * @param {Object}      [nodeContext]            - Owning node context for self-heal
+ * @param {number|string} [nodeContext.startLine]
+ * @param {string}      [nodeContext.bookId]
  */
-function applyDynamicFootnoteNumbers(element) {
+function applyDynamicFootnoteNumbers(element, nodeContext = {}) {
+  const { startLine, bookId } = nodeContext;
   // Find all footnote sups - both formats:
   // 1. Old format: <sup class="footnote-ref" fn-count-id="N" id="footnoteId">N</sup>
   // 2. New format: <sup fn-count-id="N" id="..."><a class="footnote-ref" href="#footnoteId">N</a></sup>
   const footnoteSups = element.querySelectorAll('sup[fn-count-id]');
+  let mutatedThisNode = false;
 
   for (const sup of footnoteSups) {
     // Get footnoteId from anchor href (new format) or sup id (old format)
@@ -73,26 +133,38 @@ function applyDynamicFootnoteNumbers(element) {
         sup.textContent = newValue;
       }
 
-      // Diagnostic: record mutations where the renderer changed the displayed
-      // number (i.e. the map disagreed with what was in stored HTML). Tests
-      // enable this via window.__fnDiag = { enabled: true, ... } before nav.
-      if (oldValue !== newValue && typeof window !== 'undefined' && window.__fnDiag && window.__fnDiag.enabled) {
-        const block = sup.closest('[id]');
-        const startLine = block && /^\d+(\.\d+)?$/.test(block.id) ? block.id : null;
-        if (!window.__fnDiag.domMutations) window.__fnDiag.domMutations = [];
-        window.__fnDiag.domMutations.push({
-          source: 'applyDynamicFootnoteNumbers',
-          startLine,
-          footnoteId,
-          oldValue,
-          newValue,
-          ts: Date.now(),
-        });
-        if (window.__fnDiag.domMutations.length > 100) {
-          window.__fnDiag.domMutations.shift();
+      if (oldValue !== newValue) {
+        mutatedThisNode = true;
+
+        // Diagnostic: record mutations where the renderer had to overwrite a
+        // stale stored value. Tests enable via window.__fnDiag.enabled = true.
+        if (typeof window !== 'undefined' && window.__fnDiag && window.__fnDiag.enabled) {
+          if (!window.__fnDiag.domMutations) window.__fnDiag.domMutations = [];
+          window.__fnDiag.domMutations.push({
+            source: 'applyDynamicFootnoteNumbers',
+            startLine: startLine != null ? String(startLine) : null,
+            footnoteId,
+            oldValue,
+            newValue,
+            ts: Date.now(),
+          });
+          if (window.__fnDiag.domMutations.length > 100) {
+            window.__fnDiag.domMutations.shift();
+          }
         }
       }
     }
+  }
+
+  // Render-time self-heal: any sup we just had to rewrite means IDB's stored
+  // content has the wrong number. Queue this node for write-back so future
+  // integrity checks see DOM and IDB agreeing.
+  if (mutatedThisNode && startLine != null && bookId) {
+    if (!_renderHealQueue.has(bookId)) {
+      _renderHealQueue.set(bookId, new Set());
+    }
+    _renderHealQueue.get(bookId).add(String(startLine));
+    _scheduleRenderHealFlush();
   }
 }
 
@@ -1262,8 +1334,11 @@ export function createChunkElement(nodes, instance) {
     });
 
     // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
-    // This replaces the old static fn-count-id with dynamically calculated numbers
-    applyDynamicFootnoteNumbers(temp);
+    // This replaces the old static fn-count-id with dynamically calculated numbers.
+    // Pass the node's startLine + bookId so any mutation triggers a deferred
+    // write-back to IDB (render-time self-heal — keeps stored content in sync
+    // with the map even when no renumber has fired this session).
+    applyDynamicFootnoteNumbers(temp, { startLine: node.startLine, bookId: node.book });
 
     // 📐 MATH RENDERING: Render LaTeX math via KaTeX
     renderMathElements(temp);

@@ -578,4 +578,176 @@ test.describe('Footnote integrity — reproduction harness', () => {
 
     expect(drifts, `Hydration drift in ${drifts.length}/${before.length} nodes:\n${JSON.stringify(drifts.slice(0, 10), null, 2)}`).toEqual([]);
   });
+
+  test('H. Render-time self-heal — stale IDB gets corrected when chunk renders, no renumber needed', async ({ page, spa }) => {
+    // Mimics the iPhone bug shape directly: IDB has a sup with an OLD fn-count-id
+    // value that disagrees with the dynamic map (built from up-to-date
+    // node.footnotes arrays), and NO renumber will fire this session because
+    // the user didn't add/delete a footnote.
+    //
+    // We need the corrupted node to be in a chunk that goes through
+    // createChunkElement (client-side build) rather than initial server-render,
+    // because applyDynamicFootnoteNumbers fires only in createChunkElement.
+    // → Big book + corrupt a node deep in it + TOC nav to that region.
+
+    await page.evaluate(() => window.__resetIntegrityEvents?.());
+
+    const { bookId } = await importFootnoteHeavyBook(page, spa, {
+      title: 'Scenario H',
+      chapters: 15,
+      paragraphsPerChapter: 12,
+      footnotesPerChapter: 5,        // 75 footnotes across 180 paragraphs
+    });
+    await page.waitForTimeout(2500);
+    await page.waitForFunction(() => {
+      const cs = document.querySelector('#cloudRef-svg .cls-1');
+      return cs && cs.getAttribute('fill') === '#63B995';
+    }, null, { timeout: 20000 }).catch(() => {});
+
+    await checkpoint(page, bookId, 'H_baseline');
+
+    // STEP 1: Pick a node DEEP in the book (not in the initial render chunk)
+    // and corrupt its stored fn-count-id directly in IDB. We target the LAST
+    // node with a footnote so we're guaranteed to be past the initial render.
+    const corrupted = await page.evaluate(async (bookId) => {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('MarkdownDB');
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          const tx = db.transaction('nodes', 'readwrite');
+          const store = tx.objectStore('nodes');
+          // First pass: read all nodes ordered by startLine to find candidates
+          const candidates = [];
+          const cursorReq = store.index('book').openCursor(IDBKeyRange.only(bookId));
+          cursorReq.onsuccess = (evt) => {
+            const c = evt.target.result;
+            if (!c) {
+              // Sort by startLine descending, pick the FIRST one with a numeric sup
+              candidates.sort((a, b) => Number(b.startLine) - Number(a.startLine));
+              const target = candidates.find(c => /<sup\b[^>]*\bfn-count-id="(\d+)"[^>]*>(\d+)<\/sup>/.test(c.content));
+              if (!target) { db.close(); return resolve(null); }
+              const m = target.content.match(/<sup\b[^>]*\bfn-count-id="(\d+)"[^>]*>(\d+)<\/sup>/);
+              const originalNumber = m[1];
+              const newContent = target.content.replace(
+                /<sup\b([^>]*)\bfn-count-id="(\d+)"([^>]*)>(\d+)<\/sup>/,
+                '<sup$1fn-count-id="999"$3>999</sup>',
+              );
+              // Write the corrupted node back in a new transaction
+              const writeTx = db.transaction('nodes', 'readwrite');
+              const writeStore = writeTx.objectStore('nodes');
+              const writeReq = writeStore.get([bookId, target.startLine]);
+              writeReq.onsuccess = () => {
+                const fresh = writeReq.result;
+                fresh.content = newContent;
+                writeStore.put(fresh);
+              };
+              writeTx.oncomplete = () => {
+                db.close();
+                resolve({ startLine: target.startLine, originalNumber, storedNow: '999' });
+              };
+              writeTx.onerror = () => { db.close(); reject(new Error('write tx failed')); };
+              return;
+            }
+            const node = c.value;
+            if (node.content) candidates.push({ startLine: node.startLine, content: node.content });
+            c.continue();
+          };
+          cursorReq.onerror = () => reject(new Error('cursor failed'));
+        };
+        req.onerror = () => reject(new Error('open failed'));
+      });
+    }, bookId);
+
+    expect(corrupted, 'H: failed to find a node with a footnote sup to corrupt').toBeTruthy();
+    // eslint-disable-next-line no-console
+    console.log(`[H] Corrupted node ${corrupted.startLine}: stored fn-count-id "${corrupted.originalNumber}" → "999". Map should still say "${corrupted.originalNumber}".`);
+
+    await checkpoint(page, bookId, 'H_after_idb_corruption');
+
+    // STEP 2: Reload so window.nodes (the lazy loader's in-memory cache) gets
+    // re-populated from the now-corrupted IDB. Without reload, window.nodes
+    // still has the original pre-corruption content, and createChunkElement
+    // would render the correct number — never exercising the render-heal.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => document.body.getAttribute('data-page') === 'reader', null, { timeout: 15000 });
+    await page.waitForTimeout(3000);
+
+    // STEP 3: TOC-nav deep into the book so the corrupted chunk loads via
+    // lazyLoader → createChunkElement → applyDynamicFootnoteNumbers, which
+    // should detect "stored 999 vs map says <originalNumber>" and queue
+    // the render-heal.
+    await spa.openToc(page);
+    const entries = await spa.getTocEntries(page);
+    expect(entries.length, 'H: TOC should have entries').toBeGreaterThan(1);
+    await spa.clickTocEntry(page, entries.length - 1);
+    // Give render-heal time to flush (setTimeout 0 + inner async batch write)
+    await page.waitForTimeout(3000);
+
+    await checkpoint(page, bookId, 'H_after_toc_nav_render_heal');
+
+    // Diagnostic: did the corrupted node actually render? What does the DOM
+    // say vs IDB? This tells us whether applyDynamicFootnoteNumbers had a
+    // chance to run on it.
+    const domState = await page.evaluate((startLine) => {
+      const block = document.querySelector(`[id="${startLine}"]`);
+      if (!block) return { rendered: false };
+      const sup = block.querySelector('sup[fn-count-id]');
+      return {
+        rendered: true,
+        blockOuterHTML: block.outerHTML.slice(0, 300),
+        supFnCountId: sup ? sup.getAttribute('fn-count-id') : null,
+        supText: sup ? sup.textContent : null,
+        supId: sup ? sup.id : null,
+      };
+    }, corrupted.startLine);
+    // eslint-disable-next-line no-console
+    console.log(`[H] DOM state for node ${corrupted.startLine}:`, JSON.stringify(domState, null, 2));
+
+    // STEP 3: Read IDB and confirm the sup is no longer "999". The render-heal
+    // should have rewritten it to the correct sequential number from the map.
+    const after = await page.evaluate(async ({ bookId, startLine }) => {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('MarkdownDB');
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          const tx = db.transaction('nodes', 'readonly');
+          const store = tx.objectStore('nodes');
+          const getReq = store.get([bookId, startLine]);
+          getReq.onsuccess = () => {
+            const node = getReq.result;
+            db.close();
+            if (!node) return resolve(null);
+            const m = node.content.match(/<sup\b[^>]*\bfn-count-id="(\d+)"[^>]*>(\d+)<\/sup>/);
+            resolve({
+              content: node.content,
+              firstSupCountId: m ? m[1] : null,
+              firstSupText: m ? m[2] : null,
+            });
+          };
+          getReq.onerror = () => reject(new Error('get failed'));
+        };
+        req.onerror = () => reject(new Error('open failed'));
+      });
+    }, { bookId, startLine: corrupted.startLine });
+
+    await test.info().attach('H_after_state.json', {
+      body: JSON.stringify({ corrupted, after }, null, 2),
+      contentType: 'application/json',
+    });
+
+    // eslint-disable-next-line no-console
+    console.log(`[H] After reload + render-heal: node ${corrupted.startLine} now has fn-count-id="${after?.firstSupCountId}" text="${after?.firstSupText}" (was 999, should be back to ${corrupted.originalNumber})`);
+
+    expect(after, 'H: node disappeared from IDB after reload').toBeTruthy();
+    // The most important assertion: the "999" we wrote into IDB should be
+    // gone, replaced by whatever number the map computes (typically the
+    // original).
+    expect(after.firstSupCountId, `Render-time self-heal failed to fix stale fn-count-id. Stored content: ${after.content?.slice(0, 200)}`).not.toBe('999');
+    expect(after.firstSupText, `Render-time self-heal failed to fix stale sup text`).not.toBe('999');
+
+    // Final: full invariant check should pass too
+    const finalSnap = await checkpoint(page, bookId, 'H_final_invariants');
+    expect(finalSnap.violations, `Post-heal violations:\n${JSON.stringify(finalSnap.violations.slice(0, 10), null, 2)}`).toEqual([]);
+  });
 });
