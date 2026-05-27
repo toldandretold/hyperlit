@@ -16,6 +16,26 @@ let footnoteMap = new Map(); // footnoteId → displayNumber
 let reverseMap = new Map();  // displayNumber → footnoteId
 let currentBookId = null;
 
+// Test-only diagnostic hook. Off in prod (window.__fnDiag undefined unless an
+// e2e test explicitly enables it via `window.__fnDiag = { ... }`).
+// Provides:
+//   window.__fnDiag.snapshot()   → { bookId, mapEntries, rebuildCount }
+//   window.__fnDiag.rebuildCount  (incremented by buildFootnoteMap)
+//   window.__fnDiag.domMutations  (populated by lazyLoaderFactory)
+if (typeof window !== 'undefined') {
+  if (!window.__fnDiag) {
+    // Tests will replace this with `window.__fnDiag = { enabled: true, ... }`
+    // before navigating. When `enabled` is falsy we still record snapshot()
+    // results (cheap) but skip per-mutation accumulation in hot paths.
+    window.__fnDiag = { enabled: false, rebuildCount: 0, domMutations: [] };
+  }
+  window.__fnDiag.snapshot = () => ({
+    bookId: currentBookId,
+    mapEntries: Array.from(footnoteMap.entries()),
+    rebuildCount: window.__fnDiag.rebuildCount || 0,
+  });
+}
+
 /**
  * Build the footnote numbering map for a book.
  * Sorts nodes by startLine and assigns sequential numbers to footnote IDs.
@@ -25,6 +45,10 @@ let currentBookId = null;
  * @returns {Map} footnoteId → displayNumber
  */
 export function buildFootnoteMap(bookId, nodes) {
+  if (typeof window !== 'undefined' && window.__fnDiag) {
+    window.__fnDiag.rebuildCount = (window.__fnDiag.rebuildCount || 0) + 1;
+  }
+
   // Clear existing cache if book changed
   if (currentBookId !== bookId) {
     footnoteMap.clear();
@@ -213,10 +237,20 @@ export async function rebuildAndRenumber(bookId, nodes) {
   // [diagnostic] report which DOM nodes the renumber touched
   console.log(`[diag][renumber] DOM updates affected ${affectedStartLines.size} startLines`, Array.from(affectedStartLines));
 
-  // Persist the updated fn-count-id values to IndexedDB
+  // Persist updated fn-count-id values for currently-rendered nodes via the
+  // DOM-based batch path (also handles highlights/cites).
   if (affectedStartLines.size > 0) {
     await persistRenumberedNodes(bookId, affectedStartLines);
   }
+
+  // Re-enabled 2026-05-27 after Playwright scenario C deterministically
+  // reproduced the divergence (483-node book, 1 footnote insert at top → 111
+  // stored nodes' fn-count-id values disagree with the dynamic map). The
+  // map is the canonical side here — it reflects the just-completed edit;
+  // stored HTML for non-rendered nodes is the stale side. See
+  // tests/e2e/specs/footnotes/footnote-integrity.spec.js scenario C and
+  // ~/.claude/plans/transient-wiggling-emerson.md.
+  await reconcileStoredFootnoteContent(bookId, affectedStartLines);
 
   // Emit event for any listeners
   window.dispatchEvent(new CustomEvent('footnotesRenumbered', {
@@ -224,6 +258,133 @@ export async function rebuildAndRenumber(bookId, nodes) {
   }));
 
   verbose.content(`Footnotes renumbered: ${footnoteMap.size} total`, 'FootnoteNumberingService.js');
+}
+
+/**
+ * Apply the current footnote map to the sup elements inside a stored HTML
+ * string. Returns { changed, newContent }. Mirrors the per-sup logic in
+ * updateFootnoteNumbersInDOM but operates on detached HTML so it works for
+ * nodes that aren't currently rendered.
+ */
+function applyFootnoteMapToStoredHTML(html) {
+  if (!html) return { changed: false, newContent: html };
+
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+
+  let changed = false;
+  const sups = temp.querySelectorAll('sup[fn-count-id]');
+  for (const sup of sups) {
+    let footnoteId = sup.id;
+    if (footnoteId && footnoteId.endsWith('ref')) {
+      footnoteId = footnoteId.slice(0, -3);
+    }
+    if (!footnoteId) {
+      const link = sup.querySelector('a');
+      const href = link?.getAttribute('href');
+      if (href) footnoteId = href.replace(/^#/, '');
+    }
+    if (!footnoteId) continue;
+
+    const currentValue = sup.getAttribute('fn-count-id');
+    // Preserve intentional non-numeric markers (*, †, 43a) — but renumber "?" placeholders
+    const shouldPreserveMarker = currentValue && currentValue !== '?' && !/^\d+$/.test(currentValue);
+    if (shouldPreserveMarker) continue;
+
+    const displayNumber = footnoteMap.get(footnoteId);
+    if (!displayNumber || typeof displayNumber !== 'number') continue;
+
+    const newValue = displayNumber.toString();
+    if (currentValue !== newValue) {
+      sup.setAttribute('fn-count-id', newValue);
+      const link = sup.querySelector('a');
+      if (link) {
+        link.textContent = newValue;
+      } else {
+        sup.textContent = newValue;
+      }
+      changed = true;
+    }
+  }
+
+  if (!changed) return { changed: false, newContent: html };
+
+  const newContent = temp.firstElementChild
+    ? temp.firstElementChild.outerHTML
+    : temp.innerHTML;
+  return { changed: true, newContent };
+}
+
+/**
+ * Walk every node in IDB for this book and rewrite stored sup numbers that
+ * disagree with the current footnote map. Skips nodes that were already
+ * persisted via the DOM path (those start lines come in via skipStartLines).
+ *
+ * Each updated node is queued for server sync so the server eventually
+ * converges on the same numbers.
+ */
+async function reconcileStoredFootnoteContent(bookId, skipStartLines = new Set()) {
+  const { openDatabase } = await import('../indexedDB/core/connection.js');
+  const { queueForSync } = await import('../indexedDB/syncQueue/index.js');
+
+  let db;
+  try {
+    db = await openDatabase();
+  } catch (e) {
+    log.error('Failed to open DB for footnote reconciliation', 'FootnoteNumberingService.js', e);
+    return 0;
+  }
+
+  const skip = new Set([...skipStartLines].map(String));
+
+  return new Promise((resolve) => {
+    const tx = db.transaction('nodes', 'readwrite');
+    const store = tx.objectStore('nodes');
+    const index = store.index('book');
+
+    const writtenUpdates = [];
+
+    const cursorReq = index.openCursor(IDBKeyRange.only(bookId));
+    cursorReq.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (!cursor) return;
+
+      const node = cursor.value;
+      const skipThis =
+        skip.has(String(node.startLine)) ||
+        !node.content ||
+        !node.footnotes ||
+        node.footnotes.length === 0;
+
+      if (!skipThis) {
+        const { changed, newContent } = applyFootnoteMapToStoredHTML(node.content);
+        if (changed) {
+          const updated = { ...node, content: newContent };
+          cursor.update(updated);
+          writtenUpdates.push({ updated, original: node });
+        }
+      }
+
+      cursor.continue();
+    };
+    cursorReq.onerror = (e) => {
+      console.error('[reconcile] cursor error', e.target?.error);
+    };
+
+    tx.oncomplete = () => {
+      for (const { updated, original } of writtenUpdates) {
+        queueForSync('nodes', updated.startLine, 'update', updated, original);
+      }
+      if (writtenUpdates.length > 0) {
+        console.log(`📝 Reconciled stored footnote numbers in ${writtenUpdates.length} non-rendered node(s) for ${bookId}`);
+      }
+      resolve(writtenUpdates.length);
+    };
+    tx.onerror = (e) => {
+      console.error('[reconcile] transaction error', e.target?.error);
+      resolve(0);
+    };
+  });
 }
 
 /**

@@ -60,14 +60,37 @@ function applyDynamicFootnoteNumbers(element) {
     const displayNumber = getDisplayNumber(footnoteId);
 
     if (displayNumber) {
+      const newValue = displayNumber.toString();
+      const oldValue = sup.getAttribute('fn-count-id');
+
       // Update the sup's fn-count-id attribute
-      sup.setAttribute('fn-count-id', displayNumber.toString());
+      sup.setAttribute('fn-count-id', newValue);
 
       // Update the visible text
       if (anchor) {
-        anchor.textContent = displayNumber.toString();
+        anchor.textContent = newValue;
       } else {
-        sup.textContent = displayNumber.toString();
+        sup.textContent = newValue;
+      }
+
+      // Diagnostic: record mutations where the renderer changed the displayed
+      // number (i.e. the map disagreed with what was in stored HTML). Tests
+      // enable this via window.__fnDiag = { enabled: true, ... } before nav.
+      if (oldValue !== newValue && typeof window !== 'undefined' && window.__fnDiag && window.__fnDiag.enabled) {
+        const block = sup.closest('[id]');
+        const startLine = block && /^\d+(\.\d+)?$/.test(block.id) ? block.id : null;
+        if (!window.__fnDiag.domMutations) window.__fnDiag.domMutations = [];
+        window.__fnDiag.domMutations.push({
+          source: 'applyDynamicFootnoteNumbers',
+          startLine,
+          footnoteId,
+          oldValue,
+          newValue,
+          ts: Date.now(),
+        });
+        if (window.__fnDiag.domMutations.length > 100) {
+          window.__fnDiag.domMutations.shift();
+        }
       }
     }
   }

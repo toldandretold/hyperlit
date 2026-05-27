@@ -78,19 +78,51 @@ class CanonicalSourceMatcher
             if ($result = $this->tryOpenAlexDoi($library, $dryRun)) return $result;
         }
 
-        // 4. Primary title-search pass: OpenAlex → Open Library → Semantic Scholar
-        if (!empty($library->title)) {
+        // Title-search waves (4 & 5) need BOTH a usable title and an author to be
+        // worth the API spend. Without an author, the matcher's metadataScore can't
+        // disambiguate which of several candidates is actually the right work, and
+        // we end up either burning calls for no reason or risking false positives.
+        // Identifier waves (1–3) are unaffected — DOI / openalex_id / open_library_key
+        // are authoritative on their own.
+        if ($this->hasUsableTitleAndAuthor($library)) {
+            // 4. Primary title-search pass: OpenAlex → Open Library → Semantic Scholar
             if ($result = $this->tryTitleSearch($library, $library->title, 'full', $dryRun)) return $result;
-        }
 
-        // 5. Retry with shortened title (strip subtitle after ":")
-        $shortened = $this->shortenTitle($library->title);
-        if ($shortened !== null && $shortened !== $library->title) {
-            if ($result = $this->tryTitleSearch($library, $shortened, 'short', $dryRun)) return $result;
+            // 5. Retry with shortened title (strip subtitle after ":")
+            $shortened = $this->shortenTitle($library->title);
+            if ($shortened !== null && $shortened !== $library->title) {
+                if ($result = $this->tryTitleSearch($library, $shortened, 'short', $dryRun)) return $result;
+            }
         }
 
         $this->stampNoMatch($library, $dryRun);
         return $this->result(self::STATUS_NO_MATCH, null, null, null, 'no canonical or external match found');
+    }
+
+    /**
+     * Title-search guard. Both title and author must be present and non-junk for the
+     * matcher to have enough signal to disambiguate candidates. Junk titles ("Untitled",
+     * very short strings, all-numeric) silently waste API calls and can produce dodgy
+     * matches when a candidate happens to score above threshold by coincidence.
+     */
+    private function hasUsableTitleAndAuthor(PgLibrary $library): bool
+    {
+        $title  = trim((string) ($library->title  ?? ''));
+        $author = trim((string) ($library->author ?? ''));
+
+        if ($title === '' || $author === '') return false;
+        if (strlen($title) < 5) return false;
+
+        // The placeholder title we ship with the "new book" form, plus common junk
+        // patterns. Anchored at the start so legitimate titles containing the word
+        // (e.g. an art-history reference to "Untitled (1948)") still pass — provided
+        // they have more after it.
+        if (preg_match('/^(untitled|new (book|document)|test|sample|draft)$/i', $title)) return false;
+        // All-numeric or repeating-single-char titles are degenerate.
+        if (preg_match('/^[\d\s]+$/', $title)) return false;
+        if (preg_match('/^(.)\1+$/', $title)) return false;
+
+        return true;
     }
 
     /**
