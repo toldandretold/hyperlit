@@ -40,11 +40,17 @@ return [
         'api_key'            => env('LLM_API_KEY'),
         'model'              => 'accounts/fireworks/models/qwen3-8b',
         'extraction_model'   => 'accounts/fireworks/models/qwen3-8b',
-        'verification_model' => 'accounts/fireworks/models/deepseek-v3p2',
+        'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
         'pricing' => [
-            // Fireworks AI — cost per 1M tokens (USD)
-            'accounts/fireworks/models/qwen3-8b'     => ['input' => 0.20, 'output' => 0.20],
+            // Fireworks AI — cost per 1M tokens (USD). Verified live 2026-05-27.
+            'accounts/fireworks/models/deepseek-v4-pro'         => ['input' => 1.74, 'output' => 3.48],
+            'accounts/fireworks/models/kimi-k2p6'               => ['input' => 0.95, 'output' => 4.00],
+            'accounts/fireworks/models/kimi-k2p5'               => ['input' => 0.60, 'output' => 3.00],
+            'accounts/fireworks/models/glm-5p1'                 => ['input' => 1.40, 'output' => 4.40],
+            'accounts/fireworks/models/gpt-oss-120b'            => ['input' => 0.15, 'output' => 0.60],
+            // Retired on Fireworks — kept for cost lookup on historical ledger rows
+            'accounts/fireworks/models/qwen3-8b'                => ['input' => 0.20, 'output' => 0.20],
             'accounts/fireworks/models/deepseek-v3p2'           => ['input' => 0.56, 'output' => 1.68],
             'accounts/fireworks/models/deepseek-v3p1'           => ['input' => 0.56, 'output' => 1.68],
             'accounts/fireworks/models/llama-v3p3-70b-instruct' => ['input' => 0.90, 'output' => 0.90],

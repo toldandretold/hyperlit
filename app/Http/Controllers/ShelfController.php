@@ -73,6 +73,8 @@ class ShelfController extends Controller
             'shelves.default_sort',
             'shelves.created_at',
             'shelves.updated_at',
+            // item_count used by the AI Brain shelf picker to refuse submit on empty shelves
+            DB::raw('(SELECT COUNT(*) FROM shelf_items WHERE shelf_items.shelf_id = shelves.id) AS item_count'),
         ];
 
         $query = DB::table('shelves')->where('shelves.creator', $user->name);

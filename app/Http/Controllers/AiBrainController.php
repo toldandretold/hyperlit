@@ -63,6 +63,11 @@ class AiBrainController extends Controller
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
         }
 
+        // 🔒 Privacy + scope contract is locked by tests/Feature/AiBrain/AiBrainScopeValidationTest.php
+        //   — rejects retired 'all' / 'this' scopes (422)
+        //   — rejects shelf scope without shelfId (422), non-uuid shelfId (422)
+        //   — rejects shelfId belonging to another user (404)
+        // If you change the allowed scopes here, update the tests.
         try {
             $validated = $request->validate([
                 'selectedText' => 'required|string|min:5|max:5000',
@@ -72,7 +77,9 @@ class AiBrainController extends Controller
                 'nodeIds'      => 'required|array',
                 'charData'     => 'required|array',
                 'model'        => 'nullable|string|max:100',
-                'sourceScope'  => 'nullable|string|in:public,mine,all,this',
+                'sourceScope'  => 'nullable|string|in:public,mine,shelf',
+                'mode'         => 'nullable|string|in:quick,archivist',
+                'shelfId'      => 'nullable|string|uuid',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -82,24 +89,46 @@ class AiBrainController extends Controller
             ], 422);
         }
 
-        // Fallback chain: if the primary model is down, try each in order
+        // Shelf scope ownership check (cheap pre-flight before opening the stream).
+        // Covered by: tests/Feature/AiBrain/AiBrainScopeValidationTest.php
+        //   "rejects shelfId belonging to another user with 404"
+        if (($validated['sourceScope'] ?? null) === 'shelf') {
+            $shelfId = $validated['shelfId'] ?? null;
+            if (!$shelfId) {
+                return response()->json(['success' => false, 'message' => 'shelfId is required when sourceScope=shelf'], 422);
+            }
+            $owned = DB::table('shelves')->where('id', $shelfId)->where('creator', $user->name)->exists();
+            if (!$owned) {
+                return response()->json(['success' => false, 'message' => 'Shelf not found or not yours'], 404);
+            }
+        }
+
+        // Fireworks AI fallback chain. Verified live 2026-05-27.
+        //
+        // TODO: when Fireworks credits run out, migrate to DeepInfra:
+        //   LLM_BASE_URL=https://api.deepinfra.com/v1/openai
+        //   primary: deepseek-ai/DeepSeek-V3.2                  ($0.26 in / $0.38 out per 1M)
+        //   fallback: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B  ($0.10/$0.50)
+        //   fallback: Qwen/Qwen3.6-35B-A3B                      ($0.15/$0.95)
+        // Reasons to switch: ~50% cheaper input + ~75% cheaper output, SOC 2 +
+        // ISO 27001, zero-retention (in-memory only), no training-on-prompts.
         $fallbackChain = [
-            'accounts/fireworks/models/deepseek-v3p2',
-            'accounts/fireworks/models/deepseek-v3p1',
-            'accounts/fireworks/models/minimax-m2p5',
+            'accounts/fireworks/models/deepseek-v4-pro',  // primary — DeepSeek V4 Pro
+            'accounts/fireworks/models/kimi-k2p6',        // fallback 1 — different family
+            'accounts/fireworks/models/gpt-oss-120b',     // fallback 2 — cheap safety net
         ];
 
         $modelLabels = [
-            'accounts/fireworks/models/deepseek-v3p2'    => 'DeepSeek V3.2',
-            'accounts/fireworks/models/deepseek-v3p1'    => 'DeepSeek V3.1',
-            'accounts/fireworks/models/minimax-m2p5'     => 'MiniMax M2.5',
+            'accounts/fireworks/models/deepseek-v4-pro' => 'DeepSeek V4 Pro',
+            'accounts/fireworks/models/kimi-k2p6'       => 'Kimi K2.6',
+            'accounts/fireworks/models/gpt-oss-120b'    => 'GPT-OSS 120B',
         ];
 
         // Place user-selected model first in the chain (if valid)
         $allowedModels = array_keys($modelLabels);
         $brainModel = in_array($validated['model'] ?? null, $allowedModels)
             ? $validated['model']
-            : 'accounts/fireworks/models/deepseek-v3p2';
+            : 'accounts/fireworks/models/deepseek-v4-pro';
 
         // Reorder fallback chain: user's chosen model first, then the rest
         $fallbackChain = array_values(array_unique(array_merge([$brainModel], $fallbackChain)));
@@ -119,14 +148,35 @@ class AiBrainController extends Controller
                 $question = $validated['question'];
                 $bookId = $validated['bookId'];
                 $sourceScope = $validated['sourceScope'] ?? 'public';
+                $shelfId = $validated['shelfId'] ?? null;
+                $mode = $validated['mode'] ?? 'archivist';
                 $creatorName = $user->name;
 
                 Log::info('AiBrain: query started', [
                     'user' => $user->name,
                     'book' => $bookId,
+                    'mode' => $mode,
+                    'sourceScope' => $sourceScope,
+                    'shelfId' => $shelfId,
                     'question' => Str::limit($question, 100),
                     'selectedText_len' => strlen($selectedText),
                 ]);
+
+                if ($mode === 'quick') {
+                    $this->runQuickChat(
+                        $validated,
+                        $user,
+                        $brainModel,
+                        $modelLabel,
+                        $modelLabels,
+                        $fallbackChain,
+                        $llmService,
+                        $billingService,
+                        $embeddingService,
+                        $sendEvent
+                    );
+                    return;
+                }
 
                 // 3. Fetch local context BEFORE router (so router can see it)
                 $sendEvent('status', ['message' => 'Gathering surrounding context...']);
@@ -161,15 +211,10 @@ class AiBrainController extends Controller
                     return;
                 }
 
-                if ($routerType === 'answer') {
-                    $sendEvent('status', ['message' => 'Answering from context...']);
-                } else {
-                    $sendEvent('status', ['message' => 'Planning library search...']);
-                }
+                $sendEvent('status', ['message' => 'Planning library search...']);
 
                 $pipelineLog = [
-                    'router_model' => $routerResult['router_model'] ?? basename($routerModel),
-                    'router_type' => $routerType,
+                    'router_model' => $routerResult['router_model'] ?? 'unknown',
                     'router_reasoning' => $routerResult['reasoning'] ?? '',
                     'book_title' => $bookTitle,
                     'book_author' => $authorName,
@@ -185,17 +230,8 @@ class AiBrainController extends Controller
                 $toolsUsed = [];
                 $queryText = null;
 
-                if ($routerType === 'answer') {
-                    // === DIRECT ANSWER PATH ===
-                    $processedHtml = $routerResult['answer'];
-                    $toolsUsed = ['local_context'];
-                    $pipelineLog['tools_used'] = $toolsUsed;
-                    $pipelineLog['prompt_summary'] = 'Router answered directly from context — no library search performed';
-
-                    Log::info('AiBrain: direct answer from router', ['html_length' => strlen($processedHtml)]);
-                } else {
-                    // === SEARCH PATH ===
-                    $plan = $routerResult['plan'];
+                // === SEARCH PATH (the only path in Archivist mode) ===
+                $plan = $routerResult['plan'];
                     $pipelineLog['keywords'] = $plan['keywords'] ?? '';
                     $pipelineLog['library_keywords'] = $plan['library_keywords'] ?? '';
 
@@ -207,6 +243,7 @@ class AiBrainController extends Controller
                         'authorName' => $authorName,
                         'bookTitle' => $bookTitle,
                         'sourceScope' => $sourceScope,
+                        'shelfId' => $shelfId,
                         'creatorName' => $creatorName,
                     ];
 
@@ -225,11 +262,17 @@ class AiBrainController extends Controller
                     $pipelineLog['retrieval_log'] = $result['log'];
                     $pipelineLog['tools_used'] = $toolsUsed;
 
-                    // Check for matches when search tools were used
+                    // Check for matches when search tools were used.
+                    // No billing happens past this point — early return skips BillingService::charge below.
+                    // Locked by tests/Feature/AiBrain/BillingFailurePathsTest.php:
+                    //   "no billing when shelf scope retrieval returns empty matches"
                     $hasSearchTools = !empty(array_intersect($toolsUsed, ['embedding_search', 'keyword_search', 'library_search']));
                     if ($hasSearchTools && empty($matches)) {
-                        Log::info('AiBrain: no matches found', ['tools' => $toolsUsed]);
-                        $sendEvent('error', ['message' => 'No relevant passages found in the library']);
+                        Log::info('AiBrain: no matches found', ['tools' => $toolsUsed, 'scope' => $sourceScope]);
+                        $noMatchMessage = $sourceScope === 'shelf'
+                            ? 'No matches in this shelf. Try a different scope or shelf.'
+                            : 'No relevant passages found in the library.';
+                        $sendEvent('error', ['message' => $noMatchMessage]);
                         return;
                     }
 
@@ -323,7 +366,6 @@ class AiBrainController extends Controller
                         'hypercites_count' => count($hypercites),
                         'html_length' => strlen($processedHtml),
                     ]);
-                }
 
                 // 8. Create library record for the sub-book (via pgsql_admin to bypass RLS)
                 DB::connection('pgsql_admin')->table('library')->updateOrInsert(
@@ -484,12 +526,195 @@ class AiBrainController extends Controller
     }
 
     /**
-     * Route the query: either answer directly from context, or plan a search.
+     * Quick Chat path — one LLM call, no router, no retrieval, no hypercites.
+     * Emits the same SSE result shape as the archivist path so the frontend doesn't
+     * need to branch on the response side.
+     */
+    private function runQuickChat(
+        array $validated,
+        $user,
+        string $brainModel,
+        string $modelLabel,
+        array $modelLabels,
+        array $fallbackChain,
+        LlmService $llmService,
+        BillingService $billingService,
+        EmbeddingService $embeddingService,
+        \Closure $sendEvent
+    ): void {
+        $selectedText = $validated['selectedText'];
+        $question = $validated['question'];
+        $bookId = $validated['bookId'];
+        $highlightId = $validated['highlightId'];
+        $subBookId = SubBookIdHelper::build($bookId, $highlightId);
+        $timestamp = now()->timestamp;
+
+        $sendEvent('status', ['message' => 'Sending to ' . $modelLabel . '...']);
+
+        $systemPrompt = <<<'PROMPT'
+You are a helpful reading assistant. The user is reading a book and has
+selected a passage and asked a question about it.
+
+Use the selected passage as context for what they're reading. Answer their
+question helpfully, drawing on your general knowledge where useful — e.g.
+explaining a word, comparing to other ideas, suggesting related authors,
+or giving background the passage assumes.
+
+Rules:
+- Format as HTML paragraphs using <p> tags. Use <em> for emphasis and
+  <blockquote> for quoting back text.
+- No headings (h1-h6) and no wrapping container div.
+- Be honest about what the passage says vs. what is your wider knowledge.
+- Don't fabricate citations or quotes that aren't there.
+- Keep responses focused — usually 1-4 paragraphs.
+PROMPT;
+        $userMessage = "SELECTED PASSAGE:\n{$selectedText}\n\nQUESTION:\n{$question}";
+
+        $onRetry = function (int $attempt, int $maxAttempts, int $status) use ($sendEvent) {
+            $sendEvent('status', ['message' => "Server busy — retrying ({$attempt}/{$maxAttempts})..."]);
+        };
+        $onFallback = function (string $modelName) use ($sendEvent, $modelLabels) {
+            $label = $modelLabels["accounts/fireworks/models/{$modelName}"] ?? $modelName;
+            $sendEvent('status', ['message' => "Primary model unavailable — trying {$label}..."]);
+        };
+
+        $llmResult = $llmService->chatWithFallback(
+            $systemPrompt, $userMessage, 0.3, 4096, $fallbackChain, 180, null, $onRetry, $onFallback
+        );
+
+        if (!$llmResult) {
+            Log::warning('AiBrain (quick): LLM — all models failed');
+            $sendEvent('error', ['message' => 'The AI model failed to respond. Please try again.']);
+            return;
+        }
+
+        $llmResponse = $llmResult['content'];
+        $brainModel = $llmResult['model'];
+
+        // Strip <think> tags
+        $llmResponse = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $llmResponse);
+        if (str_contains($llmResponse, '<think>')) {
+            $llmResponse = preg_replace('/<think>[\s\S]*/i', '', $llmResponse);
+        }
+        $processedHtml = trim($llmResponse);
+
+        // Library upsert
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+            ['book' => $subBookId],
+            [
+                'creator'       => $user->name,
+                'creator_token' => null,
+                'visibility'    => 'public',
+                'listed'        => false,
+                'title'         => 'AI: ' . Str::limit($question, 80),
+                'type'          => 'sub_book',
+                'has_nodes'     => true,
+                'raw_json'      => json_encode([]),
+                'timestamp'     => 0,
+            ]
+        );
+
+        // Clear existing nodes for this sub-book (synced from highlight creation) and render
+        DB::connection('pgsql_admin')->table('nodes')->where('book', $subBookId)->delete();
+
+        $questionNode = '<p><b>Prompt</b>: "' . e(Str::limit($question, 1000)) . '"</p>';
+        $aiLabel = '<p><b>Quick Chat</b>:</p>';
+        $conversationHtml = $questionNode . $aiLabel . $processedHtml;
+        $nodes = $this->createResponseNodes($conversationHtml, $subBookId);
+
+        // Minimal appendix: model + cost only
+        $usageStats = $llmService->getUsageStats();
+        $totalCost = $this->calculateCost($usageStats, $embeddingService, null);
+        $appendixHtml = '<p data-appendix="true"><strong>Sent to ' . e(basename($brainModel))
+            . '</strong> — <strong>Cost:</strong> $' . number_format($totalCost, 5) . '</p>';
+        $appendixNodes = $this->createResponseNodes($appendixHtml, $subBookId, count($nodes));
+        $nodes = array_merge($nodes, $appendixNodes);
+
+        $previewNodes = array_map(fn($n) => [
+            'book'      => $n['book'],
+            'chunk_id'  => $n['chunk_id'],
+            'startLine' => $n['startLine'],
+            'node_id'   => $n['node_id'],
+            'content'   => $n['content'],
+            'plainText' => $n['plainText'],
+        ], array_slice($nodes, 0, 5));
+
+        $hyperlightData = [
+            'book'            => $bookId,
+            'hyperlight_id'   => $highlightId,
+            'sub_book_id'     => $subBookId,
+            'node_id'         => json_encode($validated['nodeIds']),
+            'charData'        => json_encode($validated['charData']),
+            'annotation'      => null,
+            'highlightedText' => Str::limit($selectedText, 500),
+            'creator'         => $user->name,
+            'creator_token'   => null,
+            'time_since'      => $timestamp,
+            'preview_nodes'   => json_encode($previewNodes),
+            'raw_json'        => json_encode(['brain_query' => true, 'mode' => 'quick', 'question' => Str::limit($question, 1000)]),
+            'hidden'          => false,
+        ];
+        DB::connection('pgsql_admin')->table('hyperlights')->updateOrInsert(
+            ['book' => $bookId, 'hyperlight_id' => $highlightId],
+            $hyperlightData
+        );
+
+        $nowMs = round(microtime(true) * 1000);
+        DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $nowMs]);
+
+        $billingService->charge(
+            $user,
+            $totalCost,
+            'AI Quick Chat: ' . Str::limit($question, 60),
+            'ai_brain',
+            [],
+            ['book_id' => $bookId, 'highlight_id' => $highlightId]
+        );
+
+        Log::info('AiBrain (quick): complete', [
+            'highlightId' => $highlightId,
+            'subBookId' => $subBookId,
+            'nodes_count' => count($nodes),
+            'cost' => $totalCost,
+        ]);
+
+        $sendEvent('result', [
+            'success'       => true,
+            'highlightId'   => $highlightId,
+            'subBookId'     => $subBookId,
+            'nodes'         => $nodes,
+            'preview_nodes' => $previewNodes,
+            'library'       => [
+                'book'       => $subBookId,
+                'title'      => 'AI: ' . Str::limit($question, 80),
+                'type'       => 'sub_book',
+                'visibility' => 'public',
+                'has_nodes'  => true,
+                'creator'    => $user->name,
+            ],
+            'hyperlight' => array_merge($hyperlightData, [
+                'node_id'       => $validated['nodeIds'],
+                'charData'      => $validated['charData'],
+                'preview_nodes' => $previewNodes,
+                'raw_json'      => ['brain_query' => true, 'mode' => 'quick', 'question' => Str::limit($question, 1000)],
+            ]),
+            'hypercites'  => [],
+            'tools_used'  => ['quick_chat'],
+        ]);
+    }
+
+    /**
+     * Extract a search plan from the user's selection + question.
+     *
+     * One LLM call that rewrites the question into good search terms — keywords,
+     * library keywords (author/title hints), and an embedding query. The previous
+     * "answer directly from context" auto path is gone: in Archivist mode the
+     * user has explicitly asked for library sources, so we always retrieve.
+     * Quick Chat skips this whole flow upstream.
      *
      * Returns:
-     *   'type' => 'answer' | 'search'
-     *   'answer' => string (HTML, only when type=answer)
-     *   'plan' => array (keywords/library_keywords/embedding_query, only when type=search)
+     *   'type' => 'search' (always; 'error' on total LLM failure)
+     *   'plan' => array (keywords/library_keywords/embedding_query)
      *   'author_name' => ?string
      *   'book_title' => string
      *   'reasoning' => string
@@ -511,16 +736,9 @@ class AiBrainController extends Controller
         $systemPrompt = <<<'PROMPT'
 You are an AI Archivist — a scholarly research assistant for the Hyperlit archive.
 The user has selected a passage from a book and asked a question about it.
-You have the passage, its surrounding context, and the user's question.
+Your job is to rewrite their question into a search plan for finding supporting
+sources in the library.
 
-OPTION A — If you can fully answer from the provided text and context:
-Respond with your answer as HTML paragraphs (<p> tags) wrapped in <answer>...</answer> tags.
-Follow these rules:
-- Use <em> for emphasis and <blockquote> for longer quotes
-- Do NOT include headings (h1-h6)
-- Keep your response focused (2-6 paragraphs)
-
-OPTION B — If you need external sources from the library:
 Respond with a JSON search plan wrapped in <search>...</search> tags:
 {
   "keywords": "3-5 distinctive terms for full-text search (terms are OR'd — each should be specific enough to find relevant passages on its own, e.g. 'counterfactual NIEO dependency' not a long list)",
@@ -529,8 +747,8 @@ Respond with a JSON search plan wrapped in <search>...</search> tags:
   "reasoning": "brief explanation of what you're looking for"
 }
 
-Choose OPTION A when the question is about understanding/explaining the passage itself.
-Choose OPTION B when the question asks about related ideas, other authors, or needs supporting sources.
+Always produce a search plan. Do NOT try to answer the question yourself —
+that happens downstream once we have the source passages.
 PROMPT;
 
         // Build user message with surrounding context
@@ -607,16 +825,7 @@ PROMPT;
         }
         $result = trim($result);
 
-        // Check for <answer> tag — direct answer path
-        if (preg_match('/<answer>([\s\S]*?)<\/answer>/i', $result, $answerMatch)) {
-            return array_merge($base, [
-                'type' => 'answer',
-                'answer' => trim($answerMatch[1]),
-                'reasoning' => 'Answered directly from context',
-            ]);
-        }
-
-        // Check for <search> tag — search path
+        // Search plan path
         if (preg_match('/<search>([\s\S]*?)<\/search>/i', $result, $searchMatch)) {
             $json = trim($searchMatch[1]);
             $json = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $json));
@@ -1095,58 +1304,49 @@ PROMPT;
         $reasoning = e($log['router_reasoning'] ?? '');
         $cost = number_format($log['cost'] ?? 0, 5);
         $toolsUsed = $log['tools_used'] ?? [];
-        $routerType = $log['router_type'] ?? 'search';
         $routerModel = e($log['router_model'] ?? 'unknown');
 
-        $scopeLabels = ['public' => 'Public library', 'mine' => 'My books', 'all' => 'Public + my books', 'this' => 'This book only'];
+        $scopeLabels = ['public' => 'Public library', 'mine' => 'My public books', 'shelf' => 'Shelf'];
 
         $html = '<p data-appendix="true"><strong>Appendix</strong></p>';
 
-        // Router decision
-        if ($routerType === 'answer') {
-            $html .= '<p data-appendix="true"><strong>Router (' . $routerModel . '):</strong> '
-                . 'Determined the question could be answered from the selected text and surrounding context. No library search was performed.</p>';
-        } else {
-            $toolLabels = [
-                'local_context' => 'Local context',
-                'embedding_search' => 'Embedding search',
-                'keyword_search' => 'Keyword search',
-                'library_search' => 'Library search',
-            ];
-            $toolNames = array_map(fn($t) => $toolLabels[$t] ?? $t, $toolsUsed);
-            $html .= '<p data-appendix="true"><strong>Router (' . $routerModel . '):</strong> '
-                . e(implode(' + ', $toolNames))
-                . ' — "' . $reasoning . '"</p>';
+        $toolLabels = [
+            'local_context'    => 'Local context',
+            'embedding_search' => 'Embedding search',
+            'keyword_search'   => 'Keyword search',
+            'library_search'   => 'Library search',
+        ];
+        $toolNames = array_map(fn($t) => $toolLabels[$t] ?? $t, $toolsUsed);
+        $html .= '<p data-appendix="true"><strong>Router (' . $routerModel . '):</strong> '
+            . e(implode(' + ', $toolNames))
+            . ' — "' . $reasoning . '"</p>';
 
-            $html .= '<p data-appendix="true"><strong>Source scope:</strong> ' . e($scopeLabels[$log['source_scope'] ?? 'public'] ?? 'Public library') . '</p>';
+        $html .= '<p data-appendix="true"><strong>Source scope:</strong> ' . e($scopeLabels[$log['source_scope'] ?? 'public'] ?? 'Public library') . '</p>';
 
-            $keywords = $log['keywords'] ?? '';
-            $libraryKeywords = $log['library_keywords'] ?? '';
-            if (!empty($keywords)) {
-                $html .= '<p data-appendix="true"><strong>Keywords:</strong> ' . e($keywords) . '</p>';
-            }
-            if (!empty($libraryKeywords)) {
-                $html .= '<p data-appendix="true"><strong>Library keywords:</strong> ' . e($libraryKeywords) . '</p>';
-            }
+        $keywords = $log['keywords'] ?? '';
+        $libraryKeywords = $log['library_keywords'] ?? '';
+        if (!empty($keywords)) {
+            $html .= '<p data-appendix="true"><strong>Keywords:</strong> ' . e($keywords) . '</p>';
+        }
+        if (!empty($libraryKeywords)) {
+            $html .= '<p data-appendix="true"><strong>Library keywords:</strong> ' . e($libraryKeywords) . '</p>';
+        }
 
-            // Per-tool retrieval results
-            if (!empty($log['retrieval_log'])) {
-                $retrievalLines = implode('<br>', array_map('e', $log['retrieval_log']));
-                $html .= '<p data-appendix="true"><strong>Retrieval:</strong><br>' . $retrievalLines . '</p>';
-            }
+        if (!empty($log['retrieval_log'])) {
+            $retrievalLines = implode('<br>', array_map('e', $log['retrieval_log']));
+            $html .= '<p data-appendix="true"><strong>Retrieval:</strong><br>' . $retrievalLines . '</p>';
+        }
 
-            // Sources consulted
-            if (!empty($log['sources_consulted'])) {
-                $sourceLines = '';
-                foreach ($log['sources_consulted'] as $src) {
-                    $title = e($src['title'] ?? 'Untitled');
-                    $year = e($src['year'] ?? '');
-                    $similarity = $src['similarity'] ?? '';
-                    $excerpt = e(Str::limit($src['excerpt'] ?? '', 80));
-                    $sourceLines .= "<em>{$title}</em> ({$year}) — {$similarity}% match — \"{$excerpt}\"<br>";
-                }
-                $html .= '<p data-appendix="true"><strong>Sources consulted:</strong><br>' . $sourceLines . '</p>';
+        if (!empty($log['sources_consulted'])) {
+            $sourceLines = '';
+            foreach ($log['sources_consulted'] as $src) {
+                $title = e($src['title'] ?? 'Untitled');
+                $year = e($src['year'] ?? '');
+                $similarity = $src['similarity'] ?? '';
+                $excerpt = e(Str::limit($src['excerpt'] ?? '', 80));
+                $sourceLines .= "<em>{$title}</em> ({$year}) — {$similarity}% match — \"{$excerpt}\"<br>";
             }
+            $html .= '<p data-appendix="true"><strong>Sources consulted:</strong><br>' . $sourceLines . '</p>';
         }
 
         if (!empty($log['context_nodes'])) {

@@ -10,6 +10,13 @@ import { isLoggedIn } from '../utilities/auth.js';
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
 let pendingBrainHighlightId = null;
 
+// Persistent UI preferences — keep mode/scope/shelf choices across container reopens
+const STORAGE_KEYS = {
+    mode: 'hyperlit:brain:mode',
+    scope: 'hyperlit:brain:scope',
+    shelfId: 'hyperlit:brain:shelfId',
+};
+
 // True while the fetch to /api/ai-brain/query is in-flight.
 // When in-flight, the highlight must persist — the server is processing and a
 // result will appear on next page load even if the user closes now.
@@ -83,30 +90,46 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   const charData = highlight.charData || {};
   const nodeIds = highlight.node_id ? (Array.isArray(highlight.node_id) ? highlight.node_id : JSON.parse(highlight.node_id || '[]')) : [];
 
+  // Read persisted UI preferences (default first-time: Quick Chat + Public scope)
+  const savedMode = localStorage.getItem(STORAGE_KEYS.mode) === 'archivist' ? 'archivist' : 'quick';
+  const savedScope = ['public', 'mine', 'shelf'].includes(localStorage.getItem(STORAGE_KEYS.scope))
+    ? localStorage.getItem(STORAGE_KEYS.scope)
+    : 'public';
+  const savedShelfId = localStorage.getItem(STORAGE_KEYS.shelfId) || '';
+
+  const modeActive = (m) => m === savedMode ? ' active' : '';
+  const scopeActive = (s) => s === savedScope ? ' active' : '';
+
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
     <div class="brain-query-section">
-      <h1>Ask AI Archivist <span class="brain-info-toggle" tabindex="0" role="button" aria-label="AI Archivist info">?</span></h1>
-      <div class="brain-info-detail brain-archivist-info" style="display:none;">
-        Your question is first mediated by DeepSeek, which decides whether the prompt, and contextualised text selection, requires further sources. If necessary, DeepSeek extracts key words and text for vector embeddings, which are used to pull related content from the hyperlit library. The results of this archival work are analysed and then hypercited, so that it connects to the source material.
+      <div class="brain-mode-toggle">
+        <button type="button" class="brain-mode-btn${modeActive('quick')}" data-mode="quick">Quick Chat</button>
+        <button type="button" class="brain-mode-btn${modeActive('archivist')}" data-mode="archivist">AI Archivist</button>
+        <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Mode info">?</span>
+      </div>
+      <div class="brain-info-detail brain-mode-info" style="display:none;">
+        <strong>Quick Chat</strong>: a single LLM response to your question + selected text. No library search, no hypercites.<br>
+        <strong>AI Archivist</strong>: searches the library for sources related to your selection and question, then writes an answer with hypercite links back to the source passages.
       </div>
       <div class="brain-query-annotation" contenteditable="true" data-placeholder="Ask a question about the selected text..."></div>
       <div class="brain-section-label">
         Limit archival search to:
         <span class="brain-info-toggle" tabindex="0" role="button" aria-label="Scope info">?</span>
         <span class="brain-info-detail" style="display:none;">
-          The Archival Assistant may pull sources from across the hyperlit library. Limit the scope of these searches to:<br>
-          <strong>Public</strong>: All publicly available hypertext<br>
-          <strong>Private</strong>: books you imported into your library, including private ones.<br>
-          <strong>All</strong>: Both public and private books.<br>
-          <strong>Here</strong>: only this hypertext.
+          The Archival Assistant pulls only from <strong>public</strong> hypertexts — private books are never sent to the LLM or cited. Limit the scope of these searches to:<br>
+          <strong>Public</strong>: any public book across the hyperlit library<br>
+          <strong>Personal</strong>: only your own public books<br>
+          <strong>Shelf</strong>: only public books in the selected shelf
         </span>
       </div>
       <div class="brain-scope-toggle">
-        <button type="button" class="brain-scope-btn active" data-scope="public">Public</button>
-        <button type="button" class="brain-scope-btn" data-scope="mine">Personal</button>
-        <button type="button" class="brain-scope-btn" data-scope="all">All</button>
-        <button type="button" class="brain-scope-btn" data-scope="this">Here</button>
+        <button type="button" class="brain-scope-btn${scopeActive('public')}" data-scope="public">Public</button>
+        <button type="button" class="brain-scope-btn${scopeActive('mine')}" data-scope="mine">Personal</button>
+        <button type="button" class="brain-scope-btn${scopeActive('shelf')}" data-scope="shelf">Shelf</button>
+      </div>
+      <div class="brain-shelf-picker" style="display:none;">
+        <select class="brain-shelf-select"><option value="">Loading shelves…</option></select>
       </div>
       <div class="brain-action-row">
         <button type="button" class="brain-submit-btn">Ask</button>
@@ -122,6 +145,71 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
   const scopeBtns = section.querySelectorAll('.brain-scope-btn');
+  const modeBtns = section.querySelectorAll('.brain-mode-btn');
+  const sectionLabel = section.querySelector('.brain-section-label');
+  const scopeToggle = section.querySelector('.brain-scope-toggle');
+  const shelfPicker = section.querySelector('.brain-shelf-picker');
+  const shelfSelect = section.querySelector('.brain-shelf-select');
+
+  const applyModeVisibility = () => {
+    const activeMode = section.querySelector('.brain-mode-btn.active')?.dataset.mode || 'archivist';
+    const archivist = activeMode === 'archivist';
+    if (sectionLabel) sectionLabel.style.display = archivist ? '' : 'none';
+    if (scopeToggle) scopeToggle.style.display = archivist ? '' : 'none';
+    if (shelfPicker) {
+      const shelfActive = archivist && section.querySelector('.brain-scope-btn.active')?.dataset.scope === 'shelf';
+      shelfPicker.style.display = shelfActive ? '' : 'none';
+    }
+  };
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      try { localStorage.setItem(STORAGE_KEYS.mode, btn.dataset.mode); } catch {}
+      applyModeVisibility();
+    });
+  });
+
+  let shelvesLoaded = false;
+  const ensureShelvesLoaded = async () => {
+    if (shelvesLoaded || !shelfSelect) return;
+    shelvesLoaded = true;
+    try {
+      const resp = await fetch('/api/shelves', {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data = await resp.json();
+      const shelves = Array.isArray(data) ? data : (data.shelves || data.data || []);
+      if (!shelves.length) {
+        shelfSelect.innerHTML = '<option value="">No shelves — create one first</option>';
+        return;
+      }
+      shelfSelect.innerHTML = '<option value="">— pick a shelf —</option>'
+        + shelves.map(s => {
+            const id = s.id || s.shelf_id;
+            const count = Number(s.item_count ?? 0);
+            const name = (s.name || s.title || 'Untitled').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+            const label = count > 0 ? `${name} (${count})` : `${name} (empty)`;
+            return `<option value="${id}" data-item-count="${count}">${label}</option>`;
+          }).join('');
+      // Restore last-used shelf if it still exists in the user's library
+      if (savedShelfId && shelfSelect.querySelector(`option[value="${CSS.escape(savedShelfId)}"]`)) {
+        shelfSelect.value = savedShelfId;
+      }
+    } catch (e) {
+      shelvesLoaded = false;
+      console.warn('BrainQuery: failed to load shelves:', e);
+      shelfSelect.innerHTML = '<option value="">Failed to load shelves</option>';
+    }
+  };
+
+  if (shelfSelect) {
+    shelfSelect.addEventListener('change', () => {
+      try { localStorage.setItem(STORAGE_KEYS.shelfId, shelfSelect.value); } catch {}
+    });
+  }
 
   // Wire up all "?" info toggles
   section.querySelectorAll('.brain-info-toggle').forEach(toggle => {
@@ -142,8 +230,18 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     btn.addEventListener('click', () => {
       scopeBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      try { localStorage.setItem(STORAGE_KEYS.scope, btn.dataset.scope); } catch {}
+      applyModeVisibility();
+      if (btn.dataset.scope === 'shelf') ensureShelvesLoaded();
     });
   });
+
+  // Apply visibility for the restored mode/scope on first paint, and lazy-load
+  // shelves if the persisted scope is 'shelf'.
+  applyModeVisibility();
+  if (savedMode === 'archivist' && savedScope === 'shelf') {
+    ensureShelvesLoaded();
+  }
 
   // Placeholder behaviour for contenteditable
   const updatePlaceholder = () => {
@@ -187,8 +285,43 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       return;
     }
 
-    // Disable input
-    const sourceScope = section.querySelector('.brain-scope-btn.active').dataset.scope;
+    // Mode + scope + shelf
+    const mode = section.querySelector('.brain-mode-btn.active')?.dataset.mode || 'archivist';
+    const sourceScope = mode === 'quick'
+      ? 'public'
+      : (section.querySelector('.brain-scope-btn.active')?.dataset.scope || 'public');
+    let shelfId = null;
+    if (mode === 'archivist' && sourceScope === 'shelf') {
+      shelfId = shelfSelect?.value || '';
+      if (!shelfId) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'Pick a shelf to limit the search to.';
+        if (shelfSelect) shelfSelect.classList.add('brain-input-error');
+        shelfSelect?.addEventListener('change', () => {
+          shelfSelect.classList.remove('brain-input-error');
+          statusEl.textContent = '';
+          statusEl.style.display = 'none';
+        }, { once: true });
+        return;
+      }
+      // Refuse early when the picked shelf is known empty — saves the
+      // pre-billing LLM router + embedding spend that would otherwise
+      // produce a "No matches in this shelf" error.
+      const pickedOption = shelfSelect.options[shelfSelect.selectedIndex];
+      const itemCount = Number(pickedOption?.dataset.itemCount ?? 0);
+      if (itemCount === 0) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'This shelf is empty. Add books to it, or pick a different scope.';
+        if (shelfSelect) shelfSelect.classList.add('brain-input-error');
+        shelfSelect?.addEventListener('change', () => {
+          shelfSelect.classList.remove('brain-input-error');
+          statusEl.textContent = '';
+          statusEl.style.display = 'none';
+        }, { once: true });
+        return;
+      }
+    }
+
     annotation.contentEditable = 'false';
     submitBtn.disabled = true;
     cancelBtn.style.display = 'none';
@@ -261,8 +394,10 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
           highlightId,
           nodeIds: Array.isArray(nodeIds) ? nodeIds : Object.keys(charData),
           charData,
-          model: 'accounts/fireworks/models/deepseek-v3p2',
+          model: 'accounts/fireworks/models/deepseek-v4-pro',
           sourceScope,
+          mode,
+          shelfId,
         }),
       });
 
@@ -360,8 +495,11 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       const { loadSubBook } = await import('./subBookLoader.js');
       const subBookId = data.subBookId;
 
+      // Pass the FULL node set (including appendix) — we already have it in memory
+      // and IndexedDB was just written, so there's no reason to force lazy mode
+      // and risk the appendix disappearing until the next open.
       await loadSubBook(subBookId, bookId, highlightId, 'hyperlight', scroller, {
-        previewNodes: data.preview_nodes || null,
+        previewNodes: data.nodes || data.preview_nodes || null,
         targetElement: subBookTarget,
         mode: 'read',
       });

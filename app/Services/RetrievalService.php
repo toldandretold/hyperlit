@@ -53,7 +53,8 @@ class RetrievalService
                 if ($embeddingScope === 'same_author' && count($embeddingMatches) < 3) {
                     $widerMatches = $this->embeddingService->searchSimilar(
                         $queryEmbedding, 10, $context['bookId'],
-                        $context['sourceScope'], $context['creatorName']
+                        $context['sourceScope'], $context['creatorName'],
+                        $context['shelfId'] ?? null
                     );
                     foreach ($widerMatches as &$m) {
                         $m->_source = 'embedding';
@@ -135,12 +136,14 @@ class RetrievalService
         if ($scope === 'same_author' && !empty($context['authorName'])) {
             $matches = $this->embeddingService->searchSimilarByAuthor(
                 $queryEmbedding, 10, $context['bookId'],
-                $context['authorName'], $context['sourceScope'], $context['creatorName']
+                $context['authorName'], $context['sourceScope'], $context['creatorName'],
+                $context['shelfId'] ?? null
             );
         } else {
             $matches = $this->embeddingService->searchSimilar(
                 $queryEmbedding, 10, $context['bookId'],
-                $context['sourceScope'], $context['creatorName']
+                $context['sourceScope'], $context['creatorName'],
+                $context['shelfId'] ?? null
             );
         }
 
@@ -163,7 +166,8 @@ class RetrievalService
             $context['bookId'],
             $context['sourceScope'],
             $context['creatorName'],
-            '|'  // OR mode for AI Brain — surfaces nodes matching any term, ranked by relevance
+            '|',  // OR mode for AI Brain — surfaces nodes matching any term, ranked by relevance
+            $context['shelfId'] ?? null
         );
 
         // Tag source
@@ -183,7 +187,8 @@ class RetrievalService
             $keywords,
             5,
             $context['sourceScope'],
-            $context['creatorName']
+            $context['creatorName'],
+            $context['shelfId'] ?? null
         );
 
         $matches = [];

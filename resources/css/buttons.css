@@ -1933,6 +1933,57 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Mode toggle (Quick Chat / AI Archivist) */
+.brain-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0 0 0.75em 0;
+}
+.brain-mode-btn {
+  padding: 0.45em 0.9em;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.brain-mode-btn:hover {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--icon-stroke-primary) 50%, transparent);
+}
+.brain-mode-btn.active {
+  background: color-mix(in srgb, var(--icon-stroke-primary) 15%, transparent);
+  color: var(--color-text);
+  font-weight: 600;
+  border-color: var(--icon-stroke-primary);
+}
+.brain-shelf-picker {
+  margin-top: 0.5em;
+}
+.brain-shelf-select {
+  width: 100%;
+  padding: 0.4em 0.6em;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.brain-shelf-select:focus {
+  border-color: var(--icon-stroke-primary);
+}
+.brain-shelf-select.brain-input-error {
+  border-color: #d63384;
+  background: color-mix(in srgb, #d63384 8%, transparent);
+}
 .brain-scope-toggle {
   display: flex;
   gap: 0;
@@ -1942,7 +1993,9 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   overflow: hidden;
 }
 .brain-scope-btn {
+  flex: 1 1 0;
   padding: 0.35em 0.45em;
+  text-align: center;
   white-space: nowrap;
   border: none;
   background: transparent;

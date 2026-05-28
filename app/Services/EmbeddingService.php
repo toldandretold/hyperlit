@@ -89,7 +89,16 @@ class EmbeddingService
      * @param string|null $excludeBook Book ID to exclude from results
      * @return array Array of matching rows with similarity score
      */
-    public function searchSimilar(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $sourceScope = 'public', ?string $creatorName = null): array
+    /**
+     * 🔒 Privacy contract: NO private book is ever returned, regardless of scope.
+     * Locked by tests/Feature/AiBrain/RetrievalScopeTest.php:
+     *   - "searchSimilar: public scope excludes private books"
+     *   - "searchSimilar: mine scope excludes the callers own private books"
+     *   - "searchSimilar: shelf scope restricts to public shelf members only"
+     *   - "searchSimilar: shelf scope with empty shelf returns nothing"
+     * If you change a scope branch below, run that suite.
+     */
+    public function searchSimilar(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $sourceScope = 'public', ?string $creatorName = null, ?string $shelfId = null): array
     {
         $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
 
@@ -112,18 +121,16 @@ class EmbeddingService
             ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
             ->limit($limit);
 
-        // Scope filtering
-        if ($sourceScope === 'this' && $excludeBook) {
-            $query->where('n.book', $excludeBook);
-            $excludeBook = null;
+        // Scope filtering — private books are NEVER returned, regardless of scope
+        if ($sourceScope === 'shelf' && $shelfId) {
+            $query->join('shelf_items AS si', 'si.book', '=', 'n.book')
+                  ->where('si.shelf_id', $shelfId)
+                  ->where('l.visibility', 'public');
         } elseif ($sourceScope === 'mine' && $creatorName) {
-            $query->where('l.creator', $creatorName);
-        } elseif ($sourceScope === 'all' && $creatorName) {
-            $query->where(function ($q) use ($creatorName) {
-                $q->where('l.visibility', 'public')
-                  ->orWhere('l.creator', $creatorName);
-            });
+            $query->where('l.creator', $creatorName)
+                  ->where('l.visibility', 'public');
         } else {
+            // Default: public scope
             $query->where('l.visibility', 'public');
         }
 
@@ -141,7 +148,7 @@ class EmbeddingService
      * Search for similar nodes by the same author using cosine similarity.
      * Identical to searchSimilar() but filtered to books by a specific author.
      */
-    public function searchSimilarByAuthor(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $author = '', string $sourceScope = 'public', ?string $creatorName = null): array
+    public function searchSimilarByAuthor(array $queryEmbedding, int $limit = 10, ?string $excludeBook = null, string $author = '', string $sourceScope = 'public', ?string $creatorName = null, ?string $shelfId = null): array
     {
         if (empty($author)) {
             return [];
@@ -169,18 +176,16 @@ class EmbeddingService
             ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
             ->limit($limit);
 
-        // Scope filtering
-        if ($sourceScope === 'this' && $excludeBook) {
-            $query->where('n.book', $excludeBook);
-            $excludeBook = null;
+        // Scope filtering — private books are NEVER returned, regardless of scope
+        if ($sourceScope === 'shelf' && $shelfId) {
+            $query->join('shelf_items AS si', 'si.book', '=', 'n.book')
+                  ->where('si.shelf_id', $shelfId)
+                  ->where('l.visibility', 'public');
         } elseif ($sourceScope === 'mine' && $creatorName) {
-            $query->where('l.creator', $creatorName);
-        } elseif ($sourceScope === 'all' && $creatorName) {
-            $query->where(function ($q) use ($creatorName) {
-                $q->where('l.visibility', 'public')
-                  ->orWhere('l.creator', $creatorName);
-            });
+            $query->where('l.creator', $creatorName)
+                  ->where('l.visibility', 'public');
         } else {
+            // Default: public scope
             $query->where('l.visibility', 'public');
         }
 

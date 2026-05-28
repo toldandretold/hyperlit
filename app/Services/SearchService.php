@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SearchService
@@ -65,6 +64,14 @@ class SearchService
     /**
      * Search nodes by keyword using PostgreSQL full-text search.
      * Returns flat array of stdClass results with node data + library metadata.
+     *
+     * 🔒 Privacy contract: NO private book is ever returned, regardless of scope.
+     * Locked by tests/Feature/AiBrain/RetrievalScopeTest.php:
+     *   - "searchNodesByKeyword: public scope excludes private books"
+     *   - "searchNodesByKeyword: mine scope returns only callers own PUBLIC books"
+     *   - "searchNodesByKeyword: shelf scope restricts to shelf members"
+     *   - "searchNodesByKeyword: shelf scope excludes private books even when they are in the shelf"
+     *   - "searchNodesByKeyword: shelf scope with empty shelf returns nothing"
      */
     public function searchNodesByKeyword(
         string $query,
@@ -72,7 +79,8 @@ class SearchService
         ?string $excludeBook = null,
         string $sourceScope = 'public',
         ?string $creatorName = null,
-        string $tsOperator = '&'
+        string $tsOperator = '&',
+        ?string $shelfId = null
     ): array {
         $tsQuery = $this->buildTsQuery($query, $tsOperator);
 
@@ -98,40 +106,22 @@ class SearchService
             $vectorColumn = 'search_vector';
         }
 
-        // Build visibility conditions
-        $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
-        $visibilityParams = [];
-
+        // Visibility — private books are NEVER returned, regardless of scope.
+        // `mine` narrows further to the user's own public books; `shelf` narrows via join.
         if ($sourceScope === 'mine' && $creatorName) {
-            $visibilityConditions = ["(library.creator = ? AND library.visibility != 'deleted')"];
+            $visibilityClause = "(library.creator = ? AND library.visibility = 'public')";
             $visibilityParams = [$creatorName];
-        } elseif ($sourceScope === 'all' && $creatorName) {
-            $visibilityConditions = [
-                "(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))",
-                "(library.creator = ? AND library.visibility != 'deleted')",
-            ];
-            $visibilityParams = [$creatorName];
-        } elseif ($sourceScope === 'this' && $excludeBook) {
-            // "this book only" — handled via book filter below
-            $visibilityConditions = ["1=1"];
-            $visibilityParams = [];
         } else {
-            // Default: public
-            $user = Auth::user();
-            if ($user) {
-                $visibilityConditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
-                $visibilityParams[] = $user->name;
-            }
+            // Default ('public') and 'shelf' (shelf join applied separately) both restrict to public
+            $visibilityClause = "(library.visibility = 'public')";
+            $visibilityParams = [];
         }
 
-        $visibilityClause = '(' . implode(' OR ', $visibilityConditions) . ')';
-
-        $bookFilter = '';
-        $bookParams = [];
-        if ($sourceScope === 'this' && $excludeBook) {
-            $bookFilter = 'AND nodes.book = ?';
-            $bookParams = [$excludeBook];
-            $excludeBook = null; // Don't exclude it below
+        $shelfJoin = '';
+        $shelfParams = [];
+        if ($sourceScope === 'shelf' && $shelfId) {
+            $shelfJoin = 'JOIN shelf_items ON shelf_items.book = nodes.book AND shelf_items.shelf_id = ?';
+            $shelfParams = [$shelfId];
         }
 
         $excludeClause = '';
@@ -175,11 +165,11 @@ class SearchService
                     COALESCE(nodes.\"plainText\", nodes.content, '') as text_content
                 FROM nodes
                 JOIN library ON nodes.book = library.book
+                {$shelfJoin}
                 WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
                     AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
                     AND library.type != 'sub_book'
                     AND {$visibilityClause}
-                    {$bookFilter}
                     {$excludeClause}
                 {$orderClause}
                 LIMIT ?
@@ -187,9 +177,10 @@ class SearchService
         ";
 
         $params = array_merge(
-            [$tsQuery, $tsQuery],
+            [$tsQuery],
+            $shelfParams,
+            [$tsQuery],
             $visibilityParams,
-            $bookParams,
             $excludeParams,
             $rankParams,
             [$limit]
@@ -207,12 +198,19 @@ class SearchService
     /**
      * Search library metadata (title/author/year) by keyword.
      * Returns array of stdClass results with library metadata.
+     *
+     * 🔒 Privacy contract: NO private book is ever returned, regardless of scope.
+     * Locked by tests/Feature/AiBrain/RetrievalScopeTest.php:
+     *   - "searchLibraryByKeyword: public scope excludes private books"
+     *   - "searchLibraryByKeyword: mine scope excludes private and other users books"
+     *   - "searchLibraryByKeyword: shelf scope is constrained to public books in shelf"
      */
     public function searchLibraryByKeyword(
         string $query,
         int $limit = 10,
         string $sourceScope = 'public',
-        ?string $creatorName = null
+        ?string $creatorName = null,
+        ?string $shelfId = null
     ): array {
         $tsQuery = $this->buildTsQuery($query);
 
@@ -222,35 +220,29 @@ class SearchService
 
         $dbQuery = DB::table('library')
             ->selectRaw("
-                book,
-                title,
-                author,
-                year,
-                bibtex,
-                has_nodes,
-                ts_rank('{0.05, 0.1, 0.3, 1.0}', search_vector, to_tsquery('simple', ?)) as relevance
+                library.book,
+                library.title,
+                library.author,
+                library.year,
+                library.bibtex,
+                library.has_nodes,
+                ts_rank('{0.05, 0.1, 0.3, 1.0}', library.search_vector, to_tsquery('simple', ?)) as relevance
             ", [$tsQuery])
-            ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery])
-            ->where('type', '!=', 'sub_book');
+            ->whereRaw("library.search_vector @@ to_tsquery('simple', ?)", [$tsQuery])
+            ->where('library.type', '!=', 'sub_book');
 
-        // Scope filtering
-        if ($sourceScope === 'mine' && $creatorName) {
-            $dbQuery->where('creator', $creatorName)
-                ->where('visibility', '!=', 'deleted');
-        } elseif ($sourceScope === 'all' && $creatorName) {
-            $dbQuery->where(function ($q) use ($creatorName) {
-                $q->where(function ($pub) {
-                    $pub->where('listed', true)
-                        ->whereNotIn('visibility', ['private', 'deleted']);
-                })->orWhere(function ($own) use ($creatorName) {
-                    $own->where('creator', $creatorName)
-                        ->where('visibility', '!=', 'deleted');
-                });
-            });
+        // Scope filtering — private books are NEVER returned, regardless of scope
+        if ($sourceScope === 'shelf' && $shelfId) {
+            $dbQuery->join('shelf_items', 'shelf_items.book', '=', 'library.book')
+                ->where('shelf_items.shelf_id', $shelfId)
+                ->where('library.visibility', 'public');
+        } elseif ($sourceScope === 'mine' && $creatorName) {
+            $dbQuery->where('library.creator', $creatorName)
+                ->where('library.visibility', 'public');
         } else {
             // Default: public
-            $dbQuery->where('listed', true)
-                ->whereNotIn('visibility', ['private', 'deleted']);
+            $dbQuery->where('library.visibility', 'public')
+                ->where('library.listed', true);
         }
 
         return $dbQuery
