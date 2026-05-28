@@ -19,6 +19,7 @@ import { cleanupReaderView } from '../../viewManager.js';
 import { enforceEditableState, enableEditMode } from '../../components/editButton.js';
 import { setCurrentBook } from '../../app.js';
 import { universalPageInitializer } from '../../viewManager.js';
+import { reinitializeContainerManagers } from '../utils/initHelpers.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook.js';
 import { setInitialBookSyncPromise } from '../../utilities/operationState.js';
@@ -256,8 +257,12 @@ export class NewBookTransition {
 
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
-      // Also clean up the reader view in case of an inconsistent state
-      cleanupReaderView();
+      // Also clean up the reader view in case of an inconsistent state.
+      // Must be awaited: cleanupReaderView() flushes pending IDB saves and
+      // tears down the active editor's SaveQueue. If the body is replaced
+      // mid-flush, the SaveQueue stays bound to the old bookId and the next
+      // save misroutes nodes — tripping the integrity verifier on revisit.
+      await cleanupReaderView();
     } catch (error) {
       console.warn('⚠️ Cleanup failed, but continuing transition:', error);
     }
@@ -349,6 +354,16 @@ export class NewBookTransition {
       // Set the current book
       setCurrentBook(bookId);
       updateDatabaseBookId(bookId);
+
+      // CRITICAL: Rebind button-registry components (perimeterButtons,
+      // editButton, TOC, etc.) to the freshly inserted DOM BEFORE
+      // universalPageInitializer runs. Without this, registry-managed
+      // components keep stale references to the previous reader's DOM
+      // nodes — perimeter buttons stay stuck in `.loading`, edit/TOC
+      // clicks don't fire, and tapping the body doesn't toggle nav
+      // visibility. Mirrors BookToBookTransition (initHelpers.js:75) and
+      // ImportBookTransition (initHelpers.js:121).
+      await reinitializeContainerManagers();
 
       // Initialize the reader view using the existing system
       await universalPageInitializer(progressCallback);

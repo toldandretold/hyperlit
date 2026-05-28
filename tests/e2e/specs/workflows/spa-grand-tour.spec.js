@@ -25,6 +25,7 @@ import {
   runTour,
   replayBackToStart,
   replayForwardToEnd,
+  setupTourAnchor,
 } from '../../helpers/spaTour.js';
 
 test.describe.serial('SPA Grand Tour', () => {
@@ -62,7 +63,8 @@ test.describe.serial('SPA Grand Tour', () => {
   /* ── Phase 2: single tour lap ───────────────────────────────────── */
 
   test('single tour lap', async ({ page, spa }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
+    await setupTourAnchor(page, spa);
     const history = await runTour(page, spa, { loops: 1 });
     expect(history.length).toBeGreaterThan(0);
   });
@@ -70,7 +72,8 @@ test.describe.serial('SPA Grand Tour', () => {
   /* ── Phase 3: three-lap tour (accumulation test) ────────────────── */
 
   test('three-lap tour (state accumulation)', async ({ page, spa }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(300_000);
+    await setupTourAnchor(page, spa);
     const history = await runTour(page, spa, { loops: 3 });
     // Sanity: history should have 3 × TOUR_STEPS.length entries
     expect(history.length).toBeGreaterThan(20);
@@ -79,7 +82,8 @@ test.describe.serial('SPA Grand Tour', () => {
   /* ── Phase 4: back-button replay to start ───────────────────────── */
 
   test('back-button replay to start', async ({ page, spa }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
+    await setupTourAnchor(page, spa);
     const history = await runTour(page, spa, { loops: 1 });
     await replayBackToStart(page, spa, history);
   });
@@ -87,7 +91,8 @@ test.describe.serial('SPA Grand Tour', () => {
   /* ── Phase 5: forward-button replay to end ──────────────────────── */
 
   test('forward-button replay to end', async ({ page, spa }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(300_000);
+    await setupTourAnchor(page, spa);
     const history = await runTour(page, spa, { loops: 1 });
     await replayBackToStart(page, spa, history);
     await replayForwardToEnd(page, spa, history);
@@ -184,8 +189,207 @@ test.describe.serial('SPA Grand Tour', () => {
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('home');
 
-    // One full tour lap after authoring
+    // Set a fresh anchor before the followup tour so we don't hit any
+    // corrupted book in the test user's library.
+    await setupTourAnchor(page, spa);
     await runTour(page, spa, { loops: 1 });
+  });
+
+  /* ── Phase 7: authoring originating FROM reader (new transition path) ── */
+  /*
+   * Phase 6 starts from home. This one starts from a reader page and uses
+   * the +-in-logo-nav entry point that lives only on reader.blade.php —
+   * a same-template (reader → reader) SPA transition triggered by the
+   * NewBookContainerManager, which is new wiring on the reader.
+   *
+   * What's exercised:
+   *   - Logo nav opens, + becomes visible
+   *   - Click + → buttons popup
+   *   - Click "New" → SPA transition to a freshly created reader
+   *   - Editing works in the new reader
+   *   - Exit edit + navigate home → state is clean
+   *   - One follow-up tour lap to surface any state poisoning
+   */
+  test('authoring originating from reader: + → New → reader → home', async ({ page, spa }) => {
+    test.setTimeout(180_000);
+
+    // Land on a reader page via the real SPA path
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('home');
+    await spa.clickFirstBookLink(page);
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('reader');
+
+    const originBookId = await spa.getCurrentBookId(page);
+    expect(originBookId).toMatch(/^book_\d+$/);
+
+    // Open the logo nav → + → buttons popup
+    await page.click('#logoContainer');
+    await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
+    await expect(page.locator('#newBook')).toBeVisible();
+
+    await page.click('#newBook');
+    await page.waitForFunction(() => {
+      const c = document.getElementById('newbook-container');
+      if (!c) return false;
+      const style = window.getComputedStyle(c);
+      const rect = c.getBoundingClientRect();
+      return style.opacity === '1' && rect.width > 0 && rect.height > 0;
+    }, null, { timeout: 5000 });
+
+    // "New" → SPA transition to a fresh reader page
+    await page.click('#createNewBook');
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('reader');
+    await spa.waitForEditMode(page);
+
+    const newBookId = await spa.getCurrentBookId(page);
+    expect(newBookId).toMatch(/^book_\d+$/);
+    expect(newBookId).not.toBe(originBookId); // confirm it's actually a new book
+
+    // Type a heading so editing path is exercised (mirrors Phase 6)
+    await page.waitForSelector('h1[id="100"]', { timeout: 5000 });
+    await page.click('h1[id="100"]');
+    await page.keyboard.type('Reader-Origin Test Book');
+    await page.waitForTimeout(300);
+
+    // Wait for the autosave/sync to settle before navigating away
+    await waitForCloudGreen(page);
+
+    // Exit edit mode → integrity verifier fires
+    await page.click('#editButton');
+    await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+
+    // Navigate home → state should be clean, no integrity overlay
+    const { navigateToHome } = await import('../../helpers/pageHelpers.js');
+    await navigateToHome(page);
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('home');
+    expect(await page.locator('#integrity-failure-backdrop').count()).toBe(0);
+
+    // Re-visit the newly created book directly. The save-queue / IDB state
+    // for this book should be self-consistent — DOM h1 matches IDB. If the
+    // body-replacement raced the SaveQueue flush, this revisit would trip
+    // the integrity verifier on the just-typed h1.
+    await page.goto(`/${newBookId}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+    expect(await page.locator('#integrity-failure-backdrop').count()).toBe(0);
+  });
+
+  /* ── Phase 8: chained new-book transitions + history walk + loops ───── */
+  /*
+   * The reader-origin new-book flow needs the button registry to rebind
+   * after each body replacement so perimeter buttons (edit, TOC, settings)
+   * stay alive on the freshly inserted DOM. This phase chains multiple
+   * new-book creations from a reader, verifies the perimeter buttons work
+   * at every depth, then walks back AND forward through history. The
+   * full sequence is run TWICE to surface accumulation bugs.
+   *
+   * Concretely tests:
+   *   - perimeter buttons not stuck in `.loading` after SPA transition
+   *   - #editButton listeners alive (clicking it toggles window.isEditing)
+   *   - #toc-toggle-button visible
+   *   - back/forward through the new-book chain lands on the right book
+   *     with working buttons at each step
+   *   - re-entering the chain from home in a second loop doesn't poison
+   *     the registry
+   */
+  test('chained new books from reader + history walk, two loops', async ({ page, spa }) => {
+    test.setTimeout(360_000);
+
+    const CHAIN_DEPTH = 3;
+    const LOOPS = 2;
+
+    const verifyPerimeterButtonsWorking = async () => {
+      await expect(page.locator('#editButton')).toBeVisible();
+      await expect(page.locator('#toc-toggle-button')).toBeVisible();
+
+      // The .loading class hides perimeter clusters until init removes it.
+      // If the registry didn't rebind, .loading is stuck on the new DOM.
+      const editLoading = await page.evaluate(
+        () => document.getElementById('bottom-right-buttons')?.classList.contains('loading')
+      );
+      expect(editLoading, '#bottom-right-buttons stuck in .loading').toBe(false);
+
+      // Click edit → window.isEditing flips. Proves the button's listeners
+      // were bound to the CURRENT DOM (not stale references).
+      const before = await page.evaluate(() => window.isEditing);
+      await page.click('#editButton');
+      await page.waitForFunction(
+        (b) => window.isEditing !== b,
+        before,
+        { timeout: 5000 }
+      );
+      // Toggle back so subsequent steps start out of edit mode
+      await page.click('#editButton');
+      await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+    };
+
+    const createOneNewBook = async () => {
+      await page.click('#logoContainer');
+      await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
+      await page.click('#newBook');
+      await page.waitForFunction(() => {
+        const c = document.getElementById('newbook-container');
+        if (!c) return false;
+        const style = window.getComputedStyle(c);
+        return style.opacity === '1' && c.getBoundingClientRect().width > 0;
+      }, null, { timeout: 5000 });
+      await page.click('#createNewBook');
+      await spa.waitForTransition(page);
+      expect(await spa.getStructure(page)).toBe('reader');
+      await spa.waitForEditMode(page);
+
+      const id = await spa.getCurrentBookId(page);
+      expect(id).toMatch(/^book_\d+$/);
+
+      // Exit edit mode so verifyPerimeterButtonsWorking starts in a known state
+      await page.click('#editButton');
+      await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+      return id;
+    };
+
+    for (let loop = 1; loop <= LOOPS; loop++) {
+      // Land on an existing reader
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+      await spa.clickFirstBookLink(page);
+      await spa.waitForTransition(page);
+      expect(await spa.getStructure(page)).toBe('reader');
+
+      // Sanity-check the origin reader's perimeter buttons
+      await verifyPerimeterButtonsWorking();
+
+      const chainIds = [await spa.getCurrentBookId(page)];
+
+      // Chain N new books, verifying perimeter buttons after each
+      for (let depth = 1; depth <= CHAIN_DEPTH; depth++) {
+        const id = await createOneNewBook();
+        chainIds.push(id);
+        await verifyPerimeterButtonsWorking();
+      }
+      expect(new Set(chainIds).size, 'all books in chain distinct').toBe(chainIds.length);
+
+      // Walk back through history; each landing must be a working reader
+      for (let i = chainIds.length - 1; i >= 1; i--) {
+        await page.goBack();
+        await spa.waitForTransition(page);
+        expect(await spa.getStructure(page)).toBe('reader');
+        expect(await spa.getCurrentBookId(page)).toBe(chainIds[i - 1]);
+        await verifyPerimeterButtonsWorking();
+      }
+
+      // Walk forward back to the deepest new book
+      for (let i = 1; i < chainIds.length; i++) {
+        await page.goForward();
+        await spa.waitForTransition(page);
+        expect(await spa.getStructure(page)).toBe('reader');
+        expect(await spa.getCurrentBookId(page)).toBe(chainIds[i]);
+        await verifyPerimeterButtonsWorking();
+      }
+    }
   });
 
 });

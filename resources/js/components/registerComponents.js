@@ -257,7 +257,7 @@ export function registerAllComponents() {
     name: 'newBookButton',
     initFn: initializeNewBookContainer,
     destroyFn: destroyNewBookContainer,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'reader'],
     dependencies: ['userContainer'], // Needs user auth state
     required: false
   });

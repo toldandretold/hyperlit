@@ -213,6 +213,17 @@ black #221F20;
 
 }
 
+/* Pre-first-open state: until the manager opens the container the first
+   time, its inner buttons would otherwise paint at the fixed-position
+   origin (0,0) and intercept clicks on whatever sits there — on the
+   reader page that's #logoContainer. Hiding via display:none neutralises
+   both the layout and the pointer hit-testing without affecting the
+   open/close animation (the manager sets `display:block` inline when
+   opening, which overrides this). */
+#newbook-container.hidden {
+  display: none;
+}
+
 
 /* Button view: container is open and laid out for buttons */
 #newbook-container.button-view {

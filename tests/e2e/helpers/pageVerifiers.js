@@ -216,6 +216,19 @@ export async function verifyReaderPage(page, spa) {
   await page.click('#editButton');
   await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
 
+  // Logo nav menu exposes the new-book + button on reader pages.
+  // The button is registered + present in the menu, hidden until the user
+  // taps the logo. Open the menu, verify the + is visible, then close it
+  // via a second tap on the logo.
+  expect(await page.locator('#newBook').count()).toBe(1);
+  expect(await page.evaluate(() => !!document.getElementById('newBook')?.closest('#logoNavMenu'))).toBe(true);
+  await expect(page.locator('#newBook')).toBeHidden();
+  await page.click('#logoContainer');
+  await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
+  await expect(page.locator('#newBook')).toBeVisible();
+  await page.click('#logoContainer');
+  await page.waitForSelector('#logoNavMenu.hidden', { timeout: 3000 });
+
   // TOC button click — just verify it doesn't throw or break the page.
   // (Some books have no TOC content, so we don't strictly assert a panel opened.)
   const tocEl = page.locator('#toc');

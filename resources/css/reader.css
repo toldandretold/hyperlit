@@ -435,7 +435,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbcccc;
+  color: var(--color-text); /* Match home/user buttons' theme-responsive color */
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for new-book button (horizontal only — vertical
+   expansion would overlap with user/home buttons stacked in the menu).
+   Overrides the all-sides expansion from buttons.css `#newBook.open::before`. */
+#logoNavMenu #newBook::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -15px;
+  right: -15px;
+  bottom: 0;
+  z-index: 1;
 }
 
 #logoNavMenu #newBook .icon {

@@ -528,17 +528,19 @@ export class NewBookContainerManager extends ContainerManager {
 
   setResponsiveFormSize() {
     const isMobile = window.innerWidth <= 480;
-    
+    const isLeftAnchored = !!this.button.closest('#logoNavMenu');
+
     if (isMobile) {
-      // Mobile: Maintain our custom positioning - only expand down and to the left
-      // Use ORIGINAL button position to prevent size creep during resize
-      const maxWidthFromButton = this.originalButtonRect.right - 15; // From left margin to button's right edge
-      
-      this.container.style.width = `${maxWidthFromButton}px`;
+      // Mobile: full-width sheet on left-anchored (reader); right-edge-sized
+      // on right-anchored (home/user) per the historical behaviour.
+      const maxWidth = isLeftAnchored
+        ? window.innerWidth - 30
+        : this.originalButtonRect.right - 15;
+
+      this.container.style.width = `${maxWidth}px`;
       this.container.style.height = "calc(100vh - 100px)";
-      this.container.style.maxWidth = `${maxWidthFromButton}px`;
-      
-      // Keep our positioning - don't override with centering
+      this.container.style.maxWidth = `${maxWidth}px`;
+
       this.container.style.left = "15px";
       this.container.style.right = ""; // Clear right positioning
       this.container.style.top = "50px";
@@ -655,8 +657,11 @@ export class NewBookContainerManager extends ContainerManager {
 
     const isMobile = window.innerWidth <= 480;
     const rect = this.button.getBoundingClientRect();
-    
-    console.log("🔥 DEBUG: openContainer state", { isMobile, rect, originalButtonRect: this.originalButtonRect });
+    // Button lives in the reader's logo nav menu on the LEFT side of the screen,
+    // so anchor the popup's left edge to the button instead of the right.
+    const isLeftAnchored = !!this.button.closest('#logoNavMenu');
+
+    console.log("🔥 DEBUG: openContainer state", { isMobile, isLeftAnchored, rect, originalButtonRect: this.originalButtonRect });
 
     // This logic handles the TRANSITION from the initial "buttons" view to the "form" view.
     // It assumes the container is already open.
@@ -676,17 +681,23 @@ export class NewBookContainerManager extends ContainerManager {
       let targetWidth, targetHeight, targetTop, targetPadding;
 
       if (isMobile) {
-        // Mobile: Keep the right edge anchored. Animate width, height, and top.
-        targetWidth = `${this.originalButtonRect.right - 15}px`;
+        // Mobile: full-width sheet on left-anchored (reader). On right-anchored
+        // (home/user) keep the historical right-edge anchoring.
+        targetWidth = isLeftAnchored
+          ? `${window.innerWidth - 30}px`
+          : `${this.originalButtonRect.right - 15}px`;
         targetHeight = "calc(100vh - 100px)";
         targetTop = "50px";
         targetPadding = "15px";
         this.container.style.maxWidth = targetWidth;
       } else {
-        // Desktop: Keep the right edge anchored. Animate width, height, and top.
+        // Desktop: 400px wide. On left-anchored (reader) dock to top of viewport
+        // so the form doesn't run off-screen below the logo nav menu; on
+        // right-anchored (home/user) keep the existing "just below the button"
+        // placement that visually connects to the + at the top-right.
         targetWidth = "400px";
         targetHeight = "80vh";
-        targetTop = `${this.originalButtonRect.bottom + 8}px`;
+        targetTop = isLeftAnchored ? "50px" : `${this.originalButtonRect.bottom + 8}px`;
         targetPadding = "0";
       }
 
@@ -764,7 +775,9 @@ export class NewBookContainerManager extends ContainerManager {
         // Apply form-specific positioning immediately
         let targetWidth, targetHeight, targetTop, targetPadding;
         if (isMobile) {
-          targetWidth = `${this.originalButtonRect.right - 15}px`;
+          targetWidth = isLeftAnchored
+            ? `${window.innerWidth - 30}px`
+            : `${this.originalButtonRect.right - 15}px`;
           targetHeight = "calc(100vh - 100px)";
           targetTop = "50px";
           targetPadding = "15px";
@@ -774,9 +787,15 @@ export class NewBookContainerManager extends ContainerManager {
         } else {
           targetWidth = "400px";
           targetHeight = "80vh";
-          targetTop = `${this.originalButtonRect.bottom + 8}px`;
+          targetTop = isLeftAnchored ? "50px" : `${this.originalButtonRect.bottom + 8}px`;
           targetPadding = "0";
-          this.container.style.right = `${window.innerWidth - this.originalButtonRect.right}px`;
+          if (isLeftAnchored) {
+            this.container.style.left = "50px";
+            this.container.style.right = "";
+          } else {
+            this.container.style.right = `${window.innerWidth - this.originalButtonRect.right}px`;
+            this.container.style.left = "";
+          }
         }
         
         this.container.style.width = targetWidth;
@@ -796,7 +815,13 @@ export class NewBookContainerManager extends ContainerManager {
       } else {
         // Original buttons mode layout - start invisible then fade in
         this.container.style.top = `${rect.bottom + 8}px`;
-        this.container.style.right = `${window.innerWidth - rect.right}px`;
+        if (isLeftAnchored) {
+          this.container.style.left = `${rect.left}px`;
+          this.container.style.right = "";
+        } else {
+          this.container.style.right = `${window.innerWidth - rect.right}px`;
+          this.container.style.left = "";
+        }
         this.container.style.visibility = "visible";
         this.container.style.opacity = "0";
         this.container.style.width = "160px";
@@ -868,18 +893,16 @@ export class NewBookContainerManager extends ContainerManager {
     icon.classList.remove("tilted");
   }
   
-  // Start the closing animation with graceful padding transition
-  this.container.style.padding = "0"; // Animate padding to zero
+  // Start the closing animation. Only animate width/height/opacity/padding
+  // toward 0 — leave left/right/top alone. Clearing those mid-animation
+  // makes the container glide off toward the layout origin (top-left)
+  // because the CSS transition interpolates `50px → auto` as `50px → 0`.
+  // Positioning is reset in the transitionend handler instead.
+  this.container.style.padding = "0";
   this.container.style.width = "0";
   this.container.style.height = "0";
   this.container.style.opacity = "0";
-  
-  // ✅ RESET ALL POSITIONING STYLES - including any mobile-specific ones
-  this.container.style.left = "";
-  this.container.style.right = "";
-  this.container.style.top = "";
-  this.container.style.transform = "";
-  
+
   // Deactivate the overlay
   if (this.overlay) {
     this.overlay.classList.remove("active");
@@ -902,6 +925,14 @@ export class NewBookContainerManager extends ContainerManager {
   this.transitionEndHandler = () => {
     this.container.classList.add("hidden");
     this.container.style.display = "none";
+
+    // Now safe to clear positioning — the container is hidden, so resetting
+    // these styles can't produce a visible jump on the next paint.
+    this.container.style.left = "";
+    this.container.style.right = "";
+    this.container.style.top = "";
+    this.container.style.transform = "";
+
     this.resetAnimationState();
 
     if (this.overlay) {
@@ -923,6 +954,12 @@ export class NewBookContainerManager extends ContainerManager {
       // Run the same cleanup logic
       this.container.classList.add("hidden");
       this.container.style.display = "none";
+
+      this.container.style.left = "";
+      this.container.style.right = "";
+      this.container.style.top = "";
+      this.container.style.transform = "";
+
       this.resetAnimationState();
 
       if (this.overlay) {

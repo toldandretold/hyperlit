@@ -59,6 +59,9 @@
           <path d="M23 9v2h-2v7a3 3 0 01-3 3h-4v-6h-4v6H6a3 3 0 01-3-3v-7H1V9l11-7z"/>
         </svg>
       </a>
+
+      <!-- New Book Button -->
+      <button type="button" id="newBook" class="open" aria-label="New book"><span class="icon">+</span></button>
     </div>
   </div>
 
@@ -202,6 +205,11 @@
 
   <div id="user-overlay"></div>
   <div id="user-container" class="hidden" style="visibility: hidden;"></div>
+
+  <div id="newbook-container" class="hidden loading">
+    <button id="createNewBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">New</button>
+    <button id="importBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">Import</button>
+  </div>
 
   <x-settings-panel />
 

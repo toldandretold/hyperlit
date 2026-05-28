@@ -22,6 +22,93 @@ import {
   verifyReaderPage,
 } from './pageVerifiers.js';
 
+// Anchor book id captured at tour setup. The tour navigates to this book
+// (by URL) instead of clicking an arbitrary library card, so it's immune
+// to whatever corruption sits in the test user's existing library.
+let _tourAnchorBookId = null;
+
+/**
+ * Create a fresh book from home (via the homepage + button) and remember
+ * its id as the tour's anchor reader. Subsequent reader landings in the
+ * tour navigate directly to this book's URL.
+ *
+ * Call ONCE per test before `runTour`.
+ */
+export async function setupTourAnchor(page, spa) {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  expect(await spa.getStructure(page)).toBe('home');
+
+  // Trigger the homepage + → New flow programmatically (same path as the
+  // home page button — independent of where the + button physically sits).
+  await page.evaluate(() => document.getElementById('newBook')?.click());
+  await page.waitForFunction(() => {
+    const c = document.getElementById('newbook-container');
+    if (!c) return false;
+    const style = window.getComputedStyle(c);
+    return style.opacity === '1' && c.getBoundingClientRect().width > 0;
+  }, null, { timeout: 5000 });
+  await page.evaluate(() => document.getElementById('createNewBook')?.click());
+
+  await spa.waitForTransition(page);
+  expect(await spa.getStructure(page)).toBe('reader');
+  await spa.waitForEditMode(page);
+
+  const id = await spa.getCurrentBookId(page);
+  if (!/^book_\d+$/.test(id)) {
+    throw new Error(`setupTourAnchor: unexpected anchor book id "${id}"`);
+  }
+  _tourAnchorBookId = id;
+
+  // Exit edit mode so verifyReaderPage's toggle flow starts in a known state.
+  await page.click('#editButton');
+  await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+
+  return id;
+}
+
+/**
+ * SPA navigation to the tour anchor reader. Used in TOUR_STEPS where the
+ * old grand tour called `clickFirstBookLink`. The anchor is set by
+ * `setupTourAnchor`; if missing, falls back to clickFirstBookLink so
+ * pre-anchor specs (callers that haven't been migrated) still work.
+ */
+async function gotoAnchorReader(page) {
+  if (_tourAnchorBookId) {
+    await page.goto(`/${_tourAnchorBookId}`);
+    return;
+  }
+  await clickFirstBookLink(page);
+}
+
+/**
+ * SPA transition: from a reader, open the logo nav menu, click +, click
+ * "New" — creating a fresh book and transitioning to its reader. Used as
+ * a TOUR_STEP go() so the cyclic / accumulation / back-forward phases all
+ * exercise the reader → new-book SPA pathway (NewBookTransition).
+ *
+ * Leaves the new reader OUT of edit mode so the standard verifyReaderPage
+ * (which expects to start with `window.isEditing === false`) works.
+ */
+export async function createNewBookFromReader(page) {
+  await page.click('#logoContainer');
+  await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
+  await page.click('#newBook');
+  await page.waitForFunction(() => {
+    const c = document.getElementById('newbook-container');
+    if (!c) return false;
+    const style = window.getComputedStyle(c);
+    return style.opacity === '1' && c.getBoundingClientRect().width > 0;
+  }, null, { timeout: 5000 });
+  await page.click('#createNewBook');
+  // The transition's edit-mode entry is awaited by the tour's
+  // spa.waitForTransition + waitForEditMode wrapper, but we need to leave
+  // edit mode here so verifyReaderPage's click → toggle flow starts clean.
+  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 10000 });
+  await page.click('#editButton');
+  await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+}
+
 /**
  * Tour steps. Each step:
  *   - `go(page)` — perform the SPA navigation. Returns when the click is dispatched.
@@ -29,18 +116,21 @@ import {
  *   - `page` — the expected destination structure (`'home'` | `'user'` | `'reader'`).
  *   - `label` — short human-readable identifier for error messages.
  *
- * Path covers: home→user, user→reader, reader→home, home→reader,
- * reader→user, user→reader, reader→home (full cycle).
+ * Path covers: home→user, user→reader, reader→(+)→reader (new book),
+ * reader→home, home→reader, reader→user, user→reader, reader→home.
+ * The reader→reader-via-+ step exercises the NewBookTransition pathway
+ * inside the cyclic/accumulation/back-forward replay phases.
  */
 export const TOUR_STEPS = [
-  { label: 'home (start)',        go: async (p) => { await p.goto('/'); }, verify: verifyHomePage,   page: 'home'   },
-  { label: 'home → user',         go: navigateToUserPage,                  verify: verifyUserPage,   page: 'user'   },
-  { label: 'user → reader',       go: clickFirstBookLink,                  verify: verifyReaderPage, page: 'reader' },
-  { label: 'reader → home',       go: navigateToHome,                      verify: verifyHomePage,   page: 'home'   },
-  { label: 'home → reader',       go: clickFirstBookLink,                  verify: verifyReaderPage, page: 'reader' },
-  { label: 'reader → user',       go: navigateToUserPage,                  verify: verifyUserPage,   page: 'user'   },
-  { label: 'user → reader (2)',   go: clickFirstBookLink,                  verify: verifyReaderPage, page: 'reader' },
-  { label: 'reader → home (end)', go: navigateToHome,                      verify: verifyHomePage,   page: 'home'   },
+  { label: 'home (start)',          go: async (p) => { await p.goto('/'); }, verify: verifyHomePage,   page: 'home'   },
+  { label: 'home → user',           go: navigateToUserPage,                  verify: verifyUserPage,   page: 'user'   },
+  { label: 'user → reader',         go: gotoAnchorReader,                    verify: verifyReaderPage, page: 'reader' },
+  { label: 'reader → reader (+)',   go: createNewBookFromReader,             verify: verifyReaderPage, page: 'reader' },
+  { label: 'reader → home',         go: navigateToHome,                      verify: verifyHomePage,   page: 'home'   },
+  { label: 'home → reader',         go: gotoAnchorReader,                    verify: verifyReaderPage, page: 'reader' },
+  { label: 'reader → user',         go: navigateToUserPage,                  verify: verifyUserPage,   page: 'user'   },
+  { label: 'user → reader (2)',     go: gotoAnchorReader,                    verify: verifyReaderPage, page: 'reader' },
+  { label: 'reader → home (end)',   go: navigateToHome,                      verify: verifyHomePage,   page: 'home'   },
 ];
 
 /**

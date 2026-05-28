@@ -26,6 +26,29 @@ function buildAncestorChain(bookId) {
 }
 
 /**
+ * Wrap the title text inside a formatted citation with an anchor.
+ * Skips if the HTML already contains an anchor (e.g. formatBibtexToCitation
+ * already linked the title via the bibtex `url` field). Handles books
+ * (`<i>Title</i>`), articles/chapters (`"Title"`), and bare title text.
+ */
+function linkTitleInCitation(html, title, href) {
+  if (!html || !title || !href) return html;
+  if (/<a\s[^>]*href=/i.test(html)) return html;
+
+  const escapeHtml = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapedTitle = escapeHtml(title);
+  const safeHref = String(href).replace(/"/g, '&quot;');
+  const wrap = inner => `<a href="${safeHref}" target="_blank" rel="noopener">${inner}</a>`;
+
+  const italicized = `<i>${escapedTitle}</i>`;
+  if (html.includes(italicized)) return html.replace(italicized, wrap(italicized));
+  const quoted = `"${escapedTitle}"`;
+  if (html.includes(quoted)) return html.replace(quoted, wrap(quoted));
+  if (html.includes(escapedTitle)) return html.replace(escapedTitle, wrap(escapedTitle));
+  return html;
+}
+
+/**
  * Walk up the ancestor chain to find the first surviving (non-deleted) book.
  */
 async function findSurvivingAncestor(bookId) {
@@ -102,6 +125,7 @@ export async function buildCitationContent(contentType, db = null) {
           }
         }
 
+        let displayContent = result.content;
         let navigationLink = '';
         if (canonicalResolvedBook) {
           // Server's bestVersion endpoint already enforced visibility — straight link.
@@ -114,19 +138,13 @@ export async function buildCitationContent(contentType, db = null) {
               </a>
             </div>`;
         } else if (citationCardMetadata) {
-          // Canonical-only citation. If we have an open-access URL surface it as
-          // a normal "Open source" link; otherwise render nothing — the citation
-          // text itself is enough.
+          // Canonical-only citation with no library version that has nodes.
+          // No "Open source" button — surface the OA / DOI URL as an anchor on
+          // the title within the citation text itself.
           const oaHref = citationCardMetadata.oa_url || citationCardMetadata.pdf_url
             || (citationCardMetadata.doi ? `https://doi.org/${citationCardMetadata.doi}` : null);
-          if (oaHref) {
-            navigationLink = `
-              <div class="citation-navigation" style="margin-top: 1em;">
-                <a href="${oaHref}" target="_blank" rel="noopener" class="citation-source-link" style="display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;">
-                  Open source
-                  <span class="open-icon">↗</span>
-                </a>
-              </div>`;
+          if (oaHref && citationCardMetadata.title) {
+            displayContent = linkTitleInCitation(displayContent, citationCardMetadata.title, oaHref);
           }
         } else if (result.source_id && sourceHasNodes) {
           // Fetch the library entry to check visibility
@@ -177,7 +195,7 @@ export async function buildCitationContent(contentType, db = null) {
           <div class="citations-section" data-content-id="${refId}" data-reference-id="${refId}">
             <h3 style="margin-bottom: 0.5em;">Reference</h3>
             <blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">
-              ${result.content}
+              ${displayContent}
             </blockquote>
             ${navigationLink}
             <hr style="margin: 2em 0; opacity: 0.5;">
