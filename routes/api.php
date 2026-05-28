@@ -61,6 +61,12 @@ Route::prefix('search')->middleware('throttle:60,1')->group(function () {
     Route::get('/combined', [SearchController::class, 'searchWithOpenAlex']);
 });
 
+// Canonical-source resolver used by the bibliography click handler to find the
+// best library version (or surface a citation-only card when no version exists).
+Route::get('/canonical/{id}/best-version', [App\Http\Controllers\CanonicalSourceController::class, 'bestVersion'])
+    ->middleware('throttle:120,1')
+    ->where('id', '[0-9a-f-]{36}');
+
 // OpenAlex: save a work as a library stub — no auth required (anonymous users can cite too)
 Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary'])
     ->middleware('throttle:10,1');

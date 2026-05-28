@@ -957,6 +957,7 @@ export async function loadBibliographyToIndexedDB(db, bibliography) {
       referenceId: referenceId,
       content: isNewFormat ? refData.content : refData,
       source_id: isNewFormat ? (refData.source_id || null) : null,
+      canonical_source_id: isNewFormat ? (refData.canonical_source_id || null) : null,
       source_has_nodes: isNewFormat ? (refData.source_has_nodes ?? null) : null,
     };
 

@@ -343,6 +343,18 @@ class CanonicalSourceMatcher
     }
 
     /**
+     * Public entry-point used by the citation search path. Wraps the private
+     * upsert so the CitationSearchService can write external API results
+     * (OpenAlex/Open Library) into canonical_source without going through the
+     * library-row-first canonicalize pipeline. Idempotent — repeat calls with the
+     * same identifier return the existing canonical.
+     */
+    public function ingestExternal(array $normalised, string $foundationSource): CanonicalSource
+    {
+        return $this->upsertCanonicalFromNormalised($normalised, $foundationSource, false);
+    }
+
+    /**
      * Upsert a canonical_source row from a normalised work array (compatible with
      * OpenAlexService::normaliseWork / OpenLibraryService::normaliseDoc / SemanticScholarService normalised result).
      */

@@ -5,6 +5,7 @@
 
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index.js';
+import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index.js';
 
@@ -79,8 +80,55 @@ export async function buildCitationContent(contentType, db = null) {
         // Build navigation link if source_id exists and source has content to open
         // source_has_nodes: undefined/null on old records → treat as true (backward compat)
         const sourceHasNodes = result.source_has_nodes == null || !!result.source_has_nodes;
+
+        // Canonical-only path: when the record has a canonical_source_id but no
+        // source_id, ask the server for metadata (and best version, if any).
+        // Note: awaiting `fetch()` inside the open IDB transaction can commit it,
+        // so we must NOT touch the library store afterwards — instead we render
+        // either a direct navigation link (server already filtered for visibility)
+        // or a citation-only card. Both paths skip the IDB library lookup below.
+        let citationCardMetadata = null;
+        let canonicalResolvedBook = null;
+        if (!result.source_id && result.canonical_source_id) {
+          try {
+            const resolved = await resolveBibliographyTarget(result);
+            if (resolved?.type === 'library' && resolved.book) {
+              canonicalResolvedBook = resolved.book;
+            } else if (resolved?.type === 'citation-card') {
+              citationCardMetadata = resolved.metadata;
+            }
+          } catch (e) {
+            console.warn('displayCitations: canonical resolve failed', e);
+          }
+        }
+
         let navigationLink = '';
-        if (result.source_id && sourceHasNodes) {
+        if (canonicalResolvedBook) {
+          // Server's bestVersion endpoint already enforced visibility — straight link.
+          const targetUrl = `/${encodeURIComponent(canonicalResolvedBook)}`;
+          navigationLink = `
+            <div class="citation-navigation" style="margin-top: 1em;">
+              <a href="${targetUrl}" class="citation-source-link" style="display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;">
+                Open source
+                <span class="open-icon">↗</span>
+              </a>
+            </div>`;
+        } else if (citationCardMetadata) {
+          // Canonical-only citation. If we have an open-access URL surface it as
+          // a normal "Open source" link; otherwise render nothing — the citation
+          // text itself is enough.
+          const oaHref = citationCardMetadata.oa_url || citationCardMetadata.pdf_url
+            || (citationCardMetadata.doi ? `https://doi.org/${citationCardMetadata.doi}` : null);
+          if (oaHref) {
+            navigationLink = `
+              <div class="citation-navigation" style="margin-top: 1em;">
+                <a href="${oaHref}" target="_blank" rel="noopener" class="citation-source-link" style="display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;">
+                  Open source
+                  <span class="open-icon">↗</span>
+                </a>
+              </div>`;
+          }
+        } else if (result.source_id && sourceHasNodes) {
           // Fetch the library entry to check visibility
           const libraryStore = transaction.objectStore('library');
           const libraryRecord = await new Promise((resolve) => {

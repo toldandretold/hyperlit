@@ -697,27 +697,44 @@ scrollCaretIntoView(element) {
       }
     }
 
-    // Position citation results above the toolbar
+    // Position citation results above the toolbar.
+    // Single constant height — matches the CSS (max-height: 240px across every
+    // data-state since the citation-modal layout rewrite). Previous code used
+    // hardcoded 70/200/0px based on data-state, which (a) didn't match the CSS
+    // and (b) collapsed the panel to 0px when state="hidden" (chips-only
+    // resting state), so the chip bar disappeared whenever the keyboard was
+    // up. That also broke the Shelf picker — clicking Shelf left the panel
+    // at state="hidden" → 0px → picker rendered inside an invisible panel.
+    // Citation panel positioning when keyboard is open.
+    // Test coverage:
+    //   - tests/e2e/specs/citations/citation-modal-mobile.spec.js — verifies
+    //     panel doesn't collapse to height: 0 (the original bug here was
+    //     `state === 'hidden' → height: 0`, hiding the chip bar).
     const citationResults = document.getElementById('citation-toolbar-results');
     if (citationResults) {
-      // Use different heights based on state
+      // State-aware panel height so the blurred backdrop above the keyboard
+      // only takes as much vertical space as it actually needs:
+      //   - hidden (no query yet, just chips): chip bar only
+      //   - loading / empty: small message space
+      //   - results: full scroll space
+      // Without this the modal looked huge on phone with keyboard up.
       const state = citationResults.dataset.state;
+      const shelfDropdownOpen = citationResults.classList.contains('shelf-dropdown-open');
       let resultsMaxHeight;
-      if (state === 'empty' || state === 'loading') {
-        resultsMaxHeight = 70; // Compact height for empty/loading
-        console.log(`🎨 KeyboardManager: Using 70px height for state="${state}"`);
+      if (shelfDropdownOpen) {
+        // Popup sits above the chip bar; need room for it without clipping.
+        resultsMaxHeight = 260;
       } else if (state === 'hidden') {
-        resultsMaxHeight = 0; // Collapsed when hidden
-        console.log(`🎨 KeyboardManager: Using 0px height for state="${state}"`);
+        resultsMaxHeight = 56; // chip bar (38) + 16 panel padding + 2 slack
+      } else if (state === 'empty' || state === 'loading') {
+        resultsMaxHeight = 110;
       } else {
-        resultsMaxHeight = 200; // Full height for results
-        console.log(`🎨 KeyboardManager: Using 200px height for state="${state}"`);
+        resultsMaxHeight = 240;
       }
-
       const resultsBottom = this.state.keyboardTop - toolbarHeight;
       const resultsTop = resultsBottom - resultsMaxHeight;
 
-      console.log(`🎨 KeyboardManager: keyboardTop=${this.state.keyboardTop}, toolbarHeight=${toolbarHeight}, resultsBottom=${resultsBottom}, resultsTop=${resultsTop}, height=${resultsMaxHeight}px`);
+      console.log(`🎨 KeyboardManager: state=${state}, height=${resultsMaxHeight}px, keyboardTop=${this.state.keyboardTop}, toolbarHeight=${toolbarHeight}, resultsBottom=${resultsBottom}, resultsTop=${resultsTop}`);
 
       citationResults.style.setProperty("position", "fixed", "important");
       citationResults.style.setProperty("bottom", "auto", "important");

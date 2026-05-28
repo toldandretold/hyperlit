@@ -1,6 +1,14 @@
 /**
  * Citation Inserter Module
- * Handles insertion of author-date citations at cursor position
+ * Handles insertion of author-date citations at cursor position.
+ *
+ * Test coverage:
+ *   - tests/javascript/citations/citationInserter.test.js (Vitest)
+ *       parseAuthorYear edge cases, generateReferenceId format,
+ *       insertCitationAtCursor with both new picked-object shape AND legacy
+ *       positional signature, asserts bibliography record includes both
+ *       source_id and canonical_source_id pointers.
+ * See tests/Feature/Citations/README.md for the full suite.
  */
 
 import { openDatabase, queueForSync } from '../indexedDB/index.js';
@@ -77,17 +85,55 @@ export function parseAuthorYear(bibtex) {
 }
 
 /**
- * Insert a citation at the current cursor position
- * @param {Range} range - The current selection range
- * @param {string} currentBookId - The book where citation is being inserted
- * @param {string} citedBookId - The book being cited
- * @param {string} bibtex - The bibtex of the cited book
- * @param {Function} saveCallback - Callback to save node to IndexedDB
+ * Insert a citation at the current cursor position.
+ *
+ * Accepts either the legacy positional signature (kept for backward compat with
+ * any older callers) or the new richer `picked` object that the citation modal
+ * now produces post-PR4/5.
+ *
+ * New shape (preferred):
+ *   insertCitationAtCursor(range, currentBookId, {
+ *     book,                  // library.book of the chosen version, or '' for canonical-only
+ *     canonical_source_id,   // canonical.id when known
+ *     bibtex,                // real (library) or synthetic (canonical)
+ *     has_nodes,             // whether the citation has a text version available
+ *   }, saveCallback)
+ *
+ * Legacy shape (still works):
+ *   insertCitationAtCursor(range, currentBookId, citedBookId, bibtex, saveCallback, sourceHasNodes)
+ *
  * @returns {Promise<{referenceId: string, anchorElement: HTMLElement}>}
  */
-export async function insertCitationAtCursor(range, currentBookId, citedBookId, bibtex, saveCallback, sourceHasNodes = true) {
+export async function insertCitationAtCursor(range, currentBookId, pickedOrCitedBookId, bibtexOrSaveCallback, saveCallbackOrSourceHasNodes, legacySourceHasNodes = true) {
   if (!range) {
     throw new Error('No valid cursor position');
+  }
+
+  // Normalise to a single `picked` object.
+  let picked;
+  let saveCallback;
+  if (pickedOrCitedBookId && typeof pickedOrCitedBookId === 'object') {
+    picked = pickedOrCitedBookId;
+    saveCallback = bibtexOrSaveCallback;
+  } else {
+    picked = {
+      book: pickedOrCitedBookId,
+      canonical_source_id: null,
+      bibtex: bibtexOrSaveCallback,
+      has_nodes: legacySourceHasNodes,
+    };
+    saveCallback = saveCallbackOrSourceHasNodes;
+  }
+
+  const citedBookId = picked.book || '';
+  const canonicalSourceId = picked.canonical_source_id || null;
+  const bibtex = picked.bibtex || '';
+  const sourceHasNodes = picked.has_nodes !== false;
+
+  // Citation must reference at least one identity — either a library version we
+  // can navigate to OR a canonical record for the citation-card flow.
+  if (!citedBookId && !canonicalSourceId) {
+    throw new Error('Citation insert requires either book or canonical_source_id');
   }
 
   // 1. Generate unique reference ID
@@ -152,21 +198,32 @@ export async function insertCitationAtCursor(range, currentBookId, citedBookId, 
 
   // 7. Create bibliography record in IndexedDB
   const formattedCitation = await formatBibtexToCitation(bibtex);
-  await createBibliographyRecord(referenceId, currentBookId, citedBookId, formattedCitation, sourceHasNodes);
+  await createBibliographyRecord(referenceId, currentBookId, citedBookId, formattedCitation, sourceHasNodes, canonicalSourceId);
 
-  console.log(`✅ Citation inserted: ${referenceId} citing ${citedBookId}`);
+  console.log(`✅ Citation inserted: ${referenceId} citing ${citedBookId || canonicalSourceId} (canonical=${canonicalSourceId ?? '-'})`);
 
   return { referenceId, anchorElement };
 }
 
 /**
- * Create a new bibliography record in IndexedDB
+ * Create a new bibliography record in IndexedDB.
+ *
+ * Stores both pointers when available:
+ *   - source_id          = library.book of the chosen version (legacy + canonical-with-version)
+ *   - canonical_source_id = canonical.id (canonical + canonical-only)
+ *
+ * The resolver in `resources/js/indexedDB/bibliography/index.js` consumes
+ * canonical_source_id first; falls back to source_id for old records and
+ * orphan-library citations.
+ *
  * @param {string} referenceId - Unique reference ID
  * @param {string} bookId - The book containing the citation
- * @param {string} sourceId - The book being cited (pointer)
+ * @param {string} sourceId - The library.book of the cited version (may be '')
  * @param {string} content - Formatted citation text
+ * @param {boolean} sourceHasNodes - Whether the citation has navigable text
+ * @param {string|null} canonicalSourceId - canonical.id when known
  */
-async function createBibliographyRecord(referenceId, bookId, sourceId, content, sourceHasNodes = true) {
+async function createBibliographyRecord(referenceId, bookId, sourceId, content, sourceHasNodes = true, canonicalSourceId = null) {
   const db = await openDatabase();
   const tx = db.transaction('bibliography', 'readwrite');
   const store = tx.objectStore('bibliography');
@@ -176,6 +233,7 @@ async function createBibliographyRecord(referenceId, bookId, sourceId, content, 
     book: bookId,
     referenceId: referenceId,
     source_id: sourceId,
+    canonical_source_id: canonicalSourceId,
     content: content,
     source_has_nodes: sourceHasNodes,
     created_at: now,

@@ -1,0 +1,15 @@
+{
+    "numFound": 1,
+    "docs": [
+        {
+            "key": "/works/OL_FIXTURE_MARX",
+            "title": "Das Kapital",
+            "subtitle": "Kritik der politischen Oekonomie",
+            "author_name": ["Karl Marx"],
+            "first_publish_year": 1867,
+            "publisher": ["Verlag von Otto Meissner"],
+            "isbn": ["FIXTURE-9783-marx"],
+            "subject": ["Economics", "Political economy"]
+        }
+    ]
+}

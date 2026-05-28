@@ -519,12 +519,14 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // Convert to full record format including source_id for linked citations
+        // Convert to full record format including source_id and canonical_source_id
+        // for linked citations.
         $bibliographyData = [];
         foreach ($references as $reference) {
             $bibliographyData[$reference->referenceId] = [
                 'content' => $reference->content,
                 'source_id' => $reference->source_id ?? null,
+                'canonical_source_id' => $reference->canonical_source_id ?? null,
                 'source_has_nodes' => isset($reference->source_has_nodes)
                     ? (bool) $reference->source_has_nodes
                     : null, // null → treated as true (backward compat)

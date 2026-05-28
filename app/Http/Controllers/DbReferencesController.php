@@ -19,6 +19,7 @@ class DbReferencesController extends Controller
             'data' => 'required|array',
             'data.*.referenceId' => 'required|string',
             'data.*.source_id' => 'nullable|string',
+            'data.*.canonical_source_id' => 'nullable|string|uuid',
             'data.*.content' => 'required|string',
         ]);
 
@@ -40,6 +41,7 @@ class DbReferencesController extends Controller
                         'book' => $bookId,
                         'referenceId' => $item['referenceId'],
                         'source_id' => $item['source_id'] ?? null,
+                        'canonical_source_id' => $item['canonical_source_id'] ?? null,
                         'content' => $item['content'],
                         'updated_at' => now(),
                         'created_at' => now(),

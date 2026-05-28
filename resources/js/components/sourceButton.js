@@ -2432,8 +2432,13 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
-          if (record?.content && !seenSourceIds.has(record.source_id)) {
-            seenSourceIds.add(record.source_id);
+          // Dedup key: prefer canonical_source_id (true citation identity) over
+          // source_id (the specific version). Without this, multiple citations
+          // pointing to the same canonical-only work would all collapse on a
+          // shared null source_id.
+          const dedupKey = record?.canonical_source_id || record?.source_id || null;
+          if (record?.content && !seenSourceIds.has(dedupKey)) {
+            seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
         } catch (e) {
@@ -3263,8 +3268,13 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
-          if (record?.content && !seenSourceIds.has(record.source_id)) {
-            seenSourceIds.add(record.source_id);
+          // Dedup key: prefer canonical_source_id (true citation identity) over
+          // source_id (the specific version). Without this, multiple citations
+          // pointing to the same canonical-only work would all collapse on a
+          // shared null source_id.
+          const dedupKey = record?.canonical_source_id || record?.source_id || null;
+          if (record?.content && !seenSourceIds.has(dedupKey)) {
+            seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
         } catch (e) {
@@ -3674,8 +3684,13 @@ async function buildEpubBlob(bookId = book || 'latest') {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
-          if (record?.content && !seenSourceIds.has(record.source_id)) {
-            seenSourceIds.add(record.source_id);
+          // Dedup key: prefer canonical_source_id (true citation identity) over
+          // source_id (the specific version). Without this, multiple citations
+          // pointing to the same canonical-only work would all collapse on a
+          // shared null source_id.
+          const dedupKey = record?.canonical_source_id || record?.source_id || null;
+          if (record?.content && !seenSourceIds.has(dedupKey)) {
+            seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
         } catch (e) {

@@ -336,8 +336,33 @@
   <!-- Keyboard gap blocker - prevents taps in Safari gap from closing keyboard -->
   <div id="keyboard-gap-blocker"></div>
 
-  <!-- Citation results - outside edit-toolbar so it can blur both toolbar and bottom-right-buttons -->
-  <div id="citation-toolbar-results"></div>
+  <!-- Citation results - outside edit-toolbar so it can blur both toolbar and bottom-right-buttons.
+       Scope chips live INSIDE this blurred panel so adding/removing them never
+       changes the bottom toolbar's height and never shifts the search input.
+       Chip bar is the FIRST flex child — with the panel's column-reverse it
+       renders at the visual BOTTOM, right above the search input. Results
+       stack above the chips. When chips hide on typed input, results fill
+       the same bottom slot — no perceived jump. -->
+  <div id="citation-toolbar-results">
+    <div class="citation-scope-bar">
+      <div class="citation-scope-chips" role="tablist" aria-label="Search scope">
+        <button type="button" class="citation-scope-btn active" data-scope="public" role="tab" aria-selected="true">Public</button>
+        <button type="button" class="citation-scope-btn" data-scope="mine" role="tab" aria-selected="false">Personal</button>
+        <button type="button" class="citation-scope-btn" data-scope="shelf" role="tab" aria-selected="false">Shelf</button>
+      </div>
+      <div class="citation-shelf-picker" style="display:none;">
+        <!-- Custom dropdown (NOT a native <select>) so iOS doesn't dismiss
+             the keyboard when it's tapped. The native picker would always
+             close the on-screen keyboard regardless of preventDefault. -->
+        <button type="button" class="citation-shelf-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="citation-shelf-current">— pick a shelf —</span>
+          <span class="citation-shelf-caret" aria-hidden="true">▾</span>
+        </button>
+        <ul class="citation-shelf-options" role="listbox" hidden></ul>
+      </div>
+    </div>
+    <div class="citation-results-items"></div>
+  </div>
 
   <!-- Search toolbar - iOS Safari style find bar -->
   <div id="search-toolbar">

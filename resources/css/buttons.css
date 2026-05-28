@@ -1281,7 +1281,7 @@ body[data-page="home"] #topRightContainer::after {
 /* Citation mode container - replaces buttons in toolbar */
 #citation-mode-container {
   display: none; /* Hidden by default - only show in citation mode */
-  flex-direction: row;
+  flex-direction: row; /* Just input + close button — chips moved to blurred panel */
   align-items: center;
   gap: 8px;
   flex: 1;
@@ -1293,6 +1293,212 @@ body[data-page="home"] #topRightContainer::after {
   /* Smooth fade when appearing */
   opacity: 0;
   transition: opacity 0.3s ease;
+}
+
+/* Scope chip bar — sits above the input, hides once we have results to show */
+/* Scope chip bar lives inside the blurred citation-toolbar-results panel.
+   Keeping it outside #edit-toolbar means adding/removing chips never changes
+   the bottom toolbar's height — the search input stays put.
+   FIXED height (not min-height) so adding the shelf picker never bumps the
+   bar taller — that was the residual shelf-shift the user was hitting.
+   Centered with max-width matching the search input below (500px) so chips
+   visually align with the input cluster rather than flushing to the left edge
+   of the full-width blurred panel. */
+#citation-toolbar-results .citation-scope-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;   /* chips pinned to left of bar — picker grows right without shifting them */
+  gap: 8px;
+  padding: 6px 0;
+  height: 38px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  /* Match the search input's effective horizontal extent across BOTH desktop
+     and mobile:
+       - desktop (viewport > 532): clamp to 500px (input's max-width) centered
+       - mobile  (viewport ≤ 532): viewport minus 32px (the edit-toolbar's
+         16px L/R padding) so chips align with the input's border-left,
+         not the screen edge */
+  width: min(100% - 32px, 500px);
+  align-self: center;
+}
+
+#citation-toolbar-results .citation-scope-chips {
+  display: inline-flex;
+  gap: 2px;
+  padding: 0;
+  height: 26px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#citation-toolbar-results .citation-scope-btn {
+  padding: 3px 10px;
+  background: transparent;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transform: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#citation-toolbar-results .citation-scope-btn:not(:last-child) {
+  border-right: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+}
+
+#citation-toolbar-results .citation-scope-btn:hover {
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 12%, transparent);
+  color: var(--color-text);
+}
+
+#citation-toolbar-results .citation-scope-btn.active {
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 22%, transparent);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+#citation-toolbar-results .citation-shelf-picker {
+  /* Flex wrapper around the select. Without this, the wrapper was a block
+     element with the implicit line-height of its parent — that line-box was
+     taller than the 26px select inside, so the wrapper rendered taller than
+     the chip group next to it and the dropdown looked vertically dropped. */
+  display: flex;
+  align-items: center;
+  height: 26px;
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 180px;
+  line-height: 0;
+}
+
+/* Custom shelf dropdown — replaces native <select> so iOS doesn't dismiss
+   the on-screen keyboard when the picker opens. */
+#citation-toolbar-results .citation-shelf-trigger {
+  width: 100%;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 22px 0 8px;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 22px;
+  outline: none;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  transform: none;
+  /* Tiny inline chevron */
+  position: relative;
+}
+
+#citation-toolbar-results .citation-shelf-current {
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+#citation-toolbar-results .citation-shelf-caret {
+  flex: 0 0 auto;
+  opacity: 0.6;
+  font-size: 10px;
+  line-height: 1;
+}
+
+#citation-toolbar-results .citation-shelf-options {
+  /* Popup list — positioned ABOVE the trigger because the chip bar lives at
+     the bottom of the blurred panel; below would clip into the toolbar. */
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin: 0 0 4px;
+  padding: 4px 0;
+  list-style: none;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+  z-index: 1;
+}
+
+#citation-toolbar-results .citation-shelf-options[hidden] {
+  display: none;
+}
+
+#citation-toolbar-results .citation-shelf-option {
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  transition: background-color 0.1s ease;
+}
+
+#citation-toolbar-results .citation-shelf-option:hover,
+#citation-toolbar-results .citation-shelf-option[aria-selected="true"] {
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 15%, transparent);
+  font-weight: 600;
+}
+
+#citation-toolbar-results .citation-shelf-option-empty {
+  padding: 6px 12px;
+  font-size: 12px;
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Keep the picker positioned so the popup's `bottom: 100%` resolves correctly */
+#citation-toolbar-results .citation-shelf-picker {
+  position: relative;
+}
+
+@media (max-width: 480px) {
+  #citation-toolbar-results .citation-shelf-picker {
+    max-width: 140px;
+  }
+}
+
+/* Private-lock icon on a citation result whose resolved version is one of the
+   caller's private books. Same visual language as the libraryCard private
+   indicator so the modal and the library list look consistent. */
+.citation-result-private {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  opacity: 0.5;
+}
+.citation-result-private svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  opacity: 0.7;
 }
 
 #citation-mode-container.hidden {
@@ -1430,36 +1636,38 @@ body[data-page="home"] #topRightContainer::after {
   touch-action: pan-y;
   overscroll-behavior: contain;
 
-  /* Smooth fade in and height transitions */
-  opacity: 0;
-  transition: max-height 0.25s ease-out, opacity 0.2s ease;
+  /* No fade / no transition: the panel is either in the layout at full opacity
+     or removed entirely. The previous animation + opacity-0 base caused a
+     visible "appear → disappear → appear" stutter every open because the
+     animation's 0.1s delay left the panel rendered-but-invisible after the
+     initial display:flex paint. */
 }
 
-/* Show when citation mode is active */
+/* Show when citation mode is active — snap in, no animation. */
 #edit-toolbar.citation-mode-active ~ #citation-toolbar-results {
   display: flex;
-  animation: fadeIn 0.2s ease 0.1s forwards;
 }
 
-/* State-specific heights for desktop */
-/* Compact height for empty/loading states */
+/* Panel height is constant whenever the modal is open — every state-based
+   height swap created a perceived "glitch" (animated transitions between
+   44px / 110px / 240px). Single max-height = no shift when typing starts
+   or scope changes. The chip bar inside the panel hides via [data-has-query],
+   not via panel height changes. */
 #citation-toolbar-results[data-state="empty"],
-#citation-toolbar-results[data-state="loading"] {
-  max-height: 70px;
-  overflow-y: hidden;
-  padding-bottom: 0; /* Remove bottom padding for flush alignment */
-}
-
-/* Full height for results */
-#citation-toolbar-results[data-state="results"] {
-  max-height: 200px;
-}
-
-/* Collapsed when hidden */
+#citation-toolbar-results[data-state="loading"],
+#citation-toolbar-results[data-state="results"],
 #citation-toolbar-results[data-state="hidden"] {
-  max-height: 0;
-  padding: 0;
-  opacity: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  opacity: 1;
+}
+
+/* Chips hide the moment the user types anything (or sees any post-search
+   state). Panel itself stays put — only the chip-bar element disappears,
+   and because it's the column-reverse top child the items already fill from
+   the bottom so nothing visibly shifts. */
+#citation-toolbar-results[data-has-query="true"] .citation-scope-bar {
+  display: none;
 }
 
 /* Result items - just text on blurred background */
@@ -1603,20 +1811,32 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
     transition: none !important; /* Instant transitions on mobile - no animation conflicts with keyboard */
   }
 
-  /* Mobile-specific state heights */
+  /* Mobile: state-aware panel heights so the blurred area only takes the
+     space it needs. Matches the keyboardManager's state-aware heights for
+     the keyboard-up case. */
+  #citation-toolbar-results[data-state="results"] {
+    max-height: 240px;
+    opacity: 1;
+  }
   #citation-toolbar-results[data-state="empty"],
   #citation-toolbar-results[data-state="loading"] {
-    max-height: 70px;
-    padding-bottom: 0; /* Remove bottom padding for flush alignment */
+    max-height: 110px;
+    opacity: 1;
   }
-
-  #citation-toolbar-results[data-state="results"] {
-    max-height: 200px;
-  }
-
   #citation-toolbar-results[data-state="hidden"] {
-    max-height: 0;
-    padding: 0;
+    max-height: 56px;  /* chip bar (38px) + 16px panel padding + 2px slack */
+    opacity: 1;
+    overflow: hidden;
+  }
+
+  /* When the shelf dropdown popup is open the panel needs extra vertical
+     space to fit it (popup sits ABOVE the chip bar). Without this the popup
+     gets clipped by the panel's overflow:hidden / short max-height. */
+  #citation-toolbar-results.shelf-dropdown-open[data-state="hidden"],
+  #citation-toolbar-results.shelf-dropdown-open[data-state="empty"],
+  #citation-toolbar-results.shelf-dropdown-open[data-state="loading"] {
+    max-height: 260px;  /* chip bar (38) + 4px margin + popup max (200) + slack */
+    overflow: visible;
   }
 
   /* Mobile-specific hover states */

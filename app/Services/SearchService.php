@@ -251,4 +251,242 @@ class SearchService
             ->get()
             ->toArray();
     }
+
+    /**
+     * Hybrid citation search: UNION of canonical_source rows (citation identities)
+     * and orphan library rows (user imports with no canonical link).
+     *
+     * Test coverage: tests/Feature/Citations/CitationSearchTest.php
+     *   — privacy contract (public/mine/shelf), hybrid row shapes (canonical /
+     *     canonical-only / orphan-library), is_private flag, scope leak regressions.
+     *
+     * On public scope the canonical branch is unrestricted (canonical metadata is
+     * intentionally global). On mine/shelf scope BOTH branches are scope-filtered —
+     * a canonical only shows up if its resolved best-version (or any linked version)
+     * passes the same membership check as the orphan branch. This prevents the
+     * "I picked a 2-book shelf and got 50 results" leak where the canonical branch
+     * surfaces global metadata that has nothing to do with the user's shelf.
+     *
+     * Each branch limits to $limit candidates BEFORE the outer sort, so the worst
+     * case is 2*$limit rows getting ranked.
+     *
+     * Returns array of stdClass with: row_type ('canonical'|'library'), id, title,
+     * author, year, journal, bibtex, best_version_book, has_version, is_private,
+     * relevance.
+     */
+    public function searchForCitations(
+        string $query,
+        int $limit = 15,
+        int $offset = 0,
+        string $sourceScope = 'public',
+        ?string $creatorName = null,
+        ?string $shelfId = null,
+    ): array {
+        $tsQuery = $this->buildTsQuery($query);
+        if (empty($tsQuery)) {
+            return [];
+        }
+
+        [$libScopeSql, $libScopeParams, $libJoinSql, $libJoinParams] = $this->buildLibraryScopeClauseForCitations($sourceScope, $creatorName, $shelfId);
+        [$canonScopeSql, $canonScopeParams] = $this->buildCanonicalScopeClauseForCitations($sourceScope, $creatorName, $shelfId);
+
+        // In shelf scope we want ALL shelf members (including canonicalized ones),
+        // not just orphan library rows — the user picked these specific versions.
+        // In public/mine we exclude canonicalized library rows so they don't
+        // duplicate their own canonical entry from the other branch.
+        $libOrphanFilter = ($sourceScope === 'shelf') ? 'TRUE' : 'l.canonical_source_id IS NULL';
+
+        // Inner branches each cap to $limit so the outer sort is cheap.
+        // ts_rank's weight array is identical to the one library searches use.
+        // LEFT JOIN library-on-best-version in the canonical branch so we can
+        // surface a private-lock badge when the version we'd resolve to is one
+        // of the caller's private books (per the attribution-first contract).
+        $sql = "
+            SELECT * FROM (
+                (
+                    SELECT
+                        'canonical'::text AS row_type,
+                        c.id::text AS id,
+                        c.title,
+                        c.author,
+                        c.year::text AS year,
+                        c.journal,
+                        NULL::text AS bibtex,
+                        COALESCE(
+                            c.author_version_book,
+                            c.publisher_version_book,
+                            c.commons_version_book,
+                            c.auto_version_book
+                        ) AS best_version_book,
+                        (
+                            COALESCE(c.author_version_book, c.publisher_version_book, c.commons_version_book, c.auto_version_book) IS NOT NULL
+                            OR EXISTS (SELECT 1 FROM library WHERE canonical_source_id = c.id LIMIT 1)
+                        ) AS has_version,
+                        (lv.visibility = 'private') AS is_private,
+                        ts_rank('{0.05, 0.1, 0.3, 1.0}', c.search_vector, to_tsquery('simple', ?)) AS relevance
+                    FROM canonical_source c
+                    LEFT JOIN library lv ON lv.book = COALESCE(
+                        c.author_version_book,
+                        c.publisher_version_book,
+                        c.commons_version_book,
+                        c.auto_version_book
+                    )
+                    WHERE c.search_vector @@ to_tsquery('simple', ?)
+                      AND {$canonScopeSql}
+                    ORDER BY relevance DESC
+                    LIMIT ?
+                )
+                UNION ALL
+                (
+                    SELECT
+                        'library'::text AS row_type,
+                        l.book::text AS id,
+                        l.title,
+                        l.author,
+                        l.year::text AS year,
+                        NULL::text AS journal,
+                        l.bibtex,
+                        l.book::text AS best_version_book,
+                        true AS has_version,
+                        (l.visibility = 'private') AS is_private,
+                        ts_rank('{0.05, 0.1, 0.3, 1.0}', l.search_vector, to_tsquery('simple', ?)) AS relevance
+                    FROM library l
+                    {$libJoinSql}
+                    WHERE {$libOrphanFilter}
+                      AND l.search_vector @@ to_tsquery('simple', ?)
+                      AND l.type IS DISTINCT FROM 'sub_book'
+                      AND {$libScopeSql}
+                    ORDER BY relevance DESC
+                    LIMIT ?
+                )
+            ) combined
+            ORDER BY relevance DESC
+            LIMIT ? OFFSET ?
+        ";
+
+        // Param order MUST match placeholder appearance in the SQL string:
+        //   canonical: ts_rank(SELECT) ?, to_tsquery(WHERE) ?, [scope EXISTS ?], LIMIT ?
+        //   library:   ts_rank(SELECT) ?, [JOIN shelf_id ?], to_tsquery(WHERE) ?,
+        //              [mine scope creator ?], LIMIT ?
+        //   outer:     LIMIT ?, OFFSET ?
+        // The library ts_rank placeholder appears BEFORE the JOIN's placeholder
+        // in the SQL string (SELECT comes before FROM), so it must come first
+        // in the params list — even though semantically the JOIN ID is "earlier."
+        $params = array_merge(
+            [$tsQuery, $tsQuery],            // canonical: rank, where
+            $canonScopeParams,               // canonical: scope (EXISTS shelf/mine)
+            [$limit],                        // canonical: LIMIT
+            [$tsQuery],                      // library: ts_rank (SELECT) — BEFORE join
+            $libJoinParams,                  // library: shelf_id (FROM JOIN)
+            [$tsQuery],                      // library: to_tsquery (WHERE)
+            $libScopeParams,                 // library: mine creator (WHERE)
+            [$limit, $limit, $offset],      // library limit, outer limit, outer offset
+        );
+
+        $rows = DB::select($sql, $params);
+
+        // Generate synthetic bibtex for canonical rows so the frontend's
+        // parseAuthorYear gives a sensible inline (Author Year) citation.
+        foreach ($rows as $row) {
+            if (empty($row->bibtex) && !empty($row->title)) {
+                $row->bibtex = $this->buildSyntheticBibtex($row);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Scope clause for the canonical branch of searchForCitations.
+     * Returns [whereClause, params].
+     *
+     *   public: no extra restriction — canonical metadata is intentionally global
+     *   mine: canonical must have at least one linked library row owned by the caller
+     *         (also drops canonical-only results — they're not "yours")
+     *   shelf: canonical must have at least one linked library row IN the shelf
+     *          (drops canonical-only — they have no version that could be shelved)
+     *
+     * Without this, a 2-book shelf could surface 50 unrelated canonical results
+     * from the global metadata pool — the leak the user hit.
+     */
+    private function buildCanonicalScopeClauseForCitations(string $sourceScope, ?string $creatorName, ?string $shelfId): array
+    {
+        if ($sourceScope === 'shelf' && $shelfId) {
+            // Shelves are explicit user curation — they picked the exact versions
+            // they want available. Don't muddy that with canonical hops; the
+            // library branch surfaces every shelf member directly.
+            return ["FALSE", []];
+        }
+        if ($sourceScope === 'mine' && $creatorName) {
+            return [
+                "EXISTS (
+                    SELECT 1 FROM library l_inner
+                    WHERE l_inner.canonical_source_id = c.id
+                      AND l_inner.creator = ?
+                      AND l_inner.visibility != 'deleted'
+                )",
+                [$creatorName],
+            ];
+        }
+        // public — no restriction
+        return ["TRUE", []];
+    }
+
+    /**
+     * Citation-search scope clauses. Returns [whereClause, whereParams,
+     * joinClause, joinParams] for placement in the orphan-library branch.
+     *
+     * NB: this is INTENTIONALLY laxer than searchLibraryByKeyword's privacy
+     * contract. Citation is about attribution — a user must be able to cite
+     * their OWN private books from their own writing. The read-side privacy
+     * check (whether someone else can navigate to that source) is enforced
+     * at click-time in displayCitations.js + CanonicalSourceController, not
+     * at search time. AiBrain retrieval is the opposite (privacy first; see
+     * RetrievalScopeTest) — do not unify these without thinking through the
+     * threat model.
+     */
+    private function buildLibraryScopeClauseForCitations(string $sourceScope, ?string $creatorName, ?string $shelfId): array
+    {
+        if ($sourceScope === 'shelf' && $shelfId) {
+            // Public books in the shelf, PLUS the caller's own non-deleted
+            // private books they've curated into the shelf.
+            $where = $creatorName
+                ? "(l.visibility = 'public' OR (l.creator = ? AND l.visibility != 'deleted'))"
+                : "l.visibility = 'public'";
+            $params = $creatorName ? [$creatorName] : [];
+            return [
+                $where,
+                $params,
+                "INNER JOIN shelf_items si ON si.book = l.book AND si.shelf_id = ?",
+                [$shelfId],
+            ];
+        }
+        if ($sourceScope === 'mine' && $creatorName) {
+            // All the caller's non-deleted books — public AND private. The
+            // citation marker can point at a private book; navigation to it
+            // is gated separately at click time.
+            return [
+                "(l.creator = ? AND l.visibility != 'deleted')",
+                [$creatorName],
+                "",
+                [],
+            ];
+        }
+        return [
+            "(l.visibility = 'public' AND l.listed = true)",
+            [],
+            "",
+            [],
+        ];
+    }
+
+    private function buildSyntheticBibtex(\stdClass $row): string
+    {
+        $sanitize = fn($s) => str_replace(['{', '}'], '', (string) $s);
+        $author = $sanitize($row->author ?? 'Unknown');
+        $year   = $sanitize($row->year ?? 'n.d.');
+        $title  = $sanitize($row->title ?? 'Untitled');
+        $key    = 'cite_' . substr(md5((string) ($row->id ?? '')), 0, 8);
+        return "@misc{{$key}, author = {{$author}}, year = {{$year}}, title = {{$title}}}";
+    }
 }

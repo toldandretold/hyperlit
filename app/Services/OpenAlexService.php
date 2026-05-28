@@ -19,8 +19,13 @@ class OpenAlexService
      * Make an HTTP GET request with retry logic for 429 rate limiting.
      * Retries up to 3 times with exponential backoff (1s, 2s, 4s).
      * Proactively sleeps when X-RateLimit-Remaining drops below threshold.
+     *
+     * $userFacing=true suppresses the proactive sleep on low remaining-quota
+     * (still logs). Cron callers should leave it false so they back off politely;
+     * user-facing callers (citation search) shouldn't pay 1–2s of sleep per request
+     * just because the daily quota is running low.
      */
-    private function retryableGet(string $url, array $query = []): \Illuminate\Http\Client\Response
+    private function retryableGet(string $url, array $query = [], bool $userFacing = false): \Illuminate\Http\Client\Response
     {
         $maxRetries = 3;
 
@@ -34,7 +39,7 @@ class OpenAlexService
 
             if ($response->status() !== 429 || $attempt === $maxRetries) {
                 // Proactive throttle: sleep when remaining requests are low
-                $this->proactiveThrottle($response);
+                $this->proactiveThrottle($response, $userFacing);
                 return $response;
             }
 
@@ -64,8 +69,11 @@ class OpenAlexService
     /**
      * Check X-RateLimit-Remaining header and proactively sleep when low.
      * Prevents hitting 429s by backing off before the limit is reached.
+     *
+     * When $userFacing=true we log but do NOT sleep — a user typing in the citation
+     * modal shouldn't pay 1–2s every request just because cron jobs ate the quota.
      */
-    private function proactiveThrottle(\Illuminate\Http\Client\Response $response): void
+    private function proactiveThrottle(\Illuminate\Http\Client\Response $response, bool $userFacing = false): void
     {
         $remaining = $response->header('X-RateLimit-Remaining');
 
@@ -76,17 +84,21 @@ class OpenAlexService
         $remaining = (int) $remaining;
 
         if ($remaining < 20) {
-            Log::info('OpenAlex rate limit low, proactive throttle', [
+            Log::info('OpenAlex rate limit low' . ($userFacing ? ' (user-facing, no sleep)' : ', proactive throttle'), [
                 'remaining' => $remaining,
-                'sleep_sec' => 2,
+                'sleep_sec' => $userFacing ? 0 : 2,
             ]);
-            sleep(2);
+            if (!$userFacing) {
+                sleep(2);
+            }
         } elseif ($remaining < 50) {
-            Log::info('OpenAlex rate limit approaching, proactive throttle', [
+            Log::info('OpenAlex rate limit approaching' . ($userFacing ? ' (user-facing, no sleep)' : ', proactive throttle'), [
                 'remaining' => $remaining,
-                'sleep_sec' => 1,
+                'sleep_sec' => $userFacing ? 0 : 1,
             ]);
-            sleep(1);
+            if (!$userFacing) {
+                sleep(1);
+            }
         }
     }
 
@@ -95,14 +107,14 @@ class OpenAlexService
      *
      * @return array<int, array>
      */
-    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1): array
+    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1, bool $userFacing = false): array
     {
         $response = $this->retryableGet(self::BASE_URL . '/works', [
             'search'   => $query,
             'per_page' => $limit,
             'page'     => $page,
             'select'   => self::SELECT_FIELDS,
-        ]);
+        ], $userFacing);
 
         if (!$response->successful()) {
             Log::warning('OpenAlex API returned ' . $response->status() . ' for query: ' . $query);
