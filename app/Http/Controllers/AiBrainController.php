@@ -320,10 +320,13 @@ class AiBrainController extends Controller
                         $systemPrompt,
                         $userMessage,
                         0.3,      // temperature
-                        4096,     // max tokens
+                        8192,     // max tokens — bumped from 4096 because V4 Pro reasoning
+                                  // can eat into the budget and truncate the visible answer
+                                  // mid-sentence. 8192 gives comfortable headroom.
                         $fallbackChain,
                         180,      // timeout
-                        null,     // reasoning_effort (let model decide)
+                        'low',    // reasoning_effort — bounded thinking so we keep tokens
+                                  // for the visible response with citations
                         $onRetry,
                         $onFallback
                     );
@@ -578,8 +581,10 @@ PROMPT;
             $sendEvent('status', ['message' => "Primary model unavailable — trying {$label}..."]);
         };
 
+        // 'low' reasoning_effort so V4 Pro doesn't burn the budget on thinking and
+        // truncate the visible Quick Chat reply mid-sentence.
         $llmResult = $llmService->chatWithFallback(
-            $systemPrompt, $userMessage, 0.3, 4096, $fallbackChain, 180, null, $onRetry, $onFallback
+            $systemPrompt, $userMessage, 0.3, 4096, $fallbackChain, 180, 'low', $onRetry, $onFallback
         );
 
         if (!$llmResult) {
@@ -790,10 +795,11 @@ PROMPT;
             $systemPrompt,
             $userMessage,
             0.3,      // temperature
-            4096,     // max tokens (generous — may produce final answer)
+            4096,     // max tokens — router just outputs a short JSON plan
             $fallbackChain,
             180,      // timeout
-            null,     // reasoning_effort
+            'low',    // reasoning_effort — light thinking is fine for keyword extraction;
+                      // prevents the response from being truncated by deep reasoning
             $onRetry,
             function (string $modelName) use ($onFallback) {
                 if ($onFallback) {
