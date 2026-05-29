@@ -27,6 +27,7 @@ import {
 import { queueNodeForSave } from '../../divEditor/index.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { extractQuotedText } from '../../utilities/textExtraction.js';
+import { ensureSpaceAfterAnchor } from '../utils/anchorSpacing.js';
 
 /**
  * Extract quoted text before a hypercite link element
@@ -370,6 +371,7 @@ export async function handleHypercitePaste(event, targetBookId) {
 
   // Insert the combined content - use a more controlled approach
   const selection = window.getSelection();
+  const insertedAnchors = [];
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
 
@@ -383,6 +385,9 @@ export async function handleHypercitePaste(event, targetBookId) {
       fragment.appendChild(tempDiv.firstChild);
     }
 
+    // Capture anchor refs before insertion — they survive the fragment move.
+    insertedAnchors.push(...fragment.querySelectorAll('a.open-icon'));
+
     // Clear the range and insert our clean fragment
     range.deleteContents();
     range.insertNode(fragment);
@@ -395,6 +400,12 @@ export async function handleHypercitePaste(event, targetBookId) {
     // Fallback to execCommand if selection isn't available
     document.execCommand("insertHTML", false, combinedHtml);
   }
+
+  // Guarantee a space (or end-of-block) after each inserted anchor before save.
+  // Some browsers (observed on Safari 26.4) strip the leading space from the
+  // surviving text node after range.deleteContents() + insertNode(), leaving the
+  // DOM looking correct visually but serialising to IDB without the space.
+  insertedAnchors.forEach(ensureSpaceAfterAnchor);
 
   // Save the affected node — use pre-captured ID as fallback
   saveCurrentParagraph();
