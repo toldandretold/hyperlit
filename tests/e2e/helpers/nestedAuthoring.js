@@ -232,21 +232,45 @@ export async function copyHyperciteFromActiveEditor(page) {
     };
   });
 
-  await page.waitForFunction(() => {
-    const buttons = document.getElementById('hyperlight-buttons');
-    return buttons && window.getComputedStyle(buttons).display === 'flex';
-  }, null, { timeout: 5000 });
-  await page.click('#copy-hypercite');
+  // Click #copy-hypercite and wait for a new <u id="hypercite_*"> to land in
+  // the active editor. The copy can intermittently no-op — a stray
+  // selectionchange hides #hyperlight-buttons / drops the range right as the
+  // click lands — or just lag under load. A single 5s window made this flaky,
+  // so retry the whole show-buttons → click → wait cycle a few times.
+  const newUAppeared = (timeout) =>
+    page.waitForFunction((prev) => {
+      const stacked = [...document.querySelectorAll('.hyperlit-container-stacked.open')];
+      const top = stacked[stacked.length - 1]
+        || document.querySelector('#hyperlit-container.open')
+        || document.querySelector('.main-content');
+      if (!top) return false;
+      return top.querySelectorAll('u[id^="hypercite_"]').length > prev;
+    }, beforeUs.count, { timeout }).then(() => true).catch(() => false);
 
-  // Wait for a new <u> to appear inside the active editor
-  await page.waitForFunction((prev) => {
-    const stacked = [...document.querySelectorAll('.hyperlit-container-stacked.open')];
-    const top = stacked[stacked.length - 1]
-      || document.querySelector('#hyperlit-container.open')
-      || document.querySelector('.main-content');
-    if (!top) return false;
-    return top.querySelectorAll('u[id^="hypercite_"]').length > prev;
-  }, beforeUs.count, { timeout: 5000 });
+  let copied = false;
+  for (let attempt = 1; attempt <= 3 && !copied; attempt++) {
+    // Make sure the floating hyperlight button row is showing before clicking.
+    const buttonsVisible = await page.waitForFunction(() => {
+      const buttons = document.getElementById('hyperlight-buttons');
+      return buttons && window.getComputedStyle(buttons).display === 'flex';
+    }, null, { timeout: 8000 }).then(() => true).catch(() => false);
+
+    if (!buttonsVisible) {
+      // Selection/buttons not ready yet — let the editor settle and retry.
+      await page.waitForTimeout(300);
+      continue;
+    }
+
+    await page.click('#copy-hypercite').catch(() => {});
+    copied = await newUAppeared(8000);
+  }
+
+  if (!copied) {
+    throw new Error(
+      'copyHyperciteFromActiveEditor: no new <u id="hypercite_*"> appeared after '
+      + 'clicking #copy-hypercite (3 attempts) — copy likely no-op\'d (lost selection).'
+    );
+  }
 
   return page.evaluate(() => {
     const stacked = [...document.querySelectorAll('.hyperlit-container-stacked.open')];

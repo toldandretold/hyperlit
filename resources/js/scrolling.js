@@ -180,29 +180,16 @@ let userScrollState = {
 // Store pending navigation cleanup timer so it can be cancelled
 let pendingNavigationCleanupTimer = null;
 
-// Persist the cascade-origin highlight ID so it survives chunk re-renders
-let cascadeOriginTargetId = null;
-
-/**
- * Get the current cascade-origin highlight ID (for re-applying after chunk loads)
- */
-export function getCascadeOriginId() {
-  return cascadeOriginTargetId;
-}
-
-/**
- * Set the cascade-origin highlight ID (for persisting across chunk re-renders)
- */
-export function setCascadeOriginId(id) {
-  cascadeOriginTargetId = id;
-}
-
-/**
- * Clear the cascade-origin state (called when container closes)
- */
-export function clearCascadeOriginId() {
-  cascadeOriginTargetId = null;
-}
+// Cascade-origin state lives in a zero-import leaf module so it can't land in the
+// Temporal Dead Zone when scrolling.js is reached mid circular-import. Imported here
+// (so internal callers keep a local binding) and re-exported for back-compat with
+// existing `import { … } from './scrolling.js'` callers.
+import {
+  getCascadeOriginId,
+  setCascadeOriginId,
+  clearCascadeOriginId,
+} from './navigation/cascadeOriginState.js';
+export { getCascadeOriginId, setCascadeOriginId, clearCascadeOriginId };
 
 function detectUserScrollStart(event) {
   // Don't treat navigation scrolls as user scrolls

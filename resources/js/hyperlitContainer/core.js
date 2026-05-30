@@ -380,7 +380,10 @@ export async function prepareContainerClose() {
  */
 export async function savePreviewNodes() {
   try {
-    const { subBookLoaders } = await import('./subBookLoader.js');
+    // Read the shared Map from the zero-import leaf, not the heavy subBookLoader.js
+    // re-export — importing the entangled module mid-cycle can leave the binding in
+    // the TDZ ("Cannot access 'subBookLoaders' before initialization").
+    const { subBookLoaders } = await import('./subBookState.js');
     const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index.js');
 
     const { parseSubBookId } = await import('../utilities/subBookIdHelper.js');

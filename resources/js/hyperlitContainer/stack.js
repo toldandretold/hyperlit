@@ -496,7 +496,13 @@ async function _popTopLayerImpl() {
   // re-mounts those, so the underlying layer would render as an empty
   // shell. Scoping the destroy to the popped layer's container keeps the
   // layer-below's DOM intact.
-  const { subBookLoaders, destroySubBook } = await import('./subBookLoader.js');
+  // Read the shared Map from the zero-import leaf (TDZ-proof); only pull destroySubBook
+  // from the heavy module. Importing subBookLoaders via subBookLoader.js's re-export
+  // while that module is mid circular-import was throwing "Cannot access 'subBookLoaders'
+  // before initialization", which made this fast-path pop fall back to full close+restore
+  // (the source of the on-close scroll jump).
+  const { subBookLoaders } = await import('./subBookState.js');
+  const { destroySubBook } = await import('./subBookLoader.js');
   const idsInTopLayer = [];
   for (const [id, entry] of subBookLoaders) {
     if (top.container && entry.containerDiv && top.container.contains(entry.containerDiv)) {

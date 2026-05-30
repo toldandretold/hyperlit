@@ -73,10 +73,12 @@ export class CambridgeProcessor extends BaseFormatProcessor {
 
       const footnoteNum = idMatch[1];
 
-      // Extract content from nested structure
+      // Author-date Cambridge articles reuse the reference-N-content markup
+      // for bibliography entries, populated with CSL-style spans (.surname,
+      // .year, .source…) instead of an inner <p>. Those aren't footnotes —
+      // skip them here so extractReferences can claim them.
       const paragraph = container.querySelector('p.p, p');
       if (!paragraph) {
-        console.log(`📚 Cambridge: No paragraph in footnote ${footnoteNum}`);
         return;
       }
 
@@ -114,10 +116,19 @@ export class CambridgeProcessor extends BaseFormatProcessor {
 
     // STEP 3: Find and REMOVE original footnote section containers
     // These contain the nested Vue components that need to be cleaned up
-    // Pattern 1: circle-list containers (from format-registry.js selector)
+    // Pattern 1: circle-list containers (from format-registry.js selector).
+    // Preserve wrappers that still hold an unextracted author-date CSL-style
+    // reference (no inner <p>) — extractReferences needs to claim those.
     const circleListContainers = dom.querySelectorAll('.circle-list__item, .circle-list');
-    circleListContainers.forEach(container => container.remove());
-    console.log(`📚 Cambridge: Removed ${circleListContainers.length} circle-list containers`);
+    let removedCircleLists = 0;
+    circleListContainers.forEach(container => {
+      const innerRefs = container.querySelectorAll('[id^="reference-"][id$="-content"]');
+      const hasUnextractedCsl = Array.from(innerRefs).some(c => !c.querySelector('p.p, p'));
+      if (hasUnextractedCsl) return;
+      container.remove();
+      removedCircleLists++;
+    });
+    console.log(`📚 Cambridge: Removed ${removedCircleLists} circle-list containers`);
 
     // Pattern 2: Direct fn* divs
     const fnDivs = dom.querySelectorAll('div[id^="fn"]');
@@ -176,21 +187,44 @@ export class CambridgeProcessor extends BaseFormatProcessor {
 
     console.log('📚 Cambridge: Using improved reference extraction');
 
-    // Look for reference-like paragraphs ONLY after References/Bibliography heading
-    const allElements = Array.from(dom.children);
-    let referenceSectionStartIndex = -1;
+    // PATH 1: Author-date articles encode bibliography entries in
+    // `reference-N-content` divs that contain CSL spans rather than an inner
+    // <p>. extractFootnotes leaves these untouched; pick them up here.
+    const cslContainers = Array.from(
+      dom.querySelectorAll('[id^="reference-"][id$="-content"]')
+    ).filter(c => !c.querySelector('p.p, p'));
 
-    const refHeadings = /^(references|bibliography|works cited)$/i;
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i];
-      if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
-        referenceSectionStartIndex = i;
-        break;
-      }
+    if (cslContainers.length) {
+      console.log(`📚 Cambridge: Found ${cslContainers.length} author-date CSL reference container(s)`);
     }
 
+    cslContainers.forEach(container => {
+      const text = container.textContent.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      // appendStaticSections wraps reference.content in a <p>. The HTML parser
+      // closes a <p> on encountering a block-level <div> inside, leaving the
+      // <p> empty. Push the container's *inner* content (CSL spans, etc.) so
+      // it nests cleanly inside the wrapper <p>.
+      references.push({
+        content: container.innerHTML,
+        originalText: text,
+        type: 'cambridge-reference',
+        needsKeyGeneration: true,
+      });
+      // Remove from DOM so appendStaticSections doesn't render it twice.
+      container.remove();
+    });
+
+    // PATH 2: Bibliography below a "References" heading as flat <p> elements.
+    // Find the References/Bibliography heading anywhere in the tree.
+    // Clipboard payloads commonly wrap the article in a container element, so
+    // a direct-children walk over `dom.children` misses the heading entirely.
+    const refHeadings = /^(references|bibliography|works cited)$/i;
+    const headings = Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+    const referenceHeading = headings.find(h => refHeadings.test(h.textContent.trim()));
+
     // ONLY process if we found a References heading
-    if (referenceSectionStartIndex === -1) {
+    if (!referenceHeading) {
       console.log('📚 Cambridge: No References/Bibliography heading found, skipping reference extraction');
       return references;
     }
@@ -198,9 +232,11 @@ export class CambridgeProcessor extends BaseFormatProcessor {
     // Filter to in-text citation pattern (from general-processor.js)
     const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
 
-    const elementsToScan = allElements
-      .slice(referenceSectionStartIndex + 1)
-      .filter(el => el.tagName === 'P');
+    // Collect <p> elements that come after the heading in document order,
+    // regardless of nesting depth.
+    const elementsToScan = Array.from(dom.querySelectorAll('p')).filter(p =>
+      referenceHeading.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING
+    );
 
     elementsToScan.forEach(p => {
       const text = p.textContent.trim();

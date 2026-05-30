@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paste capture — Hyperlit</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 -apple-system, system-ui, sans-serif; margin: 24px; max-width: 1000px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #888; margin: 0 0 16px; }
+  .drop {
+    border: 2px dashed #888; border-radius: 8px; padding: 32px;
+    text-align: center; cursor: text; min-height: 80px;
+    background: rgba(127,127,127,0.06);
+  }
+  .drop:focus { outline: none; border-color: #06f; }
+  .meta { margin: 16px 0 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .meta label { font-size: 12px; color: #888; }
+  .meta input {
+    font: inherit; padding: 6px 8px; border: 1px solid #888; border-radius: 4px;
+    background: transparent; color: inherit;
+  }
+  button {
+    font: inherit; padding: 6px 12px; border: 1px solid #888; border-radius: 4px;
+    background: transparent; color: inherit; cursor: pointer;
+  }
+  button:hover { background: rgba(127,127,127,0.1); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 12px 0; }
+  .stat { padding: 8px 12px; border: 1px solid #888; border-radius: 4px; }
+  .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  pre {
+    background: rgba(127,127,127,0.08); padding: 12px; border-radius: 4px;
+    overflow: auto; max-height: 400px; font-size: 12px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; user-select: none; }
+  .hint { color: #888; font-size: 12px; margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<h1>Paste capture</h1>
+<p class="sub">Capture <code>text/html</code> clipboard payloads from publisher article pages for use as paste-pipeline regression fixtures. Save into <code>tests/paste/fixtures/clipboard/</code>.</p>
+
+<div id="drop" class="drop" tabindex="0" contenteditable="true" spellcheck="false">Click here, then Cmd+V to paste copied article content.</div>
+<p class="hint">The capture reads <code>text/html</code> from the clipboard event — exactly what production paste handlers see. Plain-text-only sources will show "no HTML available".</p>
+
+<div class="stats" id="stats" hidden>
+  <div class="stat"><div class="stat-label">HTML bytes</div><div class="stat-value" id="s-bytes">—</div></div>
+  <div class="stat"><div class="stat-label">Elements</div><div class="stat-value" id="s-elements">—</div></div>
+  <div class="stat"><div class="stat-label">Paragraphs</div><div class="stat-value" id="s-paragraphs">—</div></div>
+  <div class="stat"><div class="stat-label">Anchors</div><div class="stat-value" id="s-anchors">—</div></div>
+  <div class="stat"><div class="stat-label">Detected format</div><div class="stat-value" id="s-format">—</div></div>
+</div>
+
+<div class="meta">
+  <label for="filename">Filename</label>
+  <input id="filename" type="text" placeholder="cambridge-long-parliament.html" size="40">
+  <button id="download" disabled>Download</button>
+  <button id="copy" disabled>Copy raw HTML</button>
+  <button id="clear">Clear</button>
+</div>
+
+<details open>
+  <summary>Captured HTML</summary>
+  <pre id="output">(nothing captured yet)</pre>
+</details>
+
+<details>
+  <summary>Detection breakdown</summary>
+  <pre id="detection">(paste something to see detection signals)</pre>
+</details>
+
+<script>
+const drop = document.getElementById('drop');
+const output = document.getElementById('output');
+const detection = document.getElementById('detection');
+const filename = document.getElementById('filename');
+const downloadBtn = document.getElementById('download');
+const copyBtn = document.getElementById('copy');
+const clearBtn = document.getElementById('clear');
+const stats = document.getElementById('stats');
+
+let captured = '';
+
+// Lightweight heuristics matching the production format-detector signatures.
+// Kept inline so this page works as a static file via file:// with no bundler.
+function detectFormat(html) {
+  const signals = {};
+  signals.cambridge_xref_fn = /<a[^>]*class="[^"]*\bxref\b[^"]*\bfn\b/i.test(html);
+  signals.cambridge_reference_id = /id="reference-\d+-content"/i.test(html);
+  signals.oup_xref = /<a[^>]*class="[^"]*\bxref-fn\b/i.test(html);
+  signals.oup_back_link = /class="[^"]*\bbackLink\b/i.test(html);
+  signals.tandf_footnote = /class="[^"]*\bfootnotes?\b/i.test(html) && /tandfonline/i.test(html);
+  signals.sciencedirect = /science-?direct|sd-article|workspace-anchor/i.test(html);
+  signals.sage = /sagepub|sage-cite/i.test(html);
+  signals.springer_fn = /class="[^"]*\bFootnoteNumber\b/i.test(html) || /id="Fn\d+"/i.test(html);
+  signals.springer_csl = /class="[^"]*\bCitationRef\b/i.test(html);
+
+  let format = 'general';
+  if (signals.cambridge_xref_fn || signals.cambridge_reference_id) format = 'cambridge';
+  else if (signals.oup_xref || signals.oup_back_link) format = 'oup';
+  else if (signals.springer_fn || signals.springer_csl) format = 'springer';
+  else if (signals.sage) format = 'sage';
+  else if (signals.sciencedirect) format = 'sciencedirect';
+  else if (signals.tandf_footnote) format = 'tandf';
+
+  return { format, signals };
+}
+
+function slugify(s) {
+  return (s || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+}
+
+function suggestFilename(html) {
+  const { format } = detectFormat(html);
+  let prefix = format === 'general' ? 'unknown' : format;
+  // Pull a likely article title from the captured HTML.
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+    || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+    || html.match(/<h2[^>]*>([^<]+)<\/h2>/i);
+  const slug = titleMatch ? slugify(titleMatch[1]) : 'capture-' + Date.now();
+  return `${prefix}-${slug}.html`;
+}
+
+function updateStats(html) {
+  stats.hidden = false;
+  const bytes = new Blob([html]).size;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const root = doc.body || doc;
+  const elements = root.querySelectorAll('*').length;
+  const paragraphs = root.querySelectorAll('p').length;
+  const anchors = root.querySelectorAll('a').length;
+  const det = detectFormat(html);
+
+  document.getElementById('s-bytes').textContent = bytes.toLocaleString();
+  document.getElementById('s-elements').textContent = elements;
+  document.getElementById('s-paragraphs').textContent = paragraphs;
+  document.getElementById('s-anchors').textContent = anchors;
+  document.getElementById('s-format').textContent = det.format;
+
+  detection.textContent = JSON.stringify(det, null, 2);
+}
+
+drop.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const html = e.clipboardData.getData('text/html');
+  const plain = e.clipboardData.getData('text/plain');
+
+  if (!html) {
+    captured = '';
+    output.textContent = '(no text/html on clipboard — only text/plain, ' + plain.length + ' chars)';
+    downloadBtn.disabled = true;
+    copyBtn.disabled = true;
+    stats.hidden = true;
+    return;
+  }
+
+  captured = html;
+  output.textContent = html;
+  updateStats(html);
+  filename.value = suggestFilename(html);
+  downloadBtn.disabled = false;
+  copyBtn.disabled = false;
+  drop.textContent = 'Captured. Paste again to overwrite, or scroll down to download.';
+});
+
+downloadBtn.addEventListener('click', () => {
+  if (!captured) return;
+  const name = (filename.value || 'capture.html').trim();
+  const blob = new Blob([captured], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name.endsWith('.html') ? name : name + '.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+copyBtn.addEventListener('click', async () => {
+  if (!captured) return;
+  await navigator.clipboard.writeText(captured);
+  copyBtn.textContent = 'Copied';
+  setTimeout(() => { copyBtn.textContent = 'Copy raw HTML'; }, 1200);
+});
+
+clearBtn.addEventListener('click', () => {
+  captured = '';
+  output.textContent = '(nothing captured yet)';
+  detection.textContent = '(paste something to see detection signals)';
+  filename.value = '';
+  stats.hidden = true;
+  downloadBtn.disabled = true;
+  copyBtn.disabled = true;
+  drop.textContent = 'Click here, then Cmd+V to paste copied article content.';
+  drop.focus();
+});
+</script>
+</body>
+</html>
