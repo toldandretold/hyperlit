@@ -91,6 +91,17 @@ p[data-original-line="1"] {
   /* other styles here */
 }
 
+/* ============================================================================
+   HYPERCITE UNDERLINES
+   Opacity is driven by --hypercite-intensity: resting fallbacks live in the theme
+   files (--hypercite-*-opacity), the overlap ramp is computed in JS (RAMP_* consts
+   in resources/js/lazyLoaderFactory.js), and the navigated cite jumps to 1.0 below.
+
+   ➜ To re-tune brightness, use the standalone playground at repo root:
+       hypercite-overlap-ramp-demo.html
+     (compare curves, live-tune values, test navigation — no build step).
+     See resources/css/README.md › "Hypercite Underlines & the Ramp Tuning Demo".
+   ============================================================================ */
 u.single {
   text-decoration: underline;
   text-decoration-skip-ink: auto;

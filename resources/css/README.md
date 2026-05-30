@@ -94,6 +94,38 @@ The system is designed to allow users to:
 - `--transition-medium`: 500ms
 - `--transition-slow`: 2000ms
 
+## Hypercite Underlines & the Ramp Tuning Demo
+
+Hypercites render as `<u>` elements (`single` / `couple` / `poly`) whose underline
+opacity is driven by the `--hypercite-intensity` custom property (see the `u.single` /
+`u.couple, u.poly` rules in `app.css`). Three things set it:
+
+- **Resting opacity** — the per-theme fallbacks `--hypercite-single-opacity` /
+  `--hypercite-multi-opacity` (`theme/variables.css`, `light-theme.css`, `sepia-theme.css`).
+- **Overlap ramp** — when multiple cites overlap they merge into one `<u>` whose intensity
+  is computed in JS via an **asymptotic curve** (each extra overlap closes a fixed % of the
+  remaining gap to a hard cap, so brightness climbs gradually and never blows out). See the
+  `RAMP_BASE` / `RAMP_CAP` / `RAMP_GROWTH` constants in
+  `resources/js/lazyLoaderFactory.js` (`renderHypercitesInHtml` area).
+- **Navigated (target) cite** — `u.hypercite-target` jumps to full opacity (`1.0`) so the
+  cite you navigated to stands out against the dimmer ramp.
+
+### 🛠️ Tuning playground: `hypercite-overlap-ramp-demo.html` (repo root)
+
+A **standalone, no-build HTML page** for eyeballing and dialling in these values before
+touching the live code. Open it directly in a browser. It reproduces the production
+gradient/colours verbatim and lets you:
+
+- compare ramp **curves side by side** (linear vs asymptotic) at overlap depths n = 1…6,
+- live-tune **base / step / growth% / cap / single-opacity / navigated-brightness** with a
+  per-depth intensity readout,
+- run the real 2000ms navigation animation to sanity-check that the target still "pops".
+
+Whatever you settle on maps back cleanly: the curve → the ramp constants in
+`lazyLoaderFactory.js`; resting/single opacity → the `--hypercite-*-opacity` theme vars;
+navigated max → `u.hypercite-target` in `app.css`. Keep the demo around — it's the
+intended workflow for re-tuning hypercite brightness.
+
 ## Component Organization
 
 ### Current State

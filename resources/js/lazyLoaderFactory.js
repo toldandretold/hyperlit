@@ -1388,6 +1388,16 @@ export function applyHypercites(html, hypercites) {
 
   segments.sort((a, b) => b.charStart - a.charStart);
 
+  // Overlap brightness ramp (asymptotic): each extra overlapping hypercite closes
+  // RAMP_GROWTH of the remaining gap toward RAMP_CAP, so brightness climbs gradually
+  // and never gets "too bright" — leaving clear headroom for the navigated (target)
+  // cite, which jumps to full opacity (see u.hypercite-target in app.css).
+  //   intensity(n) = CAP - (CAP - BASE) * (1 - GROWTH)^(n-1)
+  //   → n: 1=.30  2=.39  3=.44  4=.47  5=.49  6=.50
+  const RAMP_BASE = 0.30;    // n=1 seed (lone couple/poly, and the curve's floor)
+  const RAMP_CAP = 0.51;     // hard ceiling — overlaps never exceed this
+  const RAMP_GROWTH = 0.42;  // fraction of the remaining gap closed per extra overlap
+
   for (const segment of segments) {
     const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
 
@@ -1402,7 +1412,7 @@ export function applyHypercites(html, hypercites) {
 
         // Set hypercite intensity for single hypercite (start dim)
         if (actualStatus === 'couple' || actualStatus === 'poly') {
-          underlineElement.style.cssText = '--hypercite-intensity: 0.4';
+          underlineElement.style.cssText = `--hypercite-intensity: ${RAMP_BASE}`;
         }
       } else {
         // Multiple hypercites overlapping
@@ -1422,10 +1432,11 @@ export function applyHypercites(html, hypercites) {
         underlineElement.className = finalStatus;
         underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
 
-        // Set hypercite intensity for overlapping hypercites (more overlaps = brighter)
+        // Set hypercite intensity for overlapping hypercites (more overlaps = brighter,
+        // but gradually and asymptotically — never blowing out, see ramp consts above)
         if (finalStatus === 'couple' || finalStatus === 'poly') {
           const overlappingCount = segment.hyperciteIDs.length;
-          const intensity = Math.min(1.0, 0.4 + (overlappingCount - 1) * 0.2);
+          const intensity = RAMP_CAP - (RAMP_CAP - RAMP_BASE) * Math.pow(1 - RAMP_GROWTH, overlappingCount - 1);
           underlineElement.style.cssText = `--hypercite-intensity: ${intensity}`;
         }
       }

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypercite Overlap-Brightness Ramp — Comparison Demo</title>
+<style>
+  /* ----------------------------------------------------------------------
+     Hypercite underline styling — copied VERBATIM from resources/css/app.css
+     (gradient stops, 2.5px bar, positions) so this matches production exactly.
+     --hypercite-intensity drives the alpha; we set it inline per element.
+     ---------------------------------------------------------------------- */
+  u.single {
+    text-decoration: underline;
+    text-decoration-skip-ink: auto;
+    text-decoration-color: rgba(203, 204, 204, var(--hypercite-intensity, var(--hypercite-single-opacity)));
+  }
+  u.couple, u.poly {
+    text-decoration: none;
+    display: inline;
+    background-image: linear-gradient(to right,
+      rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+      rgba(239, 141, 52, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+      rgba(78, 172, 174, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+      rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))));
+    background-position: 0 1.04em;
+    background-repeat: no-repeat;
+    background-size: 100% 2.5px;
+    padding-bottom: 3px;
+  }
+  /* Navigation states — also copied from app.css */
+  u.hypercite-target {
+    --hypercite-intensity: var(--nav-brightness, 1.0) !important;
+    transition: all 2000ms ease-in-out;
+  }
+  u.single.hypercite-dimmed {
+    --hypercite-intensity: var(--hypercite-dimmed-single) !important;
+    transition: all 500ms ease-in-out;
+  }
+  u.couple.hypercite-dimmed, u.poly.hypercite-dimmed {
+    --hypercite-intensity: var(--hypercite-dimmed-multi) !important;
+    transition: all 500ms ease-in-out;
+  }
+  u.single, u.couple, u.poly { transition: all 2000ms ease-in-out; }
+
+  /* ----------------------------------------------------------------------
+     Demo chrome (not part of production)
+     ---------------------------------------------------------------------- */
+  :root {
+    --hypercite-single-opacity: 0.2;
+    --hypercite-multi-opacity: 0.4;
+    --hypercite-dimmed-single: 0.1;
+    --hypercite-dimmed-multi: 0.3;
+  }
+  body {
+    --bg: #161616;
+    --panel: #1f1f1f;
+    --text: #e8e8e8;
+    --muted: #8a8a8a;
+    --border: #333;
+    --reading: #d6d6d2;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, arial, sans-serif;
+    margin: 0;
+    padding: 0 0 80px;
+    line-height: 1.7;
+  }
+  body[data-theme="light"] {
+    --bg: #fdfdfb;
+    --panel: #f3f2ee;
+    --text: #1a1a1a;
+    --muted: #777;
+    --border: #ddd;
+    --reading: #222;
+    /* Light-theme base opacities, copied from light-theme.css */
+    --hypercite-single-opacity: 0.5;
+    --hypercite-multi-opacity: 0.7;
+    --hypercite-dimmed-single: 0.3;
+    --hypercite-dimmed-multi: 0.5;
+  }
+  body[data-theme="light"] u.single { text-decoration-color: rgba(90, 90, 90, var(--hypercite-intensity, var(--hypercite-single-opacity))); }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .spacer { flex: 1; }
+  button.toggle {
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  button.toggle:hover { border-color: var(--muted); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+  section { margin-top: 44px; }
+  section > h2 { font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .hint { color: var(--muted); font-size: 13px; margin: -4px 0 18px; }
+
+  .reading { color: var(--reading); font-size: 18px; }
+
+  /* Ramp grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; }
+  .col {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 16px 10px;
+  }
+  .col h3 { margin: 0 0 4px; font-size: 14px; }
+  .col .formula { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; margin-bottom: 12px; }
+  .col.baseline { outline: 1px dashed #555; }
+  .depthrow { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; }
+  .depthrow .nlabel { color: var(--muted); font-size: 11px; width: 30px; flex: none; font-family: ui-monospace, monospace; }
+  .depthrow .sample { flex: 1; font-size: 16px; color: var(--reading); }
+  .depthrow .val { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; width: 34px; text-align: right; flex: none; }
+  .depthrow.navref { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 9px; }
+  .depthrow.navref .nlabel { color: #2a6; font-weight: 600; }
+
+  /* Tuner */
+  .tuner { display: grid; grid-template-columns: 1fr 320px; gap: 28px; align-items: start; }
+  @media (max-width: 820px) { .tuner { grid-template-columns: 1fr; } }
+  .controls {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px;
+  }
+  .ctl { margin-bottom: 18px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .ctl label b { font-family: ui-monospace, monospace; font-weight: 600; }
+  .ctl input[type=range] { width: 100%; }
+  .preset-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .preset-buttons button {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+  }
+  .preset-buttons button:hover { border-color: var(--muted); }
+  .modeswitch { display: flex; gap: 8px; margin-bottom: 16px; }
+  .modeswitch label {
+    flex: 1; text-align: center; font-size: 12px; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 4px;
+  }
+  .modeswitch label.active { border-color: #2a6; color: #2a6; font-weight: 600; }
+  .modeswitch input { display: none; }
+  .ctl.disabled { opacity: 0.35; pointer-events: none; }
+  .readout { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); line-height: 1.9; }
+  .readout b { color: var(--text); }
+  .livepara { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 22px 26px; }
+
+  /* Nav sanity */
+  .navbox { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 22px 26px; }
+  .navbox button.nav {
+    background: #2a6; color: #042; border: none; border-radius: 6px;
+    padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 14px;
+  }
+  .navbox button.nav:hover { filter: brightness(1.1); }
+  code { background: rgba(127,127,127,.18); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body data-theme="dark">
+
+<header>
+  <h1>Hypercite Overlap-Brightness Ramp — Comparison Demo</h1>
+  <div class="spacer"></div>
+  <button class="toggle" id="themeBtn">Switch to light theme</button>
+</header>
+
+<main>
+
+  <p class="hint" style="margin-top:24px">
+    Overlapping hypercites currently brighten via
+    <code>intensity = min(1.0, 0.4 + (n−1)·0.2)</code> — ramping to full opacity in dense
+    regions. Below: how different ramps (lower cap, gentler step, lower couple base) keep
+    overlaps from ever getting "too bright". Everything uses the real production gradient.
+  </p>
+
+  <!-- 1. RAMP CURVE GRID -->
+  <section>
+    <h2>1 · Ramp curves, side by side</h2>
+    <p class="hint">
+      Same phrase underlined at overlap depths n = 1 … 6 under each candidate curve. The
+      number on the right is the resulting <code>--hypercite-intensity</code>. Watch how
+      dense regions (n = 4–6) stay dim under the lower-cap / gentle presets.
+    </p>
+    <div class="grid" id="rampGrid"></div>
+  </section>
+
+  <!-- 2. LIVE TUNER -->
+  <section>
+    <h2>2 · Live tuner — dial in base / step / cap</h2>
+    <p class="hint">Drag the sliders (or load a preset) and watch the paragraph + readout update live.</p>
+    <div class="tuner">
+      <div>
+        <div class="livepara reading" id="livePara"></div>
+      </div>
+      <div class="controls">
+        <div class="preset-buttons" id="presetButtons"></div>
+        <div class="modeswitch" id="modeSwitch">
+          <label id="modeLinearLbl"><input type="radio" name="mode" value="linear">Linear (+ fixed)</label>
+          <label id="modeAsymLbl"><input type="radio" name="mode" value="asymptotic">Asymptotic (% of gap)</label>
+        </div>
+        <div class="ctl">
+          <label>Couple base (n=1) <b id="baseVal"></b></label>
+          <input type="range" id="baseSlider" min="0.1" max="0.7" step="0.01">
+        </div>
+        <div class="ctl" id="stepCtl">
+          <label>Ramp step (linear: + per overlap) <b id="stepVal"></b></label>
+          <input type="range" id="stepSlider" min="0" max="0.3" step="0.01">
+        </div>
+        <div class="ctl" id="pctCtl">
+          <label>Growth (asymptotic: % of gap closed) <b id="pctVal"></b></label>
+          <input type="range" id="pctSlider" min="0.05" max="0.9" step="0.01">
+        </div>
+        <div class="ctl">
+          <label>Max cap (ceiling) <b id="capVal"></b></label>
+          <input type="range" id="capSlider" min="0.3" max="1.0" step="0.01">
+        </div>
+        <div class="ctl">
+          <label>Single-cite opacity <b id="singleVal"></b></label>
+          <input type="range" id="singleSlider" min="0.1" max="0.7" step="0.01">
+        </div>
+        <div class="ctl">
+          <label>Navigated cite brightness (max) <b id="navBrightVal"></b></label>
+          <input type="range" id="navBrightSlider" min="0.3" max="1.0" step="0.01">
+        </div>
+        <div class="readout" id="readout"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. NAVIGATION SANITY CHECK -->
+  <section>
+    <h2>3 · Navigation sanity check</h2>
+    <p class="hint">
+      Uses the curve from the tuner above for the resting state. The target keeps the
+      production behaviour (jumps to 1.0, others dim for 2s). With a dimmed ramp, the
+      navigated cite should pop clearly even inside a dense cluster — without touching the
+      target rule.
+    </p>
+    <div class="navbox">
+      <div class="reading" id="navPara"></div>
+      <button class="nav" id="navBtn">▶ Navigate to the cite inside the dense cluster</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Core: the overlap-intensity ramp (reproduces lazyLoaderFactory.js:1428)
+// ---------------------------------------------------------------------------
+function rampIntensity(n, c) {
+  if (n <= 1) return c.base;               // lone couple/poly seed (:1405 uses 0.4)
+  if (c.mode === 'asymptotic') {
+    // Close a fixed % (pct) of the remaining gap to the cap each extra overlap.
+    // Always rising, decelerating, never quite reaching cap.
+    return c.cap - (c.cap - c.base) * Math.pow(1 - c.pct, n - 1);
+  }
+  // Linear: add a fixed amount each extra overlap, clamped at cap.
+  return Math.min(c.cap, c.base + (n - 1) * c.step);
+}
+
+// Candidate presets. mode 'linear' uses step; mode 'asymptotic' uses pct.
+const PRESETS = [
+  { name: 'Current (baseline)', mode: 'linear', base: 0.40, step: 0.20, pct: 0.40, cap: 1.00, baseline: true },
+  { name: 'Lower cap',          mode: 'linear', base: 0.40, step: 0.20, pct: 0.40, cap: 0.60 },
+  { name: 'Gentle ramp',        mode: 'linear', base: 0.40, step: 0.10, pct: 0.40, cap: 0.65 },
+  { name: 'Asymptotic gentle',  mode: 'asymptotic', base: 0.30, step: 0.08, pct: 0.35, cap: 0.70 },
+  { name: 'Asymptotic flat',    mode: 'asymptotic', base: 0.28, step: 0.06, pct: 0.25, cap: 0.55 },
+];
+
+const SINGLE_DEFAULT = { dark: 0.20, light: 0.50 };
+const DEPTHS = [1, 2, 3, 4, 5, 6];
+const PHRASE = 'capital tends to accumulate';
+
+// Build a hypercite <u> at a given overlap depth & intensity curve.
+function makeCite(text, n, curve) {
+  const u = document.createElement('u');
+  u.className = n === 1 ? 'couple' : 'poly';
+  u.style.setProperty('--hypercite-intensity', rampIntensity(n, curve).toFixed(3));
+  u.textContent = text;
+  return u;
+}
+function makeSingle(text, opacity) {
+  const u = document.createElement('u');
+  u.className = 'single';
+  if (opacity != null) u.style.setProperty('--hypercite-intensity', opacity.toFixed(3));
+  u.textContent = text;
+  return u;
+}
+
+// ---------------------------------------------------------------------------
+// 1 · Ramp grid
+// ---------------------------------------------------------------------------
+function buildGrid() {
+  const grid = document.getElementById('rampGrid');
+  grid.innerHTML = '';
+  PRESETS.forEach(p => {
+    const col = document.createElement('div');
+    col.className = 'col' + (p.baseline ? ' baseline' : '');
+    const head = document.createElement('h3');
+    head.textContent = p.name;
+    const formula = document.createElement('div');
+    formula.className = 'formula';
+    formula.textContent = p.mode === 'asymptotic'
+      ? `base ${p.base} · +${Math.round(p.pct * 100)}% of gap · cap ${p.cap}`
+      : `base ${p.base} · +${p.step}/overlap · cap ${p.cap}`;
+    col.append(head, formula);
+
+    DEPTHS.forEach(n => {
+      const row = document.createElement('div');
+      row.className = 'depthrow';
+      const nlabel = document.createElement('span');
+      nlabel.className = 'nlabel';
+      nlabel.textContent = 'n=' + n;
+      const sample = document.createElement('span');
+      sample.className = 'sample';
+      sample.appendChild(makeCite(PHRASE, n, p));
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = rampIntensity(n, p).toFixed(2);
+      row.append(nlabel, sample, val);
+      col.appendChild(row);
+    });
+
+    // Reference row: what the *navigated* cite looks like (its max brightness),
+    // so each curve's brightest resting overlap can be compared against it.
+    const navB = +els.navBright.value;
+    const navRow = document.createElement('div');
+    navRow.className = 'depthrow navref';
+    const navLabel = document.createElement('span');
+    navLabel.className = 'nlabel';
+    navLabel.textContent = 'nav';
+    const navSample = document.createElement('span');
+    navSample.className = 'sample';
+    navSample.appendChild(makeCite(PHRASE, 99, { base: navB, step: 0, cap: navB }));
+    const navVal = document.createElement('span');
+    navVal.className = 'val';
+    navVal.textContent = navB.toFixed(2);
+    navRow.append(navLabel, navSample, navVal);
+    col.appendChild(navRow);
+
+    grid.appendChild(col);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 2 · Live tuner
+// ---------------------------------------------------------------------------
+const els = {
+  base: document.getElementById('baseSlider'),
+  step: document.getElementById('stepSlider'),
+  pct: document.getElementById('pctSlider'),
+  cap: document.getElementById('capSlider'),
+  single: document.getElementById('singleSlider'),
+  navBright: document.getElementById('navBrightSlider'),
+  baseVal: document.getElementById('baseVal'),
+  stepVal: document.getElementById('stepVal'),
+  pctVal: document.getElementById('pctVal'),
+  capVal: document.getElementById('capVal'),
+  singleVal: document.getElementById('singleVal'),
+  navBrightVal: document.getElementById('navBrightVal'),
+  stepCtl: document.getElementById('stepCtl'),
+  pctCtl: document.getElementById('pctCtl'),
+  readout: document.getElementById('readout'),
+  livePara: document.getElementById('livePara'),
+  navPara: document.getElementById('navPara'),
+};
+
+function currentMode() {
+  return document.querySelector('input[name="mode"]:checked').value;
+}
+function currentCurve() {
+  return {
+    mode: currentMode(),
+    base: +els.base.value,
+    step: +els.step.value,
+    pct: +els.pct.value,
+    cap: +els.cap.value,
+  };
+}
+
+function renderLivePara() {
+  const curve = currentCurve();
+  const single = +els.single.value;
+  const p = els.livePara;
+  p.innerHTML = '';
+  const frag = (txt) => document.createTextNode(txt);
+
+  p.append(
+    frag('Marx argues that '),
+    makeSingle('the rate of profit', single),
+    frag(' falls as '),
+    makeCite('the organic composition of capital', 1, curve),   // couple, n=1
+    frag(' rises, a tendency that '),
+    makeCite('countervailing forces', 2, curve),                // 2-deep overlap
+    frag(' such as '),
+    makeCite('cheapening the elements of constant capital and the intensification of exploitation', 3, curve), // 3-deep
+    frag(' repeatedly '),
+    makeCite('offset across successive crises and restructurings', 4, curve), // 4-deep
+    frag(', though never permanently.')
+  );
+
+  const navB = +els.navBright.value;
+
+  // labels
+  els.baseVal.textContent = curve.base.toFixed(2);
+  els.stepVal.textContent = curve.step.toFixed(2);
+  els.pctVal.textContent = Math.round(curve.pct * 100) + '%';
+  els.capVal.textContent = curve.cap.toFixed(2);
+  els.singleVal.textContent = single.toFixed(2);
+  els.navBrightVal.textContent = navB.toFixed(2);
+
+  // mode-dependent enable/disable + highlight active mode
+  const asym = curve.mode === 'asymptotic';
+  els.stepCtl.classList.toggle('disabled', asym);
+  els.pctCtl.classList.toggle('disabled', !asym);
+  document.getElementById('modeLinearLbl').classList.toggle('active', !asym);
+  document.getElementById('modeAsymLbl').classList.toggle('active', asym);
+
+  // readout
+  els.readout.innerHTML =
+    'single → <b>' + single.toFixed(2) + '</b><br>' +
+    DEPTHS.map(n => 'n=' + n + ' → <b>' + rampIntensity(n, curve).toFixed(2) + '</b>').join('<br>') +
+    '<br><span style="color:#2a6">navigated → <b style="color:#2a6">' + navB.toFixed(2) + '</b></span>';
+
+  renderNavPara(); // keep nav box in sync with the chosen curve
+}
+
+function loadPreset(p) {
+  els.base.value = p.base;
+  els.step.value = p.step;
+  els.pct.value = p.pct;
+  els.cap.value = p.cap;
+  document.querySelector('input[name="mode"][value="' + p.mode + '"]').checked = true;
+  buildGrid();        // grid reference row + (presets may switch mode)
+  renderLivePara();
+}
+
+function buildPresetButtons() {
+  const wrap = document.getElementById('presetButtons');
+  PRESETS.forEach(p => {
+    const b = document.createElement('button');
+    b.textContent = p.name;
+    b.onclick = () => loadPreset(p);
+    wrap.appendChild(b);
+  });
+}
+
+['base', 'step', 'pct', 'cap', 'single'].forEach(k => els[k].addEventListener('input', renderLivePara));
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', renderLivePara));
+// Nav-brightness affects both the ramp grid reference row and the live readout.
+els.navBright.addEventListener('input', () => { buildGrid(); renderLivePara(); });
+
+// ---------------------------------------------------------------------------
+// 3 · Navigation sanity check
+// ---------------------------------------------------------------------------
+let navTimeout = null;
+function renderNavPara() {
+  const curve = currentCurve();
+  const p = els.navPara;
+  p.innerHTML = '';
+  const frag = (txt) => document.createTextNode(txt);
+
+  // The target lives inside a dense (4-deep) cluster, surrounded by other bright overlaps.
+  const target = makeCite('the falling rate of profit', 4, curve);
+  target.id = 'nav-target';
+
+  p.append(
+    frag('Surrounded on all sides by citations — '),
+    makeCite('a heavily annotated passage', 3, curve),
+    frag(', then '),
+    target,
+    frag(', then again '),
+    makeCite('another dense cluster of overlapping references', 4, curve),
+    frag(', and finally '),
+    makeCite('one more contested claim', 3, curve),
+    frag('.')
+  );
+}
+
+function runNavigation() {
+  if (navTimeout) { clearTimeout(navTimeout); navTimeout = null; }
+  const all = els.navPara.querySelectorAll('u');
+  const target = document.getElementById('nav-target');
+  all.forEach(u => u.classList.remove('hypercite-target', 'hypercite-dimmed'));
+  // Drive the target's max brightness from the slider (CSS reads var(--nav-brightness)).
+  target.style.setProperty('--nav-brightness', (+els.navBright.value).toFixed(3));
+  // mimic the 300ms pre-delay then apply
+  setTimeout(() => {
+    target.classList.add('hypercite-target');
+    all.forEach(u => { if (u !== target) u.classList.add('hypercite-dimmed'); });
+    navTimeout = setTimeout(() => {
+      all.forEach(u => u.classList.remove('hypercite-target', 'hypercite-dimmed'));
+      navTimeout = null;
+    }, 2000);
+  }, 100);
+}
+document.getElementById('navBtn').addEventListener('click', runNavigation);
+
+// ---------------------------------------------------------------------------
+// Theme toggle
+// ---------------------------------------------------------------------------
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+  const isLight = document.body.dataset.theme === 'light';
+  const next = isLight ? 'dark' : 'light';
+  document.body.dataset.theme = next;
+  themeBtn.textContent = next === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+  // move the single-cite slider default to match theme conventions, only if untouched-ish
+  // (leave user value alone; just rebuild views)
+  buildGrid();
+  renderLivePara();
+});
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+// Start on the asymptotic gentle curve so the "gradually climbs" behaviour is visible.
+document.querySelector('input[name="mode"][value="asymptotic"]').checked = true;
+els.base.value = 0.30;
+els.step.value = 0.08;
+els.pct.value = 0.35;
+els.cap.value = 0.70;
+els.single.value = SINGLE_DEFAULT.dark;
+els.navBright.value = 1.0;
+buildGrid();
+buildPresetButtons();
+renderLivePara();
+</script>
+</body>
+</html>
