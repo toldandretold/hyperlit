@@ -10,8 +10,60 @@ import { openDatabase } from "../indexedDB/core/connection.js";
 // This prevents the re-render loop where our own broadcast triggers mutation observers
 const locallyBroadcastedUpdates = new Set();
 
+// Stable per-tab identifier.
+// Stored in sessionStorage (per-tab, shared by every script in the tab) so that
+// EVERY instance of this module shares ONE id — the main bundle AND the
+// lazily-loaded `editor` chunk that owns saveQueue.js. If this were a plain
+// module-level const, a code-split / stale-service-worker copy of this module
+// would mint a second TAB_ID, and the self-skip in registerBookOpen() would
+// fail: the tab would treat its OWN saves as edits "from another tab" and fire
+// the stale-tab overlay constantly on a book you just created.
+function resolveTabId() {
+  try {
+    const KEY = "hyperlit_tab_id";
+    let id = sessionStorage.getItem(KEY);
+    if (!id) {
+      id = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch (e) {
+    // Private mode / storage disabled — fall back to a volatile id.
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+}
+
 // Unique ID for this tab instance
-export const TAB_ID = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+export const TAB_ID = resolveTabId();
+
+// Root bookIds this tab has edited very recently, keyed by root id -> timestamp.
+// Kept on `window` so it is shared across module instances / code-split chunks.
+// An actively-editing tab consults this to ignore BOOK_EDITED echoes for work it
+// is doing itself, rather than blocking the user mid-edit. This is a second line
+// of defence behind the TAB_ID self-skip: it keys on the actual edit event, so it
+// holds even if module identity is ever broken.
+const LOCAL_EDIT_TTL_MS = 10000;
+
+function localEditRegistry() {
+  if (!window.__hyperlitLocalEdits) window.__hyperlitLocalEdits = {};
+  return window.__hyperlitLocalEdits;
+}
+
+/**
+ * Record that THIS tab just edited `book`. Called from the save path immediately
+ * before it broadcasts BOOK_EDITED, so the listener can tell our own work apart
+ * from a genuine edit made in a different tab.
+ */
+export function markBookEditedLocally(book) {
+  const root = book?.split("/")[0];
+  if (!root) return;
+  localEditRegistry()[root] = Date.now();
+}
+
+function editedLocallyRecently(root) {
+  const ts = localEditRegistry()[root];
+  return ts != null && Date.now() - ts < LOCAL_EDIT_TTL_MS;
+}
 
 // Channel for tab coordination (separate from node-updates)
 let tabCoordinationChannel = null;
@@ -51,6 +103,11 @@ export function checkForDuplicateTabs(bookId) {
   });
 }
 
+// Root bookIds this tab currently has open. SPA navigation adds to this set
+// instead of stacking another never-removed channel listener on every page init.
+const openBookRoots = new Set();
+let tabCoordinationListenerAttached = false;
+
 /**
  * Register this tab as having a book open
  * Other tabs can query this
@@ -60,27 +117,38 @@ export function registerBookOpen(bookId) {
     tabCoordinationChannel = new BroadcastChannel("hyperlit-tab-coordination");
   }
 
+  const root = bookId?.split("/")[0];
+  if (root) openBookRoots.add(root);
+
+  // Attach the message listener exactly once for the lifetime of the tab.
+  // Previously every initializePage()/SPA navigation added another anonymous
+  // listener that was never removed, so the overlay could fire multiple times.
+  if (tabCoordinationListenerAttached) return;
+  tabCoordinationListenerAttached = true;
+
   // Listen for queries and edit broadcasts from other tabs
   tabCoordinationChannel.addEventListener('message', (event) => {
     // Skip own messages
     if (event.data.tabId === TAB_ID) return;
 
-    if (event.data.type === 'BOOK_OPEN_CHECK' && event.data.book === bookId) {
+    const incomingRoot = event.data.book?.split('/')[0];
+    if (!incomingRoot || !openBookRoots.has(incomingRoot)) return;
+
+    if (event.data.type === 'BOOK_OPEN_CHECK') {
       // Another tab is asking if we have this book open - respond yes
       tabCoordinationChannel.postMessage({
         type: 'BOOK_OPEN_RESPONSE',
-        book: bookId,
+        book: event.data.book,
         tabId: TAB_ID
       });
     }
 
     if (event.data.type === 'BOOK_EDITED') {
-      // Check if the edit is for our book (handle sub-books too)
-      const incomingRoot = event.data.book?.split('/')[0];
-      const currentRoot = bookId?.split('/')[0];
-      if (incomingRoot === currentRoot) {
-        showStaleTabOverlay();
-      }
+      // Ignore echoes of edits this very tab just made (covers code-split module
+      // instances and near-simultaneous self-saves) so we never block the editor
+      // on its own work.
+      if (editedLocallyRecently(incomingRoot)) return;
+      showStaleTabOverlay();
     }
   });
 }

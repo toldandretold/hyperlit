@@ -17,7 +17,7 @@ import { markCacheDirty } from '../utilities/cacheState.js';
 import { debounce } from '../utilities/debounce.js';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
-import { TAB_ID } from '../utilities/BroadcastListener.js';
+import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';
 import { reportIntegrityFailure } from '../integrity/reporter.js';
@@ -253,6 +253,10 @@ export class SaveQueue {
             }
             for (const bk of editedBooks) {
               if (bk) {
+                // Mark our own edit BEFORE broadcasting so the listener (even a
+                // separate module instance in this same tab) ignores the echo
+                // instead of firing the "edited in another tab" overlay.
+                markBookEditedLocally(bk);
                 const bc = new BroadcastChannel('hyperlit-tab-coordination');
                 bc.postMessage({ type: 'BOOK_EDITED', book: bk, tabId: TAB_ID });
                 bc.close();
