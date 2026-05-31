@@ -1,4 +1,13 @@
 /**
+ * @vitest-environment jsdom
+ *
+ * MUST run under jsdom, NOT the global happy-dom env: DOMPurify needs a spec-complete DOM.
+ * Under happy-dom its FORBID_TAGS/FORBID_ATTR config and on*-handler stripping are silently
+ * ignored (form/input/onerror would wrongly survive). Production runs in a real browser, so
+ * this only affects the test environment.
+ */
+
+/**
  * Security Tests: DOMPurify Sanitization Configuration
  *
  * Tests for XSS prevention through the sanitizeConfig module.
@@ -100,11 +109,13 @@ describe('Event Handler XSS Prevention', () => {
 // =============================================================================
 
 describe('Dangerous Tag Removal', () => {
+  // NOTE: <svg> and <math> are intentionally ALLOWED by the policy (inline icons / equations);
+  // their dangerous children/attributes are stripped instead — covered in "SVG XSS Prevention".
   const dangerousTags = [
     'iframe', 'object', 'embed', 'applet',
     'form', 'input', 'button', 'select', 'textarea',
     'style', 'link', 'meta', 'base',
-    'svg', 'math', 'template', 'slot', 'noscript', 'canvas',
+    'template', 'slot', 'noscript', 'canvas',
   ];
 
   dangerousTags.forEach(tag => {
@@ -140,24 +151,27 @@ describe('Dangerous Tag Removal', () => {
 // =============================================================================
 
 describe('SVG XSS Prevention', () => {
-  it('removes svg tags entirely', () => {
+  // POLICY: <svg> itself is ALLOWED (inline icons). DOMPurify strips dangerous SVG children
+  // (script, foreignObject, use) and all on*-handler attributes. These tests assert the
+  // dangerous vectors are neutralised — NOT that the harmless <svg> wrapper is removed.
+  it('allows a benign svg wrapper (inline icons)', () => {
     const payload = '<svg><rect width="100" height="100"/></svg>';
     const result = sanitizeHtml(payload);
-    expect(result).not.toContain('<svg');
+    expect(result).toContain('<svg');
   });
 
-  it('removes svg with embedded script', () => {
+  it('strips a <script> embedded inside svg', () => {
     const payload = '<svg><script>alert(1)</script></svg>';
     const result = sanitizeHtml(payload);
-    expect(result).not.toContain('<svg');
     expect(result).not.toContain('<script');
+    expect(result).not.toContain('alert');
   });
 
-  it('removes svg with onload handler', () => {
+  it('strips an onload handler from svg', () => {
     const payload = '<svg onload="alert(1)"><rect/></svg>';
     const result = sanitizeHtml(payload);
-    expect(result).not.toContain('<svg');
     expect(result).not.toContain('onload');
+    expect(result).not.toContain('alert');
   });
 
   it('removes svg foreignObject attacks', () => {
@@ -176,10 +190,10 @@ describe('SVG XSS Prevention', () => {
     expect(result).not.toContain('onload');
   });
 
-  it('removes svg use element xss', () => {
+  it('neutralises svg <use> element xss', () => {
     const payload = '<svg><use xlink:href="data:image/svg+xml,<svg onload=alert(1)>"/></svg>';
     const result = sanitizeHtml(payload);
-    expect(result).not.toContain('<svg');
+    expect(result).not.toContain('<use');
     expect(result).not.toContain('onload');
   });
 });

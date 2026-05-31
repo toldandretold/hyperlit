@@ -4,6 +4,8 @@
  * Provides visual feedback for hypercite navigation with highlighting and dimming effects.
  */
 
+import { showTargetNotFoundToast } from '../utilities/toast.js';
+
 // Module-level timeout reference for managing highlight animations
 let highlightTimeout = null;
 
@@ -98,6 +100,9 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
       console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
     } else {
       console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
+      // Surface feedback instead of silently doing nothing — e.g. a cite whose stored range
+      // was corrupted to zero-width never renders, so navigation would otherwise just stall.
+      showTargetNotFoundToast({ target: targetHyperciteId });
     }
 
     // Dim all other hypercites (but not the target elements)

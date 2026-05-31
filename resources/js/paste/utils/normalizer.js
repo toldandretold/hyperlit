@@ -11,12 +11,15 @@
 export function normalizeQuotes(text) {
   if (!text) return text;
 
+  // NOTE: these regexes match the actual smart-quote codepoints (U+2018/2019/201C/201D).
+  // They were previously mangled to plain ASCII quotes — turning every replace into a
+  // no-op and silently breaking quote normalization — so guard them in tests below.
   return text
-    .replace(/'/g, "'")  // Smart single quote (left)
-    .replace(/'/g, "'")  // Smart single quote (right)
-    .replace(/"/g, '"')  // Smart double quote (left)
-    .replace(/"/g, '"')  // Smart double quote (right)
-    .replace(/`/g, "'"); // Backticks to regular single quotes
+    .replace(/‘/g, "'")  // Smart single quote (left)
+    .replace(/’/g, "'")  // Smart single quote (right)
+    .replace(/“/g, '"')  // Smart double quote (left)
+    .replace(/”/g, '"')  // Smart double quote (right)
+    .replace(/`/g, "'");      // Backticks to regular single quotes
 }
 
 /**

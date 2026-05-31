@@ -16,6 +16,7 @@ import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
 // Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/batch.test.js
 import { resolveBookIdForBatch } from './bookIdResolver.js';
+import { collectMarkAndCitePositions } from './positionCollector.js';
 
 export { resolveBookIdForBatch };
 
@@ -62,111 +63,10 @@ function determineChunkIdFromDOM(IDnumerical) {
  * @returns {Object} Object with content, hyperlights, and hypercites
  */
 function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
-  const hyperlights = [];
-  const hypercites = [];
-
-  // Create a text representation of the node to calculate positions
-  const textContent = node.textContent;
-
-  // Function to find the text position of an element within its parent
-  function findElementPosition(element, parent) {
-    // Create a TreeWalker to walk through all text nodes
-    const walker = document.createTreeWalker(
-      parent,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-
-    let position = 0;
-    let currentNode;
-
-    // Walk through all text nodes until we find one that's inside our target element
-    while ((currentNode = walker.nextNode())) {
-      // If this text node is inside our target element, we've found the start
-      if (element.contains(currentNode) || element === currentNode) {
-        return position;
-      }
-
-      // Otherwise, add this text node's length to our position counter
-      position += currentNode.textContent.length;
-    }
-
-    return -1; // Element not found
-  }
-
-  // Process <mark> tags for hyperlights
-  const markTags = node.getElementsByTagName("mark");
-  Array.from(markTags).forEach((mark) => {
-    // ✅ WHITELIST: Only save marks that have a class starting with "HL_"
-    // This prevents ephemeral marks (search highlights, etc.) from being saved
-    const hasHLClass = Array.from(mark.classList).some(cls => cls.startsWith('HL_'));
-    if (!hasHLClass) {
-      return; // Only save proper user highlights
-    }
-
-    // ⚠️ SKIP newly created highlights - they already have correct positions from selection.js
-    // Rangy may have created incorrect mark boundaries for overlapping highlights
-    if (mark.hasAttribute('data-new-hl')) {
-      console.log(`⏭️ Skipping position recalculation for newly created highlight ${mark.id} (has data-new-hl attribute)`);
-      return; // Don't recalculate positions for newly created highlights
-    }
-
-    const startPos = findElementPosition(mark, node);
-    const highlightLength = mark.textContent.length;
-
-    if (startPos >= 0) {
-      hyperlights.push({
-        highlightID: mark.id,
-        charStart: startPos,
-        charEnd: startPos + highlightLength,
-      });
-
-      console.log("Calculated hyperlight positions:", {
-        id: mark.id,
-        text: mark.textContent,
-        startPos,
-        endPos: startPos + highlightLength,
-        totalNodeLength: textContent.length,
-      });
-    }
-  });
-
-  // Process <u> tags for hypercites
-  const uTags = node.getElementsByTagName("u");
-  Array.from(uTags).forEach((uTag) => {
-    // FIX: Only process <u> tags that are actual hypercites (have a specific ID format)
-    // This prevents plain, non-hypercite <u> tags from being processed and causing errors.
-    if (!uTag.id || !uTag.id.startsWith('hypercite_')) {
-      return; // Skip this tag if it's not a valid hypercite
-    }
-    if (uTag.classList.contains('hypercite-tombstone')) return; // ghost — handled below
-
-    const startPos = findElementPosition(uTag, node);
-    const uLength = uTag.textContent.length;
-
-    if (startPos >= 0) {
-      // ✅ MERGE: Find existing hypercite data or use defaults
-      const existingHypercite = existingHypercites.find(hc => hc.hyperciteId === uTag.id);
-
-      hypercites.push({
-        hyperciteId: uTag.id,
-        charStart: startPos,
-        charEnd: startPos + uLength,
-        relationshipStatus: existingHypercite?.relationshipStatus || "single",
-        citedIN: existingHypercite?.citedIN || [],
-        time_since: existingHypercite?.time_since || Math.floor(Date.now() / 1000)
-      });
-
-      console.log("Calculated hypercite positions:", {
-        id: uTag.id,
-        text: uTag.textContent,
-        startPos,
-        endPos: startPos + uLength,
-        totalNodeLength: textContent.length,
-      });
-    }
-  });
+  // Collect <mark>/<u> positions via the pure leaf module (skips zero-width residue and
+  // de-dupes by id — see positionCollector.js + its unit tests). Extracted so it can be
+  // tested without importing batch.js's editor/saveQueue dependency graph.
+  const { hyperlights, hypercites } = collectMarkAndCitePositions(node, existingHypercites);
 
   // Process ghost tombstone <a> tags — keep node_id tracking alive for ghosts
   const ghostAnchors = node.querySelectorAll('u.hypercite-tombstone[data-ghost="true"]');

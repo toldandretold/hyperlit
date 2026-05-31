@@ -53,13 +53,13 @@ describe('normalizeSpaces', () => {
 
 describe('normalizeContent', () => {
   it('should normalize plain text quotes only', () => {
-    const input = '"Hello" 'world'';
+    const input = '“Hello” ‘world’';
     const expected = '"Hello" \'world\'';
     expect(normalizeContent(input, false)).toBe(expected);
   });
 
   it('should normalize both quotes and spaces for HTML', () => {
-    const input = '"Hello"&nbsp;'world'';
+    const input = '“Hello”&nbsp;‘world’';
     const expected = '"Hello" \'world\'';
     expect(normalizeContent(input, true)).toBe(expected);
   });

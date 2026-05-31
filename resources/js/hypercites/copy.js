@@ -213,6 +213,20 @@ export function wrapSelectedTextInDOM(hyperciteId, book) {
     return;
   }
 
+  // 🧹 Clean up split residue. When the selection boundary lands exactly on the edge of an
+  // existing nested hypercite, range.extractContents() clones that <u> — the text moves into
+  // our new wrapper and an EMPTY duplicate-id <u id="hypercite_…"></u> ghost is left behind.
+  // If that ghost survives, the node-save position walk measures it (length 0) and overwrites
+  // the real cite's range with a zero-width 679/679, making it vanish & unnavigable.
+  // An empty hypercite <u> is always corrupt, so drop any we find, then normalise text nodes.
+  parent.querySelectorAll('u[id^="hypercite_"]').forEach((u) => {
+    if (u.textContent.length === 0) {
+      console.warn(`🧹 Removing empty hypercite residue left by wrap: ${u.id}`);
+      u.remove();
+    }
+  });
+  parent.normalize();
+
   const blocks = collectHyperciteData(hyperciteId, wrapper);
   NewHyperciteIndexedDB(book, hyperciteId, blocks);
 
