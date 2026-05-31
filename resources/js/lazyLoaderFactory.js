@@ -1415,8 +1415,12 @@ export function applyHypercites(html, hypercites) {
           underlineElement.style.cssText = `--hypercite-intensity: ${RAMP_BASE}`;
         }
       } else {
-        // Multiple hypercites overlapping
-        underlineElement.id = "hypercite_overlapping";
+        // Multiple hypercites overlapping. Each overlap segment is a distinct,
+        // non-overlapping char range, so charStart/charEnd give a unique id —
+        // keeping the `hypercite_overlapping` prefix so prefix consumers still
+        // match. A bare literal here produced duplicate DOM ids when a page had
+        // ≥2 overlap segments (tripping the duplicate-id health check).
+        underlineElement.id = `hypercite_overlapping_${segment.charStart}_${segment.charEnd}`;
 
         let finalStatus = 'single';
         const coupleCount = segment.statuses.filter(status => status === 'couple').length;

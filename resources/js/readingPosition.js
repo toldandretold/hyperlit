@@ -14,6 +14,10 @@ const DEBOUNCE_MS = 5000;
  */
 export function debouncedServerSave(bookId, elementId, chunkId) {
     if (!bookId || !elementId) return;
+    // Sub-books (id contains '/', e.g. "book_X/HL_Y") are preview popovers, not
+    // top-to-bottom reads — there's no resume position worth persisting, and the
+    // '/' breaks the books/{bookId}/... route (404). Skip them entirely.
+    if (bookId.includes('/')) return;
 
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
@@ -27,6 +31,7 @@ export function debouncedServerSave(bookId, elementId, chunkId) {
  */
 export function sendBeaconSave(bookId, elementId, chunkId) {
     if (!bookId || !elementId) return;
+    if (bookId.includes('/')) return; // Skip sub-books — see debouncedServerSave
 
     const url = buildPositionUrl(bookId);
     const data = JSON.stringify({

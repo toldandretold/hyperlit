@@ -1662,6 +1662,20 @@ body[data-page="home"] #topRightContainer::after {
   opacity: 1;
 }
 
+/* When the shelf dropdown is open, the panel must NOT clip it. The dropdown
+   (.citation-shelf-options) is position:absolute; bottom:100% — it opens
+   upward out of the panel, but the panel's overflow-y:auto (above) clips it.
+   This `overflow: visible` escape previously existed ONLY inside
+   @media (max-width: 768px), so the dropdown was visible on narrow screens but
+   clipped/invisible on wide ones. Apply it at all widths. Higher specificity
+   (id + class + attr) + later source order overrides the rule above. */
+#citation-toolbar-results.shelf-dropdown-open[data-state="hidden"],
+#citation-toolbar-results.shelf-dropdown-open[data-state="empty"],
+#citation-toolbar-results.shelf-dropdown-open[data-state="loading"] {
+  overflow: visible;
+  overflow-y: visible;
+}
+
 /* Chips hide the moment the user types anything (or sees any post-search
    state). Panel itself stays put — only the chip-bar element disappears,
    and because it's the column-reverse top child the items already fill from

@@ -34,9 +34,27 @@ export async function findCitableParagraph(page, minLen = 60) {
  * Returns true when the citation container becomes visible.
  */
 export async function openCitationModal(page, selector, length = 20) {
-  await selectTextInElement(page, selector, 0, length);
+  // Citation UI lives inside #edit-toolbar, which is `visibility: hidden` until
+  // edit mode adds the `.visible` class (setEditMode(true) → show()). The
+  // search input therefore can't be filled unless we're in edit mode — match
+  // the real app flow by entering edit mode first.
+  const editing = await page.evaluate(() => window.isEditing === true);
+  if (!editing) {
+    await page.click('#editButton');
+    await page.waitForFunction(() => window.isEditing === true, null, { timeout: 10_000 });
+    await page.waitForSelector('#edit-toolbar.visible', { state: 'visible', timeout: 5000 });
+  }
 
-  // Wait for edit-toolbar to be visible (selection triggers it).
+  // Place a COLLAPSED cursor (not a text selection). The citation button is
+  // disabled whenever text is selected — `buttonStateManager` sets
+  // `shouldDisable = !isRangeValid || isTextSelected` — because a citation is
+  // inserted at a cursor position, not over a range. A collapsed range at
+  // `length` still registers as `lastValidRange` (so isRangeValid is true) while
+  // keeping isTextSelected false, which is exactly the state that enables the
+  // button. `length` is treated as the cursor offset within the block.
+  await selectTextInElement(page, selector, length, length);
+
+  // Wait for edit-toolbar to be visible (edit mode + selection triggers it).
   await page.waitForSelector('#edit-toolbar.visible, #edit-toolbar', { timeout: 5000 }).catch(() => {});
 
   // Click citationButton. Use evaluate to bypass any synthetic-click weirdness.

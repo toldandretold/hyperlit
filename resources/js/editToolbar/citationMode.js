@@ -896,8 +896,8 @@ export class CitationMode {
 
     const target = event.target;
     if (!target || !target.closest) return;
-    const interactive = target.closest('button, a, input, select, textarea, [role="button"], [role="tab"]');
-    if (interactive) return;   // tap on a chip / picker / result — must reach click handlers
+    const interactive = target.closest('button, a, input, select, textarea, [role="button"], [role="tab"], [role="option"], [role="listbox"], .citation-shelf-option, .citation-shelf-trigger');
+    if (interactive) return;   // tap on a chip / picker / shelf option / result — must reach click handlers
 
     event.preventDefault();
   }

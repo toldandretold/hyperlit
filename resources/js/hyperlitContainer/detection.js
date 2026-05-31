@@ -381,7 +381,7 @@ export async function detectHypercites(element, directHyperciteId = null, db = n
     let primaryHyperciteId = hyperciteIdFromElement;
 
     // Check if this is an overlapping hypercite
-    if (hyperciteElement && hyperciteElement.id === 'hypercite_overlapping' && hyperciteElement.hasAttribute('data-overlapping')) {
+    if (hyperciteElement && hyperciteElement.id.startsWith('hypercite_overlapping') && hyperciteElement.hasAttribute('data-overlapping')) {
       // Extract actual hypercite IDs from data-overlapping attribute
       const overlappingData = hyperciteElement.getAttribute('data-overlapping');
       hyperciteIds = overlappingData.split(',').map(id => id.trim());

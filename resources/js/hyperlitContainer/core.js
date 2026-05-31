@@ -449,6 +449,20 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     return;
   }
   isClosingContainer = true;
+
+  // 🔒 SAVE scroll position FIRST, symmetric with the open paths
+  // (prepare/animate both save+restore scrollTop). The async teardown below
+  // — sub-book destroy, listener cleanup, replaceState, focus leaving a
+  // removed node, smooth scrollIntoView from mark-hover/navigation — can
+  // drift the reader scroller. Without a restore it leaks through, which is
+  // why the jump only happens on *some* closes. Skip in silent mode: that's
+  // a cross-book/popstate transition where the wrapper content is changing
+  // and the browser owns scroll restoration.
+  const scrollContainer = document.querySelector('.reader-content-wrapper')
+    || document.querySelector('.main-content')
+    || document.querySelector('main');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
   try {
     // Check if container exists in DOM before trying to do anything
     // On homepage, there's no hyperlit-container element
@@ -650,6 +664,24 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     if (hyperlitManager?.closeContainer) {
       hyperlitManager.closeContainer();
     }
+
+    // 🔓 RESTORE scroll position, symmetric with the open paths. Restore
+    // synchronously and again on the next frame to catch async shifts (a
+    // focus() landing next tick, scroll anchoring after the overflow:hidden
+    // lock is removed). Skip in silent cross-book transitions.
+    if (!silent && scrollContainer && scrollContainer.scrollTop !== savedScrollTop) {
+      const drift = scrollContainer.scrollTop - savedScrollTop;
+      console.log(`🔓 Restoring reader scroll on close (drifted ${drift}px → ${savedScrollTop})`);
+      window.__scrollDebug?.report(`close-drift ${drift}px (sync)`);
+      scrollContainer.scrollTop = savedScrollTop;
+    }
+    requestAnimationFrame(() => {
+      if (!silent && scrollContainer && scrollContainer.scrollTop !== savedScrollTop) {
+        const drift = scrollContainer.scrollTop - savedScrollTop;
+        window.__scrollDebug?.report(`close-drift ${drift}px (rAF)`);
+        scrollContainer.scrollTop = savedScrollTop;
+      }
+    });
   }
 }
 

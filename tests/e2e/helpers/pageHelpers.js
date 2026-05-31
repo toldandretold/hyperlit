@@ -384,7 +384,39 @@ export async function closeHyperlitContainer(page) {
  */
 export async function pasteHyperciteContent(page, htmlContent, textContent) {
   await page.evaluate(({ htmlContent, textContent }) => {
-    const activeElement = document.activeElement || document.querySelector('.main-content');
+    // Resolve the editor the paste should land in: the deepest OPEN stacked
+    // sub-book that is contenteditable, then the base sub-book, then
+    // .main-content. Mirrors resolveActiveEditTargetHandle() in
+    // helpers/nestedAuthoring.js. We can't rely on document.activeElement —
+    // the collapsed caret set on edit-mode entry is cleared asynchronously
+    // (container open/focus churn) well before this synthetic paste, leaving
+    // no Selection range. The product paste handler inserts at the current
+    // range and falls back to execCommand('insertHTML'), which silently
+    // no-ops without a caret. So re-establish a live collapsed caret at the
+    // end of the target right before dispatching — exactly what a real user
+    // has when they paste.
+    const stacked = Array.from(document.querySelectorAll('.hyperlit-container-stacked.open'));
+    let target = null;
+    for (let i = stacked.length - 1; i >= 0; i--) {
+      const sb = stacked[i].querySelector('.sub-book-content[contenteditable="true"]');
+      if (sb) { target = sb; break; }
+    }
+    if (!target) {
+      target = document.querySelector('#hyperlit-container.open .sub-book-content[contenteditable="true"]')
+        || document.querySelector('.main-content');
+    }
+    if (!target) throw new Error('pasteHyperciteContent: no editable target found');
+
+    // Place a collapsed caret at the end of the last block (or the target).
+    const blocks = target.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
+    const caretHost = blocks.length ? blocks[blocks.length - 1] : target;
+    const range = document.createRange();
+    range.selectNodeContents(caretHost);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    (caretHost.focus ? caretHost : target).focus();
 
     const dataTransfer = new DataTransfer();
     dataTransfer.setData('text/html', htmlContent);
@@ -396,7 +428,7 @@ export async function pasteHyperciteContent(page, htmlContent, textContent) {
       clipboardData: dataTransfer,
     });
 
-    activeElement.dispatchEvent(pasteEvent);
+    target.dispatchEvent(pasteEvent);
   }, { htmlContent, textContent });
 }
 

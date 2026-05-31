@@ -145,7 +145,10 @@ test.describe('divEditor — id collision handling', () => {
     await page.click('#editButton');
     await page.waitForFunction(() => window.isEditing === false, null, { timeout: 10_000 });
 
-    // Self-heal should have removed the duplicate immediately.
-    expect(await page.locator(`[data-node-id="${originalNodeId}"]`).count()).toBe(1);
+    // Self-heal runs asynchronously during the edit-exit flush sequence
+    // (disableEditMode flips window.isEditing synchronously, then heals inside
+    // an un-awaited Promise chain), so wait for the duplicate to be removed
+    // rather than asserting immediately after the flag flips.
+    await expect(page.locator(`[data-node-id="${originalNodeId}"]`)).toHaveCount(1, { timeout: 10_000 });
   });
 });

@@ -84,16 +84,19 @@ test.describe('Citation modal — scope chips', () => {
     expect(url.searchParams.get('q')).toBe('marx');
   });
 
-  test('changing scope mid-typing re-fires the search with new scope param', async ({ page }) => {
-    await page.fill('#citation-search-input', 'marx');
-    await page.waitForRequest(req => req.url().includes('/api/search/combined'), { timeout: 5000 });
+  test('changing scope re-fires the search with new scope param', async ({ page }) => {
+    // The scope chips are hidden by CSS the moment any character is typed
+    // (#citation-toolbar-results[data-has-query="true"] .citation-scope-bar
+    // { display: none }), so a chip can only be clicked BEFORE typing. Select
+    // the new scope first, then type — the search must carry the chosen scope.
+    await setCitationScope(page, 'mine');
 
     const requestPromise = page.waitForRequest(
       req => req.url().includes('/api/search/combined') && req.url().includes('sourceScope=mine'),
       { timeout: 5000 }
     );
 
-    await setCitationScope(page, 'mine');
+    await page.fill('#citation-search-input', 'marx');
     const req = await requestPromise;
 
     const url = new URL(req.url());
