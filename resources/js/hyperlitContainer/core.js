@@ -169,6 +169,12 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
   console.log('🔒 Body scroll locked BEFORE container opens');
+  // Scoped manual scroll restoration: while a container is open, stop the browser
+  // from restoring scroll on the close-back's popstate — it would snap to the URL
+  // fragment (e.g. #hypercite_X) or a stale captured pixel, away from where the
+  // reader was. closeHyperlitContainer resets this to 'auto' once fully closed, so
+  // ordinary back/forward keeps the browser default. See close-path reset below.
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
   // Set initial max-height
   // KeyboardManager will dynamically adjust this when keyboard opens/closes
@@ -263,6 +269,8 @@ export function prepareHyperlitContainer(content, isBackNavigation = false) {
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
   console.log('🔒 Body scroll locked (prepare phase)');
+  // Scoped manual scroll restoration — see openHyperlitContainer for rationale.
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
   // Set initial max-height
   const viewportHeight = window.innerHeight;
@@ -449,19 +457,6 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     return;
   }
   isClosingContainer = true;
-
-  // 🔒 SAVE scroll position FIRST, symmetric with the open paths
-  // (prepare/animate both save+restore scrollTop). The async teardown below
-  // — sub-book destroy, listener cleanup, replaceState, focus leaving a
-  // removed node, smooth scrollIntoView from mark-hover/navigation — can
-  // drift the reader scroller. Without a restore it leaks through, which is
-  // why the jump only happens on *some* closes. Skip in silent mode: that's
-  // a cross-book/popstate transition where the wrapper content is changing
-  // and the browser owns scroll restoration.
-  const scrollContainer = document.querySelector('.reader-content-wrapper')
-    || document.querySelector('.main-content')
-    || document.querySelector('main');
-  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
 
   try {
     // Check if container exists in DOM before trying to do anything
@@ -665,23 +660,13 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
       hyperlitManager.closeContainer();
     }
 
-    // 🔓 RESTORE scroll position, symmetric with the open paths. Restore
-    // synchronously and again on the next frame to catch async shifts (a
-    // focus() landing next tick, scroll anchoring after the overflow:hidden
-    // lock is removed). Skip in silent cross-book transitions.
-    if (!silent && scrollContainer && scrollContainer.scrollTop !== savedScrollTop) {
-      const drift = scrollContainer.scrollTop - savedScrollTop;
-      console.log(`🔓 Restoring reader scroll on close (drifted ${drift}px → ${savedScrollTop})`);
-      window.__scrollDebug?.report(`close-drift ${drift}px (sync)`);
-      scrollContainer.scrollTop = savedScrollTop;
-    }
-    requestAnimationFrame(() => {
-      if (!silent && scrollContainer && scrollContainer.scrollTop !== savedScrollTop) {
-        const drift = scrollContainer.scrollTop - savedScrollTop;
-        window.__scrollDebug?.report(`close-drift ${drift}px (rAF)`);
-        scrollContainer.scrollTop = savedScrollTop;
-      }
-    });
+    // Re-enable browser scroll restoration for ordinary back/forward — but only
+    // after this close-back has fully settled. Double rAF lands past the next
+    // paint, so the browser can't read 'auto' and restore scroll for the very
+    // popstate that closed the container (which is the whole point of 'manual').
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if ('scrollRestoration' in history) history.scrollRestoration = 'auto';
+    }));
   }
 }
 

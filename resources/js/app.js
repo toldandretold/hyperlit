@@ -1,5 +1,4 @@
 import './integrity/logCapture.js';
-import './utilities/scrollDebug.js'; // gated by localStorage.scrollDebug — must load before any focus()
 import { log } from './utilities/logger.js';
 import { seedFromServer } from './utilities/preferences.js';
 import { initializeTheme } from './utilities/themeSwitcher.js';

@@ -92,6 +92,17 @@ export async function snapshotPageState(page, label) {
         ? safeCall(window.checkNavigationHealth)
         : null,
       scrollY: window.scrollY,
+      // The reader scrolls inside .reader-content-wrapper (an inner scroller),
+      // NOT the window — window.scrollY is ~always 0 here. Capture the real
+      // scroller so scroll-jump regressions (e.g. container close moving the
+      // reader) are visible in the timeline.
+      readerScrollTop: (() => {
+        const el = document.querySelector('.reader-content-wrapper')
+          || document.querySelector('.main-content')
+          || document.querySelector('main');
+        return el ? el.scrollTop : null;
+      })(),
+      scrollRestoration: (history && 'scrollRestoration' in history) ? history.scrollRestoration : null,
       interactability: interactabilityProbe,
     };
 

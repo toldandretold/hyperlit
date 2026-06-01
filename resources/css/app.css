@@ -123,6 +123,10 @@ u.couple, u.poly {
     padding-bottom: 3px;
 }
 
+/* NOTE: header-offset for fragment navigation is handled globally via
+   scroll-padding-top on .reader-content-wrapper (layout.css) — covers ALL
+   fragment targets (HL_, hypercite_, footnote_, node ids), not just hypercites. */
+
 /* Hypercite navigation states */
 u.hypercite-target {
     --hypercite-intensity: 1.0 !important; /* Max brightness for target */

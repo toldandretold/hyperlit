@@ -65,6 +65,16 @@ body[data-page="timemachine"] #app-container {
   overscroll-behavior-y: contain;
   box-sizing: border-box;
   position: relative; /* Needed for the scroll mask */
+  /* Header offset for fragment navigation. Native #fragment scroll AND the
+     browser's scroll restoration on history.back() otherwise align the target
+     flush to the top (offset 0), 192px above where our nav places it
+     (headerOffset = 192 in scrolling.js). That gap is the deterministic jump
+     when a hyperlit container is closed via the back-driven overlay tap. This
+     makes the browser's own fragment alignment match ours so they agree.
+     Applies to every fragment target (HL_, hypercite_, footnote_, node ids);
+     does NOT affect scrollTo()-based nav or the sibling #hyperlit-container
+     scroller. Keep in sync with headerOffset in scrolling.js. */
+  scroll-padding-top: 192px;
 }
 
 /* Flexbox sizing only for reader */
