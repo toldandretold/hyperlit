@@ -577,7 +577,6 @@ class ImportController extends Controller
 
     public function reconvert(Request $request, string $book)
     {
-        $startTime = microtime(true);
         $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
         // 1. Verify book exists and user owns it
@@ -660,70 +659,43 @@ class ImportController extends Controller
         // 5. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
         $this->clearBookContent($book);
 
-        // 6. Re-run conversion pipeline
-        try {
-            $this->processFile($inputFile, $path, $book, $sourceType);
-        } catch (\Exception $e) {
-            Log::error('Reconvert failed', ['book' => $book, 'error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Conversion failed: ' . $e->getMessage()], 500);
-        }
+        // 6. Dispatch the SAME background job that fresh imports use, then return
+        //    immediately. Running the conversion inline here used to block the
+        //    request for >100s (Cloudflare 524) and spike memory enough to
+        //    OOM-kill PHP-FPM, which 502'd the whole site. The job runs on the
+        //    queue worker and writes progress.json; the client polls
+        //    /api/import-progress/{book} for completion (the embedded result
+        //    carries footnoteAudit, exactly as the old sync response did).
+        //
+        //    ProcessDocumentImportJob handles everything the inline path did:
+        //    it streams nodes.jsonl, deletes the book's existing nodes before
+        //    re-inserting, saves footnotes/references, and bills OCR for PDFs.
+        File::put("{$path}/progress.json", json_encode([
+            'status'     => 'queued',
+            'percent'    => 0,
+            'stage'      => 'queued',
+            'detail'     => 'Waiting to start...',
+            'updated_at' => now()->toIso8601String(),
+        ], JSON_PRETTY_PRINT));
 
-        // 7. Wait for nodes.jsonl (the Python pipeline writes JSONL, not JSON)
-        $jsonlPath = "{$path}/nodes.jsonl";
-        $attempts = 0;
-        while (!File::exists($jsonlPath) && $attempts < 15) {
-            sleep(2);
-            $attempts++;
-        }
-        if (!File::exists($jsonlPath)) {
-            return response()->json(['success' => false, 'message' => 'Timed out waiting for nodes.jsonl'], 500);
-        }
+        ProcessDocumentImportJob::dispatch(
+            $book,
+            $sourceType,
+            Auth::id(),
+            [], // no metadata changes on reconvert; the job only fills empty fields
+            $creatorInfo,
+        );
 
-        // 7b. Convert nodes.jsonl → nodes.json (single JSON array) so the
-        // legacy DB-save path can consume it. Mirrors the inline conversion
-        // ProcessDocumentImportJob does for fresh imports.
-        $nodesPath = "{$path}/nodes.json";
-        $jsonOut = fopen($nodesPath, 'w');
-        fwrite($jsonOut, '[');
-        $first = true;
-        $handle = fopen($jsonlPath, 'r');
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') continue;
-            // Validate JSON before writing
-            if (json_decode($line, true) === null) continue;
-            if (!$first) fwrite($jsonOut, ',');
-            fwrite($jsonOut, $line);
-            $first = false;
-        }
-        fclose($handle);
-        fwrite($jsonOut, ']');
-        fclose($jsonOut);
+        Log::info('Reconvert job dispatched', ['book' => $book, 'sourceType' => $sourceType]);
 
-        // 8. Save to database
-        $this->saveNodeChunksToDatabase($path, $book);
-        $this->saveFootnotesToDatabase($path, $book);
-        $this->saveReferencesToDatabase($path, $book);
-
-        // 9. Bill OCR cost for PDF reconversions
-        if ($sourceType === 'pdf') {
-            $this->billOcrImport(Auth::user(), $book, $path);
-        }
-
-        // 10. Update library timestamp
+        // 7. Bump the library timestamp and return immediately.
         $record->timestamp = round(microtime(true) * 1000);
         $record->save();
 
-        // 11. Return result
-        $auditPath = "{$path}/audit.json";
-        $auditData = File::exists($auditPath) ? json_decode(File::get($auditPath), true) : null;
-
         return response()->json([
-            'success'            => true,
-            'bookId'             => $book,
-            'sourceType'         => $sourceType,
-            'processing_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
-            'footnoteAudit'      => $auditData,
+            'success' => true,
+            'bookId'  => $book,
+            'status'  => 'processing',
         ]);
     }
 

@@ -1022,32 +1022,60 @@ export class SourceContainerManager extends ContainerManager {
 
       const result = await resp.json();
 
-      // Show footnote audit if there are issues
-      if (result.footnoteAudit) {
-        const audit = result.footnoteAudit;
-        const hasIssues = (audit.gaps?.length || 0) +
-          (audit.unmatched_refs?.length || 0) +
-          (audit.unmatched_defs?.length || 0) +
-          (audit.duplicates?.length || 0) > 0;
-
-        if (hasIssues) {
-          const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
-          await ImportBookTransition.showFootnoteAuditModal(audit, book, { mode: 'reconvert' });
-          // User dismissed modal — continue with reload
-        }
-      }
-
-      // Clear IndexedDB content (keeps library record)
-      const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
-      await clearBookContentFromIndexedDB(book);
-
-      // Reload page to show reconverted content
-      window.location.reload();
+      // Reconvert now runs as a background job; poll progress (showing live
+      // percent on the button), then handle the audit + reload on completion.
+      await this._awaitReconvert(result, book, {
+        update(pct, msg) {
+          if (btn) btn.textContent = pct != null ? `${msg || 'Reconverting'}… ${Math.round(pct)}%` : (msg || 'Reconverting…');
+        },
+        showError() {},
+        restoreForm() {},
+      });
     } catch (error) {
       console.error('Reconvert failed:', error);
       alert('Reconversion failed: ' + error.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
     }
+  }
+
+  /**
+   * Wait for a reconvert/reupload to finish, then refresh the reader.
+   *
+   * The backend dispatches ProcessDocumentImportJob and returns
+   * { status: 'processing' } immediately (see ImportController::reconvert) to
+   * avoid the Cloudflare 524 / OOM that the old inline pipeline caused. We reuse
+   * the import progress-polling helper, then show the footnote audit modal if
+   * needed, clear the stale IndexedDB content, and reload.
+   *
+   * Backward-compatible: if the response already carries footnoteAudit (legacy
+   * synchronous shape), we skip polling and use it directly.
+   */
+  async _awaitReconvert(result, bookId, progressUI) {
+    const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
+
+    let completedResult = result;
+    if (result?.status === 'processing') {
+      const ui = progressUI || { update() {}, showError() {}, restoreForm() {} };
+      const completeData = await ImportBookTransition.pollImportProgress(bookId, ui);
+      completedResult = completeData?.result || completeData;
+    }
+
+    // Show the footnote audit modal if the conversion flagged issues
+    const audit = completedResult?.footnoteAudit;
+    if (audit) {
+      const hasIssues = (audit.gaps?.length || 0) +
+        (audit.unmatched_refs?.length || 0) +
+        (audit.unmatched_defs?.length || 0) +
+        (audit.duplicates?.length || 0) > 0;
+      if (hasIssues) {
+        await ImportBookTransition.showFootnoteAuditModal(audit, bookId, { mode: 'reconvert' });
+      }
+    }
+
+    // Clear the now-stale IndexedDB content (keeps library record), then reload
+    const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
+    await clearBookContentFromIndexedDB(bookId);
+    window.location.reload();
   }
 
   async handleReupload(file) {
@@ -1110,25 +1138,18 @@ export class SourceContainerManager extends ContainerManager {
 
       const result = await resp.json();
 
-      // Show footnote audit modal if issues exist
-      if (result.footnoteAudit) {
-        const audit = result.footnoteAudit;
-        const hasIssues = (audit.gaps?.length || 0) +
-          (audit.unmatched_refs?.length || 0) +
-          (audit.unmatched_defs?.length || 0) +
-          (audit.duplicates?.length || 0) > 0;
-
-        if (hasIssues) {
-          const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
-          await ImportBookTransition.showFootnoteAuditModal(audit, book, { mode: 'reconvert' });
-        }
-      }
-
-      // Clear IndexedDB content
-      const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
-      await clearBookContentFromIndexedDB(book);
-
-      window.location.reload();
+      // Reconvert-with-upload runs as a background job; poll progress on the
+      // dropzone, then handle the audit + reload on completion.
+      await this._awaitReconvert(result, book, {
+        update(pct, msg) {
+          if (dropzone) {
+            const label = pct != null ? `${msg || 'Converting'}… ${Math.round(pct)}%` : (msg || 'Converting…');
+            dropzone.innerHTML = `<p style="font-size: 13px; color: #EF8D34; margin: 0;">${label}</p>`;
+          }
+        },
+        showError() {},
+        restoreForm() {},
+      });
     } catch (error) {
       console.error('Re-upload failed:', error);
       showError('Re-upload failed: ' + error.message);
