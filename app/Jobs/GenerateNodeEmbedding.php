@@ -20,7 +20,14 @@ class GenerateNodeEmbedding implements ShouldQueue
 
     public function __construct(
         private int $nodeId,
-    ) {}
+    ) {
+        // Run on a dedicated queue so bulk embedding generation (one job per node —
+        // thousands for a large book) can never sit in front of interactive
+        // imports/reconverts on the 'default' queue. Workers process
+        // 'default,embeddings' in priority order, so conversions always run first
+        // and embeddings fill idle time. Mirrors the citation-pipeline jobs.
+        $this->onQueue('embeddings');
+    }
 
     public function handle(EmbeddingService $embeddingService): void
     {
