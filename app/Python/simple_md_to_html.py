@@ -287,11 +287,21 @@ def convert_markdown_to_html(markdown_content):
             bq_lines = []
             while i < len(lines):
                 s = lines[i].strip()
-                if s.startswith('> '):
+                if s == '>':
+                    bq_lines.append('')  # blank separator within blockquote
+                    i += 1
+                elif s.startswith('> '):
                     bq_lines.append(s[2:])
                     i += 1
-                elif s == '>':
-                    bq_lines.append('')  # blank separator within blockquote
+                elif s.startswith('>'):
+                    # '>text' with no space after the marker (CommonMark allows this).
+                    # This branch MUST consume the line: previously such a line matched
+                    # neither '> ' nor '>', so the loop broke with bq_lines empty and the
+                    # outer `continue` re-ran the same line without advancing `i` — an
+                    # infinite loop that appended empty <blockquote>s until the process
+                    # exhausted memory (~1.6GB). Triggered by e.g. Cyber-Marx's ">. . ."
+                    # quotation, which OOM-killed PHP-FPM and took the whole site down.
+                    bq_lines.append(s[1:])
                     i += 1
                 else:
                     break
