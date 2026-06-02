@@ -225,3 +225,34 @@ def test_classify_returns_signals_and_summary():
     assert out['version'] == 1
     assert 'co_location_ratio' in out['signals']
     assert isinstance(out['page_summary'], list)
+
+
+# ---------------------------------------------------------------------------
+# classify_footnotes fork-story (assessment.json) — considered / margin / rationale
+# ---------------------------------------------------------------------------
+def test_classify_emits_falsifiable_fork_story():
+    out = M.classify_footnotes(_resp(
+        _page_bottom_page(1, 2), _page_bottom_page(1, 2),
+        _page_bottom_page(1, 2), _page_bottom_page(1, 2),
+    ))
+    # rationale + margin present
+    assert out['rationale']
+    assert out['margin']
+    # considered lists every OTHER layout, each with rejected_because + would_need
+    opts = {c['option'] for c in out['considered']}
+    assert out['classification'] not in opts          # not itself
+    assert 'document_endnotes' in opts and 'none' in opts
+    for c in out['considered']:
+        assert c['rejected_because'] and c['would_need']
+
+
+def test_unknown_classification_margin_is_loud_fallthrough():
+    # The 'unknown' fall-through must be a flagged, visible record (where silent PDF
+    # failures hide) — test the story-builder directly so it's deterministic.
+    sig = {'co_location_ratio': 0.25, 'reset_frequency': 0.2, 'notes_page_count': 0,
+           'ref_number_max_page_spread': 1, 'def_clustering_ratio': 0.3, 'max_ref_number': 5,
+           'pages_with_refs': 3}
+    rationale, considered, margin = M._pdf_classification_story('unknown', sig)
+    assert 'FALL-THROUGH' in margin
+    assert 'fell through' in rationale
+    assert {c['option'] for c in considered} == set(M._PDF_CLASSES) - {'unknown'}

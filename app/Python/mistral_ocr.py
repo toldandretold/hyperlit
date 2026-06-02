@@ -831,10 +831,69 @@ def scan_footnote_mojibake(response_dict, footnote_meta, pdf_path,
     return warnings
 
 
+_PDF_CLASSES = ('none', 'page_bottom', 'chapter_endnotes',
+                'document_endnotes', 'wackSTEMbibliographyNotes', 'unknown')
+
+_PDF_RATIONALE = {
+    'none': 'no in-text footnote references found on any page',
+    'page_bottom': 'refs and their definitions co-locate on the same pages (footnotes at page bottom)',
+    'chapter_endnotes': 'definitions gathered in per-chapter Notes sections, separate from their refs',
+    'document_endnotes': 'definitions clustered on a few trailing pages, refs scattered through the body',
+    'wackSTEMbibliographyNotes': 'low ref-numbers recur across many pages (numbered bibliography-style citations)',
+    'unknown': 'signals matched no specific classifier — fell through to unknown',
+}
+
+
+def _pdf_classification_story(chosen, sig):
+    """Build the falsifiable fork-story for the PDF footnote-layout decision: why each
+    OTHER layout was rejected, what evidence would flip it, and a near-miss margin. Lets
+    the diagnostic LLM re-litigate a mis-classified PDF (the hardest, most varied pathway).
+    Mirrors strategy.py:_strategy_considered. Pure read of the already-computed signals."""
+    co = sig['co_location_ratio']; rf = sig['reset_frequency']
+    notes = sig['notes_page_count']; spread = sig['ref_number_max_page_spread']
+    dc = sig['def_clustering_ratio']; maxref = sig['max_ref_number']
+    refs = sig['pages_with_refs']
+    why = {
+        'none': (
+            f'{refs} page(s) carry in-text references' if refs else 'no in-text references',
+            'zero pages with in-text footnote references'),
+        'page_bottom': (
+            f"co-location {co:.2f} / reset-freq {rf:.2f} fit neither page_bottom rule "
+            f"(continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
+            'refs and their definitions sharing the same pages (high co-location)'),
+        'chapter_endnotes': (
+            f"no Notes-header page and co-location {co:.2f}/reset-freq {rf:.2f} miss the endnote rules",
+            'a "Notes" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)'),
+        'document_endnotes': (
+            f"co-location {co:.2f} (need <0.15) and def-clustering {dc:.2f} (need <0.1)",
+            'definitions clustered on very few trailing pages with near-zero co-location'),
+        'wackSTEMbibliographyNotes': (
+            f"ref-number page-spread {spread} (need >=3) and co-location {co:.2f} (need <0.2)",
+            'the same low ref-numbers reappearing across many pages (bibliography citations)'),
+        'unknown': (
+            'a specific classifier matched',
+            'signals that fail every specific classifier'),
+    }
+    considered = [{'option': k, 'rejected_because': why[k][0], 'would_need': why[k][1]}
+                  for k in _PDF_CLASSES if k != chosen]
+
+    margins = {
+        'none': f"{refs} pages with refs — unambiguous",
+        'page_bottom': f"co-location {co:.2f} (gate 0.4/0.5), reset-freq {rf:.2f}, max-ref {maxref}",
+        'chapter_endnotes': f"co-location {co:.2f} (<0.3 gate), notes-pages {notes}, reset-freq {rf:.2f}",
+        'document_endnotes': f"co-location {co:.2f} (<0.15 gate), def-clustering {dc:.2f} (<0.1 gate)",
+        'wackSTEMbibliographyNotes': f"ref-spread {spread} (>=3 gate), co-location {co:.2f} (<0.2 gate)",
+        'unknown': (f"FALL-THROUGH: no classifier matched (co {co:.2f}, reset-freq {rf:.2f}, "
+                    f"notes-pages {notes}, def-clustering {dc:.2f}). LOW confidence — prime review candidate."),
+    }
+    return _PDF_RATIONALE[chosen], considered, margins[chosen]
+
+
 def classify_footnotes(response_dict):
     """Classify footnote style from raw OCR JSON before assembly.
 
-    Returns a dict with classification, confidence, signals, and page_summary.
+    Returns a dict with classification, confidence, signals, page_summary, and the
+    fork-story fields (rationale, considered, margin) consumed by assessment.json.
     """
     pages = response_dict["pages"]
     total_pages = len(pages)
@@ -1071,12 +1130,17 @@ def classify_footnotes(response_dict):
                 "trailing_number": p["trailing_number"],
             })
 
+    rationale, considered, margin = _pdf_classification_story(classification, signals)
+
     return {
         "version": 1,
         "classification": classification,
         "confidence": round(confidence, 2),
         "signals": signals,
         "page_summary": page_summary,
+        "rationale": rationale,
+        "considered": considered,
+        "margin": margin,
     }
 
 
@@ -1778,6 +1842,30 @@ def save_images(response_dict, media_dir):
     return count
 
 
+def write_classification_assessment(footnote_meta, output_dir):
+    """Emit the PDF stage's footnote-layout decision as an assessment.json fork-record.
+    process_document.py later seeds from this file (ASSESSMENT.reset(output_dir)) so the
+    final trace spans the PDF classification AND the downstream strategy/linking forks.
+    Mirrors epub_normalizer._write_assessment. Best-effort; never breaks conversion."""
+    record = {
+        'seq': 0,
+        'module': 'pdf_footnote_classification',
+        'code_ref': 'mistral_ocr.py:classify_footnotes',
+        'decision': f"footnote_layout={footnote_meta.get('classification', 'unknown')}",
+        'rationale': footnote_meta.get('rationale', ''),
+        'evidence': footnote_meta.get('signals', {}),
+        'question': 'What is the PDF footnote layout? (drives per-page renumbering & assembly)',
+        'considered': footnote_meta.get('considered', []),
+        'confidence': footnote_meta.get('confidence'),
+        'margin': footnote_meta.get('margin'),
+    }
+    try:
+        with open(os.path.join(str(output_dir), 'assessment.json'), 'w', encoding='utf-8') as f:
+            json.dump({'records': [record]}, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Warning: could not write assessment.json: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Convert PDF to markdown via Mistral OCR")
     parser.add_argument("pdf_path", help="Path to the PDF file")
@@ -1883,6 +1971,9 @@ def main():
     # Persist footnote_meta.json after assemble (which may have added warnings)
     meta_path = output_dir / "footnote_meta.json"
     meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")
+
+    # Emit the classification decision into the assessment trace (process_document seeds from it).
+    write_classification_assessment(footnote_meta, output_dir)
 
     # Stats
     fn_count = len(re.findall(r'\[\^\d+\]', markdown))
