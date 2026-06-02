@@ -2810,17 +2810,26 @@ class EpubNormalizer:
         all_footnotes = []
         all_noterefs = []
 
+        # Track every footnote DETECTOR's detect() verdict (and how many it found) so the
+        # assessment can record the "considered but rejected" set — the detectors that ran
+        # and matched nothing. detect() is captured at the detector's own position in the
+        # pipeline, which is the real decision (the soup mutates as we go).
+        fn_detector_results = []
+
         for transform in TRANSFORM_PIPELINE:
             # Set context for transforms that need it
             if isinstance(transform, ImageProcessor):
                 transform.set_context(self.book_id, self.output_dir)
 
-            if transform.detect(self.combined_soup):
+            detected = transform.detect(self.combined_soup)
+            found_here = 0
+            if detected:
                 self._log(f"\n[{transform.name}]")
                 result = transform.transform(self.combined_soup, self._log)
 
                 # Accumulate footnotes from all detectors
                 if 'footnotes' in result:
+                    found_here = len(result['footnotes'])
                     # Deduplicate by ID
                     for fn in result['footnotes']:
                         if not any(existing['id'] == fn['id'] for existing in all_footnotes):
@@ -2840,8 +2849,13 @@ class EpubNormalizer:
                 # Store other results
                 self.results[transform.name] = result
 
+            if transform.name.endswith('FootnoteDetector'):
+                fn_detector_results.append(
+                    {'name': transform.name, 'detected': bool(detected), 'found': found_here})
+
         self.results['all_footnotes'] = all_footnotes
         self.results['all_noterefs'] = all_noterefs
+        self.results['fn_detector_results'] = fn_detector_results
 
     def _convert_footnotes(self):
         """Convert detected footnotes to Hyperlit format."""
@@ -2871,27 +2885,80 @@ class EpubNormalizer:
         'anchor_heading': 'AnchorHeadingFootnoteDetector', 'reverse_definition': 'FootnoteConverter (reverse-definition)',
     }
 
+    # The markup each footnote detector keys on — the `would_need` for the "considered but
+    # rejected" set. For an EPUB that yields NO footnotes, this list IS the diagnostic: it
+    # tells the LLM exactly which note-markup shapes were searched for and matched nothing,
+    # to compare against what the source actually contains.
+    _DETECTOR_NEEDS = {
+        'Epub3SemanticFootnoteDetector': 'epub:type="footnote"/"noteref" attributes (EPUB3 W3C semantics)',
+        'AriaRoleFootnoteDetector': 'role="doc-footnote"/"doc-noteref" ARIA attributes',
+        'ClassPatternFootnoteDetector': 'elements with footnote/endnote/fn CSS class names',
+        'NotesClassFootnoteDetector': '<p class="notes"> definitions with a child anchor that has a backlink',
+        'TableFootnoteDetector': 'a table whose class or first-cell anchors mark it as footnotes',
+        'PandocFootnoteDetector': '<section class="footnotes"> or <div class="footnotes"> (Pandoc/standard HTML)',
+        'EndnoteCharactersFootnoteDetector': '<span class="EndnoteCharacters"> (InDesign export)',
+        'EnoteFootnoteDetector': '<sup class="enote…"> superscript markers',
+        'AnchorHeadingFootnoteDetector': '<hN id=X>Note N</hN> definitions linked by an <a href="#X"> marker',
+        'HeuristicFootnoteDetector': 'numbered-list / superscript heuristics (always-on fallback)',
+    }
+
     def _write_assessment(self, all_footnotes, all_noterefs):
-        """Emit the EPUB stage's decision trace (which detector found the footnotes)
-        to assessment.json. process_document.py later seeds from this file so the
-        final trace spans the whole pipeline."""
+        """Emit the EPUB stage's footnote-detection fork to assessment.json: which detector
+        identified the notes, and — the new signal — the "considered but rejected" set
+        (detectors that ran detect() and matched nothing, each with what markup it needs).
+        process_document.py seeds from this file so the final trace spans the whole pipeline."""
         from collections import Counter
+        fn_results = self.results.get('fn_detector_results', [])
+        fired = [r['name'] for r in fn_results if r['detected'] and r['found'] > 0]
+        # Roads not taken: footnote detectors that matched nothing (skip the always-on heuristic).
+        considered = [
+            {'option': f"identify footnotes via {r['name']}",
+             'rejected_because': ('detect() matched but it extracted 0 definitions' if r['detected']
+                                  else 'its structural signal was absent in this EPUB'),
+             'would_need': self._DETECTOR_NEEDS.get(r['name'], 'its target markup')}
+            for r in fn_results
+            if (not r['detected'] or r['found'] == 0) and r['name'] != 'HeuristicFootnoteDetector'
+        ]
         by_strategy = Counter(fn.get('strategy', 'unknown') for fn in all_footnotes)
         records = []
         if not all_footnotes:
-            records.append({'seq': 0, 'module': 'epub_footnote_detection',
-                            'code_ref': 'epub_normalizer.py:TRANSFORM_PIPELINE',
-                            'decision': 'no footnotes detected',
-                            'rationale': f'{len(all_noterefs)} references seen but 0 definitions resolved by any detector',
-                            'evidence': {'noterefs': len(all_noterefs)}})
-        for strat, n in by_strategy.items():
-            det = self._STRATEGY_DETECTOR.get(strat.split('_')[0] if strat.startswith('heuristic') else strat,
-                                              'HeuristicFootnoteDetector' if strat.startswith('heuristic') else strat)
-            records.append({'seq': len(records), 'module': 'epub_footnote_detection',
-                            'code_ref': f'epub_normalizer.py:{det}',
-                            'decision': f'{n} footnote definition(s) via {strat}',
-                            'rationale': f'{det} matched the source markup',
-                            'evidence': {'count': n, 'strategy': strat}})
+            records.append({
+                'seq': 0, 'module': 'epub_footnote_detection',
+                'code_ref': 'epub_normalizer.py:TRANSFORM_PIPELINE',
+                'decision': 'no footnotes detected',
+                'rationale': f'{len(all_noterefs)} reference(s) seen but 0 definitions resolved by any '
+                             f'of {len(fn_results)} footnote detectors',
+                'evidence': {'noterefs': len(all_noterefs), 'detectors_run': len(fn_results),
+                             'detector_results': fn_results},
+                'question': "Which detector identifies this EPUB's footnotes?",
+                'considered': considered,
+                'confidence': 0.0,
+                'margin': 'FALL-THROUGH: 0 definitions from any detector — compare the source note markup '
+                          'against each considered detector\'s would_need (the shapes searched for)'})
+        else:
+            only_heuristic = fired == ['HeuristicFootnoteDetector']
+            records.append({
+                'seq': 0, 'module': 'epub_footnote_detection',
+                'code_ref': f'epub_normalizer.py:{fired[0] if fired else "TRANSFORM_PIPELINE"}',
+                'decision': f'{len(all_footnotes)} footnote(s) via {", ".join(fired) or "heuristic fallback"}',
+                'rationale': 'detector(s) matched the source markup',
+                'evidence': {'total_footnotes': len(all_footnotes), 'by_strategy': dict(by_strategy),
+                             'detector_results': fn_results},
+                'question': "Which detector identifies this EPUB's footnotes?",
+                'considered': considered,
+                'confidence': 0.5 if only_heuristic else 0.85,
+                'margin': ('only the always-on Heuristic fallback fired — a specific detector would be '
+                           'more reliable; verify against the considered shapes' if only_heuristic
+                           else f'{len(fired)} specific detector(s) matched: {", ".join(fired)}')})
+            # Granular per-strategy counts (attribution to each responsible detector).
+            for strat, n in by_strategy.items():
+                det = self._STRATEGY_DETECTOR.get(strat.split('_')[0] if strat.startswith('heuristic') else strat,
+                                                  'HeuristicFootnoteDetector' if strat.startswith('heuristic') else strat)
+                records.append({'seq': len(records), 'module': 'epub_footnote_detection',
+                                'code_ref': f'epub_normalizer.py:{det}',
+                                'decision': f'{n} footnote definition(s) via {strat}',
+                                'rationale': f'{det} matched the source markup',
+                                'evidence': {'count': n, 'strategy': strat}})
         try:
             with open(os.path.join(self.output_dir, 'assessment.json'), 'w', encoding='utf-8') as f:
                 json.dump({'records': records}, f, ensure_ascii=False, indent=2)

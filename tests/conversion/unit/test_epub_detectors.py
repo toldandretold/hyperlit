@@ -195,3 +195,17 @@ def test_no_specific_detector_fires_on_plain_prose(soup):
     ]
     fired = [d.__name__ for d in specific if d().detect(soup(PLAIN))]
     assert fired == []
+
+
+# ---------------------------------------------------------------------------
+# Assessment "considered" set: every footnote detector must declare its would_need
+# (the markup it keys on), so the no-footnotes diagnostic never has a gap.
+# ---------------------------------------------------------------------------
+def test_detector_needs_covers_every_footnote_detector():
+    import inspect
+    detectors = [name for name, obj in inspect.getmembers(E, inspect.isclass)
+                 if name.endswith('FootnoteDetector')]
+    needs = E.EpubNormalizer._DETECTOR_NEEDS
+    missing = [d for d in detectors if d not in needs]
+    assert missing == [], f"_DETECTOR_NEEDS missing would_need for: {missing}"
+    assert len(detectors) >= 10
