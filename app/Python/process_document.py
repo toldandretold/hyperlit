@@ -25,6 +25,8 @@ from conversion.strategy import (
 from conversion.sanitize import sanitize_html, get_element_html_content
 # Footnote extraction by strategy (whole-document, sequential).
 from conversion.footnotes import process_whole_document_footnotes, process_sequential_footnotes
+# Footnote-linking audit (gaps / duplicates / unmatched refs+defs).
+from conversion.audit import compute_footnote_audit
 
 
 def emit_progress(pct, stage, detail=""):
@@ -1124,153 +1126,7 @@ def main(html_file_path, output_dir, book_id):
         # ========================================================================
         emit_progress(77, "doc_audit", "Validating footnote linking")
         print("\n--- AUDIT: Validating footnote linking ---")
-        audit_data = {
-            'total_refs': 0,
-            'total_defs': len(footnotes_data) if 'footnotes_data' in dir() else len(all_footnotes_data),
-            'gaps': [],
-            'duplicates': [],
-            'unmatched_refs': [],
-            'unmatched_defs': []
-        }
-
-        # Walk all footnote-ref sup elements in document order
-        all_ref_sups = soup.find_all('sup', class_='footnote-ref')
-        audit_data['total_refs'] = len(all_ref_sups)
-        emit_progress(77, "doc_audit", f"Validating {len(all_ref_sups)} footnote refs")
-
-        # Group into sequences (restart when fn-count-id goes back to lower number)
-        # Only store lightweight data per ref; gather expensive context on demand.
-        sequences = []  # list of lists of (num, sup_element) tuples
-        current_sequence = []
-        last_num = 0
-
-        for sup in all_ref_sups:
-            fn_count = sup.get('fn-count-id', '0')
-            try:
-                num = int(fn_count)
-            except ValueError:
-                continue
-            if num <= last_num and current_sequence:
-                sequences.append(current_sequence)
-                current_sequence = []
-            current_sequence.append((num, sup))
-            last_num = num
-
-        if current_sequence:
-            sequences.append(current_sequence)
-
-        def _audit_context(sup_elem):
-            """Extract heading/context for a ref — only called for gaps/duplicates."""
-            section_id = sup_elem.get('fn-section-id', '')
-            prev_heading = sup_elem.find_previous(['h1','h2','h3','h4','h5','h6'])
-            heading_text = prev_heading.get_text()[:60].strip() if prev_heading else ''
-            context_text = sup_elem.parent.get_text()[:120].strip() if sup_elem.parent else ''
-            return section_id, heading_text, context_text
-
-        # Check for gaps and duplicates within each sequence
-        for seq_idx, sequence in enumerate(sequences):
-            numbers_in_seq = [item[0] for item in sequence]
-
-            # Check for gaps (cap per-gap expansion to avoid millions of entries
-            # when lettered footnotes cause sparse numeric sequences)
-            MAX_GAP_EXPANSION = 50
-            if numbers_in_seq:
-                for i in range(len(numbers_in_seq) - 1):
-                    current = numbers_in_seq[i]
-                    next_num = numbers_in_seq[i + 1]
-                    gap_size = next_num - current - 1
-                    if gap_size > 0:
-                        after_sid, after_heading, after_ctx = _audit_context(sequence[i][1])
-                        before_sid, before_heading, before_ctx = _audit_context(sequence[i + 1][1])
-                        if gap_size > MAX_GAP_EXPANSION:
-                            # Record as a single summary entry instead of expanding
-                            audit_data['gaps'].append({
-                                'missing': f"{current + 1}-{next_num - 1}",
-                                'after_ref': current,
-                                'before_ref': next_num,
-                                'section': seq_idx + 1,
-                                'gap_size': gap_size,
-                                'after_ref_context': after_ctx,
-                                'after_ref_section_id': after_sid,
-                                'after_ref_heading': after_heading,
-                                'before_ref_context': before_ctx,
-                                'before_ref_section_id': before_sid,
-                                'before_ref_heading': before_heading,
-                            })
-                        else:
-                            for missing in range(current + 1, next_num):
-                                audit_data['gaps'].append({
-                                    'missing': missing,
-                                    'after_ref': current,
-                                    'before_ref': next_num,
-                                    'section': seq_idx + 1,
-                                    'after_ref_context': after_ctx,
-                                    'after_ref_section_id': after_sid,
-                                    'after_ref_heading': after_heading,
-                                    'before_ref_context': before_ctx,
-                                    'before_ref_section_id': before_sid,
-                                    'before_ref_heading': before_heading,
-                                })
-
-            # Check for duplicates
-            num_counts = Counter(numbers_in_seq)
-            for num, count in num_counts.items():
-                if count > 1:
-                    dup_item = next((item for item in sequence if item[0] == num), None)
-                    if dup_item:
-                        dup_sid, dup_heading, dup_ctx = _audit_context(dup_item[1])
-                    else:
-                        dup_sid, dup_heading, dup_ctx = '', '', ''
-                    audit_data['duplicates'].append({
-                        'number': num,
-                        'section': seq_idx + 1,
-                        'count': count,
-                        'context': dup_ctx,
-                        'heading': dup_heading,
-                    })
-
-        # Check for unmatched refs (ref exists but no definition linked)
-        linked_fn_ids = set()
-        for sup in all_ref_sups:
-            fn_id = sup.get('id', '')
-            if fn_id:
-                linked_fn_ids.add(fn_id)
-
-        defined_fn_ids = set()
-        for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
-            defined_fn_ids.add(fn.get('footnoteId', ''))
-
-        # Refs whose IDs don't appear in definitions
-        for sup in all_ref_sups:
-            fn_id = sup.get('id', '')
-            if fn_id and fn_id not in defined_fn_ids:
-                audit_data['unmatched_refs'].append({
-                    'number': sup.get('fn-count-id', ''),
-                    'ref_id': fn_id,
-                    'context': sup.parent.get_text()[:80] if sup.parent else ''
-                })
-
-        # Build lookup from definition anchors for number + section metadata
-        fn_id_to_metadata = {}
-        for a_tag in soup.find_all('a', attrs={'fn-count-id': True}):
-            fid = a_tag.get('id', '')
-            if fid:
-                fn_id_to_metadata[fid] = {
-                    'number': a_tag.get('fn-count-id', ''),
-                    'section_id': a_tag.get('fn-section-id', ''),
-                }
-
-        # Defs whose IDs don't appear in any ref
-        for fn in (footnotes_data if 'footnotes_data' in dir() else all_footnotes_data):
-            fn_id = fn.get('footnoteId', '')
-            if fn_id and fn_id not in linked_fn_ids:
-                meta = fn_id_to_metadata.get(fn_id, {})
-                audit_data['unmatched_defs'].append({
-                    'footnote_id': fn_id,
-                    'number': meta.get('number', ''),
-                    'section': meta.get('section_id', ''),
-                    'definition_preview': fn.get('content', '')[:200]
-                })
+        audit_data = compute_footnote_audit(soup, footnotes_data if 'footnotes_data' in dir() else all_footnotes_data)
 
         print(f"📊 Audit: {audit_data['total_refs']} refs, {audit_data['total_defs']} defs, "
               f"{len(audit_data['gaps'])} gaps, {len(audit_data['duplicates'])} duplicates, "
