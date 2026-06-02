@@ -319,8 +319,27 @@ def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deeps
 # ---------------------------------------------------------------------------
 # 4. Validate + apply FULL-FUNCTION replacements (robust vs brittle unified diffs)
 # ---------------------------------------------------------------------------
+# Constructs that have NO business in footnote/citation conversion logic — refuse any patch
+# containing them (defense-in-depth on top of the path-allowlist + scrubbed env). Cheap guard
+# against an LLM (esp. a prompt-injected one) writing OS/network/secret-access/eval code.
+import re as _re
+_DANGEROUS = [
+    (_re.compile(r'\bos\.system\b'), 'os.system'),
+    (_re.compile(r'\b(subprocess|Popen)\b'), 'subprocess'),
+    (_re.compile(r'\b(socket|urllib|requests|httpx)\b'), 'network access'),
+    (_re.compile(r'\bhttp\.client\b'), 'network access'),
+    (_re.compile(r'(^|[^.\w])eval\s*\('), 'eval()'),
+    (_re.compile(r'(^|[^.\w])exec\s*\('), 'exec()'),
+    (_re.compile(r'__import__'), '__import__'),
+    (_re.compile(r'\bos\.(environ|getenv)\b'), 'environment/secret access'),
+    (_re.compile(r'\b(pickle|marshal)\.loads?\b'), 'pickle/marshal'),
+    (_re.compile(r'\bshutil\.rmtree\b'), 'destructive filesystem op'),
+]
+
+
 def validate_replacements(functions):
-    """Path-allowlist check on the proposed function replacements. Returns (ok, reason, files)."""
+    """Path-allowlist + dangerous-construct scan on the proposed replacements.
+    Returns (ok, reason, files)."""
     if not isinstance(functions, list) or not functions:
         return False, "no function replacements returned", []
     files = []
@@ -331,6 +350,10 @@ def validate_replacements(functions):
         allowed = path in ALLOWED_FILES or any(path.startswith(p) for p in ALLOWED_PREFIXES)
         if not allowed:
             return False, f"replacement touches a disallowed path: {path}", []
+        for rx, label in _DANGEROUS:
+            if rx.search(fn['code']):
+                return False, (f"proposed code uses '{label}', which conversion logic must never "
+                               f"do — refused for safety"), []
         files.append(path)
     return True, "ok", sorted(set(files))
 
