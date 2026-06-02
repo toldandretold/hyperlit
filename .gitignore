@@ -52,3 +52,5 @@ tests/e2e/test-results/
 # Python bytecode cache (auto-generated, never edit)
 __pycache__/
 *.pyc
+# Real-content conversion fixtures kept local-only (proprietary books not for public repo)
+tests/conversion/fixtures-local/

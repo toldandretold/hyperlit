@@ -1,0 +1,19 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 2,
+      "references": [
+        "bib.bib1",
+        "bib.bib2"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 5,
+  "type_histogram": {
+    "h1": 1,
+    "h2": 1,
+    "p": 3
+  }
+}

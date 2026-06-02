@@ -1,0 +1,15 @@
+{
+    "name": "case",
+    "description": "arXiv/LaTeXML HTML: <cite class=ltx_cite> in-text + <li class=ltx_bibitem> bibliography; ar5iv_preprocessor.py translates them to Hyperlit citations/references before process_document.",
+    "book_id": "case",
+    "citation_style": "bibliography-only",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 2,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes"
+    },
+    "preprocessor": "ar5iv"
+}

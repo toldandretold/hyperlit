@@ -1,0 +1,30 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0003",
+          "marker": "3"
+        }
+      ],
+      "i": 3,
+      "references": [],
+      "type": "p"
+    }
+  ],
+  "node_count": 8,
+  "type_histogram": {
+    "a": 2,
+    "h1": 1,
+    "h2": 1,
+    "p": 4
+  }
+}

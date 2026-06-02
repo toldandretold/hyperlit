@@ -1602,6 +1602,11 @@ class EndnoteCharactersFootnoteDetector(EpubTransform):
         return False
 
 
+# Block-level elements that can hold an endnote definition. Headings are included
+# because some Calibre exports render each note as <hN><a id="nX">N.</a> text</hN>.
+_ENOTE_DEF_CONTAINERS = ['p', 'div', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+
+
 class EnoteFootnoteDetector(EpubTransform):
     """
     Detects footnotes using <sup class="enote"> pattern.
@@ -1675,9 +1680,11 @@ class EnoteFootnoteDetector(EpubTransform):
                 fn_anchor = soup.find('a', attrs={'name': target_id})
 
             if fn_anchor:
-                # Find parent paragraph
+                # Find parent block. Some Calibre exports (e.g. Marxists.org) render
+                # each endnote definition as a heading: <h1><a id="nX">1.</a> text</h1>,
+                # so headings must count as definition containers too.
                 parent = fn_anchor.parent
-                while parent and parent.name not in ['p', 'div', 'li', 'blockquote']:
+                while parent and parent.name not in _ENOTE_DEF_CONTAINERS:
                     parent = parent.parent
 
                 # Verify anchor is at/near start of paragraph
@@ -1701,9 +1708,9 @@ class EnoteFootnoteDetector(EpubTransform):
                     if a_tag.find_parent('sup'):
                         continue
 
-                    # Find parent paragraph
+                    # Find parent block (headings count — see note above).
                     candidate_parent = a_tag.parent
-                    while candidate_parent and candidate_parent.name not in ['p', 'div', 'li', 'blockquote']:
+                    while candidate_parent and candidate_parent.name not in _ENOTE_DEF_CONTAINERS:
                         candidate_parent = candidate_parent.parent
 
                     if candidate_parent and self._is_at_paragraph_start(a_tag, candidate_parent):

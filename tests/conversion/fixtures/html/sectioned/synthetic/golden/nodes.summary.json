@@ -1,0 +1,41 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 2,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0003",
+          "marker": "1"
+        },
+        {
+          "id": "FN0004",
+          "marker": "2"
+        }
+      ],
+      "i": 8,
+      "references": [],
+      "type": "p"
+    }
+  ],
+  "node_count": 11,
+  "type_histogram": {
+    "h1": 2,
+    "h2": 2,
+    "hr": 1,
+    "p": 6
+  }
+}

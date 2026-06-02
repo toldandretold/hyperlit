@@ -1,0 +1,14 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary fixture for pathway md/no_footnotes.",
+    "book_id": "md_no_footnotes",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "md",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes"
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary fixture for pathway html/author_year_bracket.",
+    "book_id": "html_author_year_bracket",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 3,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes",
+        "citation_style": "author-year-bracket"
+    }
+}

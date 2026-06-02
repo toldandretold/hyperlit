@@ -1,0 +1,28 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary fixture for pathway pdf/sequential.",
+    "book_id": "pdf_sequential",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "pdf",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 3,
+        "audit_gaps": 0,
+        "footnote_strategy": "sequential",
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "cathedrals"
+            },
+            {
+                "marker": "2",
+                "content_contains": "bazaars"
+            },
+            {
+                "marker": "3",
+                "content_contains": "commons"
+            }
+        ]
+    }
+}

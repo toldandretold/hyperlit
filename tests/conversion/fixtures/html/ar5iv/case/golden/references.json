@@ -1,0 +1,10 @@
+[
+  {
+    "referenceId": "bib.bib1",
+    "content": "[1] Lamport, L. (1998). The Part-Time Parliament. ACM TOCS."
+  },
+  {
+    "referenceId": "bib.bib2",
+    "content": "[2] Ongaro, D. (2014). In Search of an Understandable Consensus Algorithm. USENIX."
+  }
+]

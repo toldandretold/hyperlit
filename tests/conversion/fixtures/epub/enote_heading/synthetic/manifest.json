@@ -1,0 +1,19 @@
+{
+    "name": "synthetic",
+    "description": "Marxists.org-style enote refs (<sup class=enote><a href=#nX>[N]</a>) whose DEFINITIONS are rendered as headings: <h1><a id=nX href=#rX>N.</a> text</h1>. Regression lock for the EnoteFootnoteDetector fix that accepts headings as definition containers (marxIIIa went 0 -> 142 footnotes).",
+    "book_id": "enoteheading",
+    "citation_style": "none",
+    "footnote_strategy": "pre_processed",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 2,
+        "audit_gaps": 0,
+        "footnote_strategy": "pre_processed",
+        "detectors_fired": ["EnoteFootnoteDetector"],
+        "footnote_links": [
+            {"marker": "1", "content_contains": "cathedrals"},
+            {"marker": "2", "content_contains": "bazaars"}
+        ]
+    }
+}

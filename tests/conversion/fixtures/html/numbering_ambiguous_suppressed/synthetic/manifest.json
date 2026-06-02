@@ -1,0 +1,16 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary fixture for pathway html/numbering_ambiguous_suppressed.",
+    "book_id": "html_numbering_ambiguous_suppressed",
+    "citation_style": "bibliography-only",
+    "footnote_strategy": "whole_document",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 4,
+        "footnotes_count": 11,
+        "audit_gaps": 0,
+        "footnote_strategy": "whole_document",
+        "citation_style": "bibliography-only",
+        "suppressed_footnotes": true
+    }
+}

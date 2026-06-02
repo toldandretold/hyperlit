@@ -1,0 +1,14 @@
+{
+    "name": "case",
+    "description": "Plain DOCX prose, no footnotes (pandoc). Confirms the docx pipeline handles footnote-free documents.",
+    "book_id": "case",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "docx",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes"
+    }
+}

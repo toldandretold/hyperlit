@@ -1,0 +1,28 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary fixture for pathway html/whole_document.",
+    "book_id": "html_whole_document",
+    "citation_style": "none",
+    "footnote_strategy": "whole_document",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 12,
+        "audit_gaps": 0,
+        "footnote_strategy": "whole_document",
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "cathedrals"
+            },
+            {
+                "marker": "2",
+                "content_contains": "bazaars"
+            },
+            {
+                "marker": "3",
+                "content_contains": "commons"
+            }
+        ]
+    }
+}

@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+ <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>epub3_semantic</dc:title><dc:identifier id="uid">epub3_semantic</dc:identifier><dc:language>en</dc:language></metadata>
+ <manifest><item id="ch" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nt" href="notes.xhtml" media-type="application/xhtml+xml"/></manifest>
+ <spine><itemref idref="ch"/><itemref idref="nt"/></spine></package>

@@ -1,0 +1,27 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary EPUB fixture for epub/enote.",
+    "book_id": "epub_enote",
+    "citation_style": "none",
+    "footnote_strategy": "pre_processed",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 2,
+        "audit_gaps": 0,
+        "footnote_strategy": "pre_processed",
+        "detectors_fired": [
+            "EnoteFootnoteDetector"
+        ],
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "First note concerning ca"
+            },
+            {
+                "marker": "2",
+                "content_contains": "Second note concerning b"
+            }
+        ]
+    }
+}
