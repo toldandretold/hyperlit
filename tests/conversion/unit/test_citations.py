@@ -84,3 +84,35 @@ def test_existing_anchor_converted_to_citation(soup):
     a = s.find('a', href=True)
     assert 'in-text-citation' in a.get('class', [])
     assert a['href'] == '#bib_ostrom_1990'
+
+
+# --- the citation-linking pass records its story (incl. the bracket-only gate) ---
+
+from conversion.assessment import ASSESSMENT
+
+
+def test_bracket_only_gate_recorded_as_fallthrough(soup):
+    ASSESSMENT.reset()
+    s = _doc(soup, '<p>As shown [Hardin 1968] clearly.</p>')   # bracket-only, non-empty bib
+    link_citations(s, {'hardin1968': 'bib_h'})
+    rec = ASSESSMENT.records[-1]
+    assert rec['module'] == 'citation_linking'
+    assert 'skipped' in rec['decision']
+    assert 'square' in rec['considered'][0]['would_need']      # the gate is surfaced
+
+
+def test_unlinked_citation_recorded_with_keys_tried(soup):
+    ASSESSMENT.reset()
+    s = _doc(soup, '<p>A claim (Nobody 1999) here.</p>')
+    link_citations(s, {'ostrom1990': 'bib_o'})
+    rec = ASSESSMENT.records[-1]
+    assert rec['evidence']['unlinked'] == 1
+    assert rec['evidence']['unlinked_sample'][0]['keys_tried']   # the keys that failed are recorded
+
+
+def test_empty_bibliography_skip_recorded(soup):
+    ASSESSMENT.reset()
+    link_citations(_doc(soup, '<p>A claim (Ostrom 1990).</p>'), {})
+    rec = ASSESSMENT.records[-1]
+    assert 'no bibliography' in rec['decision']
+    assert rec['confidence'] == 1.0

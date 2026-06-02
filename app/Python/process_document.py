@@ -436,14 +436,28 @@ def main(html_file_path, output_dir, book_id):
               f"{len(audit_data['unmatched_refs'])} unmatched refs, {len(audit_data['unmatched_defs'])} unmatched defs")
         _n_gaps, _n_uref, _n_udef = (len(audit_data['gaps']), len(audit_data['unmatched_refs']),
                                      len(audit_data['unmatched_defs']))
+        _n_dup = len(audit_data['duplicates'])
+        _faults = _n_gaps + _n_uref + _n_udef
+        _total = audit_data['total_refs'] + audit_data['total_defs']
+        # The VERDICT (did the chosen path work?) — the second half of the diagnostic loop
+        # alongside the strategy/linking forks. Falsifiable: names WHICH refs/defs are unmatched.
         ASSESSMENT.record(
             module='footnote_audit',
-            code_ref='process_document.py:main (audit pass)',
+            code_ref='audit.py:compute_footnote_audit',
             decision=('clean' if (_n_gaps == 0 and _n_uref == 0) else 'faulty'),
             rationale=(f"{audit_data['total_refs']} refs / {audit_data['total_defs']} defs; "
                        f"{_n_gaps} numbering gaps, {_n_uref} unmatched refs, {_n_udef} unmatched defs"),
             evidence={'total_refs': audit_data['total_refs'], 'total_defs': audit_data['total_defs'],
-                      'gaps': _n_gaps, 'unmatched_refs': _n_uref, 'unmatched_defs': _n_udef},
+                      'gaps': _n_gaps, 'unmatched_refs': _n_uref, 'unmatched_defs': _n_udef,
+                      'duplicates': _n_dup,
+                      'gap_sample': [g.get('missing') for g in audit_data['gaps'][:8]],
+                      'unmatched_ref_sample': [u.get('ref_id') for u in audit_data['unmatched_refs'][:8]],
+                      'unmatched_def_sample': [u.get('footnote_id') for u in audit_data['unmatched_defs'][:8]]},
+            question='Did the footnote linking produce a clean ref/def correspondence? (the VERDICT)',
+            confidence=round(1.0 if not _total else max(0.0, 1 - _faults / max(_total, 1)), 2),
+            margin=('no gaps or unmatched markers — footnote linking is sound' if not _faults
+                    else f'{_n_uref} marker(s) with no definition + {_n_udef} definition(s) never '
+                         f'referenced + {_n_gaps} numbering gap(s) — cross-check the linker/extractor'),
         )
 
         # Annotate audit with mojibake warnings + segment info pulled from footnote_meta.json

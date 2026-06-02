@@ -77,3 +77,19 @@ def test_no_reference_section_returns_empty(soup):
 
     assert bib == {}
     assert data == []
+
+
+# --- bibliography extraction records its story (collision ambiguity surfaced) ---
+
+from conversion.assessment import ASSESSMENT
+
+
+def test_collision_recorded_with_ambiguity_flag(soup):
+    ASSESSMENT.reset()
+    s = _doc(soup, _refs_section('Ostrom, E. (1990). Book One. CUP.',
+                                 'Ostrom, E. (1990). Book Two. OUP.'))
+    extract_bibliography(s)
+    rec = ASSESSMENT.records[-1]
+    assert rec['module'] == 'bibliography_extraction'
+    assert rec['evidence']['collisions_suffixed'] == 1
+    assert rec['considered'] and 'a/b' in rec['considered'][0]['would_need']

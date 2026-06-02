@@ -8,6 +8,7 @@ import re
 
 from bs4 import NavigableString
 
+from conversion.assessment import ASSESSMENT
 from conversion.refkeys import generate_ref_keys
 
 
@@ -52,9 +53,11 @@ def link_citations(soup, bibliography_map, emit_progress=None):
 
     # Guard: skip expensive per-node scan if there's nothing to link against
     _skip_citation_scan = False
+    _skip_reason = None
     if not bibliography_map:
         print("  ⏭️ No bibliography entries — skipping in-text citation scan")
         _skip_citation_scan = True
+        _skip_reason = 'no_bibliography'
     else:
         # Quick pre-check on full text before walking every DOM node
         _full_text = soup.get_text()
@@ -63,6 +66,7 @@ def link_citations(soup, bibliography_map, emit_progress=None):
         if not _has_citation_patterns:
             print("  ⏭️ No parenthesized citation patterns found — skipping text node scan")
             _skip_citation_scan = True
+            _skip_reason = 'no_paren_patterns'
         else:
             print(f"  📝 Found citation patterns, scanning text nodes against {len(bibliography_map)} bibliography keys...")
 
@@ -328,4 +332,62 @@ def link_citations(soup, bibliography_map, emit_progress=None):
                     last_index = match.end()
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
+
+    # --- Record the citation-linking pass to the assessment trace. This is an AGGREGATE
+    # fork: the "roads not taken" are the citations we could NOT link (their tried keys),
+    # plus the SKIP/fall-through cases (the two known gates) flagged for review. ---
+    if _skip_reason == 'no_bibliography':
+        ASSESSMENT.record(
+            module='citation_linking', code_ref='citations.py:link_citations',
+            decision='citation scan skipped — no bibliography entries',
+            rationale='no references were extracted (PASS 1A), so there is nothing for in-text '
+                      'citations to link against',
+            evidence={'bibliography_entries': 0, 'anchor_converted': anchor_converted},
+            question='Were in-text citations linked to the bibliography?',
+            considered=[{'option': 'scan and link in-text citations',
+                         'rejected_because': 'bibliography_map is empty',
+                         'would_need': 'a detected references/bibliography section (PASS 1A)'}],
+            confidence=1.0, margin='no bibliography to link against — nothing to do')
+    elif _skip_reason == 'no_paren_patterns':
+        ASSESSMENT.record(
+            module='citation_linking', code_ref='citations.py:link_citations',
+            decision='citation scan skipped — no parenthesized (Author YEAR) patterns',
+            rationale='the citation scan is gated on a parenthesized "(...YYYY...)" pre-check; '
+                      'none were found in the text',
+            evidence={'bibliography_entries': len(bibliography_map), 'anchor_converted': anchor_converted},
+            question='Were in-text citations linked to the bibliography?',
+            considered=[{'option': 'scan and link in-text citations',
+                         'rejected_because': 'no parenthesized (Author YEAR) citation patterns in the text',
+                         'would_need': 'parenthesized citations — NOTE: a source citing ONLY with '
+                                       '[Author YEAR] square brackets is skipped by this gate (known '
+                                       'limitation; bracket linking lives behind the paren pre-check)'}],
+            confidence=0.6,
+            margin=(f'0 of {len(bibliography_map)} bibliography entries linked from the body — '
+                    f'expected IF the source cites via footnotes/superscripts, but WRONG if it uses '
+                    f'[Author YEAR] brackets (those are silently skipped here)'))
+    else:
+        unlinked_n = len(citations_unlinked)
+        rate = (citations_linked / citations_found) if citations_found else 1.0
+        sample = [{'citation': u['citation'][:60], 'keys_tried': u['generated_keys'][:6]}
+                  for u in citations_unlinked[:8]]
+        ASSESSMENT.record(
+            module='citation_linking', code_ref='citations.py:link_citations',
+            decision=f'linked {citations_linked} of {citations_found} in-text citation(s)',
+            rationale='each citation links only when a generated ref-key matches a bibliography entry '
+                      '(bounded ±3yr fuzzy fallback); unmatched citations are left as plain text',
+            evidence={'found': citations_found, 'linked': citations_linked, 'unlinked': unlinked_n,
+                      'anchor_converted': anchor_converted, 'bibliography_entries': len(bibliography_map),
+                      'unlinked_sample': sample},
+            question='Were in-text citations linked to the bibliography?',
+            considered=([{'option': 'link the remaining unmatched citations',
+                          'rejected_because': 'their generated keys matched no bibliography entry '
+                                              '(even with the ±3yr fuzzy-year fallback)',
+                          'would_need': 'a bibliography entry whose key matches, or different key '
+                                        'generation — see evidence.unlinked_sample for the keys tried'}]
+                        if unlinked_n else []),
+            confidence=round(rate, 2),
+            margin=(f'{unlinked_n} citation(s) had keys generated but no bibliography match — possible '
+                    f'missing references or key-generation drift' if unlinked_n
+                    else f'all {citations_linked} citation(s) matched a bibliography entry'))
+
     return citations_found, citations_linked, citations_unlinked

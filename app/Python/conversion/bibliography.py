@@ -7,6 +7,7 @@ so its correctness directly governs whether in-text citations link to the right 
 
 import re
 
+from conversion.assessment import ASSESSMENT
 from conversion.refkeys import generate_ref_keys, is_likely_reference
 
 
@@ -16,6 +17,7 @@ def extract_bibliography(soup):
     references_data = []
     all_paragraphs = soup.find_all('p')
     reference_p_tags = []
+    used_reverse_scan = False
 
     print(f"📚 Scanning {len(all_paragraphs)} paragraphs for reference section...")
 
@@ -69,6 +71,7 @@ def extract_bibliography(soup):
 
     # FALLBACK: If no heading found, use reverse paragraph scan
     if not reference_p_tags:
+        used_reverse_scan = True
         print("  ⚠️ No references heading found, scanning paragraphs...")
         for p in reversed(all_paragraphs):
             text_preview = p.get_text(" ", strip=True)[:80]
@@ -96,6 +99,9 @@ def extract_bibliography(soup):
     seen_references = {}  # base_entry_id → {"text": str, "suffix_count": int}
     used_ids = set()      # all entry_ids actually assigned (including suffixed)
     last_bib_author = ""  # Track last author for em-dash (—) repeat-author entries
+    _dropped_no_keys = 0  # entries we could not key (no link target produced)
+    _dups_skipped = 0     # true duplicates collapsed onto an existing entry
+    _collisions = 0       # distinct works sharing author+year, disambiguated by a/b suffix
 
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
@@ -159,6 +165,7 @@ def extract_bibliography(soup):
 
         if not keys:
             print(f"  ⚠️ No keys generated for: {text[:60]}...")
+            _dropped_no_keys += 1
             continue
 
         base_entry_id = keys[0]
@@ -188,6 +195,7 @@ def extract_bibliography(soup):
                 for key in keys:
                     bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
                 print(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
+                _dups_skipped += 1
                 continue
             else:
                 # Collision — different paper, same author+year
@@ -229,6 +237,7 @@ def extract_bibliography(soup):
                     suffix = chr(ord('a') + prev["suffix_count"])
                 entry_id = base_entry_id + suffix
                 print(f"  🔀 Collision: assigned suffix → {entry_id}")
+                _collisions += 1
 
         used_ids.add(entry_id)
 
@@ -243,4 +252,33 @@ def extract_bibliography(soup):
 
     print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
+
+    # --- Record the bibliography-extraction pass. The link-correctness risk here is the
+    # collision suffixing (two works, same author+year): when it fires, the bare key resolves
+    # to the LAST entry (an inherent ambiguity worth surfacing). Dropped entries = reference
+    # targets that exist but can never be linked. ---
+    via_heading = bool(reference_p_tags) and not used_reverse_scan
+    ASSESSMENT.record(
+        module='bibliography_extraction', code_ref='bibliography.py:extract_bibliography',
+        decision=f'{len(references_data)} reference entr(y/ies); {_collisions} collision-suffixed, '
+                 f'{_dups_skipped} duplicate(s) merged, {_dropped_no_keys} dropped (unkeyable)',
+        rationale=('references found via a heading match' if via_heading
+                   else 'references found via the reverse paragraph scan (no heading matched)'),
+        evidence={'entries': len(references_data), 'map_keys': len(bibliography_map),
+                  'collisions_suffixed': _collisions, 'duplicates_merged': _dups_skipped,
+                  'dropped_no_keys': _dropped_no_keys,
+                  'detection': 'heading' if via_heading else 'reverse_scan'},
+        question='Which paragraphs are bibliography entries, and what id does each get?',
+        considered=([{'option': 'disambiguate same author+year citations precisely',
+                      'rejected_because': 'two or more works share an author+year; a bare "(Author Year)" '
+                                          'citation has no a/b to distinguish them',
+                      'would_need': 'an explicit a/b suffix in the in-text citation — otherwise the bare '
+                                    'key resolves to the LAST-defined of the colliding entries'}]
+                    if _collisions else []),
+        confidence=round(1.0 if not references_data
+                         else max(0.3, 1 - (_dropped_no_keys / (len(references_data) + _dropped_no_keys))), 2),
+        margin=(f'{_dropped_no_keys} reference(s) could not be keyed — they exist as targets but no '
+                f'citation can ever link to them' if _dropped_no_keys
+                else (f'{_collisions} author+year collision(s) disambiguated by suffix' if _collisions
+                      else f'{len(references_data)} entries, clean keys, no collisions')))
     return bibliography_map, references_data
