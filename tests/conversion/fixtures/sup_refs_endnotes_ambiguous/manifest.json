@@ -1,6 +1,6 @@
 {
-    "name": "sup_refs_endnotes",
-    "description": "Bare <sup>N</sup> refs + end-of-book [N]: notes (no classes); whole-document strategy",
+    "name": "sup_refs_endnotes_ambiguous",
+    "description": "Bare <sup> refs + flattened multi-essay endnotes with interleaved bibliography; numbering desynced -> links SUPPRESSED (no confident wrong links), notes still extracted",
     "book_id": "raytest",
     "citation_style": "author-year-bracket",
     "footnote_strategy": "whole_document",
@@ -9,7 +9,7 @@
         "references_count": 8,
         "citations_linked": 0,
         "citations_total": 24,
-        "footnotes_count": 38,
+        "footnotes_count": 30,
         "audit_gaps": 0
     }
 }

@@ -11,6 +11,52 @@ from bs4 import BeautifulSoup, NavigableString
 from PIL import Image as PILImage
 import bleach
 
+# Headings that introduce a citation list rather than footnotes. "[N]:" lines
+# under one of these are bibliography/reference entries and must NOT be counted as
+# footnote definitions (see process_whole_document_footnotes / analyze_document_structure).
+_BIBLIOGRAPHY_HEADING_RE = re.compile(
+    r'\b(?:bibliograph(?:y|ies|ic)?|references?|works\s+cited|further\s+reading|reading\s+list)\b',
+    re.IGNORECASE,
+)
+
+
+def _summarize_footnote_numbers(footnote_map):
+    nums = sorted(int(k) for k in footnote_map if str(k).isdigit())
+    if not nums:
+        return "none"
+    return f"{nums[0]}-{nums[-1]} ({len(nums)} defs)"
+
+
+def _footnote_numbering_is_linkable(footnote_map, soup):
+    """Trust check for whole-document NUMBER-based footnote linking.
+
+    whole-document linking pairs an in-text marker with a definition purely by
+    NUMBER, which is only safe when the two numbering schemes correspond. Return
+    False when they don't — the signature of a source whose notes were renumbered
+    independently of their references (per-essay endnotes flattened into one
+    stream, interleaved bibliography entries we stripped, OCR/export drift). In
+    that state matching by number silently drifts and mislinks (a body marker
+    resolving to an unrelated note), so the caller extracts the note content but
+    refuses to emit links. A missing link is honest; a confident wrong link is not.
+    """
+    def_nums = sorted(int(k) for k in footnote_map if str(k).isdigit())
+    if len(def_nums) < 2:
+        return True
+    # (a) Internal gaps in the definition sequence — numbers were removed/renumbered.
+    if def_nums[-1] - def_nums[0] + 1 != len(def_nums):
+        return False
+    # (b) In-text markers that have no same-numbered definition — the marker stream
+    #     and the definition stream don't line up.
+    def_set = set(def_nums)
+    ref_nums = {
+        int(s.get_text(strip=True))
+        for s in soup.find_all('sup')
+        if s.get_text(strip=True).isdigit()
+    }
+    if ref_nums and not ref_nums.issubset(def_set):
+        return False
+    return True
+
 # --- SECURITY: HTML Sanitization ---
 
 ALLOWED_TAGS = [
@@ -142,11 +188,19 @@ def analyze_document_structure(soup):
     footnote_definitions = []
     footnote_references = []
     
+    in_bibliography = False
     for i, element in enumerate(all_elements):
+        # Track whether we're inside a Bibliography/References section so its
+        # "[N]:" citation lines aren't miscounted as footnote definitions (which
+        # would skew strategy selection and the def/ref balance).
+        if element.name in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            in_bibliography = bool(_BIBLIOGRAPHY_HEADING_RE.search(element.get_text()))
+            continue
+
         text = element.get_text().strip()
-        
-        # Check for footnote definitions
-        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+
+        # Check for footnote definitions (skip citation lines in bibliography sections)
+        if not in_bibliography and re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
             footnote_definitions.append({
                 'element': element,
                 'index': i,
@@ -650,9 +704,22 @@ def process_whole_document_footnotes(soup, book_id):
 
     print("--- Processing whole-document footnotes ---")
 
-    # First pass: find indices of all footnote start elements
+    # First pass: find indices of all footnote start elements. CRUCIALLY, skip any
+    # "[N]:" line that sits under a Bibliography / References / Further Reading
+    # heading — those are citations, not footnotes. Many books format bibliography
+    # entries identically to footnote definitions ("[26]: Miller, William Ian; ...")
+    # and number them in the same global sequence, so counting them as footnotes
+    # pollutes the numbering and makes body markers resolve to the wrong (often
+    # cross-essay) note. Excluding them keeps us honest: correct where determinable,
+    # no link where ambiguous.
     footnote_starts = []
+    in_bibliography = False
     for i, element in enumerate(all_elements):
+        if element.name in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            in_bibliography = bool(_BIBLIOGRAPHY_HEADING_RE.search(element.get_text()))
+            continue
+        if in_bibliography:
+            continue
         text = element.get_text().strip()
         # Check if this element starts a footnote definition
         if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
@@ -1265,6 +1332,16 @@ def main(html_file_path, output_dir, book_id):
         elif strategy == 'whole_document':
             # Use simple whole-document footnote processing
             global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
+            # CONFIDENCE GUARD (modus operandi: never a confident wrong link).
+            # If the definition/marker numbering doesn't cleanly correspond, number
+            # matching would drift and mislink — so keep the extracted note content
+            # but drop the linking map. The body markers stay unlinked (honest)
+            # rather than pointing at the wrong note (misleading).
+            if global_footnote_map and not _footnote_numbering_is_linkable(global_footnote_map, soup):
+                print(f"⚠️  Footnote numbering not cleanly alignable "
+                      f"({_summarize_footnote_numbers(global_footnote_map)}); suppressing "
+                      f"number-based links to avoid confident mislinks. Notes still extracted.")
+                global_footnote_map = {}
             sectioned_footnote_map = {'whole_document': global_footnote_map}
             all_footnotes_data = footnotes_data
             footnote_sections = []

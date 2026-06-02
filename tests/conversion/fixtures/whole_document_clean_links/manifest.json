@@ -1,0 +1,15 @@
+{
+    "name": "whole_document_clean_links",
+    "description": "Well-formed end-notes book (15 contiguous sup refs + matching [N]: defs); whole_document linking must succeed for ALL (guard must not over-suppress)",
+    "book_id": "cleanlinks",
+    "citation_style": "none",
+    "footnote_strategy": "whole_document",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 15,
+        "audit_gaps": 0
+    }
+}

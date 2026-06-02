@@ -1760,6 +1760,98 @@ class EnoteFootnoteDetector(EpubTransform):
         return False
 
 
+class AnchorHeadingFootnoteDetector(EpubTransform):
+    """
+    Detect endnotes encoded as a heading anchor plus following content:
+
+        <a class="..." href="#noteId">Note 33</a>      (in-text reference)
+        ...
+        <h2 id="noteId">Note 33</h2>                    (definition label)
+        <p>Note for accountants: ...</p>                (definition content)
+
+    A common Calibre/InDesign export shape (e.g. some O'Reilly titles). It is
+    100% reliable because marker and definition are joined by an explicit id/href
+    anchor — no numbering or counting involved. The other detectors miss it: the
+    marker text is "Note N" (not a bare number or superscript), the marker carries
+    a Calibre class (so HeuristicFootnoteDetector Pattern 5 skips it), and the
+    definition is a <hN> heading with an opaque publisher id that matches none of
+    the fn/en ID_PATTERNS.
+
+    We consolidate each "<hN id=X>Note N</hN> + following content" into a single
+    block <div id="X"> (dropping the redundant "Note N" label) so the standard
+    FootnoteConverter can extract the content, reverse-map the references by id,
+    and remove the definition — exactly as it handles block-level footnotes.
+    """
+
+    name = "AnchorHeadingFootnoteDetector"
+    description = "Endnotes as <hN id=X>Note N</hN> + content, linked by <a href=#X>"
+
+    _NOTE_HEADING_RE = re.compile(r'^(?:end)?note\s+\d+\.?$', re.I)
+    _NOTE_MARKER_RE = re.compile(r'^(?:end)?note\s+(\d+)$', re.I)
+
+    def _linked_ids(self, soup):
+        ids = set()
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            if href.startswith('#'):
+                ids.add(href[1:])
+        return ids
+
+    def detect(self, soup) -> bool:
+        linked = self._linked_ids(soup)
+        if not linked:
+            return False
+        for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            if h.get('id') in linked and self._NOTE_HEADING_RE.match(h.get_text(strip=True)):
+                return True
+        return False
+
+    def transform(self, soup, log) -> dict:
+        linked = self._linked_ids(soup)
+        footnotes = []
+        # Collect definition headings up front (document order) before mutating.
+        defs = [
+            h for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+            if h.get('id') in linked and self._NOTE_HEADING_RE.match(h.get_text(strip=True))
+        ]
+        for h in defs:
+            note_id = h.get('id')
+            # Definition content = following siblings until the next heading.
+            content_sibs = []
+            for sib in h.find_next_siblings():
+                if getattr(sib, 'name', None) in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+                    break
+                content_sibs.append(sib)
+            if not content_sibs:
+                continue
+            # Consolidate into one block element carrying the note id; drop the
+            # "Note N" heading label (redundant with the in-text marker).
+            wrapper = soup.new_tag('div')
+            wrapper['id'] = note_id
+            for sib in content_sibs:
+                wrapper.append(sib.extract())
+            h.replace_with(wrapper)
+            footnotes.append({
+                'id': note_id,
+                'element': wrapper,
+                'type': 'endnote',
+                'strategy': 'anchor_heading',
+            })
+
+        # Normalise in-text marker text "Note 33" -> "33" so the converter renders
+        # a clean numeric superscript instead of the verbose "Note 33" label.
+        fn_ids = {fn['id'] for fn in footnotes}
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            if href.startswith('#') and href[1:] in fn_ids:
+                m = self._NOTE_MARKER_RE.match(a.get_text(strip=True))
+                if m:
+                    a.string = m.group(1)
+
+        log(f"    Total: {len(footnotes)} anchor-heading endnote definitions")
+        return {'footnotes': footnotes, 'noterefs': []}
+
+
 class HeuristicFootnoteDetector(EpubTransform):
     """
     Fallback heuristic footnote detection.
@@ -2369,6 +2461,30 @@ class FootnoteConverter(EpubTransform):
             if elem and elem.parent:
                 elem.decompose()
 
+        # Clean up leftover links to footnote definitions that were NOT converted
+        # into in-text markers — e.g. a redundant "list of notes" index or
+        # back-reference links. Their target definition has just been removed, so
+        # they are now dead links; left in place they render as stray bare-number
+        # links in the reader. The real in-text references are already <sup>s, so
+        # the only <a href="#defId"> remaining are these redundant duplicates.
+        removed_ids = set(id_mapping.keys())
+        stray_links = 0
+        for a_tag in list(soup.find_all('a', href=True)):
+            href = a_tag.get('href', '')
+            if not (href.startswith('#') and href[1:] in removed_ids):
+                continue
+            container = a_tag.parent
+            a_tag.decompose()
+            stray_links += 1
+            # If the container is now an empty standalone wrapper (a note-list
+            # entry that held only this link), drop it too.
+            if (container is not None and container.name in ('p', 'li', 'div')
+                    and not container.get_text(strip=True)
+                    and not container.find(['img', 'figure', 'table'])):
+                container.decompose()
+        if stray_links:
+            log(f"  Removed {stray_links} stray links to extracted footnote definitions")
+
         log(f"  Generated {len(self.footnotes_json)} footnote entries for JSON")
 
         return {'footnotes_json': self.footnotes_json, 'id_mapping': id_mapping}
@@ -2569,6 +2685,7 @@ TRANSFORM_PIPELINE = [
     PandocFootnoteDetector(),
     EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
     EnoteFootnoteDetector(),               # Marxists.org enote class format
+    AnchorHeadingFootnoteDetector(),       # <hN id=X>Note N</hN> + content, linked by <a href=#X>
     HeuristicFootnoteDetector(),
 
     # Phase 3: Other content detection
