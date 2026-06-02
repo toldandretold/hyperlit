@@ -30,6 +30,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,16 +60,31 @@ SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']
 SCRUBBED_ENV = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'PYTHONHASHSEED': '0',
                 'HOME': '/tmp', 'LANG': 'C.UTF-8'}
 
-# When True, emit machine-readable `VIBE:{json}` progress lines (for the SSE controller to
-# parse + forward to the toast) alongside the human-readable lines.
+# When True, emit machine-readable `VIBE:{json}` progress lines alongside the human lines.
 _JSON_PROGRESS = False
+# When set, append each beat as a JSON line here — the background job writes this; the toast
+# polls it (so the user can close the tab / get emailed when done, not hold an SSE open).
+_PROGRESS_FILE = None
+# When this file appears, the loop stops at the next attempt boundary (the Cancel button).
+_CANCEL_FILE = None
 
 
 def emit(phase, message, **extra):
-    """One progress beat — human line + (optionally) a structured line the UI streams."""
+    """One progress beat — human line + (optionally) a streamed line + (optionally) the poll file."""
+    rec = {'phase': phase, 'message': message, **extra}
     print(f"  {message}")
     if _JSON_PROGRESS:
-        print("VIBE:" + json.dumps({'phase': phase, 'message': message, **extra}), flush=True)
+        print("VIBE:" + json.dumps(rec), flush=True)
+    if _PROGRESS_FILE:
+        try:
+            with open(_PROGRESS_FILE, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(rec) + "\n")
+        except Exception:
+            pass
+
+
+def _cancelled():
+    return bool(_CANCEL_FILE) and os.path.exists(_CANCEL_FILE)
 
 
 # ---------------------------------------------------------------------------
@@ -526,7 +542,7 @@ def evaluate(baseline_art, after):
     return 'reject', "no measurable improvement to this document"
 
 
-def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
+def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file_issue=False):
     """The user-facing path: bounded retry. Each attempt asks the LLM for a patch, applies
     it in a throwaway sandbox, re-converts THIS document, and evaluates. On failure it feeds
     the new result back to the LLM and tries again — up to max_attempts. The winning diff is
@@ -548,7 +564,12 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
 
     feedback = ""
     best = None  # highest-scoring 'improved' result — offered if no fully-clean fix is found
+    journal = []  # per-attempt record → vibe_report.json + the GitHub issue body
     for attempt in range(1, max_attempts + 1):
+        if _cancelled():
+            emit('cancelled', "Cancelled — your original conversion is unchanged.")
+            _finalize(book_dir, art, journal, 'cancelled', best=best, file_issue=False)
+            return 1, None
         emit('attempt',
              f"DeepSeek V4 is using deep reasoning to work out {phrase}… "
              f"(attempt {attempt} of {max_attempts})",
@@ -577,6 +598,8 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
 
         ok, reason, _ = validate_replacements(funcs)
         if not ok:
+            journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
+                            'touches': _touch, 'tier': 'rejected', 'why': reason, 'stats': None})
             emit('rejected', f"Proposed change was out of bounds ({reason}); retrying…",
                  attempt=attempt)
             feedback = (f"\n\n## Attempt {attempt} feedback\nYour reply was rejected: {reason}. "
@@ -590,6 +613,8 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
         try:
             applied, out = apply_function_replacements(sandbox, funcs)
             if not applied:
+                journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
+                                'touches': _touch, 'tier': 'apply_failed', 'why': out[:200], 'stats': None})
                 emit('apply_failed', f"The fix couldn't be applied ({out}); retrying…", attempt=attempt)
                 feedback = (f"\n\n## Attempt {attempt} feedback\nCouldn't apply your replacement: "
                             f"{out}. Return the COMPLETE current function body (exact name, valid "
@@ -603,8 +628,11 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
             after = _reconvert(sandbox, book_dir)
             tier, why = evaluate(art, after)
             st = after['stats']
+            journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
+                            'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st)})
             if tier == 'clean':
                 _persist_patch(book_dir, patch, funcs)
+                _finalize(book_dir, art, journal, 'clean', best=None, file_issue=False)
                 emit('success', f"Fixed it cleanly — {_stat_summary(st)}.",
                      tier='clean', attempt=attempt, before=_stat_summary(art['stats']),
                      after=_stat_summary(st), rationale=patch.get('rationale', '')[:300])
@@ -637,14 +665,18 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
         # No fully-clean fix, but a genuine net improvement — offer it to the user WITH the
         # caveat; accepting is non-destructive (nodes_history archives the original to revert).
         _persist_patch(book_dir, {'rationale': best['rationale']}, best['funcs'])
+        _finalize(book_dir, art, journal, 'improved', best=best, file_issue=False)
         emit('success', f"Improved your document — {best['after']}. {best['why']}",
              tier='improved', before=_stat_summary(art['stats']), after=best['after'],
              caveat=best['why'], rationale=best['rationale'][:300])
         return 0, best['funcs']
 
+    report = _finalize(book_dir, art, journal, 'exhausted', best=None, file_issue=file_issue)
+    suffix = (f" Opened GitHub issue: {report['issue_url']}" if report.get('issue_url') else "")
     emit('exhausted',
          f"DeepSeek V4 tried {max_attempts} different fixes but couldn't improve this document, "
-         f"so we've kept your original conversion and logged it for a human to review.")
+         f"so we've kept your original and logged it for a human to review.{suffix}",
+         issue_url=report.get('issue_url'))
     return 1, None
 
 
@@ -654,6 +686,98 @@ def _persist_patch(book_dir, patch, funcs):
             json.dump({'rationale': patch.get('rationale', ''), 'functions': funcs}, f)
     except Exception:
         pass
+
+
+def _finalize(book_dir, art, journal, outcome, best=None, file_issue=False):
+    """Write vibe_report.json (consumed by the fml@ email + the UI) and — for an UNFIXED run —
+    optionally open a GitHub issue with the full diagnosis. Returns the report dict."""
+    book_id = os.path.basename(os.path.normpath(book_dir))
+    report = {
+        'book': book_id,
+        'outcome': outcome,  # clean | improved | exhausted
+        'baseline': _stat_summary(art['stats']),
+        'best': best['after'] if best else None,
+        'flagged': sorted({r.get('module') for r in flagged_forks(art['assessment'])}),
+        'attempts': journal,
+        'issue_url': None,
+    }
+    if file_issue and outcome == 'exhausted':
+        url = file_github_issue(report)
+        if url:
+            report['issue_url'] = url
+    try:
+        with open(os.path.join(book_dir, 'vibe_report.json'), 'w', encoding='utf-8') as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    return report
+
+
+def _github_repo():
+    """owner/repo from the git origin (so it works on prod without hardcoding)."""
+    try:
+        url = subprocess.run(['git', 'config', '--get', 'remote.origin.url'],
+                             cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
+        m = re.search(r'github\.com[:/]([^/]+/[^/.]+)', url)
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
+
+def _report_markdown(report):
+    lines = [
+        f"**Book:** `{report['book']}`  ",
+        f"**Outcome:** the vibe-conversion loop could not cleanly fix this document.  ",
+        f"**Baseline conversion:** {report['baseline']}  ",
+        f"**Uncertain decision(s):** {', '.join(report['flagged']) or 'n/a'}",
+        "",
+        "DeepSeek V4 reasoned about the failure and tried the following — each was validated by "
+        "re-converting THIS document and rejected by the gate. This is a real conversion gap for a "
+        "human to finish.",
+        "",
+        "| # | touched | result | why rejected |",
+        "|---|---|---|---|",
+    ]
+    for a in report['attempts']:
+        lines.append(f"| {a['attempt']} | {', '.join(a.get('touches') or []) or '—'} | "
+                     f"{a.get('tier')} ({a.get('stats') or 'n/a'}) | {a.get('why', '')} |")
+    lines.append("\n### Diagnoses (per attempt)")
+    for a in report['attempts']:
+        if a.get('diagnosis'):
+            lines.append(f"- **Attempt {a['attempt']}:** {a['diagnosis']}")
+    lines.append("\n_Filed automatically by the vibe-conversion loop (path B)._")
+    return "\n".join(lines)
+
+
+def file_github_issue(report):
+    """Open a GitHub issue via the REST API (token from .env GITHUB_TOKEN — no `gh` binary, so it
+    works on the headless prod droplet). Returns the issue URL, or None (dry-run / no token)."""
+    repo = _github_repo()
+    token = _dotenv('GITHUB_TOKEN')
+    title = f"Vibe conversion couldn't fix {report['book']}: {', '.join(report['flagged']) or 'conversion gap'}"
+    body = _report_markdown(report)
+    if not token or not repo:
+        print(f"[github] dry-run (no GITHUB_TOKEN/repo) — would open issue: {title}")
+        return None
+    import ssl
+    import urllib.request
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ctx = ssl.create_default_context()
+    data = json.dumps({'title': title[:250], 'body': body,
+                       'labels': ['vibe-conversion', 'conversion-bug']}).encode()
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues", data=data,
+        headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json',
+                 'User-Agent': 'hyperlit-vibe', 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+            return json.loads(resp.read()).get('html_url')
+    except Exception as e:
+        print(f"[github] could not open issue: {e}")
+        return None
 
 
 def apply_patch_to_book(book_dir, patch_path=None):
@@ -704,12 +828,19 @@ def main():
     ap.add_argument('--user-note', help="The reader's own description of what's wrong (fed to the model).")
     ap.add_argument('--json-progress', action='store_true',
                     help="Emit VIBE:{json} progress lines for the SSE controller to stream.")
+    ap.add_argument('--progress-file', help="Append each progress beat (JSON line) here for polling.")
+    ap.add_argument('--cancel-file', help="Stop at the next attempt boundary if this file appears.")
+    ap.add_argument('--github', action='store_true',
+                    help="On an UNFIXED run, open a GitHub issue with the full diagnosis "
+                         "(uses GITHUB_TOKEN from .env; dry-runs if absent).")
     ap.add_argument('--apply', metavar='PATCH',
                     help="'Use this conversion': apply PATCH + regenerate this book's artifacts.")
     args = ap.parse_args()
 
-    global _JSON_PROGRESS
+    global _JSON_PROGRESS, _PROGRESS_FILE, _CANCEL_FILE
     _JSON_PROGRESS = args.json_progress
+    _PROGRESS_FILE = args.progress_file
+    _CANCEL_FILE = args.cancel_file
 
     if args.apply:
         sys.exit(apply_patch_to_book(args.book_dir, args.apply))
@@ -721,7 +852,7 @@ def main():
         return
 
     rc, _ = run_loop(args.book_dir, args.max_attempts, args.model,
-                     mock_diff=args.mock_diff, user_note=args.user_note)
+                     mock_diff=args.mock_diff, user_note=args.user_note, file_issue=args.github)
     sys.exit(rc)
 
 

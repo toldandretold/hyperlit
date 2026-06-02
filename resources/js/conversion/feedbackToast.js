@@ -239,8 +239,8 @@ function csrfToken() {
   return document.querySelector('meta[name="csrf-token"]')?.content;
 }
 
-/* working state: header + live status list */
-function renderVibeWorking(toast) {
+/* working state: header + live status list + Cancel / Email-me-when-done */
+function renderVibeWorking(toast, { onCancel, onEmailMe }) {
   toast.innerHTML = '';
   const header = document.createElement('div');
   header.textContent = '✨ Vibe converting — this can take a minute or two';
@@ -255,21 +255,65 @@ function renderVibeWorking(toast) {
     display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px',
     opacity: '0.95', maxHeight: '160px', overflowY: 'auto', lineHeight: '1.4',
   });
+  const row = document.createElement('div');
+  Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+  const emailBtn = document.createElement('button');
+  emailBtn.textContent = 'Email me when done';
+  applyBtnStyle(emailBtn);
+  emailBtn.addEventListener('click', onEmailMe);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  applyBtnStyle(cancelBtn);
+  cancelBtn.addEventListener('click', onCancel);
+  row.appendChild(emailBtn);
+  row.appendChild(cancelBtn);
+
   toast.appendChild(header);
   toast.appendChild(sub);
   toast.appendChild(status);
+  toast.appendChild(row);
   return status;
 }
 
-/* stream the SSE progress from /api/vibe-convert/stream into the toast */
+/* Run as a BACKGROUND job: POST start, then poll progress (so the user can close the toast or
+   ask to be emailed). Beats reveal one-at-a-time with a paced fade-in. */
 async function startVibeConvert(toast, { bookId, note }) {
-  const status = renderVibeWorking(toast);
+  const book = bookId || 'unknown';
+  let stopped = false;
 
-  // Reveal beats ONE AT A TIME with a paced fade-in, so even when events arrive bunched it
-  // plays like a sequence ("something is happening") instead of dumping a block of text.
+  // POST /start first; only show the working state once the job is queued.
+  let startResp;
+  try {
+    startResp = await fetch('/api/vibe-convert/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+      credentials: 'include',
+      body: JSON.stringify({ bookId: book, note: note || null }),
+    });
+  } catch { startResp = null; }
+  if (!startResp || !startResp.ok) {
+    renderVibeEnd(toast, !startResp ? 'Could not start vibe conversion.'
+      : (startResp.status === 402 ? 'Insufficient balance.' : 'Could not start vibe conversion.'));
+    return;
+  }
+
+  const post = (url) => fetch(url, {
+    method: 'POST', credentials: 'include',
+    headers: { 'X-CSRF-TOKEN': csrfToken() },
+  }).catch(() => {});
+
+  const status = renderVibeWorking(toast, {
+    onCancel: () => { addLine('Cancelling…'); post(`/api/vibe-convert/cancel/${encodeURIComponent(book)}`); },
+    onEmailMe: () => {
+      stopped = true;
+      post(`/api/vibe-convert/notify/${encodeURIComponent(book)}`);
+      renderVibeEnd(toast, "Got it — we'll email you when it's done. You can close this.");
+    },
+  });
+
+  // Paced one-at-a-time reveal (so it plays like a sequence, not a block dump).
   const queue = [];
   let revealing = false;
-  const MIN_GAP = 1100; // ms between lines
   const pump = () => {
     if (revealing || queue.length === 0) return;
     revealing = true;
@@ -281,7 +325,7 @@ async function startVibeConvert(toast, { bookId, note }) {
     status.appendChild(d);
     status.scrollTop = status.scrollHeight;
     requestAnimationFrame(() => { d.style.opacity = '1'; });
-    setTimeout(() => { revealing = false; pump(); }, MIN_GAP);
+    setTimeout(() => { revealing = false; pump(); }, 1100);
   };
   const addLine = (text) => { queue.push(text); pump(); };
   const drained = () => new Promise((res) => {
@@ -289,46 +333,29 @@ async function startVibeConvert(toast, { bookId, note }) {
     check();
   });
 
+  // Poll the job's progress file until a terminal beat.
+  let shown = 0;
   let result = null;
-  try {
-    const resp = await fetch('/api/vibe-convert/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-      credentials: 'include',
-      body: JSON.stringify({ bookId: bookId || 'unknown', note: note || null }),
-    });
-    if (!resp.ok || !resp.body) {
-      addLine('Could not start — ' + (resp.status === 402 ? 'insufficient balance.' : 'server error.'));
-    } else {
-      const reader = resp.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n\n')) !== -1) {
-          const block = buf.slice(0, i);
-          buf = buf.slice(i + 2);
-          const dataLine = block.split('\n').find((l) => l.startsWith('data: '));
-          if (!dataLine) continue;
-          let evt;
-          try { evt = JSON.parse(dataLine.slice(6)); } catch { continue; }
-          if (evt.message) addLine(evt.message);
-          if (['success', 'exhausted', 'error'].includes(evt.phase)) result = evt;
-        }
-      }
+  while (!stopped) {
+    await new Promise((r) => setTimeout(r, 1500));
+    if (stopped) break;
+    let data;
+    try {
+      const r = await fetch(`/api/vibe-convert/progress/${encodeURIComponent(book)}`, { credentials: 'include' });
+      data = await r.json();
+    } catch { continue; }
+    const beats = data.beats || [];
+    for (; shown < beats.length; shown++) {
+      if (beats[shown].message) addLine(beats[shown].message);
     }
-  } catch (e) {
-    addLine('Vibe conversion failed to run.');
+    if (data.done) { result = data.last; result._report = data.result; break; }
   }
+  if (stopped) return;
 
-  await drained();  // let the last beats finish playing before showing the outcome
-
+  await drained();
   if (result && result.phase === 'success') {
     renderVibeResult(toast, {
-      bookId, before: result.before, after: result.after,
+      bookId: book, before: result.before, after: result.after,
       tier: result.tier || 'clean', caveat: result.caveat || '',
     });
   } else {
