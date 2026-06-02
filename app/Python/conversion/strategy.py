@@ -15,6 +15,43 @@ _BIBLIOGRAPHY_HEADING_RE = re.compile(
 )
 
 
+_ALL_STRATEGIES = ('sequential', 'no_footnotes', 'sectioned', 'whole_document')
+
+
+def _strategy_considered(chosen, info):
+    """The roads NOT taken at the footnote-strategy fork: for each strategy other than
+    `chosen`, why it lost and what evidence WOULD have selected it. This is what lets the
+    diagnostic LLM re-litigate the fork — e.g. check whether `would_need` is genuinely
+    absent or was simply missed by the detector upstream."""
+    resets = info.get('has_footnote_resets', False)
+    structured = info.get('has_structured_sections', False)
+    section_hdr = info.get('has_section_pattern', False)
+    fn = info.get('footnote_count', 0)
+    why = {
+        'sequential': (
+            'no explicit footnoteSectionStart/footnoteDefinitionsStart markers '
+            '(emitted only by simple_md_to_html for per-section restart sources)',
+            'restart anchors in the HTML (sequential md/Word export)'),
+        'no_footnotes': (
+            f'{fn} footnote definition(s) were found' if fn else 'no definitions found',
+            'zero "[N]:" definitions after bibliography exclusion'),
+        'sectioned': (
+            'no per-chapter numbering resets and no "Notes"/HR section structure'
+            if not (resets or structured or section_hdr)
+            else 'section/reset signals present but a stronger whole-document signal won',
+            'duplicate footnote numbers across sections (resets) + HR or "Notes" separators'),
+        'whole_document': (
+            'per-section numbering resets / "Notes" sections indicate the notes are '
+            'partitioned rather than one continuous end-stream',
+            'definitions clustered at the end under one continuous numbering, '
+            'with references scattered earlier'),
+    }
+    return [
+        {'option': s, 'rejected_because': why[s][0], 'would_need': why[s][1]}
+        for s in _ALL_STRATEGIES if s != chosen
+    ]
+
+
 def _summarize_footnote_numbers(footnote_map):
     nums = sorted(int(k) for k in footnote_map if str(k).isdigit())
     if not nums:
@@ -65,10 +102,15 @@ def analyze_document_structure(soup):
         info = {'ref_section_count': len(ref_markers), 'def_section_count': len(def_markers)}
         ASSESSMENT.record(
             module='strategy_selection',
-            code_ref='process_document.py:analyze_document_structure',
+            code_ref='strategy.py:analyze_document_structure',
             decision='footnote_strategy=sequential',
             rationale='explicit footnoteSectionStart/footnoteDefinitionsStart markers from simple_md_to_html',
             evidence=info,
+            question='Which footnote strategy for this document?',
+            considered=_strategy_considered('sequential', info),
+            confidence=0.95,
+            margin=f"{len(ref_markers)} ref + {len(def_markers)} def restart markers present "
+                   f"(explicit signal — unambiguous)",
         )
         return 'sequential', info
 
@@ -117,12 +159,25 @@ def analyze_document_structure(soup):
     print(f"Found {len(footnote_definitions)} footnote definitions and {len(footnote_references)} potential references")
     
     if not footnote_definitions:
+        ref_n = len(footnote_references)
+        info = {'reference_count': ref_n, 'definition_count': 0}
+        # Near-miss flag: in-text markers WITHOUT any definitions is the signature of
+        # definitions that were missed or wrongly excluded (e.g. swallowed under a
+        # bibliography heading) — exactly where the LLM should look, not a clean "no notes".
+        confidence = 0.9 if ref_n == 0 else 0.4
+        margin = (None if ref_n == 0 else
+                  f'{ref_n} in-text reference marker(s) found but 0 definitions — '
+                  f'definitions may have been missed or excluded as bibliography')
         ASSESSMENT.record(
             module='strategy_selection',
-            code_ref='process_document.py:analyze_document_structure',
+            code_ref='strategy.py:analyze_document_structure',
             decision='footnote_strategy=no_footnotes',
             rationale='no "[N]:" footnote definitions found (after bibliography exclusion)',
-            evidence={'reference_count': len(footnote_references)},
+            evidence=info,
+            question='Which footnote strategy for this document?',
+            considered=_strategy_considered('no_footnotes', info),
+            confidence=confidence,
+            margin=margin,
         )
         return 'no_footnotes', {}
 
@@ -201,6 +256,7 @@ def analyze_document_structure(soup):
     # back portion AND references average clearly earlier", excluding books whose
     # numbering resets per chapter (those are genuinely sectioned, handled above).
     references_throughout_definitions_at_end = False
+    ref_position_ratio = None
     if len(footnote_references) > 0 and len(footnote_definitions) > 10 and not has_footnote_resets:
         ref_positions = [fr['index'] for fr in footnote_references]
         avg_ref_position = sum(ref_positions) / len(ref_positions) if ref_positions else 0
@@ -222,33 +278,60 @@ def analyze_document_structure(soup):
         'references_throughout_definitions_at_end': references_throughout_definitions_at_end,
         'has_footnote_resets': has_footnote_resets,
         'has_distributed_hrs': has_distributed_hrs,
-        'duplicate_numbers': list(duplicate_numbers)
+        'duplicate_numbers': list(duplicate_numbers),
+        'ref_position_ratio': round(ref_position_ratio, 4) if ref_position_ratio is not None else None,
     }
-    
-    # Updated decision logic with footnote reset detection as primary indicator
+
+    # Updated decision logic with footnote reset detection as primary indicator.
+    # Each branch also records a CONFIDENCE and a near-miss MARGIN: how decisively the
+    # winning condition was met, so the diagnostic LLM can spot a shaky fork at a glance.
+    pr = position_ratio
     if has_footnote_resets and has_distributed_hrs:
         strategy, reason = 'sectioned', 'footnote numbering resets detected with HR separators'
+        confidence = 0.85
+        margin = (f"{len(duplicate_numbers)} duplicate fn-number(s) + distributed HRs — "
+                  f"strong sectioned signal")
     elif has_footnote_resets and len(hr_elements) > 0:
         strategy, reason = 'sectioned', 'footnote numbering resets detected'
+        confidence = 0.7
+        margin = (f"{len(duplicate_numbers)} duplicate fn-number(s) + {len(hr_elements)} HR(s), "
+                  f"but HRs not distributed throughout")
     elif references_throughout_definitions_at_end:
         strategy, reason = 'whole_document', 'references throughout text, definitions clustered at end'
+        gap = (pr - ref_position_ratio) if ref_position_ratio is not None else 0.0
+        confidence = round(min(0.9, 0.6 + gap), 2)
+        margin = (f"def position_ratio {pr:.2f} vs 0.65 gate; refs avg "
+                  f"{ref_position_ratio:.2f} (gap {gap:.2f} vs 0.15 min)")
     elif has_structured_sections:
         strategy, reason = 'sectioned', 'header + footnotes + hr patterns'
+        confidence = 0.65
+        margin = "header→footnotes→HR pattern found; no numbering resets to corroborate"
     elif footnotes_at_end and not has_section_pattern and not has_footnote_resets:
         strategy, reason = 'whole_document', 'footnotes clustered at end (no section pattern)'
+        confidence = round(min(0.85, 0.5 + (pr - 0.8) * 2), 2) if pr > 0.8 else 0.6
+        margin = f"def position_ratio {pr:.2f} vs 0.80 gate (footnotes_at_end)"
     elif has_section_pattern and not references_throughout_definitions_at_end:
         strategy, reason = 'sectioned', "'Notes' headers present"
+        confidence = 0.6
+        margin = "a 'Notes' header is present but no resets/HR structure to confirm sectioning"
     else:
         strategy, reason = 'whole_document', 'default fallback'
+        confidence = 0.3
+        margin = ("FALL-THROUGH: no positive signal matched — defaulted to whole_document. "
+                  "LOW confidence; a prime candidate for review.")
 
     print(f"🔍 STRATEGY: {strategy.upper()} - {reason}")
     print(f"📊 Document analysis: {strategy_info}")
     ASSESSMENT.record(
         module='strategy_selection',
-        code_ref='process_document.py:analyze_document_structure',
+        code_ref='strategy.py:analyze_document_structure',
         decision=f'footnote_strategy={strategy}',
         rationale=reason,
         evidence=strategy_info,
+        question='Which footnote strategy for this document?',
+        considered=_strategy_considered(strategy, strategy_info),
+        confidence=confidence,
+        margin=margin,
     )
     return strategy, strategy_info
 

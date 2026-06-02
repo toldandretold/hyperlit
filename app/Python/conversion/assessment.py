@@ -33,15 +33,36 @@ class Assessment:
                 except Exception:
                     pass
 
-    def record(self, module, code_ref, decision, rationale, evidence=None):
-        self.records.append({
+    def record(self, module, code_ref, decision, rationale, evidence=None,
+               question=None, considered=None, confidence=None, margin=None,
+               produced=None):
+        """Append one decision record. The first five args are the lean form (kept for
+        the many simple call sites). The optional fork-fields make a record FALSIFIABLE
+        for the diagnostic LLM — record them at real branch points:
+
+          question   — the fork in plain words ("Which footnote strategy?")
+          considered — the roads NOT taken: [{option, rejected_because, would_need}],
+                       where would_need names the evidence that WOULD have flipped it
+          confidence — 0..1 self-estimate for this decision
+          margin     — how close it was ("position_ratio 0.76 vs 0.65 gate"); a near-miss
+                       string is the signal that tells the LLM where to look first
+          produced   — outcome metrics this choice yielded, when known at decision time
+
+        Optional fields are omitted from the record when None, so lean records stay lean."""
+        rec = {
             'seq': len(self.records),
             'module': module,
             'code_ref': code_ref,
             'decision': decision,
             'rationale': rationale,
             'evidence': evidence or {},
-        })
+        }
+        for key, val in (('question', question), ('considered', considered),
+                         ('confidence', confidence), ('margin', margin),
+                         ('produced', produced)):
+            if val is not None:
+                rec[key] = val
+        self.records.append(rec)
 
     def dump(self, output_dir):
         try:
