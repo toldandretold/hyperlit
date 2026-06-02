@@ -72,22 +72,70 @@ def _footnote_numbering_is_linkable(footnote_map, soup):
     refuses to emit links. A missing link is honest; a confident wrong link is not.
     """
     def_nums = sorted(int(k) for k in footnote_map if str(k).isdigit())
-    if len(def_nums) < 2:
-        return True
-    # (a) Internal gaps in the definition sequence — numbers were removed/renumbered.
-    if def_nums[-1] - def_nums[0] + 1 != len(def_nums):
-        return False
-    # (b) In-text markers that have no same-numbered definition — the marker stream
-    #     and the definition stream don't line up.
     def_set = set(def_nums)
     ref_nums = {
         int(s.get_text(strip=True))
         for s in soup.find_all('sup')
         if s.get_text(strip=True).isdigit()
     }
-    if ref_nums and not ref_nums.issubset(def_set):
-        return False
-    return True
+
+    # Decide WHY, with evidence, then record the link-vs-suppress fork once. The modus
+    # operandi: when the numbering can't be trusted, suppress — a missing link is honest,
+    # a confident wrong link is not.
+    if len(def_nums) < 2:
+        linkable, guard = True, 'too few definitions to misalign'
+        reason = f'{len(def_nums)} definition number(s) (<2) — nothing to misalign, safe to link'
+        evidence = {'definition_count': len(def_nums)}
+        confidence, margin = 0.9, f'only {len(def_nums)} definition(s) — no drift possible'
+    elif def_nums[-1] - def_nums[0] + 1 != len(def_nums):
+        # (a) Internal gaps in the definition sequence — numbers were removed/renumbered.
+        missing = (def_nums[-1] - def_nums[0] + 1) - len(def_nums)
+        linkable, guard = False, 'definition-sequence gap'
+        reason = (f'definition numbers span {def_nums[0]}-{def_nums[-1]} but only {len(def_nums)} '
+                  f'defs exist ({missing} missing) — renumbered/stripped; matching by number would drift')
+        evidence = {'definition_range': f'{def_nums[0]}-{def_nums[-1]}',
+                    'definition_count': len(def_nums), 'missing_in_sequence': missing}
+        confidence, margin = 0.85, f'{missing} number(s) missing from an otherwise contiguous sequence'
+    elif ref_nums and not ref_nums.issubset(def_set):
+        # (b) In-text markers with no same-numbered definition — the streams don't line up.
+        orphans = sorted(ref_nums - def_set)
+        linkable, guard = False, 'orphaned in-text markers'
+        reason = (f'{len(orphans)} in-text marker number(s) {orphans[:8]} have no same-numbered '
+                  f'definition — the marker and definition streams do not line up')
+        evidence = {'orphan_markers': orphans[:20], 'definition_range': f'{def_nums[0]}-{def_nums[-1]}',
+                    'marker_count': len(ref_nums)}
+        confidence, margin = 0.8, f'{len(orphans)} in-text marker(s) with no matching definition'
+    else:
+        linkable, guard = True, 'contiguous + every marker matched'
+        reason = (f'definitions contiguous {def_nums[0]}-{def_nums[-1]} and all {len(ref_nums)} '
+                  f'in-text marker number(s) have a definition — safe to link by number')
+        evidence = {'definition_range': f'{def_nums[0]}-{def_nums[-1]}', 'matched_markers': len(ref_nums)}
+        confidence, margin = 0.85, f'contiguous {def_nums[0]}-{def_nums[-1]}, all markers matched'
+
+    if linkable:
+        decision = 'link whole-document footnotes by number'
+        considered = [{'option': 'suppress whole-document footnote links',
+                       'rejected_because': 'numbering is contiguous and every marker is matched — '
+                                           'suppressing would needlessly drop valid links',
+                       'would_need': 'a gap in the definition sequence OR a marker with no matching definition'}]
+    else:
+        decision = 'suppress whole-document footnote links (extract notes, emit NO links)'
+        considered = [{'option': 'link whole-document footnotes by number',
+                       'rejected_because': reason,
+                       'would_need': 'a contiguous definition sequence AND every marker number having a definition'}]
+
+    ASSESSMENT.record(
+        module='footnote_linking_guard',
+        code_ref='strategy.py:_footnote_numbering_is_linkable',
+        decision=decision,
+        rationale=reason,
+        evidence=evidence,
+        question='Is whole-document footnote numbering safe to link by number?',
+        considered=considered,
+        confidence=confidence,
+        margin=margin,
+    )
+    return linkable
 
 
 def analyze_document_structure(soup):

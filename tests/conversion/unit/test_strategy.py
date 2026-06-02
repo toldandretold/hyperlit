@@ -59,3 +59,36 @@ def test_not_linkable_ref_without_def(soup):
 
 def test_linkable_trivial_single(soup):
     assert _footnote_numbering_is_linkable({'1': {}}, _refs_soup(soup, [1])) is True
+
+
+# --- the link-vs-suppress fork records its full story to the assessment trace ---
+
+from conversion.assessment import ASSESSMENT
+
+
+def test_guard_records_suppress_fork_story(soup):
+    ASSESSMENT.reset()
+    _footnote_numbering_is_linkable({'1': {}, '2': {}, '4': {}}, _refs_soup(soup, [1, 2, 4]))
+    rec = ASSESSMENT.records[-1]
+    assert rec['module'] == 'footnote_linking_guard'
+    assert rec['decision'].startswith('suppress')
+    assert rec['considered'][0]['option'].startswith('link')   # road not taken = link
+    assert rec['confidence'] and rec['margin']
+    assert rec['evidence']['missing_in_sequence'] == 1
+
+
+def test_guard_records_link_fork_story(soup):
+    ASSESSMENT.reset()
+    _footnote_numbering_is_linkable({'1': {}, '2': {}, '3': {}}, _refs_soup(soup, [1, 2, 3]))
+    rec = ASSESSMENT.records[-1]
+    assert rec['decision'].startswith('link')
+    assert rec['considered'][0]['option'].startswith('suppress')  # road not taken = suppress
+
+
+def test_guard_records_orphan_marker_suppression(soup):
+    ASSESSMENT.reset()
+    # markers 1,2,3,4 but only defs 1,2,3 -> orphan 4 -> suppress
+    _footnote_numbering_is_linkable({'1': {}, '2': {}, '3': {}}, _refs_soup(soup, [1, 2, 3, 4]))
+    rec = ASSESSMENT.records[-1]
+    assert rec['decision'].startswith('suppress')
+    assert rec['evidence']['orphan_markers'] == [4]

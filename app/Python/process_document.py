@@ -237,19 +237,14 @@ def main(html_file_path, output_dir, book_id):
             # matching would drift and mislink — so keep the extracted note content
             # but drop the linking map. The body markers stay unlinked (honest)
             # rather than pointing at the wrong note (misleading).
+            # The fork (link vs suppress) is recorded to assessment.json inside
+            # _footnote_numbering_is_linkable itself (both outcomes, with the guard
+            # that fired). Here we just act on the verdict.
             if global_footnote_map and not _footnote_numbering_is_linkable(global_footnote_map, soup):
                 summary = _summarize_footnote_numbers(global_footnote_map)
                 print(f"⚠️  Footnote numbering not cleanly alignable "
                       f"({summary}); suppressing "
                       f"number-based links to avoid confident mislinks. Notes still extracted.")
-                ASSESSMENT.record(
-                    module='footnote_linking_guard',
-                    code_ref='process_document.py:_footnote_numbering_is_linkable',
-                    decision='suppressed whole-document footnote links',
-                    rationale=f'definition/marker numbering not cleanly alignable ({summary}); '
-                              f'number-matching would drift — extract notes but emit no links',
-                    evidence={'definition_numbers': summary},
-                )
                 global_footnote_map = {}
             sectioned_footnote_map = {'whole_document': global_footnote_map}
             all_footnotes_data = footnotes_data
