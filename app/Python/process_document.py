@@ -24,7 +24,7 @@ from conversion.strategy import (
 # HTML sanitization + inner-HTML extraction (security plumbing).
 from conversion.sanitize import sanitize_html, get_element_html_content
 # Footnote extraction by strategy (whole-document, sequential).
-from conversion.footnotes import process_whole_document_footnotes, process_sequential_footnotes
+from conversion.footnotes import process_whole_document_footnotes, process_sequential_footnotes, link_footnotes
 # Footnote-linking audit (gaps / duplicates / unmatched refs+defs).
 from conversion.audit import compute_footnote_audit
 
@@ -440,6 +440,12 @@ def main(html_file_path, output_dir, book_id):
                 strategy, strategy_info = analyze_document_structure(soup)
         else:
             strategy, strategy_info = analyze_document_structure(soup)
+
+        # Defaults so link_footnotes() can take all four maps unconditionally; the
+        # linker only consults the one matching `strategy`, so non-matching branches
+        # leaving these empty is behaviour-identical.
+        global_footnote_map = {}
+        sequential_footnote_map = {}
 
         if strategy == 'sequential':
             # Use sequential footnote processing (ref/def sections restart numbering)
@@ -954,172 +960,9 @@ def main(html_file_path, output_dir, book_id):
         print(f"  - Bibliography map keys ({len(bibliography_map)}): {sorted(bibliography_map.keys())}")
 
         emit_progress(76, "doc_footnote_linking", "Linking footnote references")
-        # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
-
-        # Pre-build element position index for O(1) lookups instead of O(n) .index() calls
-        _element_pos = {id(elem): i for i, elem in enumerate(all_elements)}
-
-        def _elem_position(element):
-            """O(1) position lookup, walking up to parent if element isn't in the index."""
-            pos = _element_pos.get(id(element))
-            if pos is not None:
-                return pos
-            parent = element.parent
-            while parent:
-                pos = _element_pos.get(id(parent))
-                if pos is not None:
-                    return pos
-                parent = parent.parent
-            return 0
-
-        # Pre-build ref section positions for sequential strategy
-        if strategy == 'sequential':
-            ref_markers = soup.find_all('a', class_='footnoteSectionStart')
-            ref_section_positions = []
-            for marker in ref_markers:
-                section_num = marker.get('id', '').replace('fnRefSection_', '')
-                ref_section_positions.append((_elem_position(marker), section_num))
-            # Sort by position ascending
-            ref_section_positions.sort(key=lambda x: x[0])
-
-        def find_footnote_data(identifier, current_element=None):
-            """Find footnote data using the appropriate strategy"""
-            if strategy == 'whole_document':
-                # Simple lookup in whole-document map
-                if identifier in global_footnote_map:
-                    print(f"Found footnote {identifier} in whole-document mode")
-                    return global_footnote_map[identifier]
-                print(f"Could not find footnote {identifier} in whole-document mode (available: {list(global_footnote_map.keys())[:10]}...)")
-                return None
-            elif strategy == 'sequential':
-                return find_footnote_in_sequential(identifier, current_element)
-            else:
-                # Section-aware lookup (original logic)
-                return find_footnote_in_sections(identifier, current_element)
-
-        def find_footnote_in_sequential(identifier, current_element):
-            """Find footnote data by determining which ref section the element falls in,
-            then looking up the matching definition section."""
-            current_pos = _elem_position(current_element)
-
-            # Find which ref section this element falls in (last marker before current_pos)
-            section_num = None
-            for pos, num in ref_section_positions:
-                if pos <= current_pos:
-                    section_num = num
-                else:
-                    break
-
-            if section_num and section_num in sequential_footnote_map:
-                if identifier in sequential_footnote_map[section_num]:
-                    print(f"Found footnote {identifier} in sequential section {section_num} (pos {current_pos})")
-                    return sequential_footnote_map[section_num][identifier]
-
-            # Fallback: try all sections for this identifier
-            for sec_id, sec_map in sequential_footnote_map.items():
-                if identifier in sec_map:
-                    print(f"Fallback: found footnote {identifier} in section {sec_id}")
-                    return sec_map[identifier]
-
-            print(f"Could not find footnote {identifier} in sequential mode (section {section_num})")
-            return None
-    
-        def find_footnote_in_sections(identifier, current_element):
-            """Find footnote data by determining which section's text area this element is in"""
-            current_pos = _elem_position(current_element)
-
-            # Find which section this element belongs to by checking explicit text ranges
-            for section in footnote_sections:
-                if (current_pos >= section.get('text_start_idx', 0) and
-                    current_pos < section.get('text_end_idx', len(all_elements))):
-                    if identifier in sectioned_footnote_map.get(section['id'], {}):
-                        return sectioned_footnote_map[section['id']][identifier]
-
-            # Try traditional footnotes as final fallback
-            if 'traditional' in sectioned_footnote_map and identifier in sectioned_footnote_map['traditional']:
-                return sectioned_footnote_map['traditional'][identifier]
-
-            return None
-    
-        # Handle existing <a> tags with #fn pattern
-        for a_tag in soup.find_all('a', href=re.compile(r'^#fn\d+')):
-            identifier_match = re.search(r'(\d+)', a_tag.get('href', ''))
-            if not identifier_match: continue
-            identifier = identifier_match.group(1)
-            text_content = a_tag.get_text(strip=True)
-
-            footnote_data = find_footnote_data(identifier, a_tag)
-            if footnote_data and text_content == identifier:
-                # New format: sup with class, no anchor inside
-                new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
-                new_sup['fn-count-id'] = identifier
-                new_sup['class'] = 'footnote-ref'
-                if 'section_id' in footnote_data:
-                    new_sup['fn-section-id'] = footnote_data['section_id']
-                new_sup.string = text_content
-                a_tag.replace_with(new_sup)
-
-        # Handle existing <sup> tags
-        for sup_tag in soup.find_all('sup'):
-            # Skip if already has new format (class on sup) or old format (anchor inside)
-            if 'footnote-ref' in sup_tag.get('class', []) or sup_tag.find('a', class_='footnote-ref'):
-                continue
-            identifier = sup_tag.get_text(strip=True)
-            footnote_data = find_footnote_data(identifier, sup_tag)
-            if footnote_data:
-                # New format: add attributes to sup, no anchor
-                sup_tag['id'] = footnote_data['unique_fn_id']
-                sup_tag['fn-count-id'] = identifier
-                sup_tag['class'] = sup_tag.get('class', []) + ['footnote-ref']
-                if 'section_id' in footnote_data:
-                    sup_tag['fn-section-id'] = footnote_data['section_id']
-                # Keep text content as-is (already identifier)
-
-        # Handle [^identifier] patterns in text (but NOT footnote definitions)
-        # Quick pre-check: skip expensive text node walk if no [^...] or [...] patterns exist
-        _fn_full_text = soup.get_text()
-        _has_bracket_fn = re.search(r'\[\^?\w+\]', _fn_full_text)
-        del _fn_full_text
-        if not _has_bracket_fn:
-            print("  ⏭️ No [^identifier] patterns found — skipping text node scan for footnotes")
-
-        for text_node in (soup.find_all(string=True) if _has_bracket_fn else []):
-            if not text_node.parent.name in ['style', 'script', 'a']:
-                text = str(text_node)
-                matches = list(re.finditer(r'\[\^?(\w+)\]', text))
-                if matches:
-                    new_content = []
-                    last_index = 0
-                    for match in matches:
-                        identifier = match.group(1)
-
-                        # Check if this is a footnote definition (followed by colon)
-                        # Skip processing if this looks like a definition
-                        match_end = match.end()
-                        following_text = text[match_end:match_end+5].strip()  # Look at next 5 chars
-                        if following_text.startswith(':'):
-                            # This is a footnote definition, skip it
-                            print(f"Skipping footnote definition pattern: {match.group(0)}:")
-                            continue
-
-                        footnote_data = find_footnote_data(identifier, text_node.parent)
-                        if footnote_data:
-                            new_content.append(NavigableString(text[last_index:match.start()]))
-                            # New format: sup with class, no anchor inside
-                            new_sup = soup.new_tag('sup', id=footnote_data['unique_fn_id'])
-                            new_sup['fn-count-id'] = identifier
-                            new_sup['class'] = 'footnote-ref'
-                            if 'section_id' in footnote_data:
-                                new_sup['fn-section-id'] = footnote_data['section_id']
-                            new_sup.string = identifier
-                            new_content.append(new_sup)
-                            last_index = match.end()
-                        else:
-                            # If no footnote found, leave the text as-is
-                            continue
-                    if new_content:  # Only replace if we found matches
-                        new_content.append(NavigableString(text[last_index:]))
-                        text_node.replace_with(*new_content)
+        # --- 2B: Link Footnotes (STRATEGY-AWARE) → conversion/footnotes.py ---
+        link_footnotes(soup, all_elements, strategy, global_footnote_map,
+                       sequential_footnote_map, sectioned_footnote_map, footnote_sections)
 
         # ========================================================================
         # AUDIT PASS: Validate footnote linking
