@@ -40,6 +40,11 @@ REPO_ROOT = os.path.abspath(os.path.join(PY_DIR, '..', '..'))
 
 # The diff may only touch these (relative to repo root). Anything else is rejected outright —
 # the LLM cannot edit the harness, add new files, or reach deploy/secret config.
+# An 'improved' result is rejected if MORE than this fraction of the newly-linked items are
+# flagged misaligned by the audit — past it, the fix is mostly confident-wrong-links, which the
+# modus operandi says is worse than leaving them unlinked.
+MISALIGNED_REJECT_RATIO = 0.5
+
 ALLOWED_PREFIXES = ('app/Python/conversion/',)
 ALLOWED_FILES = {
     'app/Python/process_document.py', 'app/Python/epub_normalizer.py',
@@ -107,6 +112,31 @@ def _is_problem(r):
 def flagged_forks(records):
     """The forks the pipeline was unsure about or declined — the LLM's leads."""
     return [r for r in records if _is_problem(r)]
+
+
+# Human phrasing for the uncertain decision(s) — for the user-facing progress narration.
+_MODULE_PHRASE = {
+    'pdf_footnote_classification': "how this PDF lays out its footnotes",
+    'strategy_selection': "how this document's footnotes are structured",
+    'footnote_linking_guard': "whether its footnotes can be linked safely",
+    'citation_linking': "how to link its in-text citations",
+    'footnote_audit': "its footnote linking",
+    'epub_footnote_detection': "how this EPUB marks its footnotes",
+    'bibliography_extraction': "its bibliography",
+}
+
+
+def _flagged_phrase(flagged):
+    parts = []
+    for r in flagged:
+        p = _MODULE_PHRASE.get(r.get('module'))
+        if p and p not in parts:
+            parts.append(p)
+    if not parts:
+        return "how to handle this file"
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
 def _code_ref_to_path(code_ref):
@@ -451,14 +481,23 @@ def evaluate(baseline_art, after):
     if clean:
         return 'clean', "resolved the flagged problem(s) with no new faults in this document"
 
-    gain = (a.get('footnotes_matched', 0) > b.get('footnotes_matched', 0)
-            or a.get('citations_linked', 0) > b.get('citations_linked', 0))
-    if gain:
+    fn_gain = a.get('footnotes_matched', 0) - b.get('footnotes_matched', 0)
+    cit_gain = a.get('citations_linked', 0) - b.get('citations_linked', 0)
+    total_gain = max(0, fn_gain) + max(0, cit_gain)
+    fault_delta = a_faults - b_faults
+    if total_gain > 0:
+        # QUALITY GUARD (modus operandi: a wrong link is worse than a missing one). If the new
+        # audit faults are a large fraction of what was newly linked, most of those links are
+        # misaligned — that's NOT an improvement, it's confident-wrong-links. Reject it.
+        if fault_delta > MISALIGNED_REJECT_RATIO * total_gain:
+            return 'reject', (f"it linked {total_gain} more but introduced ~{fault_delta} audit "
+                              f"fault(s) — most of the new links look misaligned, which is worse "
+                              f"than leaving them unlinked")
         caveats = []
         if introduced:
             caveats.append(f"new flag {sorted(introduced)}")
-        if a_faults > b_faults:
-            caveats.append(f"~{a_faults - b_faults} link(s) may be misaligned (audit caveat)")
+        if fault_delta > 0:
+            caveats.append(f"~{fault_delta} of {total_gain} new link(s) may be misaligned — worth a check")
         return 'improved', ("improved this document"
                             + (" — caveat: " + "; ".join(caveats) if caveats else ""))
     return 'reject', "no measurable improvement to this document"
@@ -473,16 +512,14 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
     flagged = flagged_forks(art['assessment'])
     modules = modules_for(flagged) or modules_for(art['assessment'])
     base_flagged, base_faults = _problem_set(art['assessment'], art['audit'])
-    # How many known pathways this file fell outside (for the explanatory message).
-    prim = flagged[0] if flagged else None
-    n_paths = (len(prim.get('considered', [])) + 1) if prim and prim.get('considered') else None
-    paths_phrase = (f"all {n_paths} of the converter's known pathways" if n_paths
-                    else "the converter's usual pathways")
+    # Describe the ACTUAL uncertain decision (not a misleading "fell outside N of M pathways" —
+    # the converter handles many end-results; usually only one decision was uncertain here).
+    phrase = _flagged_phrase(flagged)
     emit('start',
-         f"Your document converted as: {_stat_summary(art['stats'])} — but it fell outside "
-         f"{paths_phrase}, so the converter wasn't sure how to handle it. DeepSeek V4 will reason "
-         f"about why, propose a pipeline fix, and we'll test it on THIS document. This takes a "
-         f"minute or two per attempt (up to {max_attempts}) — hang tight.",
+         f"Your document converted as: {_stat_summary(art['stats'])} — but the converter wasn't "
+         f"sure about {phrase}. DeepSeek V4 will reason about why, propose a pipeline fix, and "
+         f"test it on THIS document. This takes a minute or two per attempt (up to "
+         f"{max_attempts}) — hang tight.",
          baseline=_stat_summary(art['stats']), flagged=sorted(base_flagged),
          modules=modules, max_attempts=max_attempts, user_note=bool(user_note))
 
@@ -490,8 +527,8 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None):
     best = None  # highest-scoring 'improved' result — offered if no fully-clean fix is found
     for attempt in range(1, max_attempts + 1):
         emit('attempt',
-             f"DeepSeek V4 is using deep reasoning to work out why this file fell outside "
-             f"{paths_phrase}… (attempt {attempt} of {max_attempts})",
+             f"DeepSeek V4 is using deep reasoning to work out {phrase}… "
+             f"(attempt {attempt} of {max_attempts})",
              attempt=attempt, max_attempts=max_attempts)
         try:
             patch = propose_patch(build_prompt(art, modules, user_note=user_note) + feedback,

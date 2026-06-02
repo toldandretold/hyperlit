@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\BillingService;
+use App\Services\ConversionArtifactSaver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Process\Process;
@@ -117,12 +119,14 @@ class VibeConvertController extends Controller
     }
 
     /**
-     * "Use this conversion" — apply the validated patch and regenerate THIS book's output.
-     * Re-runs the conversion with the patch in a sandbox and copies the fresh artifacts into
-     * the book's dir. NOTE: refreshing the live node DB reuses the existing reconvert/import
-     * sync (ImportController::reconvert) — wired in a follow-up; this writes the artifacts.
+     * "Use this conversion" — apply the validated patch and SWAP it into this book's live output.
+     *   1. vibe_convert.py --apply: sandbox-patch + re-convert → regenerate the artifact files
+     *      (nodes.json / footnotes.json / references.json) in the book dir. Prod code untouched.
+     *   2. ConversionArtifactSaver: load those artifacts into the DB. Replacing the nodes fires the
+     *      nodes_versioning_trigger, which archives the PRIOR conversion to nodes_history — so the
+     *      reader sees the new version AND can revert via the existing version-history UX.
      */
-    public function accept(Request $request): JsonResponse
+    public function accept(Request $request, ConversionArtifactSaver $saver): JsonResponse
     {
         $user = Auth::user();
         if (!$user) {
@@ -137,14 +141,31 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'No vibe patch to apply.'], 404);
         }
 
+        // 1. Regenerate the artifacts with the patched pipeline (sandboxed; prod untouched).
         $pythonBin = env('PYTHON_PATH', 'python3');
         $script = base_path('app/Python/vibe_convert.py');
         $process = new Process([$pythonBin, $script, $artifactDir, '--apply', $patch], base_path(), null, null, 300);
         $process->run();
 
         if (!$process->isSuccessful()) {
-            Log::error('VibeConvert: accept failed', ['book' => $bookId, 'err' => $process->getErrorOutput()]);
+            Log::error('VibeConvert: accept re-convert failed', ['book' => $bookId, 'err' => $process->getErrorOutput()]);
             return response()->json(['success' => false, 'message' => 'Could not apply the conversion.'], 500);
+        }
+
+        // 2. Swap the regenerated artifacts into the DB (nodes delete+insert → trigger archives
+        //    the original to nodes_history; the reader can revert via version history).
+        try {
+            $saver->saveAll($artifactDir, $bookId);
+        } catch (\Throwable $e) {
+            Log::error('VibeConvert: accept DB save failed', ['book' => $bookId, 'err' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Could not save the new conversion.'], 500);
+        }
+
+        // 3. Bump the book's annotations timestamp so other open clients re-sync the new nodes.
+        try {
+            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, (int) round(microtime(true) * 1000)]);
+        } catch (\Throwable $e) {
+            // best-effort
         }
 
         return response()->json(['success' => true]);

@@ -264,12 +264,30 @@ function renderVibeWorking(toast) {
 /* stream the SSE progress from /api/vibe-convert/stream into the toast */
 async function startVibeConvert(toast, { bookId, note }) {
   const status = renderVibeWorking(toast);
-  const addLine = (text) => {
+
+  // Reveal beats ONE AT A TIME with a paced fade-in, so even when events arrive bunched it
+  // plays like a sequence ("something is happening") instead of dumping a block of text.
+  const queue = [];
+  let revealing = false;
+  const MIN_GAP = 1100; // ms between lines
+  const pump = () => {
+    if (revealing || queue.length === 0) return;
+    revealing = true;
+    const text = queue.shift();
     const d = document.createElement('div');
     d.textContent = '· ' + text;
+    d.style.opacity = '0';
+    d.style.transition = 'opacity 0.45s ease';
     status.appendChild(d);
     status.scrollTop = status.scrollHeight;
+    requestAnimationFrame(() => { d.style.opacity = '1'; });
+    setTimeout(() => { revealing = false; pump(); }, MIN_GAP);
   };
+  const addLine = (text) => { queue.push(text); pump(); };
+  const drained = () => new Promise((res) => {
+    const check = () => (queue.length === 0 && !revealing ? res() : setTimeout(check, 120));
+    check();
+  });
 
   let result = null;
   try {
@@ -305,6 +323,8 @@ async function startVibeConvert(toast, { bookId, note }) {
   } catch (e) {
     addLine('Vibe conversion failed to run.');
   }
+
+  await drained();  // let the last beats finish playing before showing the outcome
 
   if (result && result.phase === 'success') {
     renderVibeResult(toast, {
