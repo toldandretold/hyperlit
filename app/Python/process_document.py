@@ -154,8 +154,16 @@ def analyze_document_structure(soup):
                 'number': re.search(r'(\d+)', text).group(1) if re.search(r'(\d+)', text) else None
             })
         
-        # Check for footnote references (not at start of paragraph)
-        elif re.search(r'\[\^?\d+\]', text) and not re.search(r'^\s*\[\^?\d+\]\s*[:.]\s*', text):
+        # Check for footnote references (not at start of paragraph). A reference
+        # can be bracketed [N] text OR a bare <sup>N</sup> superscript. The latter
+        # is invisible to the text regex because get_text() folds the digit into
+        # the surrounding prose without brackets (e.g. "...reward.26 These..."), so
+        # we must inspect <sup> children directly — otherwise end-notes books that
+        # use superscript markers register zero references and get misclassified.
+        elif (
+            (re.search(r'\[\^?\d+\]', text) and not re.search(r'^\s*\[\^?\d+\]\s*[:.]\s*', text))
+            or any(s.get_text(strip=True).isdigit() for s in element.find_all('sup'))
+        ):
             footnote_references.append({
                 'element': element,
                 'index': i,
@@ -230,16 +238,25 @@ def analyze_document_structure(soup):
     
     print(f"🔍 HR distribution analysis: {len(hr_elements)} HRs found, {len(hr_elements) if has_distributed_hrs else 0} distributed throughout")
     
-    # Check if this is a "references throughout + definitions at end" pattern
+    # Check if this is a "references throughout + definitions at end" pattern.
+    # This is the signature of an end-notes book: every footnote definition lives
+    # in a trailing "Notes" section while the references are scattered through the
+    # body. We deliberately do NOT gate this on the strict footnotes_at_end
+    # (position_ratio > 0.8) cutoff — a book whose notes begin at, say, 76% of the
+    # document still has all its definitions behind all its references, and the
+    # mere presence of a "Notes" header would otherwise force it down the SECTIONED
+    # path (whose positional section-ranges can't connect early body refs to
+    # end-of-book notes). The robust discriminator is "definitions cluster in the
+    # back portion AND references average clearly earlier", excluding books whose
+    # numbering resets per chapter (those are genuinely sectioned, handled above).
     references_throughout_definitions_at_end = False
-    if footnotes_at_end and len(footnote_references) > 0 and len(footnote_definitions) > 10:
-        # Check if references are spread throughout (not just at end)
+    if len(footnote_references) > 0 and len(footnote_definitions) > 10 and not has_footnote_resets:
         ref_positions = [fr['index'] for fr in footnote_references]
         avg_ref_position = sum(ref_positions) / len(ref_positions) if ref_positions else 0
         ref_position_ratio = avg_ref_position / total_elements if total_elements > 0 else 0
-        
-        # If references average position is much earlier than definitions (< 0.6 vs > 0.8)
-        if ref_position_ratio < 0.6 and position_ratio > 0.8:
+
+        # Definitions sit in the back third, references average clearly ahead of them.
+        if position_ratio > 0.65 and ref_position_ratio < position_ratio - 0.15:
             references_throughout_definitions_at_end = True
     
     # Decision logic
@@ -2219,9 +2236,27 @@ def main(html_file_path, output_dir, book_id):
 
     emit_progress(84, "doc_json_write", "Writing output files")
 
-    with open(os.path.join(output_dir, 'references.json'), 'w', encoding='utf-8') as f:
-        json.dump(sanitized_references, f, ensure_ascii=False)
-    print(f"Successfully created {os.path.join(output_dir, 'references.json')}")
+    # Preserve a populated references.json written by an upstream step in the same
+    # run (e.g. ar5iv_preprocessor.py translates LaTeXML bibitems into Hyperlit's
+    # bib shape before process_document.py runs). Only fall back to our own
+    # extracted references when no usable file already exists. The import pipeline
+    # deletes references.json at the start of every import/reconvert, so a file
+    # present here was written deliberately this run. Mirrors the guard the legacy
+    # html_footnote_processor.py applied on the old HTML path.
+    references_path = os.path.join(output_dir, 'references.json')
+    existing_refs = None
+    if os.path.exists(references_path):
+        try:
+            with open(references_path, 'r', encoding='utf-8') as f:
+                existing_refs = json.load(f)
+        except Exception:
+            existing_refs = None
+    if isinstance(existing_refs, list) and existing_refs:
+        print(f"Keeping existing references.json with {len(existing_refs)} entries")
+    else:
+        with open(references_path, 'w', encoding='utf-8') as f:
+            json.dump(sanitized_references, f, ensure_ascii=False)
+        print(f"Successfully created {references_path}")
 
     # Write footnotes as JSONL for memory-efficient PHP streaming
     footnotes_path = os.path.join(output_dir, 'footnotes.jsonl')

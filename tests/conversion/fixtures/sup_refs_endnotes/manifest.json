@@ -1,0 +1,15 @@
+{
+    "name": "sup_refs_endnotes",
+    "description": "Bare <sup>N</sup> refs + end-of-book [N]: notes (no classes); whole-document strategy",
+    "book_id": "raytest",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "whole_document",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 8,
+        "citations_linked": 0,
+        "citations_total": 24,
+        "footnotes_count": 38,
+        "audit_gaps": 0
+    }
+}

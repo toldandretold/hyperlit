@@ -1,0 +1,41 @@
+{
+    "total_refs": 33,
+    "total_defs": 38,
+    "gaps": [],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "Fn1780364100536_wan1",
+            "number": "34",
+            "section": "",
+            "definition_preview": "Wayne Gramlich (Wayne@Gramlich.Net) has proposed that the persistance of the factory model is partly due to antiquated accounting rules, formulated when machines and buildings were more important and "
+        },
+        {
+            "footnote_id": "Fn1780364100536_qngu",
+            "number": "35",
+            "section": "",
+            "definition_preview": "For a paradigmatic example of forking following defection, consult the history of OpenSSH. This project was belatedly forked from the an early version of SSH (Secure Shell) after the latter went to a "
+        },
+        {
+            "footnote_id": "Fn1780364100536_r2n7",
+            "number": "36",
+            "section": "",
+            "definition_preview": "The Cathedral and the Bazaar, http://www.tuxedo.org/~esr/writings/cathedral-bazaar/"
+        },
+        {
+            "footnote_id": "Fn1780364100536_mvfa",
+            "number": "37",
+            "section": "",
+            "definition_preview": "Homesteading the Noosphere, http://www.tuxedo.org/~esr/writings/homesteading/"
+        },
+        {
+            "footnote_id": "Fn1780364100536_76f3",
+            "number": "38",
+            "section": "",
+            "definition_preview": "De Marco and Lister, Peopleware: Productive Projects and Teams (New York; Dorset House, 1987; ISBN 0-932633-05-6)"
+        }
+    ],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

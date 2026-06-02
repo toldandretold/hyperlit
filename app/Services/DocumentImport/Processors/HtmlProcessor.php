@@ -12,6 +12,7 @@ class HtmlProcessor implements ProcessorInterface
 {
     use StreamsProgress;
 
+    private const VENV_PYTHON = '/var/www/hyperlit/venv/bin/python3';
     private ?\Closure $onProgress = null;
 
     public function __construct(
@@ -101,62 +102,32 @@ class HtmlProcessor implements ProcessorInterface
                 'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
             ]);
 
-            // Step 3: Preprocess HTML - normalize IDs and extract footnotes
-            $preprocessStart = microtime(true);
-            $preprocessorPath = base_path('app/Python/preprocess_html.py');
-            $preprocessedHtmlPath = "{$outputPath}/preprocessed.html";
-
-            Log::info("Running HTML preprocessor...", [
-                'book' => $bookId,
-                'preprocessor' => basename($preprocessorPath),
-                'input' => basename($inputPath),
-                'output' => basename($preprocessedHtmlPath)
-            ]);
-
-            $preprocessProcess = new Process([
-                'python3',
-                $preprocessorPath,
-                $inputPath,
-                $preprocessedHtmlPath
-            ]);
-            $preprocessProcess->setTimeout(900);
-            $preprocessProcess->run();
-
-            $preprocessDuration = round((microtime(true) - $preprocessStart) * 1000, 2);
-
-            if (!$preprocessProcess->isSuccessful()) {
-                Log::error("HTML preprocessing failed", [
-                    'book' => $bookId,
-                    'preprocess_duration_ms' => $preprocessDuration,
-                    'stdout' => $preprocessProcess->getOutput(),
-                    'stderr' => $preprocessProcess->getErrorOutput()
-                ]);
-                throw new ProcessFailedException($preprocessProcess);
-            }
-
-            Log::info("HTML preprocessing completed", [
-                'book' => $bookId,
-                'preprocess_duration_ms' => $preprocessDuration,
-                'stdout' => $preprocessProcess->getOutput()
-            ]);
-
-            // Step 4: Run the dedicated HTML footnote processor
+            // Step 3: Run the shared document processor — the SAME engine EPUB,
+            // DOCX, PDF and Markdown imports use (app/Python/process_document.py).
+            // It extracts class-less "[N]: ..." footnote definitions, links bare
+            // <sup>N</sup> references, detects sectioned vs whole-document layouts,
+            // and streams nodes.jsonl / footnotes.jsonl / references.json directly.
+            //
+            // This replaces the legacy preprocess_html.py + html_footnote_processor.py
+            // pair, which only matched footnotes that already carried Hyperlit's own
+            // "fn-group" CSS classes — so any externally-authored HTML (a Calibre /
+            // pandoc / EPUB-to-single-HTML export with plain <sup> markers) silently
+            // produced zero footnotes. Routing raw HTML through process_document.py
+            // gives it the full footnote intelligence the other formats already had.
             $pythonScriptStart = microtime(true);
-            $htmlProcessorPath = base_path('app/Python/html_footnote_processor.py');
 
-            Log::info("Running dedicated HTML footnote processor...", [
+            Log::info("Running shared document processor on HTML...", [
                 'book' => $bookId,
-                'script' => basename($htmlProcessorPath),
-                'html_input' => basename($preprocessedHtmlPath),
+                'script' => basename($pythonScriptPath),
+                'html_input' => basename($inputPath),
                 'output_dir' => basename($outputPath),
-                'book_id' => $bookId,
                 'python_start_time' => $pythonScriptStart
             ]);
 
             $pythonProcess = new Process([
-                'python3',
-                $htmlProcessorPath,
-                $preprocessedHtmlPath,
+                $this->getPythonPath(),
+                $pythonScriptPath,
+                $inputPath,
                 $outputPath,
                 $bookId
             ]);
@@ -179,12 +150,6 @@ class HtmlProcessor implements ProcessorInterface
                 'python_duration_ms' => $pythonScriptDuration
             ]);
 
-            // Step 5: Convert nodes.json + footnotes.json (arrays) into nodes.jsonl + footnotes.jsonl.
-            // ProcessDocumentImportJob streams the JSONL forms, but html_footnote_processor.py only
-            // emits the array variants — so without this step the downstream save would 404.
-            $this->writeJsonlAlongsideJson("{$outputPath}/nodes.json", "{$outputPath}/nodes.jsonl");
-            $this->writeJsonlAlongsideJson("{$outputPath}/footnotes.json", "{$outputPath}/footnotes.jsonl");
-
         } catch (ProcessFailedException $exception) {
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::error("HTML processing failed for {$bookId}", [
@@ -195,12 +160,6 @@ class HtmlProcessor implements ProcessorInterface
             ]);
             throw $exception;
         } finally {
-            // Clean up intermediate files
-            $preprocessedHtmlPath = "{$outputPath}/preprocessed.html";
-            if (File::exists($preprocessedHtmlPath)) {
-                File::delete($preprocessedHtmlPath);
-            }
-
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::info("HtmlProcessor completed", [
                 'book' => $bookId,
@@ -210,25 +169,15 @@ class HtmlProcessor implements ProcessorInterface
     }
 
     /**
-     * Convert a JSON array file into a JSONL file (one object per line). Used to bridge
-     * html_footnote_processor.py's array output to the JSONL stream the import job expects.
+     * Get the Python executable path — uses the prod virtualenv when present (so
+     * process_document.py finds its PIL/bleach dependencies), else system python3.
+     * Mirrors EpubProcessor, which runs the same script.
      */
-    private function writeJsonlAlongsideJson(string $jsonPath, string $jsonlPath): void
+    private function getPythonPath(): string
     {
-        if (!File::exists($jsonPath)) {
-            return;
+        if (file_exists(self::VENV_PYTHON)) {
+            return self::VENV_PYTHON;
         }
-        $data = json_decode(File::get($jsonPath), true);
-        if (!is_array($data)) {
-            return;
-        }
-        $out = fopen($jsonlPath, 'w');
-        try {
-            foreach ($data as $row) {
-                fwrite($out, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
-            }
-        } finally {
-            fclose($out);
-        }
+        return 'python3';
     }
 }
