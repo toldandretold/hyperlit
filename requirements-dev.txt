@@ -1,0 +1,4 @@
+# Dev/test-only Python dependencies (NOT installed on the prod conversion venv).
+# Runtime deps are in requirements.txt.
+-r requirements.txt
+pytest
