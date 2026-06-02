@@ -39,6 +39,8 @@ class ConversionFeedbackMail extends Mailable implements ShouldQueue
                 'debug_converted.html' => 'text/html',
                 'references.json' => 'application/json',
                 'conversion_stats.json' => 'application/json',
+                'assessment.json' => 'application/json',
+                'audit.json' => 'application/json',
             ];
 
             foreach ($attachments as $filename => $mime) {

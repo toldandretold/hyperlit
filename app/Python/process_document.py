@@ -11,6 +11,53 @@ from bs4 import BeautifulSoup, NavigableString
 from PIL import Image as PILImage
 import bleach
 
+
+class Assessment:
+    """Structured decision-trace of WHAT the conversion pipeline decided, in which
+    MODULE, and WHY — written to assessment.json alongside conversion_stats.json and
+    audit.json. Each record names the responsible code (code_ref = file:function, or a
+    detector class) so a human OR an LLM can jump straight to the module that owns a
+    decision and what to change. Purely diagnostic: recording never alters conversion
+    behaviour, so it cannot change nodes/footnotes/references/audit output."""
+
+    def __init__(self):
+        self.records = []
+
+    def reset(self, seed_dir=None):
+        """Start fresh. If seed_dir holds an assessment.json from an upstream stage
+        (e.g. epub_normalizer.py records which detector fired), adopt those records
+        first so the final trace spans the whole pipeline, not just process_document."""
+        self.records = []
+        if seed_dir:
+            seed = os.path.join(seed_dir, 'assessment.json')
+            if os.path.isfile(seed):
+                try:
+                    existing = json.load(open(seed, encoding='utf-8')).get('records', [])
+                    self.records = [dict(r, seq=i) for i, r in enumerate(existing)]
+                except Exception:
+                    pass
+
+    def record(self, module, code_ref, decision, rationale, evidence=None):
+        self.records.append({
+            'seq': len(self.records),
+            'module': module,
+            'code_ref': code_ref,
+            'decision': decision,
+            'rationale': rationale,
+            'evidence': evidence or {},
+        })
+
+    def dump(self, output_dir):
+        try:
+            with open(os.path.join(output_dir, 'assessment.json'), 'w', encoding='utf-8') as f:
+                json.dump({'records': self.records}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Warning: could not write assessment.json: {e}")
+
+
+# Module-level collector; reset at the start of main(), dumped before it returns.
+ASSESSMENT = Assessment()
+
 # Headings that introduce a citation list rather than footnotes. "[N]:" lines
 # under one of these are bibliography/reference entries and must NOT be counted as
 # footnote definitions (see process_whole_document_footnotes / analyze_document_structure).
@@ -177,10 +224,15 @@ def analyze_document_structure(soup):
 
     if ref_markers and def_markers:
         print(f"🔍 STRATEGY: SEQUENTIAL - Found {len(ref_markers)} ref section markers and {len(def_markers)} def section markers")
-        return 'sequential', {
-            'ref_section_count': len(ref_markers),
-            'def_section_count': len(def_markers),
-        }
+        info = {'ref_section_count': len(ref_markers), 'def_section_count': len(def_markers)}
+        ASSESSMENT.record(
+            module='strategy_selection',
+            code_ref='process_document.py:analyze_document_structure',
+            decision='footnote_strategy=sequential',
+            rationale='explicit footnoteSectionStart/footnoteDefinitionsStart markers from simple_md_to_html',
+            evidence=info,
+        )
+        return 'sequential', info
 
     all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
     
@@ -227,8 +279,15 @@ def analyze_document_structure(soup):
     print(f"Found {len(footnote_definitions)} footnote definitions and {len(footnote_references)} potential references")
     
     if not footnote_definitions:
+        ASSESSMENT.record(
+            module='strategy_selection',
+            code_ref='process_document.py:analyze_document_structure',
+            decision='footnote_strategy=no_footnotes',
+            rationale='no "[N]:" footnote definitions found (after bibliography exclusion)',
+            evidence={'reference_count': len(footnote_references)},
+        )
         return 'no_footnotes', {}
-    
+
     # Calculate where footnote definitions are located relative to document length
     total_elements = len(all_elements)
     definition_positions = [fd['index'] for fd in footnote_definitions]
@@ -330,28 +389,29 @@ def analyze_document_structure(soup):
     
     # Updated decision logic with footnote reset detection as primary indicator
     if has_footnote_resets and has_distributed_hrs:
-        strategy = 'sectioned'
-        print("🔍 STRATEGY: SECTIONED - Footnote numbering resets detected with HR separators")
+        strategy, reason = 'sectioned', 'footnote numbering resets detected with HR separators'
     elif has_footnote_resets and len(hr_elements) > 0:
-        strategy = 'sectioned'
-        print("🔍 STRATEGY: SECTIONED - Footnote numbering resets detected")
+        strategy, reason = 'sectioned', 'footnote numbering resets detected'
     elif references_throughout_definitions_at_end:
-        strategy = 'whole_document'
-        print("🔍 STRATEGY: WHOLE DOCUMENT - References throughout text, definitions at end")
+        strategy, reason = 'whole_document', 'references throughout text, definitions clustered at end'
     elif has_structured_sections:
-        strategy = 'sectioned'
-        print("🔍 STRATEGY: SECTIONED - Found header + footnotes + hr patterns")
+        strategy, reason = 'sectioned', 'header + footnotes + hr patterns'
     elif footnotes_at_end and not has_section_pattern and not has_footnote_resets:
-        strategy = 'whole_document'
-        print("🔍 STRATEGY: WHOLE DOCUMENT - Footnotes clustered at end")
+        strategy, reason = 'whole_document', 'footnotes clustered at end (no section pattern)'
     elif has_section_pattern and not references_throughout_definitions_at_end:
-        strategy = 'sectioned'
-        print("🔍 STRATEGY: SECTIONED - Found 'Notes' headers")
+        strategy, reason = 'sectioned', "'Notes' headers present"
     else:
-        strategy = 'whole_document'
-        print("🔍 STRATEGY: WHOLE DOCUMENT - Default fallback")
-    
+        strategy, reason = 'whole_document', 'default fallback'
+
+    print(f"🔍 STRATEGY: {strategy.upper()} - {reason}")
     print(f"📊 Document analysis: {strategy_info}")
+    ASSESSMENT.record(
+        module='strategy_selection',
+        code_ref='process_document.py:analyze_document_structure',
+        decision=f'footnote_strategy={strategy}',
+        rationale=reason,
+        evidence=strategy_info,
+    )
     return strategy, strategy_info
 
 def detect_footnote_sections(soup):
@@ -924,6 +984,7 @@ def is_likely_reference(p_tag):
 # --- MAIN PROCESSING LOGIC ---
 
 def main(html_file_path, output_dir, book_id):
+    ASSESSMENT.reset(output_dir)
     emit_progress(48, "doc_parse", "Parsing HTML document")
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
@@ -1338,9 +1399,18 @@ def main(html_file_path, output_dir, book_id):
             # but drop the linking map. The body markers stay unlinked (honest)
             # rather than pointing at the wrong note (misleading).
             if global_footnote_map and not _footnote_numbering_is_linkable(global_footnote_map, soup):
+                summary = _summarize_footnote_numbers(global_footnote_map)
                 print(f"⚠️  Footnote numbering not cleanly alignable "
-                      f"({_summarize_footnote_numbers(global_footnote_map)}); suppressing "
+                      f"({summary}); suppressing "
                       f"number-based links to avoid confident mislinks. Notes still extracted.")
+                ASSESSMENT.record(
+                    module='footnote_linking_guard',
+                    code_ref='process_document.py:_footnote_numbering_is_linkable',
+                    decision='suppressed whole-document footnote links',
+                    rationale=f'definition/marker numbering not cleanly alignable ({summary}); '
+                              f'number-matching would drift — extract notes but emit no links',
+                    evidence={'definition_numbers': summary},
+                )
                 global_footnote_map = {}
             sectioned_footnote_map = {'whole_document': global_footnote_map}
             all_footnotes_data = footnotes_data
@@ -2149,6 +2219,17 @@ def main(html_file_path, output_dir, book_id):
         print(f"📊 Audit: {audit_data['total_refs']} refs, {audit_data['total_defs']} defs, "
               f"{len(audit_data['gaps'])} gaps, {len(audit_data['duplicates'])} duplicates, "
               f"{len(audit_data['unmatched_refs'])} unmatched refs, {len(audit_data['unmatched_defs'])} unmatched defs")
+        _n_gaps, _n_uref, _n_udef = (len(audit_data['gaps']), len(audit_data['unmatched_refs']),
+                                     len(audit_data['unmatched_defs']))
+        ASSESSMENT.record(
+            module='footnote_audit',
+            code_ref='process_document.py:main (audit pass)',
+            decision=('clean' if (_n_gaps == 0 and _n_uref == 0) else 'faulty'),
+            rationale=(f"{audit_data['total_refs']} refs / {audit_data['total_defs']} defs; "
+                       f"{_n_gaps} numbering gaps, {_n_uref} unmatched refs, {_n_udef} unmatched defs"),
+            evidence={'total_refs': audit_data['total_refs'], 'total_defs': audit_data['total_defs'],
+                      'gaps': _n_gaps, 'unmatched_refs': _n_uref, 'unmatched_defs': _n_udef},
+        )
 
         # Annotate audit with mojibake warnings + segment info pulled from footnote_meta.json
         audit_data['font_encoding_warnings'] = footnote_warnings
@@ -2349,6 +2430,10 @@ def main(html_file_path, output_dir, book_id):
             f.write(json.dumps(node, ensure_ascii=False) + '\n')
     print(f"Successfully created {nodes_path}")
     emit_progress(85, "doc_json_written", f"Written {len(sanitized_nodes)} nodes, {len(sanitized_footnotes)} footnotes, {len(sanitized_references)} references")
+
+    # Decision-trace: what the pipeline decided, in which module, and why.
+    ASSESSMENT.dump(output_dir)
+    print(f"Successfully created {os.path.join(output_dir, 'assessment.json')} ({len(ASSESSMENT.records)} records)")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a document to extract references, footnotes, and content chunks.")

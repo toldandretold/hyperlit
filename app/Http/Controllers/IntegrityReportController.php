@@ -166,6 +166,14 @@ class IntegrityReportController extends Controller
         $data['artifactPath'] = resource_path("markdown/{$data['bookId']}");
         $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 20);
 
+        // Surface the pipeline's decision-trace (assessment.json) inline in the email so
+        // the reviewer (and, later, the LLM triage) can see WHAT was decided, in which
+        // MODULE, and why — without opening the attachment.
+        $assessmentPath = "{$data['artifactPath']}/assessment.json";
+        $data['assessment'] = file_exists($assessmentPath)
+            ? (json_decode(file_get_contents($assessmentPath), true)['records'] ?? null)
+            : null;
+
         Log::info('Conversion feedback received', [
             'bookId' => $data['bookId'],
             'rating' => $data['rating'],

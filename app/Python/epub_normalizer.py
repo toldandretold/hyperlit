@@ -2859,6 +2859,44 @@ class EpubNormalizer:
 
         self.results['footnotes_json'] = result.get('footnotes_json', [])
         self.results['id_mapping'] = result.get('id_mapping', {})
+        self._write_assessment(all_footnotes, all_noterefs)
+
+    # Maps a detected footnote's `strategy` tag back to the responsible detector class,
+    # so the decision-trace `code_ref` points an LLM/human straight at the module.
+    _STRATEGY_DETECTOR = {
+        'epub3_semantic': 'Epub3SemanticFootnoteDetector', 'aria_role': 'AriaRoleFootnoteDetector',
+        'class_pattern': 'ClassPatternFootnoteDetector', 'notes_class': 'NotesClassFootnoteDetector',
+        'table_footnote': 'TableFootnoteDetector', 'pandoc': 'PandocFootnoteDetector',
+        'endnote_characters': 'EndnoteCharactersFootnoteDetector', 'enote_class': 'EnoteFootnoteDetector',
+        'anchor_heading': 'AnchorHeadingFootnoteDetector', 'reverse_definition': 'FootnoteConverter (reverse-definition)',
+    }
+
+    def _write_assessment(self, all_footnotes, all_noterefs):
+        """Emit the EPUB stage's decision trace (which detector found the footnotes)
+        to assessment.json. process_document.py later seeds from this file so the
+        final trace spans the whole pipeline."""
+        from collections import Counter
+        by_strategy = Counter(fn.get('strategy', 'unknown') for fn in all_footnotes)
+        records = []
+        if not all_footnotes:
+            records.append({'seq': 0, 'module': 'epub_footnote_detection',
+                            'code_ref': 'epub_normalizer.py:TRANSFORM_PIPELINE',
+                            'decision': 'no footnotes detected',
+                            'rationale': f'{len(all_noterefs)} references seen but 0 definitions resolved by any detector',
+                            'evidence': {'noterefs': len(all_noterefs)}})
+        for strat, n in by_strategy.items():
+            det = self._STRATEGY_DETECTOR.get(strat.split('_')[0] if strat.startswith('heuristic') else strat,
+                                              'HeuristicFootnoteDetector' if strat.startswith('heuristic') else strat)
+            records.append({'seq': len(records), 'module': 'epub_footnote_detection',
+                            'code_ref': f'epub_normalizer.py:{det}',
+                            'decision': f'{n} footnote definition(s) via {strat}',
+                            'rationale': f'{det} matched the source markup',
+                            'evidence': {'count': n, 'strategy': strat}})
+        try:
+            with open(os.path.join(self.output_dir, 'assessment.json'), 'w', encoding='utf-8') as f:
+                json.dump({'records': records}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self._log(f"  Could not write assessment.json: {e}")
 
     def _write_footnotes_json(self):
         """Write footnotes.json file."""

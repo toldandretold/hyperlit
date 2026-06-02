@@ -84,6 +84,27 @@
     </table>
     @endif
 
+    @if(!empty($assessment))
+    <h3 style="color:#38bdf8;">Decision trace (assessment.json)</h3>
+    <p style="color:#888; margin:0 0 8px;">What the pipeline decided, in which module, and why — the starting point for diagnosing/fixing this conversion.</p>
+    <table style="border-collapse:collapse; width:100%; margin-bottom:20px; font-size:13px;">
+        <tr style="color:#888; text-align:left;">
+            <th style="padding:4px 12px 4px 0;">Module</th>
+            <th style="padding:4px 12px 4px 0;">Decision</th>
+            <th style="padding:4px 12px 4px 0;">Why</th>
+            <th style="padding:4px 12px 4px 0;">Code</th>
+        </tr>
+        @foreach($assessment as $rec)
+        <tr style="border-top:1px solid #2a2a2a;">
+            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#60a5fa;">{{ $rec['module'] ?? '' }}</td>
+            <td style="padding:6px 12px 6px 0; vertical-align:top;">{{ $rec['decision'] ?? '' }}</td>
+            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#ccc;">{{ $rec['rationale'] ?? '' }}</td>
+            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#888; font-family:monospace; font-size:11px;">{{ $rec['code_ref'] ?? '' }}</td>
+        </tr>
+        @endforeach
+    </table>
+    @endif
+
     @if(!empty($recentLogs))
     <h3 style="color:#60a5fa;">Recent console logs ({{ count($recentLogs) }})</h3>
     <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; overflow-x:auto;">
