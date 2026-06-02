@@ -141,6 +141,15 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
     sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad', comment: textarea.value.trim() });
   });
 
+  // Vibe convert — LLM re-conversion of THIS document. The textarea note becomes the
+  // reader's own description of what's wrong, fed to the model.
+  const vibeBtn = document.createElement('button');
+  vibeBtn.textContent = '✨ Vibe convert';
+  applyVibeBtnStyle(vibeBtn);
+  vibeBtn.addEventListener('click', () => {
+    startVibeConvert(toast, { bookId, note: textarea.value.trim() });
+  });
+
   // Cancel (×) — dismiss, nothing sent
   const cancelBtn = document.createElement('button');
   cancelBtn.textContent = '\u00d7';
@@ -152,6 +161,7 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
 
   btnRow.appendChild(goodBtn);
   btnRow.appendChild(badBtn);
+  btnRow.appendChild(vibeBtn);
   btnRow.appendChild(cancelBtn);
 
   toast.appendChild(text);
@@ -212,6 +222,168 @@ function renderThankYouState(toast) {
 
   // Auto-dismiss after 3 seconds
   setTimeout(() => hideConversionFeedbackToast(), 3000);
+}
+
+/* ── vibe convert: gradient button + live SSE flow ────────── */
+function applyVibeBtnStyle(btn) {
+  Object.assign(btn.style, {
+    background: 'linear-gradient(135deg, #EE4A95, #EF8D34, #4EACAE)',
+    color: '#fff', border: 'none', padding: '5px 14px', borderRadius: '4px',
+    fontSize: '13px', cursor: 'pointer', flexShrink: '0', whiteSpace: 'nowrap',
+  });
+  btn.addEventListener('mouseenter', () => { btn.style.opacity = '0.85'; });
+  btn.addEventListener('mouseleave', () => { btn.style.opacity = '1'; });
+}
+
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content;
+}
+
+/* working state: header + live status list */
+function renderVibeWorking(toast) {
+  toast.innerHTML = '';
+  const header = document.createElement('div');
+  header.textContent = '✨ Vibe converting — this can take a minute or two';
+  header.style.fontWeight = 'bold';
+  const sub = document.createElement('div');
+  sub.textContent = "DeepSeek reasons about why your file confused the converter, proposes a fix, "
+    + 'and tests it on your document — repeating until it works or it runs out of tries.';
+  Object.assign(sub.style, { fontSize: '12px', opacity: '0.7', lineHeight: '1.4' });
+  const status = document.createElement('div');
+  status.id = 'vibe-status';
+  Object.assign(status.style, {
+    display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px',
+    opacity: '0.95', maxHeight: '160px', overflowY: 'auto', lineHeight: '1.4',
+  });
+  toast.appendChild(header);
+  toast.appendChild(sub);
+  toast.appendChild(status);
+  return status;
+}
+
+/* stream the SSE progress from /api/vibe-convert/stream into the toast */
+async function startVibeConvert(toast, { bookId, note }) {
+  const status = renderVibeWorking(toast);
+  const addLine = (text) => {
+    const d = document.createElement('div');
+    d.textContent = '· ' + text;
+    status.appendChild(d);
+    status.scrollTop = status.scrollHeight;
+  };
+
+  let result = null;
+  try {
+    const resp = await fetch('/api/vibe-convert/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+      credentials: 'include',
+      body: JSON.stringify({ bookId: bookId || 'unknown', note: note || null }),
+    });
+    if (!resp.ok || !resp.body) {
+      addLine('Could not start — ' + (resp.status === 402 ? 'insufficient balance.' : 'server error.'));
+    } else {
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n\n')) !== -1) {
+          const block = buf.slice(0, i);
+          buf = buf.slice(i + 2);
+          const dataLine = block.split('\n').find((l) => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let evt;
+          try { evt = JSON.parse(dataLine.slice(6)); } catch { continue; }
+          if (evt.message) addLine(evt.message);
+          if (['success', 'exhausted', 'error'].includes(evt.phase)) result = evt;
+        }
+      }
+    }
+  } catch (e) {
+    addLine('Vibe conversion failed to run.');
+  }
+
+  if (result && result.phase === 'success') {
+    renderVibeResult(toast, {
+      bookId, before: result.before, after: result.after,
+      tier: result.tier || 'clean', caveat: result.caveat || '',
+    });
+  } else {
+    renderVibeEnd(toast, (result && result.message) || 'Could not improve it this time.');
+  }
+}
+
+/* success state: before/after + accept/reject. tier 'clean' = confident; 'improved' = better
+   but with a caveat for the user to judge. Accepting is non-destructive — the original is
+   archived to version history, revertible anytime. */
+function renderVibeResult(toast, { bookId, before, after, tier, caveat }) {
+  toast.innerHTML = '';
+  const msg = document.createElement('div');
+  const heading = tier === 'improved'
+    ? '✨ <b>Improved — but worth a look</b>'
+    : '✨ <b>Fixed this conversion</b>';
+  const caveatHtml = (tier === 'improved' && caveat)
+    ? '<br><span style="color:#fbbf24">⚠ ' + caveat + '</span>' : '';
+  msg.innerHTML = heading
+    + '<br><span style="opacity:0.8">before: ' + (before || '') + '<br>after: ' + (after || '') + '</span>'
+    + caveatHtml
+    + '<br><span style="opacity:0.6;font-size:12px">Applying keeps your original in version '
+    + 'history — you can revert anytime.</span>';
+  msg.style.lineHeight = '1.5';
+
+  const row = document.createElement('div');
+  Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+
+  const useBtn = document.createElement('button');
+  useBtn.textContent = 'Use this conversion';
+  applyVibeBtnStyle(useBtn);
+  useBtn.addEventListener('click', async () => {
+    useBtn.disabled = true;
+    useBtn.textContent = 'Applying…';
+    try {
+      const r = await fetch('/api/vibe-convert/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        credentials: 'include',
+        body: JSON.stringify({ bookId }),
+      });
+      if (r.ok) {
+        renderVibeEnd(toast, 'Applied! Reloading…');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        renderVibeEnd(toast, 'Could not apply the conversion.');
+      }
+    } catch {
+      renderVibeEnd(toast, 'Could not apply the conversion.');
+    }
+  });
+
+  const keepBtn = document.createElement('button');
+  keepBtn.textContent = 'Keep original';
+  applyBtnStyle(keepBtn);
+  keepBtn.addEventListener('click', () => hideConversionFeedbackToast());
+
+  row.appendChild(useBtn);
+  row.appendChild(keepBtn);
+  toast.appendChild(msg);
+  toast.appendChild(row);
+}
+
+/* terminal message + dismiss */
+function renderVibeEnd(toast, text) {
+  toast.innerHTML = '';
+  const msg = document.createElement('span');
+  msg.textContent = text;
+  msg.style.lineHeight = '1.4';
+  const dismiss = document.createElement('button');
+  dismiss.textContent = 'Dismiss';
+  applyBtnStyle(dismiss);
+  dismiss.addEventListener('click', () => hideConversionFeedbackToast());
+  toast.appendChild(msg);
+  toast.appendChild(dismiss);
 }
 
 /* ── hide / remove ────────────────────────────────────────── */

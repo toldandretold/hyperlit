@@ -25,6 +25,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UserHomeServerController;
 use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\VibeCSSController;
+use App\Http\Controllers\VibeConvertController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibesController;
 use App\Http\Controllers\IntegrityReportController;
@@ -102,6 +103,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vibe CSS
     Route::post('/vibe-css/generate', [VibeCSSController::class, 'generate']);
     Route::get('/vibe-css/can-proceed', [VibeCSSController::class, 'canProceed']);
+
+    // Vibe Conversion — per-document LLM re-conversion (SSE stream + accept)
+    Route::post('/vibe-convert/stream', [VibeConvertController::class, 'stream']);
+    Route::post('/vibe-convert/accept', [VibeConvertController::class, 'accept']);
 
     // User preferences
     Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
