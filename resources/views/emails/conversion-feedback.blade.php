@@ -85,24 +85,60 @@
     @endif
 
     @if(!empty($assessment))
+    @php
+        // A fork is "flagged" when the pipeline was unsure (low confidence) or fell through
+        // to a default/unknown branch — the most likely place this conversion went wrong.
+        $flagged = collect($assessment)->filter(function ($r) {
+            $conf = $r['confidence'] ?? null;
+            return ($conf !== null && $conf < 0.5)
+                || stripos($r['margin'] ?? '', 'FALL-THROUGH') !== false;
+        });
+    @endphp
     <h3 style="color:#38bdf8;">Decision trace (assessment.json)</h3>
-    <p style="color:#888; margin:0 0 8px;">What the pipeline decided, in which module, and why — the starting point for diagnosing/fixing this conversion.</p>
-    <table style="border-collapse:collapse; width:100%; margin-bottom:20px; font-size:13px;">
-        <tr style="color:#888; text-align:left;">
-            <th style="padding:4px 12px 4px 0;">Module</th>
-            <th style="padding:4px 12px 4px 0;">Decision</th>
-            <th style="padding:4px 12px 4px 0;">Why</th>
-            <th style="padding:4px 12px 4px 0;">Code</th>
-        </tr>
-        @foreach($assessment as $rec)
-        <tr style="border-top:1px solid #2a2a2a;">
-            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#60a5fa;">{{ $rec['module'] ?? '' }}</td>
-            <td style="padding:6px 12px 6px 0; vertical-align:top;">{{ $rec['decision'] ?? '' }}</td>
-            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#ccc;">{{ $rec['rationale'] ?? '' }}</td>
-            <td style="padding:6px 12px 6px 0; vertical-align:top; color:#888; font-family:monospace; font-size:11px;">{{ $rec['code_ref'] ?? '' }}</td>
-        </tr>
+    <p style="color:#888; margin:0 0 8px;">What the pipeline decided at each fork — the path taken, the roads not taken, and how sure it was. The starting point for diagnosing/fixing this conversion (full structured trace attached).</p>
+
+    @if($flagged->isNotEmpty())
+    <div style="padding:10px 12px; background:#3a1d1d; border-left:3px solid #ef4444; border-radius:4px; margin-bottom:14px;">
+        <strong style="color:#fca5a5;">⚠️ {{ $flagged->count() }} fork(s) flagged for review</strong>
+        <div style="color:#fca5a5; font-size:12px; margin-top:4px;">low confidence or a fall-through/default branch — most likely where this conversion went wrong:</div>
+        <ul style="margin:6px 0 0; padding-left:18px; color:#fca5a5; font-size:12px;">
+        @foreach($flagged as $r)
+            <li><span style="color:#f87171;">{{ $r['module'] ?? '' }}</span> — {{ $r['decision'] ?? '' }} <span style="color:#888;">(conf {{ $r['confidence'] ?? 'n/a' }})</span></li>
         @endforeach
-    </table>
+        </ul>
+    </div>
+    @endif
+
+    @foreach($assessment as $rec)
+    @php
+        $conf = $rec['confidence'] ?? null;
+        $badge = $conf === null ? '#555' : ($conf >= 0.8 ? '#22c55e' : ($conf >= 0.5 ? '#f59e0b' : '#ef4444'));
+        $margin = $rec['margin'] ?? '';
+        $isFall = stripos($margin, 'FALL-THROUGH') !== false;
+    @endphp
+    <div style="padding:10px 12px; background:#1a1a1a; border-radius:6px; margin-bottom:10px; border-left:3px solid {{ $badge }};">
+        <div style="margin-bottom:4px;">
+            <span style="color:#60a5fa; font-weight:bold;">{{ $rec['module'] ?? '' }}</span>
+            @if($conf !== null)<span style="color:{{ $badge }}; font-size:11px; margin-left:6px;">&#9679; confidence {{ $conf }}</span>@endif
+        </div>
+        <div style="color:#eee; margin-bottom:4px;">{{ $rec['decision'] ?? '' }}</div>
+        @if($margin)
+        <div style="color:{{ $isFall ? '#fca5a5' : '#fbbf24' }}; font-size:12px; margin-bottom:4px;">&#8618; {{ $margin }}</div>
+        @endif
+        @if(!empty($rec['rationale']))
+        <div style="color:#aaa; font-size:12px; margin-bottom:4px;">{{ $rec['rationale'] }}</div>
+        @endif
+        @if(!empty($rec['considered']))
+        <div style="color:#888; font-size:11px; margin:4px 0 2px;">Roads not taken:</div>
+        <ul style="margin:0 0 4px; padding-left:16px; color:#9ca3af; font-size:11px;">
+            @foreach($rec['considered'] as $alt)
+            <li><span style="color:#cbd5e1;">{{ $alt['option'] ?? '' }}</span> — {{ $alt['rejected_because'] ?? '' }}@if(!empty($alt['would_need']))<span style="color:#71717a;"> &middot; would need: {{ $alt['would_need'] }}</span>@endif</li>
+            @endforeach
+        </ul>
+        @endif
+        <div style="color:#666; font-family:monospace; font-size:10px;">{{ $rec['code_ref'] ?? '' }}</div>
+    </div>
+    @endforeach
     @endif
 
     @if(!empty($recentLogs))
