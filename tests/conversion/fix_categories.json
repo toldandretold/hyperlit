@@ -54,10 +54,10 @@
       "symptom": "The document's layout matches none of the existing strategies; strategy_selection fell through to a low-confidence default (e.g. footnotes AND citations both massed at the end; per-segment continuous numbering with an offset).",
       "stage": "conversion-core",
       "file": "app/Python/conversion/strategy.py",
-      "slot": "a new value in _ALL_STRATEGIES + a branch in analyze_document_structure + a case in _strategy_considered",
-      "recipe": "op:register the new name into _ALL_STRATEGIES; op:replace analyze_document_structure to detect + return it; op:replace _strategy_considered to explain why the others lose. Then the linker must handle the new strategy.",
+      "slot": "a new StrategyRule registered into STRATEGY_RULES (the ordered decision registry) + a new value in _ALL_STRATEGIES + a case in _strategy_considered",
+      "recipe": "op:add a class subclassing StrategyRule with matches(self, sig)->bool (reads the unrounded structure signals: has_footnote_resets, has_distributed_hrs, hr_count, footnotes_at_end, position_ratio, ref_position_ratio, …), a `strategy`/`reason`, and confidence(sig)/margin(sig); op:register it into STRATEGY_RULES at the right priority (first match wins; DefaultStrategyRule is the catch-all fallback, NOT in the list). Also op:register the name into _ALL_STRATEGIES and op:replace _strategy_considered to explain why the others lose. Then the linker must handle the new strategy.",
       "expressible": "additive",
-      "risk": "high — a new strategy reshapes linking; verify against compare_footnote_links and that existing fixtures stay green.",
+      "risk": "high — a new strategy reshapes linking; verify against compare_footnote_links and that existing fixtures stay green. Adding a rule is safe; the signal computation in analyze_document_structure may also need a new signal.",
       "examples": [],
       "status": "seed",
       "added_in": "v1"

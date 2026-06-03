@@ -17,6 +17,10 @@ _BIBLIOGRAPHY_HEADING_RE = re.compile(
 
 _ALL_STRATEGIES = ('sequential', 'no_footnotes', 'sectioned', 'whole_document')
 
+# A footnote DEFINITION line: "[^N]:"/"[N]." at line start, or "[N] Uppercase…". Shared by the
+# structure analysis + section detection (was an inline literal repeated ~8 times).
+_FOOTNOTE_DEF_RE = re.compile(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]')
+
 
 def _strategy_considered(chosen, info):
     """The roads NOT taken at the footnote-strategy fork: for each strategy other than
@@ -136,6 +140,150 @@ def _footnote_numbering_is_linkable(footnote_map, soup):
         margin=margin,
     )
     return linkable
+
+
+# ===========================================================================
+# Footnote-strategy selection as an ordered registry of StrategyRule units. The
+# decision tree (was a 7-branch if/elif) is now one rule per branch — each owns
+# its gate (`matches`), the strategy it selects, and the confidence + near-miss
+# margin it records. Registry order IS the tree order (first match wins). A new
+# strategy fork is absorbed by ADDING a rule + op:register into STRATEGY_RULES
+# (this IS the add_strategy_fork fix-category). matches/confidence/margin read
+# the UNROUNDED signals (the tree used raw locals).
+# ===========================================================================
+class StrategyRule:
+    """One branch of the footnote-strategy decision: gate + selected strategy + confidence/margin."""
+
+    strategy = ''
+    reason = ''
+
+    def matches(self, sig):
+        return False
+
+    def confidence(self, sig):
+        return 0.0
+
+    def margin(self, sig):
+        return ''
+
+
+class ResetsWithDistributedHrsRule(StrategyRule):
+    strategy, reason = 'sectioned', 'footnote numbering resets detected with HR separators'
+
+    def matches(self, sig):
+        return sig['has_footnote_resets'] and sig['has_distributed_hrs']
+
+    def confidence(self, sig):
+        return 0.85
+
+    def margin(self, sig):
+        return (f"{sig['duplicate_count']} duplicate fn-number(s) + distributed HRs — "
+                f"strong sectioned signal")
+
+
+class ResetsWithHrRule(StrategyRule):
+    strategy, reason = 'sectioned', 'footnote numbering resets detected'
+
+    def matches(self, sig):
+        return sig['has_footnote_resets'] and sig['hr_count'] > 0
+
+    def confidence(self, sig):
+        return 0.7
+
+    def margin(self, sig):
+        return (f"{sig['duplicate_count']} duplicate fn-number(s) + {sig['hr_count']} HR(s), "
+                f"but HRs not distributed throughout")
+
+
+class RefsThroughoutDefsAtEndRule(StrategyRule):
+    strategy, reason = 'whole_document', 'references throughout text, definitions clustered at end'
+
+    def matches(self, sig):
+        return sig['references_throughout_definitions_at_end']
+
+    def _gap(self, sig):
+        rpr = sig['ref_position_ratio']
+        return (sig['position_ratio'] - rpr) if rpr is not None else 0.0
+
+    def confidence(self, sig):
+        return round(min(0.9, 0.6 + self._gap(sig)), 2)
+
+    def margin(self, sig):
+        pr = sig['position_ratio']
+        rpr = sig['ref_position_ratio']
+        gap = self._gap(sig)
+        return (f"def position_ratio {pr:.2f} vs 0.65 gate; refs avg "
+                f"{rpr:.2f} (gap {gap:.2f} vs 0.15 min)")
+
+
+class StructuredSectionsRule(StrategyRule):
+    strategy, reason = 'sectioned', 'header + footnotes + hr patterns'
+
+    def matches(self, sig):
+        return sig['has_structured_sections']
+
+    def confidence(self, sig):
+        return 0.65
+
+    def margin(self, sig):
+        return "header→footnotes→HR pattern found; no numbering resets to corroborate"
+
+
+class FootnotesAtEndRule(StrategyRule):
+    strategy, reason = 'whole_document', 'footnotes clustered at end (no section pattern)'
+
+    def matches(self, sig):
+        return (sig['footnotes_at_end'] and not sig['has_section_pattern']
+                and not sig['has_footnote_resets'])
+
+    def confidence(self, sig):
+        pr = sig['position_ratio']
+        return round(min(0.85, 0.5 + (pr - 0.8) * 2), 2) if pr > 0.8 else 0.6
+
+    def margin(self, sig):
+        return f"def position_ratio {sig['position_ratio']:.2f} vs 0.80 gate (footnotes_at_end)"
+
+
+class SectionHeaderRule(StrategyRule):
+    strategy, reason = 'sectioned', "'Notes' headers present"
+
+    def matches(self, sig):
+        return sig['has_section_pattern'] and not sig['references_throughout_definitions_at_end']
+
+    def confidence(self, sig):
+        return 0.6
+
+    def margin(self, sig):
+        return "a 'Notes' header is present but no resets/HR structure to confirm sectioning"
+
+
+class DefaultStrategyRule(StrategyRule):
+    # Fall-through default — always matches (must be last).
+    strategy, reason = 'whole_document', 'default fallback'
+
+    def matches(self, sig):
+        return True
+
+    def confidence(self, sig):
+        return 0.3
+
+    def margin(self, sig):
+        return ("FALL-THROUGH: no positive signal matched — defaulted to whole_document. "
+                "LOW confidence; a prime candidate for review.")
+
+
+# Ordered decision registry — the EXACT decision-tree order (first match wins). A new strategy = add
+# a rule here (+ register the name into _ALL_STRATEGIES, + a branch in _strategy_considered).
+STRATEGY_RULES = [
+    ResetsWithDistributedHrsRule(),
+    ResetsWithHrRule(),
+    RefsThroughoutDefsAtEndRule(),
+    StructuredSectionsRule(),
+    FootnotesAtEndRule(),
+    SectionHeaderRule(),
+]
+# Fall-through default (NOT in the list), so op:register appends a real rule BEFORE the catch-all.
+_DEFAULT_STRATEGY_RULE = DefaultStrategyRule()
 
 
 def analyze_document_structure(soup):
@@ -330,43 +478,24 @@ def analyze_document_structure(soup):
         'ref_position_ratio': round(ref_position_ratio, 4) if ref_position_ratio is not None else None,
     }
 
-    # Updated decision logic with footnote reset detection as primary indicator.
-    # Each branch also records a CONFIDENCE and a near-miss MARGIN: how decisively the
-    # winning condition was met, so the diagnostic LLM can spot a shaky fork at a glance.
-    pr = position_ratio
-    if has_footnote_resets and has_distributed_hrs:
-        strategy, reason = 'sectioned', 'footnote numbering resets detected with HR separators'
-        confidence = 0.85
-        margin = (f"{len(duplicate_numbers)} duplicate fn-number(s) + distributed HRs — "
-                  f"strong sectioned signal")
-    elif has_footnote_resets and len(hr_elements) > 0:
-        strategy, reason = 'sectioned', 'footnote numbering resets detected'
-        confidence = 0.7
-        margin = (f"{len(duplicate_numbers)} duplicate fn-number(s) + {len(hr_elements)} HR(s), "
-                  f"but HRs not distributed throughout")
-    elif references_throughout_definitions_at_end:
-        strategy, reason = 'whole_document', 'references throughout text, definitions clustered at end'
-        gap = (pr - ref_position_ratio) if ref_position_ratio is not None else 0.0
-        confidence = round(min(0.9, 0.6 + gap), 2)
-        margin = (f"def position_ratio {pr:.2f} vs 0.65 gate; refs avg "
-                  f"{ref_position_ratio:.2f} (gap {gap:.2f} vs 0.15 min)")
-    elif has_structured_sections:
-        strategy, reason = 'sectioned', 'header + footnotes + hr patterns'
-        confidence = 0.65
-        margin = "header→footnotes→HR pattern found; no numbering resets to corroborate"
-    elif footnotes_at_end and not has_section_pattern and not has_footnote_resets:
-        strategy, reason = 'whole_document', 'footnotes clustered at end (no section pattern)'
-        confidence = round(min(0.85, 0.5 + (pr - 0.8) * 2), 2) if pr > 0.8 else 0.6
-        margin = f"def position_ratio {pr:.2f} vs 0.80 gate (footnotes_at_end)"
-    elif has_section_pattern and not references_throughout_definitions_at_end:
-        strategy, reason = 'sectioned', "'Notes' headers present"
-        confidence = 0.6
-        margin = "a 'Notes' header is present but no resets/HR structure to confirm sectioning"
-    else:
-        strategy, reason = 'whole_document', 'default fallback'
-        confidence = 0.3
-        margin = ("FALL-THROUGH: no positive signal matched — defaulted to whole_document. "
-                  "LOW confidence; a prime candidate for review.")
+    # Decision via the ordered STRATEGY_RULES registry (first match wins; a new strategy fork is
+    # absorbed by ADDING a rule). matches/confidence/margin read the raw (unrounded) signals.
+    _raw = {
+        'has_footnote_resets': has_footnote_resets,
+        'has_distributed_hrs': has_distributed_hrs,
+        'hr_count': len(hr_elements),
+        'references_throughout_definitions_at_end': references_throughout_definitions_at_end,
+        'has_structured_sections': has_structured_sections,
+        'footnotes_at_end': footnotes_at_end,
+        'has_section_pattern': has_section_pattern,
+        'position_ratio': position_ratio,
+        'ref_position_ratio': ref_position_ratio,
+        'duplicate_count': len(duplicate_numbers),
+    }
+    chosen_rule = next((r for r in STRATEGY_RULES if r.matches(_raw)), _DEFAULT_STRATEGY_RULE)
+    strategy, reason = chosen_rule.strategy, chosen_rule.reason
+    confidence = chosen_rule.confidence(_raw)
+    margin = chosen_rule.margin(_raw)
 
     print(f"🔍 STRATEGY: {strategy.upper()} - {reason}")
     print(f"📊 Document analysis: {strategy_info}")
@@ -384,47 +513,35 @@ def analyze_document_structure(soup):
     return strategy, strategy_info
 
 
-def detect_footnote_sections(soup):
-    """Detect footnote sections by scanning forward and identifying text ranges"""
-    # Include tables and other block elements that might be part of multi-paragraph footnotes
-    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
-    print("--- DEBUG: Section Detection ---")
-    print(f"Total elements found: {len(all_elements)}")
-    
-    # Find all headers and hr separators first
+def _find_headers_and_hrs(all_elements):
+    """Collect (header, hr) descriptors with their element indices — the anchors section detection
+    scans between."""
     headers = []
     hrs = []
-    
     for i, element in enumerate(all_elements):
         text = element.get_text().strip()
         if element.name and element.name.startswith('h'):
-            headers.append({
-                'element': element,
-                'index': i,
-                'text': text
-            })
+            headers.append({'element': element, 'index': i, 'text': text})
             print(f"Found header at index {i}: {text}")
         elif element.name == 'hr':
-            hrs.append({
-                'element': element,
-                'index': i,
-                'text': '---'
-            })
+            hrs.append({'element': element, 'index': i, 'text': '---'})
             print(f"Found HR separator at index {i}")
-    
-    # Look for header + footnotes + hr patterns
+    return headers, hrs
+
+
+def _detect_section_boundaries(all_elements, headers, hrs):
+    """Find header->footnotes->HR boundaries, plus standalone 'Notes' headers not already covered."""
     section_boundaries = []
-    
     for header in headers:
         header_idx = header['index']
-        
+
         # Find the next HR after this header
         next_hr = None
         for hr in hrs:
             if hr['index'] > header_idx:
                 next_hr = hr
                 break
-        
+
         if next_hr:
             # Check if there are footnotes between this header and the HR
             footnote_count = 0
@@ -433,9 +550,9 @@ def detect_footnote_sections(soup):
                     break
                 element = all_elements[i]
                 text = element.get_text().strip()
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+                if _FOOTNOTE_DEF_RE.search(text):
                     footnote_count += 1
-            
+
             if footnote_count > 0:
                 section_boundaries.append({
                     'type': 'header_with_footnotes',
@@ -444,13 +561,13 @@ def detect_footnote_sections(soup):
                     'footnote_count': footnote_count
                 })
                 print(f"Found section: {header['text']} -> {footnote_count} footnotes -> HR at {next_hr['index']}")
-    
+
     # Also add standalone notes headers (original behavior as fallback)
     for header in headers:
         if 'notes' in header['text'].lower():
             # Check if this header isn't already part of a header+hr pattern
-            already_included = any(boundary['header']['index'] == header['index'] 
-                                 for boundary in section_boundaries 
+            already_included = any(boundary['header']['index'] == header['index']
+                                 for boundary in section_boundaries
                                  if boundary['type'] == 'header_with_footnotes')
             if not already_included:
                 section_boundaries.append({
@@ -460,33 +577,37 @@ def detect_footnote_sections(soup):
                     'footnote_count': 0  # Will be calculated later
                 })
                 print(f"Found standalone notes header: {header['text']}")
-    
-    # For each boundary, create sections
+    return section_boundaries
+
+
+def _build_sections_from_boundaries(all_elements, section_boundaries):
+    """Turn each boundary into a section with text/footnote index ranges (the two boundary types:
+    header_with_footnotes and notes_header)."""
     sections = []
     section_counter = 0
-    
+
     for boundary_idx, boundary in enumerate(section_boundaries):
         footnotes = []
-        
+
         if boundary['type'] == 'header_with_footnotes':
             # Text is before the header, footnotes are between header and HR
             header_idx = boundary['header']['index']
             hr_idx = boundary['hr']['index']
-            
+
             # Collect footnotes between header and HR
             for i in range(header_idx + 1, hr_idx):
                 if i >= len(all_elements):
                     break
                 element = all_elements[i]
                 text = element.get_text().strip()
-                
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+
+                if _FOOTNOTE_DEF_RE.search(text):
                     footnotes.append(element)
                     print(f"  Found footnote in section: {text[:50]}...")
-            
+
             if footnotes:
                 section_counter += 1
-                
+
                 # Text range: from start of document (or end of previous section) to this header
                 text_start_idx = 0
                 if boundary_idx > 0:
@@ -501,10 +622,10 @@ def detect_footnote_sections(soup):
                             if j >= len(all_elements):
                                 break
                             elem_text = all_elements[j].get_text().strip()
-                            if not re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', elem_text):
+                            if not _FOOTNOTE_DEF_RE.search(elem_text):
                                 text_start_idx = j
                                 break
-                
+
                 section_data = {
                     'id': f'section_{section_counter}',
                     'header': boundary['header']['element'],
@@ -519,33 +640,33 @@ def detect_footnote_sections(soup):
                 print(f"  Header: {boundary['header']['text']}")
                 print(f"  Text range: {section_data['text_start_idx']} to {section_data['text_end_idx']}")
                 print(f"  Footnotes range: {section_data['footnotes_start_idx']} to {section_data['footnotes_end_idx']}")
-        
+
         elif boundary['type'] == 'notes_header':
             # Traditional notes header - footnotes come after
             header_idx = boundary['header']['index']
-            
+
             # Find where footnotes end (next header or end of document)
             end_idx = len(all_elements)
             for other_boundary in section_boundaries:
-                if (other_boundary != boundary and 
+                if (other_boundary != boundary and
                     other_boundary['header']['index'] > header_idx):
                     end_idx = other_boundary['header']['index']
                     break
-            
+
             # Collect footnotes after header
             for i in range(header_idx + 1, end_idx):
                 if i >= len(all_elements):
                     break
                 element = all_elements[i]
                 text = element.get_text().strip()
-                
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+
+                if _FOOTNOTE_DEF_RE.search(text):
                     footnotes.append(element)
                     print(f"  Found footnote in notes section: {text[:50]}...")
-            
+
             if footnotes:
                 section_counter += 1
-                
+
                 # Text range: from start of document (or end of previous section) to this header
                 text_start_idx = 0
                 if boundary_idx > 0:
@@ -554,7 +675,7 @@ def detect_footnote_sections(soup):
                         text_start_idx = prev_boundary['hr']['index'] + 1
                     else:
                         text_start_idx = prev_boundary['header']['index'] + 1
-                
+
                 section_data = {
                     'id': f'section_{section_counter}',
                     'header': boundary['header']['element'],
@@ -568,69 +689,93 @@ def detect_footnote_sections(soup):
                 print(f"Created notes section {section_counter} with {len(footnotes)} footnotes")
                 print(f"  Text range: {section_data['text_start_idx']} to {section_data['text_end_idx']}")
                 print(f"  Footnotes range: {section_data['footnotes_start_idx']} to {section_data['footnotes_end_idx']}")
-    
-    # Handle case where there are footnotes but no section headers
-    if not sections:
-        # NEW: Try to detect HR-separated footnote groups
-        hr_positions = [i for i, elem in enumerate(all_elements) if elem.name == 'hr']
-        
-        if len(hr_positions) >= 2:
-            print(f"Attempting HR-based section detection with {len(hr_positions)} separators")
-            sections = []
-            section_counter = 0
-            
-            # Create sections between HR separators
-            section_starts = [0] + [pos + 1 for pos in hr_positions[:-1]]  # Start after each HR except last
-            section_ends = hr_positions  # End at each HR
-            
-            for i, (start_idx, end_idx) in enumerate(zip(section_starts, section_ends)):
-                footnotes = []
-                
-                # Collect footnotes in this range
-                for j in range(start_idx, end_idx):
-                    if j >= len(all_elements):
-                        break
-                    element = all_elements[j]
-                    text = element.get_text().strip()
-                    
-                    if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
-                        footnotes.append(element)
-                        print(f"  Found footnote in HR section {i+1}: {text[:30]}...")
-                
-                if footnotes:
-                    section_counter += 1
-                    section_data = {
-                        'id': f'hr_section_{section_counter}',
-                        'header': None,
-                        'footnotes': footnotes,
-                        'text_start_idx': start_idx,
-                        'text_end_idx': end_idx,
-                        'footnotes_start_idx': start_idx,
-                        'footnotes_end_idx': end_idx
-                    }
-                    sections.append(section_data)
-                    print(f"Created HR-based section {section_counter} with {len(footnotes)} footnotes (range {start_idx}-{end_idx})")
-        
-        # Fallback to default section if HR-based detection didn't work
-        if not sections:
+    return sections
+
+
+def _fallback_sections(all_elements):
+    """No header-delimited sections found: try HR-separated footnote groups, else one default section
+    spanning the whole document."""
+    sections = []
+    # NEW: Try to detect HR-separated footnote groups
+    hr_positions = [i for i, elem in enumerate(all_elements) if elem.name == 'hr']
+
+    if len(hr_positions) >= 2:
+        print(f"Attempting HR-based section detection with {len(hr_positions)} separators")
+        sections = []
+        section_counter = 0
+
+        # Create sections between HR separators
+        section_starts = [0] + [pos + 1 for pos in hr_positions[:-1]]  # Start after each HR except last
+        section_ends = hr_positions  # End at each HR
+
+        for i, (start_idx, end_idx) in enumerate(zip(section_starts, section_ends)):
             footnotes = []
-            for element in all_elements:
+
+            # Collect footnotes in this range
+            for j in range(start_idx, end_idx):
+                if j >= len(all_elements):
+                    break
+                element = all_elements[j]
                 text = element.get_text().strip()
-                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+
+                if _FOOTNOTE_DEF_RE.search(text):
                     footnotes.append(element)
-            
+                    print(f"  Found footnote in HR section {i+1}: {text[:30]}...")
+
             if footnotes:
-                sections = [{
-                    'id': 'default_section',
+                section_counter += 1
+                section_data = {
+                    'id': f'hr_section_{section_counter}',
                     'header': None,
                     'footnotes': footnotes,
-                    'text_start_idx': 0,
-                    'text_end_idx': len(all_elements),
-                    'footnotes_start_idx': 0,
-                    'footnotes_end_idx': len(all_elements)
-                }]
-                print(f"Created fallback default section with {len(footnotes)} footnotes")
-    
+                    'text_start_idx': start_idx,
+                    'text_end_idx': end_idx,
+                    'footnotes_start_idx': start_idx,
+                    'footnotes_end_idx': end_idx
+                }
+                sections.append(section_data)
+                print(f"Created HR-based section {section_counter} with {len(footnotes)} footnotes (range {start_idx}-{end_idx})")
+
+    # Fallback to default section if HR-based detection didn't work
+    if not sections:
+        footnotes = []
+        for element in all_elements:
+            text = element.get_text().strip()
+            if _FOOTNOTE_DEF_RE.search(text):
+                footnotes.append(element)
+
+        if footnotes:
+            sections = [{
+                'id': 'default_section',
+                'header': None,
+                'footnotes': footnotes,
+                'text_start_idx': 0,
+                'text_end_idx': len(all_elements),
+                'footnotes_start_idx': 0,
+                'footnotes_end_idx': len(all_elements)
+            }]
+            print(f"Created fallback default section with {len(footnotes)} footnotes")
+    return sections
+
+
+def detect_footnote_sections(soup):
+    """Detect footnote sections by scanning forward and identifying text ranges. Thin orchestration
+    over the phase helpers (_find_headers_and_hrs -> _detect_section_boundaries ->
+    _build_sections_from_boundaries, with _fallback_sections when no header sections exist).
+    Returns (sections, all_elements) for position-based matching."""
+    # Include tables and other block elements that might be part of multi-paragraph footnotes
+    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img'])
+    print("--- DEBUG: Section Detection ---")
+    print(f"Total elements found: {len(all_elements)}")
+
+    headers, hrs = _find_headers_and_hrs(all_elements)
+    section_boundaries = _detect_section_boundaries(all_elements, headers, hrs)
+    sections = _build_sections_from_boundaries(all_elements, section_boundaries)
+
+    # Handle case where there are footnotes but no section headers
+    if not sections:
+        sections = _fallback_sections(all_elements)
+
     print(f"Total sections detected: {len(sections)}")
     # Also return the elements list for position-based matching
     return sections, all_elements

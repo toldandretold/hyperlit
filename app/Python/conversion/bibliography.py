@@ -11,26 +11,28 @@ from conversion.assessment import ASSESSMENT
 from conversion.refkeys import generate_ref_keys, is_likely_reference
 
 
-def extract_bibliography(soup):
-    # --- 1A: Process Bibliography / References ---
-    bibliography_map = {}
-    references_data = []
-    all_paragraphs = soup.find_all('p')
+# Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
+REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+
+
+def _find_reference_paragraphs(soup):
+    """Locate the bibliography entries. PRIMARY: a 'References'/'Bibliography' heading, collecting
+    reference-like <p> until the next same-or-higher heading (skipping OCR-artifact embedded headings
+    that are really more references). FALLBACK: a reverse paragraph scan when no heading matches.
+    Returns (reference_p_tags, used_reverse_scan)."""
     reference_p_tags = []
     used_reverse_scan = False
+    all_paragraphs = soup.find_all('p')
 
-    print(f"📚 Scanning {len(all_paragraphs)} paragraphs for reference section...")
-
-    # Common reference section headers
-    REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+    print(f"\U0001F4DA Scanning {len(all_paragraphs)} paragraphs for reference section...")
 
     # PRIMARY: Find reference section by heading (more reliable for academic papers)
     all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
     for heading in all_headings:  # Forward scan to find first matching heading
         header_text = heading.get_text(strip=True).lower()
         if header_text in REFERENCE_HEADERS:
-            print(f"  📖 Found references heading: '{header_text}'")
-            bib_heading_level = int(heading.name[1])  # e.g. h2 → 2
+            print(f"  \U0001F4D6 Found references heading: '{header_text}'")
+            bib_heading_level = int(heading.name[1])  # e.g. h2 -> 2
             # Collect ALL paragraphs until the next same-or-higher-level heading
             next_sibling = heading.find_next_sibling()
             while next_sibling:
@@ -61,7 +63,7 @@ def extract_bibliography(soup):
                             next_sibling = next_sibling.find_next_sibling()
                             continue
                         break  # Real section boundary
-                    # Lower level → alphabetical marker or sub-section within bibliography, skip it
+                    # Lower level -> alphabetical marker or sub-section within bibliography, skip it
                 if next_sibling.name == 'p' and is_likely_reference(next_sibling):
                     reference_p_tags.append(next_sibling)
                     text_preview = next_sibling.get_text(" ", strip=True)[:80]
@@ -82,10 +84,48 @@ def extract_bibliography(soup):
                 header_text = p.get_text(strip=True).lower()
                 if header_text in REFERENCE_HEADERS:
                     reference_p_tags.insert(0, p)
-                    print(f"  📖 Found references header: '{header_text}'")
+                    print(f"  \U0001F4D6 Found references header: '{header_text}'")
                 break
 
-    print(f"📚 Found {len(reference_p_tags)} reference paragraphs")
+    print(f"\U0001F4DA Found {len(reference_p_tags)} reference paragraphs")
+    return reference_p_tags, used_reverse_scan
+
+
+def _record_bibliography_assessment(references_data, bibliography_map, via_heading,
+                                    collisions, dups_skipped, dropped_no_keys):
+    """Record the bibliography-extraction pass to the assessment trace. The link-correctness risk is
+    the collision suffixing (two works, same author+year): when it fires, the bare key resolves to the
+    LAST entry (an inherent ambiguity). Dropped entries = targets that exist but can never be linked."""
+    ASSESSMENT.record(
+        module='bibliography_extraction', code_ref='bibliography.py:extract_bibliography',
+        decision=f'{len(references_data)} reference entr(y/ies); {collisions} collision-suffixed, '
+                 f'{dups_skipped} duplicate(s) merged, {dropped_no_keys} dropped (unkeyable)',
+        rationale=('references found via a heading match' if via_heading
+                   else 'references found via the reverse paragraph scan (no heading matched)'),
+        evidence={'entries': len(references_data), 'map_keys': len(bibliography_map),
+                  'collisions_suffixed': collisions, 'duplicates_merged': dups_skipped,
+                  'dropped_no_keys': dropped_no_keys,
+                  'detection': 'heading' if via_heading else 'reverse_scan'},
+        question='Which paragraphs are bibliography entries, and what id does each get?',
+        considered=([{'option': 'disambiguate same author+year citations precisely',
+                      'rejected_because': 'two or more works share an author+year; a bare "(Author Year)" '
+                                          'citation has no a/b to distinguish them',
+                      'would_need': 'an explicit a/b suffix in the in-text citation — otherwise the bare '
+                                    'key resolves to the LAST-defined of the colliding entries'}]
+                    if collisions else []),
+        confidence=round(1.0 if not references_data
+                         else max(0.3, 1 - (dropped_no_keys / (len(references_data) + dropped_no_keys))), 2),
+        margin=(f'{dropped_no_keys} reference(s) could not be keyed — they exist as targets but no '
+                f'citation can ever link to them' if dropped_no_keys
+                else (f'{collisions} author+year collision(s) disambiguated by suffix' if collisions
+                      else f'{len(references_data)} entries, clean keys, no collisions')))
+
+
+def extract_bibliography(soup):
+    # --- 1A: Process Bibliography / References ---
+    bibliography_map = {}
+    references_data = []
+    reference_p_tags, used_reverse_scan = _find_reference_paragraphs(soup)
 
     # Detect markdown list markers (- or *) used consistently across entries
     list_marker_count = sum(
@@ -253,32 +293,7 @@ def extract_bibliography(soup):
     print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
-    # --- Record the bibliography-extraction pass. The link-correctness risk here is the
-    # collision suffixing (two works, same author+year): when it fires, the bare key resolves
-    # to the LAST entry (an inherent ambiguity worth surfacing). Dropped entries = reference
-    # targets that exist but can never be linked. ---
     via_heading = bool(reference_p_tags) and not used_reverse_scan
-    ASSESSMENT.record(
-        module='bibliography_extraction', code_ref='bibliography.py:extract_bibliography',
-        decision=f'{len(references_data)} reference entr(y/ies); {_collisions} collision-suffixed, '
-                 f'{_dups_skipped} duplicate(s) merged, {_dropped_no_keys} dropped (unkeyable)',
-        rationale=('references found via a heading match' if via_heading
-                   else 'references found via the reverse paragraph scan (no heading matched)'),
-        evidence={'entries': len(references_data), 'map_keys': len(bibliography_map),
-                  'collisions_suffixed': _collisions, 'duplicates_merged': _dups_skipped,
-                  'dropped_no_keys': _dropped_no_keys,
-                  'detection': 'heading' if via_heading else 'reverse_scan'},
-        question='Which paragraphs are bibliography entries, and what id does each get?',
-        considered=([{'option': 'disambiguate same author+year citations precisely',
-                      'rejected_because': 'two or more works share an author+year; a bare "(Author Year)" '
-                                          'citation has no a/b to distinguish them',
-                      'would_need': 'an explicit a/b suffix in the in-text citation — otherwise the bare '
-                                    'key resolves to the LAST-defined of the colliding entries'}]
-                    if _collisions else []),
-        confidence=round(1.0 if not references_data
-                         else max(0.3, 1 - (_dropped_no_keys / (len(references_data) + _dropped_no_keys))), 2),
-        margin=(f'{_dropped_no_keys} reference(s) could not be keyed — they exist as targets but no '
-                f'citation can ever link to them' if _dropped_no_keys
-                else (f'{_collisions} author+year collision(s) disambiguated by suffix' if _collisions
-                      else f'{len(references_data)} entries, clean keys, no collisions')))
+    _record_bibliography_assessment(references_data, bibliography_map, via_heading,
+                                    _collisions, _dups_skipped, _dropped_no_keys)
     return bibliography_map, references_data

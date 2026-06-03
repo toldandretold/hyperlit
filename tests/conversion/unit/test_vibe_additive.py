@@ -13,6 +13,7 @@ import shutil
 import mistral_ocr as M_OCR
 import process_document as P
 import vibe_convert as v
+from conversion import strategy as S_STRAT
 
 
 # --- _register_in_list --------------------------------------------------------
@@ -402,6 +403,40 @@ def test_op_add_register_noop_pdf_classifier_into_real_registry(tmp_path):
     mod = _load_module(str(full), 'mistral_ocr_patched')
     assert mod.PDF_CLASSIFIERS[-1].name == 'noop_pdf_demo'
     assert len(mod.PDF_CLASSIFIERS) == len(M_OCR.PDF_CLASSIFIERS) + 1
+
+
+def test_validate_accepts_register_into_strategy_rules():
+    ok, reason, _ = v.validate_replacements(
+        [{'file': 'app/Python/conversion/strategy.py', 'name': 'STRATEGY_RULES',
+          'op': 'register', 'code': 'MyStrategyRule()'}])
+    assert ok, reason
+
+
+def test_op_add_register_noop_strategy_rule_into_real_registry(tmp_path):
+    """A vibe run can op:add a new StrategyRule + op:register it into STRATEGY_RULES (the
+    add_strategy_fork shape); the patched strategy module re-imports with the registry grown by one."""
+    rel = 'app/Python/conversion/strategy.py'
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    shutil.copyfile(os.path.join(_REPO, rel), str(full))
+
+    noop = ("class NoOpStrategyRule(StrategyRule):\n"
+            "    strategy, reason = 'whole_document', 'noop demo'\n"
+            "    def matches(self, sig):\n"
+            "        return False\n")
+    funcs = [
+        {'file': rel, 'name': 'NoOpStrategyRule', 'op': 'add', 'code': noop},
+        {'file': rel, 'name': 'STRATEGY_RULES', 'op': 'register', 'code': 'NoOpStrategyRule()'},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert ok, msg
+    text = full.read_text(encoding='utf-8')
+    ast.parse(text)
+    assert 'class NoOpStrategyRule' in text and 'NoOpStrategyRule()' in text
+
+    mod = _load_module(str(full), 'conversion._patched_strategy')
+    assert mod.STRATEGY_RULES[-1].strategy == 'whole_document'
+    assert len(mod.STRATEGY_RULES) == len(S_STRAT.STRATEGY_RULES) + 1
 
 
 def test_apply_replace_missing_function_hints_op_add(tmp_path):
