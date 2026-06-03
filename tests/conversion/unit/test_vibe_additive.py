@@ -10,6 +10,7 @@ import importlib.util
 import os
 import shutil
 
+import process_document as P
 import vibe_convert as v
 
 
@@ -322,6 +323,46 @@ def test_op_add_register_noop_link_rule_into_real_registry(tmp_path):
     out_patched = mod.link_epub_footnotes(s1, f1, r1, 'b', lambda *a, **k: None)
     assert len(out_patched['footnotes_json']) == 1
     assert out_patched['linking_stats']['linked'] == 1
+
+
+def test_validate_accepts_register_into_doc_passes():
+    # The orchestrator registry is in the op:register allowlist (loop-extensible orchestration).
+    ok, reason, _ = v.validate_replacements(
+        [{'file': 'app/Python/process_document.py', 'name': 'DOC_PASSES',
+          'op': 'register', 'code': 'MyPass()'}])
+    assert ok, reason
+
+
+def test_op_add_register_noop_doc_pass_into_real_registry(tmp_path):
+    """The orchestration payoff: a vibe run can op:add a new DocPass + op:register it into DOC_PASSES,
+    and the patched process_document re-imports with the pass list grown by one — a no-op pass leaves
+    the registry valid (the additive path for a new conversion step)."""
+    rel = 'app/Python/process_document.py'
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    shutil.copyfile(os.path.join(_REPO, rel), str(full))
+
+    noop = ("class NoOpDocPass(DocPass):\n"
+            "    name = 'noop_doc_demo'\n"
+            "    description = 'A no-op pass registered by the vibe loop — proves additive extension.'\n"
+            "    def apply(self, ctx):\n"
+            "        return\n")
+    funcs = [
+        {'file': rel, 'name': 'NoOpDocPass', 'op': 'add', 'code': noop},
+        {'file': rel, 'name': 'DOC_PASSES', 'op': 'register', 'code': 'NoOpDocPass()'},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert ok, msg
+
+    text = full.read_text(encoding='utf-8')
+    ast.parse(text)
+    assert 'class NoOpDocPass' in text
+    assert 'NoOpDocPass()' in text
+
+    # The patched module re-imports and the new pass is the LAST entry in DOC_PASSES.
+    mod = _load_module(str(full), 'process_document_patched')
+    assert mod.DOC_PASSES[-1].name == 'noop_doc_demo'
+    assert len(mod.DOC_PASSES) == len(P.DOC_PASSES) + 1
 
 
 def test_apply_replace_missing_function_hints_op_add(tmp_path):

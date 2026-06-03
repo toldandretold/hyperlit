@@ -106,7 +106,8 @@ ALLOWED_FILES = {
 # Module-level registries an op:register edit may append to (a tight allowlist — registering
 # elsewhere could run arbitrary module-load code). Extend deliberately as new forks appear.
 REGISTERABLE_LISTS = {'TRANSFORM_PIPELINE', '_ALL_STRATEGIES',
-                      'FOOTNOTE_LINK_RULES', 'MARKER_LINK_RULES', 'CITATION_LINK_RULES'}
+                      'FOOTNOTE_LINK_RULES', 'MARKER_LINK_RULES', 'CITATION_LINK_RULES',
+                      'DOC_PASSES'}
 
 # What gets copied into the sandbox (structure-preserving, so the harness paths resolve).
 SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']
@@ -271,12 +272,36 @@ def _code_ref_to_path(code_ref):
     return f'app/Python/conversion/{fname}'
 
 
+# A module that was decomposed into a sibling rule/pass registry: sending the original (now often a
+# thin shell or front-end orchestrator) must ALSO send the module that now holds the real logic, or
+# the loop can't see — let alone op:add into — the rules/passes it's meant to extend. Keyed by repo
+# path; values are extra repo paths to include alongside it.
+_DECOMPOSITION_SIBLINGS = {
+    'app/Python/conversion/citations.py': ['app/Python/conversion/citation_link_rules.py'],
+    'app/Python/conversion/footnotes.py': ['app/Python/conversion/footnote_link_rules.py'],
+    # EPUB + the shared front-end both route footnote linking through footnote_link_rules.py now.
+    'app/Python/epub_normalizer.py': ['app/Python/conversion/footnote_link_rules.py'],
+    'app/Python/process_document.py': ['app/Python/conversion/footnote_link_rules.py'],
+}
+
+
+def _with_siblings(paths):
+    """Expand each path with its decomposition siblings (see _DECOMPOSITION_SIBLINGS), preserving
+    order and dropping duplicates — so a fix always sees the module that holds the real logic."""
+    out = []
+    for p in paths:
+        for q in [p] + _DECOMPOSITION_SIBLINGS.get(p, []):
+            if q not in out:
+                out.append(q)
+    return out
+
+
 def _footnote_fix_modules(art):
     """A failing footnote_audit names audit.py — but audit.py only MEASURES the orphans;
     they're created upstream in the detector/linker. Send the code that can actually fix it,
     chosen by pathway (epub vs the shared markdown/docx/html/pdf path)."""
     front = 'app/Python/epub_normalizer.py' if (art and art.get('is_epub')) else 'app/Python/process_document.py'
-    return [front, 'app/Python/conversion/footnotes.py']
+    return _with_siblings([front, 'app/Python/conversion/footnotes.py'])
 
 
 def modules_for(records, art=None):
@@ -293,7 +318,10 @@ def modules_for(records, art=None):
             for p in _footnote_fix_modules(art):
                 _add(p)
             continue
-        _add(_code_ref_to_path(r.get('code_ref', '')))
+        # Send the code_ref's file AND any decomposition sibling that now holds the real logic
+        # (e.g. citations.py is a thin shell over citation_link_rules.py).
+        for p in _with_siblings([_code_ref_to_path(r.get('code_ref', ''))] if _code_ref_to_path(r.get('code_ref', '')) else []):
+            _add(p)
     return paths
 
 
