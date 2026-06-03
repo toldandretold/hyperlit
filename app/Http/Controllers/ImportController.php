@@ -23,6 +23,25 @@ use App\Services\DocumentImport\Processors\PdfProcessor;
 use App\Services\BillingService;
 use App\Jobs\ProcessDocumentImportJob;
 
+/**
+ * Document import entry point: upload → background ProcessDocumentImportJob → the Python
+ * conversion pipeline → save nodes/footnotes/references to the DB.
+ *
+ * The conversion pipeline itself (PDF / EPUB / Word / Markdown / HTML → linked nodes) lives in
+ * `app/Python/` (`process_document.py` + the `conversion/` package + the per-filetype
+ * front-ends) and is modular, unit-tested, and self-diagnosing: each conversion emits an
+ * `assessment.json` decision-trace next to `conversion_stats.json` / `audit.json`.
+ * → Full docs + tests: tests/conversion/README.md
+ *
+ * On top of it sits "✨ Vibe convert" — an LLM that fixes the pipeline for a single
+ * badly-converted document, validated in a throwaway sandbox (prod code untouched):
+ *   - engine:     app/Python/vibe_convert.py
+ *   - job:        app/Jobs/VibeConversionJob.php
+ *   - controller: app/Http/Controllers/VibeConvertController.php
+ *   - DB swap:    app/Services/ConversionArtifactSaver.php  (mirrors the save*ToDatabase
+ *                 methods below; the nodes_versioning_trigger archives the prior version so
+ *                 "Use this conversion" is revertible via the version-history UX)
+ */
 class ImportController extends Controller
 {
     public function __construct(

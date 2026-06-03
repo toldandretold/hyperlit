@@ -67,6 +67,26 @@ _JSON_PROGRESS = False
 _PROGRESS_FILE = None
 # When this file appears, the loop stops at the next attempt boundary (the Cancel button).
 _CANCEL_FILE = None
+# When set (--docker <image>), the RE-CONVERSION (which executes model-written code) runs inside
+# a locked-down container instead of a host subprocess. The LLM call itself stays on the host.
+_DOCKER_IMAGE = None
+
+
+def _docker_cmd(image, ro_mounts, rw_mounts, run):
+    """Wrap `run` (e.g. ['python', '/abs/script', '/abs/arg', …]) in a locked-down `docker run`:
+    no network, no host env (so no secrets), read-only rootfs, unprivileged, resource-capped. Host
+    dirs are bind-mounted at IDENTICAL paths, so the absolute paths in `run` need no translation."""
+    cmd = ['docker', 'run', '--rm', '--network', 'none', '--read-only',
+           '--tmpfs', '/tmp:exec', '--memory', '1g', '--cpus', '1', '--pids-limit', '256',
+           '--security-opt', 'no-new-privileges',
+           '-e', 'PYTHONHASHSEED=0', '-e', 'PYTHONDONTWRITEBYTECODE=1']
+    if hasattr(os, 'getuid'):
+        cmd += ['--user', f'{os.getuid()}:{os.getgid()}']  # keep the worker's ownership on outputs
+    for m in dict.fromkeys(ro_mounts):
+        cmd += ['-v', f'{m}:{m}:ro']
+    for m in dict.fromkeys(rw_mounts):
+        cmd += ['-v', f'{m}:{m}']
+    return cmd + [image, *run]
 
 
 def emit(phase, message, **extra):
@@ -446,6 +466,13 @@ def _pipeline_into(py_dir, book_dir, out):
       • else: process_document on the intermediate HTML.
     Returns the final subprocess result (or None if there was nothing to convert)."""
     def _run(*cmd):
+        if _DOCKER_IMAGE:
+            # Mount the sandbox (patched code) + book source read-only and the out dir writable,
+            # at identical paths. The container has no network and no host env → secrets are
+            # unreachable to the model-written code it runs.
+            sandbox_root = os.path.dirname(os.path.dirname(py_dir))
+            full = _docker_cmd(_DOCKER_IMAGE, [sandbox_root, book_dir], [out], ['python', *cmd])
+            return subprocess.run(full, capture_output=True, text=True)
         return subprocess.run([sys.executable, *cmd], cwd=py_dir, capture_output=True,
                               text=True, env=SCRUBBED_ENV)
     if os.path.isfile(os.path.join(book_dir, 'ocr_response.json')):
@@ -714,7 +741,8 @@ def _finalize(book_dir, art, journal, outcome, best=None, file_issue=False):
 
 
 def _github_repo():
-    """owner/repo from the git origin (so it works on prod without hardcoding)."""
+    """owner/repo (from the git origin) for auto-filed issues — the CODE repo, so issues sit with
+    the code and link to fixing PRs. Filter the noise with the issue labels, not a separate repo."""
     try:
         url = subprocess.run(['git', 'config', '--get', 'remote.origin.url'],
                              cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
@@ -830,6 +858,9 @@ def main():
                     help="Emit VIBE:{json} progress lines for the SSE controller to stream.")
     ap.add_argument('--progress-file', help="Append each progress beat (JSON line) here for polling.")
     ap.add_argument('--cancel-file', help="Stop at the next attempt boundary if this file appears.")
+    ap.add_argument('--docker', metavar='IMAGE',
+                    help="Run the re-conversion (model code) in this locked-down container image "
+                         "(no network/secrets). Recommended on prod, e.g. hyperlit-vibe-sandbox.")
     ap.add_argument('--github', action='store_true',
                     help="On an UNFIXED run, open a GitHub issue with the full diagnosis "
                          "(uses GITHUB_TOKEN from .env; dry-runs if absent).")
@@ -837,10 +868,11 @@ def main():
                     help="'Use this conversion': apply PATCH + regenerate this book's artifacts.")
     args = ap.parse_args()
 
-    global _JSON_PROGRESS, _PROGRESS_FILE, _CANCEL_FILE
+    global _JSON_PROGRESS, _PROGRESS_FILE, _CANCEL_FILE, _DOCKER_IMAGE
     _JSON_PROGRESS = args.json_progress
     _PROGRESS_FILE = args.progress_file
     _CANCEL_FILE = args.cancel_file
+    _DOCKER_IMAGE = args.docker
 
     if args.apply:
         sys.exit(apply_patch_to_book(args.book_dir, args.apply))

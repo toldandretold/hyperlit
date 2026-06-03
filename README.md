@@ -298,8 +298,31 @@ Full per-spec breakdown lives in [`tests/e2e/README.md`](tests/e2e/README.md). B
 
 #### Still not covered
 - Frontend assertions only — the tests verify the DOM and IndexedDB reflect the right state, but do not currently SELECT from Postgres after a write to confirm it really landed. Adding post-test SQL queries would close this loop.
-- No backend test coverage. No API/route auth tests (e.g. that authenticated routes reject anonymous requests, that user A can't write to user B's data).
+- No PHP/API auth test coverage (e.g. that authenticated routes reject anonymous requests, that user A can't write to user B's data). *(The document-conversion **pipeline** does have its own Python test suite — see below.)*
 - No mobile-touch event coverage (long-press, swipe gestures on the reader / containers).
+
+### Conversion pipeline tests & "vibe conversion"
+
+The document-conversion pipeline (PDF / EPUB / Word / Markdown / HTML → linked Hyperlit nodes) is
+modular and has its **own** Python test suite plus a self-diagnosing decision-trace. Every
+conversion now emits an `assessment.json` explaining *what it decided, in which module, and why*
+(with the roads not taken + a confidence/near-miss margin) alongside `conversion_stats.json` and
+`audit.json`. That trace powers both human debugging and the **"✨ Vibe convert"** feature — an
+LLM (DeepSeek V4 Pro) that fixes the pipeline for a single badly-converted document, validated
+against that document in a throwaway sandbox (production code untouched), with a 3-tier
+honest gate, non-destructive accept (versioned via `nodes_history`), and an auto-filed GitHub
+issue + email when it can't fix something.
+
+```sh
+python3 -m pytest                                  # fast unit tests (per conversion module)
+python3 tests/conversion/run_regression.py         # end-to-end golden fixtures (the tree = coverage map)
+python3 tests/conversion/run_regression.py --coverage
+python3 tests/conversion/impact_map.py --run       # only the tests a change actually affects
+```
+
+**Full breakdown — pipeline modules, the decision-trace, the regression + unit suites,
+`impact_map.py`, and how vibe conversion works end-to-end (engine, job, accept/versioning,
+GitHub issue, prod/security): [`tests/conversion/README.md`](tests/conversion/README.md).**
 
 
 ## Roadmap

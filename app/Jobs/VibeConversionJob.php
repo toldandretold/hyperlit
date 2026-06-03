@@ -23,6 +23,11 @@ use Symfony\Component\Process\Process;
  *
  * The patch is applied ONLY in a throwaway sandbox during the loop — production code is never
  * touched. "Use this conversion" (the accept step) is a separate explicit action.
+ *
+ * Engine: app/Python/vibe_convert.py · Controller: app/Http/Controllers/VibeConvertController.php
+ * DB swap: app/Services/ConversionArtifactSaver.php · Email: app/Mail/VibeOutcomeMail.php
+ * Full docs (how the loop, the 3-tier gate, the GitHub issue + prod/security work):
+ *   → tests/conversion/README.md  (§6 "Vibe conversion")
  */
 class VibeConversionJob implements ShouldQueue
 {
@@ -60,6 +65,12 @@ class VibeConversionJob implements ShouldQueue
         if ($this->note) {
             $cmd[] = '--user-note';
             $cmd[] = $this->note;
+        }
+        // PROD: run the model-written re-conversion inside a locked-down container. Set
+        // VIBE_SANDBOX_IMAGE in .env (after `docker build -t … docker/vibe-sandbox`) to enable it.
+        if ($image = env('VIBE_SANDBOX_IMAGE')) {
+            $cmd[] = '--docker';
+            $cmd[] = $image;
         }
 
         $process = new Process($cmd, base_path(), null, null, 1700);
