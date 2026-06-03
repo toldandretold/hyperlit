@@ -73,9 +73,31 @@ DEFAULT_JUDGEMENT = f"""{JUDGEMENT_MARKER} — Claude fills this in-session
 # ---------------------------------------------------------------------------
 # Discovery + conversion
 # ---------------------------------------------------------------------------
+_CONVERTIBLE_EXTS = {'.pdf', '.epub', '.md', '.html', '.htm', '.docx'}
+
+
+def _ingest_loose_files():
+    """A convertible file dropped DIRECTLY in corpus/ becomes its own case dir — so you can 'just
+    drop a file' and the harness imports it (matching the normal import flow). Moves it into
+    corpus/<slug>/. README.md (the tracked contract) is left alone."""
+    if not os.path.isdir(CORPUS_DIR):
+        return
+    for fn in sorted(os.listdir(CORPUS_DIR)):
+        full = os.path.join(CORPUS_DIR, fn)
+        if (not os.path.isfile(full) or fn.startswith('.') or fn.lower() == 'readme.md'
+                or os.path.splitext(fn)[1].lower() not in _CONVERTIBLE_EXTS):
+            continue
+        slug = re.sub(r'[^a-z0-9]+', '_', os.path.splitext(fn)[0].lower()).strip('_')[:48] or 'case'
+        case = os.path.join(CORPUS_DIR, slug)
+        os.makedirs(case, exist_ok=True)
+        shutil.move(full, os.path.join(case, fn))
+        print(f"  ingested loose file → corpus/{slug}/{fn}")
+
+
 def discover_cases(case_filter=None):
     if not os.path.isdir(CORPUS_DIR):
         return []
+    _ingest_loose_files()
     cases = []
     for name in sorted(os.listdir(CORPUS_DIR)):
         d = os.path.join(CORPUS_DIR, name)
@@ -106,9 +128,32 @@ def _alias_inputs(case_dir):
             shutil.copy2(full, os.path.join(case_dir, target))
 
 
+def _ensure_pdf_ocr(case_dir):
+    """A raw *.pdf needs OCR before the pipeline can replay it. Run Mistral OCR ONCE and cache
+    ocr_response.json in the case dir (exactly like the normal import) — reused on every later run.
+    Returns an error string or None."""
+    if os.path.isfile(os.path.join(case_dir, 'ocr_response.json')):
+        return None  # already imported — reuse the cache (no OCR cost)
+    pdf = next((os.path.join(case_dir, f) for f in sorted(os.listdir(case_dir))
+                if f.lower().endswith('.pdf')), None)
+    if not pdf:
+        return None
+    key = os.environ.get('MISTRAL_OCR_API_KEY') or vc._dotenv('MISTRAL_OCR_API_KEY')
+    if not key:
+        return "raw PDF needs OCR but MISTRAL_OCR_API_KEY is not set (add it to .env)"
+    print(f"  OCR'ing {os.path.basename(pdf)} via Mistral (one-time — caches ocr_response.json)…")
+    r = rr._run([sys.executable, rr.MISTRAL_OCR_SCRIPT, pdf, case_dir, '--api-key', key], timeout=1800)
+    if r.returncode != 0 or not os.path.isfile(os.path.join(case_dir, 'ocr_response.json')):
+        return f"OCR failed: {(r.stderr or '')[-300:]}"
+    return None
+
+
 def convert_case(case_dir, out_dir):
     """Run the real pipeline into out_dir. Returns (pipeline, error_message)."""
     _alias_inputs(case_dir)
+    ocr_err = _ensure_pdf_ocr(case_dir)
+    if ocr_err:
+        return None, ocr_err
     pipeline = rr._detect_pipeline(case_dir)
     if pipeline == 'none':
         return None, ("no convertible input — drop one of ocr_response.json / input.epub / "
@@ -123,18 +168,15 @@ def convert_case(case_dir, out_dir):
         return None, f"{pipeline} pipeline skipped (a tool like pandoc is unavailable)"
     if err:
         return None, f"conversion failed at {err.get('stage')}: {(err.get('stderr') or '')[:200]}"
-    # The vibe loop's reconvert replays the pathway from the SOURCE inside the book_dir (so a patch
-    # to a front-end like epub_normalizer is actually exercised). The pdf runner already drops
-    # ocr_response.json; for epub we must copy the source in (prod book_dirs already carry it).
-    if pipeline == 'epub':
-        src = next((os.path.join(case_dir, c) for c in ('epub_original', 'original.epub', 'input.epub')
-                    if os.path.exists(os.path.join(case_dir, c))), None)
-        if src:
-            dst = os.path.join(out_dir, os.path.basename(src))
-            if os.path.isdir(src):
-                shutil.copytree(src, dst, dirs_exist_ok=True)
-            else:
-                shutil.copy2(src, dst)
+    # The vibe loop's reconvert (vibe_convert._pipeline_into) replays the pathway from the SOURCE
+    # inside the book_dir (so a patch is actually exercised). The pdf runner already drops
+    # ocr_response.json; copy the other pathways' inputs in (prod book_dirs already carry them).
+    for name in ('epub_original', 'original.epub', 'input.epub', 'input.html', 'input.md', 'input.docx',
+                 'footnote_meta.json'):
+        s = os.path.join(case_dir, name)
+        d = os.path.join(out_dir, name)
+        if os.path.exists(s) and not os.path.exists(d):
+            (shutil.copytree if os.path.isdir(s) else shutil.copy2)(s, d)
     return pipeline, None
 
 
@@ -236,8 +278,13 @@ def run_case(case_dir, args):
         else:
             os.environ.pop('VIBE_LLM_CACHE_ONLY', None)
         try:
-            vc.run_loop(out_dir, max_attempts=args.max_attempts, model=args.model,
-                        user_note=note, file_issue=False)
+            if getattr(args, 'engine', 'deepseek') == 'aider':
+                import vibe_aider
+                vibe_aider.run_aider_loop(out_dir, max_attempts=args.max_attempts, model=args.model,
+                                          user_note=note, file_issue=False)
+            else:
+                vc.run_loop(out_dir, max_attempts=args.max_attempts, model=args.model,
+                            user_note=note, file_issue=False)
         except SystemExit as e:
             print(f"  ! vibe loop aborted: {e}")
         rp = os.path.join(out_dir, 'vibe_report.json')
@@ -311,6 +358,8 @@ def main():
     ap.add_argument('--model', default='accounts/fireworks/models/deepseek-v4-pro')
     ap.add_argument('--no-vibe', action='store_true', help="convert + scaffold only; don't run the loop (no tokens)")
     ap.add_argument('--no-llm', action='store_true', help="re-score from the response cache only (no API calls)")
+    ap.add_argument('--engine', choices=['deepseek', 'aider'], default='deepseek',
+                    help="edit-gen engine to A/B (default deepseek; aider needs VIBE_AIDER_BIN)")
     args = ap.parse_args()
 
     cases = discover_cases(args.case)

@@ -587,6 +587,7 @@ def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deeps
         raise SystemExit("No LLM_API_KEY (env or .env) and no --mock-diff given. "
                          "Add LLM_API_KEY to .env for a real call, or pass --mock-diff <file>.")
     import ssl
+    import urllib.error
     import urllib.request
     # macOS Python.framework doesn't trust the system keychain — use the certifi CA bundle.
     try:
@@ -609,8 +610,14 @@ def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deeps
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
                  # Cloudflare in front of Fireworks blocks the default Python-urllib UA (err 1010).
                  "User-Agent": "hyperlit-vibe/1.0"})
-    with urllib.request.urlopen(req, timeout=240, context=ctx) as resp:
-        raw = json.loads(resp.read())
+    try:
+        # 600s: a big prompt (full process_document.py + footnotes.py) + V4 Pro reasoning can run
+        # well past 4 min. A network/read timeout is TRANSIENT — raise ValueError so the loop retries
+        # this attempt instead of crashing the whole run (it isn't a SystemExit).
+        with urllib.request.urlopen(req, timeout=600, context=ctx) as resp:
+            raw = json.loads(resp.read())
+    except (TimeoutError, urllib.error.URLError, ConnectionError) as e:
+        raise ValueError(f"model call failed/timed out ({e}) — retrying")
     content = raw['choices'][0]['message']['content']
     # Record exact token spend BEFORE parsing — a truncated response still cost us those tokens.
     u = raw.get('usage') or {}
@@ -1322,18 +1329,38 @@ def file_github_issue(report):
         return None
 
 
+def _apply_diff(sandbox, diff_path):
+    """Apply an aider git diff in the sandbox (git apply, then a -p1 fallback). Returns (ok, msg)."""
+    r = subprocess.run(['git', '-C', sandbox, 'apply', '--whitespace=nowarn', diff_path],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return True, "ok"
+    r2 = subprocess.run(['patch', '-p1', '-d', sandbox, '-i', diff_path], capture_output=True, text=True)
+    return (r2.returncode == 0), (r.stderr or r2.stderr or 'git apply failed')[-300:]
+
+
 def apply_patch_to_book(book_dir, patch_path=None):
-    """'Use this conversion': apply the validated function replacements in a sandbox, re-convert
-    THIS book, and copy the fresh artifacts into book_dir — regenerating this one book's output.
-    Production code is never touched (the patch lives only in the sandbox)."""
-    patch_path = patch_path or os.path.join(book_dir, 'vibe_patch.json')
-    if not os.path.isfile(patch_path):
-        print(f"No vibe patch found at {patch_path}")
+    """'Use this conversion': apply the validated patch in a sandbox, re-convert THIS book, and copy
+    the fresh artifacts into book_dir — regenerating this one book's output. Production code is never
+    touched. Autodetects the patch format: a git DIFF (vibe_patch.diff, the aider engine) or
+    full-function JSON (vibe_patch.json, the deepseek engine)."""
+    if not patch_path:
+        for cand in ('vibe_patch.diff', 'vibe_patch.json'):
+            p = os.path.join(book_dir, cand)
+            if os.path.isfile(p):
+                patch_path = p
+                break
+    if not patch_path or not os.path.isfile(patch_path):
+        print(f"No vibe patch found in {book_dir}")
         return 1
-    funcs = json.load(open(patch_path, encoding='utf-8')).get('functions', [])
+    is_diff = patch_path.endswith('.diff')
     sandbox = make_sandbox()
     try:
-        ok, out = apply_function_replacements(sandbox, funcs)
+        if is_diff:
+            ok, out = _apply_diff(sandbox, os.path.abspath(patch_path))
+        else:
+            funcs = json.load(open(patch_path, encoding='utf-8')).get('functions', [])
+            ok, out = apply_function_replacements(sandbox, funcs)
         if not ok:
             print("Patch failed to apply:", out)
             return 1
@@ -1380,6 +1407,9 @@ def main():
                          "(uses GITHUB_TOKEN from .env; dry-runs if absent).")
     ap.add_argument('--apply', metavar='PATCH',
                     help="'Use this conversion': apply PATCH + regenerate this book's artifacts.")
+    ap.add_argument('--engine', choices=['deepseek', 'aider'], default='deepseek',
+                    help="Edit-gen engine: 'deepseek' (our full-function loop, default) or 'aider' "
+                         "(repo-map + search/replace + test-driven retry; needs VIBE_AIDER_BIN).")
     args = ap.parse_args()
 
     global _JSON_PROGRESS, _PROGRESS_FILE, _CANCEL_FILE, _DOCKER_IMAGE
@@ -1396,6 +1426,12 @@ def main():
         modules = modules_for(flagged_forks(art['assessment']), art) or modules_for(art['assessment'], art)
         print(build_prompt(art, modules, user_note=args.user_note))
         return
+
+    if args.engine == 'aider':
+        import vibe_aider  # lazy — only the aider path needs it
+        rc, _ = vibe_aider.run_aider_loop(args.book_dir, args.max_attempts, args.model,
+                                          user_note=args.user_note, file_issue=args.github)
+        sys.exit(rc)
 
     rc, _ = run_loop(args.book_dir, args.max_attempts, args.model,
                      mock_diff=args.mock_diff, user_note=args.user_note, file_issue=args.github)

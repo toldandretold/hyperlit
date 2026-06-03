@@ -264,6 +264,35 @@ the CLI**, reads each run and writes the post-mortem: `defect` · `ultimate_solu
 A solved case is **promoted to `fixtures-local/`** with a manifest (`expected.footnote_links`) — the
 win freezes into a permanent objective regression test.
 
+### Edit-gen engines: `deepseek` (default) vs `aider`
+
+The vibe loop has two interchangeable **edit-gen engines** (`--engine`, default `deepseek`); the rest
+of the scaffold (assessment routing, the gate, corpus runner, taxonomy, cost meter) is shared:
+
+- **`deepseek`** — our `propose_patch` (full-function JSON) + `apply_function_replacements` (op:
+  replace/add/register/edit). Tight JSON contract + path-allowlist + dangerous-scan *before* apply.
+- **`aider`** — [aider](https://aider.chat) (Apache-2.0) edits the sandbox via **repo-map +
+  search/replace + a test-driven retry loop**, where **our `_reconvert` + `evaluate` gate is its
+  `--test-cmd`** (`app/Python/vibe_aider_gate.py`). Better at coordinated multi-edit structural fixes
+  that the full-function format clobbers. `app/Python/vibe_aider.py`: make_sandbox + `git init` →
+  diagnostic message (reuses the flagged forks + `_markup_in_context`) → run aider headless (config
+  baked in: `--edit-format diff`, `--reasoning-effort low`, `app/Python/aider_model_metadata.json`)
+  → capture the `git diff` → **path-allowlist + dangerous-scan it** → evaluate. The patch is a
+  `vibe_patch.diff`; `apply_patch_to_book` autodetects diff vs JSON on accept.
+
+```bash
+python3 tests/conversion/vibe_eval.py --case <broken> --engine aider   # A/B vs --engine deepseek
+```
+
+**Security:** aider runs on the **host** (it needs network for the model) editing a throwaway sandbox
+(text edits only). The only place model code *executes* is the gate's reconvert, which stays in the
+locked container via `--docker $VIBE_SANDBOX_IMAGE` (the gate reads `VIBE_GATE_DOCKER`). The final diff
+is path-allowlisted + `_DANGEROUS`-scanned before accept.
+
+**Setup:** `aider-chat` in a venv; point `VIBE_AIDER_BIN` at its `aider`. On prod set
+`VIBE_ENGINE=aider` + `VIBE_AIDER_BIN` in `.env` (the queue worker runs aider on the host;
+`VIBE_SANDBOX_IMAGE` keeps the reconvert containerised).
+
 ---
 
 ## 8. Running it locally / on prod

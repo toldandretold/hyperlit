@@ -66,6 +66,17 @@ class VibeConversionJob implements ShouldQueue
             $cmd[] = '--user-note';
             $cmd[] = $this->note;
         }
+        // Edit-gen engine: 'deepseek' (our full-function loop, default) or 'aider' (repo-map +
+        // search/replace + test-driven retry). aider runs on the HOST and needs VIBE_AIDER_BIN
+        // (a venv's aider) — the gate's reconvert still runs in the container (below).
+        $procEnv = null;
+        if (env('VIBE_ENGINE', 'deepseek') === 'aider') {
+            $cmd[] = '--engine';
+            $cmd[] = 'aider';
+            if ($aiderBin = env('VIBE_AIDER_BIN')) {
+                $procEnv = ['VIBE_AIDER_BIN' => $aiderBin];
+            }
+        }
         // PROD: run the model-written re-conversion inside a locked-down container. Set
         // VIBE_SANDBOX_IMAGE in .env (after `docker build -t … docker/vibe-sandbox`) to enable it.
         if ($image = env('VIBE_SANDBOX_IMAGE')) {
@@ -73,7 +84,7 @@ class VibeConversionJob implements ShouldQueue
             $cmd[] = $image;
         }
 
-        $process = new Process($cmd, base_path(), null, null, 1700);
+        $process = new Process($cmd, base_path(), $procEnv, null, 1700);
         try {
             $process->run();
         } catch (\Throwable $e) {

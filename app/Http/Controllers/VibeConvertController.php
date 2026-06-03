@@ -129,7 +129,11 @@ class VibeConvertController extends Controller
         $validated = $request->validate(['bookId' => 'required|string|max:255']);
         $bookId = $validated['bookId'];
         $artifactDir = resource_path("markdown/{$bookId}");
-        $patch = "{$artifactDir}/vibe_patch.json";
+        // The aider engine writes a git diff (vibe_patch.diff); the deepseek engine writes
+        // full-function JSON (vibe_patch.json). apply_patch_to_book handles both by extension.
+        $patch = is_file("{$artifactDir}/vibe_patch.diff")
+            ? "{$artifactDir}/vibe_patch.diff"
+            : "{$artifactDir}/vibe_patch.json";
 
         if (!is_file($patch)) {
             return response()->json(['success' => false, 'message' => 'No vibe patch to apply.'], 404);
