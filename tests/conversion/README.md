@@ -195,7 +195,78 @@ noise with the `vibe-conversion` / `conversion-bug` labels.
 
 ---
 
-## 7. Running it locally / on prod
+## 7. Co-evolution harness — improving the code **and** the prompt
+
+The vibe loop fixing one doc is downstream of a bigger question: *when DeepSeek can't fix a
+document, why not — and what would make it able to?* The co-evolution harness runs a **corpus** of
+problem files, then **Claude (in-session)** diagnoses each failure and improves **both** the
+conversion code **and** the report+prompt we hand the model. Re-running the corpus *measures*
+whether DeepSeek's success rate rose.
+
+### The living fix-category registry — `fix_categories.json` (+ `conversion/fix_categories.py`)
+
+An append-only catalogue of the **shapes a fix can take** (tune-threshold, add-an-EPUB-detector,
+add-a-strategy-fork, add-a-pipeline-pass, fix-keygen, fix-segmentation, …). Each entry carries
+`scope` (model | harness | disposition), `expressible` (replace | additive), and a per-module
+`recipe`. It is consumed two ways:
+
+- **`build_prompt` renders the model-scope categories into DeepSeek's prompt** — a menu of
+  fix-shapes + the op vocabulary, ★-marking the shapes most likely for the modules being sent.
+- **Post-mortems tag each failure with a category id** — and when a failure's shape isn't on the
+  list yet, Claude **appends a new category** (`fix_categories.append_category(...)`). The list
+  grows through use; its convergence is a signal the corpus is well-covered.
+
+### Additive patch ops — DeepSeek can now ADD code, not just replace it
+
+The patch format gained an `op` per edit (`{file, name, code, op, category}`):
+
+- `op:"replace"` (default) — swap the full body of an **existing** function (as before).
+- `op:"add"` — introduce a **new** top-level function/class (e.g. a new `EpubTransform` detector).
+- `op:"register"` — append to an allow-listed module-level registry (`TRANSFORM_PIPELINE`,
+  `_ALL_STRATEGIES`). An added class is placed **before** the list that registers it.
+
+This makes the highest-value fix-shapes expressible — previously, even a correct "add a detector"
+fix could not be applied. Every op still passes the path-allowlist + dangerous-code scan + an
+`ast` re-parse gate, inside the same sandbox/Docker isolation as §6.
+
+### The corpus runner — `vibe_eval.py`
+
+```sh
+python3 tests/conversion/vibe_eval.py            # convert + vibe loop per corpus case (cached LLM)
+python3 tests/conversion/vibe_eval.py --no-vibe  # convert + scaffold only (no tokens) — first look
+python3 tests/conversion/vibe_eval.py --no-llm   # re-score from the prompt-hash cache (free)
+```
+
+For each `corpus/<case>/` (drop-zone; **git-ignored**, see `corpus/README.md`) it converts via the
+reused `run_regression` pathway runners, runs the loop (responses **cached by prompt-hash**, so a
+non-prompt re-run is free and a prompt change re-calls), and writes:
+
+- `corpus/<case>/converted/` — the fresh artifacts,
+- `corpus/<case>/postmortem.md` — an auto-scaffolded stub (symptom · flagged forks · what DeepSeek
+  tried, incl. the `op`/`category` it reached for and an `inexpressible` flag) with a `## Judgement`
+  section **Claude fills in-session** (preserved across re-runs),
+- `vibe_eval_report.{md,json}` — the **scoreboard** across all cases.
+
+### The operating model + attribution
+
+There is **no automated LLM-judge**. The harness does the mechanical work; **Claude, with you in
+the CLI**, reads each run and writes the post-mortem: `defect` · `ultimate_solution` ·
+**`attribution`** · `fix_category` · `action`. Attribution routes the work:
+
+| attribution | meaning | fix lands in |
+|-------------|---------|--------------|
+| **signal-gap** | the report never surfaced the real defect | conversion code / `assessment.py` |
+| **prompt-gap** | signal present, prompt lacked the vocab/recipe | `build_prompt` / `fix_categories.json` |
+| **inexpressible** | the format couldn't apply the fix | the patch ops (`vibe_convert.py`) |
+| **capability-gap** | everything adequate, model still failed | effort / decompose / accept |
+| **not-fixable** | needs human structural judgement | path-B (GitHub issue) |
+
+A solved case is **promoted to `fixtures-local/`** with a manifest (`expected.footnote_links`) — the
+win freezes into a permanent objective regression test.
+
+---
+
+## 8. Running it locally / on prod
 
 ```sh
 # unit + regression
@@ -210,7 +281,7 @@ python3 app/Python/vibe_convert.py resources/markdown/<bookId> --print-prompt   
 The user-facing button runs via the queue worker; make sure it's up (`php artisan queue:work`
 locally; Supervisor on prod). The toast JS needs `npm run build` after changes.
 
-## 8. Prod / security checklist
+## 9. Prod / security checklist
 
 - **`GITHUB_TOKEN`** in prod `.env` (a `hyperlit-bot` PAT) — else issue-filing dry-runs.
 - **`LLM_API_KEY`** / `LLM_BASE_URL` (already used by AiBrain) drive the DeepSeek call.

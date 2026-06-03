@@ -39,6 +39,12 @@ import tempfile
 PY_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(PY_DIR, '..', '..'))
 
+# Importable whether vibe_convert is run as a script (sys.path[0] == PY_DIR already) or imported
+# by the eval harness (tests/conversion/vibe_eval.py) from elsewhere.
+if PY_DIR not in sys.path:
+    sys.path.insert(0, PY_DIR)
+from conversion import fix_categories  # the living fix-category registry (prompt menu + op vocab)
+
 # The diff may only touch these (relative to repo root). Anything else is rejected outright —
 # the LLM cannot edit the harness, add new files, or reach deploy/secret config.
 # An 'improved' result is rejected if MORE than this fraction of the newly-linked items are
@@ -46,12 +52,60 @@ REPO_ROOT = os.path.abspath(os.path.join(PY_DIR, '..', '..'))
 # modus operandi says is worse than leaving them unlinked.
 MISALIGNED_REJECT_RATIO = 0.5
 
+# LLM spend tracking. Fireworks returns exact token usage per call; the $ comes from the SAME
+# pricing table the app uses (config/services.php → services.llm.pricing, read by
+# AiBrainController::calculateCost), so there's one source of truth. Env LLM_PRICE_PER_MTOK_IN/_OUT
+# override it. Cached calls cost nothing (counted separately). run_loop resets this per case; the
+# report snapshots it.
+_USAGE = {'prompt_tokens': 0, 'completion_tokens': 0, 'calls': 0, 'cached': 0, 'model': None}
+
+
+def reset_usage():
+    _USAGE.update(prompt_tokens=0, completion_tokens=0, calls=0, cached=0, model=None)
+
+
+def _model_price(model):
+    """($/1M input, $/1M output) for `model`. Env LLM_PRICE_PER_MTOK_IN/_OUT override; else parse
+    config/services.php (the app's source of truth); else (None, None)."""
+    import re
+    env_in = os.environ.get('LLM_PRICE_PER_MTOK_IN')
+    if env_in not in (None, ''):
+        try:
+            ein = float(env_in)
+            eout = os.environ.get('LLM_PRICE_PER_MTOK_OUT')
+            return ein, (float(eout) if eout not in (None, '') else ein)
+        except ValueError:
+            pass
+    path = os.path.join(REPO_ROOT, 'config', 'services.php')
+    if model and os.path.isfile(path):
+        m = re.search(r"'" + re.escape(model) + r"'\s*=>\s*\[\s*'input'\s*=>\s*([\d.]+)\s*,"
+                      r"\s*'output'\s*=>\s*([\d.]+)", open(path, encoding='utf-8').read())
+        if m:
+            return float(m.group(1)), float(m.group(2))
+    return None, None
+
+
+def usage_summary():
+    """{prompt_tokens, completion_tokens, total_tokens, calls, cached_calls, cost_usd, model} —
+    cost in USD from config/services.php pricing for the model used (None if the rate isn't known)."""
+    pt, ct = _USAGE['prompt_tokens'], _USAGE['completion_tokens']
+    pin, pout = _model_price(_USAGE.get('model'))
+    cost = round(pt / 1e6 * pin + ct / 1e6 * pout, 4) if pin is not None else None
+    return {'prompt_tokens': pt, 'completion_tokens': ct, 'total_tokens': pt + ct,
+            'calls': _USAGE['calls'], 'cached_calls': _USAGE['cached'], 'cost_usd': cost,
+            'model': _USAGE.get('model')}
+
+
 ALLOWED_PREFIXES = ('app/Python/conversion/',)
 ALLOWED_FILES = {
     'app/Python/process_document.py', 'app/Python/epub_normalizer.py',
     'app/Python/mistral_ocr.py', 'app/Python/simple_md_to_html.py',
     'app/Python/ar5iv_preprocessor.py',
 }
+
+# Module-level registries an op:register edit may append to (a tight allowlist — registering
+# elsewhere could run arbitrary module-load code). Extend deliberately as new forks appear.
+REGISTERABLE_LISTS = {'TRANSFORM_PIPELINE', '_ALL_STRATEGIES'}
 
 # What gets copied into the sandbox (structure-preserving, so the harness paths resolve).
 SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']
@@ -129,20 +183,43 @@ def load_artifacts(book_dir):
         'stats': _read_json('conversion_stats.json') or {},
         'source': source,
         'is_pdf': os.path.isfile(os.path.join(book_dir, 'ocr_response.json')),
+        # Detect EPUB from the source OR from epub_normalizer's footprint — the latter matters when
+        # book_dir is a freshly-CONVERTED dir (the eval harness) that doesn't carry the .epub source,
+        # else is_epub=False mis-routes the footnote fork away from epub_normalizer.py.
+        'is_epub': (os.path.isfile(os.path.join(book_dir, 'original.epub'))
+                    or os.path.isdir(os.path.join(book_dir, 'epub_original'))
+                    or os.path.isfile(os.path.join(book_dir, 'epub_normalizer_debug.txt'))),
         'markdown': (open(os.path.join(book_dir, 'main-text.md'), encoding='utf-8').read()
                      if os.path.isfile(os.path.join(book_dir, 'main-text.md')) else None),
     }
 
 
 def _is_problem(r):
-    """A fork worth sending the LLM: low confidence, a fall-through, OR a decision that
-    indicates the pipeline declined to do something (skipped/suppressed/nothing detected/
-    faulty) — those are exactly where a code limitation hides."""
+    """A fork worth sending the LLM: low confidence, a fall-through, an audit verdict that
+    found real linking faults, or a step the pipeline declined while UNSURE. A high-confidence
+    deliberate skip is NOT a problem — e.g. 'citation scan skipped — no bibliography entries'
+    at confidence 1.0 is a correct non-action; flagging it sends the model chasing a non-bug."""
     conf = r.get('confidence')
     if (conf is not None and conf < 0.5) or 'FALL-THROUGH' in (r.get('margin') or ''):
         return True
     dec = (r.get('decision') or '').lower()
-    return any(w in dec for w in ('skipped', 'suppress', 'no footnotes detected', 'faulty'))
+    if 'faulty' in dec:
+        return True
+    # The footnote audit can read 'clean' yet still have many orphaned definitions —
+    # audit.py's verdict only tests unmatched *refs*, not unmatched *defs* (see the
+    # aarushi2025attention case: 239 refs / 477 defs / 238 orphans, stamped 'clean').
+    # Catch it on the evidence: any broken ref/gap, or a large unmatched-def share.
+    if r.get('module') == 'footnote_audit':
+        ev = r.get('evidence') or {}
+        if ev.get('gaps') or ev.get('unmatched_refs'):
+            return True
+        udef, defs = ev.get('unmatched_defs', 0), ev.get('total_defs', 0)
+        return bool(defs) and udef / defs >= 0.15
+    # A declined step is a lead ONLY when the pipeline wasn't sure. A confident, deliberate
+    # skip (conf >= 0.8) is a correct non-action, not a code limitation.
+    if conf is not None and conf >= 0.8:
+        return False
+    return any(w in dec for w in ('skipped', 'suppress', 'no footnotes detected'))
 
 
 def flagged_forks(records):
@@ -186,13 +263,29 @@ def _code_ref_to_path(code_ref):
     return f'app/Python/conversion/{fname}'
 
 
-def modules_for(records):
-    """Module files named by the flagged forks' code_refs (the code to send the LLM)."""
+def _footnote_fix_modules(art):
+    """A failing footnote_audit names audit.py — but audit.py only MEASURES the orphans;
+    they're created upstream in the detector/linker. Send the code that can actually fix it,
+    chosen by pathway (epub vs the shared markdown/docx/html/pdf path)."""
+    front = 'app/Python/epub_normalizer.py' if (art and art.get('is_epub')) else 'app/Python/process_document.py'
+    return [front, 'app/Python/conversion/footnotes.py']
+
+
+def modules_for(records, art=None):
+    """Module files named by the flagged forks' code_refs (the code to send the LLM).
+    A flagged footnote_audit is redirected to the detector/linker (see _footnote_fix_modules)."""
     paths = []
-    for r in records:
-        p = _code_ref_to_path(r.get('code_ref', ''))
+
+    def _add(p):
         if p and p not in paths and os.path.isfile(os.path.join(REPO_ROOT, p)):
             paths.append(p)
+
+    for r in records:
+        if r.get('module') == 'footnote_audit':
+            for p in _footnote_fix_modules(art):
+                _add(p)
+            continue
+        _add(_code_ref_to_path(r.get('code_ref', '')))
     return paths
 
 
@@ -237,6 +330,12 @@ def build_prompt(art, module_paths, user_note=None):
     if samples:
         parts.append("\n## Actual footnote ref/definition lines from THIS document (what must link)")
         parts.append(samples)
+        parts.append(
+            "Linking principle: if a marker carries an EXPLICIT target — href=\"#id\", or a definition "
+            "that back-links to the marker's id — pair them by that id correspondence, NOT by number. "
+            "Number-based pairing mis-aligns whenever numbering restarts or is offset across segments "
+            "(the orphaned defs here are numbered on a different base than the detected markers). A "
+            "mis-aligned link is worse than no link.")
     if art['source']:
         parts.append("\n## Source (truncated)")
         parts.append(art['source'][:5000])
@@ -244,41 +343,83 @@ def build_prompt(art, module_paths, user_note=None):
     for p in module_paths:
         parts.append(f"\n--- {p} ---")
         parts.append(open(os.path.join(REPO_ROOT, p), encoding='utf-8').read())
+    parts.append("\n" + fix_categories.render_prompt_block(module_paths))
     parts.append(
         "\n## Your task\n"
-        "Return STRICT JSON: {\"rationale\": str, \"functions\": [{\"file\": str, \"name\": str, "
-        "\"code\": str}, ...]}. Instead of a diff, return the COMPLETE replacement source for each "
-        "function you change — `name` is the function name, `file` is its path (only "
-        "app/Python/conversion/*.py or a shown front-end module), `code` is the full `def …` body. "
-        "You may replace MULTIPLE functions if the fix spans stages (e.g. classify + assembly). Keep "
-        "edits minimal and self-contained; don't rename functions or change their signatures. Uphold "
-        "the modus operandi: correct where determinable, NO link where ambiguous — never a confident "
-        "wrong link.")
+        "Return STRICT JSON: {\"rationale\": str, \"functions\": [<edit>, ...]} where each <edit> is "
+        "ONE change carrying an \"op\" (and an optional \"category\" = the fix-category id you used):\n"
+        "  • op=\"edit\" — PREFER THIS for modifying existing code. {file, search, replace, name?}: "
+        "replaces the first occurrence of `search` with `replace`. Copy `search` VERBATIM from the "
+        "source shown above — a few UNIQUE lines with their exact indentation. Optional `name` "
+        "(\"func\" or \"Class.method\") scopes the search to one function so an identical line "
+        "elsewhere isn't matched. Change ONLY the lines that differ — do NOT resend the whole function.\n"
+        "  • op=\"replace\" — {file, name, code}: full-body swap of an EXISTING function. Use ONLY for a "
+        "SMALL function; for a big method use op:edit (resending 100 lines to change 3 keeps breaking it).\n"
+        "  • op=\"add\" — {file, name, code}: a NEW top-level function or class (e.g. a new EpubTransform).\n"
+        "  • op=\"register\" — {file, name, code}: append to a module-level list/tuple — `name` is the "
+        f"LIST name (only {sorted(REGISTERABLE_LISTS)}), `code` is the expression to append (e.g. \"MyDetector()\").\n"
+        "`file` may only be app/Python/conversion/*.py or a shown front-end module. Combine edits if the "
+        "fix spans stages (op:add a detector + op:register it). Keep edits minimal. Uphold the modus "
+        "operandi: correct where determinable, NO link where ambiguous — never a confident wrong link.")
     return "\n".join(parts)
 
 
 def _footnote_samples(art, n=14):
-    """Pull the document's actual footnote ref + definition-looking lines so the model can see
-    the shapes it must wire up (not just the aggregate signals)."""
-    text = art.get('markdown') or art.get('source')
-    if not text:
-        return ''
+    """Pull the document's ACTUAL footnote markers + definitions so the model sees the shapes it
+    must wire up — not just aggregate counts. Markdown-aware (the [^N] / N. forms of the PDF path)
+    AND HTML-aware (the <sup class="footnote-ref"> markers EPUB/HTML/docx produce + real definition
+    text from footnotes.json). Without the HTML half, an EPUB case showed the model NO real markers,
+    so it invented a scheme (the aarushi 'epub:type=noteref' hallucination — which doesn't exist)."""
     import re
     refs, defs = [], []
+    text = art.get('markdown') or art.get('source') or ''
+
+    # Markdown markers + definition-looking lines ("[^N]", "[N] …", "N. Text").
     for ln in text.split('\n'):
         s = ln.strip()
         if not s:
             continue
         if len(refs) < n and re.search(r'\[\^\d+\]', s):
             refs.append(s[:160])
-        # definition-looking lines: "[^N]: …", "[N] …", "N. Text", "N Text"
         if len(defs) < n and re.match(r'^(\[\^?\d+\]\s*[:.]?|\d{1,3}[.\s])\s*\S', s):
             defs.append(s[:160])
+
+    # HTML in-text markers: <sup ...footnote-ref...>N</sup> with a little leading context.
+    if len(refs) < n and '<sup' in text:
+        for m in re.finditer(r'(.{0,60})(<sup\b[^>]*footnote-ref[^>]*>.*?</sup>)', text, re.S):
+            ctx = re.sub(r'\s+', ' ', m.group(1))[-50:]
+            refs.append((ctx + m.group(2))[:200])
+            if len(refs) >= n:
+                break
+
+    # HTML definitions live separately (footnotes.json/jsonl), not inline — pull a few real ones.
+    if len(defs) < n and art.get('book_dir'):
+        for cand in ('footnotes.jsonl', 'footnotes.json'):
+            p = os.path.join(art['book_dir'], cand)
+            if not os.path.isfile(p):
+                continue
+            try:
+                raw = open(p, encoding='utf-8').read()
+                items = ([json.loads(l) for l in raw.splitlines() if l.strip()]
+                         if cand.endswith('.jsonl') else json.load(open(p, encoding='utf-8')))
+                for it in (items if isinstance(items, list) else []):
+                    c = re.sub(r'<[^>]+>', '', str(it.get('content') or it.get('text') or ''))
+                    c = re.sub(r'\s+', ' ', c).strip()
+                    if c:
+                        defs.append(c[:160])
+                    if len(defs) >= n:
+                        break
+            except Exception:
+                pass
+            break
+
     out = []
     if refs:
-        out.append("In-text refs:\n" + "\n".join(f"  {r}" for r in refs))
+        out.append("In-text markers (what must link — note the actual element/scheme):\n"
+                   + "\n".join(f"  {r}" for r in refs))
     if defs:
-        out.append("Definition-looking lines:\n" + "\n".join(f"  {d}" for d in defs))
+        out.append("Footnote definitions (a sample of what they link TO):\n"
+                   + "\n".join(f"  {d}" for d in defs))
     return "\n".join(out)
 
 
@@ -319,6 +460,21 @@ def _parse_llm_json(content):
 def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deepseek-v4-pro'):
     if mock_diff:
         return json.load(open(mock_diff, encoding='utf-8'))  # {rationale, functions:[{file,name,code}]}
+    # Optional response cache (the co-evolution harness sets VIBE_LLM_CACHE): keyed on
+    # model+prompt, so re-running the corpus after a NON-prompt change is free, while a prompt or
+    # registry change busts the key and re-calls — exactly what we want to measure. Cache-only mode
+    # (VIBE_LLM_CACHE_ONLY) raises on a miss so re-scoring never silently spends tokens.
+    import hashlib
+    cache_dir = os.environ.get('VIBE_LLM_CACHE')
+    cpath = None
+    if cache_dir:
+        ckey = hashlib.sha256((model + '\n' + prompt).encode('utf-8')).hexdigest()[:20]
+        cpath = os.path.join(cache_dir, ckey + '.json')
+        if os.path.isfile(cpath):
+            _USAGE['cached'] += 1
+            return json.load(open(cpath, encoding='utf-8'))
+        if os.environ.get('VIBE_LLM_CACHE_ONLY'):
+            raise ValueError("no cached LLM response for this prompt (cache-only mode)")
     key = _dotenv('LLM_API_KEY')
     base = (_dotenv('LLM_BASE_URL') or 'https://api.fireworks.ai/inference/v1').rstrip('/')
     if not key:
@@ -348,8 +504,20 @@ def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deeps
                  # Cloudflare in front of Fireworks blocks the default Python-urllib UA (err 1010).
                  "User-Agent": "hyperlit-vibe/1.0"})
     with urllib.request.urlopen(req, timeout=240, context=ctx) as resp:
-        content = json.loads(resp.read())['choices'][0]['message']['content']
-    return _parse_llm_json(content)
+        raw = json.loads(resp.read())
+    content = raw['choices'][0]['message']['content']
+    # Record exact token spend BEFORE parsing — a truncated response still cost us those tokens.
+    u = raw.get('usage') or {}
+    _USAGE['prompt_tokens'] += u.get('prompt_tokens', 0)
+    _USAGE['completion_tokens'] += u.get('completion_tokens', 0)
+    _USAGE['calls'] += 1
+    _USAGE['model'] = model
+    parsed = _parse_llm_json(content)  # raises ValueError on truncation → caller retries (uncached)
+    if cpath:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cpath, 'w', encoding='utf-8') as f:
+            json.dump(parsed, f, ensure_ascii=False)
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -374,38 +542,67 @@ _DANGEROUS = [
 
 
 def validate_replacements(functions):
-    """Path-allowlist + dangerous-construct scan on the proposed replacements.
-    Returns (ok, reason, files)."""
+    """Path-allowlist + dangerous-construct scan on the proposed edits, across all ops
+    (edit / replace / add / register). Returns (ok, reason, files)."""
     if not isinstance(functions, list) or not functions:
-        return False, "no function replacements returned", []
+        return False, "no edits returned", []
     files = []
     for fn in functions:
+        op = fn.get('op') or 'replace'
+        if op not in ('edit', 'replace', 'add', 'register'):
+            return False, f"unknown op {op!r} (use edit/replace/add/register)", []
         path = (fn.get('file') or '').replace('\\', '/').lstrip('./')
-        if not path or not fn.get('name') or not fn.get('code'):
-            return False, "a replacement is missing file/name/code", []
+        if not path:
+            return False, "an edit is missing 'file'", []
         allowed = path in ALLOWED_FILES or any(path.startswith(p) for p in ALLOWED_PREFIXES)
         if not allowed:
-            return False, f"replacement touches a disallowed path: {path}", []
+            return False, f"edit touches a disallowed path: {path}", []
+        if op == 'edit':
+            # surgical search/replace — needs a non-empty search; replace may be '' (a deletion)
+            if not fn.get('search') or fn.get('replace') is None:
+                return False, "an op:edit needs a non-empty 'search' and a 'replace'", []
+            scan = fn.get('replace') or ''
+        else:
+            if not fn.get('name') or not fn.get('code'):
+                return False, "an op:replace/add/register needs 'name' and 'code'", []
+            if op == 'register' and fn['name'] not in REGISTERABLE_LISTS:
+                return False, (f"op=register may only append to {sorted(REGISTERABLE_LISTS)}, "
+                               f"not {fn['name']!r}"), []
+            scan = fn['code']
         for rx, label in _DANGEROUS:
-            if rx.search(fn['code']):
+            if rx.search(scan):
                 return False, (f"proposed code uses '{label}', which conversion logic must never "
                                f"do — refused for safety"), []
         files.append(path)
     return True, "ok", sorted(set(files))
 
 
+def _offset(src, lineno, col):
+    """Absolute char index in src for a 1-based lineno + 0-based col (ast coordinates)."""
+    lines = src.split('\n')
+    return sum(len(l) + 1 for l in lines[:lineno - 1]) + col
+
+
 def _replace_function(src, name, new_code):
-    """Splice `new_code` in for the def/async-def named `name` (module-level OR method) using
-    ast to find its exact span — robust where unified-diff context matching is brittle. Returns
-    the new source, or None if the function isn't found."""
+    """Splice `new_code` in for the def/async-def named `name` using ast to find its exact span
+    — robust where unified-diff context matching is brittle. `name` may be a bare function name
+    OR a qualified `ClassName.method` (the natural way to name a method — and necessary to
+    disambiguate when many classes share a method name, e.g. the EPUB detectors' `transform`).
+    Returns the new source, or None if the target isn't found."""
     import ast
     import textwrap
     try:
         tree = ast.parse(src)
     except SyntaxError:
         return None
-    target = next((nd for nd in ast.walk(tree)
-                   if isinstance(nd, (ast.FunctionDef, ast.AsyncFunctionDef)) and nd.name == name), None)
+    _FDEF = (ast.FunctionDef, ast.AsyncFunctionDef)
+    if '.' in name:
+        cls_name, meth = name.rsplit('.', 1)
+        cls = next((n for n in ast.walk(tree)
+                    if isinstance(n, ast.ClassDef) and n.name == cls_name), None)
+        target = next((n for n in cls.body if isinstance(n, _FDEF) and n.name == meth), None) if cls else None
+    else:
+        target = next((nd for nd in ast.walk(tree) if isinstance(nd, _FDEF) and nd.name == name), None)
     if target is None:
         return None
     lines = src.split('\n')
@@ -419,24 +616,214 @@ def _replace_function(src, name, new_code):
     return '\n'.join(lines[:start] + reindented + lines[end:])
 
 
+def _add_definition(src, name, new_code, before_name=None):
+    """Insert a NEW top-level function/class `name` (op:add). `new_code` must parse and define
+    `name` at top level; refuses to clobber an existing top-level `name` (use replace for that).
+    Inserts before the module-level `before_name` (def/class/assignment) when given — so a new
+    detector lands BEFORE the TRANSFORM_PIPELINE list that registers it — else at end of file.
+    Returns the new source, or None if it can't be added safely."""
+    import ast
+    import textwrap
+    block = textwrap.dedent(new_code).strip('\n')
+    try:
+        newmod = ast.parse(block)
+    except SyntaxError:
+        return None
+    defined = {n.name for n in newmod.body
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+    if name not in defined:
+        return None  # `code` must actually define `name`
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+    existing = {n.name for n in tree.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+    if name in existing:
+        return None  # don't silently shadow — the model should have used op:replace
+    lines = src.split('\n')
+    if before_name:
+        for n in tree.body:
+            names = ([t.id for t in n.targets if isinstance(t, ast.Name)]
+                     if isinstance(n, ast.Assign)
+                     else [n.name] if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                     else [])
+            if before_name in names:
+                at = (min(d.lineno for d in n.decorator_list)
+                      if getattr(n, 'decorator_list', None) else n.lineno) - 1
+                return '\n'.join(lines[:at] + [block, '', ''] + lines[at:])
+    return src.rstrip('\n') + '\n\n\n' + block + '\n'
+
+
+def _register_in_list(src, list_name, item_expr):
+    """Append `item_expr` to the module-level list/tuple assigned to `list_name` (op:register).
+    Rebuilds the literal from ast source-segments so it always re-parses; preserves multi-line
+    layout. Returns the new source, or None if no such module-level list/tuple exists."""
+    import ast
+    import re as _re
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+    node = None
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == list_name
+                                             for t in n.targets) and isinstance(n.value, (ast.List, ast.Tuple)):
+            node = n.value
+            break
+    if node is None:
+        return None
+    segs = [ast.get_source_segment(src, e) for e in node.elts]
+    if any(s is None for s in segs):
+        return None
+    segs.append(item_expr.strip())
+    ob, cb = ('[', ']') if isinstance(node, ast.List) else ('(', ')')
+    start = _offset(src, node.lineno, node.col_offset)
+    end = _offset(src, node.end_lineno, node.end_col_offset)
+    orig = src[start:end]
+    if '\n' in orig:
+        first_el_line = src.split('\n')[node.elts[0].lineno - 1] if node.elts else ''
+        indent = _re.match(r'\s*', first_el_line).group(0) or '    '
+        close_indent = _re.match(r'\s*', src.split('\n')[node.end_lineno - 1]).group(0)
+        body = (',\n' + indent).join(segs)
+        new = f"{ob}\n{indent}{body},\n{close_indent}{cb}"
+    else:
+        tail = ',' if (isinstance(node, ast.Tuple) and len(segs) == 1) else ''
+        new = ob + ', '.join(segs) + tail + cb
+    return src[:start] + new + src[end:]
+
+
+def _scope_span(src, name):
+    """Char span (start, end) of function/method `name` (bare or Class.method) in src, or None.
+    Lets op:edit scope its search to one function (disambiguating identical snippets across methods)."""
+    import ast
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+    _F = (ast.FunctionDef, ast.AsyncFunctionDef)
+    if '.' in name:
+        cn, mn = name.rsplit('.', 1)
+        cls = next((n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == cn), None)
+        node = next((n for n in cls.body if isinstance(n, _F) and n.name == mn), None) if cls else None
+    else:
+        # A bare name may be a function OR a class — scoping to a class lets op:edit change
+        # class-level code (e.g. a detector's ID_PATTERNS list) without dumping the whole class.
+        node = next((n for n in ast.walk(tree)
+                     if isinstance(n, _F + (ast.ClassDef,)) and n.name == name), None)
+    if node is None:
+        return None
+    start_line = min([d.lineno for d in node.decorator_list], default=node.lineno)
+    lines = src.split('\n')
+    return _offset(src, start_line, 0), _offset(src, node.end_lineno, len(lines[node.end_lineno - 1]))
+
+
+def _flex_find(hay, needle):
+    """Locate `needle` in `hay`: exact substring first (must be UNIQUE), else a whitespace-flexible
+    match (compares the sequence of stripped non-blank lines, tolerating indentation drift). Returns
+    (start, end) char offsets, the string 'ambiguous' (>1 exact hit), or None (no match)."""
+    c = hay.count(needle)
+    if c == 1:
+        i = hay.index(needle)
+        return (i, i + len(needle))
+    if c > 1:
+        return 'ambiguous'
+    nlines = needle.split('\n')
+    while nlines and not nlines[0].strip():
+        nlines.pop(0)
+    while nlines and not nlines[-1].strip():
+        nlines.pop()
+    if not nlines:
+        return None
+    target = [l.strip() for l in nlines]
+    hlines = hay.split('\n')
+    for i in range(len(hlines) - len(target) + 1):
+        if [hlines[i + j].strip() for j in range(len(target))] == target:
+            start = sum(len(l) + 1 for l in hlines[:i])
+            end = sum(len(l) + 1 for l in hlines[:i + len(target)]) - 1
+            return (start, end)
+    return None
+
+
+def _apply_edit(src, search, replace, scope_name=None):
+    """Surgical search/replace (op:edit) — the scalpel that lets the model change a few lines of a
+    big method instead of resending the whole body (which kept clobbering working logic). Optionally
+    scoped to function `scope_name`. Returns (new_src, None) or (None, reason)."""
+    rs, re_ = 0, len(src)
+    if scope_name:
+        span = _scope_span(src, scope_name)
+        if span is None:
+            return None, f"scope function '{scope_name}' not found"
+        rs, re_ = span
+    region = src[rs:re_]
+    found = _flex_find(region, search)
+    if found is None:
+        return None, ("search text not found — copy it VERBATIM from the source shown above "
+                      "(including indentation), or set name to scope it")
+    if found == 'ambiguous':
+        return None, "search text appears more than once — include more surrounding lines, or set name to scope it"
+    s, e = found
+    matched = region[s:e]
+    if matched != search:
+        # Flexible (indentation-drifted) match: realign `replace` to the matched region's indent so
+        # it doesn't land at the wrong column (the exact-match path needs no shift).
+        def _indent(t):
+            for ln in t.split('\n'):
+                if ln.strip():
+                    return len(ln) - len(ln.lstrip())
+            return 0
+        delta = _indent(matched) - _indent(search)
+        if delta > 0:
+            replace = '\n'.join((' ' * delta + ln) if ln.strip() else ln for ln in replace.split('\n'))
+        elif delta < 0:
+            replace = '\n'.join(ln[-delta:] if ln[:-delta].strip() == '' else ln.lstrip()
+                                for ln in replace.split('\n'))
+    return src[:rs] + region[:s] + replace + region[e:] + src[re_:], None
+
+
 def apply_function_replacements(sandbox, functions):
-    """Apply each {file, name, code} replacement in the sandbox. Returns (ok, message)."""
+    """Apply each edit ({file, op, ...}) in the sandbox, grouped per file and ordered
+    replace → edit → add → register (so a surgical edit hits the original body, and an added
+    detector exists before it's registered). Every file ends with an ast re-parse gate.
+    Returns (ok, message)."""
+    import ast
+    by_file = {}
     for fn in functions:
-        path = fn['file'].replace('\\', '/').lstrip('./')
+        by_file.setdefault(fn['file'].replace('\\', '/').lstrip('./'), []).append(fn)
+    for path, fns in by_file.items():
         full = os.path.join(sandbox, path)
         if not os.path.isfile(full):
             return False, f"target file not in sandbox: {path}"
         src = open(full, encoding='utf-8').read()
-        new_src = _replace_function(src, fn['name'], fn['code'])
-        if new_src is None:
-            return False, f"function '{fn['name']}' not found in {path} (or its code didn't parse)"
-        # Reject if the spliced module no longer parses (a malformed replacement).
-        import ast
+        # An added def is placed just before the list that registers it (when both are present).
+        anchor = next((f['name'] for f in fns if (f.get('op') == 'register')), None)
+        for fn in [f for f in fns if (f.get('op') or 'replace') == 'replace']:
+            new = _replace_function(src, fn['name'], fn['code'])
+            if new is None:
+                return False, (f"function '{fn['name']}' not found in {path} (or its code didn't "
+                               f"parse) — if it's NEW, use op:add")
+            src = new
+        for fn in [f for f in fns if f.get('op') == 'edit']:
+            new, reason = _apply_edit(src, fn['search'], fn.get('replace') or '', scope_name=fn.get('name'))
+            if new is None:
+                return False, f"op:edit on {path}: {reason}"
+            src = new
+        for fn in [f for f in fns if f.get('op') == 'add']:
+            new = _add_definition(src, fn['name'], fn['code'], before_name=anchor)
+            if new is None:
+                return False, (f"could not add '{fn['name']}' to {path} (didn't parse, name "
+                               f"mismatch, or already exists — use op:replace to change it)")
+            src = new
+        for fn in [f for f in fns if f.get('op') == 'register']:
+            new = _register_in_list(src, fn['name'], fn['code'])
+            if new is None:
+                return False, f"could not register into '{fn['name']}' in {path} (no such module-level list/tuple)"
+            src = new
         try:
-            ast.parse(new_src)
+            ast.parse(src)
         except SyntaxError as e:
-            return False, f"replacing '{fn['name']}' broke {path}: {e}"
-        open(full, 'w', encoding='utf-8').write(new_src)
+            return False, f"edits broke {path}: {e}"
+        open(full, 'w', encoding='utf-8').write(src)
     return True, "ok"
 
 
@@ -450,7 +837,7 @@ def make_sandbox():
         dst = os.path.join(tmp, rel)
         if os.path.isdir(src):
             shutil.copytree(src, dst, ignore=shutil.ignore_patterns(
-                '__pycache__', '*.pyc', 'fixtures-local'))
+                '__pycache__', '*.pyc', 'fixtures-local', 'corpus'))
         elif os.path.isfile(src):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copy2(src, dst)
@@ -459,11 +846,14 @@ def make_sandbox():
 
 def _pipeline_into(py_dir, book_dir, out):
     """Run the PATHWAY-AWARE conversion chain (patched code in py_dir) into `out`, so a patch
-    to any post-cache stage is actually exercised:
+    to ANY post-cache stage is actually exercised:
       • PDF (ocr_response.json present): replay cached OCR — mistral_ocr.py(/dev/null,cache)
         -> simple_md_to_html -> process_document. (OCR itself is replayed from cache; fixes to
         fetch_ocr can't be validated this way — the prompt tells the model not to attempt them.)
-      • else: process_document on the intermediate HTML.
+      • EPUB (epub_original/ or *.epub present): epub_normalizer -> process_document, so a patch to
+        epub_normalizer.py is REALLY exercised. (Without this the reconvert re-ran process_document on
+        the already-linked main-text.html → 0 footnotes → every epub fix wrongly rejected.)
+      • else (md/html/docx): process_document on the intermediate HTML.
     Returns the final subprocess result (or None if there was nothing to convert)."""
     def _run(*cmd):
         if _DOCKER_IMAGE:
@@ -483,6 +873,14 @@ def _pipeline_into(py_dir, book_dir, out):
             r = _run(os.path.join(py_dir, 'simple_md_to_html.py'), md, html)
             if r.returncode == 0 and os.path.isfile(html):
                 r = _run(os.path.join(py_dir, 'process_document.py'), html, out, 'vibebook')
+        return r
+    epub = next((os.path.join(book_dir, c) for c in ('epub_original', 'original.epub', 'input.epub')
+                 if os.path.exists(os.path.join(book_dir, c))), None)
+    if epub:
+        r = _run(os.path.join(py_dir, 'epub_normalizer.py'), epub, out, 'vibebook')
+        mh = os.path.join(out, 'main-text.html')
+        if r.returncode == 0 and os.path.isfile(mh):
+            r = _run(os.path.join(py_dir, 'process_document.py'), mh, out, 'vibebook')
         return r
     src = next((os.path.join(book_dir, c) for c in ('intermediate.html', 'main-text.html', 'input.html')
                 if os.path.isfile(os.path.join(book_dir, c))), None)
@@ -574,9 +972,10 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
     it in a throwaway sandbox, re-converts THIS document, and evaluates. On failure it feeds
     the new result back to the LLM and tries again — up to max_attempts. The winning diff is
     written to <book_dir>/vibe_patch.diff so an 'accept' step can apply it. Returns (rc, diff)."""
+    reset_usage()  # per-case token/cost accounting → snapshotted into the report by _finalize
     art = load_artifacts(book_dir)
     flagged = flagged_forks(art['assessment'])
-    modules = modules_for(flagged) or modules_for(art['assessment'])
+    modules = modules_for(flagged, art) or modules_for(art['assessment'], art)
     base_flagged, base_faults = _problem_set(art['assessment'], art['audit'])
     # Describe the ACTUAL uncertain decision (not a misleading "fell outside N of M pathways" —
     # the converter handles many end-results; usually only one decision was uncertain here).
@@ -618,6 +1017,9 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
             return 1, None
         funcs = patch.get('functions', [])
         _touch = [f"{f.get('file','?').split('/')[-1]}:{f.get('name','?')}" for f in funcs]
+        # Co-evolution signal for the post-mortem: which fix-categories + ops the model reached for.
+        _meta = {'categories': sorted({(f.get('category') or '?') for f in funcs}),
+                 'ops': sorted({(f.get('op') or 'replace') for f in funcs})}
         emit('proposed',
              f"DeepSeek V4 is proposing an update to the conversion pipeline "
              f"({', '.join(_touch) or 'no change'}): {patch.get('rationale', '')[:160]}",
@@ -626,7 +1028,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
         ok, reason, _ = validate_replacements(funcs)
         if not ok:
             journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
-                            'touches': _touch, 'tier': 'rejected', 'why': reason, 'stats': None})
+                            'touches': _touch, 'tier': 'rejected', 'why': reason, 'stats': None, **_meta})
             emit('rejected', f"Proposed change was out of bounds ({reason}); retrying…",
                  attempt=attempt)
             feedback = (f"\n\n## Attempt {attempt} feedback\nYour reply was rejected: {reason}. "
@@ -640,8 +1042,13 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
         try:
             applied, out = apply_function_replacements(sandbox, funcs)
             if not applied:
+                # Structural apply-fails (a needed shape the format couldn't represent) are the
+                # 'inexpressible' signal the post-mortem uses to route work to the patch-format.
+                inexpressible = ('use op:add' in out or 'no such module-level' in out
+                                 or 'already exists' in out)
                 journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
-                                'touches': _touch, 'tier': 'apply_failed', 'why': out[:200], 'stats': None})
+                                'touches': _touch, 'tier': 'apply_failed', 'why': out[:200],
+                                'stats': None, 'inexpressible': inexpressible, **_meta})
                 emit('apply_failed', f"The fix couldn't be applied ({out}); retrying…", attempt=attempt)
                 feedback = (f"\n\n## Attempt {attempt} feedback\nCouldn't apply your replacement: "
                             f"{out}. Return the COMPLETE current function body (exact name, valid "
@@ -656,7 +1063,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
             tier, why = evaluate(art, after)
             st = after['stats']
             journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
-                            'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st)})
+                            'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st), **_meta})
             if tier == 'clean':
                 _persist_patch(book_dir, patch, funcs)
                 _finalize(book_dir, art, journal, 'clean', best=None, file_issue=False)
@@ -726,6 +1133,7 @@ def _finalize(book_dir, art, journal, outcome, best=None, file_issue=False):
         'best': best['after'] if best else None,
         'flagged': sorted({r.get('module') for r in flagged_forks(art['assessment'])}),
         'attempts': journal,
+        'usage': usage_summary(),  # exact tokens + $ (when LLM_PRICE_PER_MTOK_IN/_OUT set) for this case
         'issue_url': None,
     }
     if file_issue and outcome == 'exhausted':
@@ -879,7 +1287,7 @@ def main():
 
     if args.print_prompt:
         art = load_artifacts(args.book_dir)
-        modules = modules_for(flagged_forks(art['assessment'])) or modules_for(art['assessment'])
+        modules = modules_for(flagged_forks(art['assessment']), art) or modules_for(art['assessment'], art)
         print(build_prompt(art, modules, user_note=args.user_note))
         return
 
