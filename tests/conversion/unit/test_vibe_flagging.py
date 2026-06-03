@@ -63,6 +63,28 @@ def test_audit_with_a_gap_is_a_problem():
                                        'gaps': 2, 'total_defs': 50}}) is True
 
 
+def test_footnote_linking_orphans_are_flagged_and_route_to_the_linker():
+    # The signal that was missing: definitions DETECTED but never LINKED (FootnoteConverter).
+    rec = {'module': 'footnote_linking', 'code_ref': 'epub_normalizer.py:FootnoteConverter.convert',
+           'decision': '239 linked; 238 ORPHANED', 'confidence': 0.0,
+           'evidence': {'detected_footnotes': 239, 'orphaned_defs': 238, 'linked': 239}}
+    assert v._is_problem(rec) is True
+    mods = v.modules_for([rec], {'is_epub': True})
+    assert 'app/Python/epub_normalizer.py' in mods  # routed to the LINKER, not the detectors
+
+
+def test_footnote_linking_moderate_orphan_share_is_flagged():
+    rec = {'module': 'footnote_linking', 'confidence': 0.8,  # not catastrophic conf, but real orphaning
+           'evidence': {'detected_footnotes': 500, 'orphaned_defs': 100, 'linked': 400}}
+    assert v._is_problem(rec) is True  # 20% orphaned
+
+
+def test_footnote_linking_clean_is_not_flagged():
+    rec = {'module': 'footnote_linking', 'confidence': 1.0,
+           'evidence': {'detected_footnotes': 239, 'orphaned_defs': 0, 'linked': 239}}
+    assert v._is_problem(rec) is False
+
+
 def test_confident_bibliography_skip_is_not_a_problem():
     assert v._is_problem({'module': 'bibliography_extraction', 'confidence': 0.9,
                           'decision': 'extraction skipped — no reference section'}) is False

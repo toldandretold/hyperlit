@@ -380,6 +380,23 @@ def compare_audit(fixture, tmp_dir):
     return False, f'expected {expected["audit_gaps"]} gaps, got {gaps}'
 
 
+def compare_orphans(fixture, tmp_dir):
+    """Semantic correctness gate: footnote definitions left with NO in-text link (audit.unmatched_defs).
+    A golden suite only freezes whatever the converter emits, so it happily certifies a conversion
+    that DETECTS notes but never LINKS them (the nested-noteref duplication bug hid 238 orphans behind
+    green tests). This asserts the real thing. Default ceiling 0; a fixture with a known, accepted
+    residual declares `expected.max_unmatched_defs` (documented + visible, never silent)."""
+    path = os.path.join(tmp_dir, 'audit.json')
+    if not os.path.isfile(path):
+        return None
+    ceiling = fixture['manifest'].get('expected', {}).get('max_unmatched_defs', 0)
+    n = len(json.load(open(path)).get('unmatched_defs', []))
+    if n <= ceiling:
+        return True, f'{n} orphaned def(s)' + (f' (<= {ceiling} allowed)' if ceiling else '')
+    return False, (f'{n} footnote definition(s) have NO in-text link (orphaned), max allowed '
+                   f'{ceiling} — detection succeeded but linking dropped them')
+
+
 def compare_strategy(fixture, tmp_dir):
     expected = fixture['manifest'].get('expected', {})
     want_strat = expected.get('footnote_strategy')
@@ -511,6 +528,7 @@ COMPARATORS = [
     ('stats', compare_stats),
     ('references', compare_reference_count),
     ('audit', compare_audit),
+    ('orphans', compare_orphans),
     ('strategy', compare_strategy),
     ('footnote_links', compare_footnote_links),
     ('detectors', compare_detectors),

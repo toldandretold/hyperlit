@@ -1,16 +1,18 @@
 {
-    "name": "synthetic",
-    "description": "Synthetic non-proprietary fixture for pathway html/numbering_ambiguous_suppressed.",
-    "book_id": "html_numbering_ambiguous_suppressed",
-    "citation_style": "bibliography-only",
+  "name": "synthetic",
+  "description": "Synthetic non-proprietary fixture for pathway html/numbering_ambiguous_suppressed.",
+  "book_id": "html_numbering_ambiguous_suppressed",
+  "citation_style": "bibliography-only",
+  "footnote_strategy": "whole_document",
+  "pipeline": "html",
+  "expected": {
+    "references_count": 4,
+    "footnotes_count": 11,
+    "audit_gaps": 0,
     "footnote_strategy": "whole_document",
-    "pipeline": "html",
-    "expected": {
-        "references_count": 4,
-        "footnotes_count": 11,
-        "audit_gaps": 0,
-        "footnote_strategy": "whole_document",
-        "citation_style": "bibliography-only",
-        "suppressed_footnotes": true
-    }
+    "citation_style": "bibliography-only",
+    "suppressed_footnotes": true,
+    "max_unmatched_defs": 11,
+    "max_unmatched_defs_note": "BY DESIGN: footnotes deliberately suppressed (ambiguous numbering) — defs intentionally unlinked"
+  }
 }

@@ -2237,6 +2237,7 @@ class FootnoteConverter(EpubTransform):
     def __init__(self):
         self.book_id = None
         self.footnotes_json = []
+        self._linking_stats = None  # detected vs linked vs orphaned — recorded into assessment.json
 
     def detect(self, soup) -> bool:
         # This is run manually after pipeline, not auto-detected
@@ -2379,10 +2380,31 @@ class FootnoteConverter(EpubTransform):
             }
             count += 1
 
+        # A noteref whose element sits INSIDE a footnote definition is a BACK-pointer (def→ref),
+        # not an in-text reference. Converting it minted a phantom duplicate footnote entry with no
+        # body marker — the 238 "orphaned" definitions on the aarushi EPUB. The detector-supplied
+        # noterefs (epub3 etc.) weren't backlink-filtered (only reverse-mapping was); filter them all.
+        _def_elem_ids = {id(fn['element']) for fn in all_footnotes if fn.get('element') is not None}
+
+        def _is_definition_backlink(el):
+            return any(id(anc) in _def_elem_ids for anc in el.parents)
+
+        # The SAME in-text reference is often detected twice — the outer <sup> (by a class/heuristic
+        # detector) AND the inner <a epub:type="noteref"> nested in it (by Epub3Semantic). Both made
+        # their own footnote entry, but only one yields a surviving body marker → the other is a
+        # content-duplicate orphan (238 of them on aarushi). Keep the OUTER marker, drop nested refs.
+        _noteref_elem_ids = {id(nr['element']) for nr in all_noterefs if nr.get('element') is not None}
+
+        def _is_nested_in_another_ref(el):
+            return any(id(anc) in _noteref_elem_ids for anc in el.parents)
+
         # Now convert in-text references (noterefs)
         converted_refs = 0
         numeric_count = 1  # Counter for numeric footnotes only
         used_ref_ids = set()  # Track which footnote IDs have been assigned to refs
+        linked_targets = set()  # definition ids that received a SURVIVING in-text link
+        backlinks_excluded = 0
+        nested_excluded = 0
 
         for noteref in all_noterefs:
             target_id = noteref.get('target_id', '')
@@ -2390,6 +2412,17 @@ class FootnoteConverter(EpubTransform):
             original_marker = noteref.get('original_marker', '')
 
             if not target_id or not elem:
+                continue
+            # An element detached by an earlier transform can't be linked. Skip it BEFORE it
+            # claims the definition's id (which previously forced later valid refs into duplicate
+            # entries) — this masked 238 orphaned defs on the aarushi EPUB.
+            if elem.parent is None:
+                continue
+            if _is_definition_backlink(elem):
+                backlinks_excluded += 1
+                continue
+            if _is_nested_in_another_ref(elem):
+                nested_excluded += 1
                 continue
 
             # Find the mapping for this target
@@ -2423,11 +2456,29 @@ class FootnoteConverter(EpubTransform):
 
                 mapping['display_marker'] = display_marker
 
-                # Convert the element to Hyperlit format
-                self._convert_noteref_element(elem, new_id, display_marker, soup)
-                converted_refs += 1
+                # Convert the element — only count a SURVIVING conversion (not a no-op on a
+                # detached element, which would orphan the definition while reporting success).
+                if self._convert_noteref_element(elem, new_id, display_marker, soup):
+                    converted_refs += 1
+                    linked_targets.add(target_id)
 
-        log(f"  Converted {converted_refs} in-text references")
+        # Definitions that never received a surviving in-text link = orphaned (the audit's
+        # "unmatched defs"). DETECTION can succeed while LINKING silently drops these — so record
+        # it (see _write_assessment) to route a fixer at FootnoteConverter, not the detectors.
+        orphaned_defs = [fn.get('id') for fn in all_footnotes
+                         if fn.get('id') and fn['id'] not in linked_targets]
+        self._linking_stats = {
+            'detected_footnotes': len(all_footnotes),
+            'detected_noterefs': len(all_noterefs),
+            'backlinks_excluded': backlinks_excluded,
+            'nested_excluded': nested_excluded,
+            'linked': converted_refs,
+            'orphaned_defs': len(orphaned_defs),
+            'orphaned_sample': orphaned_defs[:8],
+        }
+        log(f"  Converted {converted_refs} in-text references "
+            f"({backlinks_excluded} backlinks + {nested_excluded} nested refs excluded); "
+            f"{len(orphaned_defs)} orphaned")
 
         # Build footnotes.json data
         for old_id, mapping in id_mapping.items():
@@ -2627,14 +2678,16 @@ class FootnoteConverter(EpubTransform):
 
         return content.strip()
 
-    def _convert_noteref_element(self, elem, new_id, fn_count, soup):
-        """Convert an in-text note reference to Hyperlit format."""
+    def _convert_noteref_element(self, elem, new_id, fn_count, soup) -> bool:
+        """Convert an in-text note reference to Hyperlit format. Returns True iff a marker was
+        actually emitted — False when the element was detached by an earlier transform (so the
+        caller does NOT count a phantom conversion that orphans the definition)."""
         # Canonical format: <sup fn-count-id="N" id="footnoteId" class="footnote-ref">N</sup>
         # No anchor inside - just text content directly in the sup element
 
         # Check if element is still in the document tree (might have been replaced already)
         if elem.parent is None:
-            return  # Skip elements that were already removed/replaced
+            return False  # Skip elements that were already removed/replaced
 
         # Strip whitespace before footnote marker (looks cleaner)
         prev = elem.previous_sibling
@@ -2650,6 +2703,7 @@ class FootnoteConverter(EpubTransform):
             elem['id'] = new_id
             elem['class'] = 'footnote-ref'
             elem.string = str(fn_count)
+            return True
 
         elif elem.name == 'a':
             # It's an <a>, replace with canonical sup format
@@ -2659,6 +2713,9 @@ class FootnoteConverter(EpubTransform):
             new_sup['class'] = 'footnote-ref'
             new_sup.string = str(fn_count)
             elem.replace_with(new_sup)
+            return True
+
+        return False  # unknown element type — nothing emitted
 
     def transform(self, soup, log) -> dict:
         # This method exists for interface compatibility but
@@ -2873,7 +2930,7 @@ class EpubNormalizer:
 
         self.results['footnotes_json'] = result.get('footnotes_json', [])
         self.results['id_mapping'] = result.get('id_mapping', {})
-        self._write_assessment(all_footnotes, all_noterefs)
+        self._write_assessment(all_footnotes, all_noterefs, converter._linking_stats)
 
     # Maps a detected footnote's `strategy` tag back to the responsible detector class,
     # so the decision-trace `code_ref` points an LLM/human straight at the module.
@@ -2902,10 +2959,12 @@ class EpubNormalizer:
         'HeuristicFootnoteDetector': 'numbered-list / superscript heuristics (always-on fallback)',
     }
 
-    def _write_assessment(self, all_footnotes, all_noterefs):
-        """Emit the EPUB stage's footnote-detection fork to assessment.json: which detector
-        identified the notes, and — the new signal — the "considered but rejected" set
-        (detectors that ran detect() and matched nothing, each with what markup it needs).
+    def _write_assessment(self, all_footnotes, all_noterefs, linking=None):
+        """Emit the EPUB stage's footnote forks to assessment.json: (1) which DETECTOR identified
+        the notes + the "considered but rejected" set, and (2) the LINKING outcome — how many
+        detected definitions actually received a surviving in-text link vs were orphaned. (2) is
+        the signal that was missing: detection can read 'success' while linking silently drops
+        notes, mis-routing a fixer to the detectors instead of FootnoteConverter.
         process_document.py seeds from this file so the final trace spans the whole pipeline."""
         from collections import Counter
         fn_results = self.results.get('fn_detector_results', [])
@@ -2959,6 +3018,34 @@ class EpubNormalizer:
                                 'decision': f'{n} footnote definition(s) via {strat}',
                                 'rationale': f'{det} matched the source markup',
                                 'evidence': {'count': n, 'strategy': strat}})
+        # (2) The LINKING outcome — the signal that was missing. A large orphaned share means
+        # detection found the definitions but FootnoteConverter linked no surviving in-text marker
+        # to them (their noterefs were absent or detached before conversion) — route fixes HERE.
+        if linking and linking.get('detected_footnotes'):
+            od, tot = linking['orphaned_defs'], linking['detected_footnotes']
+            faulty = od > max(2, 0.05 * tot)
+            records.append({
+                'seq': len(records), 'module': 'footnote_linking',
+                'code_ref': 'epub_normalizer.py:FootnoteConverter.convert',
+                'decision': (f"{linking['linked']} reference(s) linked; {od} definition(s) ORPHANED"
+                             if faulty else f"all {tot} definition(s) linked"),
+                'rationale': ('detection found the definitions, but FootnoteConverter linked no '
+                              'surviving in-text reference to these — their noteref elements were '
+                              'absent or detached (parent=None) before conversion'
+                              if faulty else 'every detected definition received a surviving in-text link'),
+                'evidence': linking,
+                'question': 'Did every detected footnote definition get a surviving in-text link?',
+                'considered': ([{
+                    'option': 'link these definitions',
+                    'rejected_because': 'no surviving noteref resolved to their id at conversion time',
+                    'would_need': 'an in-text element pointing to the definition id that SURVIVES to '
+                                  'FootnoteConverter — check _convert_noteref_element skips (parent=None) '
+                                  'and the transform order that may detach noterefs before linking'}]
+                    if faulty else []),
+                'confidence': round(max(0.0, 1 - od / max(tot, 1)), 2),
+                'margin': (f'{od} of {tot} definitions have NO in-text link — DETECTION succeeded but '
+                           f'LINKING dropped them (fix FootnoteConverter, not the detectors)'
+                           if faulty else f'all {tot} definitions linked — sound')})
         try:
             with open(os.path.join(self.output_dir, 'assessment.json'), 'w', encoding='utf-8') as f:
                 json.dump({'records': records}, f, ensure_ascii=False, indent=2)

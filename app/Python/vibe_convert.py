@@ -215,6 +215,13 @@ def _is_problem(r):
             return True
         udef, defs = ev.get('unmatched_defs', 0), ev.get('total_defs', 0)
         return bool(defs) and udef / defs >= 0.15
+    # The EPUB linking outcome (FootnoteConverter): definitions DETECTED but never linked. This is
+    # the signal that was missing — it routes a fixer to the LINKER, not the detectors. Flag on a
+    # meaningful orphan share (catastrophic cases are already caught by the conf<0.5 check above).
+    if r.get('module') == 'footnote_linking':
+        ev = r.get('evidence') or {}
+        od, tot = ev.get('orphaned_defs', 0), ev.get('detected_footnotes', 0)
+        return bool(tot) and od / tot >= 0.15
     # A declined step is a lead ONLY when the pipeline wasn't sure. A confident, deliberate
     # skip (conf >= 0.8) is a correct non-action, not a code limitation.
     if conf is not None and conf >= 0.8:
