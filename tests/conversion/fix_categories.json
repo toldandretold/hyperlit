@@ -108,6 +108,21 @@
       "added_in": "v1"
     },
     {
+      "id": "add_link_rule",
+      "name": "Add a footnote/citation LinkRule",
+      "scope": "model",
+      "symptom": "Markers and definitions correspond but link in a shape no existing rule handles — a new noteref/marker scheme, a new in-text citation delimiter, a dedup/cleanup the current rules miss. The right fix is a NEW ordered step in a linking registry, not surgery on a scan.",
+      "stage": "conversion-core",
+      "file": "app/Python/conversion/footnote_link_rules.py | citation_link_rules.py",
+      "slot": "a NEW LinkRule subclass + register it into FOOTNOTE_LINK_RULES / MARKER_LINK_RULES / CITATION_LINK_RULES",
+      "recipe": "op:add a class subclassing LinkRule with apply(self, ctx, log) that reads/writes the shared Context (id_mapping, the accumulators) and mutates the soup; then op:register the instance into the right *_LINK_RULES list at the correct ORDER (id-mapping build precedes the conversion loop; the gate precedes the scans). A new file variant is absorbed by adding a rule, never by editing one.",
+      "expressible": "additive",
+      "risk": "low — rules are small, ordered, independently unit-tested; the golden regression + compare_orphans gate catches drift. Don't reorder existing rules.",
+      "examples": [],
+      "status": "seed",
+      "added_in": "v1"
+    },
+    {
       "id": "fix_segmentation",
       "name": "Fix segmentation / boundary detection",
       "scope": "model",

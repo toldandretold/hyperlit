@@ -105,7 +105,8 @@ ALLOWED_FILES = {
 
 # Module-level registries an op:register edit may append to (a tight allowlist — registering
 # elsewhere could run arbitrary module-load code). Extend deliberately as new forks appear.
-REGISTERABLE_LISTS = {'TRANSFORM_PIPELINE', '_ALL_STRATEGIES'}
+REGISTERABLE_LISTS = {'TRANSFORM_PIPELINE', '_ALL_STRATEGIES',
+                      'FOOTNOTE_LINK_RULES', 'MARKER_LINK_RULES', 'CITATION_LINK_RULES'}
 
 # What gets copied into the sandbox (structure-preserving, so the harness paths resolve).
 SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']

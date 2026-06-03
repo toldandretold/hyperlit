@@ -6,6 +6,9 @@ Before this, the patch format could only REPLACE existing functions.
 """
 
 import ast
+import importlib.util
+import os
+import shutil
 
 import vibe_convert as v
 
@@ -250,6 +253,75 @@ def test_apply_add_then_register_into_tmp_module(tmp_path):
     ast.parse(text)
     assert text.index('class Mine') < text.index('PIPELINE = [') or 'Mine()' in text
     assert 'Mine()' in text
+
+
+# --- loop-extensibility: op:add + op:register a LinkRule into the linking registries ----------
+
+def test_validate_accepts_register_into_link_registries():
+    # The three linking registries are now in the op:register allowlist (loop-extensibility).
+    for list_name, fname in (('FOOTNOTE_LINK_RULES', 'footnote_link_rules.py'),
+                             ('MARKER_LINK_RULES', 'footnote_link_rules.py'),
+                             ('CITATION_LINK_RULES', 'citation_link_rules.py')):
+        ok, reason, _ = v.validate_replacements(
+            [{'file': f'app/Python/conversion/{fname}', 'name': list_name,
+              'op': 'register', 'code': 'MyRule()'}])
+        assert ok, f"{list_name}: {reason}"
+
+
+_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+
+
+def _load_module(path, name):
+    # Load under a `conversion.*` qualified name so the module's relative imports (from .link_base
+    # import ...) resolve against the real, importable conversion package.
+    import conversion  # noqa: F401 — ensure the parent package is in sys.modules
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_op_add_register_noop_link_rule_into_real_registry(tmp_path):
+    """The payoff: a vibe run can op:add a new LinkRule class + op:register it into a real
+    *_LINK_RULES list, and the patched module re-imports and runs — a no-op rule leaves behaviour
+    golden-identical (the additive path the cheap model uses for a new file variant)."""
+    rel = 'app/Python/conversion/footnote_link_rules.py'
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    shutil.copyfile(os.path.join(_REPO, rel), str(full))
+
+    noop = ("class NoOpLinkRule(LinkRule):\n"
+            "    name = 'noop_demo'\n"
+            "    description = 'A no-op rule registered by the vibe loop — proves additive extension.'\n"
+            "    def apply(self, ctx, log=None):\n"
+            "        return\n")
+    funcs = [
+        {'file': rel, 'name': 'NoOpLinkRule', 'op': 'add', 'code': noop},
+        {'file': rel, 'name': 'FOOTNOTE_LINK_RULES', 'op': 'register', 'code': 'NoOpLinkRule()'},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert ok, msg
+
+    text = full.read_text(encoding='utf-8')
+    ast.parse(text)                                    # still valid Python
+    assert 'class NoOpLinkRule' in text
+    assert 'NoOpLinkRule()' in text
+
+    # The patched module re-imports and the new rule is the LAST entry in the registry.
+    mod = _load_module(str(full), 'conversion._patched_footnote_link_rules')
+    assert mod.FOOTNOTE_LINK_RULES[-1].name == 'noop_demo'
+
+    # And running it is a genuine no-op: same footnotes_json the unpatched registry would produce.
+    from bs4 import BeautifulSoup
+    html = ('<body><p>Claim<a href="#fn1">1</a>.</p><aside id="fn1">the note</aside></body>')
+    def _mk():
+        s = BeautifulSoup(html, 'html.parser')
+        return s, [{'id': 'fn1', 'element': s.find(id='fn1'), 'type': 'footnote'}], \
+            [{'element': s.find('a', href='#fn1'), 'target_id': 'fn1', 'original_marker': '1'}]
+    s1, f1, r1 = _mk()
+    out_patched = mod.link_epub_footnotes(s1, f1, r1, 'b', lambda *a, **k: None)
+    assert len(out_patched['footnotes_json']) == 1
+    assert out_patched['linking_stats']['linked'] == 1
 
 
 def test_apply_replace_missing_function_hints_op_add(tmp_path):
