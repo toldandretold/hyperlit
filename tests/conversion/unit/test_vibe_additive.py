@@ -10,6 +10,7 @@ import importlib.util
 import os
 import shutil
 
+import mistral_ocr as M_OCR
 import process_document as P
 import vibe_convert as v
 
@@ -363,6 +364,44 @@ def test_op_add_register_noop_doc_pass_into_real_registry(tmp_path):
     mod = _load_module(str(full), 'process_document_patched')
     assert mod.DOC_PASSES[-1].name == 'noop_doc_demo'
     assert len(mod.DOC_PASSES) == len(P.DOC_PASSES) + 1
+
+
+def test_validate_accepts_register_into_pdf_classifiers():
+    # The PDF analysis registry is in the op:register allowlist (loop-extensible classification).
+    ok, reason, _ = v.validate_replacements(
+        [{'file': 'app/Python/mistral_ocr.py', 'name': 'PDF_CLASSIFIERS',
+          'op': 'register', 'code': 'MyClassifier()'}])
+    assert ok, reason
+
+
+def test_op_add_register_noop_pdf_classifier_into_real_registry(tmp_path):
+    """The PDF payoff: a vibe run can op:add a new PdfClassifier + op:register it into PDF_CLASSIFIERS
+    for a new PDF/OCR-JSON shape; the patched mistral_ocr re-imports with the registry grown by one."""
+    rel = 'app/Python/mistral_ocr.py'
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    shutil.copyfile(os.path.join(_REPO, rel), str(full))
+
+    noop = ("class NoOpClassifier(PdfClassifier):\n"
+            "    name = 'noop_pdf_demo'\n"
+            "    would_need = 'a demo signal that never appears'\n"
+            "    def matches(self, sig):\n"
+            "        return False\n")
+    funcs = [
+        {'file': rel, 'name': 'NoOpClassifier', 'op': 'add', 'code': noop},
+        {'file': rel, 'name': 'PDF_CLASSIFIERS', 'op': 'register', 'code': 'NoOpClassifier()'},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert ok, msg
+
+    text = full.read_text(encoding='utf-8')
+    ast.parse(text)
+    assert 'class NoOpClassifier' in text and 'NoOpClassifier()' in text
+
+    # mistral_ocr uses absolute imports (no package) → load standalone.
+    mod = _load_module(str(full), 'mistral_ocr_patched')
+    assert mod.PDF_CLASSIFIERS[-1].name == 'noop_pdf_demo'
+    assert len(mod.PDF_CLASSIFIERS) == len(M_OCR.PDF_CLASSIFIERS) + 1
 
 
 def test_apply_replace_missing_function_hints_op_add(tmp_path):

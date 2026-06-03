@@ -844,49 +844,234 @@ _PDF_RATIONALE = {
 }
 
 
-def _pdf_classification_story(chosen, sig):
-    """Build the falsifiable fork-story for the PDF footnote-layout decision: why each
-    OTHER layout was rejected, what evidence would flip it, and a near-miss margin. Lets
-    the diagnostic LLM re-litigate a mis-classified PDF (the hardest, most varied pathway).
-    Mirrors strategy.py:_strategy_considered. Pure read of the already-computed signals."""
-    co = sig['co_location_ratio']; rf = sig['reset_frequency']
-    notes = sig['notes_page_count']; spread = sig['ref_number_max_page_spread']
-    dc = sig['def_clustering_ratio']; maxref = sig['max_ref_number']
-    refs = sig['pages_with_refs']
-    why = {
-        'none': (
-            f'{refs} page(s) carry in-text references' if refs else 'no in-text references',
-            'zero pages with in-text footnote references'),
-        'page_bottom': (
-            f"co-location {co:.2f} / reset-freq {rf:.2f} fit neither page_bottom rule "
-            f"(continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
-            'refs and their definitions sharing the same pages (high co-location)'),
-        'chapter_endnotes': (
-            f"no Notes-header page and co-location {co:.2f}/reset-freq {rf:.2f} miss the endnote rules",
-            'a "Notes" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)'),
-        'document_endnotes': (
-            f"co-location {co:.2f} (need <0.15) and def-clustering {dc:.2f} (need <0.1)",
-            'definitions clustered on very few trailing pages with near-zero co-location'),
-        'wackSTEMbibliographyNotes': (
-            f"ref-number page-spread {spread} (need >=3) and co-location {co:.2f} (need <0.2)",
-            'the same low ref-numbers reappearing across many pages (bibliography citations)'),
-        'unknown': (
-            'a specific classifier matched',
-            'signals that fail every specific classifier'),
-    }
-    considered = [{'option': k, 'rejected_because': why[k][0], 'would_need': why[k][1]}
-                  for k in _PDF_CLASSES if k != chosen]
+# ===========================================================================
+# PDF footnote-layout classification as an ordered registry of self-describing
+# PdfClassifier units. The decision tree (was a 40-line if/elif in
+# classify_footnotes) is now one classifier per class — each owns its gate
+# (`matches`), confidence scoring, and the falsifiable fork-story (why it would
+# be rejected / what would flip it / a near-miss margin). The registry order IS
+# the decision-tree order (first match wins). A new PDF type — and there are
+# endlessly many — is absorbed by ADDING a classifier + op:register, never by
+# editing the decision tree.
+#
+# IMPORTANT: `matches`/`confidence` read the UNROUNDED signals (the original
+# decision tree + confidence used raw locals); the story hooks
+# (`rejected_because`/`margin`) receive the rounded `signals` dict (matching the
+# original assessment output). classify_footnotes passes the right one to each.
+# ===========================================================================
+class PdfClassifier:
+    """One PDF footnote-layout class: its gate + confidence + fork-story. Mirrors the LinkRule /
+    DocPass registry pattern. Subclasses set `name` + `would_need` and override the hooks."""
 
-    margins = {
-        'none': f"{refs} pages with refs — unambiguous",
-        'page_bottom': f"co-location {co:.2f} (gate 0.4/0.5), reset-freq {rf:.2f}, max-ref {maxref}",
-        'chapter_endnotes': f"co-location {co:.2f} (<0.3 gate), notes-pages {notes}, reset-freq {rf:.2f}",
-        'document_endnotes': f"co-location {co:.2f} (<0.15 gate), def-clustering {dc:.2f} (<0.1 gate)",
-        'wackSTEMbibliographyNotes': f"ref-spread {spread} (>=3 gate), co-location {co:.2f} (<0.2 gate)",
-        'unknown': (f"FALL-THROUGH: no classifier matched (co {co:.2f}, reset-freq {rf:.2f}, "
-                    f"notes-pages {notes}, def-clustering {dc:.2f}). LOW confidence — prime review candidate."),
-    }
-    return _PDF_RATIONALE[chosen], considered, margins[chosen]
+    name = ''
+    would_need = ''
+
+    def matches(self, sig):
+        return False
+
+    def confidence(self, sig):
+        return 0.0
+
+    def rejected_because(self, sig):
+        return ''
+
+    def margin(self, sig):
+        return ''
+
+
+class NoneClassifier(PdfClassifier):
+    name = 'none'
+    would_need = 'zero pages with in-text footnote references'
+
+    def matches(self, sig):
+        return sig['pages_with_refs'] == 0
+
+    def confidence(self, sig):
+        return 1.0
+
+    def rejected_because(self, sig):
+        refs = sig['pages_with_refs']
+        return f'{refs} page(s) carry in-text references' if refs else 'no in-text references'
+
+    def margin(self, sig):
+        return f"{sig['pages_with_refs']} pages with refs — unambiguous"
+
+
+class WackStemClassifier(PdfClassifier):
+    name = 'wackSTEMbibliographyNotes'
+    would_need = 'the same low ref-numbers reappearing across many pages (bibliography citations)'
+
+    def matches(self, sig):
+        return (sig['ref_number_max_page_spread'] >= 3
+                and sig['co_location_ratio'] < 0.2
+                and sig['notes_page_count'] == 0
+                and sig['reset_count'] <= 3
+                and (sig['reset_frequency'] < 0.2 or sig['max_ref_number'] > 50))
+
+    def confidence(self, sig):
+        c = 0.0
+        if sig['ref_number_max_page_spread'] >= 5:
+            c += 0.3
+        if sig['numbers_on_multiple_pages'] > 10:
+            c += 0.3
+        if sig['co_location_ratio'] < 0.1:
+            c += 0.2
+        if sig['notes_page_count'] == 0:
+            c += 0.2
+        return c
+
+    def rejected_because(self, sig):
+        return (f"ref-number page-spread {sig['ref_number_max_page_spread']} (need >=3) and "
+                f"co-location {sig['co_location_ratio']:.2f} (need <0.2)")
+
+    def margin(self, sig):
+        return (f"ref-spread {sig['ref_number_max_page_spread']} (>=3 gate), "
+                f"co-location {sig['co_location_ratio']:.2f} (<0.2 gate)")
+
+
+class PageBottomClassifier(PdfClassifier):
+    # Two gates (continuous + restart) — contiguous in the old tree, so OR-folding is identical.
+    name = 'page_bottom'
+    would_need = 'refs and their definitions sharing the same pages (high co-location)'
+
+    def matches(self, sig):
+        co = sig['co_location_ratio']; rf = sig['reset_frequency']
+        return ((co > 0.4 and sig['pages_with_both'] >= 3 and rf < 0.1 and sig['max_ref_number'] > 10)
+                or (co > 0.5 and rf > 0.4))
+
+    def confidence(self, sig):
+        co = sig['co_location_ratio']; rf = sig['reset_frequency']
+        c = 0.0
+        if co > 0.8:
+            c += 0.3
+        elif co > 0.4:
+            c += 0.15
+        if rf > 0.7:
+            c += 0.3
+        elif rf < 0.1 and sig['max_ref_number'] > 10:
+            c += 0.25
+        if sig['notes_page_count'] == 0:
+            c += 0.2
+        if sig['trailing_page_number_consistency'] > 0.5:
+            c += 0.2
+        return c
+
+    def rejected_because(self, sig):
+        return (f"co-location {sig['co_location_ratio']:.2f} / reset-freq {sig['reset_frequency']:.2f} "
+                f"fit neither page_bottom rule "
+                f"(continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)")
+
+    def margin(self, sig):
+        return (f"co-location {sig['co_location_ratio']:.2f} (gate 0.4/0.5), "
+                f"reset-freq {sig['reset_frequency']:.2f}, max-ref {sig['max_ref_number']}")
+
+
+class ChapterEndnotesClassifier(PdfClassifier):
+    # Three gates (notes-header / resets / well-separated) — contiguous in the old tree.
+    name = 'chapter_endnotes'
+    would_need = 'a "Notes" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)'
+
+    def matches(self, sig):
+        co = sig['co_location_ratio']
+        return ((sig['notes_page_count'] > 0 and co < 0.3)
+                or (co < 0.3 and sig['pages_with_defs'] > 0 and sig['reset_frequency'] > 0.3)
+                or (co < 0.15 and sig['pages_with_defs'] > 5 and sig['reset_count'] >= 3))
+
+    def confidence(self, sig):
+        c = 0.0
+        if sig['notes_page_count'] > 0:
+            c += 0.3
+        if sig['co_location_ratio'] < 0.1:
+            c += 0.3
+        if sig['reset_count'] > 0:
+            c += 0.2
+        if sig['def_clustering_ratio'] < 0.2:
+            c += 0.2
+        return c
+
+    def rejected_because(self, sig):
+        return (f"no Notes-header page and co-location {sig['co_location_ratio']:.2f}/"
+                f"reset-freq {sig['reset_frequency']:.2f} miss the endnote rules")
+
+    def margin(self, sig):
+        return (f"co-location {sig['co_location_ratio']:.2f} (<0.3 gate), "
+                f"notes-pages {sig['notes_page_count']}, reset-freq {sig['reset_frequency']:.2f}")
+
+
+class DocumentEndnotesClassifier(PdfClassifier):
+    name = 'document_endnotes'
+    would_need = 'definitions clustered on very few trailing pages with near-zero co-location'
+
+    def matches(self, sig):
+        return sig['co_location_ratio'] < 0.15 and sig['def_clustering_ratio'] < 0.1
+
+    def confidence(self, sig):
+        c = 0.0
+        if sig['co_location_ratio'] < 0.05:
+            c += 0.3
+        if sig['def_clustering_ratio'] < 0.05:
+            c += 0.3
+        if sig['notes_page_count'] == 0:
+            c += 0.2
+        if sig['reset_count'] == 0:
+            c += 0.2
+        return c
+
+    def rejected_because(self, sig):
+        return (f"co-location {sig['co_location_ratio']:.2f} (need <0.15) and "
+                f"def-clustering {sig['def_clustering_ratio']:.2f} (need <0.1)")
+
+    def margin(self, sig):
+        return (f"co-location {sig['co_location_ratio']:.2f} (<0.15 gate), "
+                f"def-clustering {sig['def_clustering_ratio']:.2f} (<0.1 gate)")
+
+
+class UnknownClassifier(PdfClassifier):
+    # Fall-through default — consulted only after every specific classifier misses.
+    name = 'unknown'
+    would_need = 'signals that fail every specific classifier'
+
+    def matches(self, sig):
+        return True
+
+    def confidence(self, sig):
+        return 0.0
+
+    def rejected_because(self, sig):
+        return 'a specific classifier matched'
+
+    def margin(self, sig):
+        return (f"FALL-THROUGH: no classifier matched (co {sig['co_location_ratio']:.2f}, "
+                f"reset-freq {sig['reset_frequency']:.2f}, notes-pages {sig['notes_page_count']}, "
+                f"def-clustering {sig['def_clustering_ratio']:.2f}). LOW confidence — prime review candidate.")
+
+
+# Ordered decision registry — the EXACT decision-tree order (first match wins). UnknownClassifier is
+# the fall-through default (NOT in the matching list). A new PDF type = add a classifier here.
+PDF_CLASSIFIERS = [
+    NoneClassifier(),
+    WackStemClassifier(),
+    PageBottomClassifier(),
+    ChapterEndnotesClassifier(),
+    DocumentEndnotesClassifier(),
+]
+_UNKNOWN_CLASSIFIER = UnknownClassifier()
+# By-name lookup for the fork-story (covers all _PDF_CLASSES incl. the fall-through unknown).
+_PDF_CLASSIFIERS_BY_NAME = {c.name: c for c in PDF_CLASSIFIERS}
+_PDF_CLASSIFIERS_BY_NAME[_UNKNOWN_CLASSIFIER.name] = _UNKNOWN_CLASSIFIER
+
+
+def _pdf_classification_story(chosen, sig):
+    """Build the falsifiable fork-story for the PDF footnote-layout decision: why each OTHER layout
+    was rejected, what evidence would flip it, and a near-miss margin. Now sourced from the per-class
+    PdfClassifier units (each owns its rejected_because / would_need / margin). Iterates _PDF_CLASSES
+    so the `considered` order is unchanged. Mirrors strategy.py:_strategy_considered. Pure read of
+    the already-computed (rounded) signals."""
+    considered = [{'option': k,
+                   'rejected_because': _PDF_CLASSIFIERS_BY_NAME[k].rejected_because(sig),
+                   'would_need': _PDF_CLASSIFIERS_BY_NAME[k].would_need}
+                  for k in _PDF_CLASSES if k != chosen]
+    return _PDF_RATIONALE[chosen], considered, _PDF_CLASSIFIERS_BY_NAME[chosen].margin(sig)
 
 
 def classify_footnotes(response_dict):
@@ -1024,100 +1209,31 @@ def classify_footnotes(response_dict):
         "max_ref_number": max_ref_number,
     }
 
-    # --- Step 3: Classification decision tree ---
-    if pages_with_refs == 0:
-        classification = "none"
-
-    elif (ref_number_max_page_spread >= 3
-          and co_location_ratio < 0.2
-          and notes_page_count == 0
-          and reset_count <= 3
-          and (reset_frequency < 0.2 or max_ref_number > 50)):
-        classification = "wackSTEMbibliographyNotes"
-
-    # Page-bottom with continuous numbering (no resets across pages)
-    elif (co_location_ratio > 0.4
-          and pages_with_both >= 3
-          and reset_frequency < 0.1
-          and max_ref_number > 10):
-        classification = "page_bottom"
-
-    elif (co_location_ratio > 0.5
-          and reset_frequency > 0.4):
-        classification = "page_bottom"
-
-    elif (notes_page_count > 0
-          and co_location_ratio < 0.3):
-        classification = "chapter_endnotes"
-
-    # Chapter endnotes without "Notes" header — detected via resets + separate def pages
-    elif (co_location_ratio < 0.3
-          and pages_with_defs > 0
-          and reset_frequency > 0.3):
-        classification = "chapter_endnotes"
-
-    # Chapter endnotes with well-separated defs/refs and multiple number resets
-    elif (co_location_ratio < 0.15
-          and pages_with_defs > 5
-          and reset_count >= 3):
-        classification = "chapter_endnotes"
-
-    elif (co_location_ratio < 0.15
-          and def_clustering_ratio < 0.1):
-        classification = "document_endnotes"
-
-    else:
-        classification = "unknown"
-
-    # --- Step 4: Confidence scoring ---
-    confidence = 0.0
-    if classification == "page_bottom":
-        if co_location_ratio > 0.8:
-            confidence += 0.3
-        elif co_location_ratio > 0.4:
-            confidence += 0.15
-        if reset_frequency > 0.7:
-            confidence += 0.3
-        elif reset_frequency < 0.1 and max_ref_number > 10:
-            # Continuous numbering — high max ref is a strong signal
-            confidence += 0.25
-        if notes_page_count == 0:
-            confidence += 0.2
-        if trailing_page_number_consistency > 0.5:
-            confidence += 0.2
-
-    elif classification == "chapter_endnotes":
-        if notes_page_count > 0:
-            confidence += 0.3
-        if co_location_ratio < 0.1:
-            confidence += 0.3
-        if reset_count > 0:
-            confidence += 0.2
-        if def_clustering_ratio < 0.2:
-            confidence += 0.2
-
-    elif classification == "document_endnotes":
-        if co_location_ratio < 0.05:
-            confidence += 0.3
-        if def_clustering_ratio < 0.05:
-            confidence += 0.3
-        if notes_page_count == 0:
-            confidence += 0.2
-        if reset_count == 0:
-            confidence += 0.2
-
-    elif classification == "wackSTEMbibliographyNotes":
-        if ref_number_max_page_spread >= 5:
-            confidence += 0.3
-        if numbers_on_multiple_pages > 10:
-            confidence += 0.3
-        if co_location_ratio < 0.1:
-            confidence += 0.2
-        if notes_page_count == 0:
-            confidence += 0.2
-
-    elif classification == "none":
-        confidence = 1.0
+    # --- Step 3+4: Classification + confidence via the PDF_CLASSIFIERS registry ---
+    # The decision tree is now an ordered registry of self-describing classifier units (first match
+    # wins; UnknownClassifier is the fall-through). matches()/confidence() read the UNROUNDED signals
+    # (the original tree + confidence used these raw locals), so this is behaviour-identical.
+    _raw = {
+        "pages_with_refs": pages_with_refs,
+        "pages_with_both": pages_with_both,
+        "pages_with_defs": pages_with_defs,
+        "co_location_ratio": co_location_ratio,
+        "def_clustering_ratio": def_clustering_ratio,
+        "reset_count": reset_count,
+        "reset_frequency": reset_frequency,
+        "notes_page_count": notes_page_count,
+        "ref_number_max_page_spread": ref_number_max_page_spread,
+        "numbers_on_multiple_pages": numbers_on_multiple_pages,
+        "max_ref_number": max_ref_number,
+        "trailing_page_number_consistency": trailing_page_number_consistency,
+    }
+    chosen_classifier = _UNKNOWN_CLASSIFIER
+    for _clf in PDF_CLASSIFIERS:
+        if _clf.matches(_raw):
+            chosen_classifier = _clf
+            break
+    classification = chosen_classifier.name
+    confidence = chosen_classifier.confidence(_raw)
 
     # --- Build page summary (only pages with refs or defs) ---
     page_summary = []
@@ -1396,9 +1512,313 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
     return recovered
 
 
+# ===========================================================================
+# PDF markdown assembly as a per-classification registry. assemble_markdown was a 425-line monolith
+# heavily branched by classification (per-page processing + post-combine) around a shared spine. The
+# class-specific code is now a FootnoteAssembler per PDF type (setup / per_page / post_combine); the
+# shared spine + tail stay in the assemble_markdown conductor. PDFs are endlessly varied, so a new
+# shape gets a NEW assembler (op:add + register into PDF_ASSEMBLERS) — never surgery on the others.
+# ===========================================================================
+class AssemblyContext:
+    """Shared state threaded through the markdown-assembly passes — the locals the monolith carried.
+    Defaulted so a non-chapter assembler never touches chapter-only state."""
+
+    def __init__(self, response_dict, classification, footnote_meta):
+        self.response_dict = response_dict
+        self.pages = response_dict["pages"]
+        self.classification = classification
+        self.footnote_meta = footnote_meta
+        self.page_number_offset = None
+        self.md_parts = []
+        self.seen_sections = set()
+        self.global_fn_counter = 1          # for page_bottom renumbering
+        self.fn_defs_parts = []             # collected footnote definitions for page_bottom
+        self.def_heavy_pages = set()
+        self.chapter_fn_offsets = None
+        self.notes_transition_pages = {}    # page_idx → (threshold, old_offset, new_offset)
+        self.in_notes_section = False
+        self.last_ref_page_idx = 0
+
+
+class FootnoteAssembler:
+    """Per-classification markdown assembly — the per-page footnote handling + post-combine fixup for
+    ONE PDF class. Registered in PDF_ASSEMBLERS by classification. The base is the generic path: keep
+    each page body as-is (per_page); subclasses override the hooks they need."""
+
+    def setup(self, ctx):
+        """One-time precompute before the page loop (e.g. chapter-offset tables). Default: nothing."""
+        pass
+
+    def per_page(self, ctx, i, page, md, md_stripped):
+        """Handle one page's footnotes + append to ctx.md_parts. Default: keep the body as-is."""
+        if md_stripped:
+            ctx.md_parts.append(md)
+
+    def post_combine(self, ctx, combined):
+        """Fix up the combined markdown for this class. Default: unchanged."""
+        return combined
+
+
+class DefaultAssembler(FootnoteAssembler):
+    """Generic / unknown path: per-page keeps the body (base), post-combine normalizes refs + defs."""
+
+    def post_combine(self, ctx, combined):
+        combined = normalize_all_footnote_refs(combined)
+        combined = normalize_footnote_defs(combined)
+        # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
+        # Only at start of line (definitions), not inline references
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
+        return combined
+
+
+class WackStemAssembler(FootnoteAssembler):
+    """wackSTEMbibliographyNotes: per-page keeps the body (base; the numbered-notes→def conversion is
+    skipped for this class in the conductor), post-combine wraps the numbered citations + definitions."""
+
+    def post_combine(self, ctx, combined):
+        combined = wrap_stem_citations(combined)
+        combined = wrap_stem_definitions(combined)
+        return combined
+
+
+class PageBottomAssembler(FootnoteAssembler):
+    """page_bottom: footnotes sit at each page's bottom — renumber per page, split body from defs;
+    post-combine rejoins the body and appends the collected, reformatted definitions."""
+
+    def per_page(self, ctx, i, page, md, md_stripped):
+        md, ctx.global_fn_counter = renumber_page_footnotes(md, ctx.global_fn_counter)
+        body, fn_text = split_body_and_footnotes(md)
+        if body.strip():
+            ctx.md_parts.append(body)
+        if fn_text.strip():
+            ctx.fn_defs_parts.append(fn_text)
+
+    def post_combine(self, ctx, combined):
+        # Rejoin body text only (footnotes were separated per-page)
+        combined = rejoin_page_breaks(combined)
+        # Format and append collected footnote definitions
+        fn_defs = "\n\n".join(ctx.fn_defs_parts)
+        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', fn_defs, flags=re.MULTILINE)
+        if fn_defs.strip():
+            combined = combined + "\n\n" + fn_defs
+        return combined
+
+
+class DocumentEndnotesAssembler(FootnoteAssembler):
+    """document_endnotes: definitions clustered on trailing pages — convert refs to [^N] per page;
+    post-combine fixes def formatting + rejoins."""
+
+    def per_page(self, ctx, i, page, md, md_stripped):
+        md = convert_footnotes(md)
+        md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+        # Strip italic wrapping around numeric bracket refs: *[2]* → [2]
+        md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
+        # Convert inline [N] → [^N] (not at line start, not markdown links)
+        def _convert_bracket_endnote(m, _md=md):
+            num = int(m.group(1))
+            if num > 500 or num < 1:
+                return m.group(0)
+            pos = m.start()
+            if pos == 0 or _md[pos - 1] == '\n':
+                return m.group(0)
+            if pos > 0 and _md[pos - 1] in (']', '!'):
+                return m.group(0)
+            if m.end() < len(_md) and _md[m.end()] == '(':
+                return m.group(0)
+            return f'[^{m.group(1)}]'
+        md = re.sub(r'\[(\d+)\]', _convert_bracket_endnote, md)
+        # Convert bare numbers after punctuation
+        md = re.sub(
+            r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"”“)])(\d{1,3})(?=\s+[A-Z“”"‘\'(])',
+            r'[^\1]',
+            md,
+            flags=re.DOTALL
+        )
+        if md_stripped:
+            ctx.md_parts.append(md)
+
+    def post_combine(self, ctx, combined):
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
+        return combined
+
+
+class ChapterEndnotesAssembler(FootnoteAssembler):
+    """chapter_endnotes: per-chapter footnote numbering restarts → setup precomputes per-page chapter
+    offsets (incl. notes-section transition pages) for global uniqueness; per-page converts refs and
+    applies the offset; post-combine fixes def formatting + rejoins."""
+
+    def setup(self, ctx):
+        footnote_meta = ctx.footnote_meta
+        pages = ctx.pages
+        # Build set of definition-heavy page indices from footnote_meta.
+        # Two filters to avoid false positives (e.g., numbered lists in body text):
+        # 1. Exclude pages that also have refs (body pages, not notes pages)
+        # 2. Require a neighboring page also be def-heavy (notes pages cluster together)
+        if footnote_meta:
+            candidates = set()
+            for entry in footnote_meta.get('page_summary', []):
+                if len(entry.get('defs', [])) >= 3 and not entry.get('refs'):
+                    candidates.add(entry['index'])
+            for p in candidates:
+                if (p - 1) in candidates or (p + 1) in candidates:
+                    ctx.def_heavy_pages.add(p)
+
+        # Pre-compute chapter offsets for chapter_endnotes renumbering.
+        # Each chapter restarts footnote numbering at 1; we offset them to be globally unique.
+        if footnote_meta:
+            chapter_fn_offsets = [0] * len(pages)
+            cumulative = 0
+            ch_max = 0          # max footnote number in current chapter (refs + defs)
+            ref_ch_max = 0      # max ref number in current chapter (for detecting resets)
+
+            for entry in footnote_meta.get('page_summary', []):
+                refs = entry.get('refs', [])
+                defs = entry.get('defs', [])
+
+                if defs:
+                    ch_max = max(ch_max, max(defs))
+
+                if refs:
+                    ref_max = max(refs)
+                    if ref_ch_max > 10 and ref_max < ref_ch_max * 0.5:
+                        # Number reset — new chapter
+                        cumulative += ch_max
+                        ch_max = ref_max
+                        ref_ch_max = ref_max
+                        for j in range(entry['index'], len(pages)):
+                            chapter_fn_offsets[j] = cumulative
+                    else:
+                        ch_max = max(ch_max, ref_max)
+                        ref_ch_max = max(ref_ch_max, ref_max)
+
+            # --- Extend offsets into the notes section ---
+            # Build ordered list of body chapter offsets
+            body_offsets = sorted(set(chapter_fn_offsets))
+
+            # Find last page with refs (notes section starts after this)
+            last_ref_page = 0
+            for entry in footnote_meta.get('page_summary', []):
+                if entry.get('refs'):
+                    last_ref_page = max(last_ref_page, entry['index'])
+
+            # In notes section, detect def resets and assign matching body chapter offsets.
+            # Transition pages (where one chapter ends and the next begins) need per-def
+            # offsets since they contain defs from two different chapters.
+            notes_ch_idx = 0
+            notes_def_max = 0
+            for entry in footnote_meta.get('page_summary', []):
+                if entry['index'] <= last_ref_page:
+                    continue
+                defs = entry.get('defs', [])
+                if not defs:
+                    continue
+                def_max = max(defs)
+                def_min = min(defs)
+                if notes_def_max > 5 and def_min < notes_def_max * 0.3:
+                    # Record old offset before advancing chapter
+                    old_offset = body_offsets[notes_ch_idx] if notes_ch_idx < len(body_offsets) else 0
+                    threshold = notes_def_max * 0.5
+                    notes_ch_idx += 1
+                    # On transition pages, old chapter defs may still appear.
+                    # Only track new chapter's defs (below the reset threshold).
+                    new_ch_defs = [d for d in defs if d < threshold]
+                    notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
+
+                    if notes_ch_idx < len(body_offsets):
+                        new_offset = body_offsets[notes_ch_idx]
+                        # Mark this as a transition page for per-def offsetting
+                        ctx.notes_transition_pages[entry['index']] = (threshold, old_offset, new_offset)
+                        # Start new offset on the NEXT page (transition page handled specially)
+                        for j in range(entry['index'] + 1, len(pages)):
+                            chapter_fn_offsets[j] = new_offset
+                else:
+                    notes_def_max = max(notes_def_max, def_max)
+
+                    if notes_ch_idx < len(body_offsets):
+                        offset = body_offsets[notes_ch_idx]
+                        for j in range(entry['index'], len(pages)):
+                            chapter_fn_offsets[j] = offset
+
+            ctx.chapter_fn_offsets = chapter_fn_offsets
+
+    def per_page(self, ctx, i, page, md, md_stripped):
+        # Convert all footnote ref formats to [^N] (before offset)
+        md = convert_footnotes(md)
+        md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+
+        # Convert inline [N] → [^N] (bracket refs from OCR)
+        def _convert_bracket(m, _md=md):
+            num = int(m.group(1))
+            if num > 500 or num < 1:
+                return m.group(0)
+            pos = m.start()
+            if pos == 0 or _md[pos - 1] == '\n':
+                return m.group(0)
+            if pos > 0 and _md[pos - 1] in (']', '!'):
+                return m.group(0)
+            if m.end() < len(_md) and _md[m.end()] == '(':
+                return m.group(0)
+            return f'[^{m.group(1)}]'
+        md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
+
+        # Convert bare numbers after punctuation: .46 This → .[^46] This
+        # (?<![A-Z]\.) rejects section/table numbering like "I.1", "V.2"
+        md = re.sub(
+            r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"”“)])(\d{1,3})(?=\s+[A-Z“”"‘\'(])',
+            r'[^\1]',
+            md,
+            flags=re.DOTALL
+        )
+
+        # Apply chapter offset for global uniqueness
+        if ctx.chapter_fn_offsets:
+            if i in ctx.notes_transition_pages:
+                # Transition page: old chapter tail + new chapter start need different offsets
+                threshold, old_off, new_off = ctx.notes_transition_pages[i]
+                def _apply_transition(m, _thr=threshold, _old=old_off, _new=new_off):
+                    num = int(m.group(1))
+                    off = _old if num >= _thr else _new
+                    return f'[^{num + off}]' if off > 0 else m.group(0)
+                md = re.sub(r'\[\^(\d+)\]', _apply_transition, md)
+            else:
+                offset = ctx.chapter_fn_offsets[i]
+                if offset > 0:
+                    md = re.sub(
+                        r'\[\^(\d+)\]',
+                        lambda m: f'[^{int(m.group(1)) + offset}]',
+                        md
+                    )
+
+        if md_stripped:
+            ctx.md_parts.append(md)
+
+    def post_combine(self, ctx, combined):
+        # Superscripts already converted per-page with chapter offsets applied.
+        # Fix def formatting and rejoin page breaks.
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = rejoin_page_breaks(combined)
+        return combined
+
+
+# Per-classification assembler registry — a new PDF type registers a new assembler here.
+PDF_ASSEMBLERS = {
+    'page_bottom': PageBottomAssembler(),
+    'chapter_endnotes': ChapterEndnotesAssembler(),
+    'document_endnotes': DocumentEndnotesAssembler(),
+    'wackSTEMbibliographyNotes': WackStemAssembler(),
+}
+_DEFAULT_ASSEMBLER = DefaultAssembler()
+
+
 def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
                        segment_boundaries=None, footnote_warnings=None):
-    """Assemble pages into markdown, injecting section headings from headers.
+    """Assemble pages into markdown, injecting section headings from headers. Thin conductor over the
+    PDF_ASSEMBLERS registry: it runs the SHARED spine (running-header detection, sticky-notes
+    tracking, page-number anchors, heading injection, numbered-notes→defs) and the SHARED tail
+    (URL fixes, pypdf def-recovery, image reordering, the Footnotes heading); the per-classification
+    assembler owns setup + per_page + post_combine.
 
     segment_boundaries (optional list[int]): page indices where a new paper
         begins in a multi-paper PDF. Each segment after the first gets a
@@ -1407,14 +1827,13 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         scan_footnote_mojibake. When non-empty, the pypdf def-recovery pass
         runs regardless of classification.
     """
-    pages = response_dict["pages"]
+    ctx = AssemblyContext(response_dict, classification, footnote_meta)
+    pages = ctx.pages
 
     # Extract page number offset for stripping trailing page numbers
-    page_number_offset = None
     if footnote_meta and footnote_meta.get('signals', {}).get('trailing_page_number_consistency', 0) > 0.5:
-        page_number_offset = footnote_meta['signals'].get('trailing_page_number_offset')
-    md_parts = []
-    seen_sections = set()
+        ctx.page_number_offset = footnote_meta['signals'].get('trailing_page_number_offset')
+
     # Track repeated headers to identify running headers (book title etc.)
     header_counts = {}
     for page in pages:
@@ -1423,114 +1842,21 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             name = extract_section_name(line)
             if name:
                 header_counts[name] = header_counts.get(name, 0) + 1
-
     # Headers appearing on >40% of pages are likely running headers (book title)
     threshold = max(3, len(pages) * 0.4)
     running_headers = {name for name, count in header_counts.items() if count >= threshold}
 
-    global_fn_counter = 1  # For page_bottom renumbering
-    fn_defs_parts = []  # Collected footnote definitions for page_bottom
-
-    # Build set of definition-heavy page indices from footnote_meta.
-    # Two filters to avoid false positives (e.g., numbered lists in body text):
-    # 1. Exclude pages that also have refs (body pages, not notes pages)
-    # 2. Require a neighboring page also be def-heavy (notes pages cluster together)
-    def_heavy_pages = set()
-    if footnote_meta and classification == "chapter_endnotes":
-        candidates = set()
-        for entry in footnote_meta.get('page_summary', []):
-            if len(entry.get('defs', [])) >= 3 and not entry.get('refs'):
-                candidates.add(entry['index'])
-        for p in candidates:
-            if (p - 1) in candidates or (p + 1) in candidates:
-                def_heavy_pages.add(p)
-
-    # Pre-compute chapter offsets for chapter_endnotes renumbering.
-    # Each chapter restarts footnote numbering at 1; we offset them to be globally unique.
-    chapter_fn_offsets = None
-    notes_transition_pages = {}  # page_idx → (threshold, old_offset, new_offset)
-    if classification == "chapter_endnotes" and footnote_meta:
-        chapter_fn_offsets = [0] * len(pages)
-        cumulative = 0
-        ch_max = 0          # max footnote number in current chapter (refs + defs)
-        ref_ch_max = 0      # max ref number in current chapter (for detecting resets)
-
-        for entry in footnote_meta.get('page_summary', []):
-            refs = entry.get('refs', [])
-            defs = entry.get('defs', [])
-
-            if defs:
-                ch_max = max(ch_max, max(defs))
-
-            if refs:
-                ref_max = max(refs)
-                if ref_ch_max > 10 and ref_max < ref_ch_max * 0.5:
-                    # Number reset — new chapter
-                    cumulative += ch_max
-                    ch_max = ref_max
-                    ref_ch_max = ref_max
-                    for j in range(entry['index'], len(pages)):
-                        chapter_fn_offsets[j] = cumulative
-                else:
-                    ch_max = max(ch_max, ref_max)
-                    ref_ch_max = max(ref_ch_max, ref_max)
-
-        # --- Extend offsets into the notes section ---
-        # Build ordered list of body chapter offsets
-        body_offsets = sorted(set(chapter_fn_offsets))
-
-        # Find last page with refs (notes section starts after this)
-        last_ref_page = 0
-        for entry in footnote_meta.get('page_summary', []):
-            if entry.get('refs'):
-                last_ref_page = max(last_ref_page, entry['index'])
-
-        # In notes section, detect def resets and assign matching body chapter offsets.
-        # Transition pages (where one chapter ends and the next begins) need per-def
-        # offsets since they contain defs from two different chapters.
-        notes_ch_idx = 0
-        notes_def_max = 0
-        for entry in footnote_meta.get('page_summary', []):
-            if entry['index'] <= last_ref_page:
-                continue
-            defs = entry.get('defs', [])
-            if not defs:
-                continue
-            def_max = max(defs)
-            def_min = min(defs)
-            if notes_def_max > 5 and def_min < notes_def_max * 0.3:
-                # Record old offset before advancing chapter
-                old_offset = body_offsets[notes_ch_idx] if notes_ch_idx < len(body_offsets) else 0
-                threshold = notes_def_max * 0.5
-                notes_ch_idx += 1
-                # On transition pages, old chapter defs may still appear.
-                # Only track new chapter's defs (below the reset threshold).
-                new_ch_defs = [d for d in defs if d < threshold]
-                notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
-
-                if notes_ch_idx < len(body_offsets):
-                    new_offset = body_offsets[notes_ch_idx]
-                    # Mark this as a transition page for per-def offsetting
-                    notes_transition_pages[entry['index']] = (threshold, old_offset, new_offset)
-                    # Start new offset on the NEXT page (transition page handled specially)
-                    for j in range(entry['index'] + 1, len(pages)):
-                        chapter_fn_offsets[j] = new_offset
-            else:
-                notes_def_max = max(notes_def_max, def_max)
-
-                if notes_ch_idx < len(body_offsets):
-                    offset = body_offsets[notes_ch_idx]
-                    for j in range(entry['index'], len(pages)):
-                        chapter_fn_offsets[j] = offset
+    # The per-classification assembler owns setup (e.g. the chapter-offset precompute) + per_page +
+    # post_combine; the default handles the generic/unknown path.
+    assembler = PDF_ASSEMBLERS.get(classification, _DEFAULT_ASSEMBLER)
+    assembler.setup(ctx)
 
     # Sticky notes section tracking: once we enter "Notes" at the end of the
     # book, stay in notes mode until we hit Acknowledgements/Bibliography/etc.
-    in_notes_section = False
-    last_ref_page_idx = 0
     if footnote_meta:
         for entry in footnote_meta.get('page_summary', []):
             if entry.get('refs'):
-                last_ref_page_idx = max(last_ref_page_idx, entry['index'])
+                ctx.last_ref_page_idx = max(ctx.last_ref_page_idx, entry['index'])
 
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
@@ -1540,24 +1866,24 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # Sticky notes section — only triggers AFTER all body refs are done.
         # This prevents mid-book "Notes" headings (in chapter-endnote books like
         # Road from Mont Pelerin) from accidentally flagging body pages.
-        if not in_notes_section and i > last_ref_page_idx:
+        if not ctx.in_notes_section and i > ctx.last_ref_page_idx:
             if "Notes" in header or "NOTES" in header or "Footnotes" in header:
-                in_notes_section = True
+                ctx.in_notes_section = True
             elif re.search(r'^#+ *(Foot)?[Nn]otes\b', md_stripped):
-                in_notes_section = True
+                ctx.in_notes_section = True
 
         # Detect leaving notes section (Acknowledgements, Bibliography, Index, etc.)
-        if in_notes_section:
+        if ctx.in_notes_section:
             if re.search(r'^#+ *(Acknowledg|Bibliograph|Index|Appendi|General Bibliography)', md_stripped):
-                in_notes_section = False
+                ctx.in_notes_section = False
 
         is_notes_page = ("Notes" in header or "NOTES" in header
-                          or i in def_heavy_pages
-                          or in_notes_section)
+                          or i in ctx.def_heavy_pages
+                          or ctx.in_notes_section)
 
         # Replace trailing page number with inline anchor tag
-        if page_number_offset is not None:
-            expected = i + page_number_offset
+        if ctx.page_number_offset is not None:
+            expected = i + ctx.page_number_offset
             last_line = md_stripped.rsplit('\n', 1)[-1].strip() if md_stripped else ''
             if re.match(r'^\d{1,4}$', last_line) and int(last_line) == expected:
                 md = md.rstrip()
@@ -1579,17 +1905,17 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # 3. The markdown body doesn't already start with a # heading
         # 4. The body starts with uppercase (new section, not a paragraph continuation)
         if (section_name
-                and section_name not in seen_sections
+                and section_name not in ctx.seen_sections
                 and not md_stripped.startswith('#')
                 and md_stripped
                 and md_stripped[0].isupper()):
-            seen_sections.add(section_name)
+            ctx.seen_sections.add(section_name)
             md = f"# {section_name}\n\n{md}"
 
         # Track sections from headings Mistral already detected in the body
         if md_stripped.startswith('#'):
             heading_text = re.sub(r'^#+\s*', '', md_stripped.split('\n')[0])
-            seen_sections.add(heading_text)
+            ctx.seen_sections.add(heading_text)
 
         # Convert numbered notes to footnote definitions on Notes pages
         if is_notes_page and classification != "wackSTEMbibliographyNotes":
@@ -1599,123 +1925,11 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             # Also handle [N] text format — bracket-wrapped definitions
             md = re.sub(r'^\[(\d{1,3})\] (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
 
-        # Renumber footnotes per-page for page_bottom classification
-        if classification == "page_bottom":
-            md, global_fn_counter = renumber_page_footnotes(md, global_fn_counter)
-            body, fn_text = split_body_and_footnotes(md)
-            if body.strip():
-                md_parts.append(body)
-            if fn_text.strip():
-                fn_defs_parts.append(fn_text)
-        elif classification == "chapter_endnotes":
-            # Convert all footnote ref formats to [^N] (before offset)
-            md = convert_footnotes(md)
-            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+        # Per-classification per-page footnote handling (renumber / convert / offset + append).
+        assembler.per_page(ctx, i, page, md, md_stripped)
 
-            # Convert inline [N] → [^N] (bracket refs from OCR)
-            def _convert_bracket(m, _md=md):
-                num = int(m.group(1))
-                if num > 500 or num < 1:
-                    return m.group(0)
-                pos = m.start()
-                if pos == 0 or _md[pos - 1] == '\n':
-                    return m.group(0)
-                if pos > 0 and _md[pos - 1] in (']', '!'):
-                    return m.group(0)
-                if m.end() < len(_md) and _md[m.end()] == '(':
-                    return m.group(0)
-                return f'[^{m.group(1)}]'
-            md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
-
-            # Convert bare numbers after punctuation: .46 This → .[^46] This
-            # (?<![A-Z]\.) rejects section/table numbering like "I.1", "V.2"
-            md = re.sub(
-                r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
-                r'[^\1]',
-                md,
-                flags=re.DOTALL
-            )
-
-            # Apply chapter offset for global uniqueness
-            if chapter_fn_offsets:
-                if i in notes_transition_pages:
-                    # Transition page: old chapter tail + new chapter start need different offsets
-                    threshold, old_off, new_off = notes_transition_pages[i]
-                    def _apply_transition(m, _thr=threshold, _old=old_off, _new=new_off):
-                        num = int(m.group(1))
-                        off = _old if num >= _thr else _new
-                        return f'[^{num + off}]' if off > 0 else m.group(0)
-                    md = re.sub(r'\[\^(\d+)\]', _apply_transition, md)
-                else:
-                    offset = chapter_fn_offsets[i]
-                    if offset > 0:
-                        md = re.sub(
-                            r'\[\^(\d+)\]',
-                            lambda m: f'[^{int(m.group(1)) + offset}]',
-                            md
-                        )
-
-            if md_stripped:
-                md_parts.append(md)
-        elif classification == "document_endnotes":
-            md = convert_footnotes(md)
-            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
-            # Strip italic wrapping around numeric bracket refs: *[2]* → [2]
-            md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
-            # Convert inline [N] → [^N] (not at line start, not markdown links)
-            def _convert_bracket_endnote(m, _md=md):
-                num = int(m.group(1))
-                if num > 500 or num < 1:
-                    return m.group(0)
-                pos = m.start()
-                if pos == 0 or _md[pos - 1] == '\n':
-                    return m.group(0)
-                if pos > 0 and _md[pos - 1] in (']', '!'):
-                    return m.group(0)
-                if m.end() < len(_md) and _md[m.end()] == '(':
-                    return m.group(0)
-                return f'[^{m.group(1)}]'
-            md = re.sub(r'\[(\d+)\]', _convert_bracket_endnote, md)
-            # Convert bare numbers after punctuation
-            md = re.sub(
-                r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
-                r'[^\1]',
-                md,
-                flags=re.DOTALL
-            )
-            if md_stripped:
-                md_parts.append(md)
-        elif md_stripped:
-            md_parts.append(md)
-
-    combined = "\n\n".join(md_parts)
-
-    if classification == "wackSTEMbibliographyNotes":
-        combined = wrap_stem_citations(combined)
-        combined = wrap_stem_definitions(combined)
-    elif classification == "page_bottom":
-        # Rejoin body text only (footnotes were separated per-page)
-        combined = rejoin_page_breaks(combined)
-        # Format and append collected footnote definitions
-        fn_defs = "\n\n".join(fn_defs_parts)
-        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', fn_defs, flags=re.MULTILINE)
-        if fn_defs.strip():
-            combined = combined + "\n\n" + fn_defs
-    elif classification == "chapter_endnotes":
-        # Superscripts already converted per-page with chapter offsets applied.
-        # Fix def formatting and rejoin page breaks.
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
-        combined = rejoin_page_breaks(combined)
-    elif classification == "document_endnotes":
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
-        combined = rejoin_page_breaks(combined)
-    else:
-        combined = normalize_all_footnote_refs(combined)
-        combined = normalize_footnote_defs(combined)
-        # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
-        # Only at start of line (definitions), not inline references
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*\u201c\u2018])', r'\1: ', combined, flags=re.MULTILINE)
-        combined = rejoin_page_breaks(combined)
+    combined = "\n\n".join(ctx.md_parts)
+    combined = assembler.post_combine(ctx, combined)
 
     # --- Fix mangled URLs from OCR ---
     if pdf_path:
