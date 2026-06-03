@@ -343,6 +343,11 @@ def build_prompt(art, module_paths, user_note=None):
             "Number-based pairing mis-aligns whenever numbering restarts or is offset across segments "
             "(the orphaned defs here are numbered on a different base than the detected markers). A "
             "mis-aligned link is worse than no link.")
+    ctx = _markup_in_context(art)
+    if ctx:
+        parts.append("\n## Markup in context (a reference + a definition INSIDE their block — the "
+                     "element nesting a fixed excerpt hides; for an EPUB also the RAW pre-conversion markup)")
+        parts.append(ctx)
     if art['source']:
         parts.append("\n## Source (truncated)")
         parts.append(art['source'][:5000])
@@ -369,6 +374,100 @@ def build_prompt(art, module_paths, user_note=None):
         "fix spans stages (op:add a detector + op:register it). Keep edits minimal. Uphold the modus "
         "operandi: correct where determinable, NO link where ambiguous — never a confident wrong link.")
     return "\n".join(parts)
+
+
+def _markup_in_context(art):
+    """Show the model the ACTUAL markup of a footnote REFERENCE and a DEFINITION inside their
+    containing block (paragraph/div) — the element NESTING that a fixed line-sample or a truncated
+    excerpt hides (e.g. the <sup>…<a epub:type=noteref>…</a></sup> double-detection that orphaned
+    half of aarushi's footnotes). For an EPUB it also pulls from the RAW source (epub_original/*.xhtml
+    or original.epub), where the pre-conversion markup the bug actually lives in is intact.
+    Best-effort: never raises (returns '' if bs4 is unavailable or nothing matches)."""
+    import re
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        return ''
+    out = []
+
+    def _block(el):
+        for anc in [el, *el.parents]:
+            if getattr(anc, 'name', None) in ('p', 'div', 'li', 'aside', 'td', 'section'):
+                return str(anc)[:700]
+        return str(el)[:400]
+
+    def _find_noteref(soup):
+        r = soup.find('sup', class_='footnote-ref')
+        return r or soup.find(lambda t: t.has_attr('epub:type') and 'noteref' in t.get('epub:type', '').lower())
+
+    # (a) Converted main-text.html: one in-text reference in its block.
+    src = art.get('source')
+    if src and '<' in src:
+        try:
+            ref = _find_noteref(BeautifulSoup(src, 'html.parser'))
+            if ref:
+                out.append("In-text reference (converted main-text.html), in its block:\n" + _block(ref))
+        except Exception:
+            pass
+
+    # A real footnote definition's markup (footnotes.json content).
+    bd = art.get('book_dir')
+    if bd:
+        for cand in ('footnotes.jsonl', 'footnotes.json'):
+            p = os.path.join(bd, cand)
+            if not os.path.isfile(p):
+                continue
+            try:
+                raw = open(p, encoding='utf-8').read()
+                items = ([json.loads(l) for l in raw.splitlines() if l.strip()]
+                         if cand.endswith('.jsonl') else json.load(open(p, encoding='utf-8')))
+                if isinstance(items, list) and items:
+                    out.append("A footnote definition (footnotes.json content):\n" + str(items[0].get('content', ''))[:600])
+            except Exception:
+                pass
+            break
+
+    # (b) RAW EPUB source: a noteref + a footnote in their blocks — shows the PRE-conversion nesting.
+    raw = None
+    if bd:
+        epd = os.path.join(bd, 'epub_original')
+        if os.path.isdir(epd):
+            import glob
+            for f in (glob.glob(os.path.join(epd, '**', '*.xhtml'), recursive=True)
+                      + glob.glob(os.path.join(epd, '**', '*.html'), recursive=True)):
+                try:
+                    t = open(f, encoding='utf-8', errors='ignore').read()
+                except Exception:
+                    continue
+                if 'noteref' in t.lower():
+                    raw = t
+                    break
+        elif os.path.isfile(os.path.join(bd, 'original.epub')):
+            try:
+                import zipfile
+                with zipfile.ZipFile(os.path.join(bd, 'original.epub')) as z:
+                    for n in z.namelist():
+                        if n.lower().endswith(('.xhtml', '.html')):
+                            t = z.read(n).decode('utf-8', 'ignore')
+                            if 'noteref' in t.lower():
+                                raw = t
+                                break
+            except Exception:
+                pass
+    if raw:
+        try:
+            rs = BeautifulSoup(raw, 'html.parser')
+            nref = _find_noteref(rs)
+            if nref:
+                out.append("RAW EPUB in-text reference, in its block (PRE-conversion — note the element nesting):\n"
+                           + _block(nref))
+            ndef = rs.find(lambda t: t.has_attr('epub:type')
+                           and re.search(r'footnote|endnote|rearnote', t.get('epub:type', ''), re.I))
+            if ndef:
+                out.append("RAW EPUB footnote definition, in its block:\n" + _block(ndef))
+        except Exception:
+            pass
+    return "\n\n".join(out)
 
 
 def _footnote_samples(art, n=14):
