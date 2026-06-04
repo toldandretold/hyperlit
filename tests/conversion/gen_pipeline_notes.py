@@ -50,6 +50,14 @@ def collect_notes():
     # EPUB frontend nodes.
     notes['epub:detection'] = E.EpubNormalizer._DETECTION_PLAIN
     notes['epub:linking'] = E.EpubNormalizer._LINKING_PLAIN
+    notes['epub:structural'] = E.EpubNormalizer._STRUCTURAL_PLAIN
+    notes['epub:headings'] = E.EpubNormalizer._HEADINGS_PLAIN
+    # one note per EPUB footnote-detection scheme (the run-all fan in TRANSFORM_PIPELINE).
+    for name in E.EpubNormalizer._DETECTOR_NEEDS:
+        notes['epub:detector:' + name] = getattr(E, name).plain
+    # one note per EPUB heading-detection scheme (Phase 1, before footnotes).
+    for name in E.EpubNormalizer._HEADING_NEEDS:
+        notes['epub:heading:' + name] = getattr(E, name).plain
     return notes
 
 

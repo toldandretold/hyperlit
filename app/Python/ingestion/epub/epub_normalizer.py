@@ -268,6 +268,8 @@ class CalibreSpanHeadingDetector(EpubTransform):
 
     name = "CalibreSpanHeadingDetector"
     description = "Convert Calibre font-sized spans to headings"
+    plain = ('Calibre exports headings as big-font / bold <span>s, NOT <h1>. This converts them back to '
+             'real headings by font-size class: calibre5 (1.67em) → h1, calibre8 (1.29em) → h2, bold → h3.')
 
     # Known Calibre heading class patterns
     # font-size classes map to heading levels
@@ -781,6 +783,9 @@ class DivToSemanticConverter(EpubTransform):
 
     name = "DivToSemanticConverter"
     description = "Convert styled divs to semantic HTML (headings, blockquotes)"
+    plain = ('Styled <div>s → semantic headings/blockquotes. Maps publisher (often Bible USFM) classes: '
+             'mt/mt1 → h1, mt2 → h2, s/s1 → h3, psalmlabel → h2; or pulls a number out of the class '
+             '(heading2 → h2, clamped 1–6).')
 
     # USFM (Unified Standard Format Markers) classes used in Bible EPUBs
     USFM_HEADING_CLASSES = {
@@ -912,6 +917,9 @@ class CSSClassHeadingDetector(EpubTransform):
 
     name = "CSSClassHeadingDetector"
     description = "Convert CSS-classed paragraphs to semantic headings"
+    plain = ('Publisher CSS-classed <p> paragraphs → headings. NOTE the publisher class names are '
+             'RELATIVE to the section, not HTML levels — class="h1" is a SUBSECTION (mapped to h3), '
+             'while title/fmtitle/bmtitle/con → h1.')
 
     # Explicit class mappings (these always map to specific heading levels)
     # Note: Publisher class names like "h1" don't mean HTML h1 - they're relative
@@ -1156,6 +1164,8 @@ class Epub3SemanticFootnoteDetector(EpubTransform):
 
     name = "Epub3SemanticFootnoteDetector"
     description = "Detect footnotes via epub:type attributes (W3C EPUB3 spec)"
+    plain = ('EPUB3\'s W3C-standard scheme: elements tagged epub:type="footnote" / "noteref". The '
+             'cleanest, most reliable signal — present in well-made modern EPUBs; runs first.')
 
     def detect(self, soup) -> bool:
         return bool(soup.find(attrs={'epub:type': True}))
@@ -1202,6 +1212,8 @@ class AriaRoleFootnoteDetector(EpubTransform):
 
     name = "AriaRoleFootnoteDetector"
     description = "Detect footnotes via ARIA role attributes"
+    plain = ('Accessibility-tagged footnotes: role="doc-footnote" / "doc-noteref" ARIA attributes. '
+             'Common in EPUBs built for screen-readers; nearly as reliable as the epub:type scheme.')
 
     def detect(self, soup) -> bool:
         return bool(soup.find(attrs={'role': re.compile(r'^doc-(foot|end)?note')}))
@@ -1246,6 +1258,9 @@ class ClassPatternFootnoteDetector(EpubTransform):
 
     name = "ClassPatternFootnoteDetector"
     description = "Detect footnotes via CSS class patterns"
+    plain = ('Footnotes identified by CSS class NAMES containing footnote / endnote / fn. The most '
+             'common publisher scheme, but broad — so it runs AFTER the precise semantic/ARIA ones to '
+             'avoid grabbing the wrong elements.')
 
     FOOTNOTE_PATTERNS = [
         r'\bfootnotes?\d*\b', r'\bfoot-notes?\d*\b', r'\bfn\d*\b',
@@ -1350,6 +1365,8 @@ class NotesClassFootnoteDetector(EpubTransform):
 
     name = "NotesClassFootnoteDetector"
     description = "Detect footnotes in <p class='notes'> with child anchor ID"
+    plain = ('Publisher format: <p class="notes"> definition paragraphs whose child anchor back-links to '
+             'the in-text marker. Matched by the structure (note paragraph + backlink), not a footnote class.')
 
     def detect(self, soup) -> bool:
         return bool(soup.find('p', class_='notes'))
@@ -1400,6 +1417,8 @@ class TableFootnoteDetector(EpubTransform):
 
     name = "TableFootnoteDetector"
     description = "Detect footnotes in table-based layouts"
+    plain = ('Footnotes laid out as a two-column TABLE — the marker/number in one cell, the note text in '
+             'the other (e.g. Pluto Press). Identified by the table\'s class or its first-cell anchors.')
 
     def detect(self, soup) -> bool:
         # Look for tables that might contain footnotes
@@ -1468,6 +1487,8 @@ class PandocFootnoteDetector(EpubTransform):
 
     name = "PandocFootnoteDetector"
     description = "Detect Pandoc-style footnotes section"
+    plain = ('The standard Pandoc / HTML <section class="footnotes"> (or <div class="footnotes">) block — '
+             'what Word→pandoc and many conversion tools emit. Very common for DOCX-sourced EPUBs.')
 
     def detect(self, soup) -> bool:
         return bool(
@@ -1534,6 +1555,8 @@ class EndnoteCharactersFootnoteDetector(EpubTransform):
 
     name = "EndnoteCharactersFootnoteDetector"
     description = "Detect Word/Calibre endnotes via EndnoteCharacters class"
+    plain = ('InDesign / Word export: footnote markers wrapped in <span class="EndnoteCharacters">. A '
+             'specific vendor signal — when present it is unambiguous.')
 
     def detect(self, soup) -> bool:
         return bool(soup.find('span', class_='EndnoteCharacters'))
@@ -1622,6 +1645,8 @@ class EnoteFootnoteDetector(EpubTransform):
 
     name = "EnoteFootnoteDetector"
     description = "Detect enote class footnotes (Marxists.org format)"
+    plain = ('Marxists.org format: <sup class="enote…"> superscript markers. A site-specific scheme — '
+             'the reason this corpus has its own detector.')
 
     def detect(self, soup) -> bool:
         """Check if document has enote-class superscripts."""
@@ -1794,6 +1819,9 @@ class AnchorHeadingFootnoteDetector(EpubTransform):
 
     name = "AnchorHeadingFootnoteDetector"
     description = "Endnotes as <hN id=X>Note N</hN> + content, linked by <a href=#X>"
+    plain = ('Endnotes written as HEADINGS: <hN id=X>Note N</hN> + its content, linked by an in-text '
+             '<a href="#X">. Matched by id correspondence (not number), so it survives per-chapter '
+             'numbering restarts.')
 
     _NOTE_HEADING_RE = re.compile(r'^(?:end)?note\s+\d+\.?$', re.I)
     _NOTE_MARKER_RE = re.compile(r'^(?:end)?note\s+(\d+)$', re.I)
@@ -1874,6 +1902,9 @@ class HeuristicFootnoteDetector(EpubTransform):
 
     name = "HeuristicFootnoteDetector"
     description = "Fallback heuristic footnote detection"
+    plain = ('The always-on FALLBACK: numbered-list / superscript / id-pattern heuristics, used only when '
+             'no specific scheme matched. Least reliable — if this is the ONLY detector that fired, the '
+             'EPUB is a prime review candidate (a real scheme may have been missed).')
 
     ID_PATTERNS = [
         r'^fn\d+$', r'^footnote\d+$', r'^note\d+$',
@@ -2509,6 +2540,26 @@ class EpubNormalizer:
         "large orphaned share means the noteref markers were absent or detached before conversion: route "
         "fixes to FootnoteConverter, NOT the detectors (detection can read 'success' while linking drops "
         "notes).")
+    _STRUCTURAL_PLAIN = (
+        "Before any footnote detection, 'open up' the publisher's messy HTML: unwrap Calibre fake "
+        "blockquotes/spans, strip styling-only classes, relocate images, and unwrap section "
+        "containers. This runs FIRST because the detectors match on clean structure — and the soup "
+        "keeps mutating, so order matters.")
+    _HEADINGS_PLAIN = (
+        "Publishers rarely use real <h1>/<h2>/<h3> for titles — they fake them with big fonts, bold "
+        "spans, or styled divs. These detectors (Phase 1, before footnotes) recover the real heading "
+        "level so the document's outline survives into the markdown/HTML. Each fires if its markup is "
+        "present; HeadingNormalizer then fixes any level GAPS (h1 → h4 becomes h1 → h2).")
+    # The heading-detection strategies (Phase 1) — recover real <h1>/<h2>/<h3> from the varied ways
+    # publishers fake headings. Keyed by class name → the markup-and-level map each one looks for.
+    _HEADING_NEEDS = {
+        'CalibreSpanHeadingDetector': 'font-sized <span> classes → calibre5 (1.67em) → h1, '
+                                      'calibre8 (1.29em) → h2, bold → h3',
+        'CSSClassHeadingDetector': 'CSS-classed <p> → title/fmtitle/bmtitle/con → h1, publisher '
+                                   'h1 → h3, h2 → h4 (publisher classes are RELATIVE, not HTML levels)',
+        'DivToSemanticConverter': 'styled <div> classes (USFM/publisher) → mt/mt1 → h1, mt2 → h2, '
+                                  's/s1 → h3, psalmlabel → h2; or a numbered class (heading2 → h2)',
+    }
 
     def _write_assessment(self, all_footnotes, all_noterefs, linking=None):
         """Emit the EPUB stage's footnote forks to assessment.json: (1) which DETECTOR identified

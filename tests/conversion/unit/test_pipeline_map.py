@@ -191,6 +191,23 @@ def test_pipeline_structure_md_matches_folders():
         "run: python3 tests/conversion/gen_pipeline_tree.py")
 
 
+def test_every_epub_footnote_detector_has_a_plain_note():
+    """Every EPUB footnote-detection scheme (the run-all fan) must carry a `plain` note, so a new
+    detector added to TRANSFORM_PIPELINE / _DETECTOR_NEEDS shows up in the viewer + LLM report."""
+    import epub_normalizer as E
+    blank = [name for name in E.EpubNormalizer._DETECTOR_NEEDS
+             if not (getattr(getattr(E, name, None), 'plain', '') or '').strip()]
+    assert not blank, f"EPUB footnote detectors missing a `plain` note: {blank}"
+
+
+def test_every_epub_heading_detector_has_a_plain_note():
+    """Every EPUB heading-detection strategy (publisher markup → h1/h2/h3) must carry a `plain` note."""
+    import epub_normalizer as E
+    blank = [name for name in E.EpubNormalizer._HEADING_NEEDS
+             if not (getattr(getattr(E, name, None), 'plain', '') or '').strip()]
+    assert not blank, f"EPUB heading detectors missing a `plain` note: {blank}"
+
+
 def test_pipeline_map_data_js_matches_code():
     """The interactive viewer's DIAGRAM + node data are generated from PDF_CLASSIFIERS/PDF_ASSEMBLERS +
     the recovery funcs + the ASSESSMENT.record sites + folders. The committed pipeline_map_data.js must

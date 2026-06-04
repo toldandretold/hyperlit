@@ -41,8 +41,11 @@
     <p class="sub">All server-side Python. <b>①</b> <code>ingestion/</code> turns the file into common
        HTML, then <b>②</b> <code>digestion/</code> links + builds nodes. This page is GENERATED from the
        code — the diagram from the registries + folders, the 💡 notes from each unit's <code>plain</code>.</p>
-    <div class="controls"><label><input type="checkbox" id="expandPdf" checked>
-       Expand the PDF footnote-layout sub-tree</label></div>
+    <div class="controls">
+      <label><input type="checkbox" id="expandPdf" checked> Expand the PDF footnote-layout sub-tree</label>
+      &nbsp;&nbsp;
+      <label><input type="checkbox" id="expandEpub"> Expand the EPUB footnote-detection sub-tree</label>
+    </div>
   </header>
   <div class="legend">
     👆 <b>Click any purple node</b> — diamonds/boxes show a 💡 plain-English summary plus what they
@@ -72,66 +75,100 @@
     const OV = window.PIPELINE_MAP_OVERLAY || {};
     const NOTES = window.PIPELINE_NOTES || {};
 
-    const buildDiagram = expanded => expanded ? MAP.mermaid_expanded : MAP.mermaid_collapsed;
+    // Two independent expand toggles (PDF, EPUB): splice the chosen blocks + clicks into the skeleton.
+    function buildDiagram(pdfExpanded, epubExpanded) {
+      const pdfKey = pdfExpanded ? 'pdf_expanded' : 'pdf_collapsed';
+      const epubKey = epubExpanded ? 'epub_expanded' : 'epub_collapsed';
+      const C = MAP.clicks || {};
+      const ids = [...(C.core || []), ...(C[pdfKey] || []), ...(C[epubKey] || [])];
+      const clicks = ids.map(id => `    click ${id} decisionClick`).join('\n');
+      return (MAP.skeleton || '')
+        .replace('${PDF}', MAP.blocks[pdfKey])
+        .replace('${EPUB}', MAP.blocks[epubKey])
+        .replace('${CLICKS}', clicks);
+    }
 
     const panel = () => document.getElementById('panel');
-    const li = a => (a && a.length) ? '<ul>' + a.map(x => `<li>${x}</li>`).join('') + '</ul>' : '';
-    const pills = a => (a && a.length) ? a.map(x => `<span class="pill">${x}</span>`).join('') : '';
+    // HTML-escape ALL dynamic text — notes/markup/gates contain real tags (<p class="notes">,
+    // <section class="footnotes">, <0.2) that innerHTML would otherwise PARSE instead of show.
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const code = s => `<code>${esc(s)}</code>`;
+    const li = a => (a && a.length) ? '<ul>' + a.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : '';
+    const pills = a => (a && a.length) ? a.map(x => `<span class="pill">${esc(x)}</span>`).join('') : '';
     const noteFor = n => (n && n.noteKey && NOTES[n.noteKey]) || '';
-    const K = (label, val) => val ? `<div class="k">${label}</div><p>${val}</p>` : '';
+    const K = (label, valHtml) => valHtml ? `<div class="k">${label}</div><p>${valHtml}</p>` : '';
 
     // ONE data-driven renderer — node metadata (generated) + overlay prose (hand) + note (generated).
     function renderNode(id) {
       const n = MAP.nodes[id]; if (!n) return;
       const o = OV[id] || {};
-      const plain = noteFor(n) ? `<p class="plain">💡 ${noteFor(n)}</p>` : '';
-      const ref = n.codeRef ? `<div class="ref">${n.codeRef}</div>` : '';
+      const plain = noteFor(n) ? `<p class="plain">💡 ${esc(noteFor(n))}</p>` : '';
+      const ref = n.codeRef ? `<div class="ref">${esc(n.codeRef)}</div>` : '';
       if (n.kind === 'classifier') {
-        panel().innerHTML = `<h2>Layout: ${n.name}</h2>${plain}${ref}
+        panel().innerHTML = `<h2>Layout: ${esc(n.name)}</h2>${plain}${ref}
           <p class="hint">One candidate inside the single <code>pdf_footnote_classification</code> fork.</p>
-          ${K('Matches when (the gate)', o.gate ? `<code>${o.gate}</code>` : '')}
-          ${K('Would_need (what flips the branch)', n.wouldNeed)}
-          ${K('Rejected_because (recorded in considered[])', o.rejected)}
-          ${K('Confidence factors (when chosen)', o.confidence)}
-          ${o.note ? `<div class="k">Note</div><p class="hint">${o.note}</p>` : ''}`;
+          ${K('Matches when (the gate)', o.gate ? code(o.gate) : '')}
+          ${K('Would_need (what flips the branch)', esc(n.wouldNeed))}
+          ${K('Rejected_because (recorded in considered[])', esc(o.rejected))}
+          ${K('Confidence factors (when chosen)', esc(o.confidence))}
+          ${o.note ? `<div class="k">Note</div><p class="hint">${esc(o.note)}</p>` : ''}`;
       } else if (n.kind === 'assembler') {
-        panel().innerHTML = `<h2>${n.name}</h2>${plain}${ref}
-          ${K('What it builds', o.detail)}
+        panel().innerHTML = `<h2>${esc(n.name)}</h2>${plain}${ref}
+          ${K('What it builds', esc(o.detail))}
           <div class="k">Note</div><p class="hint">It only ASSEMBLES the markdown; the marker → definition
             LINKING happens later in digestion (MARKER_LINK_RULES).</p>`;
       } else if (n.kind === 'recovery') {
-        panel().innerHTML = `<h2>${n.name}</h2>${plain}${ref}
+        panel().innerHTML = `<h2>${esc(n.name)}</h2>${plain}${ref}
           <p class="hint">A footnote RECOVERY layer — runs after assembly, feeds the harvest-fidelity scorer.</p>
-          ${K('What it does', o.does)}
-          ${K('Safety check', o.safety)}
-          ${('needs_pdf' in o) ? `<div class="k">Needs the PDF?</div><p>${o.needs_pdf ? '⚠ YES' : 'No'} — ${o.needs || ''}</p>` : ''}
-          ${K('Checkpoint (test)', o.test)}`;
+          ${K('What it does', esc(o.does))}
+          ${K('Safety check', esc(o.safety))}
+          ${('needs_pdf' in o) ? `<div class="k">Needs the PDF?</div><p>${o.needs_pdf ? '⚠ YES' : 'No'} — ${esc(o.needs || '')}</p>` : ''}
+          ${K('Checkpoint (test)', esc(o.test))}`;
+      } else if (n.kind === 'epub_detector') {
+        panel().innerHTML = `<h2>EPUB footnote scheme: ${esc(n.name)}</h2>${plain}${ref}
+          <p class="hint">One of the run-all footnote detectors — fires if its markup is present (multiple can).</p>
+          ${K('Looks for (markup)', code(n.needs))}
+          ${K('What it does', esc(n.description))}`;
+      } else if (n.kind === 'epub_heading') {
+        panel().innerHTML = `<h2>EPUB heading scheme: ${esc(n.name)}</h2>${plain}${ref}
+          <p class="hint">Recovers real h1/h2/h3 from publisher-faked headings (Phase 1, before footnote detection).</p>
+          ${K('Looks for (markup → level)', code(n.needs))}
+          ${K('What it does', esc(n.description))}`;
+      } else if (n.kind === 'epub_structural') {
+        panel().innerHTML = `<h2>EPUB structural normalisation</h2>${plain}${ref}
+          <div class="k">Phase-1 transforms (run before detection, in order)</div>${li(n.structural)}`;
+      } else if (n.kind === 'epub_overview') {
+        panel().innerHTML = `<h2>EPUB footnote detection</h2>${plain}${ref}
+          <p class="hint">Run-all: every scheme below runs; those whose markup is present fire — tick "Expand the EPUB sub-tree" to see each.</p>
+          <div class="k">Detection schemes</div>${pills(n.options)}`;
       } else {  // fork (classify / strategy / bibliography / guard / citation / audit / fidelity)
-        panel().innerHTML = `<h2>${n.module || id}</h2>${plain}${ref}
-          ${n.question ? `<p class="q">“${n.question}”</p>` : ''}
+        panel().innerHTML = `<h2>${esc(n.module || id)}</h2>${plain}${ref}
+          ${n.question ? `<p class="q">“${esc(n.question)}”</p>` : ''}
           ${(n.options && n.options.length) ? `<div class="k">Decides among</div>${pills(n.options)}` : ''}
           ${o.evidence ? `<div class="k">Records to assessment.json</div>${li(o.evidence)}` : ''}
-          ${K('Considered (roads not taken)', o.considered)}
-          ${K('Confidence / margin', o.confidence)}
-          ${o.writes ? `<div class="k">In the report</div><p class="hint">${o.writes}</p>` : ''}`;
+          ${K('Considered (roads not taken)', esc(o.considered))}
+          ${K('Confidence / margin', esc(o.confidence))}
+          ${o.writes ? `<div class="k">In the report</div><p class="hint">${esc(o.writes)}</p>` : ''}`;
       }
     }
     window.decisionClick = renderNode;
 
-    async function draw(expanded) {
+    async function draw() {
       const el = document.getElementById('graph');
       el.removeAttribute('data-processed');
-      el.textContent = buildDiagram(expanded);
+      el.textContent = buildDiagram(document.getElementById('expandPdf').checked,
+                                    document.getElementById('expandEpub').checked);
       await mermaid.run({ nodes: [el] });
     }
     mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose',
       flowchart: { useMaxWidth: true, nodeSpacing: 35, rankSpacing: 48 } });
-    document.getElementById('expandPdf').addEventListener('change', e => draw(e.target.checked));
+    document.getElementById('expandPdf').addEventListener('change', draw);
+    document.getElementById('expandEpub').addEventListener('change', draw);
     if (!window.PIPELINE_MAP) {
       document.getElementById('graph').textContent =
         '⚠ pipeline_map_data.js not loaded — run: python3 tests/conversion/gen_pipeline_map.py';
     } else {
-      draw(true);
+      draw();
     }
   </script>
 </body>

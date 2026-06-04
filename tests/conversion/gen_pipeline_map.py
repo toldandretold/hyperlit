@@ -171,52 +171,119 @@ def build():
                       'codeRef': 'mistral_ocr.py:classify_footnotes', 'question': classify_q,
                       'options': [c.name for c in classifiers] + ['unknown']}
 
-    clicks_expanded = (['SIG'] + [k for k in nodes if k.startswith('C_')]
-                       + sorted(seen_asm) + ['REC1', 'REC2', 'REC3', 'FID']
-                       + [f[0] for f in _BACKEND_FORKS])
-    clicks_collapsed = ['OCRC'] + [f[0] for f in _BACKEND_FORKS]
+    # ---- EPUB ingestion blocks (structural "open up" + the run-all detector fan) -------------------
+    epub_exp, epub_col, epub_exp_clicks, epub_col_clicks = _epub_blocks(nodes)
 
-    expanded = _skeleton(pdf_expanded, clicks_expanded)
-    collapsed = _skeleton(pdf_collapsed, clicks_collapsed)
-    return expanded, collapsed, nodes
+    clicks = {
+        'core': [f[0] for f in _BACKEND_FORKS],
+        'pdf_expanded': ['SIG'] + [k for k in nodes if k.startswith('C_')] + sorted(seen_asm)
+                        + ['REC1', 'REC2', 'REC3', 'FID'],
+        'pdf_collapsed': ['OCRC'],
+        'epub_expanded': epub_exp_clicks,
+        'epub_collapsed': epub_col_clicks,
+    }
+    blocks = {'pdf_expanded': pdf_expanded, 'pdf_collapsed': pdf_collapsed,
+              'epub_expanded': epub_exp, 'epub_collapsed': epub_col}
+    return {'skeleton': _SKELETON, 'blocks': blocks, 'clicks': clicks, 'nodes': nodes}
 
 
-def _skeleton(pdf_block, click_ids):
-    clicks = '\n'.join(f'    click {i} decisionClick' for i in click_ids)
-    return f"""flowchart TD
-    IMPORT([Import a file]) --> EXT{{file extension?}}
+def _epub_blocks(nodes):
+    """The EPUB ingestion sub-tree from TRANSFORM_PIPELINE: structural cleanup (E_OPEN) → the HEADING-
+    detection fan (Phase 1, publisher markup → h1/h2/h3) → the FOOTNOTE-detection fan (Phase 2). Both
+    fans are run-all, NOT first-match — every detector runs and fires if its markup is present — so they
+    are ordered fans, not yes/no ladders. Faithful to the code: headings are detected before footnotes."""
+    import epub_normalizer as E
+    needs = E.EpubNormalizer._DETECTOR_NEEDS
+    head_needs = E.EpubNormalizer._HEADING_NEEDS
+    pipeline = E.TRANSFORM_PIPELINE
+    first_det = next(i for i, t in enumerate(pipeline) if type(t).__name__ in needs)
+    # structural cleanup = Phase-1 transforms that are NEITHER a heading nor a footnote detector.
+    structural = [t.name for t in pipeline[:first_det] if type(t).__name__ not in head_needs]
+    headings = [t for t in pipeline if type(t).__name__ in head_needs]   # Phase-1 heading strategies
+    detectors = [t for t in pipeline if type(t).__name__ in needs]       # Phase-2 footnote schemes
+
+    def short(name):
+        for suf in ('FootnoteDetector', 'HeadingDetector', 'Detector', 'Converter'):
+            name = name.replace(suf, '')
+        return name or 'x'
+
+    def fan(items, prefix, kind, need_map, note_prefix):
+        ids, defs = [], []
+        for t in items:
+            name = type(t).__name__
+            nid = prefix + name
+            ids.append(nid)
+            defs.append(f'        {nid}["{short(name)}"]')
+            nodes[nid] = {'kind': kind, 'name': short(name), 'fullName': name,
+                          'needs': need_map[name], 'description': t.description,
+                          'noteKey': note_prefix + name, 'codeRef': f'epub_normalizer.py:{name}'}
+        return ids, defs
+
+    head_ids, head_defs = fan(headings, 'EH_', 'epub_heading', head_needs, 'epub:heading:')
+    det_ids, det_defs = fan(detectors, 'E_', 'epub_detector', needs, 'epub:detector:')
+
+    nodes['E_OPEN'] = {'kind': 'epub_structural', 'noteKey': 'epub:structural', 'structural': structural,
+                       'codeRef': 'epub_normalizer.py:TRANSFORM_PIPELINE (Phase 1)'}
+    nodes['EPUBOUT'] = {'kind': 'epub_overview', 'noteKey': 'epub:detection',
+                        'module': 'epub_footnote_detection',
+                        'codeRef': 'epub_normalizer.py:TRANSFORM_PIPELINE',
+                        'options': [short(type(t).__name__) for t in detectors]}
+
+    expanded = '\n'.join(
+        ['      EXT -->|.epub| E_OPEN["① structural normalisation<br/>open up the publisher\'s HTML '
+         '(Calibre · spans · images · sections)"]',
+         f'      E_OPEN --> {head_ids[0]}',
+         '      subgraph EPUBHEAD["② heading detection — publisher markup → h1/h2/h3 (each fires if its '
+         'markup is present)"]',
+         '        direction TB']
+        + head_defs + ['        ' + ' --> '.join(head_ids), '      end',
+                       f'      {head_ids[-1]} --> {det_ids[0]}',
+                       '      subgraph EPUBDET["③ footnote SCHEME detection — every detector RUNS; fires '
+                       'if its markup is present (multiple can; Heuristic = fallback)"]',
+                       '        direction TB']
+        + det_defs + ['        ' + ' --> '.join(det_ids), '      end',
+                      f'      {det_ids[-1]} --> EPUBOUT(["main-text.html"])'])
+    collapsed = ('      EXT -->|.epub| EPUBOUT["ingestion/epub · epub_normalizer.py<br/>'
+                 'structural normalise → heading detection → footnote SCHEME detection<br/>'
+                 '(tick the box to expand)"]')
+    return expanded, collapsed, ['E_OPEN'] + head_ids + det_ids, ['EPUBOUT']
+
+
+# Fixed flow skeleton with ${EPUB} / ${PDF} / ${CLICKS} placeholders the viewer splices the generated
+# blocks into (two independent expand toggles). NOT an f-string — the {…} diamonds + placeholders are literal.
+_SKELETON = """flowchart TD
+    IMPORT([Import a file]) --> EXT{file extension?}
     subgraph CONV["① ingestion — turn the file into common HTML"]
       direction TB
-      EXT -->|.epub| EPUB["ingestion/epub · epub_normalizer.py<br/>footnote SCHEME · TRANSFORM_PIPELINE → main-text.html"]
+${EPUB}
       EXT -->|".html / .htm"| HTMLP["ingestion/html · ar5iv_preprocessor.py<br/>arXiv only; else raw HTML"]
       EXT -->|".docx / .doc"| DOCXP["ingestion/word · strip_docx_metadata.py + pandoc"]
       EXT -->|".md / .zip"| MDIN(["markdown input"])
-{pdf_block}
+${PDF}
       PDFMD(["main-text.md"]) --> M2H["ingestion/markdown_and_pdf_to_html · simple_md_to_html.py"]
       MDIN --> M2H
     end
-    EPUB -->|main-text.html| BIB
+    EPUBOUT -->|main-text.html| BIB
     M2H -->|intermediate.html| BIB
     HTMLP -->|html| BIB
     DOCXP -->|html| BIB
     subgraph CORE["② digestion — shared processing · process_document.py · DOC_PASSES"]
       direction TB
       BIB["bibliographyExtraction · extract_bibliography"]
-      BIB --> STRAT{{"strategySelection · STRATEGY_RULES<br/>analyze_document_structure"}}
+      BIB --> STRAT{"strategySelection · STRATEGY_RULES<br/>analyze_document_structure"}
       STRAT -->|"sequential · whole_document · sectioned"| EXFN["footnoteExtraction · footnotes.py"]
       STRAT -.->|"no_footnotes ✗ · pre_processed ∅"| EXFN
-      EXFN --> GUARD{{"linkability guard<br/>_footnote_numbering_is_linkable"}}
+      EXFN --> GUARD{"linkability guard<br/>_footnote_numbering_is_linkable"}
       GUARD -.->|"no ∅ — extract notes, emit NO links"| EMIT
       GUARD -->|yes| LINK["citationLinking + footnoteLinking<br/>CITATION_LINK_RULES · MARKER_LINK_RULES"]
       LINK --> AUDIT["finalAudit · compute_footnote_audit — the verdict"]
       AUDIT --> EMIT["nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json"]
     end
-{clicks}"""
+${CLICKS}"""
 
 
 def render():
-    expanded, collapsed, nodes = build()
-    payload = {'mermaid_expanded': expanded, 'mermaid_collapsed': collapsed, 'nodes': nodes}
+    payload = build()
     return ('// GENERATED by gen_pipeline_map.py from the registries + folders — do not hand-edit.\n'
             'window.PIPELINE_MAP = '
             + json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + ';\n')
@@ -226,8 +293,7 @@ def main():
     body = render()
     with open(os.path.join(_HERE, 'pipeline_map_data.js'), 'w', encoding='utf-8') as f:
         f.write(body)
-    _, _, nodes = build()
-    print(f'wrote pipeline_map_data.js ({len(nodes)} nodes)')
+    print(f'wrote pipeline_map_data.js ({len(build()["nodes"])} nodes)')
     return body
 
 
