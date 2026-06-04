@@ -19,7 +19,12 @@ html/
 markdown_and_pdf_to_html/
   simple_md_to_html.py
 pdf/
-  mistral_ocr.py   · registries: PDF_CLASSIFIERS, PDF_ASSEMBLERS
+  assembly.py   · registries: PDF_ASSEMBLERS
+  classification.py   · registries: PDF_CLASSIFIERS
+  mistral_ocr.py
+  ocrFetch.py
+  pdf_shared.py
+  recovery.py
 word/
   strip_docx_metadata.py
 ```

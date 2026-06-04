@@ -377,10 +377,11 @@ def test_validate_accepts_register_into_pdf_classifiers():
 
 def test_op_add_register_noop_pdf_classifier_into_real_registry(tmp_path):
     """The PDF payoff: a vibe run can op:add a new PdfClassifier + op:register it into PDF_CLASSIFIERS
-    for a new PDF/OCR-JSON shape; the patched mistral_ocr re-imports with the registry grown by one.
+    for a new PDF/OCR-JSON shape; the patched classification.py re-imports with the registry grown by one.
     Targets the REAL module via the same routing the loop uses (`_code_ref_to_path`), so it follows the
-    file wherever the ingestion/digestion reorg moved it — not the re-export shim at the old path."""
-    rel = v._code_ref_to_path('mistral_ocr.py:classify_footnotes')   # -> ingestion/pdf/mistral_ocr.py
+    file wherever the ingestion/digestion reorg + PDF phase-split moved it (PDF_CLASSIFIERS now lives in
+    classification.py, not the mistral_ocr.py orchestrator) — not the re-export shim at the old path."""
+    rel = v._code_ref_to_path('classification.py:classify_footnotes')   # -> ingestion/pdf/classification.py
     full = tmp_path / rel
     full.parent.mkdir(parents=True)
     shutil.copyfile(os.path.join(_REPO, rel), str(full))

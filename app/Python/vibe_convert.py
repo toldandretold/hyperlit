@@ -311,6 +311,12 @@ _DECOMPOSITION_SIBLINGS = {
     # EPUB + the shared front-end both route footnote linking through footnote_link_rules.py now.
     'epub_normalizer.py': ['footnote_link_rules.py'],
     'process_document.py': ['footnote_link_rules.py'],
+    # PDF phase-split: a classification fix usually needs a matching assembler (a new layout = a new
+    # classifier + its assembler); both lean on the pdf_shared.py helpers/bases. assemble_markdown runs
+    # the recovery passes, so an assembly fix should see recovery.py too.
+    'classification.py': ['assembly.py', 'pdf_shared.py'],
+    'assembly.py': ['pdf_shared.py', 'recovery.py'],
+    'recovery.py': ['pdf_shared.py'],
 }
 
 

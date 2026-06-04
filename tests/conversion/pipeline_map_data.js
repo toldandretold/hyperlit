@@ -71,35 +71,35 @@ window.PIPELINE_MAP = {
       "question": "Did the footnote linking produce a clean ref/def correspondence? (the VERDICT)"
     },
     "A_chapter_endnotes": {
-      "codeRef": "mistral_ocr.py:PDF_ASSEMBLERS[\"chapter_endnotes\"]",
+      "codeRef": "assembly.py:PDF_ASSEMBLERS[\"chapter_endnotes\"]",
       "for": "chapter_endnotes",
       "kind": "assembler",
       "name": "ChapterEndnotesAssembler",
       "noteKey": "assembler:chapter_endnotes"
     },
     "A_default": {
-      "codeRef": "mistral_ocr.py:PDF_ASSEMBLERS[\"default\"]",
+      "codeRef": "assembly.py:PDF_ASSEMBLERS[\"default\"]",
       "for": "default",
       "kind": "assembler",
       "name": "DefaultAssembler",
       "noteKey": "assembler:default"
     },
     "A_document_endnotes": {
-      "codeRef": "mistral_ocr.py:PDF_ASSEMBLERS[\"document_endnotes\"]",
+      "codeRef": "assembly.py:PDF_ASSEMBLERS[\"document_endnotes\"]",
       "for": "document_endnotes",
       "kind": "assembler",
       "name": "DocumentEndnotesAssembler",
       "noteKey": "assembler:document_endnotes"
     },
     "A_page_bottom": {
-      "codeRef": "mistral_ocr.py:PDF_ASSEMBLERS[\"page_bottom\"]",
+      "codeRef": "assembly.py:PDF_ASSEMBLERS[\"page_bottom\"]",
       "for": "page_bottom",
       "kind": "assembler",
       "name": "PageBottomAssembler",
       "noteKey": "assembler:page_bottom"
     },
     "A_wackSTEMbibliographyNotes": {
-      "codeRef": "mistral_ocr.py:PDF_ASSEMBLERS[\"wackSTEMbibliographyNotes\"]",
+      "codeRef": "assembly.py:PDF_ASSEMBLERS[\"wackSTEMbibliographyNotes\"]",
       "for": "wackSTEMbibliographyNotes",
       "kind": "assembler",
       "name": "WackStemAssembler",
@@ -113,35 +113,35 @@ window.PIPELINE_MAP = {
       "question": "Which paragraphs are bibliography entries, and what id does each get?"
     },
     "C_chapter_endnotes": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "classifier",
       "name": "chapter_endnotes",
       "noteKey": "classifier:chapter_endnotes",
       "wouldNeed": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
     },
     "C_document_endnotes": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "classifier",
       "name": "document_endnotes",
       "noteKey": "classifier:document_endnotes",
       "wouldNeed": "definitions clustered on very few trailing pages with near-zero co-location"
     },
     "C_none": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "classifier",
       "name": "none",
       "noteKey": "classifier:none",
       "wouldNeed": "zero pages with in-text footnote references"
     },
     "C_page_bottom": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "classifier",
       "name": "page_bottom",
       "noteKey": "classifier:page_bottom",
       "wouldNeed": "refs and their definitions sharing the same pages (high co-location)"
     },
     "C_wackSTEMbibliographyNotes": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "classifier",
       "name": "wackSTEMbibliographyNotes",
       "noteKey": "classifier:wackSTEMbibliographyNotes",
@@ -386,7 +386,7 @@ window.PIPELINE_MAP = {
       "noteKey": "epub:detector:TableFootnoteDetector"
     },
     "FID": {
-      "codeRef": "mistral_ocr.py:assess_harvest_fidelity",
+      "codeRef": "recovery.py:assess_harvest_fidelity",
       "kind": "fidelity",
       "noteKey": "fidelity",
       "question": "Whose bug is a missing/duplicated footnote — ours (harvest/numbering) or upstream OCR?"
@@ -411,7 +411,7 @@ window.PIPELINE_MAP = {
       "noteKey": "md:convert"
     },
     "OCRC": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "fork",
       "module": "pdf_footnote_classification",
       "noteKey": "classify",
@@ -426,25 +426,25 @@ window.PIPELINE_MAP = {
       "question": "What is the PDF footnote layout? (drives renumbering + assembly)"
     },
     "REC1": {
-      "codeRef": "mistral_ocr.py:normalize_all_footnote_refs",
+      "codeRef": "pdf_shared.py:normalize_all_footnote_refs",
       "kind": "recovery",
       "name": "① markers · normalize_all_footnote_refs",
       "noteKey": "recovery:markers"
     },
     "REC2": {
-      "codeRef": "mistral_ocr.py:scan_footnote_mojibake",
+      "codeRef": "recovery.py:scan_footnote_mojibake",
       "kind": "recovery",
       "name": "② mojibake defs · scan_footnote_mojibake",
       "noteKey": "recovery:mojibake"
     },
     "REC3": {
-      "codeRef": "mistral_ocr.py:recover_missing_defs",
+      "codeRef": "recovery.py:recover_missing_defs",
       "kind": "recovery",
       "name": "③ missing defs · recover_missing_defs",
       "noteKey": "recovery:missingdefs"
     },
     "SIG": {
-      "codeRef": "mistral_ocr.py:classify_footnotes",
+      "codeRef": "classification.py:classify_footnotes",
       "kind": "fork",
       "module": "pdf_footnote_classification",
       "noteKey": "classify",

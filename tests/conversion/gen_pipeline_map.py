@@ -23,6 +23,13 @@ sys.path.insert(0, _PY)
 import mistral_ocr as M                       # noqa: E402
 from gen_pipeline_notes import collect_notes  # noqa: E402
 
+
+def _mf(obj):
+    """The real phase file an object now lives in (folders mirror the tree) — works for functions,
+    classes, and instances (which resolve __module__ via their class). So codeRefs point at the split
+    files (classification.py / assembly.py / recovery.py), not the orchestrator."""
+    return obj.__module__.rsplit('.', 1)[-1] + '.py'
+
 # --- code_ref / question per backend fork, scanned from the ASSESSMENT.record(...) call sites --------
 _FORK_SCAN_MODULES = [
     'digestion/strategySelection/strategy.py',
@@ -102,7 +109,7 @@ def build():
             asm_lines.append(f'      {aid}["{label}"]')
             nodes[aid] = {'kind': 'assembler', 'name': type(a).__name__, 'for': key,
                           'noteKey': 'assembler:' + key,
-                          'codeRef': f'mistral_ocr.py:PDF_ASSEMBLERS["{key}"]'}
+                          'codeRef': f'{_mf(a)}:PDF_ASSEMBLERS["{key}"]'}
         return aid
 
     # First-match-wins ladder. none is the inverted "any refs?" check (no → none); each real classifier
@@ -111,7 +118,7 @@ def build():
     ladder.append('      SIG --> C_none{"any in-text footnote/citation refs?"}')
     ladder.append(f'      C_none -.->|"no ∅"| {none_aid}')
     nodes['C_none'] = {'kind': 'classifier', 'name': 'none', 'noteKey': 'classifier:none',
-                       'codeRef': 'mistral_ocr.py:classify_footnotes',
+                       'codeRef': f'{_mf(M.classify_footnotes)}:classify_footnotes',
                        'wouldNeed': getattr(none_c, 'would_need', '')}
 
     prev, prev_branch = 'C_none', 'yes'        # C_none CONTINUES on yes (refs exist → keep classifying)
@@ -121,7 +128,7 @@ def build():
         aid = asm_node(c.name)
         ladder.append(f'      {cid} -->|yes| {aid}')
         nodes[cid] = {'kind': 'classifier', 'name': c.name, 'noteKey': 'classifier:' + c.name,
-                      'codeRef': 'mistral_ocr.py:classify_footnotes', 'wouldNeed': c.would_need}
+                      'codeRef': f'{_mf(M.classify_footnotes)}:classify_footnotes', 'wouldNeed': c.would_need}
         prev, prev_branch = cid, 'no'          # subsequent classifiers CONTINUE on no (didn't match)
     # fall-through → unknown (served by the default assembler)
     ladder.append(f'      {prev} -.->|"no ✗"| {none_aid}')
@@ -136,11 +143,11 @@ def build():
     for rid, notekey, fn, title, sub in _RECOVERY:
         rec_lines.append(f'        {rid}["{title}<br/>{sub}"]')
         nodes[rid] = {'kind': 'recovery', 'name': title, 'noteKey': notekey,
-                      'codeRef': f'mistral_ocr.py:{fn.__name__}'}
+                      'codeRef': f'{_mf(fn)}:{fn.__name__}'}
     rec_lines.append('        REC1 --> REC2 --> REC3')
     rec_lines.append('      end')
     nodes['FID'] = {'kind': 'fidelity', 'noteKey': 'fidelity',
-                    'codeRef': 'mistral_ocr.py:assess_harvest_fidelity',
+                    'codeRef': f'{_mf(M.assess_harvest_fidelity)}:assess_harvest_fidelity',
                     'question': 'Whose bug is a missing/duplicated footnote — ours (harvest/numbering) or upstream OCR?'}
     fid_lines = [
         '      REC3 --> FID{"harvest-fidelity check<br/>assess_harvest_fidelity — whose bug is it?"}',
@@ -170,7 +177,7 @@ def build():
     classify_q = 'What is the PDF footnote layout? (drives renumbering + assembly)'
     for nid in ('SIG', 'OCRC'):
         nodes[nid] = {'kind': 'fork', 'noteKey': 'classify', 'module': 'pdf_footnote_classification',
-                      'codeRef': 'mistral_ocr.py:classify_footnotes', 'question': classify_q,
+                      'codeRef': f'{_mf(M.classify_footnotes)}:classify_footnotes', 'question': classify_q,
                       'options': [c.name for c in classifiers] + ['unknown']}
 
     # ---- EPUB ingestion blocks (structural "open up" + the run-all detector fan) -------------------

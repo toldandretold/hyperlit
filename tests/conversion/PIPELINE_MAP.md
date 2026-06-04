@@ -129,6 +129,8 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  │       {epub3_semantic|aria_role|class_pattern|anchor_heading|notes_class|
 │  │        endnote_characters|table|heuristic | pre_processed ∅ | none ✗}  → FOOTNOTE_LINK_RULES
 │  ├─ PDF   mistral_ocr.py             GOAL → main-text.md   (MARKDOWN of a footnote LAYOUT)
+│  │     orchestrator + re-exports; phase classes split into siblings (folders mirror the tree):
+│  │     pdf_shared.py (bases + helpers leaf) · ocrFetch.py · classification.py · assembly.py · recovery.py
 │  │     OCR→ocr_response.json ∅replay · PDF_CLASSIFIERS {none|page_bottom|chapter_endnotes|
 │  │       document_endnotes|wackSTEMbibliographyNotes | unknown ✗} · renumber[cond] · segments ·
 │  │       PDF_ASSEMBLERS(per layout) ·
