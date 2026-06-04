@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "_comment": "THE import-conversion decision tree, as data. Source of truth for PIPELINE_MAP.md (the visual) and the completeness gate (tests/conversion/unit/test_pipeline_map.py), which fails the build if any app/Python module or decision registry isn't placed here. Classification is evidence-based (see _evidence) — do NOT guess; trace the PHP processors + imports. Symbols: kind=decision|transform|guard|branch|emit|no_op|dead_end.",
+
+  "meta_insight": "Every FRONTEND's job is to produce the BACKEND's input. process_document.py (backend) is HTML-in. So epub/html/docx converge straight to HTML; pdf/md take a MARKDOWN detour (mistral_ocr/-> .md, simple_md_to_html -> .html). The TYPE each frontend detects (pdf footnote-LAYOUT, epub footnote-SCHEME, doc STRATEGY) is the meta-knowledge that drives downstream linking. Corollary for diagnosis: if an artifact is ABSENT from the frontend's intermediate (main-text.md / main-text.html), the bug is UPSTREAM in that frontend; if PRESENT but unlinked, it's in the backend linker.",
+
+  "dispatch": {
+    "_evidence": "app/Jobs/ProcessDocumentImportJob.php match() + DocxProcessor->PandocConversionJob",
+    "by_extension": {
+      "epub": "frontend.epub",
+      "pdf": "frontend.pdf",
+      "md": "frontend.md",
+      "html": "frontend.html", "htm": "frontend.html",
+      "zip": "frontend.md (ZipProcessor unzips -> MarkdownProcessor)",
+      "docx": "frontend.docx", "doc": "frontend.docx (pandoc only, no strip step)"
+    }
+  },
+
+  "frontend": {
+    "_role": "per-filetype normalizer: produce the backend's input, detecting a TYPE",
+    "nodes": [
+      {
+        "id": "frontend.epub", "filetype": "epub", "file": "epub_normalizer.py",
+        "invoked_by": "EpubProcessor.php:173", "produces": "main-text.html",
+        "goal": "an HTML of a footnote SCHEME (the EPUB analogue of PDF's markdown-of-a-layout)",
+        "registries": ["TRANSFORM_PIPELINE", "FOOTNOTE_LINK_RULES"],
+        "stages": [
+          {"id": "epub.structural", "kind": "transform", "what": "structural normalisation (calibre spans, nested divs, dead links) via TRANSFORM_PIPELINE phase 1"},
+          {"id": "epub.detect", "kind": "decision", "registry": "TRANSFORM_PIPELINE",
+           "classes": ["epub3_semantic", "aria_role", "class_pattern", "anchor_heading", "notes_class", "endnote_characters", "table", "heuristic"],
+           "no_op": "pre_processed (footnotes.json already present -> skip detection)",
+           "dead_end": "none detected (no footnotes)"},
+          {"id": "epub.link", "kind": "transform", "registry": "FOOTNOTE_LINK_RULES", "what": "link epub footnotes -> footnotes.json + id_mapping"}
+        ]
+      },
+      {
+        "id": "frontend.pdf", "filetype": "pdf", "file": "mistral_ocr.py",
+        "invoked_by": "PdfProcessor.php:61 (then PdfProcessor delegates to MarkdownProcessor)", "produces": "main-text.md",
+        "goal": "a MARKDOWN of a footnote LAYOUT",
+        "registries": ["PDF_CLASSIFIERS", "PDF_ASSEMBLERS"],
+        "then": "simple_md_to_html.py -> intermediate.html -> backend",
+        "stages": [
+          {"id": "pdf.ocr", "kind": "transform", "what": "Mistral OCR -> ocr_response.json (cached)", "no_op": "replayed from cache (the test suite + reconvert never re-OCR; fetch_ocr/extract_* are unvalidatable here)"},
+          {"id": "pdf.classify", "kind": "decision", "registry": "PDF_CLASSIFIERS",
+           "classes": ["none", "page_bottom", "chapter_endnotes", "document_endnotes", "wackSTEMbibliographyNotes"],
+           "dead_end": "unknown (fall-through; low confidence)"},
+          {"id": "pdf.renumber", "kind": "transform", "what": "renumber_chunk_footnotes", "conditional": "skipped for chapter_endnotes (own per-chapter offsets)"},
+          {"id": "pdf.segments", "kind": "transform", "what": "detect_segment_boundaries (multi-paper)"},
+          {"id": "pdf.recover.mojibake", "kind": "transform", "group": "recovery", "file": "mistral_ocr.py:scan_footnote_mojibake", "needs_pdf": true,
+           "what": "RECOVERY layer 2 — a garbled (mojibake) definition page is re-extracted from the PDF bytes via pypdf and spliced back in; emits footnote_warnings (recovered/unrecovered)", "test": "test_pdf_recovery_real.py (opt-in RUN_PYPDF_RECOVERY=1)"},
+          {"id": "pdf.assemble", "kind": "transform", "registry": "PDF_ASSEMBLERS", "what": "assemble_markdown per classification -> main-text.md", "test": "test_pdf_assembly_snapshot.py (byte-level snapshot)"},
+          {"id": "pdf.recover.markers", "kind": "transform", "group": "recovery", "file": "mistral_ocr.py:normalize_all_footnote_refs", "needs_pdf": false,
+           "what": "RECOVERY layer 1 — resurrect MARKERS OCR rendered as a superscript / LaTeX $^5$ / bare [N] / bare '.46 ' -> [^N], gated by SEQUENTIAL VALIDATION (only if the number fits between surrounding known refs, so years/table-numbers are never mis-converted)", "test": "test_footnote_recovery.py + test_mistral_ocr.py"},
+          {"id": "pdf.recover.missingdefs", "kind": "transform", "group": "recovery", "file": "mistral_ocr.py:recover_missing_defs (assemble pypdf fallback)", "needs_pdf": true,
+           "what": "RECOVERY layer 3 — refs with NO definition get their text pulled from the pypdf extraction; the MATCHER (range/dedup/offset/overwrite rules) is pure logic, the extraction needs the PDF; mojibake candidates are rejected (compute_printable_ratio) into footnote_warnings", "test": "test_footnote_recovery.py (matcher) + test_pdf_recovery_real.py (end-to-end)"},
+          {"id": "pdf.fidelity", "kind": "decision", "file": "mistral_ocr.py:assess_harvest_fidelity", "test": "test_harvest_fidelity.py", "what": "whose-bug-is-it discriminator: compares OCR-captured refs/defs (page_summary) vs the emitted markdown -> assessment.json record",
+           "classes": ["clean", "harvest_gap", "assembly_collisions", "fidelity_loss", "not_applicable"], "no_op": "no_footnotes (no in-text markers)",
+           "consumes": "footnote_warnings (pypdf recovery outcome from pdf.mojibake + the assemble pypdf-fallback) — markdown is POST-recovery, so fidelity_loss reports the RESIDUAL: unrecovered = pypdf ALSO failed (confirmed upstream) vs recovery not attempted (no PDF in this replay harness = untested)",
+           "_note": "harvest_gap + assembly_collisions are OUR bugs (flagged confidence<0.5 -> vibe loop); fidelity_loss is an UPSTREAM OCR ceiling, but only CONFIRMED once pypdf re-extraction has tried (not flagged either way); not_applicable = non-harvesting layout (none/unknown/bibliography). Real-PDF recovery is exercised by test_pdf_recovery_real.py (opt-in: RUN_PYPDF_RECOVERY=1); the replay harness uses pdf_path=None for determinism."}
+        ]
+      },
+      {
+        "id": "frontend.md", "filetype": "md", "file": "simple_md_to_html.py",
+        "invoked_by": "MarkdownProcessor.php:95 (also the pdf + zip tails)", "produces": "intermediate.html",
+        "goal": "HTML for the backend (may emit footnoteSectionStart/DefinitionsStart markers -> sequential strategy)"
+      },
+      {
+        "id": "frontend.html", "filetype": "html", "file": "ar5iv_preprocessor.py",
+        "invoked_by": "HtmlProcessor.php:75", "produces": "normalised HTML (in place)",
+        "goal": "translate ar5iv/LaTeXML markup (<cite>, ltx_bibitem) to Hyperlit conventions BEFORE sanitisation",
+        "conditional": "no-op for non-ar5iv HTML; raw HTML otherwise goes straight to the backend"
+      },
+      {
+        "id": "frontend.docx", "filetype": "docx", "file": "strip_docx_metadata.py",
+        "invoked_by": "PandocConversionJob.php:45", "produces": "cleaned docx -> pandoc -> HTML",
+        "goal": "strip Word metadata before pandoc (.docx only; optional, failures non-fatal)",
+        "external": "pandoc (PandocConversionJob.php:62) does the docx->html conversion"
+      }
+    ]
+  },
+
+  "backend": {
+    "_role": "shared, HTML-in: extract -> link -> audit -> emit nodes/footnotes/references",
+    "file": "process_document.py", "registry": "DOC_PASSES",
+    "invoked_by": ["HtmlProcessor.php:40", "EpubProcessor.php:102", "MarkdownProcessor.php:42", "PandocConversionJob.php:44"],
+    "produces": ["nodes.jsonl", "footnotes.jsonl", "references.json", "audit.json", "conversion_stats.json", "assessment.json"],
+    "stages": [
+      {"id": "be.load", "kind": "transform", "pass": "LoadDocument", "what": "parse HTML + read footnote_meta.json (is_stem)"},
+      {"id": "be.stem", "kind": "branch", "pass": "StemBibliography", "what": "[wackSTEM only] wackSTEM markers -> bib/citation; terminal-ish"},
+      {"id": "be.bibliography", "kind": "decision", "file": "bibliography.py:extract_bibliography", "what": "find references section (heading | reverse-scan), key entries, collision-suffix"},
+      {"id": "be.strategy", "kind": "decision", "file": "strategy.py:analyze_document_structure", "registry": "STRATEGY_RULES",
+       "classes": ["sequential", "whole_document", "sectioned"], "dead_end": "no_footnotes", "no_op": "pre_processed"},
+      {"id": "be.extract_footnotes", "kind": "transform", "file": "footnotes.py + strategy.py:detect_footnote_sections", "what": "extract definitions by strategy (+ traditional container)"},
+      {"id": "be.linkability_guard", "kind": "guard", "file": "strategy.py:_footnote_numbering_is_linkable", "what": "whole_document: if numbering can't be trusted -> EXTRACT notes but emit NO links (a missing link beats a confident-wrong one)", "no_op": "suppress-links branch"},
+      {"id": "be.link_citations", "kind": "transform", "file": "citations.py", "registry": "CITATION_LINK_RULES", "what": "wrap (Author Year)/[Author Year] -> in-text-citation"},
+      {"id": "be.link_footnotes", "kind": "transform", "file": "footnotes.py", "registry": "MARKER_LINK_RULES", "what": "wire markers -> definitions (strategy-aware)"},
+      {"id": "be.audit", "kind": "decision", "file": "audit.py:compute_footnote_audit", "what": "the verdict: gaps / unmatched refs / unmatched defs"},
+      {"id": "be.emit", "kind": "emit", "file": "process_document.py (GenerateNodeChunks/SanitizeAndWrite) + sanitize.py", "what": "chunk to nodes -> sanitise -> write *.jsonl/json"}
+    ]
+  },
+
+  "shared": {
+    "_role": "cross-cutting libraries used across backend stages",
+    "modules": {
+      "conversion/refkeys.py": "citation-key generation + is_likely_reference",
+      "conversion/sanitize.py": "HTML/URL sanitisation (bleach)",
+      "conversion/assessment.py": "the shared decision-trace collector (ASSESSMENT -> assessment.json)",
+      "conversion/pipeline_base.py": "DocPass + run_passes (the orchestration base)",
+      "conversion/link_base.py": "LinkRule + run_link_rules (the linking base)"
+    }
+  },
+
+  "registries": {
+    "_role": "every DECISION registry the vibe loop can op:register into (+ the classifier tuples); the completeness gate enforces each is placed",
+    "TRANSFORM_PIPELINE": {"file": "epub_normalizer.py", "band": "frontend", "of": "EpubTransform footnote/structure detectors"},
+    "PDF_CLASSIFIERS": {"file": "mistral_ocr.py", "band": "frontend", "of": "PdfClassifier (footnote layout)"},
+    "PDF_ASSEMBLERS": {"file": "mistral_ocr.py", "band": "frontend", "of": "FootnoteAssembler (per layout)"},
+    "DOC_PASSES": {"file": "process_document.py", "band": "backend", "of": "DocPass (the ordered backend passes)"},
+    "STRATEGY_RULES": {"file": "conversion/strategy.py", "band": "backend", "of": "StrategyRule (footnote strategy decision)"},
+    "FOOTNOTE_LINK_RULES": {"file": "conversion/footnote_link_rules.py", "band": "backend/frontend", "of": "LinkRule (epub footnote linking)"},
+    "MARKER_LINK_RULES": {"file": "conversion/footnote_link_rules.py", "band": "backend", "of": "LinkRule (in-text marker linking)"},
+    "CITATION_LINK_RULES": {"file": "conversion/citation_link_rules.py", "band": "backend", "of": "LinkRule (citation linking)"}
+  },
+
+  "modules": {
+    "_comment": "THE COMPLETENESS CONTRACT — every app/Python *.py (top-level + conversion/) is a key here with a band. test_pipeline_map.py fails if any module on disk is missing. bands: frontend|backend|shared|meta|other_subsystem|legacy|dead.",
+
+    "process_document.py": {"band": "backend", "role": "orchestrator (DOC_PASSES)"},
+    "epub_normalizer.py": {"band": "frontend", "filetype": "epub"},
+    "mistral_ocr.py": {"band": "frontend", "filetype": "pdf"},
+    "simple_md_to_html.py": {"band": "frontend", "filetype": "md"},
+    "ar5iv_preprocessor.py": {"band": "frontend", "filetype": "html", "conditional": true},
+    "strip_docx_metadata.py": {"band": "frontend", "filetype": "docx", "optional": true},
+
+    "conversion/strategy.py": {"band": "backend", "role": "strategy + section detection + linkability guard"},
+    "conversion/bibliography.py": {"band": "backend", "role": "reference extraction (PASS 1A)"},
+    "conversion/footnotes.py": {"band": "backend", "role": "footnote extraction + marker linking shell"},
+    "conversion/footnote_link_rules.py": {"band": "backend", "role": "FOOTNOTE_LINK_RULES + MARKER_LINK_RULES (also used by epub frontend)"},
+    "conversion/citations.py": {"band": "backend", "role": "citation linking shell (PASS 2A)"},
+    "conversion/citation_link_rules.py": {"band": "backend", "role": "CITATION_LINK_RULES"},
+    "conversion/audit.py": {"band": "backend", "role": "the verdict"},
+
+    "conversion/refkeys.py": {"band": "shared"},
+    "conversion/sanitize.py": {"band": "shared"},
+    "conversion/assessment.py": {"band": "shared"},
+    "conversion/pipeline_base.py": {"band": "shared"},
+    "conversion/link_base.py": {"band": "shared"},
+    "conversion/fix_categories.py": {"band": "meta", "subsystem": "vibe loop (the fix taxonomy)"},
+
+    "vibe_convert.py": {"band": "meta", "subsystem": "vibe loop", "invoked_by": "VibeConversionJob.php:61"},
+    "vibe_aider.py": {"band": "meta", "subsystem": "vibe loop (aider edit-gen engine)"},
+    "vibe_aider_gate.py": {"band": "meta", "subsystem": "vibe loop (aider --test-cmd gate)"},
+
+    "footnote-jason.py": {"band": "other_subsystem", "subsystem": "footnotes-refresh endpoint", "invoked_by": "FootnotesController.php:50"},
+    "resume.py": {"band": "dead", "note": "markdown->pdf PoC; convert_markdown_to_pdf never called"},
+
+    "html_footnote_processor.py": {"band": "legacy", "superseded_by": "process_document.py + conversion/footnotes.py", "evidence": "HtmlProcessor.php:106-116 (the 'legacy pair' comment)"},
+    "preprocess_html.py": {"band": "legacy", "superseded_by": "process_document.py + conversion/strategy.py", "evidence": "HtmlProcessor.php:106-116"},
+    "epub_processor.py": {"band": "legacy", "superseded_by": "epub_normalizer.py", "evidence": "EpubProcessor.php invokes epub_normalizer.py (:173), epub_processor only named in a stale comment"},
+    "process_footnotes.py": {"band": "legacy", "superseded_by": "process_document.py + conversion/footnotes.py", "evidence": "file header 'STANDALONE, ROBUST VERSION'; no PHP invocation"},
+    "process_references.py": {"band": "legacy", "superseded_by": "process_document.py + conversion/bibliography.py", "evidence": "file header 'DEFINITIVE, JSON OUTPUT VERSION'; no PHP invocation"},
+
+    "extract_text.py": {"band": "dead", "note": "hardcoded input_pdf='king2019imperialism.pdf'; no references"},
+    "normalize_headings.py": {"band": "dead", "note": "standalone heading util; no live references"}
+  }
+}

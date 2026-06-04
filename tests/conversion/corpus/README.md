@@ -28,7 +28,13 @@ python3 tests/conversion/vibe_eval.py                 # convert + vibe loop per 
 python3 tests/conversion/vibe_eval.py --no-vibe       # convert + scaffold only (no tokens) — first look
 python3 tests/conversion/vibe_eval.py --no-llm        # re-score from cache (free) after a code-only change
 python3 tests/conversion/vibe_eval.py --case <substr> # subset
+# A/B the edit-gen strategy (see ../README.md §6-7 for the full matrix + the --model gotcha):
+python3 tests/conversion/vibe_eval.py --case <substr> --model accounts/fireworks/models/gpt-oss-120b
+python3 tests/conversion/vibe_eval.py --case <substr> --engine aider --model accounts/fireworks/models/gpt-oss-120b
 ```
+
+> The import pathway each case runs through is mapped in [`../PIPELINE_MAP.md`](../PIPELINE_MAP.md) —
+> use it to locate which stage a flagged fork belongs to before writing the judgement.
 
 Outputs:
 - `corpus/<case>/converted/` — the freshly-converted artifacts (assessment/audit/stats/…).

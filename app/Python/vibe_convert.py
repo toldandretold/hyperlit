@@ -304,6 +304,16 @@ def _footnote_fix_modules(art):
     return _with_siblings([front, 'app/Python/conversion/footnotes.py'])
 
 
+def _citation_fix_modules(art):
+    """A citation_linking fork ("linked 0 of N") is usually NOT the linker's fault — a citation can
+    only link if a matching bibliography entry exists. So the CAUSE is upstream: bibliography
+    extraction (the link targets) or the citation-style detection. Send those alongside the linker so
+    the model can fix the cause, not just the symptom (the Soviet-Marxism run wasted all 3 attempts on
+    the orchestrator because bibliography.py — where references_found=1 came from — was never sent)."""
+    return _with_siblings(['app/Python/conversion/citations.py',
+                           'app/Python/conversion/bibliography.py'])
+
+
 def modules_for(records, art=None):
     """Module files named by the flagged forks' code_refs (the code to send the LLM).
     A flagged footnote_audit is redirected to the detector/linker (see _footnote_fix_modules)."""
@@ -316,6 +326,11 @@ def modules_for(records, art=None):
     for r in records:
         if r.get('module') == 'footnote_audit':
             for p in _footnote_fix_modules(art):
+                _add(p)
+            continue
+        if r.get('module') == 'citation_linking':
+            # Route the CAUSE (bibliography extraction = the link targets), not just the linker.
+            for p in _citation_fix_modules(art):
                 _add(p)
             continue
         # Send the code_ref's file AND any decomposition sibling that now holds the real logic
@@ -352,6 +367,22 @@ def build_prompt(art, module_paths, user_note=None):
         "\n## Conversion stats (the symptom)",
         json.dumps({k: st.get(k) for k in ('references_found', 'citations_total', 'citations_linked',
                     'footnotes_matched', 'footnote_strategy', 'citation_style')}, ensure_ascii=False),
+        "\n## How to localize the cause — read the stats as a CAUSAL CHAIN and fix the EARLIEST cause",
+        "- `citations_linked` is DOWNSTREAM of `references_found`: a citation links ONLY if a matching "
+        "bibliography entry exists. So `citations 0/158` with `references_found 1` means the link "
+        "TARGETS are missing — the cause is bibliography extraction (bibliography.py) or a mis-detected "
+        "citation_style, NOT the citation linker. Editing the linker cannot link to entries that were "
+        "never extracted. (And `style=author-year-bracket` on a numbered-footnote book is likely a "
+        "mis-detection — then `0/N` is NOISE, not a bug: prefer NO change over 'fixing' a non-problem.)\n"
+        "- footnotes: a marker links only if its definition was DETECTED and the marker SURVIVED. A "
+        "definition absent from the input/markdown can never be linked downstream — look upstream.\n"
+        + ("- [PDF] the pipeline is OCR(cached) → main-text.md → simple_md_to_html → process_document. "
+           "ASK: is the missing artifact ABSENT from the assembled markdown (→ cause is UPSTREAM in "
+           "mistral_ocr ASSEMBLY: classify_footnotes / assemble_markdown) or PRESENT-but-unlinked (→ "
+           "cause is the downstream linker)? Localize before editing.\n" if art.get('is_pdf') else "")
+        + "- Prefer the SMALLEST edit to the responsible DECISION function (op:edit). Adding a new "
+        "DocPass to DOC_PASSES is high-blast-radius and frequently crashes — reserve op:add for a "
+        "genuinely new phase, never as a way to patch a linking/extraction symptom.",
         "\n## Flagged decisions (from assessment.json)",
     ]
     for r in flagged:
@@ -1059,25 +1090,37 @@ def _stat_summary(stats):
             f"footnotes {stats.get('footnotes_matched', 0)}")
 
 
-def evaluate(baseline_art, after):
+def evaluate(baseline_art, after, patched_files=None):
     """The path-A gate, THREE-TIER (the patch only ever touches THIS doc — no regression suite):
         'clean'    — the flagged problem(s) resolved with NO new flags/faults → offer confidently
-        'improved' — a user-visible metric got materially better (more footnotes/citations linked)
-                     even if a new audit caveat appeared → SHOW the user with the caveat, they judge
+        'improved' — got materially better, either MORE links OR FEWER audit faults (a wrong link is
+                     worse than a missing one, so reducing orphans/gaps at equal links is a real win)
+                     → SHOW the user with the caveat, they judge
         'reject'   — crashed, regressed a previously-good metric, or no measurable improvement
     Returns (tier, reason). Accepting is non-destructive: the nodes_versioning_trigger archives the
-    prior conversion to nodes_history, so the user can always revert."""
+    prior conversion to nodes_history, so the user can always revert.
+
+    `patched_files` (repo paths the patch edited) guards against the model GAMING the gate by editing
+    the AUDIT to report fewer faults — audit faults come from audit.py:compute_footnote_audit, so a
+    patch touching audit.py forfeits fault-reduction credit (it must fix the conversion, not the ruler)."""
     if not after['ok']:
         return 'reject', "the patched code crashed converting the document"
     b, a = baseline_art['stats'], after['stats']
     b_fl, b_faults = _problem_set(baseline_art['assessment'], baseline_art['audit'])
     a_fl, a_faults = _problem_set(after['assessment'], after['audit'])
+    fault_drop = b_faults - a_faults                       # >0 = fewer audit faults (good)
+    # Did the patch edit the AUDIT itself? Then a fault drop is suspect — don't credit it.
+    gamed_audit = bool(patched_files) and any((p or '').endswith('audit.py') for p in patched_files)
+    creditable_fault_drop = fault_drop > 0 and not gamed_audit
 
     # Regression guard: things that were already working must not get worse.
     if a.get('citations_linked', 0) < b.get('citations_linked', 0):
         return 'reject', (f"it linked FEWER citations ({a.get('citations_linked', 0)} vs "
                           f"{b.get('citations_linked', 0)})")
-    if a.get('footnotes_matched', 0) < b.get('footnotes_matched', 0):
+    # A footnote-count DROP is a regression ONLY if it didn't also remove faults — i.e. REAL footnotes
+    # were lost, not noise defs (e.g. bibliography entries mis-counted as footnote definitions). A drop
+    # that simultaneously cuts audit faults (and didn't game the audit) is removing garbage = good.
+    if a.get('footnotes_matched', 0) < b.get('footnotes_matched', 0) and not creditable_fault_drop:
         return 'reject', (f"it matched FEWER footnotes ({a.get('footnotes_matched', 0)} vs "
                           f"{b.get('footnotes_matched', 0)})")
 
@@ -1106,6 +1149,16 @@ def evaluate(baseline_art, after):
             caveats.append(f"~{fault_delta} of {total_gain} new link(s) may be misaligned — worth a check")
         return 'improved', ("improved this document"
                             + (" — caveat: " + "; ".join(caveats) if caveats else ""))
+
+    # CORRECTNESS WIN with no link-count gain: the conversion linked the same but has FEWER audit
+    # faults (e.g. stopped mis-counting bibliography entries as orphaned footnote definitions), with
+    # no new flag introduced and without editing the audit. Reducing orphans/gaps IS an improvement
+    # (a wrong/orphan link is worse than a clean omission) — credit it so the loop stops rejecting
+    # correct fixes that don't happen to raise the link COUNT.
+    if creditable_fault_drop and not introduced:
+        return 'improved', (f"reduced audit faults {b_faults}→{a_faults} (e.g. fewer orphaned "
+                            f"definitions / numbering gaps) with no new faults — a correctness win "
+                            f"even though the link count didn't rise")
     return 'reject', "no measurable improvement to this document"
 
 
@@ -1202,7 +1255,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
                  "Running the proposed pipeline on THIS document to confirm it actually makes "
                  "things better (and breaks nothing else here)…", attempt=attempt)
             after = _reconvert(sandbox, book_dir)
-            tier, why = evaluate(art, after)
+            tier, why = evaluate(art, after, patched_files=[f.get('file') for f in funcs])
             st = after['stats']
             journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
                             'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st), **_meta})

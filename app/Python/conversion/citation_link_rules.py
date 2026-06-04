@@ -332,6 +332,27 @@ class AssessmentRecorder(LinkRule):
             rate = (citations_linked / citations_found) if citations_found else 1.0
             sample = [{'citation': u['citation'][:60], 'keys_tried': u['generated_keys'][:6]}
                       for u in citations_unlinked[:8]]
+            # PLAUSIBILITY GUARD: "found N, linked 0" against a (near-)empty bibliography almost
+            # certainly means these are NOT author-year citations — the paren scan over-matched
+            # parenthetical years/dates in prose (e.g. "1875", "March, 1923"), and the one or two
+            # "references" are reverse-scan false positives. That is a correct non-link, NOT a
+            # linking fault — so record it at HIGH confidence (don't flag the loop onto a non-bug).
+            # Real author-year docs have a populated bibliography; the threshold (<=1) is the floor.
+            likely_not_citations = (len(bibliography_map) <= 1 and citations_found > 0
+                                    and citations_linked == 0)
+            if likely_not_citations:
+                _confidence = 0.9
+                _margin = (f'{citations_found} parenthesized "(…YYYY…)" pattern(s) matched but the '
+                           f'bibliography has only {len(bibliography_map)} entr(y/ies) — these are '
+                           f'almost certainly NOT author-year citations (years/dates in prose), so '
+                           f'linking 0 is CORRECT, not a fault. If the document genuinely cites '
+                           f'author-year, the upstream cause is bibliography extraction (no targets '
+                           f'were found), not the linker.')
+            else:
+                _confidence = round(rate, 2)
+                _margin = (f'{unlinked_n} citation(s) had keys generated but no bibliography match — '
+                           f'possible missing references or key-generation drift' if unlinked_n
+                           else f'all {citations_linked} citation(s) matched a bibliography entry')
             ASSESSMENT.record(
                 module='citation_linking', code_ref='citations.py:link_citations',
                 decision=f'linked {citations_linked} of {citations_found} in-text citation(s)',
@@ -339,6 +360,7 @@ class AssessmentRecorder(LinkRule):
                           '(bounded ±3yr fuzzy fallback); unmatched citations are left as plain text',
                 evidence={'found': citations_found, 'linked': citations_linked, 'unlinked': unlinked_n,
                           'anchor_converted': anchor_converted, 'bibliography_entries': len(bibliography_map),
+                          'likely_not_citations': likely_not_citations,
                           'unlinked_sample': sample},
                 question='Were in-text citations linked to the bibliography?',
                 considered=([{'option': 'link the remaining unmatched citations',
@@ -346,11 +368,9 @@ class AssessmentRecorder(LinkRule):
                                                   '(even with the ±3yr fuzzy-year fallback)',
                               'would_need': 'a bibliography entry whose key matches, or different key '
                                             'generation — see evidence.unlinked_sample for the keys tried'}]
-                            if unlinked_n else []),
-                confidence=round(rate, 2),
-                margin=(f'{unlinked_n} citation(s) had keys generated but no bibliography match — possible '
-                        f'missing references or key-generation drift' if unlinked_n
-                        else f'all {citations_linked} citation(s) matched a bibliography entry'))
+                            if unlinked_n and not likely_not_citations else []),
+                confidence=_confidence,
+                margin=_margin)
 
 
 # Ordered registry — the linking sequence the monolith ran top-to-bottom. ORDER MATTERS: the gate

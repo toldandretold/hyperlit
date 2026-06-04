@@ -520,6 +520,12 @@ def _find_headers_and_hrs(all_elements):
     hrs = []
     for i, element in enumerate(all_elements):
         text = element.get_text().strip()
+        # LOAD-BEARING QUIRK (do NOT "fix" by matching hr first): 'hr'.startswith('h') is True, so
+        # <hr> falls into `headers` (empty text) and `hrs` stays empty — which keeps sectioned docs
+        # on the notes_header path. Matching hr first wakes the header_with_footnotes path, whose
+        # section-range math is buggy and MISLINKS markers to the wrong section (verified: the
+        # html/sectioned/synthetic fixture regresses — marker 1 -> wrong section's note, +orphans).
+        # The path is dead AND broken; removing it cleanly is a separate task needing more fixtures.
         if element.name and element.name.startswith('h'):
             headers.append({'element': element, 'index': i, 'text': text})
             print(f"Found header at index {i}: {text}")

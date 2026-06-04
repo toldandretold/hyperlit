@@ -44,6 +44,46 @@ def convert_footnotes(text):
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
 
+def convert_inline_footnote_markers(md, strip_italic_brackets=False):
+    """The PER-PAGE inline footnote-MARKER converter, shared by the page_bottom / chapter_endnotes /
+    document_endnotes assemblers (it was copy-pasted verbatim in all three). Turns OCR's varied marker
+    renderings into [^N]: Unicode superscripts, LaTeX $^5$, inline [N] (skipping line-start definitions
+    and markdown links/images), and bare numbers after sentence-ending punctuation when followed by a
+    space + capital / opening quote. The (?<!\\d\\.) and (?<![A-Z]\\.) guards stop "4.0" / "V.2" being
+    read as markers.
+
+    This runs PER PAGE, so it cannot see the whole document's ref sequence \u2014 hence the "capital after"
+    heuristic. The WHOLE-DOCUMENT path (DefaultAssembler) instead uses normalize_all_footnote_refs,
+    which sequence-validates each candidate against every known [^N]. `strip_italic_brackets` unwraps
+    *[2]* \u2192 [2] first (the document_endnotes variant)."""
+    md = convert_footnotes(md)
+    md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+    if strip_italic_brackets:
+        md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
+
+    def _convert_bracket(m, _md=md):
+        num = int(m.group(1))
+        if num > 500 or num < 1:
+            return m.group(0)
+        pos = m.start()
+        if pos == 0 or _md[pos - 1] == '\n':
+            return m.group(0)            # line-start = definition, not a ref
+        if pos > 0 and _md[pos - 1] in (']', '!'):
+            return m.group(0)            # part of a markdown link / image
+        if m.end() < len(_md) and _md[m.end()] == '(':
+            return m.group(0)
+        return f'[^{m.group(1)}]'
+    md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
+
+    md = re.sub(
+        r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+        r'[^\1]',
+        md,
+        flags=re.DOTALL,
+    )
+    return md
+
+
 def normalize_all_footnote_refs(text):
     """Convert [N], bare numbers after punctuation, and LaTeX superscripts to [^N].
 
@@ -83,9 +123,15 @@ def normalize_all_footnote_refs(text):
             continue
         bracket_candidates.append((pos, num, m.start(), m.end(), 'bracket'))
 
-    # Bare numbers after punctuation: .46 , ,47 — sentence-ending punctuation followed by number+space
+    # Bare numbers after punctuation: .46 , ,47 — punctuation/closing-quote followed by number+space, so
+    # a marker right after a quotation/parenthetical is resurrected too (...the quote.”46 Next / (aside)46).
+    # Curly closers (” ’) are directional → always OK. Straight quotes (" ') are the SAME glyph open or
+    # closed, so they're accepted ONLY as a CLOSING quote: the char before the quote must be a letter or
+    # sentence punctuation (a closing context) — never a space/paren/digit, which mark an OPENING quote
+    # ("5 Questions with...) or an inch-mark (6"4). Sequential validation below still gates every hit.
+    _closers = ".,;:!?”’)" + '"' + "'"
     bare_candidates = []
-    for m in re.finditer(r'(?<=[.,;:!?])(\d{1,3})\s', text):
+    for m in re.finditer("(?<=[" + re.escape(_closers) + "])(\\d{1,3})\\s", text):
         num = int(m.group(1))
         if num > 500 or num < 1:
             continue
@@ -93,6 +139,11 @@ def normalize_all_footnote_refs(text):
         # Skip if at line start
         if pos == 0 or text[pos - 1] == '\n':
             continue
+        # Straight quote → require a closing context (letter / sentence punct before it).
+        if text[pos - 1] in ('"', "'"):
+            before = text[pos - 2] if pos >= 2 else ' '
+            if not (before.isalpha() or before in '.!?,;:'):
+                continue
         bare_candidates.append((pos, num, m.start(), m.start() + len(m.group(1)), 'bare'))
 
     all_candidates = bracket_candidates + bare_candidates
@@ -192,38 +243,8 @@ def renumber_page_footnotes(page_md, global_counter):
 
     Returns (processed_md, new_global_counter).
     """
-    # First convert any Unicode superscripts to [^N] format
-    page_md = convert_footnotes(page_md)
-
-    # Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]
-    page_md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', page_md)
-
-    # Convert inline [N] → [^N] (not at line start, N < 500)
-    # Since we know this is page_bottom, inline [N] are footnote refs
-    def convert_bracket_ref(m):
-        num = int(m.group(1))
-        if num > 500 or num < 1:
-            return m.group(0)
-        pos = m.start()
-        if pos == 0 or page_md[pos - 1] == '\n':
-            return m.group(0)  # Line-start = definition, not ref
-        if pos > 0 and page_md[pos - 1] in (']', '!'):
-            return m.group(0)  # Part of markdown link/image
-        if m.end() < len(page_md) and page_md[m.end()] == '(':
-            return m.group(0)
-        return f'[^{m.group(1)}]'
-    page_md = re.sub(r'\[(\d+)\]', convert_bracket_ref, page_md)
-
-    # Convert bare numbers after sentence-ending punctuation: .46 This → .[^46] This
-    # Only when followed by space + uppercase letter/opening quote (new sentence)
-    # (?<!\d\.) prevents matching decimal numbers like "4.0" or "1.9 million"
-    # (?<![A-Z]\.) prevents matching section/table numbering like "I.1", "V.2"
-    page_md = re.sub(
-        r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
-        r'[^\1]',
-        page_md,
-        flags=re.DOTALL
-    )
+    # Convert OCR's varied footnote-marker renderings to [^N] — shared per-page converter
+    page_md = convert_inline_footnote_markers(page_md)
 
     # Convert N. / N text definitions at page bottom matching known refs.
     # Two guards: (1) number must match a ref on this page,
@@ -1610,31 +1631,9 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
     post-combine fixes def formatting + rejoins."""
 
     def per_page(self, ctx, i, page, md, md_stripped):
-        md = convert_footnotes(md)
-        md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
-        # Strip italic wrapping around numeric bracket refs: *[2]* → [2]
-        md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
-        # Convert inline [N] → [^N] (not at line start, not markdown links)
-        def _convert_bracket_endnote(m, _md=md):
-            num = int(m.group(1))
-            if num > 500 or num < 1:
-                return m.group(0)
-            pos = m.start()
-            if pos == 0 or _md[pos - 1] == '\n':
-                return m.group(0)
-            if pos > 0 and _md[pos - 1] in (']', '!'):
-                return m.group(0)
-            if m.end() < len(_md) and _md[m.end()] == '(':
-                return m.group(0)
-            return f'[^{m.group(1)}]'
-        md = re.sub(r'\[(\d+)\]', _convert_bracket_endnote, md)
-        # Convert bare numbers after punctuation
-        md = re.sub(
-            r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"”“)])(\d{1,3})(?=\s+[A-Z“”"‘\'(])',
-            r'[^\1]',
-            md,
-            flags=re.DOTALL
-        )
+        # Convert all footnote ref formats to [^N] — shared per-page converter (document_endnotes also
+        # unwraps *[2]* → [2] first).
+        md = convert_inline_footnote_markers(md, strip_italic_brackets=True)
         if md_stripped:
             ctx.md_parts.append(md)
 
@@ -1694,20 +1693,24 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                         ref_ch_max = max(ref_ch_max, ref_max)
 
             # --- Extend offsets into the notes section ---
-            # Build ordered list of body chapter offsets
-            body_offsets = sorted(set(chapter_fn_offsets))
-
             # Find last page with refs (notes section starts after this)
             last_ref_page = 0
             for entry in footnote_meta.get('page_summary', []):
                 if entry.get('refs'):
                     last_ref_page = max(last_ref_page, entry['index'])
 
-            # In notes section, detect def resets and assign matching body chapter offsets.
-            # Transition pages (where one chapter ends and the next begins) need per-def
-            # offsets since they contain defs from two different chapters.
-            notes_ch_idx = 0
-            notes_def_max = 0
+            # Drive the notes-section offsets so each new chapter starts ABOVE every global number
+            # emitted so far (`running_max`) — NOT by indexing into body_offsets. WHY: body offsets
+            # come from ref-reset detection, which OCR noise can make under-count chapters; once
+            # notes_ch_idx ran past len(body_offsets) the old guard left later chapters with NO fresh
+            # offset → their numbers collided with earlier chapters (Cox: 19-24 colliding numbers).
+            # Anchoring each chapter's offset to `running_max` makes global uniqueness PROVABLE and is
+            # immune to segmentation noise: even a false restart only opens a harmless numbering gap,
+            # never a collision. Chapter 1 still gets offset 0, so it stays aligned with the body; and
+            # when body/notes agree (the clean & synthetic case) the offsets are IDENTICAL to before.
+            notes_offset = 0    # offset applied to the CURRENT notes chapter
+            running_max = 0     # highest GLOBAL footnote number emitted in the notes so far
+            notes_def_max = 0   # max RAW def number seen so far in the current chapter
             for entry in footnote_meta.get('page_summary', []):
                 if entry['index'] <= last_ref_page:
                     continue
@@ -1717,60 +1720,53 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                 def_max = max(defs)
                 def_min = min(defs)
                 if notes_def_max > 5 and def_min < notes_def_max * 0.3:
-                    # Record old offset before advancing chapter
-                    old_offset = body_offsets[notes_ch_idx] if notes_ch_idx < len(body_offsets) else 0
-                    threshold = notes_def_max * 0.5
-                    notes_ch_idx += 1
-                    # On transition pages, old chapter defs may still appear.
-                    # Only track new chapter's defs (below the reset threshold).
-                    new_ch_defs = [d for d in defs if d < threshold]
-                    notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
-
-                    if notes_ch_idx < len(body_offsets):
-                        new_offset = body_offsets[notes_ch_idx]
-                        # Mark this as a transition page for per-def offsetting
-                        ctx.notes_transition_pages[entry['index']] = (threshold, old_offset, new_offset)
-                        # Start new offset on the NEXT page (transition page handled specially)
+                    # A new chapter's notes have started (numbering reset). DISTINGUISH two cases:
+                    #  • TRUE transition page — it holds the END of the previous chapter (a high
+                    #    cluster near the old running max) AND the START of the new one (a low
+                    #    cluster), separated by a real gap → split per-def at that gap.
+                    #  • PURE new-chapter page — a clean ascending restart (one contiguous run, no
+                    #    high old-chapter tail) → apply ONE offset to the whole page.
+                    sd = sorted(set(defs))
+                    gap, cut = 0, None
+                    for k in range(len(sd) - 1):
+                        if sd[k + 1] - sd[k] > gap:
+                            gap, cut = sd[k + 1] - sd[k], sd[k + 1]
+                    is_true_transition = (cut is not None and gap >= notes_def_max * 0.3
+                                          and max(sd) >= notes_def_max * 0.7)
+                    if is_true_transition:
+                        # old-chapter tail (>= cut) keeps the old offset; bank it into running_max
+                        # first so the new chapter starts above it. New start (< cut) gets new offset.
+                        old_tail = [d for d in defs if d >= cut]
+                        if old_tail:
+                            running_max = max(running_max, notes_offset + max(old_tail))
+                        old_offset = notes_offset
+                        new_offset = running_max
+                        notes_offset = new_offset
+                        new_ch_defs = [d for d in defs if d < cut]
+                        notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
+                        if new_ch_defs:
+                            running_max = max(running_max, new_offset + max(new_ch_defs))
+                        ctx.notes_transition_pages[entry['index']] = (cut, old_offset, new_offset)
                         for j in range(entry['index'] + 1, len(pages)):
                             chapter_fn_offsets[j] = new_offset
+                    else:
+                        # pure new chapter — ONE offset (above everything so far) for the whole page
+                        notes_offset = running_max
+                        notes_def_max = def_max
+                        running_max = max(running_max, notes_offset + def_max)
+                        for j in range(entry['index'], len(pages)):
+                            chapter_fn_offsets[j] = notes_offset
                 else:
                     notes_def_max = max(notes_def_max, def_max)
-
-                    if notes_ch_idx < len(body_offsets):
-                        offset = body_offsets[notes_ch_idx]
-                        for j in range(entry['index'], len(pages)):
-                            chapter_fn_offsets[j] = offset
+                    running_max = max(running_max, notes_offset + def_max)
+                    for j in range(entry['index'], len(pages)):
+                        chapter_fn_offsets[j] = notes_offset
 
             ctx.chapter_fn_offsets = chapter_fn_offsets
 
     def per_page(self, ctx, i, page, md, md_stripped):
-        # Convert all footnote ref formats to [^N] (before offset)
-        md = convert_footnotes(md)
-        md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
-
-        # Convert inline [N] → [^N] (bracket refs from OCR)
-        def _convert_bracket(m, _md=md):
-            num = int(m.group(1))
-            if num > 500 or num < 1:
-                return m.group(0)
-            pos = m.start()
-            if pos == 0 or _md[pos - 1] == '\n':
-                return m.group(0)
-            if pos > 0 and _md[pos - 1] in (']', '!'):
-                return m.group(0)
-            if m.end() < len(_md) and _md[m.end()] == '(':
-                return m.group(0)
-            return f'[^{m.group(1)}]'
-        md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
-
-        # Convert bare numbers after punctuation: .46 This → .[^46] This
-        # (?<![A-Z]\.) rejects section/table numbering like "I.1", "V.2"
-        md = re.sub(
-            r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"”“)])(\d{1,3})(?=\s+[A-Z“”"‘\'(])',
-            r'[^\1]',
-            md,
-            flags=re.DOTALL
-        )
+        # Convert all footnote ref formats to [^N] (before offset) — shared per-page converter
+        md = convert_inline_footnote_markers(md)
 
         # Apply chapter offset for global uniqueness
         if ctx.chapter_fn_offsets:
@@ -2056,11 +2052,139 @@ def save_images(response_dict, media_dir):
     return count
 
 
-def write_classification_assessment(footnote_meta, output_dir):
+# Layouts whose assemblers actually emit numbered [^N] footnote DEFINITIONS. For everything else
+# (none / unknown / wackSTEM / bibliography) harvesting nothing is the correct outcome, so the
+# harvest-fidelity discriminator stays silent rather than flagging a non-fault.
+_HARVESTING_CLASSES = {'page_bottom', 'chapter_endnotes', 'document_endnotes'}
+
+
+def assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings=None):
+    """Three-way discriminator that tells WHOSE bug a missing/duplicated footnote is, by comparing
+    what the OCR captured (page_summary refs/defs) against what we actually emitted (the markdown).
+    Same symptom — "notes don't line up" — has THREE root causes with opposite remedies:
+
+      • harvest_gap        defs sit in the raw OCR but we didn't emit them → OUR bug (fix the
+                           assembler's extraction). flagged (low confidence).
+      • fidelity_loss      the OCR itself captured far fewer defs than the body references → the
+                           markers OCR'd but the definitions degraded/dropped upstream. NOT our bug;
+                           don't burn fixer cycles. not flagged.
+      • assembly_collisions defs harvested fine but global numbers aren't unique → numbering/offset
+                           bug (e.g. chapter-endnote offsets). flagged.
+      • clean / no_footnotes → nothing to do.
+
+    `footnote_warnings` (from scan_footnote_mojibake + the assemble pypdf fallback, present only when a
+    real PDF was available) makes the fidelity_loss verdict HONEST about resurrection: `markdown` is
+    already POST-recovery, so defs_harvested reflects what pypdf clawed back; the warnings then explain
+    the RESIDUAL — `unrecovered` defs are the ones pypdf ALSO failed on (mojibake/unreadable in the
+    source), i.e. the genuinely-upstream loss. When footnote_warnings is None, pypdf never ran (e.g. the
+    cached-OCR replay harness with pdf_path=None) — so a fidelity_loss there is UNTESTED, not confirmed.
+
+    Returns a fork-record (or None if there's nothing to assess). Confidence is set so the vibe loop's
+    `confidence < 0.5` flag fires ONLY for the two buckets that are genuinely ours to fix — same
+    principle as the citation plausibility guard (don't flag what isn't a fault)."""
+    ps = footnote_meta.get('page_summary', []) or []
+    cls = footnote_meta.get('classification', 'unknown')
+    # pypdf resurrection outcome (None = recovery never attempted, i.e. no source PDF in this harness)
+    recovery_attempted = footnote_warnings is not None
+    pypdf_recovered = sum(len(w.get('recovered', []) or []) for w in (footnote_warnings or []))
+    pypdf_unrecovered = sum(len(w.get('unrecovered', []) or []) for w in (footnote_warnings or []))
+    defs_in_ocr = sum(len(e.get('defs', []) or []) for e in ps)   # def-shaped lines the OCR captured
+    refs_in_ocr = sum(len(e.get('refs', []) or []) for e in ps)   # in-text markers the OCR captured
+    harvested = [int(n) for n in re.findall(r'^\[\^(\d+)\]\s*:', markdown or '', re.MULTILINE)]
+    defs_harvested = len(harvested)
+    counts = {}
+    for n in harvested:
+        counts[n] = counts.get(n, 0) + 1
+    collisions = sorted(n for n, c in counts.items() if c > 1)
+    # "Demand" is the in-text MARKERS (refs), not the def-shaped lines: def-line counts are inflated
+    # by numbered-list noise (e.g. a book with 0 real footnotes can still show 400 "N." lines), so
+    # measuring against defs_in_ocr over-penalizes. Coverage vs refs answers "did we emit a definition
+    # for each marker that exists?"; harvest vs ocr answers "did we keep what the OCR's def-lines held?"
+    coverage_vs_refs = round(defs_harvested / refs_in_ocr, 3) if refs_in_ocr else None
+    harvest_vs_ocr = round(defs_harvested / defs_in_ocr, 3) if defs_in_ocr else None
+
+    if refs_in_ocr == 0:
+        # No in-text markers → any def-shaped lines are numbered-list noise, not a footnote system.
+        verdict, confidence, why = ('no_footnotes', 0.9,
+            'No in-text footnote markers in the OCR — nothing to link (def-shaped lines, if any, '
+            'are numbered-list noise, not footnotes).')
+    elif cls not in _HARVESTING_CLASSES:
+        # This layout (none / unknown / wackSTEM / bibliography) does not emit [^N] footnote
+        # definitions — harvesting 0 is correct, not a fault. Don't flag (same principle as the
+        # citation plausibility guard: never flag what isn't ours to harvest).
+        verdict, confidence, why = ('not_applicable', 0.9,
+            f'Layout {cls!r} does not produce numbered footnote definitions — harvest fidelity N/A.')
+    elif coverage_vs_refs is not None and coverage_vs_refs < 0.85 and \
+            (defs_in_ocr >= refs_in_ocr * 0.85):
+        # The OCR HAS roughly enough definition lines, but we emitted far fewer than the markers
+        # demand → definitions are being lost in OUR assembly. Flagged.
+        verdict, confidence, why = ('harvest_gap', 0.4,
+            f'OCR captured ~{defs_in_ocr} definition lines and the body references {refs_in_ocr} '
+            f'notes, but we emitted only {defs_harvested} ({int(coverage_vs_refs*100)}% of markers) '
+            f'— definitions are being LOST in assembly (our bug to fix).')
+    elif coverage_vs_refs is not None and coverage_vs_refs < 0.85:
+        # We're short of the markers AND the OCR itself didn't capture enough def lines → the
+        # definitions degraded UPSTREAM in OCR. NOT our bug; don't burn fixer cycles. Not flagged.
+        # But say HOW HARD we already tried: pypdf re-extraction is exactly the tool for this bucket.
+        if recovery_attempted and pypdf_unrecovered > 0:
+            tail = (f' pypdf re-extraction was attempted and ALSO failed on {pypdf_unrecovered} '
+                    f'(mojibake/unreadable in the source PDF) — confirmed upstream, our best tool lost it.')
+        elif recovery_attempted:
+            tail = (' pypdf re-extraction ran from the source PDF and recovered what it could; the '
+                    'rest is not present even in the raw PDF text.')
+        else:
+            tail = (' pypdf re-extraction was NOT attempted here (no source PDF in this harness) — the '
+                    'real import may still recover some via the pypdf fallback; this is untested, not confirmed.')
+        verdict, confidence, why = ('fidelity_loss', 0.55,
+            f'The body references {refs_in_ocr} notes but the OCR only captured ~{defs_in_ocr} '
+            f'definition lines (we emitted {defs_harvested}) — the definitions degraded UPSTREAM in '
+            f'OCR, not in our code.' + tail)
+    elif collisions:
+        verdict, confidence, why = ('assembly_collisions', 0.45,
+            f'Harvested {defs_harvested} definitions for {refs_in_ocr} markers but {len(collisions)} '
+            f'global number(s) collide — a numbering/offset bug (e.g. chapter-endnote offsets), '
+            f'not OCR.')
+    else:
+        verdict, confidence, why = ('clean', 0.9,
+            f'Harvested {defs_harvested} definitions for {refs_in_ocr} markers, all globally unique.')
+
+    return {
+        'seq': 1,
+        'module': 'pdf_footnote_harvest_fidelity',
+        'code_ref': 'mistral_ocr.py:assess_harvest_fidelity',
+        'decision': f'harvest={verdict}',
+        'question': ('Did we harvest every footnote the OCR captured AND number them uniquely? '
+                     '(separates OCR fidelity loss from a harvest bug from a numbering/offset bug)'),
+        'rationale': why,
+        'evidence': {
+            'classification': cls,
+            'refs_in_ocr': refs_in_ocr,
+            'defs_in_ocr': defs_in_ocr,
+            'defs_harvested': defs_harvested,
+            'coverage_vs_refs': coverage_vs_refs,
+            'harvest_vs_ocr': harvest_vs_ocr,
+            'collision_count': len(collisions),
+            'collision_numbers': collisions[:20],
+            'pypdf_recovery_attempted': recovery_attempted,
+            'pypdf_recovered': pypdf_recovered,
+            'pypdf_unrecovered': pypdf_unrecovered,
+        },
+        'considered': ['clean', 'harvest_gap', 'fidelity_loss', 'assembly_collisions',
+                       'no_footnotes', 'not_applicable'],
+        'confidence': confidence,
+        'margin': None,
+    }
+
+
+def write_classification_assessment(footnote_meta, output_dir, markdown=None, footnote_warnings=None):
     """Emit the PDF stage's footnote-layout decision as an assessment.json fork-record.
     process_document.py later seeds from this file (ASSESSMENT.reset(output_dir)) so the
     final trace spans the PDF classification AND the downstream strategy/linking forks.
-    Mirrors epub_normalizer._write_assessment. Best-effort; never breaks conversion."""
+    Mirrors epub_normalizer._write_assessment. Best-effort; never breaks conversion.
+
+    When `markdown` is supplied, ALSO appends the harvest-fidelity record (whose-bug-is-it
+    discriminator) so the trace carries it into the report and the vibe loop; `footnote_warnings`
+    makes that record pypdf-recovery-aware (the residual upstream loss after re-extraction)."""
     record = {
         'seq': 0,
         'module': 'pdf_footnote_classification',
@@ -2073,9 +2197,14 @@ def write_classification_assessment(footnote_meta, output_dir):
         'confidence': footnote_meta.get('confidence'),
         'margin': footnote_meta.get('margin'),
     }
+    records = [record]
+    if markdown is not None:
+        fidelity = assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings)
+        if fidelity:
+            records.append(fidelity)
     try:
         with open(os.path.join(str(output_dir), 'assessment.json'), 'w', encoding='utf-8') as f:
-            json.dump({'records': [record]}, f, ensure_ascii=False, indent=2)
+            json.dump({'records': records}, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Warning: could not write assessment.json: {e}")
 
@@ -2186,8 +2315,11 @@ def main():
     meta_path = output_dir / "footnote_meta.json"
     meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")
 
-    # Emit the classification decision into the assessment trace (process_document seeds from it).
-    write_classification_assessment(footnote_meta, output_dir)
+    # Emit the classification decision + the harvest-fidelity discriminator into the assessment
+    # trace (process_document seeds from it). footnote_warnings carries the pypdf-recovery outcome
+    # so fidelity_loss reflects what re-extraction already salvaged vs the genuine upstream residual.
+    write_classification_assessment(footnote_meta, output_dir, markdown=markdown,
+                                    footnote_warnings=footnote_warnings)
 
     # Stats
     fn_count = len(re.findall(r'\[\^\d+\]', markdown))

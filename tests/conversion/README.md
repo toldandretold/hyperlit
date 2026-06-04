@@ -5,38 +5,51 @@ that turns an uploaded PDF / EPUB / Word / Markdown / HTML into linked Hyperlit 
 footnotes and references). It also documents the **self-improving "vibe conversion"** loop that
 sits on top of that pipeline.
 
-If you only remember one thing: **the folder tree under `fixtures/` *is* the coverage map**, and
-every conversion now emits a **falsifiable decision-trace** (`assessment.json`) explaining *what
-it decided, in which module, and why* — which is what makes both human debugging and the LLM
-"vibe conversion" possible.
+If you only remember two things: (1) **the folder tree under `fixtures/` *is* the coverage map**, and
+(2) every conversion emits a **falsifiable decision-trace** (`assessment.json`) explaining *what it
+decided, in which module, and why* — which is what makes both human debugging and the LLM "vibe
+conversion" possible.
+
+> 🗺️ **[`PIPELINE_MAP.md`](PIPELINE_MAP.md)** is the visual decision tree of the whole import pathway
+> (file type → frontend → backend → emit, with dead-ends ✗ and no-ops ∅). Its data lives in
+> [`pipeline_map.json`](pipeline_map.json), and [`unit/test_pipeline_map.py`](unit/test_pipeline_map.py)
+> **fails the build if any `app/Python` module or decision-registry isn't placed in it** — so the map
+> can't drift from the code. Start there to locate where a given issue sits.
 
 ---
 
-## 1. The pipeline is modular
+## 1. The pipeline is modular (every decision is an open/closed registry)
 
-The conversion core lives in `app/Python/`:
+The conversion core lives in `app/Python/`. Each decision point is now an **ordered registry of small,
+unit-tested rule units** (same open/closed shape throughout) — absorb a new variant by **adding a
+rule** (`op:add` + `op:register`), never by editing a monolith. Bases: `conversion/link_base.py`
+(`LinkRule`) + `conversion/pipeline_base.py` (`DocPass`). See `PIPELINE_MAP.md` for the full tree.
 
-- **`process_document.py`** — the orchestrator. Parses the (already-OCR'd / pandoc'd / md'd)
-  HTML and runs the passes: extract bibliography → extract footnotes → link citations → link
-  footnotes → audit → chunk into nodes.
-- **`conversion/`** — a package of small, single-responsibility, unit-testable modules the
-  orchestrator imports:
+- **Frontends** (per file type → produce the backend's input; PDF/MD detour via markdown):
+  `epub_normalizer.py` (EPUB → `main-text.html`; `TRANSFORM_PIPELINE` of `EpubTransform` detectors →
+  `FOOTNOTE_LINK_RULES`), `mistral_ocr.py` (PDF → `main-text.md`; `PDF_CLASSIFIERS` pick the footnote
+  **layout**, `PDF_ASSEMBLERS` assemble it), `simple_md_to_html.py` (Markdown), `ar5iv_preprocessor.py`
+  (arXiv HTML), `strip_docx_metadata.py` (Word → pandoc).
+- **`process_document.py`** — the shared **backend**: a `DOC_PASSES` registry of ~14 `DocPass` units
+  (load → [STEM] → extract bibliography → strategy → extract footnotes → link citations → link
+  footnotes → audit → node-gen → sanitise/write). `main()` is now a thin shell.
+- **`conversion/`** — the package the backend imports:
   | module | responsibility |
   |---|---|
-  | `strategy.py` | choose the footnote strategy (whole_document / sequential / sectioned / no_footnotes); the **link-vs-suppress guard** `_footnote_numbering_is_linkable` |
+  | `strategy.py` | footnote strategy via the `STRATEGY_RULES` registry (`analyze_document_structure`); `detect_footnote_sections`; the link-vs-suppress guard `_footnote_numbering_is_linkable` |
   | `refkeys.py` | citation-key generation + `is_likely_reference` |
-  | `bibliography.py` | find the references section, key each entry, resolve author+year collisions |
-  | `citations.py` | wrap `(Author Year)` / `[Author Year]` in `<a class="in-text-citation">` |
-  | `footnotes.py` | extract footnote definitions (incl. multi-paragraph) + link markers to defs |
+  | `bibliography.py` | `extract_bibliography` — find the references section, key each entry, resolve author+year collisions |
+  | `citations.py` → `citation_link_rules.py` | thin shell → `CITATION_LINK_RULES` (wrap `(Author Year)` / `[Author Year]`) |
+  | `footnotes.py` → `footnote_link_rules.py` | footnote extraction + thin link shell → `MARKER_LINK_RULES` (markers) **and** `FOOTNOTE_LINK_RULES` (epub footnotes, shared with `epub_normalizer.py`) |
   | `audit.py` | the verdict: gaps / unmatched refs / unmatched defs |
-  | `sanitize.py` | HTML/URL sanitisation |
-  | `assessment.py` | the shared decision-trace collector (`ASSESSMENT`) |
+  | `sanitize.py` / `assessment.py` | HTML/URL sanitisation / the shared decision-trace collector (`ASSESSMENT`) |
+  | `link_base.py` / `pipeline_base.py` | the `LinkRule` / `DocPass` registry bases |
 
-- **Per-filetype front-ends** (run *before* `process_document`, all converge on it):
-  `epub_normalizer.py` (EPUB → ~22 `detect()/transform()` footnote detectors),
-  `mistral_ocr.py` (PDF: replays cached OCR JSON → assembles markdown, classifies footnote
-  layout), `simple_md_to_html.py` (Markdown), `ar5iv_preprocessor.py` (arXiv HTML),
-  `strip_docx_metadata.py` (Word, then pandoc → core).
+> ⚠️ `app/Python` also contains **8 legacy/dead modules** (`html_footnote_processor.py`,
+> `preprocess_html.py`, `epub_processor.py`, `process_footnotes.py`, `process_references.py`,
+> `extract_text.py`, `normalize_headings.py`, `resume.py`) — superseded or orphaned, NOT on any live
+> pathway. They're classified in `pipeline_map.json` (deletion candidates) so they don't masquerade as
+> live code.
 
 ---
 
@@ -114,12 +127,31 @@ python3 -m pytest                         # all unit tests
 python3 -m pytest tests/conversion/unit/test_strategy.py
 ```
 
-Fast, isolated tests that pinpoint a regression to one module: `test_strategy.py` (incl. the
-suppression guard), `test_refkeys/_sanitize/_audit/_citations/_bibliography/_linking/`
-`_footnote_extraction.py`, `test_epub_detectors.py` (each detector: fires / no-false-positive /
-extracts), `test_mistral_ocr.py` (the PDF text transforms + the layout classifier),
-`test_simple_md_to_html.py`, `test_ar5iv.py`, `test_strip_docx_metadata.py`, and
-`test_impact_map.py`.
+Fast, isolated tests that pinpoint a regression to one module. **Per-module:** `test_strategy.py` +
+`test_strategy_rules.py` (the `STRATEGY_RULES` registry + bibliography/section helpers),
+`test_refkeys/_sanitize/_audit/_citations/_bibliography/_linking/_footnote_extraction.py`,
+`test_epub_detectors.py`, `test_mistral_ocr.py`, `test_simple_md_to_html.py`, `test_ar5iv.py`,
+`test_strip_docx_metadata.py`. **Per-registry (the decompositions):** `test_footnote_link_rules.py` +
+`test_marker_link_rules.py` + `test_citation_link_rules.py` (the `LinkRule` registries),
+`test_document_passes.py` (`DOC_PASSES`), `test_pdf_classifiers.py` + `test_pdf_assembly_snapshot.py`
+(`PDF_CLASSIFIERS`/`PDF_ASSEMBLERS`, the latter a **byte-level markdown snapshot** over every cached
+OCR fixture), `test_pdf_fusion.py` (back-of-book notes split by chapter → the chapter-endnote offset
+fix), `test_harvest_fidelity.py` (the **whose-bug-is-it** discriminator: harvest_gap / assembly_collisions
+/ fidelity_loss, incl. pypdf-recovery awareness). **Harness:** `test_vibe_additive.py` (the
+`op:add`/`op:register` proofs for each registry), `test_vibe_gate.py` (the gate), `test_vibe_flagging.py`,
+`test_fix_categories.py`, `test_impact_map.py`, and **`test_pipeline_map.py`** (the decision-tree
+completeness gate).
+
+**Opt-in (slow, reads real PDFs):** `test_pdf_recovery_real.py` runs the FULL pypdf footnote-recovery
+path against the corpus books that ship their PDF — the one place the suite exercises resurrection
+instead of the deterministic `pdf_path=None` replay. Skipped by default; enable with:
+
+```sh
+RUN_PYPDF_RECOVERY=1 python3 -m pytest tests/conversion/unit/test_pdf_recovery_real.py
+```
+
+It pins the invariant that recovery never LOSES definitions (real-PDF harvest ≥ blind), and that a
+known book (`soviet_marxism`: 234 → 238) actually gains defs the replay harness drops.
 
 > Setup: `pip install -r requirements-dev.txt` (pytest). `conftest.py` puts `app/Python` on the
 > path and provides a `soup` fixture.
@@ -140,9 +172,9 @@ or a harness file → everything). The speed core for the vibe-conversion loop.
 
 ## 6. Vibe conversion — the self-improving loop
 
-When a user's document converts badly, **"✨ Vibe convert"** asks an LLM (DeepSeek V4 Pro via
-Fireworks) to fix the *pipeline* for **that one document**, validated against the document
-itself — production code is never touched.
+When a user's document converts badly, **"✨ Vibe convert"** asks an LLM (a Fireworks model — see the
+run modes below; default `deepseek-v4-pro`, or the faster `gpt-oss-120b`) to fix the *pipeline* for
+**that one document**, validated against the document itself — production code is never touched.
 
 ### Engine: `app/Python/vibe_convert.py`
 
@@ -157,13 +189,17 @@ itself — production code is never touched.
    secrets reach the patched code), then **re-convert THIS document** — pathway-aware (for PDFs
    it replays the cached OCR through the patched assembly; the OCR call itself can't be changed).
 6. **The 3-tier gate (`evaluate`)** — *the patch only ever touches this doc, so there is no
-   regression suite here*:
+   regression suite here*. It credits **correctness, not just counts** (a wrong/orphan link is worse
+   than a missing one):
    - **clean** — the flagged problem resolved, no new flags/faults → offer confidently.
-   - **improved** — a user-visible metric went up (more footnotes/citations linked) *and* fewer
-     than `MISALIGNED_REJECT_RATIO` (0.5) of the new links are flagged misaligned → offer **with
-     a caveat** for the user to judge.
-   - **reject** — crashed / regressed a good metric / no gain / **mostly-misaligned** (a wrong
-     link is worse than a missing one).
+   - **improved** — EITHER a user-visible metric went up (more footnotes/citations linked, with <
+     `MISALIGNED_REJECT_RATIO`=0.5 of the new links flagged misaligned) **OR fewer audit faults at
+     equal links** (e.g. it stopped mis-counting bibliography entries as orphaned footnote defs) →
+     offer **with a caveat**. A footnote-count *drop* that also cuts faults is removing noise, not a
+     regression. **Anti-gaming:** a patch that edits `audit.py` forfeits the fault-reduction credit
+     (it must fix the conversion, not the ruler). Also, a `0/N` citation fork against a near-empty
+     bibliography is recorded at HIGH confidence (those aren't real citations) so it isn't chased.
+   - **reject** — crashed / lost real links / no measurable gain / **mostly-misaligned**.
 7. Bounded retry (default 3): each failure feeds the new stats/traceback back to the model; the
    best "improved" candidate is kept if no clean fix lands. Writes `vibe_report.json` (the
    journal) + `vibe_patch.json` (the winning replacement).
@@ -229,13 +265,30 @@ This makes the highest-value fix-shapes expressible — previously, even a corre
 fix could not be applied. Every op still passes the path-allowlist + dangerous-code scan + an
 `ast` re-parse gate, inside the same sandbox/Docker isolation as §6.
 
-### The corpus runner — `vibe_eval.py`
+### The corpus runner — `vibe_eval.py` (and how to A/B the best strategy)
 
 ```sh
 python3 tests/conversion/vibe_eval.py            # convert + vibe loop per corpus case (cached LLM)
 python3 tests/conversion/vibe_eval.py --no-vibe  # convert + scaffold only (no tokens) — first look
 python3 tests/conversion/vibe_eval.py --no-llm   # re-score from the prompt-hash cache (free)
+python3 tests/conversion/vibe_eval.py --case <substr> --max-attempts 3   # subset, bounded retries
 ```
+
+**Run modes — the levers you A/B to find the best fixing strategy.** The scaffold (assessment routing,
+the gate, the corpus, the taxonomy, the cost meter) is shared; you vary the **edit-gen** to compare:
+
+| flag | values (default **bold**) | effect |
+|---|---|---|
+| `--engine` | **`deepseek`** · `aider` | native full-function-JSON proposer vs the aider search/replace + test-driven loop |
+| `--model` | **`accounts/fireworks/models/deepseek-v4-pro`** · `…/gpt-oss-120b` · any Fireworks id | the LLM (same key `LLM_API_KEY`). gpt-oss-120b is ~seconds/call; v4-pro reasons harder but is slow and **truncates JSON on big prompts** |
+| `--no-vibe` / `--no-llm` | — | convert+scaffold only (no tokens) / re-score from the prompt-hash cache (free) |
+| `--max-attempts` | **3** | bounded retries; each failure feeds stats/traceback back |
+
+> ⚠️ **Gotcha (cost us real time):** `--model` is threaded into *both* engines and **overrides the
+> aider engine's gpt-oss default**. So `--engine aider` alone still runs **deepseek-v4-pro**. To
+> actually run gpt-oss you must pass `--engine aider --model accounts/fireworks/models/gpt-oss-120b`
+> (or the native engine: just `--model …/gpt-oss-120b`). aider lives in a venv —
+> `_aider_bin()` auto-resolves `/tmp/aider-venv/bin/aider` or `VIBE_AIDER_BIN`.
 
 For each `corpus/<case>/` (drop-zone; **git-ignored**, see `corpus/README.md`) it converts via the
 reused `run_regression` pathway runners, runs the loop (responses **cached by prompt-hash**, so a

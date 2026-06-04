@@ -117,6 +117,36 @@ def test_square_bracket_linker_links_matching_citation(soup):
 # ---------------------------------------------------------------------------
 # AssessmentRecorder — records the pass without mutating the soup
 # ---------------------------------------------------------------------------
+def test_assessment_recorder_high_confidence_when_bib_near_empty(soup):
+    # "found N, linked 0" against a (near-)empty bibliography is NOT a fault — it means the paren
+    # scan over-matched dates/years, not real citations. The record must be HIGH confidence (so the
+    # vibe loop doesn't chase a non-bug) and say so.
+    from conversion.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'but1936': 'but1936'})
+    ctx.citations_found, ctx.citations_linked = 158, 0
+    ctx.citations_unlinked = [{'citation': 'March, 1923', 'generated_keys': ['march1923']}]
+    AssessmentRecorder().apply(ctx)
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_linking'][-1]
+    assert rec['confidence'] == 0.9
+    assert rec['evidence']['likely_not_citations'] is True
+    assert 'NOT author-year citations' in rec['margin']
+
+
+def test_assessment_recorder_still_flags_real_unlinked_with_populated_bib(soup):
+    # With a populated bibliography, genuine unlinked citations remain a low-confidence fault.
+    from conversion.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    bib = {f'a{i}': f'a{i}' for i in range(5)}
+    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), bib)
+    ctx.citations_found, ctx.citations_linked = 4, 0
+    ctx.citations_unlinked = [{'citation': 'Foo 1999', 'generated_keys': ['foo1999']}]
+    AssessmentRecorder().apply(ctx)
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_linking'][-1]
+    assert rec['confidence'] == 0.0          # 0/4 → genuine fault, still flagged
+    assert rec['evidence']['likely_not_citations'] is False
+
+
 def test_assessment_recorder_runs_for_each_branch(soup):
     # no_bibliography branch
     ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {})

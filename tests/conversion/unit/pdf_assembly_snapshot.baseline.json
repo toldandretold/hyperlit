@@ -2,8 +2,8 @@
   "synthetic:chapter_endnotes": {
     "classification": "chapter_endnotes",
     "confidence": 0.8,
-    "md_len": 624,
-    "md_sha256": "f0da7a5a7f5411e00345fa0ebc911bd78d9f50159706b75ef1596a669d0b9f28",
+    "md_len": 630,
+    "md_sha256": "c97a2d51951b7eb3cc6df1259198f305abce9e241c84e29cfcf7cf2c2c800917",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
