@@ -1,6 +1,6 @@
 """Unit tests for conversion/audit.py — gap / duplicate / unmatched detection."""
 
-from conversion.audit import compute_footnote_audit
+from digestion.finalAudit.audit import compute_footnote_audit
 
 
 def _ref(n, fid):

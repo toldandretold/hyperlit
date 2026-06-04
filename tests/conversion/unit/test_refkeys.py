@@ -2,7 +2,7 @@
 
 import pytest
 
-from conversion.refkeys import generate_ref_keys, normalize_unicode_name, is_likely_reference
+from shared.refkeys import generate_ref_keys, normalize_unicode_name, is_likely_reference
 
 
 @pytest.mark.parametrize("text, expected_key", [

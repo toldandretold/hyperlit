@@ -38,260 +38,85 @@
 <body>
   <header>
     <h1>Import-conversion decision tree</h1>
-    <p class="sub">All server-side Python (Laravel → scripts). <b>①</b> turn the file into a common
-       input, then <b>②</b> shared <code>process_document.py</code> links + builds nodes.</p>
+    <p class="sub">All server-side Python. <b>①</b> <code>ingestion/</code> turns the file into common
+       HTML, then <b>②</b> <code>digestion/</code> links + builds nodes. This page is GENERATED from the
+       code — the diagram from the registries + folders, the 💡 notes from each unit's <code>plain</code>.</p>
     <div class="controls"><label><input type="checkbox" id="expandPdf" checked>
        Expand the PDF footnote-layout sub-tree</label></div>
   </header>
   <div class="legend">
     👆 <b>Click any purple node</b> — diamonds/boxes show a 💡 plain-English summary plus what they
-    decide and record to <code>assessment.json</code>; assembler boxes show what they build. The PDF
-    path is a vertical <b>first-match-wins</b> ladder. Dotted = dead-end ✗ / no-op ∅.
+    decide and record to <code>assessment.json</code>. The PDF path is a vertical
+    <b>first-match-wins</b> ladder built straight from <code>PDF_CLASSIFIERS</code>. Dotted = dead-end ✗ / no-op ∅.
   </div>
 
   <div class="wrap">
     <div class="diagram"><pre class="mermaid" id="graph"></pre></div>
     <aside id="panel">
-      <p class="hint">Click a node in the diagram to see — in plain English — what it does, and (for a
-        decision) the fork-record it writes to <code>assessment.json</code> (the "conversion report").</p>
+      <p class="hint">Click a node to see — in plain English — what it does, and (for a decision) the
+        fork-record it writes to <code>assessment.json</code> (the "conversion report").</p>
     </aside>
   </div>
 
+  <!-- ALL data is GENERATED / hand-overlaid, loaded via <script src> (works under file://; fetch does not):
+       pipeline_map_data.js  = window.PIPELINE_MAP  (diagram + node metadata, by gen_pipeline_map.py)
+       pipeline_map_overlay.js = window.PIPELINE_MAP_OVERLAY  (hand-authored deep prose)
+       pipeline_notes.js     = window.PIPELINE_NOTES  (per-unit plain notes, by gen_pipeline_notes.py) -->
+  <script src="pipeline_map_data.js"></script>
+  <script src="pipeline_map_overlay.js"></script>
+  <script src="pipeline_notes.js"></script>
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
 
-    // ---- the diagram, with a swappable PDF section (collapsed vs expanded) -------------------------
-    const PDF_EXPANDED = `
-      EXT -->|.pdf| OCR["mistral_ocr.py · Mistral OCR → ocr_response.json"]
-      OCR --> SIG["classify_footnotes → PDF_CLASSIFIERS<br/>signals: co-location · reset-freq · def-clustering · ref-spread"]
-      SIG --> G1{"any in-text refs?"}
-      G1 -.->|"no ∅"| X_NONE["none → DefaultAssembler"]
-      G1 -->|yes| G2{"ref-spread ≥3 · co-loc under .2 · no Notes?"}
-      G2 -->|yes| X_STEM["wackSTEMbibliographyNotes → WackStemAssembler<br/>post: wrap numbered citations + definitions"]
-      G2 -->|no| G3{"co-loc over .4 · resets under .1 · maxref over 10?<br/>(or co-loc over .5 · resets over .4)"}
-      G3 -->|yes| X_PB["page_bottom → PageBottomAssembler<br/>per-page: renumber + split body from defs<br/>post: rejoin body + append definitions"]
-      G3 -->|no| G4{"Notes header · or resets · co-loc under .3?"}
-      G4 -->|yes| X_CH["chapter_endnotes → ChapterEndnotesAssembler<br/>setup: per-chapter offsets + notes transitions<br/>per-page: convert + apply offset · post: fix + rejoin"]
-      G4 -->|no| G5{"co-loc under .15 · def-clustering under .1?"}
-      G5 -->|yes| X_DOC["document_endnotes → DocumentEndnotesAssembler<br/>per-page: convert bracket refs · post: fix + rejoin"]
-      G5 -.->|"no ✗"| X_UNK["unknown → DefaultAssembler<br/>post: normalize refs/defs + rejoin"]
-      X_NONE --> REC1
-      X_STEM --> REC1
-      X_PB --> REC1
-      X_CH --> REC1
-      X_DOC --> REC1
-      X_UNK --> REC1
-      subgraph RECOV["footnote RECOVERY — resurrect mangled / missed notes"]
-        direction TB
-        REC1["① markers · normalize_all_footnote_refs<br/>superscript / $^5$ / [N] / bare .46 → [^N] · sequence-validated · NO pdf"]
-        REC2["② mojibake defs · scan_footnote_mojibake<br/>re-OCR garbled def pages via pypdf · NEEDS pdf"]
-        REC3["③ missing defs · recover_missing_defs<br/>ref with no def → pull from pypdf · NEEDS pdf"]
-        REC1 --> REC2 --> REC3
-      end
-      REC3 --> FID{"harvest-fidelity check<br/>assess_harvest_fidelity — whose bug is it?<br/>reads recovery result → assessment.json"}
-      FID -.->|"clean · no_footnotes · not_applicable"| PDFMD
-      FID -->|"harvest_gap ⚑ · assembly_collisions ⚑"| PDFMD
-      FID -.->|"fidelity_loss (only after ② ③ pypdf also failed)"| PDFMD`;
-    const PDF_COLLAPSED = `
-      EXT -->|.pdf| OCRC["mistral_ocr.py — decide the footnote LAYOUT<br/>classify_footnotes → assemble_markdown → recover → fidelity check<br/>(6 layouts → 5 assemblers · tick the box to expand)"]
-      OCRC --> PDFMD`;
-    const CLICKS_EXPANDED = ['SIG','G1','G2','G3','G4','G5','X_NONE','X_STEM','X_PB','X_CH','X_DOC','X_UNK','REC1','REC2','REC3','FID'];
-    const CLICKS_COLLAPSED = ['OCRC'];
-    const CLICKS_CORE = ['STRAT','BIB','GUARD','LINK','AUDIT'];
+    const MAP = window.PIPELINE_MAP || { nodes: {}, mermaid_expanded: '', mermaid_collapsed: '' };
+    const OV = window.PIPELINE_MAP_OVERLAY || {};
+    const NOTES = window.PIPELINE_NOTES || {};
 
-    function buildDiagram(expanded) {
-      const pdf = expanded ? PDF_EXPANDED : PDF_COLLAPSED;
-      const clicks = [...(expanded ? CLICKS_EXPANDED : CLICKS_COLLAPSED), ...CLICKS_CORE]
-        .map(id => `    click ${id} decisionClick`).join('\n');
-      return `flowchart TD
-    IMPORT([Import a file]) --> EXT{file extension?}
-    subgraph CONV["① Turn the file into a common input"]
-      direction TB
-      EXT -->|.epub| EPUB["epub_normalizer.py<br/>footnote SCHEME · TRANSFORM_PIPELINE → FOOTNOTE_LINK_RULES<br/>→ main-text.html"]
-      EXT -->|".html / .htm"| HTMLP["ar5iv_preprocessor.py<br/>arXiv only; else raw HTML"]
-      EXT -->|".docx / .doc"| DOCXP["strip_docx_metadata.py + pandoc"]
-      EXT -->|".md / .zip"| MDIN(["markdown input"])
-${pdf}
-      PDFMD(["main-text.md"]) --> M2H["simple_md_to_html.py"]
-      MDIN --> M2H
-    end
-    EPUB -->|main-text.html| BIB
-    M2H -->|intermediate.html| BIB
-    HTMLP -->|html| BIB
-    DOCXP -->|html| BIB
-    subgraph CORE["② Shared processing — process_document.py · DOC_PASSES"]
-      direction TB
-      BIB["parse HTML · is_stem? · extract_bibliography · bibliography.py"]
-      BIB --> STRAT{"choose strategy · STRATEGY_RULES<br/>analyze_document_structure"}
-      STRAT -->|"sequential · whole_document · sectioned"| EXFN["extract footnote definitions<br/>footnotes.py + detect_footnote_sections"]
-      STRAT -.->|"no_footnotes ✗ · pre_processed ∅"| EXFN
-      EXFN --> GUARD{"is the numbering linkable?<br/>_footnote_numbering_is_linkable"}
-      GUARD -.->|"no ∅ — extract notes, emit NO links"| EMIT
-      GUARD -->|yes| LINK["link citations · CITATION_LINK_RULES<br/>link footnote markers → defs · MARKER_LINK_RULES"]
-      LINK --> AUDIT["compute_footnote_audit — the verdict · audit.py"]
-      AUDIT --> EMIT["nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json"]
-    end
-${clicks}`;
-    }
+    const buildDiagram = expanded => expanded ? MAP.mermaid_expanded : MAP.mermaid_collapsed;
 
-    // ---- plain-English glosses --------------------------------------------------------------------
-    const PLAIN = {
-      classify: 'OVERVIEW: read the OCR\'d pages to work out the PDF\'s footnote LAYOUT, so the markdown is assembled correctly. (page-bottom footnotes? end-of-chapter notes? inline [1] citations? all-at-the-end?)',
-      strategy: 'OVERVIEW: now it is HTML — are the footnotes one continuous end-list, restarting per section, or split into sections? This decides HOW markers get wired to their definitions.',
-      bibliography: 'Find the reference list and give each entry an id — so in-text citations have something to point at.',
-      guard: 'A safety check: only link footnotes by number when the numbering is trustworthy. If it looks scrambled, keep the notes but emit NO links — a missing link beats a wrong one.',
-      citation: 'Turn each in-text "(Author Year)" into a clickable link to its bibliography entry.',
-      audit: 'The final report card: did every footnote marker find its definition, with no gaps or leftover orphans?',
-      G1: 'No in-text footnote/citation markers at all — nothing to link.',
-      G2: 'STEM-style numbered citations: inline [1], [2] pointing to a reference list at the back. The same low numbers recur across many pages; their definitions live far away, never on the same page.',
-      G3: 'Classic footnotes at the bottom of each page — the little marker and its note sit on the SAME page.',
-      G4: 'Notes collected at the end of each CHAPTER (often under a "Notes" heading); the numbering restarts every chapter. ⚠ A single back-of-book Notes section split by chapter is RECOGNISED but has a known offset bug (the numbers can still collide) — see test_pdf_fusion.py.',
-      G5: 'All the notes clustered on a few pages at the very END of the book, while the markers are scattered through the body.',
-      fidelity: 'AFTER assembling: a self-check that answers "if footnotes are missing or duplicated — WHOSE bug is it?". It compares what the OCR captured (the markers + definition lines it saw) against what we actually emitted. Three very different culprits look identical otherwise: (a) the OCR had the notes but our code dropped them → OUR bug; (b) the numbers aren\'t unique → OUR numbering bug; (c) the OCR itself never captured the notes the body points to → UPSTREAM. But (c) is NOT an automatic give-up: before this verdict, three resurrection layers try to claw the notes back — a regex that turns ".46 This" into a footnote, and TWO pypdf passes that re-read the actual PDF bytes (bypassing the OCR). So fidelity_loss means "even pypdf couldn\'t get it" (confirmed upstream) — UNLESS there was no source PDF in this run (the cached-replay test harness), in which case it\'s untested and the real import may still recover some. Only (a) and (b) get flagged for the auto-fix loop.',
-      // assembler boxes
-      default: 'No special layout — generic cleanup. Normalises whatever footnote refs/defs it finds and stitches page-break splits. Used for "none" (no footnotes) and "unknown" (nothing matched).',
-      wackstem: 'Wraps the numbered [1] citations and the reference-list entries in markup the backend then converts into links.',
-      pagebottom: 'Footnotes live at the bottom of each page: pull them off the body, renumber across pages so they stay unique, then re-attach them as a definition list at the end.',
-      chapter: 'Numbering restarts per chapter: compute a per-chapter OFFSET so every number becomes globally unique, apply it, then fix def formatting + rejoin. ⚠ Known gap: a back-of-book Notes section split by chapter can still collide (tracked in test_pdf_fusion.py).',
-      document: 'Definitions sit at the very end: convert the scattered in-body markers (brackets / superscripts) to [^N], format the end definitions as [^N]:, and rejoin page breaks.',
-    };
-
-    // ---- decision fork-records (what they write to assessment.json) -------------------------------
-    const NODE_TO_DECISION = { OCRC:'classify', SIG:'classify', STRAT:'strategy', BIB:'bibliography', GUARD:'guard', LINK:'citation', AUDIT:'audit', FID:'fidelity' };
-    const DECISIONS = {
-      classify: { title:'PDF footnote-layout classification', module:'pdf_footnote_classification', ref:'mistral_ocr.py:classify_footnotes',
-        question:'What is the PDF footnote layout? (drives per-page renumbering + markdown assembly)',
-        options:['none','page_bottom','chapter_endnotes','document_endnotes','wackSTEMbibliographyNotes','unknown ✗'],
-        evidence:['co_location_ratio','reset_frequency','def_clustering_ratio','ref_number_max_page_spread','notes_page_count','max_ref_number','page_summary (per-page refs/defs)'],
-        considered:'each OTHER layout → its rejected_because + would_need (ONE fork; expand the ladder + click a gate to see each). The chosen layout contributes the decision + margin.',
-        confidence:'per-class score (page_bottom rewards high co-location + a high max-ref); unknown = 0.0 fall-through',
-        writes:'written FIRST by write_classification_assessment → assessment.json; process_document seeds from it so the trace spans both stages' },
-      strategy: { title:'Footnote strategy selection', module:'strategy_selection', ref:'strategy.py:analyze_document_structure (STRATEGY_RULES)',
-        question:'Which footnote strategy for this document?', options:['sequential','whole_document','sectioned','no_footnotes ✗','pre_processed ∅'],
-        evidence:['position_ratio','ref_position_ratio','has_footnote_resets','has_distributed_hrs','has_structured_sections','has_section_pattern','duplicate_numbers'],
-        considered:'_strategy_considered: each other strategy → rejected_because + would_need',
-        confidence:'per-rule (0.85 resets+HRs … 0.3 default fall-through); a FALL-THROUGH margin marks a shaky default',
-        writes:'ASSESSMENT.record(module=strategy_selection) → assessment.json' },
-      bibliography: { title:'Bibliography extraction', module:'bibliography_extraction', ref:'bibliography.py:extract_bibliography',
-        question:'Which paragraphs are bibliography entries, and what id does each get?', options:['detected via a References heading','detected via the reverse paragraph scan'],
-        evidence:['entries','map_keys','collisions_suffixed','duplicates_merged','dropped_no_keys','detection (heading|reverse_scan)'],
-        considered:'when author+year collide, a bare "(Author Year)" can\'t disambiguate → resolves to the LAST entry',
-        confidence:'1 − dropped/(entries+dropped); margin names dropped (unkeyable = unlinkable) + collisions',
-        writes:'ASSESSMENT.record(module=bibliography_extraction) — the link TARGETS the citation linker matches against' },
-      guard: { title:'Whole-document numbering linkability guard', module:'footnote_linking_guard', ref:'strategy.py:_footnote_numbering_is_linkable',
-        question:'Is whole-document footnote numbering safe to link by number?', options:['LINK by number','SUPPRESS — extract the notes but emit NO links ∅'],
-        evidence:['definition_range / count','missing_in_sequence (gaps)','orphan_markers (refs with no def)'],
-        considered:'link vs suppress, with the guard that fired',
-        confidence:'0.8–0.9; the modus operandi: a missing link is honest, a confident WRONG link is not',
-        writes:'ASSESSMENT.record(module=footnote_linking_guard) — both outcomes recorded with evidence' },
-      citation: { title:'In-text citation linking', module:'citation_linking', ref:'citations.py:link_citations (CITATION_LINK_RULES)',
-        question:'Were in-text citations linked to the bibliography?', options:['linked X of Y','skipped — no bibliography','skipped — no (Author YEAR) patterns'],
-        evidence:['found','linked','unlinked','bibliography_entries','likely_not_citations','unlinked_sample (keys tried)'],
-        considered:'the unmatched citations + the keys generated for them',
-        confidence:'linked/found — BUT a 0/N against a near-empty bibliography is recorded HIGH (those aren\'t real citations)',
-        writes:'ASSESSMENT.record(module=citation_linking)' },
-      audit: { title:'The footnote-linking verdict', module:'footnote_audit', ref:'audit.py:compute_footnote_audit',
-        question:'Did the footnote linking produce a clean ref/def correspondence? (the VERDICT)', options:['clean','faulty'],
-        evidence:['total_refs','total_defs','gaps','unmatched_refs','unmatched_defs','duplicates','+ samples'],
-        considered:'the unmatched refs/defs by id (falsifiable — names WHICH ones)',
-        confidence:'1 − faults/total; the vibe gate now credits a DROP in these faults, not just more links',
-        writes:'ASSESSMENT.record(module=footnote_audit) — the second half of the diagnostic loop' },
-      fidelity: { title:'Footnote harvest-fidelity discriminator', module:'pdf_footnote_harvest_fidelity', ref:'mistral_ocr.py:assess_harvest_fidelity',
-        question:'Did we harvest every footnote the OCR captured AND number them uniquely? (separates OCR fidelity loss from a harvest bug from a numbering/offset bug)',
-        options:['clean','harvest_gap ⚑','assembly_collisions ⚑','fidelity_loss','not_applicable','no_footnotes ∅'],
-        evidence:['classification','refs_in_ocr','defs_in_ocr','defs_harvested','coverage_vs_refs','harvest_vs_ocr','collision_count','collision_numbers','pypdf_recovery_attempted','pypdf_recovered','pypdf_unrecovered'],
-        considered:'"Demand" is anchored on the in-text MARKERS (refs), not raw def-lines (those are inflated by numbered-list noise). harvest_gap = OCR had the defs, we dropped them; fidelity_loss = OCR itself lost them (but only CONFIRMED once pypdf re-extraction has also failed — pypdf_unrecovered>0; pypdf_recovery_attempted=false means no source PDF here = untested); assembly_collisions = emitted but numbers not unique.',
-        confidence:'set so ONLY the two genuinely-ours buckets (harvest_gap 0.4, assembly_collisions 0.45) raise the confidence<0.5 flag the vibe loop routes on; fidelity_loss (0.55) + clean/not_applicable/no_footnotes (0.9) stay silent — never flag an upstream OCR ceiling or a non-harvesting layout',
-        writes:'appended by write_classification_assessment as the seq-1 record → assessment.json (alongside the seq-0 classification). footnote_warnings (pypdf recovery) feeds in so fidelity_loss reports the post-resurrection residual; live import only — replay harness is pdf_path=None (see test_pdf_recovery_real.py, RUN_PYPDF_RECOVERY=1)' },
-    };
-
-    // ---- per-classifier gate detail (rolls into the ONE classification fork's considered[]) -------
-    const CLASSIFIERS = {
-      G1:{name:'none', gate:'pages_with_refs == 0', would_need:'zero pages with in-text footnote references', rejected:'"N page(s) carry in-text references" (when refs do exist)', confidence:'1.0 — unambiguous'},
-      G2:{name:'wackSTEMbibliographyNotes', gate:'ref-spread ≥3 AND co-loc <0.2 AND notes==0 AND resets ≤3 AND (reset-freq <0.2 OR max-ref >50)', would_need:'the same low ref-numbers reappearing across many pages (numbered bibliography citations)', rejected:'"ref-number page-spread S (need ≥3) and co-location C (need <0.2)"', confidence:'+0.3 spread≥5 · +0.3 numbers-on-multiple-pages>10 · +0.2 co<0.1 · +0.2 no Notes'},
-      G3:{name:'page_bottom', gate:'(co-loc >0.4 AND pages-with-both ≥3 AND reset-freq <0.1 AND max-ref >10)  OR  (co-loc >0.5 AND reset-freq >0.4)', would_need:'refs and their definitions sharing the same pages (high co-location)', rejected:'"co-location C / reset-freq R fit neither page_bottom rule (continuous / restart)"', confidence:'+0.3 co>0.8 (or +0.15 co>0.4) · +0.3 resets>0.7 (or +0.25 continuous & high max-ref) · +0.2 no Notes · +0.2 consistent page-numbers'},
-      G4:{name:'chapter_endnotes', gate:'(notes>0 AND co-loc <0.3)  OR  (co-loc <0.3 AND defs>0 AND reset-freq >0.3)  OR  (co-loc <0.15 AND defs>5 AND resets ≥3)', would_need:'a "Notes" page header, OR per-chapter resets with separated definition pages (co-location <0.3)', rejected:'"no Notes-header page and co-location C/reset-freq R miss the endnote rules"', confidence:'+0.3 Notes>0 · +0.3 co<0.1 · +0.2 resets>0 · +0.2 def-clustering<0.2'},
-      G5:{name:'document_endnotes', gate:'co-loc <0.15 AND def-clustering <0.1', would_need:'definitions clustered on very few trailing pages with near-zero co-location', rejected:'"co-location C (need <0.15) and def-clustering D (need <0.1)"', confidence:'+0.3 co<0.05 · +0.3 def-clustering<0.05 · +0.2 no Notes · +0.2 no resets', note:'if even this misses → unknown ✗ (fall-through, confidence 0.0 — a prime review candidate)'},
-    };
-
-    // ---- assembler boxes (what each builds) -------------------------------------------------------
-    const NODE_TO_ASSEMBLER = { X_NONE:'default', X_UNK:'default', X_STEM:'wackstem', X_PB:'pagebottom', X_CH:'chapter', X_DOC:'document' };
-    const ASSEMBLERS = {
-      default:{name:'DefaultAssembler', for:'none / unknown', detail:'post_combine: normalize_all_footnote_refs + normalize_footnote_defs + format [^N]: + rejoin_page_breaks'},
-      wackstem:{name:'WackStemAssembler', for:'wackSTEMbibliographyNotes', detail:'post_combine: wrap_stem_citations + wrap_stem_definitions (the backend STEM pass turns these into links)'},
-      pagebottom:{name:'PageBottomAssembler', for:'page_bottom', detail:'per_page: renumber_page_footnotes + split body from definitions · post_combine: rejoin body + append the collected, reformatted definitions'},
-      chapter:{name:'ChapterEndnotesAssembler', for:'chapter_endnotes', detail:'setup: precompute per-chapter offsets + notes-section transitions · per_page: convert refs + apply offset · post_combine: fix def formatting + rejoin'},
-      document:{name:'DocumentEndnotesAssembler', for:'document_endnotes', detail:'per_page: convert bracket/superscript refs → [^N] · post_combine: format [^N]: + rejoin'},
-    };
-
-    // ---- recovery layers (resurrect mangled / missed footnotes before the fidelity scorer) --------
-    const RECOVERY = {
-      REC1:{name:'① Marker resurrection', ref:'mistral_ocr.py:normalize_all_footnote_refs', needs_pdf:false,
-        plain:'OCR often renders a footnote marker as something that ISN\'T [^N] — a tiny superscript, a LaTeX $^5$, a bare [5], or just a stray ".46 " after a full stop. This layer turns those back into real markers.',
-        does:'Convert superscript / $^5$ / [N] / bare ".46 " → [^N].',
-        safety:'SEQUENTIAL VALIDATION — a candidate is only converted if its number fits between the surrounding KNOWN [^N] refs. That is what stops years ("2015"), table numbers, and prices being mistaken for footnotes.',
-        needs:'No PDF — works on the OCR text alone (so it ALWAYS runs, even in the replay test harness).',
-        test:'test_footnote_recovery.py (resurrection + the no-false-positive safety check) · test_mistral_ocr.py'},
-      REC2:{name:'② Mojibake def re-OCR (pypdf)', ref:'mistral_ocr.py:scan_footnote_mojibake', needs_pdf:true,
-        plain:'Sometimes a whole NOTES page comes out of OCR as garbled glyphs (a font with no Unicode map). This layer notices the garbage and re-reads that page straight from the PDF file with pypdf, replacing the mush with the real definitions.',
-        does:'Detect low printable-ratio def pages → re-extract them via pypdf → splice clean defs back in. Emits footnote_warnings (recovered / unrecovered).',
-        safety:'Only fires on pages that are actually mojibake (compute_printable_ratio below threshold).',
-        needs:'NEEDS the real PDF — so it runs in the live import but NOT in the cached-OCR replay (pdf_path=None). That gap is exactly what the opt-in test covers.',
-        test:'test_pdf_recovery_real.py (opt-in: RUN_PYPDF_RECOVERY=1)'},
-      REC3:{name:'③ Missing-definition fill (pypdf)', ref:'mistral_ocr.py:recover_missing_defs', needs_pdf:true,
-        plain:'After assembly, some markers in the text have NO definition to point at. This layer goes looking for those exact numbers in the pypdf extraction of the PDF and pulls their text back in.',
-        does:'For each ref with no def: find that number in the pypdf-extracted defs and emit it. Range-filters, de-dupes, applies multi-paper offsets, and can overwrite a corrupt OCR def.',
-        safety:'pypdf "defs" whose text is itself mojibake are REJECTED (not injected as garbage) and recorded as unrecovered warnings. The matcher is pure logic — the part that decides which recovered def fills which number.',
-        needs:'The extraction NEEDS the PDF; the matcher is pure logic and unit-tested without one.',
-        test:'test_footnote_recovery.py (the matcher) · test_pdf_recovery_real.py (end-to-end)'},
-    };
-
-    // ---- rendering --------------------------------------------------------------------------------
     const panel = () => document.getElementById('panel');
-    const li = a => '<ul>' + a.map(x => `<li>${x}</li>`).join('') + '</ul>';
-    const pills = a => a.map(x => `<span class="pill">${x}</span>`).join('');
-    function render(d) {
-      panel().innerHTML = `<h2>${d.title}</h2>${d.plain?`<p class="plain">💡 ${d.plain}</p>`:''}
-        <div class="ref">${d.ref}</div><p class="q">“${d.question}”</p>
-        <div class="k">Decides among</div>${pills(d.options)}
-        <div class="k">Records to assessment.json</div>${li(d.evidence)}
-        <div class="k">Considered (roads not taken)</div><p>${d.considered}</p>
-        <div class="k">Confidence / margin</div><p>${d.confidence}</p>
-        <div class="k">In the report</div><p class="hint">${d.writes}</p>`;
+    const li = a => (a && a.length) ? '<ul>' + a.map(x => `<li>${x}</li>`).join('') + '</ul>' : '';
+    const pills = a => (a && a.length) ? a.map(x => `<span class="pill">${x}</span>`).join('') : '';
+    const noteFor = n => (n && n.noteKey && NOTES[n.noteKey]) || '';
+    const K = (label, val) => val ? `<div class="k">${label}</div><p>${val}</p>` : '';
+
+    // ONE data-driven renderer — node metadata (generated) + overlay prose (hand) + note (generated).
+    function renderNode(id) {
+      const n = MAP.nodes[id]; if (!n) return;
+      const o = OV[id] || {};
+      const plain = noteFor(n) ? `<p class="plain">💡 ${noteFor(n)}</p>` : '';
+      const ref = n.codeRef ? `<div class="ref">${n.codeRef}</div>` : '';
+      if (n.kind === 'classifier') {
+        panel().innerHTML = `<h2>Layout: ${n.name}</h2>${plain}${ref}
+          <p class="hint">One candidate inside the single <code>pdf_footnote_classification</code> fork.</p>
+          ${K('Matches when (the gate)', o.gate ? `<code>${o.gate}</code>` : '')}
+          ${K('Would_need (what flips the branch)', n.wouldNeed)}
+          ${K('Rejected_because (recorded in considered[])', o.rejected)}
+          ${K('Confidence factors (when chosen)', o.confidence)}
+          ${o.note ? `<div class="k">Note</div><p class="hint">${o.note}</p>` : ''}`;
+      } else if (n.kind === 'assembler') {
+        panel().innerHTML = `<h2>${n.name}</h2>${plain}${ref}
+          ${K('What it builds', o.detail)}
+          <div class="k">Note</div><p class="hint">It only ASSEMBLES the markdown; the marker → definition
+            LINKING happens later in digestion (MARKER_LINK_RULES).</p>`;
+      } else if (n.kind === 'recovery') {
+        panel().innerHTML = `<h2>${n.name}</h2>${plain}${ref}
+          <p class="hint">A footnote RECOVERY layer — runs after assembly, feeds the harvest-fidelity scorer.</p>
+          ${K('What it does', o.does)}
+          ${K('Safety check', o.safety)}
+          ${('needs_pdf' in o) ? `<div class="k">Needs the PDF?</div><p>${o.needs_pdf ? '⚠ YES' : 'No'} — ${o.needs || ''}</p>` : ''}
+          ${K('Checkpoint (test)', o.test)}`;
+      } else {  // fork (classify / strategy / bibliography / guard / citation / audit / fidelity)
+        panel().innerHTML = `<h2>${n.module || id}</h2>${plain}${ref}
+          ${n.question ? `<p class="q">“${n.question}”</p>` : ''}
+          ${(n.options && n.options.length) ? `<div class="k">Decides among</div>${pills(n.options)}` : ''}
+          ${o.evidence ? `<div class="k">Records to assessment.json</div>${li(o.evidence)}` : ''}
+          ${K('Considered (roads not taken)', o.considered)}
+          ${K('Confidence / margin', o.confidence)}
+          ${o.writes ? `<div class="k">In the report</div><p class="hint">${o.writes}</p>` : ''}`;
+      }
     }
-    function renderClassifier(c) {
-      panel().innerHTML = `<h2>Layout: ${c.name}</h2>${c.plain?`<p class="plain">💡 ${c.plain}</p>`:''}
-        <div class="ref">mistral_ocr.py · a PdfClassifier in PDF_CLASSIFIERS</div>
-        <p class="hint">One candidate inside the single <code>pdf_footnote_classification</code> fork.</p>
-        <div class="k">Matches when (the gate)</div><p><code>${c.gate}</code></p>
-        <div class="k">Would_need (what flips the branch)</div><p>${c.would_need}</p>
-        <div class="k">Rejected_because (recorded in considered[])</div><p>${c.rejected}</p>
-        <div class="k">Confidence factors (when chosen)</div><p>${c.confidence}</p>
-        ${c.note?`<div class="k">Note</div><p class="hint">${c.note}</p>`:''}`;
-    }
-    function renderAssembler(a) {
-      panel().innerHTML = `<h2>${a.name}</h2>${a.plain?`<p class="plain">💡 ${a.plain}</p>`:''}
-        <div class="ref">mistral_ocr.py · PDF_ASSEMBLERS["${a.for}"]</div>
-        <div class="k">What it builds</div><p>${a.detail}</p>
-        <div class="k">Note</div><p class="hint">It only ASSEMBLES the markdown; the actual marker → definition
-          LINKING happens later in the shared core (②, MARKER_LINK_RULES).</p>`;
-    }
-    function renderRecovery(r) {
-      panel().innerHTML = `<h2>${r.name}</h2>${r.plain?`<p class="plain">💡 ${r.plain}</p>`:''}
-        <div class="ref">${r.ref}</div>
-        <p class="hint">A footnote RECOVERY layer — runs after assembly, feeds the harvest-fidelity scorer.</p>
-        <div class="k">What it does</div><p>${r.does}</p>
-        <div class="k">Safety check</div><p>${r.safety}</p>
-        <div class="k">Needs the PDF?</div><p>${r.needs_pdf?'⚠ YES':'No'} — ${r.needs}</p>
-        <div class="k">Checkpoint (test)</div><p class="hint">${r.test}</p>`;
-    }
-    window.decisionClick = (id) => {
-      if (RECOVERY[id]) return renderRecovery(RECOVERY[id]);
-      if (NODE_TO_ASSEMBLER[id]) return renderAssembler({ ...ASSEMBLERS[NODE_TO_ASSEMBLER[id]], plain: PLAIN[NODE_TO_ASSEMBLER[id]] });
-      if (CLASSIFIERS[id]) return renderClassifier({ ...CLASSIFIERS[id], plain: PLAIN[id] });
-      const k = NODE_TO_DECISION[id];
-      if (k) render({ ...DECISIONS[k], plain: PLAIN[k] });
-    };
+    window.decisionClick = renderNode;
 
     async function draw(expanded) {
       const el = document.getElementById('graph');
@@ -302,7 +127,12 @@ ${clicks}`;
     mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose',
       flowchart: { useMaxWidth: true, nodeSpacing: 35, rankSpacing: 48 } });
     document.getElementById('expandPdf').addEventListener('change', e => draw(e.target.checked));
-    draw(true);
+    if (!window.PIPELINE_MAP) {
+      document.getElementById('graph').textContent =
+        '⚠ pipeline_map_data.js not loaded — run: python3 tests/conversion/gen_pipeline_map.py';
+    } else {
+      draw(true);
+    }
   </script>
 </body>
 </html>

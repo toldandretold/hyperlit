@@ -7,8 +7,8 @@ so its correctness directly governs whether in-text citations link to the right 
 
 import re
 
-from conversion.assessment import ASSESSMENT
-from conversion.refkeys import generate_ref_keys, is_likely_reference
+from shared.assessment import ASSESSMENT
+from shared.refkeys import generate_ref_keys, is_likely_reference
 
 
 # Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
@@ -91,6 +91,14 @@ def _find_reference_paragraphs(soup):
     return reference_p_tags, used_reverse_scan
 
 
+# Human-readable `plain` note for the bibliography-extraction tree node (one source — node_help + gen + LLM).
+_BIBLIOGRAPHY_PLAIN = (
+    'Find the reference list and give each entry an id, so in-text citations have something to point '
+    'at. If citations do not link, suspect THIS (the link targets are missing) before blaming the '
+    'citation linker. Collision-suffixing (two works, same author+year) makes a bare key resolve to the '
+    'LAST entry — an inherent ambiguity.')
+
+
 def _record_bibliography_assessment(references_data, bibliography_map, via_heading,
                                     collisions, dups_skipped, dropped_no_keys):
     """Record the bibliography-extraction pass to the assessment trace. The link-correctness risk is
@@ -98,6 +106,7 @@ def _record_bibliography_assessment(references_data, bibliography_map, via_headi
     LAST entry (an inherent ambiguity). Dropped entries = targets that exist but can never be linked."""
     ASSESSMENT.record(
         module='bibliography_extraction', code_ref='bibliography.py:extract_bibliography',
+        node_help=_BIBLIOGRAPHY_PLAIN,
         decision=f'{len(references_data)} reference entr(y/ies); {collisions} collision-suffixed, '
                  f'{dups_skipped} duplicate(s) merged, {dropped_no_keys} dropped (unkeyable)',
         rationale=('references found via a heading match' if via_heading

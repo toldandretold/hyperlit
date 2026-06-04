@@ -4,8 +4,8 @@ decision tree decomposed into ordered StrategyRule units, and the bibliography p
 the units.
 """
 
-from conversion import strategy as S
-from conversion import bibliography as B
+from digestion.strategySelection import strategy as S
+from digestion.bibliographyExtraction import bibliography as B
 
 
 def _sig(**over):

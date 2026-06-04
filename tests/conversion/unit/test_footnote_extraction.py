@@ -15,7 +15,7 @@ the md+docx front-ends must keep one blank line between definitions.
 
 from bs4 import BeautifulSoup
 
-from conversion.footnotes import process_whole_document_footnotes
+from digestion.footnoteExtraction.footnotes import process_whole_document_footnotes
 
 
 def _whole(html):

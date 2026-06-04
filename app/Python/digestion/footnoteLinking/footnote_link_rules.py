@@ -15,7 +15,7 @@ import time
 
 from bs4 import BeautifulSoup, NavigableString
 
-from .link_base import LinkRule, run_link_rules
+from shared.link_base import LinkRule, run_link_rules     # was `.link_base` (link_base moved to shared/)
 
 _BLOCK_TAGS = {'p', 'div', 'li', 'aside', 'section', 'blockquote', 'td'}
 

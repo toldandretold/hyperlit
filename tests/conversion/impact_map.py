@@ -49,20 +49,22 @@ ALL = 'ALL'  # sentinel: run everything in that dimension
 #   unit_tests:      list of test_*.py basenames, or ALL
 #   fixture_filters: list of --fixture substrings, or [ALL], or [] (no fixture impact)
 RULES = {
-    'app/Python/process_document.py':          (ALL, [ALL]),
-    'app/Python/conversion/strategy.py':       (['test_strategy.py'], [ALL]),
-    'app/Python/conversion/footnotes.py':      (['test_footnote_extraction.py', 'test_linking.py'], [ALL]),
-    'app/Python/conversion/audit.py':          (['test_audit.py'], [ALL]),
-    'app/Python/conversion/citations.py':      (['test_citations.py'], ['author_year', 'bibliography']),
-    'app/Python/conversion/bibliography.py':   (['test_bibliography.py'], ['bibliography', 'author_year']),
-    'app/Python/conversion/refkeys.py':        (['test_refkeys.py'], ['author_year', 'bibliography']),
-    'app/Python/conversion/sanitize.py':       (['test_sanitize.py'], []),
-    'app/Python/conversion/assessment.py':     ([], []),   # recording only — no conversion behaviour
-    'app/Python/epub_normalizer.py':           (['test_epub_detectors.py'], ['epub/']),
-    'app/Python/mistral_ocr.py':               (['test_mistral_ocr.py'], ['pdf/']),
-    'app/Python/simple_md_to_html.py':         (['test_simple_md_to_html.py'], ['md/', 'pdf/']),
-    'app/Python/ar5iv_preprocessor.py':        (['test_ar5iv.py'], ['html/ar5iv']),
-    'app/Python/strip_docx_metadata.py':       (['test_strip_docx_metadata.py'], ['docx/']),
+    'app/Python/digestion/process_document.py':                       (ALL, [ALL]),
+    'app/Python/digestion/strategySelection/strategy.py':             (['test_strategy.py'], [ALL]),
+    'app/Python/digestion/footnoteExtraction/footnotes.py':           (['test_footnote_extraction.py', 'test_linking.py'], [ALL]),
+    'app/Python/digestion/footnoteLinking/footnote_link_rules.py':    (['test_footnote_link_rules.py', 'test_marker_link_rules.py'], [ALL]),
+    'app/Python/digestion/finalAudit/audit.py':                       (['test_audit.py'], [ALL]),
+    'app/Python/digestion/citationLinking/citations.py':              (['test_citations.py'], ['author_year', 'bibliography']),
+    'app/Python/digestion/citationLinking/citation_link_rules.py':    (['test_citation_link_rules.py'], ['author_year', 'bibliography']),
+    'app/Python/digestion/bibliographyExtraction/bibliography.py':    (['test_bibliography.py'], ['bibliography', 'author_year']),
+    'app/Python/shared/refkeys.py':            (['test_refkeys.py'], ['author_year', 'bibliography']),
+    'app/Python/shared/sanitize.py':           (['test_sanitize.py'], []),
+    'app/Python/shared/assessment.py':         ([], []),   # recording only — no conversion behaviour
+    'app/Python/ingestion/epub/epub_normalizer.py':                   (['test_epub_detectors.py'], ['epub/']),
+    'app/Python/ingestion/pdf/mistral_ocr.py':                        (['test_mistral_ocr.py'], ['pdf/']),
+    'app/Python/ingestion/markdown_and_pdf_to_html/simple_md_to_html.py': (['test_simple_md_to_html.py'], ['md/', 'pdf/']),
+    'app/Python/ingestion/html/ar5iv_preprocessor.py':                (['test_ar5iv.py'], ['html/ar5iv']),
+    'app/Python/ingestion/word/strip_docx_metadata.py':               (['test_strip_docx_metadata.py'], ['docx/']),
 }
 
 # Touch any of these and correctness of the whole harness is in question -> run everything.

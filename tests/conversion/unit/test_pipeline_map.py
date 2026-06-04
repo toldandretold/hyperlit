@@ -11,6 +11,7 @@ import ast
 import glob
 import json
 import os
+import sys
 
 import pytest
 
@@ -24,16 +25,32 @@ _MAP = json.loads(open(_MAP_PATH, encoding='utf-8').read())
 _VALID_BANDS = {'frontend', 'backend', 'shared', 'meta', 'other_subsystem', 'legacy', 'dead'}
 
 
+_SHIM_MARKER = 'Compatibility shim'
+
+
+def _is_shim(path):
+    """A re-export shim left at an old path during the ingestion/digestion reorg — not a real module
+    (its body just re-exports from the new location). Detected by the marker in its docstring."""
+    try:
+        return _SHIM_MARKER in open(path, encoding='utf-8').read(300)
+    except Exception:
+        return False
+
+
 def _disk_modules():
-    """Every importable conversion module on disk: app/Python/*.py + app/Python/conversion/*.py,
-    excluding __init__.py. Keys match pipeline_map.json (top-level basename, conversion/<name>)."""
+    """Every REAL conversion module on disk, keyed by its path relative to app/Python (posix). Recurses
+    the package tree (ingestion/ digestion/ shared/ conversion/ + top level) so the map tracks modules
+    wherever they live; skips __init__.py, __pycache__, and the re-export shims at the old paths."""
     out = set()
-    for p in glob.glob(os.path.join(_PYDIR, '*.py')):
-        out.add(os.path.basename(p))
-    for p in glob.glob(os.path.join(_PYDIR, 'conversion', '*.py')):
-        out.add('conversion/' + os.path.basename(p))
-    out.discard('__init__.py')
-    out.discard('conversion/__init__.py')
+    for root, dirs, files in os.walk(_PYDIR):
+        dirs[:] = [d for d in dirs if d != '__pycache__']
+        for fn in files:
+            if not fn.endswith('.py') or fn == '__init__.py':
+                continue
+            full = os.path.join(root, fn)
+            if _is_shim(full):
+                continue
+            out.add(os.path.relpath(full, _PYDIR).replace(os.sep, '/'))
     return out
 
 
@@ -59,7 +76,7 @@ def _is_rule_registry(node):
 
 
 def _disk_registries():
-    """{registry_name: module_path} for every rule registry found on disk."""
+    """{registry_name: module_path_relative_to_app_Python} for every rule registry found on disk."""
     found = {}
     for mod in _disk_modules():
         path = os.path.join(_PYDIR, mod)
@@ -130,3 +147,56 @@ def test_visual_map_names_every_module_and_registry():
     missing_regs = [r for r in _MAP['registries'] if not r.startswith('_') and r not in md]
     assert not missing_mods, f"PIPELINE_MAP.md doesn't mention these modules: {sorted(missing_mods)}"
     assert not missing_regs, f"PIPELINE_MAP.md doesn't mention these registries: {sorted(missing_regs)}"
+
+
+# ---------------------------------------------------------------------------
+# Code-sourced node notes (pipeline_notes.json) — completeness + no-drift.
+# Every decision unit carries a `plain` note; the committed JSON the visual + the
+# LLM report read must equal what the generator produces from the code, so they
+# can never disagree. (The notes also ride into assessment.json as node_help.)
+# ---------------------------------------------------------------------------
+sys.path.insert(0, os.path.join(_HERE, '..'))                 # tests/conversion (gen_pipeline_notes.py)
+sys.path.insert(0, os.path.join(_REPO, 'app', 'Python'))      # the conversion modules it imports
+_NOTES_JSON = os.path.join(_HERE, '..', 'pipeline_notes.json')
+
+
+def test_every_decision_unit_has_a_plain_note():
+    from gen_pipeline_notes import collect_notes
+    notes = collect_notes()
+    blank = sorted(k for k, v in notes.items() if not (v and v.strip()))
+    assert not blank, f"decision units missing a non-empty `plain` note: {blank}"
+    # Floor: the known node families must all be present (a dropped registry would shrink this).
+    assert len([k for k in notes if k.startswith('classifier:')]) >= 6, "missing PDF classifiers"
+    assert len([k for k in notes if k.startswith('assembler:')]) >= 5, "missing PDF assemblers"
+    assert {'recovery:markers', 'recovery:mojibake', 'recovery:missingdefs', 'fidelity',
+            'strategy', 'guard', 'bibliography', 'citation', 'audit',
+            'epub:detection', 'epub:linking'} <= set(notes)
+
+
+def test_pipeline_notes_json_matches_code():
+    from gen_pipeline_notes import collect_notes, render_json
+    committed = open(_NOTES_JSON, encoding='utf-8').read()
+    assert committed == render_json(collect_notes()), (
+        "pipeline_notes.json is STALE vs the code's `plain` notes — "
+        "run: python3 tests/conversion/gen_pipeline_notes.py")
+
+
+def test_pipeline_structure_md_matches_folders():
+    """The visual structure is GENERATED from the actual ingestion/digestion/shared folders + their
+    registries; the committed doc must equal a fresh render, so the tree can't drift from the layout."""
+    from gen_pipeline_tree import render
+    committed = open(os.path.join(_HERE, '..', 'PIPELINE_STRUCTURE.generated.md'), encoding='utf-8').read()
+    assert committed == render(), (
+        "PIPELINE_STRUCTURE.generated.md is STALE vs the folders — "
+        "run: python3 tests/conversion/gen_pipeline_tree.py")
+
+
+def test_pipeline_map_data_js_matches_code():
+    """The interactive viewer's DIAGRAM + node data are generated from PDF_CLASSIFIERS/PDF_ASSEMBLERS +
+    the recovery funcs + the ASSESSMENT.record sites + folders. The committed pipeline_map_data.js must
+    equal a fresh render — so adding a classifier / moving a file shows up, and the diagram can't drift."""
+    from gen_pipeline_map import render
+    committed = open(os.path.join(_HERE, '..', 'pipeline_map_data.js'), encoding='utf-8').read()
+    assert committed == render(), (
+        "pipeline_map_data.js is STALE vs the registries/folders — "
+        "run: python3 tests/conversion/gen_pipeline_map.py")

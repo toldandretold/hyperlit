@@ -1,6 +1,6 @@
 """Unit tests for conversion/strategy.py — strategy selection + the numbering-linkability guard."""
 
-from conversion.strategy import analyze_document_structure, _footnote_numbering_is_linkable
+from digestion.strategySelection.strategy import analyze_document_structure, _footnote_numbering_is_linkable
 
 
 def _doc(body):
@@ -63,7 +63,7 @@ def test_linkable_trivial_single(soup):
 
 # --- the link-vs-suppress fork records its full story to the assessment trace ---
 
-from conversion.assessment import ASSESSMENT
+from shared.assessment import ASSESSMENT
 
 
 def test_guard_records_suppress_fork_story(soup):

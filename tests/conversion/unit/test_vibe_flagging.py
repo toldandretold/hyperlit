@@ -70,7 +70,7 @@ def test_footnote_linking_orphans_are_flagged_and_route_to_the_linker():
            'evidence': {'detected_footnotes': 239, 'orphaned_defs': 238, 'linked': 239}}
     assert v._is_problem(rec) is True
     mods = v.modules_for([rec], {'is_epub': True})
-    assert 'app/Python/epub_normalizer.py' in mods  # routed to the LINKER, not the detectors
+    assert v._real_path('epub_normalizer.py') in mods  # routed to the LINKER, not the detectors
 
 
 def test_footnote_linking_moderate_orphan_share_is_flagged():
@@ -95,20 +95,20 @@ def test_confident_bibliography_skip_is_not_a_problem():
 def test_footnote_audit_routes_to_epub_detector():
     rec = {'module': 'footnote_audit', 'code_ref': 'audit.py:compute_footnote_audit'}
     mods = v.modules_for([rec], {'is_epub': True, 'is_pdf': False})
-    assert 'app/Python/epub_normalizer.py' in mods
-    assert 'app/Python/conversion/footnotes.py' in mods
-    assert 'app/Python/conversion/audit.py' not in mods  # audit only measures, never the fix
+    assert v._real_path('epub_normalizer.py') in mods
+    assert v._real_path('footnotes.py') in mods
+    assert v._real_path('audit.py') not in mods  # audit only measures, never the fix
 
 
 def test_footnote_audit_routes_to_shared_path_when_not_epub():
     rec = {'module': 'footnote_audit', 'code_ref': 'audit.py:compute_footnote_audit'}
     mods = v.modules_for([rec], {'is_epub': False, 'is_pdf': True})
-    assert 'app/Python/process_document.py' in mods
-    assert 'app/Python/conversion/footnotes.py' in mods
-    assert 'app/Python/epub_normalizer.py' not in mods
+    assert v._real_path('process_document.py') in mods
+    assert v._real_path('footnotes.py') in mods
+    assert v._real_path('epub_normalizer.py') not in mods
 
 
 def test_non_audit_records_use_their_code_ref():
     rec = {'module': 'strategy_selection', 'code_ref': 'strategy.py:analyze_document_structure'}
     mods = v.modules_for([rec], {'is_epub': False})
-    assert mods == ['app/Python/conversion/strategy.py']
+    assert mods == [v._real_path('strategy.py')]     # follows the reorg (digestion/strategySelection/)

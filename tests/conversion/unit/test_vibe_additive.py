@@ -13,7 +13,7 @@ import shutil
 import mistral_ocr as M_OCR
 import process_document as P
 import vibe_convert as v
-from conversion import strategy as S_STRAT
+from digestion.strategySelection import strategy as S_STRAT
 
 
 # --- _register_in_list --------------------------------------------------------
@@ -288,7 +288,7 @@ def test_op_add_register_noop_link_rule_into_real_registry(tmp_path):
     """The payoff: a vibe run can op:add a new LinkRule class + op:register it into a real
     *_LINK_RULES list, and the patched module re-imports and runs — a no-op rule leaves behaviour
     golden-identical (the additive path the cheap model uses for a new file variant)."""
-    rel = 'app/Python/conversion/footnote_link_rules.py'
+    rel = v._real_path('footnote_link_rules.py')     # follows the reorg (digestion/footnoteLinking/)
     full = tmp_path / rel
     full.parent.mkdir(parents=True)
     shutil.copyfile(os.path.join(_REPO, rel), str(full))
@@ -339,7 +339,7 @@ def test_op_add_register_noop_doc_pass_into_real_registry(tmp_path):
     """The orchestration payoff: a vibe run can op:add a new DocPass + op:register it into DOC_PASSES,
     and the patched process_document re-imports with the pass list grown by one — a no-op pass leaves
     the registry valid (the additive path for a new conversion step)."""
-    rel = 'app/Python/process_document.py'
+    rel = v._real_path('process_document.py')        # follows the reorg (digestion/)
     full = tmp_path / rel
     full.parent.mkdir(parents=True)
     shutil.copyfile(os.path.join(_REPO, rel), str(full))
@@ -377,8 +377,10 @@ def test_validate_accepts_register_into_pdf_classifiers():
 
 def test_op_add_register_noop_pdf_classifier_into_real_registry(tmp_path):
     """The PDF payoff: a vibe run can op:add a new PdfClassifier + op:register it into PDF_CLASSIFIERS
-    for a new PDF/OCR-JSON shape; the patched mistral_ocr re-imports with the registry grown by one."""
-    rel = 'app/Python/mistral_ocr.py'
+    for a new PDF/OCR-JSON shape; the patched mistral_ocr re-imports with the registry grown by one.
+    Targets the REAL module via the same routing the loop uses (`_code_ref_to_path`), so it follows the
+    file wherever the ingestion/digestion reorg moved it — not the re-export shim at the old path."""
+    rel = v._code_ref_to_path('mistral_ocr.py:classify_footnotes')   # -> ingestion/pdf/mistral_ocr.py
     full = tmp_path / rel
     full.parent.mkdir(parents=True)
     shutil.copyfile(os.path.join(_REPO, rel), str(full))
@@ -415,7 +417,7 @@ def test_validate_accepts_register_into_strategy_rules():
 def test_op_add_register_noop_strategy_rule_into_real_registry(tmp_path):
     """A vibe run can op:add a new StrategyRule + op:register it into STRATEGY_RULES (the
     add_strategy_fork shape); the patched strategy module re-imports with the registry grown by one."""
-    rel = 'app/Python/conversion/strategy.py'
+    rel = v._real_path('strategy.py')                # follows the reorg (digestion/strategySelection/)
     full = tmp_path / rel
     full.parent.mkdir(parents=True)
     shutil.copyfile(os.path.join(_REPO, rel), str(full))

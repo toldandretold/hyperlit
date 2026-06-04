@@ -13,9 +13,9 @@ import time
 
 from bs4 import NavigableString
 
-from conversion.sanitize import get_element_html_content
-from conversion.strategy import _BIBLIOGRAPHY_HEADING_RE
-from conversion.footnote_link_rules import link_marker_footnotes
+from shared.sanitize import get_element_html_content
+from digestion.strategySelection.strategy import _BIBLIOGRAPHY_HEADING_RE
+from digestion.footnoteLinking.footnote_link_rules import link_marker_footnotes
 
 def process_whole_document_footnotes(soup, book_id):
     """Process footnotes when all definitions are at document end.

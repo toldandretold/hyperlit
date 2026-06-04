@@ -130,7 +130,7 @@ def test_doc_passes_order_invariants():
 
 
 def test_every_doc_pass_is_a_docpass():
-    from conversion.pipeline_base import DocPass
+    from shared.pipeline_base import DocPass
     assert all(isinstance(p, DocPass) for p in P.DOC_PASSES)
     # unique, non-empty names
     names = [p.name for p in P.DOC_PASSES]

@@ -1,6 +1,6 @@
 """Unit tests for conversion/sanitize.py — HTML/URL sanitization."""
 
-from conversion.sanitize import sanitize_html, sanitize_url
+from shared.sanitize import sanitize_html, sanitize_url
 
 
 def test_strips_script_tag():

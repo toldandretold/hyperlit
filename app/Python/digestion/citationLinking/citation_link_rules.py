@@ -19,9 +19,16 @@ import re
 
 from bs4 import NavigableString
 
-from conversion.assessment import ASSESSMENT
-from conversion.link_base import LinkRule, run_link_rules
-from conversion.refkeys import generate_ref_keys
+from shared.assessment import ASSESSMENT
+
+# Human-readable `plain` note for the citation-linking tree node (one source — node_help + generator + LLM).
+_CITATION_PLAIN = (
+    "Turn each in-text \"(Author Year)\" into a clickable link to its bibliography entry. Links only when "
+    "a matching entry was extracted — 0/N against a near-empty bibliography is usually a non-problem "
+    "(those were parenthetical years in prose, not real citations), NOT a bug. Known limitation: a source "
+    "that cites ONLY with [Author YEAR] square brackets is skipped by the parenthesis pre-check.")
+from shared.link_base import LinkRule, run_link_rules
+from shared.refkeys import generate_ref_keys
 
 
 class CitationLinkContext:
@@ -301,6 +308,7 @@ class AssessmentRecorder(LinkRule):
         if ctx.skip_reason == 'no_bibliography':
             ASSESSMENT.record(
                 module='citation_linking', code_ref='citations.py:link_citations',
+                node_help=_CITATION_PLAIN,
                 decision='citation scan skipped — no bibliography entries',
                 rationale='no references were extracted (PASS 1A), so there is nothing for in-text '
                           'citations to link against',
@@ -313,6 +321,7 @@ class AssessmentRecorder(LinkRule):
         elif ctx.skip_reason == 'no_paren_patterns':
             ASSESSMENT.record(
                 module='citation_linking', code_ref='citations.py:link_citations',
+                node_help=_CITATION_PLAIN,
                 decision='citation scan skipped — no parenthesized (Author YEAR) patterns',
                 rationale='the citation scan is gated on a parenthesized "(...YYYY...)" pre-check; '
                           'none were found in the text',
@@ -355,6 +364,7 @@ class AssessmentRecorder(LinkRule):
                            else f'all {citations_linked} citation(s) matched a bibliography entry')
             ASSESSMENT.record(
                 module='citation_linking', code_ref='citations.py:link_citations',
+                node_help=_CITATION_PLAIN,
                 decision=f'linked {citations_linked} of {citations_found} in-text citation(s)',
                 rationale='each citation links only when a generated ref-key matches a bibliography entry '
                           '(bounded ±3yr fuzzy fallback); unmatched citations are left as plain text',

@@ -8,7 +8,7 @@ This module is now a thin shell over the `CITATION_LINK_RULES` registry — the 
 was decomposed into ordered, independently-unit-tested `LinkRule` units so a new citation shape is
 absorbed by ADDING a rule, not editing the scan. See `conversion/citation_link_rules.py`.
 """
-from conversion.citation_link_rules import link_citations_rules
+from digestion.citationLinking.citation_link_rules import link_citations_rules
 
 
 def link_citations(soup, bibliography_map, emit_progress=None):

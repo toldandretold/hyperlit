@@ -10,28 +10,28 @@ import impact_map as im
 
 
 def test_shared_core_runs_all_fixtures():
-    unit, fx = im.impact_for('app/Python/conversion/strategy.py')
+    unit, fx = im.impact_for('app/Python/digestion/strategySelection/strategy.py')
     assert unit == {'test_strategy.py'}
     assert fx == {im.ALL}
 
 
 def test_citations_narrows_to_citation_fixtures():
-    unit, fx = im.impact_for('app/Python/conversion/citations.py')
+    unit, fx = im.impact_for('app/Python/digestion/citationLinking/citations.py')
     assert unit == {'test_citations.py'}
     assert fx == {'author_year', 'bibliography'}
 
 
 def test_orchestrator_runs_everything():
-    assert im.impact_for('app/Python/process_document.py') == (im.ALL, {im.ALL})
+    assert im.impact_for('app/Python/digestion/process_document.py') == (im.ALL, {im.ALL})
 
 
 def test_epub_maps_to_epub_fixtures_only():
-    unit, fx = im.impact_for('app/Python/epub_normalizer.py')
+    unit, fx = im.impact_for('app/Python/ingestion/epub/epub_normalizer.py')
     assert unit == {'test_epub_detectors.py'} and fx == {'epub/'}
 
 
 def test_sanitize_has_no_fixture_impact():
-    unit, fx = im.impact_for('app/Python/conversion/sanitize.py')
+    unit, fx = im.impact_for('app/Python/shared/sanitize.py')
     assert unit == {'test_sanitize.py'} and fx == set()
 
 
@@ -65,7 +65,7 @@ def test_collapse_drops_covered_filters():
 
 
 def test_build_plan_unions_and_minimises():
-    plan = im.build_plan(['app/Python/conversion/sanitize.py', 'app/Python/mistral_ocr.py'])
+    plan = im.build_plan(['app/Python/shared/sanitize.py', 'app/Python/ingestion/pdf/mistral_ocr.py'])
     assert sorted(plan['pytest_targets']) == [
         'tests/conversion/unit/test_mistral_ocr.py', 'tests/conversion/unit/test_sanitize.py']
     assert plan['regression_filters'] == ['pdf/']   # sanitize adds no fixtures
@@ -73,7 +73,7 @@ def test_build_plan_unions_and_minimises():
 
 
 def test_build_plan_orchestrator_runs_everything():
-    plan = im.build_plan(['app/Python/process_document.py'])
+    plan = im.build_plan(['app/Python/digestion/process_document.py'])
     assert plan['pytest_targets'] == ['tests/conversion/unit']
     assert plan['regression_filters'] is None   # None = full regression
     assert plan['runs_everything'] is True

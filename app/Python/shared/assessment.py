@@ -35,7 +35,7 @@ class Assessment:
 
     def record(self, module, code_ref, decision, rationale, evidence=None,
                question=None, considered=None, confidence=None, margin=None,
-               produced=None):
+               produced=None, node_help=None):
         """Append one decision record. The first five args are the lean form (kept for
         the many simple call sites). The optional fork-fields make a record FALSIFIABLE
         for the diagnostic LLM — record them at real branch points:
@@ -47,6 +47,10 @@ class Assessment:
           margin     — how close it was ("position_ratio 0.76 vs 0.65 gate"); a near-miss
                        string is the signal that tells the LLM where to look first
           produced   — outcome metrics this choice yielded, when known at decision time
+          node_help  — the deciding unit's plain-English `plain` note: what this stage is
+                       FOR and how it usually fails. Orients a human OR the diagnostic LLM
+                       before it reads the terse decision/rationale. Sourced from the
+                       chosen classifier/rule/pass's `plain` attribute (one source).
 
         Optional fields are omitted from the record when None, so lean records stay lean."""
         rec = {
@@ -58,8 +62,8 @@ class Assessment:
             'evidence': evidence or {},
         }
         for key, val in (('question', question), ('considered', considered),
-                         ('confidence', confidence), ('margin', margin),
-                         ('produced', produced)):
+                         ('node_help', node_help), ('confidence', confidence),
+                         ('margin', margin), ('produced', produced)):
             if val is not None:
                 rec[key] = val
         self.records.append(rec)

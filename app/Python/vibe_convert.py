@@ -96,7 +96,10 @@ def usage_summary():
             'model': _USAGE.get('model')}
 
 
-ALLOWED_PREFIXES = ('app/Python/conversion/',)
+# The reorg moved the conversion code into ingestion/<format>/ + digestion/<stage>/ + shared/; allow the
+# vibe loop to edit anything under those package roots (plus the legacy conversion/ during migration).
+ALLOWED_PREFIXES = ('app/Python/conversion/', 'app/Python/ingestion/',
+                    'app/Python/digestion/', 'app/Python/shared/')
 ALLOWED_FILES = {
     'app/Python/process_document.py', 'app/Python/epub_normalizer.py',
     'app/Python/mistral_ocr.py', 'app/Python/simple_md_to_html.py',
@@ -261,36 +264,64 @@ def _flagged_phrase(flagged):
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
+_REAL_PATHS = None
+
+
+def _real_path(basename):
+    """Repo path of the REAL module with this basename, wherever it now lives under app/Python — the
+    reorg moved the per-format readers into ingestion/<format>/ and the shared stages into
+    digestion/<stage>/ + shared/, leaving thin re-export shims at the old flat paths. This skips the
+    shims (so a fix patches the real registry, not the shim) and recurses the package tree. Cached."""
+    global _REAL_PATHS
+    if _REAL_PATHS is None:
+        _REAL_PATHS = {}
+        base = os.path.join(REPO_ROOT, 'app', 'Python')
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d != '__pycache__']
+            for fn in files:
+                if not fn.endswith('.py') or fn == '__init__.py':
+                    continue
+                full = os.path.join(root, fn)
+                try:
+                    if 'Compatibility shim' in open(full, encoding='utf-8').read(300):
+                        continue
+                except Exception:
+                    pass
+                _REAL_PATHS.setdefault(fn, os.path.relpath(full, REPO_ROOT).replace(os.sep, '/'))
+    return _REAL_PATHS.get(basename, f'app/Python/conversion/{basename}')
+
+
 def _code_ref_to_path(code_ref):
-    """'strategy.py:foo' -> app/Python/conversion/strategy.py (or a top-level front-end)."""
+    """'strategy.py:foo' -> the repo path of the REAL strategy.py, wherever it now lives."""
     fname = (code_ref or '').split(':', 1)[0].strip()
     if not fname.endswith('.py'):
         return None
-    if fname in ('process_document.py', 'epub_normalizer.py', 'mistral_ocr.py',
-                 'simple_md_to_html.py', 'ar5iv_preprocessor.py'):
-        return f'app/Python/{fname}'
-    return f'app/Python/conversion/{fname}'
+    return _real_path(fname)
 
 
 # A module that was decomposed into a sibling rule/pass registry: sending the original (now often a
 # thin shell or front-end orchestrator) must ALSO send the module that now holds the real logic, or
 # the loop can't see — let alone op:add into — the rules/passes it's meant to extend. Keyed by repo
 # path; values are extra repo paths to include alongside it.
+# Keyed by BASENAME (resolved to the real path at use time, so it follows the reorg): a module that was
+# decomposed into a sibling rule registry must be sent ALONGSIDE the module that now holds the real logic.
 _DECOMPOSITION_SIBLINGS = {
-    'app/Python/conversion/citations.py': ['app/Python/conversion/citation_link_rules.py'],
-    'app/Python/conversion/footnotes.py': ['app/Python/conversion/footnote_link_rules.py'],
+    'citations.py': ['citation_link_rules.py'],
+    'footnotes.py': ['footnote_link_rules.py'],
     # EPUB + the shared front-end both route footnote linking through footnote_link_rules.py now.
-    'app/Python/epub_normalizer.py': ['app/Python/conversion/footnote_link_rules.py'],
-    'app/Python/process_document.py': ['app/Python/conversion/footnote_link_rules.py'],
+    'epub_normalizer.py': ['footnote_link_rules.py'],
+    'process_document.py': ['footnote_link_rules.py'],
 }
 
 
 def _with_siblings(paths):
     """Expand each path with its decomposition siblings (see _DECOMPOSITION_SIBLINGS), preserving
-    order and dropping duplicates — so a fix always sees the module that holds the real logic."""
+    order and dropping duplicates — so a fix always sees the module that holds the real logic. Siblings
+    are named by basename and resolved to their real (post-reorg) path."""
     out = []
     for p in paths:
-        for q in [p] + _DECOMPOSITION_SIBLINGS.get(p, []):
+        sibs = [_real_path(s) for s in _DECOMPOSITION_SIBLINGS.get(os.path.basename(p), [])]
+        for q in [p] + sibs:
             if q not in out:
                 out.append(q)
     return out
@@ -300,8 +331,8 @@ def _footnote_fix_modules(art):
     """A failing footnote_audit names audit.py — but audit.py only MEASURES the orphans;
     they're created upstream in the detector/linker. Send the code that can actually fix it,
     chosen by pathway (epub vs the shared markdown/docx/html/pdf path)."""
-    front = 'app/Python/epub_normalizer.py' if (art and art.get('is_epub')) else 'app/Python/process_document.py'
-    return _with_siblings([front, 'app/Python/conversion/footnotes.py'])
+    front = _real_path('epub_normalizer.py') if (art and art.get('is_epub')) else _real_path('process_document.py')
+    return _with_siblings([front, _real_path('footnotes.py')])
 
 
 def _citation_fix_modules(art):
@@ -310,8 +341,7 @@ def _citation_fix_modules(art):
     extraction (the link targets) or the citation-style detection. Send those alongside the linker so
     the model can fix the cause, not just the symptom (the Soviet-Marxism run wasted all 3 attempts on
     the orchestrator because bibliography.py — where references_found=1 came from — was never sent)."""
-    return _with_siblings(['app/Python/conversion/citations.py',
-                           'app/Python/conversion/bibliography.py'])
+    return _with_siblings([_real_path('citations.py'), _real_path('bibliography.py')])
 
 
 def modules_for(records, art=None):
@@ -387,7 +417,7 @@ def build_prompt(art, module_paths, user_note=None):
     ]
     for r in flagged:
         parts.append(json.dumps({k: r.get(k) for k in
-                     ('module', 'code_ref', 'decision', 'rationale', 'margin', 'considered')},
+                     ('module', 'code_ref', 'node_help', 'decision', 'rationale', 'margin', 'considered')},
                      ensure_ascii=False, indent=2))
     parts.append("\n## Audit verdict (audit.json)")
     parts.append(json.dumps({k: art['audit'].get(k) for k in

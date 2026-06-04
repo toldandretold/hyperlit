@@ -2,7 +2,7 @@
 footnote LINKER. Pins the wiring (marker -> correct def id) and the modus operandi:
 a suppressed (empty) map links NOTHING rather than guessing."""
 
-from conversion.footnotes import link_footnotes
+from digestion.footnoteExtraction.footnotes import link_footnotes
 
 _BLOCKS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr',
            'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img']

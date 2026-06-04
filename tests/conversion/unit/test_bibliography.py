@@ -3,7 +3,7 @@ Pins the bibliography_map (key -> entry_id) that the citation linker matches aga
 especially the author+year collision suffixing, which is what keeps two different works
 by the same author/year from collapsing onto one id (a confident wrong link)."""
 
-from conversion.bibliography import extract_bibliography
+from digestion.bibliographyExtraction.bibliography import extract_bibliography
 
 
 def _doc(soup, body):
@@ -81,7 +81,7 @@ def test_no_reference_section_returns_empty(soup):
 
 # --- bibliography extraction records its story (collision ambiguity surfaced) ---
 
-from conversion.assessment import ASSESSMENT
+from shared.assessment import ASSESSMENT
 
 
 def test_collision_recorded_with_ambiguity_flag(soup):

@@ -4,7 +4,7 @@ phase is an isolated LinkRule so a broken phase pinpoints to one class. The nest
 the aarushi case is now `NoterefConverter` — exercised directly below.
 """
 
-from conversion.footnote_link_rules import (
+from digestion.footnoteLinking.footnote_link_rules import (
     FootnoteLinkContext, IdMappingBuilder, NoterefConverter, LinkingStatsRecorder,
     FootnotesJsonBuilder, DefinitionElementRemover, link_epub_footnotes,
     FOOTNOTE_LINK_RULES,

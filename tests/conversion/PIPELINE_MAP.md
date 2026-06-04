@@ -1,8 +1,14 @@
 # The import-conversion decision tree
 
-> **Single source of truth:** [`pipeline_map.json`](pipeline_map.json). This page is the *visual* of
-> that data; [`unit/test_pipeline_map.py`](unit/test_pipeline_map.py) fails the build if any
-> `app/Python` module or decision-registry isn't placed here (so the map can't silently drift).
+> **The folder layout IS the tree** (Phase 2 reorg): `app/Python/ingestion/<format>/` reads each format
+> into common HTML; `app/Python/digestion/<stage>/` is the shared pipeline over it; `app/Python/shared/`
+> is cross-cutting. The structure is therefore GENERATED from the folders —
+> [`PIPELINE_STRUCTURE.generated.md`](PIPELINE_STRUCTURE.generated.md) (by `gen_pipeline_tree.py`), and
+> the per-node notes from each unit's `plain` attribute ([`pipeline_notes.json`](pipeline_notes.json) by
+> `gen_pipeline_tree.py`/`gen_pipeline_notes.py`). Both are drift-gated by `unit/test_pipeline_map.py`.
+> The live backend still invokes the old flat script paths via thin re-export shims (see each shim's
+> header). `pipeline_map.json` remains the data the completeness gate enforces; this page is the
+> hand-drawn Mermaid of the decision FLOW (gates/branches), which folders alone don't capture.
 
 **The one meta-insight (drives diagnosis):** every **frontend's** job is to produce the **backend's
 input**. `process_document.py` is *HTML-in*. So `epub` / `html` / `docx` converge straight to HTML;

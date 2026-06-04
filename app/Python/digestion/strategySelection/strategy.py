@@ -7,7 +7,7 @@ ASSESSMENT trace.
 
 import re
 
-from conversion.assessment import ASSESSMENT
+from shared.assessment import ASSESSMENT
 
 _BIBLIOGRAPHY_HEADING_RE = re.compile(
     r'\b(?:bibliograph(?:y|ies|ic)?|references?|works\s+cited|further\s+reading|reading\s+list)\b',
@@ -131,6 +131,7 @@ def _footnote_numbering_is_linkable(footnote_map, soup):
     ASSESSMENT.record(
         module='footnote_linking_guard',
         code_ref='strategy.py:_footnote_numbering_is_linkable',
+        node_help=_GUARD_PLAIN,
         decision=decision,
         rationale=reason,
         evidence=evidence,
@@ -151,6 +152,19 @@ def _footnote_numbering_is_linkable(footnote_map, soup):
 # (this IS the add_strategy_fork fix-category). matches/confidence/margin read
 # the UNROUNDED signals (the tree used raw locals).
 # ===========================================================================
+# Human-readable `plain` notes for the two backend tree nodes recorded here (the strategy fork + the
+# linkability guard). One source — read by the fork-records (node_help), the notes generator + the LLM.
+_STRATEGY_PLAIN = (
+    "Now it is HTML — are the footnotes one continuous end-list (whole_document), restarting per "
+    "section (sectioned), explicit per-section markers (sequential), or none? This decides HOW markers "
+    "get wired to definitions. EPUB / HTML / DOCX / MD all rely on THIS layer (they detect footnote "
+    "EXISTENCE by markup, not physical layout — only PDF classifies by layout upstream).")
+_GUARD_PLAIN = (
+    "A safety check before linking whole-document footnotes by number: if the numbering looks scrambled "
+    "(a gap in the sequence, or a marker with no definition), keep the notes but emit NO links — a "
+    "missing link beats a confident-wrong one.")
+
+
 class StrategyRule:
     """One branch of the footnote-strategy decision: gate + selected strategy + confidence/margin."""
 
@@ -299,6 +313,7 @@ def analyze_document_structure(soup):
         ASSESSMENT.record(
             module='strategy_selection',
             code_ref='strategy.py:analyze_document_structure',
+            node_help=_STRATEGY_PLAIN,
             decision='footnote_strategy=sequential',
             rationale='explicit footnoteSectionStart/footnoteDefinitionsStart markers from simple_md_to_html',
             evidence=info,
@@ -367,6 +382,7 @@ def analyze_document_structure(soup):
         ASSESSMENT.record(
             module='strategy_selection',
             code_ref='strategy.py:analyze_document_structure',
+            node_help=_STRATEGY_PLAIN,
             decision='footnote_strategy=no_footnotes',
             rationale='no "[N]:" footnote definitions found (after bibliography exclusion)',
             evidence=info,
@@ -502,6 +518,7 @@ def analyze_document_structure(soup):
     ASSESSMENT.record(
         module='strategy_selection',
         code_ref='strategy.py:analyze_document_structure',
+        node_help=_STRATEGY_PLAIN,
         decision=f'footnote_strategy={strategy}',
         rationale=reason,
         evidence=strategy_info,

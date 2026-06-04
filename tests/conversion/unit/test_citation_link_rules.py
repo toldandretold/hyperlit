@@ -7,12 +7,12 @@ operandi (link only on a real bibliography-key match) is exercised per rule.
 rather than hard-coding a key shape.
 """
 
-from conversion.citation_link_rules import (
+from digestion.citationLinking.citation_link_rules import (
     CitationLinkContext, PreLinkedAnchorConverter, CitationPatternGate,
     ParenthesizedCitationLinker, SquareBracketCitationLinker, AssessmentRecorder,
     link_citations_rules, CITATION_LINK_RULES,
 )
-from conversion.refkeys import generate_ref_keys
+from shared.refkeys import generate_ref_keys
 
 
 def _key(cite):
@@ -121,7 +121,7 @@ def test_assessment_recorder_high_confidence_when_bib_near_empty(soup):
     # "found N, linked 0" against a (near-)empty bibliography is NOT a fault — it means the paren
     # scan over-matched dates/years, not real citations. The record must be HIGH confidence (so the
     # vibe loop doesn't chase a non-bug) and say so.
-    from conversion.assessment import ASSESSMENT
+    from shared.assessment import ASSESSMENT
     ASSESSMENT.reset('/tmp')
     ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'but1936': 'but1936'})
     ctx.citations_found, ctx.citations_linked = 158, 0
@@ -135,7 +135,7 @@ def test_assessment_recorder_high_confidence_when_bib_near_empty(soup):
 
 def test_assessment_recorder_still_flags_real_unlinked_with_populated_bib(soup):
     # With a populated bibliography, genuine unlinked citations remain a low-confidence fault.
-    from conversion.assessment import ASSESSMENT
+    from shared.assessment import ASSESSMENT
     ASSESSMENT.reset('/tmp')
     bib = {f'a{i}': f'a{i}' for i in range(5)}
     ctx = CitationLinkContext(soup('<body><p>x</p></body>'), bib)

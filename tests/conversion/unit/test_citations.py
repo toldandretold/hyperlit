@@ -3,7 +3,7 @@ citation LINKER (PASS 2A). Pins that (Author Year) / [Author Year] only link whe
 actually matches the bibliography, and that an unmatched cite is left as plain text
 (modus operandi: never a confident wrong link)."""
 
-from conversion.citations import link_citations
+from digestion.citationLinking.citations import link_citations
 
 
 def _doc(soup, body):
@@ -88,7 +88,7 @@ def test_existing_anchor_converted_to_citation(soup):
 
 # --- the citation-linking pass records its story (incl. the bracket-only gate) ---
 
-from conversion.assessment import ASSESSMENT
+from shared.assessment import ASSESSMENT
 
 
 def test_bracket_only_gate_recorded_as_fallthrough(soup):

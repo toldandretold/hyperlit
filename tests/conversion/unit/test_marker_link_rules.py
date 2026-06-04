@@ -4,7 +4,7 @@ bare <sup>N</sup>, [^id] text nodes) to its definition, strategy-aware. Isolated
 shape pinpoints to one class.
 """
 
-from conversion.footnote_link_rules import (
+from digestion.footnoteLinking.footnote_link_rules import (
     MarkerLinkContext, AnchorLinkConverter, SupTagLinkConverter, BracketTextNodeLinker,
     link_marker_footnotes, MARKER_LINK_RULES,
 )
