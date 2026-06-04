@@ -407,6 +407,18 @@ def convert_markdown_to_html(markdown_content):
     
     return html_doc
 
+
+# Plain-English note for the decision-tree visual + LLM report (single source; see gen_pipeline_notes.py).
+convert_markdown_to_html.plain = (
+    "Markdown ingestion (also the back half of the PDF path, which produces .md): convert the markdown to "
+    "HTML — paragraphs, headings, lists, tables, inline formatting, and base64-encoded math. Footnotes are "
+    "deliberately NOT linked here: each [^N] marker is left as plain text, but boundary anchors "
+    "(footnoteDefinitionsStart / footnoteSectionStart) are injected to mark where the reference and "
+    "definition sections begin. Digestion's sequential strategy reads those breadcrumbs to pair markers "
+    "with definitions. So ingestion preps the structure; ALL footnote/citation linking happens in digestion. "
+    "Classic failure: a footnote section boundary the markers miss → the sequential strategy mis-groups notes.")
+
+
 def main():
     if len(sys.argv) != 3:
         print("Usage: python3 simple_md_to_html.py input.md output.html")

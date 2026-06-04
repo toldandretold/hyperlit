@@ -149,11 +149,13 @@ def build():
         '      FID -.->|"fidelity_loss (only after pypdf also failed)"| PDFMD',
     ]
     pdf_expanded = '\n'.join(
-        ['      EXT -->|.pdf| OCR["mistral_ocr.py · Mistral OCR → ocr_response.json"]',
+        ['      EXT -->|.pdf| TOG_pdf(["▼ collapse pdf internals"])',
+         '      TOG_pdf --> OCR["mistral_ocr.py · Mistral OCR → ocr_response.json"]',
          '      OCR --> SIG["classify_footnotes → PDF_CLASSIFIERS<br/>signals: co-location · reset-freq · def-clustering · ref-spread"]']
         + ladder + asm_lines + rec_lines + fid_lines)
-    pdf_collapsed = ('      EXT -->|.pdf| OCRC["mistral_ocr.py — decide the footnote LAYOUT<br/>'
-                     'classify → assemble → recover → fidelity<br/>(tick the box to expand)"]\n'
+    pdf_collapsed = ('      EXT -->|.pdf| TOG_pdf(["▶ expand pdf internals"])\n'
+                     '      TOG_pdf --> OCRC["mistral_ocr.py — decide the footnote LAYOUT<br/>'
+                     'classify → assemble → recover → fidelity"]\n'
                      '      OCRC --> PDFMD')
 
     # ---- backend forks (fixed chain; metadata from the scanned ASSESSMENT.record sites) ------------
@@ -174,11 +176,15 @@ def build():
     # ---- EPUB ingestion blocks (structural "open up" + the run-all detector fan) -------------------
     epub_exp, epub_col, epub_exp_clicks, epub_col_clicks = _epub_blocks(nodes)
 
+    # ---- markdown ingestion (M2H, always visible in the skeleton; also the back half of the PDF path) -
+    nodes['M2H'] = {'kind': 'md', 'noteKey': 'md:convert',
+                    'codeRef': 'markdown_and_pdf_to_html/simple_md_to_html.py:convert_markdown_to_html'}
+
     clicks = {
-        'core': [f[0] for f in _BACKEND_FORKS],
-        'pdf_expanded': ['SIG'] + [k for k in nodes if k.startswith('C_')] + sorted(seen_asm)
+        'core': [f[0] for f in _BACKEND_FORKS] + ['M2H'],
+        'pdf_expanded': ['TOG_pdf', 'SIG'] + [k for k in nodes if k.startswith('C_')] + sorted(seen_asm)
                         + ['REC1', 'REC2', 'REC3', 'FID'],
-        'pdf_collapsed': ['OCRC'],
+        'pdf_collapsed': ['TOG_pdf', 'OCRC'],
         'epub_expanded': epub_exp_clicks,
         'epub_collapsed': epub_col_clicks,
     }
@@ -188,24 +194,47 @@ def build():
 
 
 def _epub_blocks(nodes):
-    """The EPUB ingestion sub-tree from TRANSFORM_PIPELINE: structural cleanup (E_OPEN) → the HEADING-
-    detection fan (Phase 1, publisher markup → h1/h2/h3) → the FOOTNOTE-detection fan (Phase 2). Both
-    fans are run-all, NOT first-match — every detector runs and fires if its markup is present — so they
-    are ordered fans, not yes/no ladders. Faithful to the code: headings are detected before footnotes."""
+    """The EPUB ingestion sub-tree, segmented from TRANSFORM_PIPELINE so EVERY phase file shows up as a
+    node (folders = tree = visual): structural cleanup (E_OPEN · structuralNormalisation.py) → HEADING
+    fan (headingMatching.py) → FOOTNOTE fan (footnoteMatching.py) → bibliography section detection
+    (E_BIB · bibliographyDetection.py) → final normalisation (E_FINAL · HeadingNormalizer +
+    DeadInternalLinkUnwrapper, which actually run LAST). The two fans are run-all (every detector runs;
+    fires if its markup is present), not first-match ladders."""
     import epub_normalizer as E
     needs = E.EpubNormalizer._DETECTOR_NEEDS
     head_needs = E.EpubNormalizer._HEADING_NEEDS
     pipeline = E.TRANSFORM_PIPELINE
-    first_det = next(i for i, t in enumerate(pipeline) if type(t).__name__ in needs)
-    # structural cleanup = Phase-1 transforms that are NEITHER a heading nor a footnote detector.
-    structural = [t.name for t in pipeline[:first_det] if type(t).__name__ not in head_needs]
-    headings = [t for t in pipeline if type(t).__name__ in head_needs]   # Phase-1 heading strategies
-    detectors = [t for t in pipeline if type(t).__name__ in needs]       # Phase-2 footnote schemes
+
+    def _file(t):
+        """The phase module the class ACTUALLY lives in now (headingMatching.py / footnoteMatching.py /
+        …) — folders mirror the tree, so the codeRef must point at the real file, not the orchestrator."""
+        return type(t).__module__.rsplit('.', 1)[-1] + '.py'
+
+    def cat(t):
+        n = type(t).__name__
+        return ('heading' if n in head_needs else 'footnote' if n in needs
+                else 'bibliography' if 'Bibliograph' in n else 'other')
+
+    # Segment the pipeline by RUNTIME position: Phase 1 (pre-footnote) splits into structural + heading;
+    # Phase 2 = the footnote fan; Phase 3 = bibliography; Phase 4 = whatever runs AFTER the footnotes.
+    first_foot = next(i for i, t in enumerate(pipeline) if cat(t) == 'footnote')
+    last_foot = max(i for i, t in enumerate(pipeline) if cat(t) == 'footnote')
+    pre, post = pipeline[:first_foot], pipeline[last_foot + 1:]
+    structural = [t for t in pre if cat(t) == 'other']                 # Phase-1 structural cleanup
+    headings = [t for t in pipeline if cat(t) == 'heading']            # Phase-1 heading strategies
+    detectors = pipeline[first_foot:last_foot + 1]                     # Phase-2 footnote schemes
+    biblio = [t for t in post if cat(t) == 'bibliography']             # Phase-3 bibliography section
+    final = [t for t in post if cat(t) != 'bibliography']              # Phase-4 final normalisation
 
     def short(name):
-        for suf in ('FootnoteDetector', 'HeadingDetector', 'Detector', 'Converter'):
+        for suf in ('FootnoteDetector', 'HeadingDetector', 'Detector', 'Converter', 'Unwrapper',
+                    'Normalizer'):
             name = name.replace(suf, '')
         return name or 'x'
+
+    def transforms(items):
+        """A {name, file, description} list for the panel of a grouped (non-fan) node."""
+        return [{'name': type(t).__name__, 'file': _file(t), 'description': t.description} for t in items]
 
     def fan(items, prefix, kind, need_map, note_prefix):
         ids, defs = [], []
@@ -216,37 +245,62 @@ def _epub_blocks(nodes):
             defs.append(f'        {nid}["{short(name)}"]')
             nodes[nid] = {'kind': kind, 'name': short(name), 'fullName': name,
                           'needs': need_map[name], 'description': t.description,
-                          'noteKey': note_prefix + name, 'codeRef': f'epub_normalizer.py:{name}'}
+                          'noteKey': note_prefix + name, 'codeRef': f'{_file(t)}:{name}'}
         return ids, defs
 
     head_ids, head_defs = fan(headings, 'EH_', 'epub_heading', head_needs, 'epub:heading:')
     det_ids, det_defs = fan(detectors, 'E_', 'epub_detector', needs, 'epub:detector:')
 
-    nodes['E_OPEN'] = {'kind': 'epub_structural', 'noteKey': 'epub:structural', 'structural': structural,
-                       'codeRef': 'epub_normalizer.py:TRANSFORM_PIPELINE (Phase 1)'}
-    nodes['EPUBOUT'] = {'kind': 'epub_overview', 'noteKey': 'epub:detection',
-                        'module': 'epub_footnote_detection',
-                        'codeRef': 'epub_normalizer.py:TRANSFORM_PIPELINE',
-                        'options': [short(type(t).__name__) for t in detectors]}
+    nodes['E_LOAD'] = {'kind': 'epub_load', 'noteKey': 'epub:load',
+                       'codeRef': 'epub_normalizer.py:_load_from_epub_file / _load_from_directory'}
+    nodes['E_OPEN'] = {'kind': 'epub_structural', 'noteKey': 'epub:structural',
+                       'transforms': transforms(structural), 'codeRef': 'structuralNormalisation.py'}
+    nodes['E_BIB'] = {'kind': 'epub_bibliography', 'noteKey': 'epub:bibdetect',
+                      'transforms': transforms(biblio), 'codeRef': 'bibliographyDetection.py'}
+    nodes['E_FINAL'] = {'kind': 'epub_final', 'noteKey': 'epub:finalnorm',
+                        'transforms': transforms(final), 'codeRef': 'finalNormalisation.py'}
+    # The phase spine — derived from the actual segmentation, so the overview can't drift from the files.
+    def _grp_file(grp, default):
+        return _file(grp[0]) if grp else default
+    phases = [
+        {'n': '⓪', 'label': 'unzip + combine spine', 'file': 'epub_normalizer.py'},
+        {'n': '①', 'label': 'structural normalisation', 'file': _grp_file(structural, 'structuralNormalisation.py')},
+        {'n': '②', 'label': 'heading detection', 'file': _grp_file(headings, 'headingMatching.py')},
+        {'n': '③', 'label': 'footnote scheme detection', 'file': _grp_file(detectors, 'footnoteMatching.py')},
+        {'n': '④', 'label': 'bibliography section detection', 'file': _grp_file(biblio, 'bibliographyDetection.py')},
+        {'n': '⑤', 'label': 'final normalisation', 'file': _grp_file(final, 'finalNormalisation.py')},
+    ]
+    nodes['EPUBOUT'] = {'kind': 'epub_overview', 'noteKey': 'epub:overview',
+                        'module': 'epub_normalizer.py', 'codeRef': 'epub_normalizer.py:TRANSFORM_PIPELINE',
+                        'phases': phases, 'schemes': [short(type(t).__name__) for t in detectors]}
 
     expanded = '\n'.join(
-        ['      EXT -->|.epub| E_OPEN["① structural normalisation<br/>open up the publisher\'s HTML '
-         '(Calibre · spans · images · sections)"]',
+        ['      EXT -->|.epub| TOG_epub(["▼ collapse epub internals"])',
+         '      TOG_epub --> E_LOAD["⓪ unzip + combine · epub_normalizer.py<br/>unzip the .epub, read '
+         'the spine, concatenate the documents in reading order → one HTML"]',
+         '      E_LOAD --> E_OPEN["① structural normalisation · structuralNormalisation.py<br/>open '
+         'up the publisher\'s HTML (Calibre · spans · images · sections)"]',
          f'      E_OPEN --> {head_ids[0]}',
-         '      subgraph EPUBHEAD["② heading detection — publisher markup → h1/h2/h3 (each fires if its '
-         'markup is present)"]',
+         '      subgraph EPUBHEAD["② heading detection · headingMatching.py — publisher markup → '
+         'h1/h2/h3 (each fires if its markup is present)"]',
          '        direction TB']
         + head_defs + ['        ' + ' --> '.join(head_ids), '      end',
                        f'      {head_ids[-1]} --> {det_ids[0]}',
-                       '      subgraph EPUBDET["③ footnote SCHEME detection — every detector RUNS; fires '
-                       'if its markup is present (multiple can; Heuristic = fallback)"]',
+                       '      subgraph EPUBDET["③ footnote SCHEME detection · footnoteMatching.py — every '
+                       'detector RUNS; fires if its markup is present (multiple can; Heuristic = fallback)"]',
                        '        direction TB']
         + det_defs + ['        ' + ' --> '.join(det_ids), '      end',
-                      f'      {det_ids[-1]} --> EPUBOUT(["main-text.html"])'])
-    collapsed = ('      EXT -->|.epub| EPUBOUT["ingestion/epub · epub_normalizer.py<br/>'
-                 'structural normalise → heading detection → footnote SCHEME detection<br/>'
-                 '(tick the box to expand)"]')
-    return expanded, collapsed, ['E_OPEN'] + head_ids + det_ids, ['EPUBOUT']
+                      f'      {det_ids[-1]} --> E_BIB["④ bibliography section detection · '
+                      'bibliographyDetection.py<br/>(extraction + citation linking happen in digestion)"]',
+                      '      E_BIB --> E_FINAL["⑤ final normalisation<br/>HeadingNormalizer (level gaps) · '
+                      'DeadInternalLinkUnwrapper — run LAST"]',
+                      '      E_FINAL --> EPUBOUT(["main-text.html"])'])
+    collapsed = ('      EXT -->|.epub| TOG_epub(["▶ expand epub internals"])\n'
+                 '      TOG_epub --> EPUBOUT["ingestion/epub · epub_normalizer.py<br/>unzip + combine '
+                 '→ structural normalise → heading detect → footnote detect → bibliography → final '
+                 'normalise"]')
+    exp_clicks = ['TOG_epub', 'E_LOAD', 'E_OPEN'] + head_ids + det_ids + ['E_BIB', 'E_FINAL']
+    return expanded, collapsed, exp_clicks, ['TOG_epub', 'EPUBOUT']
 
 
 # Fixed flow skeleton with ${EPUB} / ${PDF} / ${CLICKS} placeholders the viewer splices the generated

@@ -2,12 +2,18 @@
 
 > Built by `gen_pipeline_tree.py` from the actual `app/Python/{ingestion,digestion,shared}/`
 > tree + the decision registries in each module. Do NOT hand-edit — re-run the generator. A
-> no-drift test pins it. (37 per-unit `plain` notes feed the LLM report + the viewer.)
+> no-drift test pins it. (42 per-unit `plain` notes feed the LLM report + the viewer.)
 
 ## ingestion/ — read each input format → the common HTML (one folder per format)
 ```
 epub/
+  bibliographyDetection.py
+  epub_base.py
   epub_normalizer.py   · registries: TRANSFORM_PIPELINE
+  finalNormalisation.py
+  footnoteMatching.py
+  headingMatching.py
+  structuralNormalisation.py
 html/
   ar5iv_preprocessor.py
 markdown_and_pdf_to_html/

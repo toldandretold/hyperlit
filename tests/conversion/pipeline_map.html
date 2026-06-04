@@ -33,6 +33,8 @@
     #panel .plain { background:#fff8e1; border-left:3px solid #f0b400; padding:.5rem .7rem;
                     border-radius:6px; margin:.5rem 0 .7rem; font-size:.9rem; }
     .pill { display:inline-block; background:#ececff; border-radius: 999px; padding: 1px 8px; margin: 2px 3px 2px 0; font-size:.78rem; }
+    .toggleHint { display:inline-block; background:#ede9ff; color:#3a2bbf; border:1px solid #5b3df5;
+                  border-radius: 999px; padding: 0 7px; font-size:.8rem; }
   </style>
 </head>
 <body>
@@ -42,9 +44,9 @@
        HTML, then <b>②</b> <code>digestion/</code> links + builds nodes. This page is GENERATED from the
        code — the diagram from the registries + folders, the 💡 notes from each unit's <code>plain</code>.</p>
     <div class="controls">
-      <label><input type="checkbox" id="expandPdf" checked> Expand the PDF footnote-layout sub-tree</label>
-      &nbsp;&nbsp;
-      <label><input type="checkbox" id="expandEpub"> Expand the EPUB footnote-detection sub-tree</label>
+      Any format that's a <b>folder</b> (pdf, epub) has an inline
+      <span class="toggleHint">▶ expand</span> / <span class="toggleHint">▼ collapse</span> node right on
+      its branch — click it to open or close that sub-tree.
     </div>
   </header>
   <div class="legend">
@@ -75,18 +77,26 @@
     const OV = window.PIPELINE_MAP_OVERLAY || {};
     const NOTES = window.PIPELINE_NOTES || {};
 
-    // Two independent expand toggles (PDF, EPUB): splice the chosen blocks + clicks into the skeleton.
-    function buildDiagram(pdfExpanded, epubExpanded) {
-      const pdfKey = pdfExpanded ? 'pdf_expanded' : 'pdf_collapsed';
-      const epubKey = epubExpanded ? 'epub_expanded' : 'epub_collapsed';
+    // Per-folder expand state, flipped by the inline ▶/▼ toggle nodes (TOG_<fmt>) in the tree itself.
+    const expand = { pdf: false, epub: false };
+    // Splice the chosen blocks + clicks into the skeleton. A TOG_<fmt> node routes to toggleFmt (flips
+    // that folder's state + redraws); every other clickable node routes to decisionClick (opens a panel).
+    function buildDiagram() {
+      const pdfKey = expand.pdf ? 'pdf_expanded' : 'pdf_collapsed';
+      const epubKey = expand.epub ? 'epub_expanded' : 'epub_collapsed';
       const C = MAP.clicks || {};
       const ids = [...(C.core || []), ...(C[pdfKey] || []), ...(C[epubKey] || [])];
-      const clicks = ids.map(id => `    click ${id} decisionClick`).join('\n');
+      const clicks = ids.map(id =>
+        `    click ${id} ${id.startsWith('TOG_') ? 'toggleFmt' : 'decisionClick'}`).join('\n');
+      // style the inline toggles as little buttons (both TOG_ nodes exist in every state).
+      const style = '\n    classDef toggleBtn fill:#ede9ff,stroke:#5b3df5,color:#3a2bbf,stroke-width:1.5px;'
+                  + '\n    class TOG_pdf,TOG_epub toggleBtn;';
       return (MAP.skeleton || '')
         .replace('${PDF}', MAP.blocks[pdfKey])
         .replace('${EPUB}', MAP.blocks[epubKey])
-        .replace('${CLICKS}', clicks);
+        .replace('${CLICKS}', clicks + style);
     }
+    window.toggleFmt = id => { const f = id.slice(4); expand[f] = !expand[f]; draw(); };
 
     const panel = () => document.getElementById('panel');
     // HTML-escape ALL dynamic text — notes/markup/gates contain real tags (<p class="notes">,
@@ -95,6 +105,12 @@
     const code = s => `<code>${esc(s)}</code>`;
     const li = a => (a && a.length) ? '<ul>' + a.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : '';
     const pills = a => (a && a.length) ? a.map(x => `<span class="pill">${esc(x)}</span>`).join('') : '';
+    // a {name, file, description} transform list — each grouped (non-fan) phase node shows its members,
+    // the FILE each lives in, and what it does, so every split-out file is discoverable from the panel.
+    const tlist = a => (a && a.length)
+      ? '<ul>' + a.map(x => `<li><b>${esc(x.name)}</b> <span class="ref">${esc(x.file)}</span>`
+          + `<br><span class="hint">${esc(x.description)}</span></li>`).join('') + '</ul>'
+      : '<p class="hint">(none in this build)</p>';
     const noteFor = n => (n && n.noteKey && NOTES[n.noteKey]) || '';
     const K = (label, valHtml) => valHtml ? `<div class="k">${label}</div><p>${valHtml}</p>` : '';
 
@@ -134,13 +150,43 @@
           <p class="hint">Recovers real h1/h2/h3 from publisher-faked headings (Phase 1, before footnote detection).</p>
           ${K('Looks for (markup → level)', code(n.needs))}
           ${K('What it does', esc(n.description))}`;
+      } else if (n.kind === 'epub_load') {
+        panel().innerHTML = `<h2>EPUB unzip + combine</h2>${plain}${ref}
+          <p class="hint">Step 0 — runs before the pipeline. An .epub is a ZIP; this flattens it into the
+            single combined HTML every later phase operates on.</p>
+          <div class="k">What it does</div><ul>
+            <li>unzip the .epub container</li>
+            <li>read <code>META-INF/container.xml</code> → the OPF</li>
+            <li>read the OPF <b>manifest</b> + <b>spine</b> (reading order)</li>
+            <li>concatenate the spine documents, in order, into one HTML soup</li></ul>`;
       } else if (n.kind === 'epub_structural') {
         panel().innerHTML = `<h2>EPUB structural normalisation</h2>${plain}${ref}
-          <div class="k">Phase-1 transforms (run before detection, in order)</div>${li(n.structural)}`;
+          <p class="hint">Phase 1 — runs BEFORE detection so the detectors see clean structure.</p>
+          <div class="k">Transforms (file · what each does)</div>${tlist(n.transforms)}`;
+      } else if (n.kind === 'epub_bibliography') {
+        panel().innerHTML = `<h2>EPUB bibliography detection</h2>${plain}${ref}
+          <p class="hint">Phase 3 — only MARKS the references section; extraction + (Author Year) linking
+            happen centrally in <code>digestion/</code>, not here.</p>
+          <div class="k">Detector (file · what it does)</div>${tlist(n.transforms)}`;
+      } else if (n.kind === 'epub_final') {
+        panel().innerHTML = `<h2>EPUB final normalisation</h2>${plain}${ref}
+          <p class="hint">Phase 4 — runs LAST, once detection has settled (these touch the whole doc).</p>
+          <div class="k">Transforms (file · what each does)</div>${tlist(n.transforms)}`;
       } else if (n.kind === 'epub_overview') {
-        panel().innerHTML = `<h2>EPUB footnote detection</h2>${plain}${ref}
-          <p class="hint">Run-all: every scheme below runs; those whose markup is present fire — tick "Expand the EPUB sub-tree" to see each.</p>
-          <div class="k">Detection schemes</div>${pills(n.options)}`;
+        const phaseList = (n.phases || []).map(p =>
+          `<li><b>${esc(p.n)} ${esc(p.label)}</b> <span class="ref">${esc(p.file)}</span></li>`).join('');
+        panel().innerHTML = `<h2>EPUB ingestion</h2>${plain}${ref}
+          <p class="hint">The whole job: a publisher's .epub → one clean main-text.html. Click the ▶ node
+            on the .epub branch to walk each phase as its own node.</p>
+          <div class="k">Phases (file each lives in)</div><ul>${phaseList}</ul>
+          <div class="k">Footnote schemes (phase ③ — run-all)</div>${pills(n.schemes)}`;
+      } else if (n.kind === 'md') {
+        panel().innerHTML = `<h2>Markdown → HTML</h2>${plain}${ref}
+          <p class="hint">ingestion/markdown_and_pdf_to_html — also the back half of the PDF path
+            (PDF → main-text.md → here → intermediate.html).</p>
+          ${K('Injects for digestion to read', code('footnoteDefinitionsStart · footnoteSectionStart'))}
+          <div class="k">Note</div><p class="hint">[^N] footnotes are left as PLAIN TEXT here — all
+            linking happens later in digestion.</p>`;
       } else {  // fork (classify / strategy / bibliography / guard / citation / audit / fidelity)
         panel().innerHTML = `<h2>${esc(n.module || id)}</h2>${plain}${ref}
           ${n.question ? `<p class="q">“${esc(n.question)}”</p>` : ''}
@@ -156,14 +202,11 @@
     async function draw() {
       const el = document.getElementById('graph');
       el.removeAttribute('data-processed');
-      el.textContent = buildDiagram(document.getElementById('expandPdf').checked,
-                                    document.getElementById('expandEpub').checked);
+      el.textContent = buildDiagram();
       await mermaid.run({ nodes: [el] });
     }
     mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose',
       flowchart: { useMaxWidth: true, nodeSpacing: 35, rankSpacing: 48 } });
-    document.getElementById('expandPdf').addEventListener('change', draw);
-    document.getElementById('expandEpub').addEventListener('change', draw);
     if (!window.PIPELINE_MAP) {
       document.getElementById('graph').textContent =
         '⚠ pipeline_map_data.js not loaded — run: python3 tests/conversion/gen_pipeline_map.py';

@@ -121,7 +121,11 @@ flowchart TD
 IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 ├─ FRONTEND  (normalize → the backend's input; DETECT a "type")
 │  ├─ EPUB  epub_normalizer.py        GOAL → main-text.html  (HTML of a footnote SCHEME)
-│  │     TRANSFORM_PIPELINE: structural-normalise → footnote-detect
+│  │     orchestrator + TRANSFORM_PIPELINE; EpubTransform base in epub_base.py leaf; phase classes
+│  │     split into siblings (folders mirror the tree): unzip+combine (epub_normalizer) →
+│  │     structuralNormalisation.py → headingMatching.py → footnoteMatching.py → bibliographyDetection.py
+│  │     → finalNormalisation.py
+│  │     TRANSFORM_PIPELINE: structural-normalise → heading-detect → footnote-detect
 │  │       {epub3_semantic|aria_role|class_pattern|anchor_heading|notes_class|
 │  │        endnote_characters|table|heuristic | pre_processed ∅ | none ✗}  → FOOTNOTE_LINK_RULES
 │  ├─ PDF   mistral_ocr.py             GOAL → main-text.md   (MARKDOWN of a footnote LAYOUT)

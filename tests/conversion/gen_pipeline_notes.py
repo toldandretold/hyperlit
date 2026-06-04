@@ -23,6 +23,7 @@ import digestion.bibliographyExtraction.bibliography as B           # noqa: E402
 import digestion.citationLinking.citation_link_rules as C    # noqa: E402
 import process_document as P                  # noqa: E402
 import epub_normalizer as E                   # noqa: E402
+import simple_md_to_html as MD                # noqa: E402
 
 
 def collect_notes():
@@ -50,8 +51,14 @@ def collect_notes():
     # EPUB frontend nodes.
     notes['epub:detection'] = E.EpubNormalizer._DETECTION_PLAIN
     notes['epub:linking'] = E.EpubNormalizer._LINKING_PLAIN
+    notes['epub:overview'] = E.EpubNormalizer._OVERVIEW_PLAIN
+    notes['epub:load'] = E.EpubNormalizer._LOAD_PLAIN
     notes['epub:structural'] = E.EpubNormalizer._STRUCTURAL_PLAIN
+    # Markdown ingestion (also the back half of the PDF path).
+    notes['md:convert'] = MD.convert_markdown_to_html.plain
     notes['epub:headings'] = E.EpubNormalizer._HEADINGS_PLAIN
+    notes['epub:bibdetect'] = E.EpubNormalizer._BIBDETECT_PLAIN
+    notes['epub:finalnorm'] = E.EpubNormalizer._FINALNORM_PLAIN
     # one note per EPUB footnote-detection scheme (the run-all fan in TRANSFORM_PIPELINE).
     for name in E.EpubNormalizer._DETECTOR_NEEDS:
         notes['epub:detector:' + name] = getattr(E, name).plain
