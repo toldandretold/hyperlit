@@ -35,19 +35,22 @@ in-text-citation ↔ bibliography pair (or a real footnote marker ↔ definition
 an investigation; it does not close a case.
 
 **We only flag the narrow, falsifiable cases — where a genuine contradiction exists.** Not "this looks
-off" vibes. Concretely: *a bibliography was extracted, yet an in-text candidate that is **citation-
-shaped** failed to resolve to it.* That disagreement (looks-like-a-citation **and** didn't-link) is
-real evidence something upstream — bibliography extraction or OCR — may be wrong. It is **not** derivable
-from the link result alone: "0 linked" is ambiguous between *no real citations* (prose-years like
-`(November 2000)` — correct to ignore) and *real citations that failed to resolve* (a broken target
-list). The shape predicate is the **independent** bit that tells those apart, so it points the
-investigation **upstream**, not at the linker (whose unit tests already pin it).
+off" vibes. Concretely: *a bibliography was extracted, yet **none** of the bracketed-year candidates
+resolved to it.* That MIGHT be missing references upstream (a broken target list) OR prose-year
+parentheticals that were never citations (`(November 2000)`) — and the report says exactly that, then
+asks a human / the vibe loop to **read the text and decide**. We deliberately do **not** try to classify
+which bracketed years are "really" citations: an earlier `_is_citation_shaped` predicate was *deleted*
+because chasing its precision solves the wrong problem — the signal is only a suspicion someone verifies,
+so the classifier's false positives/negatives are bounded and cheap, and a magic threshold isn't what
+protects you. Report the raw facts; let the reader judge. (One refinement that **is** worth encoding:
+citations can arrive pre-wired as source id/class anchors — if they did, the text scan linking 0 is
+*expected*, so the suspicion must defer to the mechanism that actually ran.)
 
 **Two symmetric triggers, one machinery.** The same investigation path serves both:
 
 | trigger | how it fires | example |
 |---|---|---|
-| **system-suspicion** | the narrow falsifiable contradictions, emitted as flagged forks | bib present + citation-shaped-but-unmatched; defs extracted but 0 markers linked **and** the guard didn't deliberately suppress |
+| **system-suspicion** | the narrow falsifiable contradictions, emitted as flagged forks | bib present + 0 bracketed-year candidates linked (and not markup-cited); defs extracted but 0 markers linked **and** the guard didn't deliberately suppress |
 | **human-in-the-loop** *(UX planned)* | the user reports a defect | a picker — *citations not matched · footnotes not matched · citations wrongly matched · footnotes wrongly matched · free-text* |
 
 Either way, resolution is the same: **compare the complaint against the decisions *this* conversion
@@ -55,11 +58,12 @@ actually recorded** — the per-unit emissions (§2) + the decision tree (`PIPEL
 human) re-litigates the specific forks the complaint implicates.
 
 **This is *why* the unit-tested detection units + emissions are essential** — they are the **substrate**
-both triggers reason over. A detection predicate (e.g. `_is_citation_shaped`) earns its keep two ways:
-as a **deterministically unit-tested unit** (does "what counts as a citation" behave correctly,
-independent of any failure claim), and as the bit that **disambiguates** the one honest contradiction
-above. Without these emissions, every complaint — system or human — is just "it's broken *somewhere*,"
-with nothing to bite on.
+both triggers reason over. Each decision unit (bibliography extraction, footnote extraction, citation
+link+audit, the audit) records *what it decided, on what evidence, in which file* — deterministically,
+and pinned by unit tests. Without these emissions, every complaint — system or human — is just "it's
+broken *somewhere*," with nothing to bite on. (Note the lesson above: instrument the **facts** a unit
+decided on; resist adding a *classifier* whose only job is to second-guess whether a flag should fire —
+that's precision the architecture doesn't need.)
 
 **Corollary for anyone adding a signal:** emit *"might — please check X,"* never *"is."* A fork is a
 hypothesis to be checked, not a defect to be reported. If you can't state the falsifiable contradiction
@@ -140,7 +144,7 @@ an LLM can ask "is that evidence really absent, or did the detector miss it?". `
 silent failures hide*. The instrumented forks:
 
 `strategy_selection` · `pdf_footnote_classification` · `footnote_linking_guard` ·
-`citation_linking` · `bibliography_extraction` · `epub_footnote_detection` — plus the
+`citation_link_audit` · `bibliography_extraction` · `epub_footnote_detection` — plus the
 `footnote_audit` **verdict**.
 
 The PDF front-end (`mistral_ocr.py`) writes its fork records first; `process_document.py`'s

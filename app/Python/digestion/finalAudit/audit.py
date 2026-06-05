@@ -199,7 +199,7 @@ def assess_link_fidelity(stats, audit_data, records):
     # and these aren't really citations) — the linker can't link to targets that were never extracted.
     if cit_total >= 5 and cit_linked == 0 and refs < cit_total * 0.5:
         bib = _record_for(records, 'bibliography_extraction') or {}
-        cit = _record_for(records, 'citation_linking') or {}
+        cit = _record_for(records, 'citation_link_audit') or {}
         detection = (bib.get('evidence') or {}).get('detection', 'unknown')
         unlinked = (cit.get('evidence') or {}).get('unlinked_sample', [])
         out.append(dict(

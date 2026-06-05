@@ -23,7 +23,7 @@ def test_citation_target_gap_flags_bibliography_upstream():
         {'total_defs': 30, 'total_refs': 0, 'unmatched_defs': [{}] * 30},
         [{'module': 'footnote_linking_guard', 'decision': 'suppress whole-document footnote links'},
          {'module': 'bibliography_extraction', 'evidence': {'detection': 'reverse_scan'}},
-         {'module': 'citation_linking', 'evidence': {'unlinked_sample': [{'citation': '(Smith 2019)'}]}}])
+         {'module': 'citation_link_audit', 'evidence': {'unlinked_sample': [{'citation': '(Smith 2019)'}]}}])
     f = _rec(forks, 'citation_target_fidelity')
     assert f, "should flag the citation→bibliography upstream gap"
     assert f['code_ref'].startswith('bibliography.py')           # routed UPSTREAM, not the linker

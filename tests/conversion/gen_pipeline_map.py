@@ -68,7 +68,7 @@ _BACKEND_FORKS = [
     ('STRAT', 'strategy', 'strategy_selection', 'strategy.py:analyze_document_structure'),
     ('EXFN', 'footnote_extraction', 'footnote_extraction', 'footnotes.py:process_whole_document_footnotes'),
     ('GUARD', 'guard', 'footnote_linking_guard', 'strategy.py:_footnote_numbering_is_linkable'),
-    ('LINK', 'citation', 'citation_linking', 'citations.py:link_citations'),
+    ('LINK', 'citation', 'citation_link_audit', 'citations.py:link_citations'),
     ('AUDIT', 'audit', 'footnote_audit', 'audit.py:compute_footnote_audit'),
 ]
 _RECOVERY = [

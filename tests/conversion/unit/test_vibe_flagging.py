@@ -15,14 +15,14 @@ import vibe_convert as v
 
 def test_confident_skip_is_not_a_problem():
     # The prod false-positive: a certain, correct non-action.
-    r = {'module': 'citation_linking', 'confidence': 1.0,
+    r = {'module': 'citation_link_audit', 'confidence': 1.0,
          'decision': 'citation scan skipped — no bibliography entries',
          'margin': 'no bibliography to link against — nothing to do'}
     assert v._is_problem(r) is False
 
 
 def test_unsure_skip_is_a_problem():
-    r = {'module': 'citation_linking', 'confidence': 0.6,
+    r = {'module': 'citation_link_audit', 'confidence': 0.6,
          'decision': 'citation scan skipped — no parenthesized (Author YEAR) patterns'}
     assert v._is_problem(r) is True
 

@@ -264,7 +264,7 @@ _MODULE_PHRASE = {
     'pdf_footnote_classification': "how this PDF lays out its footnotes",
     'strategy_selection': "how this document's footnotes are structured",
     'footnote_linking_guard': "whether its footnotes can be linked safely",
-    'citation_linking': "how to link its in-text citations",
+    'citation_link_audit': "how to link its in-text citations",
     'footnote_audit': "its footnote linking",
     'epub_footnote_detection': "how this EPUB marks its footnotes",
     'bibliography_extraction': "its bibliography",
@@ -367,7 +367,7 @@ def _footnote_fix_modules(art):
 
 
 def _citation_fix_modules(art):
-    """A citation_linking fork ("linked 0 of N") is usually NOT the linker's fault — a citation can
+    """A citation_link_audit fork ("linked 0 of N") is usually NOT the linker's fault — a citation can
     only link if a matching bibliography entry exists. So the CAUSE is upstream: bibliography
     extraction (the link targets) or the citation-style detection. Send those alongside the linker so
     the model can fix the cause, not just the symptom (the Soviet-Marxism run wasted all 3 attempts on
@@ -389,7 +389,7 @@ def modules_for(records, art=None):
             for p in _footnote_fix_modules(art):
                 _add(p)
             continue
-        if r.get('module') == 'citation_linking':
+        if r.get('module') == 'citation_link_audit':
             # Route the CAUSE (bibliography extraction = the link targets), not just the linker.
             for p in _citation_fix_modules(art):
                 _add(p)

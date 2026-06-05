@@ -22,60 +22,17 @@ from bs4 import NavigableString
 from shared.assessment import ASSESSMENT
 
 # Human-readable `plain` note for the citation-linking tree node (one source — node_help + generator + LLM).
+# Flag-not-verdict framing (README §0): we do NOT decide "is this really a citation" — we report raw facts
+# and raise a SUSPICION for a human / the vibe loop to check.
 _CITATION_PLAIN = (
-    "Turn each in-text \"(Author Year)\" into a clickable link to its bibliography entry. Links only when "
-    "a matching entry was extracted — 0/N against a near-empty bibliography is usually a non-problem "
-    "(those were parenthetical years in prose, not real citations), NOT a bug. Known limitation: a source "
-    "that cites ONLY with [Author YEAR] square brackets is skipped by the parenthesis pre-check.")
+    "Turn each in-text \"(Author Year)\" into a clickable link to its bibliography entry. Links only when a "
+    "matching entry was extracted. We do NOT judge whether each bracketed year is 'really' a citation — if "
+    "a bibliography exists but none of the bracketed-year candidates link to it, that is a SUSPICION worth "
+    "checking (missing references upstream, OR they were prose-year parentheticals), not a proven bug. "
+    "Known limitation: a source that cites ONLY with [Author YEAR] square brackets is skipped by the "
+    "parenthesis pre-check.")
 from shared.link_base import LinkRule, run_link_rules
 from shared.refkeys import generate_ref_keys
-
-
-# --- Citation SHAPE detection (an ADDITIVE assessment signal, NOT a gate) --------------------------
-# `_is_citation_shaped` does NOT change the count or the linking — every "(…YYYY…)" candidate is still
-# counted and link-attempted (see _link_citations_in_text_node). It is an INDEPENDENT bit: of those
-# candidates, how many LOOK author-year (`(Smith 1999)`, `(1994, 5)`) vs prose-dates (`(November 2000)`,
-# `(by 1990 the FSF…)`). The assessment uses it to tell "0 linked because it's all prose-year noise"
-# (don't flag) from "0 linked but they ARE citation-shaped" (a real miss — suspect upstream bibliography
-# extraction). Flag suspicion, never assert failure — see tests/conversion/README.md §0.
-
-_MONTHS = (r'(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|'
-           r'Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)')
-_MONTH_WORD = re.compile(r'^(?:' + _MONTHS + r')\.?$', re.I)
-_YEAR_RE = re.compile(r'\b\d{4}[a-z]?\b')          # a real 4-digit year, on a word boundary (not "P162679")
-_WORD_RE = re.compile(r"[^\W\d_][\w.'’\-]*", re.UNICODE)   # a word; UNICODE so "Villaseñor" counts
-
-
-def _is_citation_shaped(sub_cite):
-    """Is ONE sub-citation (a `;`/`,`-split segment of a parenthetical) actually citation-shaped?
-
-    The discriminator is what sits BEFORE the year — NOT what trails it (real citations carry page
-    locators and asides: `Babb 2009, 6`, `Robinson 2015, 17–18`, `Nielson and Tierney 2003, 242 emphasis
-    added`, `see Bond 2016 for a summary`). So:
-      • bare year (`1999`, `1994, 5`) → True — a WEAK candidate, only counted if it links downstream;
-      • a real author surname before the year (`Smith 1999`, `see Copeland 2006`, `Villaseñor 1941`) → True;
-      • only lowercase prose or a MONTH name before the year (`by 1990 the FSF…`, `early September 1996,
-        about six weeks…`, `November 2000`) → False — a date / sentence, not a citation;
-      • a LONG run of words before the year (`When I gave my talk at the first Perl Conference in August
-        1997…`) → False — a real author phrase is short and ADJACENT to the year, not a sentence;
-      • no 4-digit year at all (`P162679`) → False.
-    """
-    s = (sub_cite or '').strip()
-    if not s:
-        return False
-    ym = _YEAR_RE.search(s)
-    if not ym:
-        return False                       # no real year → not a citation (e.g. an OCR id "P162679")
-    before = s[:ym.start()].strip()
-    if not before:
-        return True                        # bare "(1999)" / "(1994, 5)" → weak; link-gated downstream
-    words_before = _WORD_RE.findall(before)
-    if len(words_before) > 6:
-        return False                       # too many words before the year ⇒ a prose sentence, not a
-                                           # tight "[short author phrase] YEAR" citation
-    # a real author = a Capitalised word before the year that is NOT a month name (a month in the author
-    # slot ⇒ a date). Lowercase-only prose ("by", "early") or a lone month ⇒ no author ⇒ not a citation.
-    return any(w[:1].isupper() and not _MONTH_WORD.match(w) for w in words_before)
 
 
 class CitationLinkContext:
@@ -87,8 +44,7 @@ class CitationLinkContext:
         self.bibliography_map = bibliography_map
         self.emit_progress = emit_progress if callable(emit_progress) else (lambda *a, **k: None)
         self.citation_candidates = 0   # every "(…YYYY…)" candidate scanned (== citations_found; kept for clarity)
-        self.citations_found = 0       # every candidate counted (unchanged semantics — drives citations_total)
-        self.citation_shaped = 0       # ADDITIVE signal: of those, how many LOOK author-year (not prose/date)
+        self.citations_found = 0       # every candidate counted (drives citations_total)
         self.citations_linked = 0
         self.citations_unlinked = []
         self.anchor_converted = 0
@@ -132,15 +88,12 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                 for i, sub_cite_raw in enumerate(sub_citations):
                     sub_cite = sub_cite_raw.strip()
                     if not sub_cite: continue
-                    # Count every "(…YYYY…)" candidate (unchanged): some are author-year, some bare year,
-                    # some STEM/journal refs — all technically citations, all kept and linked as before.
-                    # `_is_citation_shaped` is a SEPARATE, additive signal (it does NOT gate the count or the
-                    # linking): it tells the assessment how many candidates LOOK like author-year citations,
-                    # so "0 linked" over a pile of prose-year/date parentheticals reads as not-a-fault.
+                    # Count every "(…YYYY…)" candidate: some are author-year, some bare year, some
+                    # STEM/journal refs — all technically citations, all kept and link-attempted. We do NOT
+                    # classify which "really" are citations; the assessment reports raw facts and raises a
+                    # SUSPICION (bib present + 0 linked) for a human / the vibe loop to check (README §0).
                     ctx.citation_candidates += 1
                     ctx.citations_found += 1
-                    if _is_citation_shaped(sub_cite):
-                        ctx.citation_shaped += 1
                     context_for_keys = preceding_text
                     if not re.search(r'[A-Z]', preceding_text):
                         # Author name may be in a preceding sibling element (e.g. <em>Author</em> (Year))
@@ -364,7 +317,7 @@ class AssessmentRecorder(LinkRule):
         citations_unlinked = ctx.citations_unlinked
         if ctx.skip_reason == 'no_bibliography':
             ASSESSMENT.record(
-                module='citation_linking', code_ref='citations.py:link_citations',
+                module='citation_link_audit', code_ref='citations.py:link_citations',
                 node_help=_CITATION_PLAIN,
                 decision='citation scan skipped — no bibliography entries',
                 rationale='no references were extracted (PASS 1A), so there is nothing for in-text '
@@ -377,7 +330,7 @@ class AssessmentRecorder(LinkRule):
                 confidence=1.0, margin='no bibliography to link against — nothing to do')
         elif ctx.skip_reason == 'no_paren_patterns':
             ASSESSMENT.record(
-                module='citation_linking', code_ref='citations.py:link_citations',
+                module='citation_link_audit', code_ref='citations.py:link_citations',
                 node_help=_CITATION_PLAIN,
                 decision='citation scan skipped — no parenthesized (Author YEAR) patterns',
                 rationale='the citation scan is gated on a parenthesized "(...YYYY...)" pre-check; '
@@ -395,62 +348,60 @@ class AssessmentRecorder(LinkRule):
                         f'[Author YEAR] brackets (those are silently skipped here)'))
         else:
             candidates = ctx.citation_candidates
-            shaped = ctx.citation_shaped
+            bib_n = len(bibliography_map)
             unlinked_n = len(citations_unlinked)
             rate = (citations_linked / citations_found) if citations_found else 1.0
             sample = [{'citation': u['citation'][:60], 'keys_tried': u['generated_keys'][:6]}
                       for u in citations_unlinked[:8]]
-            # SUSPICION, not verdict (see README §0). Every "(…YYYY…)" candidate is counted/linked; `shaped`
-            # is the ADDITIVE bit — of those, how many LOOK author-year vs prose-date. We use it only to
-            # decide whether "0 linked" deserves a flag:
-            #   • noise_only — when the shaped ones are a TINY fraction (a narrative book full of
-            #     parenthetical dates, at most a stray "(Paris 1928)") and none linked, the doc plainly
-            #     isn't author-year-cited, so 0 links is expected — DON'T flag (high confidence).
-            #   • else, shaped-but-unmatched IS the falsifiable contradiction worth flagging — and it points
-            #     UPSTREAM (bibliography extraction / OCR), since the linker itself is unit-tested.
-            noise_only = (candidates >= 3 and citations_linked == 0
-                          and shaped <= max(1, round(candidates * 0.2)))
-            # (kept for back-compat with hand-fed tests) a near-empty-bib 0-link is also expected-not-flagged.
-            likely_not_citations = (len(bibliography_map) <= 1 and citations_found > 0
-                                    and citations_linked == 0)
-            if noise_only:
-                _confidence = 0.9
-                _margin = (f'only {shaped} of {candidates} parenthetical year(s) look author-year — the rest '
-                           f'are dates / prose asides like "(November 2000)" or "(by 1990 the FSF…)", so 0 '
-                           f'links is expected here, not a likely fault.')
-            elif likely_not_citations:
-                _confidence = 0.9
-                _margin = (f'{citations_found} parenthetical-year pattern(s) but the bibliography has only '
-                           f'{len(bibliography_map)} entr(y/ies) — probably NOT author-year citations, so 0 '
-                           f'links is expected. IF the doc genuinely cites author-year, suspect upstream '
-                           f'bibliography extraction (no targets to match).')
+            # SUSPICION, not verdict (README §0). We do NOT classify which bracketed years are "really"
+            # citations — we report raw facts. The one falsifiable contradiction worth raising: a
+            # bibliography exists, yet NONE of the bracketed-year candidates linked to it. That MIGHT be
+            # missing references upstream OR prose-year parentheticals — a human / the vibe loop reads the
+            # text to decide. (A partial miss is a softer version of the same question.)
+            #
+            # BUT citations can arrive two ways: via the text "(Author Year)" scan (this branch's counts)
+            # OR pre-wired in the source as id/class anchors (PreLinkedAnchorConverter → anchor_converted).
+            # If the doc was cited via markup, the text scan linking 0 is EXPECTED — not a miss — so the
+            # full-miss suspicion must NOT fire.
+            markup_cited = (anchor_converted > 0 and citations_linked == 0)
+            full_miss = (bib_n >= 1 and citations_found > 0 and citations_linked == 0
+                         and anchor_converted == 0)
+            if markup_cited:
+                _confidence = 0.8
+                _margin = (f'{anchor_converted} citation(s) were wired via source markup (id/class anchors); '
+                           f'the text "(Year)" scan linked 0, which is EXPECTED for a markup-cited document '
+                           f'— not a miss.')
+            elif full_miss:
+                _confidence = 0.3
+                _margin = (f'{citations_found} bracketed-year candidate(s) but 0 linked to the {bib_n}-entry '
+                           f'bibliography — MIGHT be missing references / key drift (upstream), OR these are '
+                           f'prose-year parentheticals, not citations. Please read the text to decide.')
+            elif unlinked_n:
+                _confidence = round(rate, 2)
+                _margin = (f'{unlinked_n} of {citations_found} candidate(s) did not match a bibliography '
+                           f'entry — MIGHT be missing references / key-generation drift; please check')
             else:
                 _confidence = round(rate, 2)
-                _margin = (f'{shaped} of {unlinked_n} unlinked candidate(s) look author-year but matched '
-                           f'no bibliography entry — MIGHT be missing references / key-generation drift '
-                           f'(upstream); please check the text' if unlinked_n
-                           else f'all {citations_linked} citation(s) matched a bibliography entry')
+                _margin = f'all {citations_linked} citation(s) matched a bibliography entry'
             ASSESSMENT.record(
-                module='citation_linking', code_ref='citations.py:link_citations',
+                module='citation_link_audit', code_ref='citations.py:link_citations',
                 node_help=_CITATION_PLAIN,
-                decision=f'linked {citations_linked} of {citations_found} parenthetical-year citation(s) '
-                         f'({shaped} looked author-year-shaped)',
-                rationale='every parenthetical-year candidate is counted and link-attempted (a ref-key match '
+                decision=f'linked {citations_linked} of {citations_found} bracketed-year candidate(s)',
+                rationale='every bracketed-year candidate is counted and link-attempted (a ref-key match '
                           'against the bibliography, bounded ±3yr fuzzy fallback); unmatched ones stay plain '
-                          'text. citation_shaped is an ADDITIVE signal — how many look author-year — used '
-                          'only to judge whether 0-linked is real prose-year noise or a genuine miss',
-                evidence={'candidates': candidates, 'citation_shaped': shaped,
-                          'found': citations_found, 'linked': citations_linked, 'unlinked': unlinked_n,
-                          'anchor_converted': anchor_converted, 'bibliography_entries': len(bibliography_map),
-                          'noise_only': noise_only, 'likely_not_citations': likely_not_citations,
-                          'unlinked_sample': sample},
-                question='Were in-text citations linked to the bibliography?',
+                          'text. We do NOT classify which are "really" citations — we report the facts and '
+                          'raise a suspicion (bib present + 0 linked) for a human / the vibe loop to check',
+                evidence={'candidates': candidates, 'found': citations_found, 'linked': citations_linked,
+                          'unlinked': unlinked_n, 'anchor_converted': anchor_converted,
+                          'bibliography_entries': bib_n, 'full_miss': full_miss,
+                          'markup_cited': markup_cited, 'unlinked_sample': sample},
+                question='Did in-text citations link to the bibliography (and if not — real miss or prose-years)?',
                 considered=([{'option': 'link the remaining unmatched citations',
                               'rejected_because': 'their generated keys matched no bibliography entry '
                                                   '(even with the ±3yr fuzzy-year fallback)',
                               'would_need': 'a bibliography entry whose key matches, or different key '
                                             'generation — see evidence.unlinked_sample for the keys tried'}]
-                            if unlinked_n and not noise_only and not likely_not_citations else []),
+                            if unlinked_n else []),
                 confidence=_confidence,
                 margin=_margin)
 

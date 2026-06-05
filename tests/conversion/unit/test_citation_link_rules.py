@@ -103,50 +103,6 @@ def test_parenthesized_linker_skipped_when_gate_set(soup):
 
 
 # ---------------------------------------------------------------------------
-# _is_citation_shaped — the DETECTION predicate (what counts as a citation).
-# The discriminator is what sits BEFORE the year, never what trails it: real citations carry page
-# locators and asides; the false positives are prose-year parentheticals in narrative prose.
-# ---------------------------------------------------------------------------
-import pytest as _pytest
-from digestion.citationLinking.citation_link_rules import _is_citation_shaped
-
-
-@_pytest.mark.parametrize('s', [
-    '1999',                                  # bare year (weak; link-gated, but IS citation-shaped)
-    '1999a',                                 # year with disambiguator
-    '1994, 5',                               # bare year + page locator
-    'Smith 1999',                            # author year
-    'Smith & Jones 1999',                    # two authors, ampersand
-    'Smith and Jones 1999',                  # two authors, "and"
-    'Smith et al. 1999',                     # et al.
-    'Smith 1999; Jones 2001',                # (a single ;-split segment is tested per-segment elsewhere)
-    'Babb 2009, 6',                          # author year, page
-    'Robinson 2015, 17–18',                  # page RANGE (en dash)
-    'DiMaggio and Powell 1983, 150--2',      # page range (double hyphen)
-    'Nielson and Tierney 2003, 242 emphasis added',   # trailing scholarly aside
-    'see Bond 2016 for a summary of analyses',        # "see" prefix + trailing prose
-    'see Copeland 2006',                     # "see" prefix
-    'Villaseñor 1941',                       # accented author surname (Unicode)
-    'van der Berg 2010',                     # lowercase name particles
-])
-def test_is_citation_shaped_accepts_real_forms(s):
-    assert _is_citation_shaped(s) is True, f'should COUNT as a citation: {s!r}'
-
-
-@_pytest.mark.parametrize('s', [
-    'early September 1996, about six weeks',  # month-led date + prose (The Cathedral & the Bazaar)
-    'by 1990 the FSF supplied',               # lowercase function word before the year — a sentence
-    'November 2000',                          # month + year = a DATE, not a citation
-    'in 1985 the situation changed',          # "in <year>" prose
-    'When I gave my talk at the first Perl Conference in August 1997',  # long prose run before the year
-    'P162679',                                # an OCR id — no real 4-digit year
-    '',                                       # empty
-])
-def test_is_citation_shaped_rejects_prose_and_dates(s):
-    assert _is_citation_shaped(s) is False, f'must NOT count as a citation: {s!r}'
-
-
-# ---------------------------------------------------------------------------
 # SquareBracketCitationLinker — [Author YEAR]
 # ---------------------------------------------------------------------------
 def test_square_bracket_linker_links_matching_citation(soup):
@@ -161,24 +117,39 @@ def test_square_bracket_linker_links_matching_citation(soup):
 # ---------------------------------------------------------------------------
 # AssessmentRecorder — records the pass without mutating the soup
 # ---------------------------------------------------------------------------
-def test_assessment_recorder_high_confidence_when_bib_near_empty(soup):
-    # "found N, linked 0" against a (near-)empty bibliography is NOT a fault — it means the paren
-    # scan over-matched dates/years, not real citations. The record must be HIGH confidence (so the
-    # vibe loop doesn't chase a non-bug) and say so.
+def test_assessment_recorder_raises_suspicion_on_full_miss(soup):
+    # A bibliography exists but 0 of N bracketed-year candidates linked → a SUSPICION (not a verdict):
+    # MIGHT be missing references upstream, OR prose-years. Low confidence + a "please read" margin.
     from shared.assessment import ASSESSMENT
     ASSESSMENT.reset('/tmp')
     ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'but1936': 'but1936'})
     ctx.citations_found, ctx.citations_linked = 158, 0
     ctx.citations_unlinked = [{'citation': 'March, 1923', 'generated_keys': ['march1923']}]
     AssessmentRecorder().apply(ctx)
-    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_linking'][-1]
-    assert rec['confidence'] == 0.9
-    assert rec['evidence']['likely_not_citations'] is True
-    assert 'NOT author-year citations' in rec['margin']
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_link_audit'][-1]
+    assert rec['evidence']['full_miss'] is True
+    assert rec['confidence'] < 0.5                # flagged as a suspicion, never asserted as a fault
+    assert 'MIGHT' in rec['margin'] and 'read the text' in rec['margin']
 
 
-def test_assessment_recorder_still_flags_real_unlinked_with_populated_bib(soup):
-    # With a populated bibliography, genuine unlinked citations remain a low-confidence fault.
+def test_assessment_recorder_does_not_flag_markup_cited_doc(soup):
+    # Citations wired via source id/class anchors (anchor_converted > 0) — the text "(Year)" scan
+    # linking 0 is EXPECTED, NOT a miss. The full-miss suspicion must not fire.
+    from shared.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'a0': 'a0', 'a1': 'a1'})
+    ctx.citations_found, ctx.citations_linked = 12, 0
+    ctx.anchor_converted = 12               # all citations came pre-wired in the source markup
+    AssessmentRecorder().apply(ctx)
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_link_audit'][-1]
+    assert rec['evidence']['markup_cited'] is True
+    assert rec['evidence']['full_miss'] is False     # NOT flagged as a miss
+    assert rec['confidence'] >= 0.8
+    assert 'EXPECTED' in rec['margin']
+
+
+def test_assessment_recorder_full_miss_with_populated_bib(soup):
+    # Same suspicion shape with a populated bibliography — still a flag, framed as a question.
     from shared.assessment import ASSESSMENT
     ASSESSMENT.reset('/tmp')
     bib = {f'a{i}': f'a{i}' for i in range(5)}
@@ -186,9 +157,10 @@ def test_assessment_recorder_still_flags_real_unlinked_with_populated_bib(soup):
     ctx.citations_found, ctx.citations_linked = 4, 0
     ctx.citations_unlinked = [{'citation': 'Foo 1999', 'generated_keys': ['foo1999']}]
     AssessmentRecorder().apply(ctx)
-    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_linking'][-1]
-    assert rec['confidence'] == 0.0          # 0/4 → genuine fault, still flagged
-    assert rec['evidence']['likely_not_citations'] is False
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_link_audit'][-1]
+    assert rec['evidence']['full_miss'] is True
+    assert rec['confidence'] < 0.5
+    assert rec['evidence']['bibliography_entries'] == 5
 
 
 def test_assessment_recorder_runs_for_each_branch(soup):

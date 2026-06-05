@@ -409,7 +409,7 @@ window.PIPELINE_MAP = {
     "LINK": {
       "codeRef": "citations.py:link_citations",
       "kind": "fork",
-      "module": "citation_linking",
+      "module": "citation_link_audit",
       "noteKey": "citation",
       "question": "Were in-text citations linked to the bibliography?"
     },

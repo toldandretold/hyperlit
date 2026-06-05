@@ -96,7 +96,7 @@ def test_bracket_only_gate_recorded_as_fallthrough(soup):
     s = _doc(soup, '<p>As shown [Hardin 1968] clearly.</p>')   # bracket-only, non-empty bib
     link_citations(s, {'hardin1968': 'bib_h'})
     rec = ASSESSMENT.records[-1]
-    assert rec['module'] == 'citation_linking'
+    assert rec['module'] == 'citation_link_audit'
     assert 'skipped' in rec['decision']
     assert 'square' in rec['considered'][0]['would_need']      # the gate is surfaced
 
