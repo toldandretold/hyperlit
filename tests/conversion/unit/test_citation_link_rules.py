@@ -103,6 +103,50 @@ def test_parenthesized_linker_skipped_when_gate_set(soup):
 
 
 # ---------------------------------------------------------------------------
+# _is_citation_shaped — the DETECTION predicate (what counts as a citation).
+# The discriminator is what sits BEFORE the year, never what trails it: real citations carry page
+# locators and asides; the false positives are prose-year parentheticals in narrative prose.
+# ---------------------------------------------------------------------------
+import pytest as _pytest
+from digestion.citationLinking.citation_link_rules import _is_citation_shaped
+
+
+@_pytest.mark.parametrize('s', [
+    '1999',                                  # bare year (weak; link-gated, but IS citation-shaped)
+    '1999a',                                 # year with disambiguator
+    '1994, 5',                               # bare year + page locator
+    'Smith 1999',                            # author year
+    'Smith & Jones 1999',                    # two authors, ampersand
+    'Smith and Jones 1999',                  # two authors, "and"
+    'Smith et al. 1999',                     # et al.
+    'Smith 1999; Jones 2001',                # (a single ;-split segment is tested per-segment elsewhere)
+    'Babb 2009, 6',                          # author year, page
+    'Robinson 2015, 17–18',                  # page RANGE (en dash)
+    'DiMaggio and Powell 1983, 150--2',      # page range (double hyphen)
+    'Nielson and Tierney 2003, 242 emphasis added',   # trailing scholarly aside
+    'see Bond 2016 for a summary of analyses',        # "see" prefix + trailing prose
+    'see Copeland 2006',                     # "see" prefix
+    'Villaseñor 1941',                       # accented author surname (Unicode)
+    'van der Berg 2010',                     # lowercase name particles
+])
+def test_is_citation_shaped_accepts_real_forms(s):
+    assert _is_citation_shaped(s) is True, f'should COUNT as a citation: {s!r}'
+
+
+@_pytest.mark.parametrize('s', [
+    'early September 1996, about six weeks',  # month-led date + prose (The Cathedral & the Bazaar)
+    'by 1990 the FSF supplied',               # lowercase function word before the year — a sentence
+    'November 2000',                          # month + year = a DATE, not a citation
+    'in 1985 the situation changed',          # "in <year>" prose
+    'When I gave my talk at the first Perl Conference in August 1997',  # long prose run before the year
+    'P162679',                                # an OCR id — no real 4-digit year
+    '',                                       # empty
+])
+def test_is_citation_shaped_rejects_prose_and_dates(s):
+    assert _is_citation_shaped(s) is False, f'must NOT count as a citation: {s!r}'
+
+
+# ---------------------------------------------------------------------------
 # SquareBracketCitationLinker — [Author YEAR]
 # ---------------------------------------------------------------------------
 def test_square_bracket_linker_links_matching_citation(soup):

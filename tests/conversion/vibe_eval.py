@@ -4,9 +4,9 @@
 For every case under tests/conversion/corpus/<case>/ this:
   1. CONVERTS the supplied source through the real pipeline (reusing run_regression's pathway
      runners — PDF replays cached OCR, no Mistral call) to produce assessment/audit/stats,
-  2. runs the vibe loop (vibe_convert.run_loop) — DeepSeek proposes a pipeline fix, validated in
+  2. runs the vibe loop (vibe_convert.run_loop) — the model proposes a pipeline fix, validated in
      an isolated sandbox against THIS document, with responses cached by prompt-hash,
-  3. writes a per-case **post-mortem stub** (auto-filled symptom + flagged forks + what DeepSeek
+  3. writes a per-case **post-mortem stub** (auto-filled symptom + flagged forks + what the model
      tried) — Claude fills the JUDGEMENT section in-session,
   4. emits a **scoreboard** (vibe_eval_report.{md,json}) aggregating outcomes.
 
@@ -213,7 +213,7 @@ def _auto_markdown(case, pipeline, art, report, note):
         lines.append("- (none flagged — if the conversion is faulty, that's a signal-gap: the "
                      "assessment didn't surface it)")
 
-    lines += ["", "## What DeepSeek tried (auto)"]
+    lines += ["", "## What the model tried (auto)"]
     attempts = report.get('attempts', [])
     if attempts:
         for a in attempts:
@@ -278,7 +278,7 @@ def run_case(case_dir, args):
         else:
             os.environ.pop('VIBE_LLM_CACHE_ONLY', None)
         try:
-            if getattr(args, 'engine', 'deepseek') == 'aider':
+            if getattr(args, 'engine', 'native') == 'aider':
                 import vibe_aider
                 vibe_aider.run_aider_loop(out_dir, max_attempts=args.max_attempts, model=args.model,
                                           user_note=note, file_issue=False)
@@ -297,6 +297,7 @@ def run_case(case_dir, args):
     attempts = report.get('attempts', [])
     cats = sorted({c for a in attempts for c in (a.get('categories') or []) if c != '?'})
     return {'case': case, 'pipeline': pipeline, 'outcome': report.get('outcome', 'not-run'),
+            'engine': report.get('engine', 'native'), 'prompt_variant': report.get('prompt_variant', 'full'),
             'baseline': vc._stat_summary(art.get('stats', {})), 'best': report.get('best'),
             'flagged': sorted(report.get('flagged', [])), 'attempts': attempts,
             'categories': cats, 'inexpressible': any(a.get('inexpressible') for a in attempts),
@@ -334,12 +335,13 @@ def write_scoreboard(results):
           "",
           f"**Spend:** {calls} live call(s) ({cached} cached, $0) — "
           f"{tot_in:,} in + {tot_out:,} out = {tot_in + tot_out:,} tokens → {cost_line}.",
-          "", "| case | pipeline | outcome | baseline → best | fix-categories tried | inexpr | tokens / cost |",
-          "|------|----------|---------|-----------------|----------------------|--------|---------------|"]
+          "", "| case | pipeline | engine/variant | outcome | baseline → best | fix-categories tried | inexpr | tokens / cost |",
+          "|------|----------|----------------|---------|-----------------|----------------------|--------|---------------|"]
     for r in results:
         best = r.get('best') or '—'
-        md.append(f"| {r['case']} | {r.get('pipeline') or '—'} | **{r['outcome']}** | "
-                  f"{r.get('baseline','?')} → {best} | {', '.join(r.get('categories') or []) or '—'} | "
+        md.append(f"| {r['case']} | {r.get('pipeline') or '—'} | {r.get('engine','native')}/{r.get('prompt_variant','full')} | "
+                  f"**{r['outcome']}** | {r.get('baseline','?')} → {best} | "
+                  f"{', '.join(r.get('categories') or []) or '—'} | "
                   f"{'⚠️' if r.get('inexpressible') else '—'} | {_fmt_cost(r.get('usage'))} |")
     md += ["", "_Each case has a postmortem.md awaiting Claude's JUDGEMENT (defect · ultimate_solution ·",
            "attribution · fix_category). Attribution drives the two backlogs (code vs prompt)._", ""]
@@ -355,12 +357,20 @@ def main():
     ap = argparse.ArgumentParser(description="Co-evolution corpus runner for the vibe loop.")
     ap.add_argument('--case', help="only run corpus cases whose name contains this substring")
     ap.add_argument('--max-attempts', type=int, default=3)
-    ap.add_argument('--model', default='accounts/fireworks/models/deepseek-v4-pro')
+    ap.add_argument('--model', default=None,
+                    help="LLM id (Fireworks). Unset → each engine's default (deepseek V4 Pro / aider "
+                         "gpt-oss-120b). Pass it to run the SAME model on both engines (all-else-equal A/B).")
     ap.add_argument('--no-vibe', action='store_true', help="convert + scaffold only; don't run the loop (no tokens)")
     ap.add_argument('--no-llm', action='store_true', help="re-score from the response cache only (no API calls)")
-    ap.add_argument('--engine', choices=['deepseek', 'aider'], default='deepseek',
-                    help="edit-gen engine to A/B (default deepseek; aider needs VIBE_AIDER_BIN)")
+    ap.add_argument('--engine', choices=['native', 'aider'], default='native',
+                    help="edit-gen engine to A/B — a MECHANISM, not a model (default native; aider needs "
+                         "VIBE_AIDER_BIN). Pair with --model to vary the LLM independently.")
+    ap.add_argument('--prompt-variant', choices=['full', 'lean'], default=None,
+                    help="prompt CONTENT to A/B: 'full' (default, with the fix-category menu) or 'lean' "
+                         "(no menu — relies on the self-describing pipeline tree).")
     args = ap.parse_args()
+    if args.prompt_variant:
+        os.environ['VIBE_PROMPT_VARIANT'] = args.prompt_variant   # read by vibe_convert.build_diagnostic_context
 
     cases = discover_cases(args.case)
     if not cases:

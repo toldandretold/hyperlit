@@ -10,6 +10,7 @@ window.PIPELINE_MAP = {
     "core": [
       "BIB",
       "STRAT",
+      "EXFN",
       "GUARD",
       "LINK",
       "AUDIT",
@@ -223,6 +224,13 @@ window.PIPELINE_MAP = {
         "AnchorHeading",
         "Heuristic"
       ]
+    },
+    "EXFN": {
+      "codeRef": "footnotes.py:process_whole_document_footnotes",
+      "kind": "fork",
+      "module": "footnote_extraction",
+      "noteKey": "footnote_extraction",
+      "question": ""
     },
     "E_AnchorHeadingFootnoteDetector": {
       "codeRef": "footnoteMatching.py:AnchorHeadingFootnoteDetector",

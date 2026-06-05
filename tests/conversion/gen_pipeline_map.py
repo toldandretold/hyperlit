@@ -66,6 +66,7 @@ def _scan_assessment_records():
 _BACKEND_FORKS = [
     ('BIB', 'bibliography', 'bibliography_extraction', 'bibliography.py:extract_bibliography'),
     ('STRAT', 'strategy', 'strategy_selection', 'strategy.py:analyze_document_structure'),
+    ('EXFN', 'footnote_extraction', 'footnote_extraction', 'footnotes.py:process_whole_document_footnotes'),
     ('GUARD', 'guard', 'footnote_linking_guard', 'strategy.py:_footnote_numbering_is_linkable'),
     ('LINK', 'citation', 'citation_linking', 'citations.py:link_citations'),
     ('AUDIT', 'audit', 'footnote_audit', 'audit.py:compute_footnote_audit'),

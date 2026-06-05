@@ -21,6 +21,7 @@ import mistral_ocr as M                       # noqa: E402
 import digestion.strategySelection.strategy as S               # noqa: E402
 import digestion.bibliographyExtraction.bibliography as B           # noqa: E402
 import digestion.citationLinking.citation_link_rules as C    # noqa: E402
+import digestion.footnoteExtraction.footnotes as FX          # noqa: E402
 import process_document as P                  # noqa: E402
 import epub_normalizer as E                   # noqa: E402
 import simple_md_to_html as MD                # noqa: E402
@@ -46,6 +47,7 @@ def collect_notes():
     notes['strategy'] = S._STRATEGY_PLAIN
     notes['guard'] = S._GUARD_PLAIN
     notes['bibliography'] = B._BIBLIOGRAPHY_PLAIN
+    notes['footnote_extraction'] = FX._FOOTNOTE_EXTRACTION_PLAIN
     notes['citation'] = C._CITATION_PLAIN
     notes['audit'] = P.AuditPass.plain
     # EPUB frontend nodes.

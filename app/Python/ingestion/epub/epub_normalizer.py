@@ -1,4 +1,5 @@
-"""
+"""EPUB ingestion orchestrator — runs TRANSFORM_PIPELINE to turn an .epub into main-text.html.
+
 EPUB Normalizer - Transform Pipeline Architecture
 ==================================================
 
@@ -256,6 +257,21 @@ TRANSFORM_PIPELINE = [
 # MAIN NORMALIZER CLASS
 # =============================================================================
 
+def _count_footnote_markers(soup):
+    """Count candidate footnote MARKERS (noterefs) in the soup — anchors whose href targets a footnote-ish
+    id, plus epub:type=noteref elements. Used by the structural-fidelity check: a big DROP across the
+    Phase-1 structural transforms means a cleanup step DETACHED noterefs before detection could use them."""
+    seen = set()
+    for a in soup.find_all('a', href=True):
+        href = a.get('href', '')
+        if href.startswith('#') and re.search(r'(?:fn|ftn|foot|note|end|ref)', href, re.I):
+            seen.add(id(a))
+    for el in soup.find_all(attrs={'epub:type': True}):
+        if 'noteref' in str(el.get('epub:type', '')).lower():
+            seen.add(id(el))
+    return len(seen)
+
+
 class EpubNormalizer:
     """
     Main EPUB normalizer that runs the transform pipeline.
@@ -364,7 +380,19 @@ class EpubNormalizer:
         # pipeline, which is the real decision (the soup mutates as we go).
         fn_detector_results = []
 
+        # Structural-transform FIDELITY: snapshot the footnote-marker count of the RAW combined soup, then
+        # again right before the FIRST footnote detector runs (i.e. after the Phase-1 structural transforms).
+        # A big drop means a structural cleanup step detached noterefs before detection — recorded as a
+        # flagged fork in _write_assessment so the fix-loop is sent to structuralNormalisation.py.
+        self._markers_before = _count_footnote_markers(self.combined_soup)
+        self._markers_after_structural = None
+        self._last_structural = None
+
         for transform in TRANSFORM_PIPELINE:
+            if self._markers_after_structural is None and transform.name.endswith('FootnoteDetector'):
+                self._markers_after_structural = _count_footnote_markers(self.combined_soup)
+            elif self._markers_after_structural is None:
+                self._last_structural = transform.name   # the last Phase-1 transform before detection
             # Set context for transforms that need it
             if isinstance(transform, ImageProcessor):
                 transform.set_context(self.book_id, self.output_dir)
@@ -532,7 +560,7 @@ class EpubNormalizer:
         if not all_footnotes:
             records.append({
                 'seq': 0, 'module': 'epub_footnote_detection',
-                'code_ref': 'epub_normalizer.py:TRANSFORM_PIPELINE',
+                'code_ref': 'footnoteMatching.py:HeuristicFootnoteDetector',
                 'decision': 'no footnotes detected',
                 'rationale': f'{len(all_noterefs)} reference(s) seen but 0 definitions resolved by any '
                              f'of {len(fn_results)} footnote detectors',
@@ -548,7 +576,7 @@ class EpubNormalizer:
             only_heuristic = fired == ['HeuristicFootnoteDetector']
             records.append({
                 'seq': 0, 'module': 'epub_footnote_detection',
-                'code_ref': f'epub_normalizer.py:{fired[0] if fired else "TRANSFORM_PIPELINE"}',
+                'code_ref': f'footnoteMatching.py:{fired[0] if fired else "HeuristicFootnoteDetector"}',
                 'decision': f'{len(all_footnotes)} footnote(s) via {", ".join(fired) or "heuristic fallback"}',
                 'rationale': 'detector(s) matched the source markup',
                 'evidence': {'total_footnotes': len(all_footnotes), 'by_strategy': dict(by_strategy),
@@ -565,7 +593,7 @@ class EpubNormalizer:
                 det = self._STRATEGY_DETECTOR.get(strat.split('_')[0] if strat.startswith('heuristic') else strat,
                                                   'HeuristicFootnoteDetector' if strat.startswith('heuristic') else strat)
                 records.append({'seq': len(records), 'module': 'epub_footnote_detection',
-                                'code_ref': f'epub_normalizer.py:{det}',
+                                'code_ref': f'footnoteMatching.py:{det}',
                                 'decision': f'{n} footnote definition(s) via {strat}',
                                 'rationale': f'{det} matched the source markup',
                                 'evidence': {'count': n, 'strategy': strat}})
@@ -577,7 +605,7 @@ class EpubNormalizer:
             faulty = od > max(2, 0.05 * tot)
             records.append({
                 'seq': len(records), 'module': 'footnote_linking',
-                'code_ref': 'epub_normalizer.py:FootnoteConverter.convert',
+                'code_ref': 'footnoteMatching.py:FootnoteConverter.convert',
                 'node_help': self._LINKING_PLAIN,
                 'decision': (f"{linking['linked']} reference(s) linked; {od} definition(s) ORPHANED"
                              if faulty else f"all {tot} definition(s) linked"),
@@ -598,6 +626,27 @@ class EpubNormalizer:
                 'margin': (f'{od} of {tot} definitions have NO in-text link — DETECTION succeeded but '
                            f'LINKING dropped them (fix FootnoteConverter, not the detectors)'
                            if faulty else f'all {tot} definitions linked — sound')})
+        # (3) STRUCTURAL fidelity — did a Phase-1 cleanup step DETACH footnote markers before detection
+        # could use them? (The EPUB analogue of the PDF harvest-fidelity check.) Conservative: only fires
+        # on a material drop, so a doc that simply has few/no markers is never flagged.
+        mb = getattr(self, '_markers_before', 0) or 0
+        ma = getattr(self, '_markers_after_structural', None)
+        if ma is not None and mb >= 5 and ma < mb * 0.5:
+            records.append({
+                'seq': len(records), 'module': 'epub_structural_fidelity',
+                'code_ref': 'structuralNormalisation.py',
+                'node_help': self._STRUCTURAL_PLAIN,
+                'decision': f'{mb - ma} of {mb} footnote marker(s) DETACHED during structural normalisation',
+                'rationale': (f'the raw EPUB had {mb} footnote-marker anchors, but only {ma} survived the '
+                              f'Phase-1 structural transforms (last: {self._last_structural}) before footnote '
+                              f'detection ran. A structural cleanup step unwrapped/removed the noterefs, so '
+                              f'detection + linking can never wire them — fix the structural transform, not '
+                              f'the detector.'),
+                'evidence': {'markers_raw': mb, 'markers_after_structural': ma,
+                             'last_structural_transform': self._last_structural},
+                'question': 'Did a structural cleanup step detach footnote markers before detection?',
+                'confidence': 0.3,
+                'margin': f'{mb}->{ma} markers across structural normalisation — a transform dropped noterefs'})
         try:
             with open(os.path.join(self.output_dir, 'assessment.json'), 'w', encoding='utf-8') as f:
                 json.dump({'records': records}, f, ensure_ascii=False, indent=2)

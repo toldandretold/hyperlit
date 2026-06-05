@@ -4,7 +4,7 @@
 Given a book whose conversion is faulty, this:
   1. reads its decision-trace (assessment.json) + verdict (audit.json) + source,
   2. assembles a prompt naming the FLAGGED forks and the module(s) their code_ref points to,
-  3. asks an LLM for a minimal one-module unified diff (real Fireworks/DeepSeek call, or a
+  3. asks an LLM for a minimal one-module unified diff (real Fireworks API call, or a
      --mock-diff file for offline runs),
   4. validates the diff (PATH-ALLOWLIST: only conversion modules; no new files / harness edits),
   5. applies it in a THROWAWAY structure-preserving copy of the repo,
@@ -114,6 +114,26 @@ REGISTERABLE_LISTS = {'TRANSFORM_PIPELINE', '_ALL_STRATEGIES',
 
 # What gets copied into the sandbox (structure-preserving, so the harness paths resolve).
 SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']
+
+# Per-engine model defaults. `--model` defaults to None so it cleanly overrides EITHER engine (a true
+# all-else-equal LLM A/B); when unset each engine fills its own default. The native loop reasons in one
+# pass (a heavy model earns its keep); aider runs its own ~3-reflection retry loop, so it wants a FAST one.
+DEFAULT_DEEPSEEK_MODEL = 'accounts/fireworks/models/deepseek-v4-pro'
+
+
+def _model_label(model):
+    """Short display name of the ACTUAL model in use (e.g. 'deepseek-v4-pro', 'gpt-oss-120b'). The
+    ENGINE ('native' / 'aider') is NOT a model — the native engine runs whatever `--model` it's given —
+    so all user-facing progress must show the real model, never a hardcoded one."""
+    return (model or DEFAULT_DEEPSEEK_MODEL).rsplit('/', 1)[-1]
+
+
+def _prompt_variant():
+    """Which prompt VARIANT to build: `full` (default) or `lean` (drops the fix-category menu, to A/B
+    whether the self-describing pipeline tree makes the menu unnecessary). Set via env
+    VIBE_PROMPT_VARIANT (the `--prompt-variant` CLI flag sets it); recorded into the report."""
+    v = (os.environ.get('VIBE_PROMPT_VARIANT') or 'full').strip().lower()
+    return v if v in ('full', 'lean') else 'full'
 
 # A minimal env for everything we run in the sandbox — NO secrets, NO real environment.
 SCRUBBED_ENV = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'PYTHONHASHSEED': '0',
@@ -311,6 +331,9 @@ _DECOMPOSITION_SIBLINGS = {
     # EPUB + the shared front-end both route footnote linking through footnote_link_rules.py now.
     'epub_normalizer.py': ['footnote_link_rules.py'],
     'process_document.py': ['footnote_link_rules.py'],
+    # EPUB phase-split: the footnote detectors + FootnoteConverter live in footnoteMatching.py; a fix
+    # there usually needs the TRANSFORM_PIPELINE registration point (epub_normalizer.py) + the linker.
+    'footnoteMatching.py': ['epub_normalizer.py', 'footnote_link_rules.py'],
     # PDF phase-split: a classification fix usually needs a matching assembler (a new layout = a new
     # classifier + its assembler); both lean on the pdf_shared.py helpers/bases. assemble_markdown runs
     # the recovery passes, so an assembly fix should see recovery.py too.
@@ -336,8 +359,10 @@ def _with_siblings(paths):
 def _footnote_fix_modules(art):
     """A failing footnote_audit names audit.py — but audit.py only MEASURES the orphans;
     they're created upstream in the detector/linker. Send the code that can actually fix it,
-    chosen by pathway (epub vs the shared markdown/docx/html/pdf path)."""
-    front = _real_path('epub_normalizer.py') if (art and art.get('is_epub')) else _real_path('process_document.py')
+    chosen by pathway (epub vs the shared markdown/docx/html/pdf path). For EPUB the detectors +
+    FootnoteConverter live in footnoteMatching.py now (epub_normalizer.py is just the orchestrator);
+    its decomposition siblings pull in the TRANSFORM_PIPELINE registration point + the linker."""
+    front = _real_path('footnoteMatching.py') if (art and art.get('is_epub')) else _real_path('process_document.py')
     return _with_siblings([front, _real_path('footnotes.py')])
 
 
@@ -376,34 +401,134 @@ def modules_for(records, art=None):
     return paths
 
 
+_PIPELINE_STRUCTURE = None
+
+
+def _pipeline_structure():
+    """The generated ingestion→digestion folder/file tree (tests/conversion/PIPELINE_STRUCTURE.generated.md,
+    produced by gen_pipeline_tree.py from the actual folders). Folders mirror the decision tree, so this
+    orients the model in the pipeline — which file holds which phase — BEFORE it reads the flagged node.
+    Cached; '' if absent (e.g. a sandbox without tests/conversion)."""
+    global _PIPELINE_STRUCTURE
+    if _PIPELINE_STRUCTURE is None:
+        path = os.path.join(REPO_ROOT, 'tests', 'conversion', 'PIPELINE_STRUCTURE.generated.md')
+        try:
+            raw = open(path, encoding='utf-8').read()
+            # Drop the developer-facing front-matter (the "# Pipeline structure — GENERATED… / Built by
+            # gen_pipeline_tree.py… no-drift test…" header). The model only needs the tree, not how it's
+            # built; keep it from the first "## " section onward.
+            i = raw.find('\n## ')
+            _PIPELINE_STRUCTURE = (raw[i + 1:] if i != -1 else raw).strip()
+        except Exception:
+            _PIPELINE_STRUCTURE = ''
+    return _PIPELINE_STRUCTURE
+
+
+def _pathway_lines(records, flagged):
+    """The ordered decision PATH this conversion took through the tree: each assessment record as
+    `module → real file (code_ref)`, ⚑-marking the flagged node(s) and resolving each code_ref to the
+    file that actually holds the logic — so "you are here, the flagged node is X, edit file Y" is explicit
+    (and survives the phase-split: code_refs now name footnoteMatching.py / classification.py / etc.)."""
+    out = []
+    for r in records:
+        mark = '⚑ ' if any(r is f for f in flagged) else '· '
+        cr = r.get('code_ref', '')
+        path = _code_ref_to_path(cr)
+        out.append(f"{mark}{r.get('module', '?')} → {path or cr or '(no code_ref)'}")
+    return out
+
+
+# Each conversion stat, glossed: (what the number COUNTS, which pipeline step COMPUTES it). The file is a
+# real tree node — the model can cross-reference the pipeline section. Read as a chain: a citation links
+# only if its target was extracted; a footnote links only if its definition was detected + its marker survived.
+_STAT_GLOSS = {
+    'references_found': ("bibliography entries EXTRACTED from the reference/notes section — the LINK TARGETS a "
+                         "citation can point at", "digestion/bibliographyExtraction/bibliography.py (extract_bibliography)"),
+    'citations_total': ("in-text \"(Author Year)\" / \"[Author Year]\" citations FOUND in the body text",
+                        "digestion/citationLinking/citations.py → citation_link_rules.py (link_citations)"),
+    'citations_linked': ("of citations_total, how many matched a references_found entry by key — if "
+                         "citations_total far exceeds references_found, most citations have NO target (the "
+                         "bibliography is incomplete): look UPSTREAM at extraction, not the linker",
+                         "digestion/citationLinking/citation_link_rules.py"),
+    'footnotes_matched': ("footnote DEFINITIONS extracted and linked to an in-text marker",
+                          "digestion/footnoteExtraction/footnotes.py + digestion/footnoteLinking/footnote_link_rules.py"),
+    'footnote_strategy': ("how this document lays out footnotes — picked by the strategy selector (STRATEGY_RULES); "
+                          "drives how markers get wired to definitions",
+                          "digestion/strategySelection/strategy.py (analyze_document_structure)"),
+    'citation_style': ("the detected in-text citation style driving the linker — a MIS-detection (e.g. "
+                       "author-year on a numbered-footnote book) makes a \"0/N\" linked count NOISE, not a bug",
+                       "digestion/process_document.py (the stats pass, from citationLinking signals)"),
+}
+
+
+def _render_stats(st):
+    """The symptom, but legible: each stat with what it COUNTS and the file that COMPUTES it (a tree node).
+    So '8 references / 24 citations / 0 linked' reads as a causal chain, not six opaque numbers."""
+    lines = ["## The problem — what converted, and WHERE each number comes from",
+             "Each line is `stat = value` — what it counts · the pipeline step that computes it (find that "
+             "file in the pipeline tree below). They form a CHAIN: a citation links only if its target was "
+             "extracted; a footnote links only if its definition was detected AND its marker survived."]
+    for k in ('references_found', 'citations_total', 'citations_linked',
+              'footnotes_matched', 'footnote_strategy', 'citation_style'):
+        meaning, src = _STAT_GLOSS[k]
+        lines.append(f"- {k} = {json.dumps(st.get(k))} — {meaning} · {src}")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # 2. Build the prompt
 # ---------------------------------------------------------------------------
-def build_prompt(art, module_paths, user_note=None):
+def build_diagnostic_context(art, modules, user_note=None):
+    """The SHARED diagnostic payload BOTH engines send (native + aider), so native-vs-aider —
+    and model-vs-model — is a CONTROLLED experiment: the DIAGNOSIS is byte-identical; only the edit
+    MECHANISM (JSON ops vs aider's diff+`--test-cmd` loop) and how the module SOURCE is delivered (native
+    inlines it because an API completion can't read files; aider reads it via its repo-map) may differ.
+    Returns a list of section strings (no leading newlines); each engine prepends its mechanism intro and
+    appends its mechanism tail, then joins. Edit a diagnostic section HERE and both engines get it."""
     flagged = flagged_forks(art['assessment'])
     st = art['stats']
-    parts = [
-        "You are improving a document-conversion pipeline. A book converted badly. Below are the "
-        "pipeline's own flagged decisions (low confidence, a fall-through, or a step it declined), "
-        "the conversion stats, the audit verdict, the source, and the responsible module source. "
-        "Propose a MINIMAL fix to the responsible module.",
-    ]
+    parts = []
+
+    # ── 1. THE PROBLEM (lead with it) ────────────────────────────────────────────────────────────
+    if user_note:
+        parts.append("## What the reader says is wrong (human-spotted — weigh this heavily)\n"
+                     + user_note.strip()[:1500])
+    parts.append(_render_stats(st))
+    flagged_block = ["## Flagged decisions (assessment.json — where the pipeline was unsure or dropped work)"]
+    for r in flagged:
+        flagged_block.append(json.dumps({k: r.get(k) for k in
+                             ('module', 'code_ref', 'node_help', 'decision', 'rationale', 'margin',
+                              'considered', 'evidence')  # evidence carries e.g. unlinked_sample / the counts
+                             if r.get(k) is not None}, ensure_ascii=False, indent=2)[:2200])
+    parts.append("\n".join(flagged_block))
+    if art['assessment']:
+        parts.append("## Where it happened — this conversion's PATHWAY through the pipeline\n"
+                     "The ordered decisions this document took; ⚑ marks a FLAGGED node (the likely fault), and "
+                     "each line resolves to the real file to edit:\n"
+                     + "\n".join(_pathway_lines(art['assessment'], flagged)))
+
+    # ── 2. THE PIPELINE (orientation — every step is a file with a stated job) ────────────────────
+    struct = _pipeline_structure()
+    if struct:
+        parts.append("## The conversion pipeline — every step is a file with a stated job (folders ARE the tree)\n"
+                     "Don't read this as 'ingestion just converts to HTML' — ingestion does the hard, "
+                     "format-specific work: PDF classifies the physical footnote LAYOUT; EPUB detects the "
+                     "footnote markup SCHEME and recovers real headings + structure; etc. DIGESTION then selects "
+                     "a footnote strategy, extracts the definitions + the bibliography, links every marker and "
+                     "citation by ordered rules, and audits the result. The flagged node above lives in ONE of "
+                     "these files — read its one-line job to confirm it's the right place to fix:\n" + struct)
+
+    # ── 3. HOW TO LOCALIZE (reason before editing) ───────────────────────────────────────────────
     if art.get('is_pdf'):
-        parts.append("\n## IMPORTANT — this is a PDF; the OCR is REPLAYED FROM CACHE")
-        parts.append("The Mistral OCR output (ocr_response.json) is fixed and replayed — your fix is "
+        parts.append("## IMPORTANT — this is a PDF; the OCR is REPLAYED FROM CACHE\n"
+                     "The Mistral OCR output (ocr_response.json) is fixed and replayed — your fix is "
                      "validated by re-running mistral_ocr.py's ASSEMBLY (classify_footnotes, "
                      "assemble_markdown, renumber_page_footnotes, etc.) → simple_md_to_html → "
                      "process_document. Do NOT change the OCR call itself (fetch_ocr / extract_footer / "
                      "extract_header) — those only affect a fresh OCR and CANNOT be validated or applied "
                      "to this document.")
-    if user_note:
-        parts.append("\n## What the reader says is wrong (human-spotted — weigh this heavily)")
-        parts.append(user_note.strip()[:1500])
-    parts += [
-        "\n## Conversion stats (the symptom)",
-        json.dumps({k: st.get(k) for k in ('references_found', 'citations_total', 'citations_linked',
-                    'footnotes_matched', 'footnote_strategy', 'citation_style')}, ensure_ascii=False),
-        "\n## How to localize the cause — read the stats as a CAUSAL CHAIN and fix the EARLIEST cause",
+    parts.append(
+        "## How to localize the cause — read the stats as a CAUSAL CHAIN and fix the EARLIEST cause\n"
         "- `citations_linked` is DOWNSTREAM of `references_found`: a citation links ONLY if a matching "
         "bibliography entry exists. So `citations 0/158` with `references_found 1` means the link "
         "TARGETS are missing — the cause is bibliography extraction (bibliography.py) or a mis-detected "
@@ -416,44 +541,59 @@ def build_prompt(art, module_paths, user_note=None):
            "ASK: is the missing artifact ABSENT from the assembled markdown (→ cause is UPSTREAM in "
            "mistral_ocr ASSEMBLY: classify_footnotes / assemble_markdown) or PRESENT-but-unlinked (→ "
            "cause is the downstream linker)? Localize before editing.\n" if art.get('is_pdf') else "")
-        + "- Prefer the SMALLEST edit to the responsible DECISION function (op:edit). Adding a new "
-        "DocPass to DOC_PASSES is high-blast-radius and frequently crashes — reserve op:add for a "
-        "genuinely new phase, never as a way to patch a linking/extraction symptom.",
-        "\n## Flagged decisions (from assessment.json)",
-    ]
-    for r in flagged:
-        parts.append(json.dumps({k: r.get(k) for k in
-                     ('module', 'code_ref', 'node_help', 'decision', 'rationale', 'margin', 'considered')},
-                     ensure_ascii=False, indent=2))
-    parts.append("\n## Audit verdict (audit.json)")
-    parts.append(json.dumps({k: art['audit'].get(k) for k in
+        + "- Prefer the SMALLEST edit to the responsible DECISION function. Adding a new DocPass to "
+        "DOC_PASSES is high-blast-radius and frequently crashes — reserve a NEW phase for a genuinely new "
+        "phase, never as a way to patch a linking/extraction symptom.")
+
+    # ── 4. EVIDENCE from THIS document ───────────────────────────────────────────────────────────
+    parts.append("## Audit verdict (audit.json)\n" + json.dumps({k: art['audit'].get(k) for k in
                  ('total_refs', 'total_defs', 'gaps', 'unmatched_refs', 'unmatched_defs')},
                  ensure_ascii=False, default=str)[:2000])
     samples = _footnote_samples(art)
     if samples:
-        parts.append("\n## Actual footnote ref/definition lines from THIS document (what must link)")
-        parts.append(samples)
-        parts.append(
-            "Linking principle: if a marker carries an EXPLICIT target — href=\"#id\", or a definition "
-            "that back-links to the marker's id — pair them by that id correspondence, NOT by number. "
-            "Number-based pairing mis-aligns whenever numbering restarts or is offset across segments "
-            "(the orphaned defs here are numbered on a different base than the detected markers). A "
-            "mis-aligned link is worse than no link.")
+        parts.append("## Actual footnote ref/definition lines from THIS document (what must link)\n" + samples
+                     + "\n\nLinking principle: if a marker carries an EXPLICIT target — href=\"#id\", or a "
+                     "definition that back-links to the marker's id — pair them by that id correspondence, NOT "
+                     "by number. Number-based pairing mis-aligns whenever numbering restarts or is offset across "
+                     "segments. A mis-aligned link is worse than no link.")
     ctx = _markup_in_context(art)
     if ctx:
-        parts.append("\n## Markup in context (a reference + a definition INSIDE their block — the "
-                     "element nesting a fixed excerpt hides; for an EPUB also the RAW pre-conversion markup)")
-        parts.append(ctx)
-    if art['source']:
-        parts.append("\n## Source (truncated)")
-        parts.append(art['source'][:5000])
-    parts.append("\n## Responsible module source (you may edit any function in these files)")
+        parts.append("## Markup in context (a reference + a definition INSIDE their block — the element "
+                     "nesting a fixed excerpt hides; for an EPUB also the RAW pre-conversion markup)\n" + ctx)
+    refsec = _reference_section(art)
+    if refsec:
+        parts.append("## The document's reference section (the RAW region the bibliography extractor scanned)\n"
+                     "Count the entries HERE vs `references_found` above — if there are clearly more entries "
+                     "than were extracted, the bug is upstream in extraction; if there are genuinely few, the "
+                     "unlinked citations simply have no target (don't force a link).\n" + refsec)
+    if art.get('source'):
+        parts.append("## Converted document (head, truncated)\n" + art['source'][:5000])
+
+    # ── 5. FIX SHAPES (variant-gated — `lean` drops the menu to A/B against the self-describing tree) ─
+    if _prompt_variant() != 'lean':
+        parts.append(fix_categories.render_prompt_block(modules))
+
+    # ── 6. PRINCIPLE ─────────────────────────────────────────────────────────────────────────────
+    parts.append("## Principle\nUphold the modus operandi: correct where determinable, NO link where "
+                 "ambiguous — a wrong/misaligned link is WORSE than a missing one. Make the MINIMAL change "
+                 "that fixes the cause; don't rewrite whole functions to change a few lines.")
+    return parts
+
+
+def build_prompt(art, module_paths, user_note=None):
+    """The NATIVE engine prompt = the shared diagnostic context + the module SOURCE inlined (an API
+    completion can't read files) + the JSON-ops edit contract. The diagnosis is identical to the aider
+    engine's (vibe_aider.build_aider_message) — see build_diagnostic_context. (The engine is model-
+    agnostic: it runs whatever --model it's given; don't name it after a model.)"""
+    parts = ["You are improving a document-conversion pipeline. A book converted badly. Below are the "
+             "problem (what converted + where each number comes from), the pipeline's own flagged "
+             "decisions, the pipeline structure, the audit verdict, and the responsible module source."]
+    parts += build_diagnostic_context(art, module_paths, user_note)
+    parts.append("## Responsible module source (you may edit any function in these files)")
     for p in module_paths:
-        parts.append(f"\n--- {p} ---")
-        parts.append(open(os.path.join(REPO_ROOT, p), encoding='utf-8').read())
-    parts.append("\n" + fix_categories.render_prompt_block(module_paths))
+        parts.append(f"--- {p} ---\n" + open(os.path.join(REPO_ROOT, p), encoding='utf-8').read())
     parts.append(
-        "\n## Your task\n"
+        "## Your task\n"
         "Return STRICT JSON: {\"rationale\": str, \"functions\": [<edit>, ...]} where each <edit> is "
         "ONE change carrying an \"op\" (and an optional \"category\" = the fix-category id you used):\n"
         "  • op=\"edit\" — PREFER THIS for modifying existing code. {file, search, replace, name?}: "
@@ -467,9 +607,35 @@ def build_prompt(art, module_paths, user_note=None):
         "  • op=\"register\" — {file, name, code}: append to a module-level list/tuple — `name` is the "
         f"LIST name (only {sorted(REGISTERABLE_LISTS)}), `code` is the expression to append (e.g. \"MyDetector()\").\n"
         "`file` may only be app/Python/conversion/*.py or a shown front-end module. Combine edits if the "
-        "fix spans stages (op:add a detector + op:register it). Keep edits minimal. Uphold the modus "
-        "operandi: correct where determinable, NO link where ambiguous — never a confident wrong link.")
-    return "\n".join(parts)
+        "fix spans stages (op:add a detector + op:register it). Keep edits minimal.")
+    return "\n\n".join(parts)
+
+
+def _reference_section(art, span=1500):
+    """The RAW region of the converted document from the References/Bibliography heading onward — the same
+    place the bibliography extractor scanned (it uses these same REFERENCE_HEADERS). Lets the model COUNT
+    the entries that are actually there vs `references_found`, to tell an upstream extraction miss from a
+    document that genuinely has few references. Best-effort; '' if no heading or bs4 missing."""
+    src = art.get('source') or ''
+    if not src:
+        return ''
+    try:
+        from bs4 import BeautifulSoup
+        from digestion.bibliographyExtraction.bibliography import REFERENCE_HEADERS
+        text = BeautifulSoup(src, 'html.parser').get_text('\n', strip=True)
+    except Exception:
+        return ''
+    low = text.lower()
+    pos = -1
+    for kw in REFERENCE_HEADERS:
+        i = low.find('\n' + kw)            # a heading line that IS the keyword
+        if i != -1:
+            pos = i + 1
+            break
+        if low.startswith(kw):
+            pos = 0
+            break
+    return text[pos:pos + span] if pos != -1 else ''
 
 
 def _markup_in_context(art):
@@ -626,7 +792,7 @@ def _footnote_samples(art, n=14):
 
 
 # ---------------------------------------------------------------------------
-# 3. Get a candidate diff (mock file, or real Fireworks/DeepSeek)
+# 3. Get a candidate diff (mock file, or a real Fireworks API call)
 # ---------------------------------------------------------------------------
 def _dotenv(key, default=None):
     """Read KEY from os.environ, else the project .env (Laravel's gitignored secret store) —
@@ -643,8 +809,8 @@ def _dotenv(key, default=None):
 
 
 def _parse_llm_json(content):
-    """DeepSeek V4 Pro may wrap output in <think> reasoning and/or ```json fences. Strip
-    those and extract the {rationale, functions} object."""
+    """Reasoning models (e.g. DeepSeek V4 Pro) may wrap output in <think> reasoning and/or ```json
+    fences. Strip those and extract the {rationale, functions} object."""
     import re
     content = re.sub(r'<think>.*?</think>', '', content, flags=re.S)
     content = re.sub(r'<think>.*', '', content, flags=re.S)
@@ -1203,6 +1369,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
     it in a throwaway sandbox, re-converts THIS document, and evaluates. On failure it feeds
     the new result back to the LLM and tries again — up to max_attempts. The winning diff is
     written to <book_dir>/vibe_patch.diff so an 'accept' step can apply it. Returns (rc, diff)."""
+    model = model or DEFAULT_DEEPSEEK_MODEL          # --model None → this engine's default (see top)
     reset_usage()  # per-case token/cost accounting → snapshotted into the report by _finalize
     art = load_artifacts(book_dir)
     flagged = flagged_forks(art['assessment'])
@@ -1213,8 +1380,8 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
     phrase = _flagged_phrase(flagged)
     emit('start',
          f"Your document converted as: {_stat_summary(art['stats'])} — but the converter wasn't "
-         f"sure about {phrase}. DeepSeek V4 will reason about why, propose a pipeline fix, and "
-         f"test it on THIS document. This takes a minute or two per attempt (up to "
+         f"sure about {phrase}. The model ({_model_label(model)}) will analyse why, propose a pipeline "
+         f"fix, and test it on THIS document. This takes a minute or two per attempt (up to "
          f"{max_attempts}) — hang tight.",
          baseline=_stat_summary(art['stats']), flagged=sorted(base_flagged),
          modules=modules, max_attempts=max_attempts, user_note=bool(user_note))
@@ -1228,7 +1395,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
             _finalize(book_dir, art, journal, 'cancelled', best=best, file_issue=False)
             return 1, None
         emit('attempt',
-             f"DeepSeek V4 is using deep reasoning to work out {phrase}… "
+             f"The model ({_model_label(model)}) is working out {phrase}… "
              f"(attempt {attempt} of {max_attempts})",
              attempt=attempt, max_attempts=max_attempts)
         try:
@@ -1252,7 +1419,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
         _meta = {'categories': sorted({(f.get('category') or '?') for f in funcs}),
                  'ops': sorted({(f.get('op') or 'replace') for f in funcs})}
         emit('proposed',
-             f"DeepSeek V4 is proposing an update to the conversion pipeline "
+             f"The model ({_model_label(model)}) is proposing an update to the conversion pipeline "
              f"({', '.join(_touch) or 'no change'}): {patch.get('rationale', '')[:160]}",
              attempt=attempt, touches=_touch)
 
@@ -1339,8 +1506,8 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
     report = _finalize(book_dir, art, journal, 'exhausted', best=None, file_issue=file_issue)
     suffix = (f" Opened GitHub issue: {report['issue_url']}" if report.get('issue_url') else "")
     emit('exhausted',
-         f"DeepSeek V4 tried {max_attempts} different fixes but couldn't improve this document, "
-         f"so we've kept your original and logged it for a human to review.{suffix}",
+         f"The model ({_model_label(model)}) tried {max_attempts} different fixes but couldn't improve "
+         f"this document, so we've kept your original and logged it for a human to review.{suffix}",
          issue_url=report.get('issue_url'))
     return 1, None
 
@@ -1359,6 +1526,8 @@ def _finalize(book_dir, art, journal, outcome, best=None, file_issue=False):
     book_id = os.path.basename(os.path.normpath(book_dir))
     report = {
         'book': book_id,
+        'engine': 'native',  # the native (full-function-JSON) engine; the aider engine overwrites this
+        'prompt_variant': _prompt_variant(),  # full | lean — which prompt content was sent (for A/B)
         'outcome': outcome,  # clean | improved | exhausted
         'baseline': _stat_summary(art['stats']),
         'best': best['after'] if best else None,
@@ -1398,7 +1567,7 @@ def _report_markdown(report):
         f"**Baseline conversion:** {report['baseline']}  ",
         f"**Uncertain decision(s):** {', '.join(report['flagged']) or 'n/a'}",
         "",
-        "DeepSeek V4 reasoned about the failure and tried the following — each was validated by "
+        "The model reasoned about the failure and tried the following — each was validated by "
         "re-converting THIS document and rejected by the gate. This is a real conversion gap for a "
         "human to finish.",
         "",
@@ -1461,7 +1630,7 @@ def apply_patch_to_book(book_dir, patch_path=None):
     """'Use this conversion': apply the validated patch in a sandbox, re-convert THIS book, and copy
     the fresh artifacts into book_dir — regenerating this one book's output. Production code is never
     touched. Autodetects the patch format: a git DIFF (vibe_patch.diff, the aider engine) or
-    full-function JSON (vibe_patch.json, the deepseek engine)."""
+    full-function JSON (vibe_patch.json, the native engine)."""
     if not patch_path:
         for cand in ('vibe_patch.diff', 'vibe_patch.json'):
             p = os.path.join(book_dir, cand)
@@ -1510,9 +1679,13 @@ def main():
     ap.add_argument('--max-attempts', type=int, default=3, help="Retry cutoff (default 3).")
     ap.add_argument('--mock-diff', help="Use this diff file instead of the LLM (single attempt).")
     ap.add_argument('--print-prompt', action='store_true', help="Print the prompt and exit.")
-    ap.add_argument('--model', default='accounts/fireworks/models/deepseek-v4-pro',
-                    help="LLM model id (default: DeepSeek V4 Pro via Fireworks).")
+    ap.add_argument('--model', default=None,
+                    help="LLM model id via Fireworks. Unset → each engine's default (deepseek: V4 Pro; "
+                         "aider: gpt-oss-120b). Pass it to A/B the SAME model across both engines.")
     ap.add_argument('--user-note', help="The reader's own description of what's wrong (fed to the model).")
+    ap.add_argument('--prompt-variant', choices=['full', 'lean'], default=None,
+                    help="Prompt CONTENT variant to A/B: 'full' (default — includes the fix-category menu) "
+                         "or 'lean' (drops the menu, relying on the self-describing pipeline tree).")
     ap.add_argument('--json-progress', action='store_true',
                     help="Emit VIBE:{json} progress lines for the SSE controller to stream.")
     ap.add_argument('--progress-file', help="Append each progress beat (JSON line) here for polling.")
@@ -1525,8 +1698,9 @@ def main():
                          "(uses GITHUB_TOKEN from .env; dry-runs if absent).")
     ap.add_argument('--apply', metavar='PATCH',
                     help="'Use this conversion': apply PATCH + regenerate this book's artifacts.")
-    ap.add_argument('--engine', choices=['deepseek', 'aider'], default='deepseek',
-                    help="Edit-gen engine: 'deepseek' (our full-function loop, default) or 'aider' "
+    ap.add_argument('--engine', choices=['native', 'aider'], default='native',
+                    help="Edit-gen engine (NOT a model — runs whatever --model you pass): 'native' (our "
+                         "full-function-JSON loop, default) or 'aider' "
                          "(repo-map + search/replace + test-driven retry; needs VIBE_AIDER_BIN).")
     args = ap.parse_args()
 
@@ -1535,6 +1709,8 @@ def main():
     _PROGRESS_FILE = args.progress_file
     _CANCEL_FILE = args.cancel_file
     _DOCKER_IMAGE = args.docker
+    if args.prompt_variant:
+        os.environ['VIBE_PROMPT_VARIANT'] = args.prompt_variant   # read by build_diagnostic_context
 
     if args.apply:
         sys.exit(apply_patch_to_book(args.book_dir, args.apply))

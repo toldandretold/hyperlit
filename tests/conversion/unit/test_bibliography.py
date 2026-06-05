@@ -93,3 +93,47 @@ def test_collision_recorded_with_ambiguity_flag(soup):
     assert rec['module'] == 'bibliography_extraction'
     assert rec['evidence']['collisions_suffixed'] == 1
     assert rec['considered'] and 'a/b' in rec['considered'][0]['would_need']
+
+
+# ---------------------------------------------------------------------------
+# Reference DETECTION as a seam (Part C) — what is / isn't collected as a reference.
+# The per-paragraph predicate is_likely_reference is LOOSE by design (a within-section
+# filter); _find_reference_paragraphs is the real seam — it gates the predicate behind a
+# References heading (or a reverse scan). These pin that gating, and the looseness it covers.
+# ---------------------------------------------------------------------------
+from digestion.bibliographyExtraction.bibliography import _find_reference_paragraphs, is_likely_reference
+
+
+def test_predicate_alone_is_loose_so_the_seam_must_gate_it(soup):
+    # A body sentence with an in-text "(Author Year)" LOOKS reference-like to the bare predicate
+    # (capitalised start + a year). This is WHY _find_reference_paragraphs gates it behind a heading —
+    # the predicate alone must NOT be trusted on arbitrary body prose.
+    prose = soup('<p>Smith (1999) argued that markets fail under information asymmetry.</p>').p
+    assert is_likely_reference(prose) is True   # loose in isolation — documents the looseness
+
+
+def test_seam_excludes_body_prose_outside_the_references_section(soup):
+    # The same prose sentence, sitting in the body BEFORE a real References heading, must NOT be
+    # collected — only the entries under the heading are.
+    s = _doc(soup,
+             '<h2>Discussion</h2>'
+             '<p>Smith (1999) argued that markets fail under information asymmetry.</p>'
+             '<h2>References</h2>'
+             '<p>Ostrom, E. (1990). Governing the Commons. CUP.</p>')
+    tags, used_reverse = _find_reference_paragraphs(s)
+    collected = [t.get_text(' ', strip=True) for t in tags]
+    assert any('Ostrom' in c for c in collected)            # the real entry IS collected
+    assert not any('markets fail' in c for c in collected)  # the body prose is NOT
+    assert used_reverse is False                            # found via the heading, not the fallback
+
+
+def test_seam_skips_non_reference_paragraph_under_the_heading(soup):
+    # A lowercase / yearless paragraph sitting under the References heading is not a reference.
+    s = _doc(soup,
+             '<h2>References</h2>'
+             '<p>see the appendix for the full dataset.</p>'
+             '<p>Ostrom, E. (1990). Governing the Commons. CUP.</p>')
+    tags, _ = _find_reference_paragraphs(s)
+    collected = [t.get_text(' ', strip=True) for t in tags]
+    assert any('Ostrom' in c for c in collected)
+    assert not any('appendix' in c for c in collected)

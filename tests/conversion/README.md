@@ -18,6 +18,55 @@ conversion" possible.
 
 ---
 
+## 0. Guiding philosophy — we flag suspicion, we never assert failure
+
+This is the principle the whole test + vibe-loop layer is built on. Read it before adding any
+assessment signal.
+
+**A system cannot reliably grade its own output.** A general "did this conversion fail?" oracle is a
+fool's errand — the honest judge of whether a conversion is *good* is a **human** (the user). So we do
+**not** build a failure detector. We never emit "this **is** broken." We only ever emit "this
+**might** be broken" — **a suspicion plus a question, never a verdict.**
+
+**A flag is a report handed to an investigator, framed as a question.** When we surface something, the
+message to the vibe-conversion loop is: *"we think text-conversion or citation/footnote linking might
+have failed here — we're not sure. Go read the actual text and decide whether this really is an
+in-text-citation ↔ bibliography pair (or a real footnote marker ↔ definition pair)."* The flag opens
+an investigation; it does not close a case.
+
+**We only flag the narrow, falsifiable cases — where a genuine contradiction exists.** Not "this looks
+off" vibes. Concretely: *a bibliography was extracted, yet an in-text candidate that is **citation-
+shaped** failed to resolve to it.* That disagreement (looks-like-a-citation **and** didn't-link) is
+real evidence something upstream — bibliography extraction or OCR — may be wrong. It is **not** derivable
+from the link result alone: "0 linked" is ambiguous between *no real citations* (prose-years like
+`(November 2000)` — correct to ignore) and *real citations that failed to resolve* (a broken target
+list). The shape predicate is the **independent** bit that tells those apart, so it points the
+investigation **upstream**, not at the linker (whose unit tests already pin it).
+
+**Two symmetric triggers, one machinery.** The same investigation path serves both:
+
+| trigger | how it fires | example |
+|---|---|---|
+| **system-suspicion** | the narrow falsifiable contradictions, emitted as flagged forks | bib present + citation-shaped-but-unmatched; defs extracted but 0 markers linked **and** the guard didn't deliberately suppress |
+| **human-in-the-loop** *(UX planned)* | the user reports a defect | a picker — *citations not matched · footnotes not matched · citations wrongly matched · footnotes wrongly matched · free-text* |
+
+Either way, resolution is the same: **compare the complaint against the decisions *this* conversion
+actually recorded** — the per-unit emissions (§2) + the decision tree (`PIPELINE_MAP.md`). An AI (or a
+human) re-litigates the specific forks the complaint implicates.
+
+**This is *why* the unit-tested detection units + emissions are essential** — they are the **substrate**
+both triggers reason over. A detection predicate (e.g. `_is_citation_shaped`) earns its keep two ways:
+as a **deterministically unit-tested unit** (does "what counts as a citation" behave correctly,
+independent of any failure claim), and as the bit that **disambiguates** the one honest contradiction
+above. Without these emissions, every complaint — system or human — is just "it's broken *somewhere*,"
+with nothing to bite on.
+
+**Corollary for anyone adding a signal:** emit *"might — please check X,"* never *"is."* A fork is a
+hypothesis to be checked, not a defect to be reported. If you can't state the falsifiable contradiction
+it rests on, it isn't a flag — it's a vibe, and it doesn't belong here.
+
+---
+
 ## 1. The pipeline is modular (every decision is an open/closed registry)
 
 The conversion core lives in `app/Python/`. Each decision point is now an **ordered registry of small,
@@ -30,6 +79,12 @@ rule** (`op:add` + `op:register`), never by editing a monolith. Bases: `conversi
   `FOOTNOTE_LINK_RULES`), `mistral_ocr.py` (PDF → `main-text.md`; `PDF_CLASSIFIERS` pick the footnote
   **layout**, `PDF_ASSEMBLERS` assemble it), `simple_md_to_html.py` (Markdown), `ar5iv_preprocessor.py`
   (arXiv HTML), `strip_docx_metadata.py` (Word → pandoc).
+  > `epub_normalizer.py` and `mistral_ocr.py` are now **orchestrators + re-exports** — each phase lives in
+  > its own sibling file (folders mirror the tree): epub → `structuralNormalisation`/`headingMatching`/
+  > `footnoteMatching`/`bibliographyDetection`/`finalNormalisation` (+ `epub_base` leaf); pdf →
+  > `pdf_shared` leaf/`ocrFetch`/`classification`/`assembly`/`recovery`. The generated
+  > `PIPELINE_STRUCTURE.generated.md` is the live file/folder map; `assessment.json` code_refs point at the
+  > real phase file so a vibe fix lands there.
 - **`process_document.py`** — the shared **backend**: a `DOC_PASSES` registry of ~14 `DocPass` units
   (load → [STEM] → extract bibliography → strategy → extract footnotes → link citations → link
   footnotes → audit → node-gen → sanitise/write). `main()` is now a thin shell.
@@ -233,11 +288,11 @@ noise with the `vibe-conversion` / `conversion-bug` labels.
 
 ## 7. Co-evolution harness — improving the code **and** the prompt
 
-The vibe loop fixing one doc is downstream of a bigger question: *when DeepSeek can't fix a
+The vibe loop fixing one doc is downstream of a bigger question: *when the model can't fix a
 document, why not — and what would make it able to?* The co-evolution harness runs a **corpus** of
 problem files, then **Claude (in-session)** diagnoses each failure and improves **both** the
 conversion code **and** the report+prompt we hand the model. Re-running the corpus *measures*
-whether DeepSeek's success rate rose.
+whether the model's success rate rose.
 
 ### The living fix-category registry — `fix_categories.json` (+ `conversion/fix_categories.py`)
 
@@ -246,13 +301,13 @@ add-a-strategy-fork, add-a-pipeline-pass, fix-keygen, fix-segmentation, …). Ea
 `scope` (model | harness | disposition), `expressible` (replace | additive), and a per-module
 `recipe`. It is consumed two ways:
 
-- **`build_prompt` renders the model-scope categories into DeepSeek's prompt** — a menu of
+- **`build_prompt` renders the model-scope categories into the model's prompt** — a menu of
   fix-shapes + the op vocabulary, ★-marking the shapes most likely for the modules being sent.
 - **Post-mortems tag each failure with a category id** — and when a failure's shape isn't on the
   list yet, Claude **appends a new category** (`fix_categories.append_category(...)`). The list
   grows through use; its convergence is a signal the corpus is well-covered.
 
-### Additive patch ops — DeepSeek can now ADD code, not just replace it
+### Additive patch ops — the model can now ADD code, not just replace it
 
 The patch format gained an `op` per edit (`{file, name, code, op, category}`):
 
@@ -279,23 +334,42 @@ the gate, the corpus, the taxonomy, the cost meter) is shared; you vary the **ed
 
 | flag | values (default **bold**) | effect |
 |---|---|---|
-| `--engine` | **`deepseek`** · `aider` | native full-function-JSON proposer vs the aider search/replace + test-driven loop |
-| `--model` | **`accounts/fireworks/models/deepseek-v4-pro`** · `…/gpt-oss-120b` · any Fireworks id | the LLM (same key `LLM_API_KEY`). gpt-oss-120b is ~seconds/call; v4-pro reasons harder but is slow and **truncates JSON on big prompts** |
+| `--engine` | **`native`** · `aider` | edit MECHANISM (not a model): the native full-function-JSON proposer vs the aider search/replace + test-driven loop |
+| `--model` | **unset → each engine's default** (deepseek → v4-pro · aider → gpt-oss-120b) · any Fireworks id | the LLM (key `LLM_API_KEY`). gpt-oss-120b is ~seconds/call; v4-pro reasons harder but is slow and **truncates JSON on big prompts** |
 | `--no-vibe` / `--no-llm` | — | convert+scaffold only (no tokens) / re-score from the prompt-hash cache (free) |
 | `--max-attempts` | **3** | bounded retries; each failure feeds stats/traceback back |
 
-> ⚠️ **Gotcha (cost us real time):** `--model` is threaded into *both* engines and **overrides the
-> aider engine's gpt-oss default**. So `--engine aider` alone still runs **deepseek-v4-pro**. To
-> actually run gpt-oss you must pass `--engine aider --model accounts/fireworks/models/gpt-oss-120b`
-> (or the native engine: just `--model …/gpt-oss-120b`). aider lives in a venv —
-> `_aider_bin()` auto-resolves `/tmp/aider-venv/bin/aider` or `VIBE_AIDER_BIN`.
+> 🔬 **Controlled-experiment design.** Both engines send the **identical diagnostic context**
+> (`vc.build_diagnostic_context` — stats, causal-chain localization, flagged decisions *with* `node_help`,
+> audit, samples, markup, the pipeline tree + this conversion's pathway, fix-categories). Only the
+> **edit mechanism** differs — native: JSON ops + the module source inlined (an API call can't read files);
+> aider: a diff loop driven by `--test-cmd`, reading files via its repo-map. So `--engine` is a clean A/B.
+> `--model` now defaults to **unset** and cleanly overrides **either** engine — pass it to run the SAME
+> model on both (true all-else-equal LLM A/B); leave it off to let each engine use its default. A no-drift
+> unit test (`test_both_engines_send_IDENTICAL_diagnostic_context`) fails if a diagnostic section drifts
+> into only one builder. aider lives in a venv — `_aider_bin()` auto-resolves `/tmp/aider-venv/bin/aider`
+> or `VIBE_AIDER_BIN`.
+
+> 🛑 **aider IS installed — do NOT conclude otherwise from `which aider`.** It lives in a dedicated
+> venv at **`/tmp/aider-venv/bin/aider`** (a 179-byte launcher), which is **not on `$PATH`** — so
+> `which aider`, `shutil.which('aider')`, and `find ~ -name aider` all come up empty and are MEANINGLESS
+> here. Likewise the model key is **`LLM_API_KEY` in `.env`** (→ Fireworks), not an env var, so
+> `printenv FIREWORKS_API_KEY` is also a false negative. **Verify prerequisites the way the code does,
+> never with shell probes:**
+> ```bash
+> python3 -c "import sys; sys.path.insert(0,'app/Python'); import vibe_aider as a; print(a._aider_bin())"   # -> the aider path
+> python3 -c "import sys; sys.path.insert(0,'app/Python'); import vibe_convert as v; print(bool(v._dotenv('LLM_API_KEY')))"  # -> True
+> ```
+> (Root cause of the false alarm: the Bash tool runs a **non-interactive** shell whose `$PATH` lacks
+> venv/pipx dirs the interactive zsh has. When a tool "isn't found," resolve it through the codebase's
+> own resolver before believing it's absent.)
 
 For each `corpus/<case>/` (drop-zone; **git-ignored**, see `corpus/README.md`) it converts via the
 reused `run_regression` pathway runners, runs the loop (responses **cached by prompt-hash**, so a
 non-prompt re-run is free and a prompt change re-calls), and writes:
 
 - `corpus/<case>/converted/` — the fresh artifacts,
-- `corpus/<case>/postmortem.md` — an auto-scaffolded stub (symptom · flagged forks · what DeepSeek
+- `corpus/<case>/postmortem.md` — an auto-scaffolded stub (symptom · flagged forks · what the model
   tried, incl. the `op`/`category` it reached for and an `inexpressible` flag) with a `## Judgement`
   section **Claude fills in-session** (preserved across re-runs),
 - `vibe_eval_report.{md,json}` — the **scoreboard** across all cases.
@@ -317,13 +391,16 @@ the CLI**, reads each run and writes the post-mortem: `defect` · `ultimate_solu
 A solved case is **promoted to `fixtures-local/`** with a manifest (`expected.footnote_links`) — the
 win freezes into a permanent objective regression test.
 
-### Edit-gen engines: `deepseek` (default) vs `aider`
+### Edit-gen engines: `native` (default) vs `aider`
 
-The vibe loop has two interchangeable **edit-gen engines** (`--engine`, default `deepseek`); the rest
-of the scaffold (assessment routing, the gate, corpus runner, taxonomy, cost meter) is shared:
+The vibe loop has two interchangeable **edit-gen engines** (`--engine`, default `native`) — an engine
+is a fix-application MECHANISM, **not a model** (each runs whatever `--model` you give it; see §Run
+modes). The rest of the scaffold (assessment routing, the gate, corpus runner, taxonomy, cost meter)
+is shared, and both send the **identical** diagnostic context (`build_diagnostic_context`):
 
-- **`deepseek`** — our `propose_patch` (full-function JSON) + `apply_function_replacements` (op:
+- **`native`** — our `propose_patch` (full-function JSON) + `apply_function_replacements` (op:
   replace/add/register/edit). Tight JSON contract + path-allowlist + dangerous-scan *before* apply.
+  Default model: `deepseek-v4-pro`.
 - **`aider`** — [aider](https://aider.chat) (Apache-2.0) edits the sandbox via **repo-map +
   search/replace + a test-driven retry loop**, where **our `_reconvert` + `evaluate` gate is its
   `--test-cmd`** (`app/Python/vibe_aider_gate.py`). Better at coordinated multi-edit structural fixes
@@ -334,7 +411,10 @@ of the scaffold (assessment routing, the gate, corpus runner, taxonomy, cost met
   `vibe_patch.diff`; `apply_patch_to_book` autodetects diff vs JSON on accept.
 
 ```bash
-python3 tests/conversion/vibe_eval.py --case <broken> --engine aider   # A/B vs --engine deepseek
+python3 tests/conversion/vibe_eval.py --case <broken> --engine aider   # A/B vs --engine native
+# all-else-equal: same model on both engines → isolate the MECHANISM
+python3 tests/conversion/vibe_eval.py --case <broken> --engine native --model accounts/fireworks/models/gpt-oss-120b
+python3 tests/conversion/vibe_eval.py --case <broken> --engine aider  --model accounts/fireworks/models/gpt-oss-120b
 ```
 
 **Security:** aider runs on the **host** (it needs network for the model) editing a throwaway sandbox

@@ -89,3 +89,79 @@ def test_dot_style_marker_accepted():
     _, data = _whole('<p>[1]. A footnote written with a dot.</p>')
     assert len(data) == 1
     assert 'dot' in data[0]['content']
+
+
+# ---------------------------------------------------------------------------
+# _is_footnote_definition — the DETECTION predicate (what counts as a definition).
+# One place decides "is this line a footnote definition?"; both strategies call it.
+# ---------------------------------------------------------------------------
+import pytest as _pytest
+from digestion.footnoteExtraction.footnotes import (
+    _is_footnote_definition, _record_extraction_fork,
+)
+
+
+@_pytest.mark.parametrize('text', [
+    '[1]: a note',          # bracket + colon
+    '[^1]: a note',         # caret bracket + colon
+    '[12]. a note',         # bracket + period
+    '^1: a note',           # bare caret marker + colon
+    '[5] Smith, A. (1990)', # colon-less "[N] Capital" form
+])
+def test_is_footnote_definition_accepts_real_openers(text):
+    assert _is_footnote_definition(text) is True, f'should be a definition opener: {text!r}'
+
+
+@_pytest.mark.parametrize('text', [
+    'An ordinary sentence of prose.',
+    'See [1] for details.',          # a marker mid-sentence, not an opener
+    '[1]',                           # a bare marker with no body
+    'Smith, William. 1990. A book.', # a bibliography entry, not number-marker shaped
+    '',
+])
+def test_is_footnote_definition_rejects_non_definitions(text):
+    assert _is_footnote_definition(text) is False, f'must NOT be a definition opener: {text!r}'
+
+
+# ---------------------------------------------------------------------------
+# The extraction fork (a SUSPICION signal — README §0). It records what was
+# extracted; it FLAGS only the falsifiable contradiction (def-shaped lines that
+# weren't extracted and weren't bibliography-excluded).
+# ---------------------------------------------------------------------------
+def _last_extraction_record():
+    from shared.assessment import ASSESSMENT
+    recs = [r for r in ASSESSMENT.records if r['module'] == 'footnote_extraction']
+    return recs[-1] if recs else None
+
+
+def test_extraction_fork_is_recorded_and_not_flagged_on_clean_doc():
+    from shared.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    _whole('<p>[^1]: A real footnote.</p><p>[^2]: Another one.</p>')
+    rec = _last_extraction_record()
+    assert rec is not None, 'footnote extraction must emit a fork'
+    assert rec['evidence']['defs_extracted'] == 2
+    assert rec['evidence']['dropped'] == 0
+    assert rec['confidence'] == 0.9          # no contradiction → not flagged
+
+def test_extraction_fork_does_not_flag_bibliography_exclusion():
+    # a "[26]:" line under a Bibliography heading is deliberately excluded — that is NOT a fault.
+    from shared.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    _whole('<p>[^1]: A real footnote.</p>'
+           '<h2>Bibliography</h2><p>[26]: Miller, William Ian; 1990.</p>')
+    rec = _last_extraction_record()
+    assert rec['evidence']['excluded_under_bibliography'] == 1
+    assert rec['evidence']['dropped'] == 0
+    assert rec['confidence'] == 0.9          # deliberate exclusion, not a contradiction
+
+def test_extraction_fork_flags_when_shaped_line_dropped():
+    # a directly-fed contradiction: 5 def-shaped candidates, 2 extracted, none bibliography-excluded.
+    from shared.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    _record_extraction_fork('whole_document', 'footnotes.py:process_whole_document_footnotes',
+                            def_candidates=5, defs_extracted=2, excluded_in_bib=0)
+    rec = _last_extraction_record()
+    assert rec['evidence']['dropped'] == 3
+    assert rec['confidence'] < 0.5           # shaped-but-unextracted → flagged as a suspicion
+    assert 'MIGHT' in rec['margin']          # phrased as a hypothesis, never a verdict

@@ -64,13 +64,15 @@ def test_audit_with_a_gap_is_a_problem():
 
 
 def test_footnote_linking_orphans_are_flagged_and_route_to_the_linker():
-    # The signal that was missing: definitions DETECTED but never LINKED (FootnoteConverter).
-    rec = {'module': 'footnote_linking', 'code_ref': 'epub_normalizer.py:FootnoteConverter.convert',
+    # The signal that was missing: definitions DETECTED but never LINKED (FootnoteConverter, which lives
+    # in footnoteMatching.py after the phase-split — the code_ref points there).
+    rec = {'module': 'footnote_linking', 'code_ref': 'footnoteMatching.py:FootnoteConverter.convert',
            'decision': '239 linked; 238 ORPHANED', 'confidence': 0.0,
            'evidence': {'detected_footnotes': 239, 'orphaned_defs': 238, 'linked': 239}}
     assert v._is_problem(rec) is True
     mods = v.modules_for([rec], {'is_epub': True})
-    assert v._real_path('epub_normalizer.py') in mods  # routed to the LINKER, not the detectors
+    assert v._real_path('footnoteMatching.py') in mods   # routed to where FootnoteConverter lives
+    assert v._real_path('footnote_link_rules.py') in mods  # + the linker (decomposition sibling)
 
 
 def test_footnote_linking_moderate_orphan_share_is_flagged():

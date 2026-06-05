@@ -14,8 +14,70 @@ import time
 from bs4 import NavigableString
 
 from shared.sanitize import get_element_html_content
+from shared.assessment import ASSESSMENT
 from digestion.strategySelection.strategy import _BIBLIOGRAPHY_HEADING_RE
 from digestion.footnoteLinking.footnote_link_rules import link_marker_footnotes
+
+
+# Human-readable `plain` note for the footnote-extraction tree node (single source — node_help +
+# generator + LLM failure prompt + the visual tree).
+_FOOTNOTE_EXTRACTION_PLAIN = (
+    "Decides which lines ARE footnote definitions: a line starting with [N]: / [^N]: / ^N: (a number "
+    "marker then a colon/period and text). Lines under a Bibliography/References heading are deliberately "
+    "excluded (those are citations, not footnotes). Collects each definition (plus its continuation "
+    "paragraphs) into the map the linker later wires to in-text markers."
+)
+
+# A footnote DEFINITION opener: "[1]:", "[^1].", "^1:" (a number marker + colon/period + text), or the
+# colon-less "[1] Capitalised…" form. This is the single detection predicate for what COUNTS as a
+# footnote definition — kept in one place so it is testable and both strategies agree.
+_FOOTNOTE_DEFINITION_RE = re.compile(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]')
+
+
+def _is_footnote_definition(text):
+    """Does this element's text OPEN a footnote definition? True for "[1]: note", "[^1]. note",
+    "^1: note", and the colon-less "[1] Note"; False for ordinary prose, a bare "[1]" with no body,
+    and bibliography entries that aren't number-marker shaped. The one place "what is a footnote
+    definition" is decided (both extraction strategies call it)."""
+    return bool(_FOOTNOTE_DEFINITION_RE.search((text or '').strip()))
+
+
+def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, excluded_in_bib):
+    """Emit the footnote-extraction decision-trace fork (a SUSPICION signal, never a verdict — see
+    README §0). Counts every line that LOOKED like a footnote definition (`def_candidates`), how many
+    became definitions, and how many were deliberately excluded under a Bibliography heading. The
+    falsifiable contradiction is `dropped` > 0: candidates that were NOT bibliography-excluded yet still
+    didn't extract — usually the colon-less "[5] Smith" form (detected, but the number+content parse
+    requires a colon/period), or a genuine bug. That's the only case we flag."""
+    dropped = max(0, def_candidates - excluded_in_bib - defs_extracted)
+    if dropped > 0:
+        confidence = 0.4
+        margin = (f'{dropped} line(s) looked like footnote definitions but were NOT extracted (and were '
+                  f'not under a Bibliography heading) — MIGHT be the colon-less "[5] Note" form or a parse '
+                  f'gap; please check the source text near those markers.')
+    else:
+        confidence = 0.9
+        margin = (f'every non-bibliography definition-shaped line ({defs_extracted}) was extracted; '
+                  f'{excluded_in_bib} bibliography-style "[N]:" line(s) deliberately excluded as citations'
+                  if excluded_in_bib else f'all {defs_extracted} definition-shaped line(s) extracted')
+    ASSESSMENT.record(
+        module='footnote_extraction', code_ref=code_ref,
+        node_help=_FOOTNOTE_EXTRACTION_PLAIN,
+        decision=f'extracted {defs_extracted} footnote definition(s) via {strategy}',
+        rationale='a line is a footnote definition when it opens with a [N]: / [^N]. / ^N: number marker '
+                  '(or the colon-less "[N] Capital" form); lines under a Bibliography/References heading '
+                  'are excluded as citations, not footnotes',
+        evidence={'strategy': strategy, 'def_candidates': def_candidates,
+                  'defs_extracted': defs_extracted, 'excluded_under_bibliography': excluded_in_bib,
+                  'dropped': dropped},
+        question='Which lines are footnote definitions (vs prose / bibliography entries)?',
+        considered=([{'option': 'treat the dropped definition-shaped lines as footnotes',
+                      'rejected_because': 'they matched the definition opener but not the number+content '
+                                          'parse (which requires a colon/period after the marker)',
+                      'would_need': 'a colon/period after the "[N]" marker, or a parser that accepts '
+                                    'the colon-less "[N] Text" form'}] if dropped > 0 else []),
+        confidence=confidence, margin=margin)
+
 
 def process_whole_document_footnotes(soup, book_id):
     """Process footnotes when all definitions are at document end.
@@ -38,16 +100,19 @@ def process_whole_document_footnotes(soup, book_id):
     # cross-essay) note. Excluding them keeps us honest: correct where determinable,
     # no link where ambiguous.
     footnote_starts = []
+    def_candidates = 0      # elements whose text OPENS a footnote definition (before bibliography exclusion)
+    excluded_in_bib = 0     # of those, deliberately skipped because under a Bibliography/References heading
     in_bibliography = False
     for i, element in enumerate(all_elements):
         if element.name in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
             in_bibliography = bool(_BIBLIOGRAPHY_HEADING_RE.search(element.get_text()))
             continue
-        if in_bibliography:
-            continue
-        text = element.get_text().strip()
         # Check if this element starts a footnote definition
-        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+        if _is_footnote_definition(element.get_text()):
+            def_candidates += 1
+            if in_bibliography:
+                excluded_in_bib += 1   # a citation under a References heading — deliberately NOT a footnote
+                continue
             footnote_starts.append(i)
 
     # Second pass: process each footnote with its continuation elements
@@ -108,6 +173,8 @@ def process_whole_document_footnotes(soup, book_id):
         footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
 
     print(f"Found {len(footnote_map)} footnote definitions in whole-document mode")
+    _record_extraction_fork('whole_document', 'footnotes.py:process_whole_document_footnotes',
+                            def_candidates, len(footnote_map), excluded_in_bib)
     return footnote_map, footnotes_data
 
 
@@ -128,6 +195,7 @@ def process_sequential_footnotes(soup, book_id):
     # until the next def marker or end of document
     sequential_footnote_map = {}  # section_number -> {identifier -> footnote_data}
     all_footnotes_data = []
+    def_candidates = 0  # elements opening a footnote definition across all sections (for the fork)
 
     for marker_idx, marker in enumerate(def_markers):
         section_number = marker.get('id', '').replace('fnDefSection_', '')
@@ -147,8 +215,8 @@ def process_sequential_footnotes(soup, book_id):
         for i, element in enumerate(range_elements):
             if element.name == 'a':
                 continue  # Skip anchor markers
-            text = element.get_text().strip()
-            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S|^\s*\[\^?\d+\]\s+[A-Z]', text):
+            if _is_footnote_definition(element.get_text()):
+                def_candidates += 1
                 footnote_starts.append(i)
 
         for j, start_idx in enumerate(footnote_starts):
@@ -201,6 +269,8 @@ def process_sequential_footnotes(soup, book_id):
 
     total = sum(len(s) for s in sequential_footnote_map.values())
     print(f"Found {total} footnote definitions in sequential mode across {len(sequential_footnote_map)} sections")
+    _record_extraction_fork('sequential', 'footnotes.py:process_sequential_footnotes',
+                            def_candidates, total, 0)
     return sequential_footnote_map, all_footnotes_data
 
 

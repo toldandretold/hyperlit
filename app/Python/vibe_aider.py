@@ -31,6 +31,12 @@ DEFAULT_AIDER_MODEL = 'accounts/fireworks/models/gpt-oss-120b'
 _META = os.path.join(vc.PY_DIR, 'aider_model_metadata.json')
 
 
+def _model_label(model):
+    """Short display name for the ACTUAL model in use (e.g. 'gpt-oss-120b') — so progress/usage never
+    mislabel the run (it used to hardcode 'DeepSeek V4' even on a gpt-oss run)."""
+    return (model or DEFAULT_AIDER_MODEL).rsplit('/', 1)[-1]
+
+
 def _aider_bin():
     """The aider executable: VIBE_AIDER_BIN, else on PATH, else a common dev venv. None if absent."""
     cand = os.environ.get('VIBE_AIDER_BIN') or shutil.which('aider')
@@ -60,40 +66,15 @@ def _git_diff(sandbox):
 # The diagnostic task message (reuses vibe_convert's helpers; no op/JSON contract — aider edits)
 # ---------------------------------------------------------------------------
 def build_aider_message(art, modules, user_note=None):
-    flagged = vc.flagged_forks(art['assessment'])
-    st = art['stats']
-    parts = [
-        "A document converted badly and you are fixing the conversion PIPELINE so it converts THIS "
-        "document correctly. A test command (--test-cmd) re-converts this exact document and checks "
-        "the result; iterate until it PASSES. Modus operandi: correct where determinable, NO link "
-        "where ambiguous — a wrong/misaligned link is WORSE than a missing one. Make the MINIMAL "
-        "change that makes the test pass; don't rewrite whole functions to change a few lines.",
-    ]
-    if art.get('is_pdf'):
-        parts.append("This is a PDF: the OCR is replayed from cache — do NOT change the OCR fetch "
-                     "(fetch_ocr/extract_footer/extract_header); fix only the assembly/linking stages.")
-    if user_note:
-        parts.append("## What the reader says is wrong (weigh heavily)\n" + user_note.strip()[:1500])
-    parts.append("## Conversion stats (the symptom)\n" + json.dumps(
-        {k: st.get(k) for k in ('references_found', 'citations_total', 'citations_linked',
-         'footnotes_matched', 'footnote_strategy', 'citation_style')}, ensure_ascii=False))
-    if flagged:
-        parts.append("## Flagged decisions (assessment.json — where the pipeline was unsure or a step dropped work)")
-        for r in flagged:
-            parts.append(json.dumps({k: r.get(k) for k in
-                         ('module', 'code_ref', 'decision', 'rationale', 'margin', 'considered')},
-                         ensure_ascii=False, indent=2))
-    parts.append("## Audit verdict\n" + json.dumps({k: art['audit'].get(k) for k in
-                 ('total_refs', 'total_defs', 'gaps', 'unmatched_refs', 'unmatched_defs')},
-                 ensure_ascii=False, default=str)[:2000])
-    samples = vc._footnote_samples(art)
-    if samples:
-        parts.append("## Actual footnote ref/definition lines from THIS document\n" + samples)
-    ctx = vc._markup_in_context(art)
-    if ctx:
-        parts.append("## Markup in context (the element nesting a fixed excerpt hides; for an EPUB "
-                     "also the RAW pre-conversion markup)\n" + ctx)
-    parts.append(fix_categories.render_prompt_block(modules))
+    """aider engine prompt = the SHARED diagnostic context (vc.build_diagnostic_context — IDENTICAL to
+    what the native engine sends) + a repo-map pointer instead of inlined source (aider reads files
+    itself) and NO op contract (aider edits via diff, driven by `--test-cmd`). So native-vs-aider is a
+    controlled A/B: same diagnosis, different edit mechanism. Edit a diagnostic section in
+    build_diagnostic_context, NOT here — here is only aider's mechanism framing."""
+    parts = ["A document converted badly and you are fixing the conversion PIPELINE so it converts THIS "
+             "document correctly. A test command (--test-cmd) re-converts this exact document and checks "
+             "the result; iterate until it PASSES. Make the MINIMAL change that makes the test pass."]
+    parts += vc.build_diagnostic_context(art, modules, user_note)
     parts.append("## Where the responsible code lives\n" + "\n".join(f"- {m}" for m in modules)
                  + "\nThese files are in the chat; read whatever else you need via the repo map.")
     return "\n\n".join(parts)
@@ -120,7 +101,7 @@ def _validate_diff(diff):
     return True, "ok"
 
 
-def _parse_usage(log):
+def _parse_usage(log, model):
     """Best-effort: pull aider's reported tokens/cost from its stdout for the scoreboard. Handles
     abbreviated tokens ('2.6k sent', '57,714 sent') and the 'Cost: $x message, $y session' line
     (the SESSION figure is the running total — don't double-count message+session)."""
@@ -136,7 +117,7 @@ def _parse_usage(log):
     return {'prompt_tokens': pt, 'completion_tokens': ct, 'total_tokens': pt + ct,
             'calls': max(len(re.findall(r'Tokens:', log)), 1), 'cached_calls': 0,
             'cost_usd': (round(cost, 4) if cost is not None else None),
-            'model': 'aider/' + DEFAULT_MODEL}
+            'model': 'aider/' + (model or DEFAULT_AIDER_MODEL)}
 
 
 def _journal_from(log, diff, touched_summary):
@@ -156,10 +137,11 @@ def _journal_from(log, diff, touched_summary):
 # ---------------------------------------------------------------------------
 # The engine entry point — mirrors run_loop's contract
 # ---------------------------------------------------------------------------
-def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None, file_issue=False):
+def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_issue=False):
     vc.reset_usage()
-    # aider runs its own retry loop → use a FAST model (the passed `model` is the deepseek-loop default).
-    model = os.environ.get('VIBE_AIDER_MODEL') or DEFAULT_AIDER_MODEL
+    # Model precedence: an explicit `--model` wins (so you can A/B the SAME model on both engines),
+    # then VIBE_AIDER_MODEL, then aider's fast default (gpt-oss-120b — aider runs its own retry loop).
+    model = model or os.environ.get('VIBE_AIDER_MODEL') or DEFAULT_AIDER_MODEL
     art = vc.load_artifacts(book_dir)
     flagged = vc.flagged_forks(art['assessment'])
     modules = vc.modules_for(flagged, art) or vc.modules_for(art['assessment'], art)
@@ -171,7 +153,7 @@ def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None
         return 1, None
 
     vc.emit('start',
-            f"Your document converted as: {vc._stat_summary(art['stats'])} — aider (DeepSeek V4) will "
+            f"Your document converted as: {vc._stat_summary(art['stats'])} — aider ({_model_label(model)}) will "
             f"investigate {phrase}, edit the pipeline, and re-test on THIS document until it passes. "
             f"This can take a few minutes.",
             baseline=vc._stat_summary(art['stats']), modules=modules)
@@ -202,7 +184,7 @@ def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None
             cmd += ['--reasoning-effort', 'low']
         cmd += modules
 
-        vc.emit('attempt', f"aider (DeepSeek V4) is investigating {phrase} and editing the pipeline…")
+        vc.emit('attempt', f"aider ({_model_label(model)}) is investigating {phrase} and editing the pipeline…")
         if vc._cancelled():
             vc.emit('cancelled', "Cancelled — your original conversion is unchanged.")
             return 1, None
@@ -227,7 +209,7 @@ def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None
         ok_diff, reason = _validate_diff(diff)
         if not ok_diff:
             vc.emit('exhausted', f"aider couldn't produce a usable fix ({reason}); kept your original.")
-            _finalize_aider(book_dir, art, journal, 'exhausted', None, file_issue, log)
+            _finalize_aider(book_dir, art, journal, 'exhausted', None, file_issue, log, model)
             return 1, None
 
         after = vc._reconvert(sandbox, book_dir)
@@ -237,7 +219,7 @@ def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None
         if tier in ('clean', 'improved'):
             _persist_diff(book_dir, diff)
             best = vc._stat_summary(after['stats']) if tier == 'improved' else None
-            _finalize_aider(book_dir, art, journal, tier, best, False, log)
+            _finalize_aider(book_dir, art, journal, tier, best, False, log, model)
             vc.emit('success',
                     f"{'Fixed it cleanly' if tier == 'clean' else 'Improved'} — {vc._stat_summary(after['stats'])}.",
                     tier=tier, before=vc._stat_summary(art['stats']), after=vc._stat_summary(after['stats']))
@@ -245,7 +227,7 @@ def run_aider_loop(book_dir, max_attempts=3, model=DEFAULT_MODEL, user_note=None
 
         vc.emit('exhausted', f"aider tried but couldn't improve this document ({why}); kept your original "
                              f"and logged it for a human to review.")
-        _finalize_aider(book_dir, art, journal, 'exhausted', None, file_issue, log)
+        _finalize_aider(book_dir, art, journal, 'exhausted', None, file_issue, log, model)
         return 1, None
     finally:
         shutil.rmtree(sandbox, ignore_errors=True)
@@ -256,14 +238,14 @@ def _persist_diff(book_dir, diff):
         f.write(diff)
 
 
-def _finalize_aider(book_dir, art, journal, outcome, best, file_issue, log):
+def _finalize_aider(book_dir, art, journal, outcome, best, file_issue, log, model=None):
     """Reuse vc._finalize, then overwrite usage with aider's own parsed cost (it makes the calls)."""
     vc._finalize(book_dir, art, journal, outcome, best=best, file_issue=file_issue)
     try:
         rp = os.path.join(book_dir, 'vibe_report.json')
         report = json.load(open(rp, encoding='utf-8'))
         report['engine'] = 'aider'
-        report['usage'] = _parse_usage(log)
+        report['usage'] = _parse_usage(log, model)
         with open(rp, 'w', encoding='utf-8') as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
     except Exception:

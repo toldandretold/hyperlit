@@ -162,3 +162,91 @@ def compute_footnote_audit(soup, footnote_defs):
             })
 
     return audit_data
+
+
+# ---------------------------------------------------------------------------
+# Cross-stage "whose bug is it" — the digestion analogue of the PDF
+# ingestion's assess_harvest_fidelity. Runs AFTER linking + the audit, and
+# names the UPSTREAM stage when a late symptom was caused earlier.
+# ---------------------------------------------------------------------------
+# node_help (one source) for both cross-stage forks below.
+_LINK_FIDELITY_PLAIN = (
+    "A cross-stage check AFTER linking: when a late symptom (citations or footnotes not linked) is really "
+    "caused UPSTREAM, name the upstream stage so the fix lands there. `citations_total` far exceeds "
+    "`references_found` with 0 linked ⇒ the LINK TARGETS are missing (bibliography extraction under-counted, "
+    "or the citation style was mis-detected) — fixing the linker cannot help. Definitions extracted but 0 "
+    "in-text markers linked (and the linkability guard did NOT deliberately suppress) ⇒ detection / the "
+    "guard, not the linker or the audit (which only MEASURES the result).")
+
+
+def _record_for(records, module):
+    return next((r for r in records if r.get('module') == module), None)
+
+
+def assess_link_fidelity(stats, audit_data, records):
+    """Cross-stage discriminator for the LINKING stages — returns a list of FLAGGED fork dicts (kwargs for
+    ASSESSMENT.record), only when a downstream symptom CLEARLY implies an UPSTREAM cause. Conservative by
+    design (a deliberate guard-suppression is NOT a bug). `records` is the assessment trace so far, which
+    spans ingestion+digestion, so a fork can attribute back to the real upstream file. Pure / no I/O."""
+    out = []
+    refs = stats.get('references_found', 0) or 0
+    cit_total = stats.get('citations_total', 0) or 0
+    cit_linked = stats.get('citations_linked', 0) or 0
+    style = stats.get('citation_style', 'none')
+
+    # (1) citation_target_gap — many in-text citations, ~none linked, far fewer reference TARGETS than
+    # citations. The cause is upstream (bibliography extraction under-counted, OR the style is mis-detected
+    # and these aren't really citations) — the linker can't link to targets that were never extracted.
+    if cit_total >= 5 and cit_linked == 0 and refs < cit_total * 0.5:
+        bib = _record_for(records, 'bibliography_extraction') or {}
+        cit = _record_for(records, 'citation_linking') or {}
+        detection = (bib.get('evidence') or {}).get('detection', 'unknown')
+        unlinked = (cit.get('evidence') or {}).get('unlinked_sample', [])
+        out.append(dict(
+            module='citation_target_fidelity', code_ref='bibliography.py:extract_bibliography',
+            node_help=_LINK_FIDELITY_PLAIN,
+            decision=f'{cit_linked} of {cit_total} citations linked, but only {refs} reference target(s) exist',
+            rationale=(f'{cit_total} in-text citations were found yet only {refs} bibliography entries exist to '
+                       f'point at, and 0 linked — the LINK TARGETS are missing. Most likely the bibliography '
+                       f'extraction under-counted (detection={detection}), OR the citation style was '
+                       f'mis-detected (style={style}) so these are not really citations. The citation LINKER '
+                       f'cannot link to targets that were never extracted; fixing it is futile.'),
+            evidence={'references_found': refs, 'citations_total': cit_total, 'citations_linked': cit_linked,
+                      'citation_style': style, 'bibliography_detection': detection,
+                      'unlinked_sample': unlinked[:8]},
+            question="Are the missing citation links the LINKER's fault, or are the targets missing upstream?",
+            considered=[
+                {'option': 'fix the citation linker', 'rejected_because': '0 of N linked with far fewer '
+                 'references than citations means the targets are missing, not mis-matched',
+                 'would_need': 'references that exist but were not keyed/matched (see evidence.unlinked_sample)'},
+                {'option': 'the style is mis-detected — these are not citations', 'rejected_because': None,
+                 'would_need': 'confirm the body really cites (Author Year) works that have entries'}],
+            confidence=0.3,
+            margin=(f'{cit_total} citations vs {refs} reference targets — look UPSTREAM at bibliography '
+                    f'extraction (the targets) or citation-style detection, NOT the linker')))
+
+    # (2) footnote_link_gap — definitions extracted but ~no in-text marker links them, AND the linkability
+    # guard did NOT deliberately suppress (a deliberate suppression is the honest-missing-link case, not a
+    # bug). So markers were never detected/survived (EPUB detection) — upstream of the linker + the audit.
+    defs = audit_data.get('total_defs', 0) or 0
+    total_refs = audit_data.get('total_refs', 0) or 0
+    udef = len(audit_data.get('unmatched_defs', []))
+    guard = _record_for(records, 'footnote_linking_guard')
+    guard_suppressed = bool(guard) and 'suppress' in str(guard.get('decision', '')).lower()
+    if defs >= 5 and total_refs == 0 and udef >= defs * 0.8 and not guard_suppressed:
+        is_epub = any(r.get('module') in ('epub_footnote_detection', 'footnote_linking') for r in records)
+        code_ref = ('footnoteMatching.py:FootnoteConverter.convert' if is_epub
+                    else 'footnotes.py:process_whole_document_footnotes')
+        out.append(dict(
+            module='footnote_link_fidelity', code_ref=code_ref, node_help=_LINK_FIDELITY_PLAIN,
+            decision=f'{defs} footnote definition(s) extracted but 0 in-text markers link them',
+            rationale=(f'{defs} definitions exist yet no in-text marker references them (total_refs=0) and the '
+                       f'linkability guard did NOT suppress — so the markers were never detected or did not '
+                       f'survive. The cause is upstream detection (EPUB: footnoteMatching.py) or extraction, '
+                       f'NOT the linker or the audit (which only MEASURES this).'),
+            evidence={'total_defs': defs, 'total_refs': total_refs, 'unmatched_defs': udef,
+                      'footnote_strategy': stats.get('footnote_strategy'), 'is_epub': is_epub},
+            question='Definitions exist but no markers link — is it detection upstream, or the linker?',
+            confidence=0.3,
+            margin=(f'{defs} defs / 0 linked markers — look UPSTREAM at footnote detection, NOT the linker/audit')))
+    return out

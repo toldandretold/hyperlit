@@ -48,16 +48,24 @@ def _registries_in(path):
     return out
 
 
-def _doc_first_line(path):
+def _docstring(path):
     try:
-        d = ast.get_docstring(ast.parse(open(path, encoding='utf-8').read()))
-        return (d.split('\n', 1)[0].strip() if d else '')
+        return ast.get_docstring(ast.parse(open(path, encoding='utf-8').read())) or ''
     except Exception:
         return ''
 
 
+def _short(doc):
+    """The module's 'what it does' one-liner: the FIRST SENTENCE of its docstring, whitespace-collapsed
+    and capped — code-derived, so the tree describes each file accurately and can't drift from it."""
+    if not doc:
+        return ''
+    s = ' '.join(doc.split()).split('. ', 1)[0].rstrip('.')   # first sentence, one line
+    return (s[:88].rstrip() + '…') if len(s) > 90 else s
+
+
 def _walk_stage(stage):
-    """Ordered list of (relpath_under_stage, [registries], first_docstring_line) for the real modules."""
+    """Ordered list of (relpath_under_stage, [registries], docstring) for the real (non-shim) modules."""
     base = os.path.join(_PY, stage)
     rows = []
     for root, dirs, files in os.walk(base):
@@ -69,7 +77,7 @@ def _walk_stage(stage):
             if _is_shim(full):
                 continue
             rel = os.path.relpath(full, base).replace(os.sep, '/')
-            rows.append((rel, _registries_in(full), _doc_first_line(full)))
+            rows.append((rel, _registries_in(full), _docstring(full)))
     return rows
 
 
@@ -88,7 +96,7 @@ def render():
         lines.append(f'## {stage}/ — {_STAGE_BLURB[stage]}')
         lines.append('```')
         last_dir = None
-        for rel, regs, _doc in _walk_stage(stage):
+        for rel, regs, doc in _walk_stage(stage):
             parts = rel.split('/')
             if len(parts) > 1:
                 sub = '/'.join(parts[:-1])
@@ -100,8 +108,9 @@ def render():
             else:
                 indent = ''
                 name = rel
-            reg = f'   · registries: {", ".join(regs)}' if regs else ''
-            lines.append(f'{indent}{name}{reg}')
+            desc = _short(doc)
+            reg = f'  · registries: {", ".join(regs)}' if regs else ''
+            lines.append(f'{indent}{name}{(" — " + desc) if desc else ""}{reg}')
         lines.append('```')
         lines.append('')
     return '\n'.join(lines).rstrip('\n') + '\n'

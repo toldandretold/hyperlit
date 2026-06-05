@@ -33,6 +33,24 @@ Each reader also DETECTS a format-specific "type" on the way, which drives downs
   (after OCR → markdown) funnel through `simple_md_to_html.py` to become the common HTML. It is not
   "markdown's" — it's the shared on-ramp for the two markdown-producing formats.
 
+## Phase files (folders mirror the decision tree)
+
+`pdf/` and `epub/` are no longer single modules — each format folder is split so that **one file = one
+phase of the pipeline**, matching the visualised decision tree node-for-node:
+
+- **`epub/`**: `epub_base.py` (the `EpubTransform` base, a zero-import leaf) · `structuralNormalisation.py`
+  (open up the publisher HTML) · `headingMatching.py` (recover h1/h2/h3) · `footnoteMatching.py` (the
+  run-all detector fan + `FootnoteConverter`) · `bibliographyDetection.py` · `finalNormalisation.py`.
+  `epub_normalizer.py` is now just the orchestrator (`TRANSFORM_PIPELINE` + `EpubNormalizer`) + re-exports.
+- **`pdf/`**: `pdf_shared.py` (bases + text helpers, a zero-import leaf) · `ocrFetch.py` · `classification.py`
+  (`PDF_CLASSIFIERS` + `classify_footnotes`) · `assembly.py` (`PDF_ASSEMBLERS` + `assemble_markdown`) ·
+  `recovery.py` (pypdf recovery + `assess_harvest_fidelity`). `mistral_ocr.py` is the orchestrator + re-exports.
+
+The **live, generated** version of this tree (built from the actual folders by `gen_pipeline_tree.py`) is
+`tests/conversion/PIPELINE_STRUCTURE.generated.md` — that file, not this list, is the source of truth, and
+a no-drift test pins it. The conversion report (`assessment.json`) records each decision's `code_ref`
+pointing at the real phase file, so the vibe-conversion loop edits the file that actually holds the logic.
+
 ## Compatibility shims
 
 The live backend invokes these readers by their OLD flat paths (`PdfProcessor` → `app/Python/mistral_ocr.py`,

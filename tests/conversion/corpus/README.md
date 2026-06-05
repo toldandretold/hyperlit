@@ -33,6 +33,11 @@ python3 tests/conversion/vibe_eval.py --case <substr> --model accounts/fireworks
 python3 tests/conversion/vibe_eval.py --case <substr> --engine aider --model accounts/fireworks/models/gpt-oss-120b
 ```
 
+> **aider is installed** (at `/tmp/aider-venv/bin/aider`, a venv NOT on `$PATH`) and the model key is
+> `LLM_API_KEY` in `.env` (not an env var). `which aider` / `printenv` will lie — check via the code:
+> `python3 -c "import sys;sys.path.insert(0,'app/Python');import vibe_aider as a;print(a._aider_bin())"`.
+> See `../README.md` (the 🛑 callout in the run-modes section) for the full why.
+
 > The import pathway each case runs through is mapped in [`../PIPELINE_MAP.md`](../PIPELINE_MAP.md) —
 > use it to locate which stage a flagged fork belongs to before writing the judgement.
 

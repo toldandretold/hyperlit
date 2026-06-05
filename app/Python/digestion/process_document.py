@@ -1,3 +1,8 @@
+"""Digestion orchestrator — runs the DOC_PASSES pipeline over the ingested HTML.
+
+Extract bibliography → select footnote strategy → extract + link footnotes/citations → audit → emit
+nodes/footnotes/references. main() is a thin shell over the ordered DOC_PASSES registry.
+"""
 import sys
 import re
 import json
@@ -30,7 +35,7 @@ from digestion.citationLinking.citations import link_citations
 # Bibliography extraction (PASS 1A): builds the key->entry_id map the citation linker uses.
 from digestion.bibliographyExtraction.bibliography import extract_bibliography
 # Footnote-linking audit (gaps / duplicates / unmatched refs+defs).
-from digestion.finalAudit.audit import compute_footnote_audit
+from digestion.finalAudit.audit import compute_footnote_audit, assess_link_fidelity
 # Ordered orchestration registry — main() is now a thin shell over DOC_PASSES (see below).
 from shared.pipeline_base import DocPass, run_passes
 
@@ -652,6 +657,13 @@ class AuditPass(DocPass):
         with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
             json.dump(conversion_stats, f, ensure_ascii=False, indent=4)
         print(f"Successfully created {os.path.join(output_dir, 'conversion_stats.json')}")
+
+        # Cross-stage "whose bug is it": when a late symptom (0 citations / 0 footnote markers linked) was
+        # caused UPSTREAM, record a flagged fork naming the upstream stage — so the fix-loop is sent there,
+        # not the linker. Diagnostic-only (records to the trace; no soup/output change). Conservative: a
+        # deliberate guard-suppression is not flagged. `ASSESSMENT.records` spans ingestion+digestion.
+        for _fork in assess_link_fidelity(conversion_stats, audit_data, ASSESSMENT.records):
+            ASSESSMENT.record(**_fork)
 
 
 class GenerateNodeChunks(DocPass):
