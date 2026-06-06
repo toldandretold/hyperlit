@@ -129,6 +129,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const { NavigationManager } = await import('./navigation/NavigationManager.js');
   await NavigationManager.navigate('fresh-page-load');
 
+  // If a vibe-convert job auto-applied a fix to this book, surface the Keep/Revert toast (driven by the
+  // persisted vibe_review.json, so it shows even if the original toast was lost to navigation).
+  if (book && pageType !== 'timemachine') {
+    import('./conversion/feedbackToast.js')
+      .then(m => m.checkPendingVibeReview(book))
+      .catch(() => {});
+  }
+
   // Page-specific initialization after NavigationManager completes
   // Note: footnoteCitationListeners now handled by ButtonRegistry
   if (pageType === "user") {

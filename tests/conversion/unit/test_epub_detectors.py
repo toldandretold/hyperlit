@@ -209,3 +209,98 @@ def test_detector_needs_covers_every_footnote_detector():
     missing = [d for d in detectors if d not in needs]
     assert missing == [], f"_DETECTOR_NEEDS missing would_need for: {missing}"
     assert len(detectors) >= 10
+
+
+# ---------------------------------------------------------------------------
+# SectionNumberHeadingDetector — bold, section-numbered blocks in a non-<p> wrapper
+# (the christian2014digital scheme: <blockquote class="calibre_21"><span class="bold">1.1. …)
+# ---------------------------------------------------------------------------
+def test_section_number_heading_levels_from_numbering(soup):
+    s = soup('<body>'
+             '<blockquote class="calibre_21"><a href="#x"><span class="bold">1. Introduction</span></a></blockquote>'
+             '<blockquote class="calibre_21"><span class="bold">1.1. The Need for Studying Digital Labour</span></blockquote>'
+             '<blockquote class="calibre_21"><span class="bold">2.3.2.1. Use-Value and Value</span></blockquote>'
+             '<blockquote class="calibre_21"><span class="bold">PART I Theoretical Foundations</span></blockquote>'
+             '</body>')
+    det = E.SectionNumberHeadingDetector()
+    assert det.detect(s) is True
+    det.transform(s, _logs()[1])
+    got = [(h.name, h.get_text(strip=True)) for h in s.find_all(['h1', 'h2', 'h3', 'h4'])]
+    assert ('h1', '1. Introduction') in got               # depth 1 → h1
+    assert ('h2', '1.1. The Need for Studying Digital Labour') in got
+    assert ('h4', '2.3.2.1. Use-Value and Value') in got  # depth 4 → h4
+    assert ('h1', 'PART I Theoretical Foundations') in got # PART → h1
+    # the TOC back-link is stripped — a heading is not a link
+    assert s.find('h1', string=None).find('a') is None
+
+
+def test_section_number_heading_skips_toc_and_body(soup):
+    # the discriminators: a body line with no bold, an un-numbered bold quote, and a real
+    # container (block child) — none should become headings (esp. the non-bold TOC twin).
+    s = soup('<body>'
+             '<blockquote class="toc"><a href="#x">1.1. The Need for Studying Digital Labour</a></blockquote>'  # TOC: no bold
+             '<p>711 Third Avenue, New York, NY 10017</p>'                       # body <p> starting with a number
+             '<blockquote><span class="bold">An epigraph with no section number</span></blockquote>'
+             '<blockquote><p>2.1 a real paragraph container</p></blockquote>'
+             '</body>')
+    det = E.SectionNumberHeadingDetector()
+    assert det.detect(s) is False
+    det.transform(s, _logs()[1])
+    assert s.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) == []
+
+
+def test_heading_needs_covers_section_number_detector():
+    # the human-readable heading index must describe this detector (anti-drift, like footnotes above)
+    assert 'SectionNumberHeadingDetector' in E.EpubNormalizer._HEADING_NEEDS
+
+
+# ---------------------------------------------------------------------------
+# StyledSectionTitleHeadingDetector — bold section-title <p> (BIBLIOGRAPHY/INDEX/…) → h1
+# (christian2014digital: 'BIBLIOGRAPHY' as a bold <p> hid the 573-entry reference list)
+# ---------------------------------------------------------------------------
+_REF_ENTRY = ('Adorno, Theodor W. 1968/2003. Late capitalism or industrial society? '
+              'The fundamental question of the present structure of society.')
+
+
+def test_section_title_detector_converts_real_section_heading(soup):
+    # 'BIBLIOGRAPHY' as a bold styled <p> followed by reference CONTENT → h1 (TOC back-link stripped)
+    s = soup('<body>'
+             '<p class="x"><a href="#t"><span class="calibre1"><span class="bold">BIBLIOGRAPHY</span></span></a></p>'
+             f'<p>{_REF_ENTRY}</p><p>{_REF_ENTRY}</p>'
+             '</body>')
+    det = E.StyledSectionTitleHeadingDetector()
+    assert det.detect(s) is True
+    det.transform(s, _logs()[1])
+    assert [h.get_text(strip=True) for h in s.find_all('h1')] == ['BIBLIOGRAPHY']
+    assert s.find('h1').find('a') is None       # TOC back-link stripped
+
+
+def test_section_title_detector_skips_toc_entry(soup):
+    # the false positive this closes: a bold 'glossary' TOC entry — same title text, but FOLLOWED BY
+    # MORE nav links (other TOC entries), not section content → must NOT become a heading.
+    s = soup('<body>'
+             '<p class="toc"><a href="glossary.xhtml#g"><b>glossary</b></a></p>'
+             '<p class="toc"><a href="index.xhtml#i"><b>index</b></a></p>'
+             '<p class="toc"><a href="notes.xhtml#n"><b>notes</b></a></p>'
+             '</body>')
+    det = E.StyledSectionTitleHeadingDetector()
+    assert det.detect(s) is False
+    det.transform(s, _logs()[1])
+    assert s.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) == []
+
+
+def test_section_title_detector_no_false_positive(soup):
+    # a bold REFERENCE ENTRY, and prose that merely mentions a section word, must NOT convert
+    s = soup('<body>'
+             f'<p><span class="bold">{_REF_ENTRY}</span></p>'                     # bold but not a bare title
+             '<p>See the bibliography for the full list of references below.</p>' # mentions it, not a title
+             f'<p>Bibliography</p><p>{_REF_ENTRY}</p>'                            # title text but NOT bold
+             '</body>')
+    det = E.StyledSectionTitleHeadingDetector()
+    assert det.detect(s) is False
+    det.transform(s, _logs()[1])
+    assert s.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) == []
+
+
+def test_heading_needs_covers_section_title_detector():
+    assert 'StyledSectionTitleHeadingDetector' in E.EpubNormalizer._HEADING_NEEDS

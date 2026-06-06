@@ -26,7 +26,7 @@ def _art():
 
 def test_build_message_has_diagnostic_sections_not_a_json_contract():
     msg = va.build_aider_message(_art(), ['app/Python/ingestion/epub/footnoteMatching.py'])
-    assert 'The problem' in msg and 'references_found' in msg and 'Audit verdict' in msg
+    assert 'What converted' in msg and 'references_found' in msg and 'Audit verdict' in msg
     assert 'Where the responsible code lives' in msg
     assert 'modus operandi' in msg.lower()
     # it must NOT impose our op/JSON contract (aider owns the edit format)
@@ -58,7 +58,7 @@ def test_both_engines_send_IDENTICAL_diagnostic_context():
                    'How to localize the cause'):
         assert needle in native and needle in aider, f"diagnostic drift — only one engine has: {needle}"
     # leads with the PROBLEM (symptom before the pipeline tree), and the tree carries no dev-meta:
-    assert native.index('## The problem') < native.index('## The conversion pipeline')
+    assert native.index('## What converted') < native.index('## The conversion pipeline')
     assert 'Built by `gen_pipeline_tree.py`' not in native   # dev-meta stripped from what the model sees
     # only the necessary mechanism differs:
     assert 'STRICT JSON' in native and 'STRICT JSON' not in aider          # native = op contract
@@ -85,7 +85,7 @@ def test_prompt_variant_lean_drops_the_fix_menu():
     finally:
         os.environ.pop('VIBE_PROMPT_VARIANT', None)
     assert 'Fix-category menu' in full and 'Fix-category menu' not in lean
-    for both in ('## The problem', '## The conversion pipeline'):
+    for both in ('## What converted', '## The conversion pipeline'):
         assert both in full and both in lean
 
 

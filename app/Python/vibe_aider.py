@@ -19,14 +19,16 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 
 import vibe_convert as vc
 from conversion import fix_categories
 
 DEFAULT_MODEL = 'accounts/fireworks/models/deepseek-v4-pro'
-# aider's strength is FAST iteration (repo-map + a 3-reflection retry loop), NOT one heavy reasoning
-# pass — so it defaults to a FAST model (gpt-oss-120b: seconds/call, not the minutes a reasoning model
-# takes ×4 calls → the 25-min runs). Override with VIBE_AIDER_MODEL.
+# aider wants a FAST model, NOT a heavy reasoning one. deepseek-v4-pro emits ~34k of reasoning per turn —
+# it overflows its own 32k output limit (truncating the edit) AND accumulates across aider's reflect loop
+# until it blows the 131k context (measured: gpt-oss = 53k flat, deepseek = 156k on the same input). So
+# aider defaults to gpt-oss-120b. (The NATIVE engine is where deepseek belongs — see run_loop.)
 DEFAULT_AIDER_MODEL = 'accounts/fireworks/models/gpt-oss-120b'
 _META = os.path.join(vc.PY_DIR, 'aider_model_metadata.json')
 
@@ -65,16 +67,17 @@ def _git_diff(sandbox):
 # ---------------------------------------------------------------------------
 # The diagnostic task message (reuses vibe_convert's helpers; no op/JSON contract — aider edits)
 # ---------------------------------------------------------------------------
-def build_aider_message(art, modules, user_note=None):
+def build_aider_message(art, modules, user_note=None, issue_types=None):
     """aider engine prompt = the SHARED diagnostic context (vc.build_diagnostic_context — IDENTICAL to
     what the native engine sends) + a repo-map pointer instead of inlined source (aider reads files
     itself) and NO op contract (aider edits via diff, driven by `--test-cmd`). So native-vs-aider is a
     controlled A/B: same diagnosis, different edit mechanism. Edit a diagnostic section in
     build_diagnostic_context, NOT here — here is only aider's mechanism framing."""
-    parts = ["A document converted badly and you are fixing the conversion PIPELINE so it converts THIS "
-             "document correctly. A test command (--test-cmd) re-converts this exact document and checks "
-             "the result; iterate until it PASSES. Make the MINIMAL change that makes the test pass."]
-    parts += vc.build_diagnostic_context(art, modules, user_note)
+    parts = ["A document's conversion was flagged for review and you are fixing the conversion PIPELINE "
+             "so it converts THIS document correctly. Each item below is a SUSPICION to CONFIRM against the "
+             "evidence first — fix only what is genuinely wrong. A test command (--test-cmd) re-converts "
+             "this exact document and checks the result; iterate until it PASSES."]
+    parts += vc.build_diagnostic_context(art, modules, user_note, issue_types)
     parts.append("## Where the responsible code lives\n" + "\n".join(f"- {m}" for m in modules)
                  + "\nThese files are in the chat; read whatever else you need via the repo map.")
     return "\n\n".join(parts)
@@ -135,16 +138,108 @@ def _journal_from(log, diff, touched_summary):
 
 
 # ---------------------------------------------------------------------------
+# Stream aider's stdout into live progress beats (so the toast shows what aider is THINKING + doing in
+# real time, instead of a frozen box). aider runs EXACTLY as before — this only changes how we read its
+# pipe (line-by-line vs all-at-once), with zero effect on its edits, speed, or the resulting patch.
+# ---------------------------------------------------------------------------
+def _aider_beat(raw, state):
+    """Translate ONE aider stdout line into a live beat (or accumulate a THINKING block). Mutates state."""
+    s = raw.strip()
+
+    # THINKING block — accumulate the model's reasoning, flush a condensed beat when the block ends.
+    if '**THINKING**' in s or s.rstrip('*') .endswith('THINKING'):
+        state['in_think'] = True
+        state['think'] = []
+        return
+    if state.get('in_think'):
+        if s == '' and not state['think']:
+            return   # skip the blank line(s) right after the marker, before any reasoning
+        ended = (s == '' or s.startswith('```') or '<<<<<<< SEARCH' in s)
+        if not ended:
+            state['think'].append(s)
+            return
+        text = ' '.join(state['think']).strip()
+        state['in_think'] = False
+        state['think'] = []
+        if len(text) >= 12:
+            beat = text if len(text) <= 280 else (text[:280].rsplit(' ', 1)[0] + '…')
+            vc.emit('attempt', '💭 ' + beat)
+        # fall through so a SEARCH/``` line that ended the block is still handled below
+
+    if s.startswith('Added ') and 'to the chat' in s:
+        if not state.get('read_done'):
+            state['read_done'] = True
+            vc.emit('attempt', 'Reading the pipeline modules it needs…')
+        return
+    if '<<<<<<< SEARCH' in s:
+        if not state.get('edit_done'):
+            state['edit_done'] = True
+            vc.emit('attempt', 'Editing the pipeline code…')
+        return
+    if 'vibe_aider_gate.py' in s and not s.startswith('GATE'):
+        if not state.get('test_done'):
+            state['test_done'] = True
+            vc.emit('attempt', 'Re-converting and testing the fix on your document…')
+        return
+    if s.startswith('GATE ['):
+        vc.emit('attempt', 'Tested → ' + s[5:])
+        # a new edit→test cycle may follow (aider reflects up to ~3x) — re-arm the per-cycle beats.
+        state['edit_done'] = state['test_done'] = False
+        return
+
+
+def _run_aider_streaming(cmd, cwd, env, timeout):
+    """Run aider, forwarding live beats from its stdout while collecting the full transcript (returned)."""
+    proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, bufsize=1)
+    killed = {'v': False}
+    done = threading.Event()
+
+    def _watchdog():
+        if not done.wait(timeout):
+            killed['v'] = True
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    threading.Thread(target=_watchdog, daemon=True).start()
+
+    lines, state = [], {}
+    try:
+        for raw in proc.stdout:
+            lines.append(raw)
+            try:
+                _aider_beat(raw, state)
+            except Exception:
+                pass   # a beat translation must never break the run
+    finally:
+        done.set()
+        try:
+            proc.wait()
+        except Exception:
+            pass
+    log = ''.join(lines)
+    if killed['v']:
+        log += "\n[aider hit the 40-min wall — consider a faster model (e.g. gpt-oss-120b) for aider]"
+    return log
+
+
+# ---------------------------------------------------------------------------
 # The engine entry point — mirrors run_loop's contract
 # ---------------------------------------------------------------------------
-def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_issue=False):
+def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_issue=False, issue_types=None):
     vc.reset_usage()
     # Model precedence: an explicit `--model` wins (so you can A/B the SAME model on both engines),
     # then VIBE_AIDER_MODEL, then aider's fast default (gpt-oss-120b — aider runs its own retry loop).
     model = model or os.environ.get('VIBE_AIDER_MODEL') or DEFAULT_AIDER_MODEL
     art = vc.load_artifacts(book_dir)
     flagged = vc.flagged_forks(art['assessment'])
-    modules = vc.modules_for(flagged, art) or vc.modules_for(art['assessment'], art)
+    modules = vc.modules_for(flagged, art, issue_types) or vc.modules_for(art['assessment'], art, issue_types)
+    # Keep ALL the routed modules a human report / flagged forks selected (dropping them was cutting the
+    # issue-type routing on multi-category reports). The real context bloat was aider's repo scan of the
+    # test fixtures (now excluded from the sandbox), NOT these ~14k of module files. A high cap only guards
+    # the pathological case; modules_for orders flagged-fork modules first so the most-relevant survive.
+    modules = modules[:8]
     phrase = vc._flagged_phrase(flagged)
 
     aider = _aider_bin()
@@ -163,18 +258,25 @@ def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_is
         _git_init(sandbox)
         msg_path = os.path.join(sandbox, '_vibe_task.md')
         with open(msg_path, 'w', encoding='utf-8') as f:
-            f.write(build_aider_message(art, modules, user_note))
+            f.write(build_aider_message(art, modules, user_note, issue_types))
 
         env = dict(os.environ)
+        env['PYTHONUNBUFFERED'] = '1'   # so aider's stdout flushes line-by-line (live beats), not at the end
         env['FIREWORKS_AI_API_KEY'] = vc._dotenv('LLM_API_KEY') or env.get('FIREWORKS_AI_API_KEY', '')
         env['VIBE_GATE_BOOK'] = os.path.abspath(book_dir)
+        if issue_types:
+            env['VIBE_GATE_ISSUE_TYPES'] = json.dumps(issue_types)   # the gate honours the reader's report
         if vc._DOCKER_IMAGE:
             env['VIBE_GATE_DOCKER'] = vc._DOCKER_IMAGE
 
         cmd = [aider,
                '--model', f'fireworks_ai/{model}',
                '--model-metadata-file', os.path.join(sandbox, 'app', 'Python', 'aider_model_metadata.json'),
-               '--edit-format', 'diff', '--map-tokens', '2048',
+               '--edit-format', 'diff', '--map-tokens', '1024',
+               # BOUND the chat history — a reasoning model (deepseek) emits huge thinking each turn, and
+               # across aider's reflect loop it ACCUMULATES until it blows the 131k window (the real cause
+               # of the "context exceeded → no usable edit" failures). Capping history keeps total in range.
+               '--max-chat-history-tokens', '24000',
                '--timeout', '600',  # per-API-call cap so a single hung call can't block the loop
                '--test-cmd', 'python3 app/Python/vibe_aider_gate.py', '--auto-test',
                '--no-auto-commits', '--yes-always', '--no-stream', '--no-pretty', '--no-check-update',
@@ -188,14 +290,10 @@ def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_is
         if vc._cancelled():
             vc.emit('cancelled', "Cancelled — your original conversion is unchanged.")
             return 1, None
-        try:
-            # aider runs its own edit→test→reflect loop (hardcoded ~3 reflections); with a heavy
-            # reasoning model each cycle is minutes, so give the whole thing generous headroom.
-            proc = subprocess.run(cmd, cwd=sandbox, env=env, capture_output=True, text=True, timeout=2400)
-            log = (proc.stdout or '') + '\n' + (proc.stderr or '')
-        except subprocess.TimeoutExpired as e:
-            log = ((e.stdout or '') if isinstance(e.stdout, str) else (e.stdout or b'').decode('utf-8', 'ignore')) \
-                + "\n[aider hit the 40-min wall — consider a faster model (e.g. gpt-oss-120b) for aider]"
+        # aider runs its own edit→test→reflect loop (hardcoded ~3 reflections); with a heavy reasoning
+        # model each cycle is minutes, so give the whole thing generous headroom. We STREAM its stdout so
+        # the toast keeps showing live beats (aider is otherwise a silent block) — see _aider_beats.
+        log = _run_aider_streaming(cmd, sandbox, env, timeout=2400)
 
         try:  # keep aider's full transcript for debugging (cost/edit decisions)
             with open(os.path.join(book_dir, 'vibe_aider.log'), 'w', encoding='utf-8') as f:

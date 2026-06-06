@@ -152,6 +152,8 @@ class IntegrityReportController extends Controller
             'conversionStats'     => 'nullable|array',
             'footnoteAudit'       => 'nullable|array',
             'comment'             => 'nullable|string|max:2000',
+            'issueTypes'          => 'nullable|array|max:8',
+            'issueTypes.*'        => 'string|in:citations_not_matched,citations_wrongly_matched,footnotes_not_matched,footnotes_wrongly_matched,headings_wrong',
             'recentLogs'          => 'nullable|array|max:50',
             'recentLogs.*.level'  => 'nullable|string|max:10',
             'recentLogs.*.ts'     => 'nullable|numeric',
@@ -184,6 +186,8 @@ class IntegrityReportController extends Controller
         if (is_dir($bookDir)) {
             $consent = [
                 'rating' => $data['rating'],
+                'issueTypes' => $data['issueTypes'] ?? [],
+                'comment' => $data['comment'] ?? null,
                 'userId' => $data['userId'],
                 'userName' => $data['userName'],
                 'timestamp' => $data['timestamp'] ?? now()->toISOString(),

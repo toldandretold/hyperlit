@@ -29,8 +29,8 @@ _CITATION_PLAIN = (
     "matching entry was extracted. We do NOT judge whether each bracketed year is 'really' a citation — if "
     "a bibliography exists but none of the bracketed-year candidates link to it, that is a SUSPICION worth "
     "checking (missing references upstream, OR they were prose-year parentheticals), not a proven bug. "
-    "Known limitation: a source that cites ONLY with [Author YEAR] square brackets is skipped by the "
-    "parenthesis pre-check.")
+    "Both (Author YEAR) parentheses AND [Author YEAR] square brackets are recognised; numeric [N] STEM "
+    "cites are handled separately in the PDF path (wrap_stem_citations).")
 from shared.link_base import LinkRule, run_link_rules
 from shared.refkeys import generate_ref_keys
 
@@ -241,7 +241,15 @@ class CitationPatternGate(LinkRule):
     `ctx.skip_citation_scan` / `ctx.skip_reason` for the linkers and the assessment recorder."""
 
     name = 'citation_pattern_gate'
-    description = 'Gate the text-node scan on bibliography presence + a paren-pattern pre-check.'
+    description = 'Gate the text-node scan on bibliography presence + a citation-pattern pre-check.'
+
+    # A parenthesized "(…YYYY…)" citation, OR a square-bracket AUTHOR-DATE "[…letter…YYYY…]" citation.
+    # The bracket check requires BOTH a letter AND a 4-digit year so it fires on "[Baldwin, 2018]" but NOT
+    # on numeric STEM cites "[36]" / "[6-8]" (handled separately by the PDF wrap_stem_citations) or bare
+    # bracketed dates "[2013]" — those have no author letter. This is what lets a bracket-ONLY source
+    # (no parens) reach SquareBracketCitationLinker instead of being skipped.
+    _PAREN_RE = re.compile(r"\([^)]*?\d{4}[^)]*?\)")
+    _BRACKET_RE = re.compile(r"\[(?=[^\]]*[A-Za-z])(?=[^\]]*\d{4})[^\]]+\]")
 
     def apply(self, ctx, log=None):
         ctx.skip_citation_scan = False
@@ -253,12 +261,13 @@ class CitationPatternGate(LinkRule):
         else:
             # Quick pre-check on full text before walking every DOM node
             _full_text = ctx.soup.get_text()
-            _has_citation_patterns = bool(re.search(r"\([^)]*?\d{4}[^)]*?\)", _full_text))
+            _has_citation_patterns = bool(self._PAREN_RE.search(_full_text)
+                                          or self._BRACKET_RE.search(_full_text))
             del _full_text  # free memory
             if not _has_citation_patterns:
-                print("  ⏭️ No parenthesized citation patterns found — skipping text node scan")
+                print("  ⏭️ No (Author YEAR) / [Author YEAR] citation patterns found — skipping text node scan")
                 ctx.skip_citation_scan = True
-                ctx.skip_reason = 'no_paren_patterns'
+                ctx.skip_reason = 'no_citation_patterns'
             else:
                 print(f"  📝 Found citation patterns, scanning text nodes against {len(ctx.bibliography_map)} bibliography keys...")
 
@@ -289,8 +298,8 @@ class ParenthesizedCitationLinker(LinkRule):
 
 class SquareBracketCitationLinker(LinkRule):
     """2A-bracket: link `[Author 2009]` square-bracket citations. Runs against a fresh text-node
-    walk (so it sees the post-paren-scan soup). No-op when the gate set `skip_citation_scan` — this
-    is the known limitation: a source citing ONLY with brackets is gated out by the paren pre-check."""
+    walk (so it sees the post-paren-scan soup). No-op when the gate set `skip_citation_scan`. The gate
+    now fires on `[Author YEAR]` brackets too, so a bracket-ONLY source reaches this scan."""
 
     name = 'square_bracket_citation_linker'
     description = 'Link [Author YEAR] square-bracket in-text citations.'
@@ -328,24 +337,24 @@ class AssessmentRecorder(LinkRule):
                              'rejected_because': 'bibliography_map is empty',
                              'would_need': 'a detected references/bibliography section (PASS 1A)'}],
                 confidence=1.0, margin='no bibliography to link against — nothing to do')
-        elif ctx.skip_reason == 'no_paren_patterns':
+        elif ctx.skip_reason == 'no_citation_patterns':
             ASSESSMENT.record(
                 module='citation_link_audit', code_ref='citations.py:link_citations',
                 node_help=_CITATION_PLAIN,
-                decision='citation scan skipped — no parenthesized (Author YEAR) patterns',
-                rationale='the citation scan is gated on a parenthesized "(...YYYY...)" pre-check; '
-                          'none were found in the text',
+                decision='citation scan skipped — no (Author YEAR) / [Author YEAR] patterns',
+                rationale='the citation scan is gated on a "(...YYYY...)" OR "[...Author...YYYY...]" '
+                          'pre-check; neither parenthesized nor square-bracket author-date patterns '
+                          'were found in the text',
                 evidence={'bibliography_entries': len(bibliography_map), 'anchor_converted': anchor_converted},
                 question='Were in-text citations linked to the bibliography?',
                 considered=[{'option': 'scan and link in-text citations',
-                             'rejected_because': 'no parenthesized (Author YEAR) citation patterns in the text',
-                             'would_need': 'parenthesized citations — NOTE: a source citing ONLY with '
-                                           '[Author YEAR] square brackets is skipped by this gate (known '
-                                           'limitation; bracket linking lives behind the paren pre-check)'}],
+                             'rejected_because': 'no (Author YEAR) or [Author YEAR] citation patterns in the text',
+                             'would_need': 'author-date citations in parentheses or square brackets — a '
+                                           'references list with NO matching in-text style is the usual cause'}],
                 confidence=0.6,
                 margin=(f'0 of {len(bibliography_map)} bibliography entries linked from the body — '
-                        f'expected IF the source cites via footnotes/superscripts, but WRONG if it uses '
-                        f'[Author YEAR] brackets (those are silently skipped here)'))
+                        f'expected IF the source cites via footnotes/superscripts/numeric [N] markers, '
+                        f'but a SUSPICION if it uses author-date citations we did not recognise'))
         else:
             candidates = ctx.citation_candidates
             bib_n = len(bibliography_map)

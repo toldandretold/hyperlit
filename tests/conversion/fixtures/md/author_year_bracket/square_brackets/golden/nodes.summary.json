@@ -1,0 +1,22 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 2,
+      "references": [
+        "elinorostrom1990",
+        "garretthardin1968",
+        "benkleryochai2006",
+        "elinorostrom1990",
+        "benkleryochai2006"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 6,
+  "type_histogram": {
+    "h1": 1,
+    "h2": 1,
+    "p": 4
+  }
+}

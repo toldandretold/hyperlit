@@ -4,18 +4,31 @@
  *
  * Shows conversion stats and lets user send feedback:
  *   "Looks good" → sends report with "good" rating (seeds test fixture)
- *   "Report issue" → sends report with "bad" rating (prioritises debugging)
+ *   "Report issue" → reveals a structured issue picker (category chips + free-text), THEN offers
+ *                    "Send report" (rides in the conversion-report email) or "Try vibe fix"
+ *                    (the per-document LLM re-conversion). The vibe button only appears here.
  *   × (cancel) → dismiss, nothing sent
  *
  * Both feedback buttons send stats + bookId so server can attach
- * ocr_response.json / debug_converted.html for reproduction.
+ * ocr_response.json / debug_converted.html for reproduction. The structured categories route to the
+ * responsible pipeline stage in the vibe loop (see vibe_convert.py _ISSUE_CATEGORY_MODULES).
  */
 
 import { getRecentLogs } from '../integrity/logCapture.js';
 
 const TOAST_ID = 'conversion-feedback-toast';
 
-/* ── shared button style ──────────────────────────────────── */
+/* Structured issue categories — KEEP IN SYNC with the PHP enum (VibeConvertController /
+   IntegrityReportController) and the Python keys (vibe_convert.py _ISSUE_CATEGORY_MODULES). */
+const CATEGORIES = [
+  { key: 'citations_not_matched',     label: 'Citations not matched' },
+  { key: 'citations_wrongly_matched', label: 'Citations wrongly matched' },
+  { key: 'footnotes_not_matched',     label: 'Footnotes not matched' },
+  { key: 'footnotes_wrongly_matched', label: 'Footnotes wrongly matched' },
+  { key: 'headings_wrong',            label: 'Headings wrong / bad hierarchy' },
+];
+
+/* shared button style */
 function applyBtnStyle(btn) {
   Object.assign(btn.style, {
     background: '#555',
@@ -34,7 +47,7 @@ function applyBtnStyle(btn) {
   btn.addEventListener('mouseup', () => { btn.style.background = '#4EACAE'; });
 }
 
-/* ── build summary text from conversion stats ─────────────── */
+/* build summary text from conversion stats */
 function buildSummaryText(stats) {
   if (!stats) return 'PDF imported.';
 
@@ -53,7 +66,7 @@ function buildSummaryText(stats) {
   return `PDF imported: ${parts.join(', ')}.`;
 }
 
-/* ── main export ──────────────────────────────────────────── */
+/* main export */
 export function showConversionFeedbackToast({ bookId, stats, footnoteAudit }) {
   // Remove previous toast if any
   hideConversionFeedbackToast();
@@ -97,7 +110,7 @@ export function showConversionFeedbackToast({ bookId, stats, footnoteAudit }) {
   requestAnimationFrame(() => { toast.style.opacity = '1'; });
 }
 
-/* ── initial state: summary + 3 buttons ───────────────────── */
+/* initial state: summary + [Looks good] [Report issue] [×] (no vibe button yet) */
 function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   toast.innerHTML = '';
 
@@ -105,72 +118,124 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   text.textContent = buildSummaryText(stats);
   text.style.lineHeight = '1.4';
 
+  const btnRow = document.createElement('div');
+  Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+
+  // Looks good — positive report (no note/categories needed)
+  const goodBtn = document.createElement('button');
+  goodBtn.textContent = 'Looks good';
+  applyBtnStyle(goodBtn);
+  goodBtn.addEventListener('click', () => {
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'good' });
+  });
+
+  // Report issue — reveal the structured picker (chips + free-text + the vibe option)
+  const badBtn = document.createElement('button');
+  badBtn.textContent = 'Report issue';
+  applyBtnStyle(badBtn);
+  badBtn.addEventListener('click', () => {
+    renderReportState(toast, { bookId, stats, footnoteAudit });
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '×';
+  applyBtnStyle(cancelBtn);
+  Object.assign(cancelBtn.style, { padding: '5px 10px', fontSize: '16px' });
+  cancelBtn.addEventListener('click', () => hideConversionFeedbackToast());
+
+  btnRow.appendChild(goodBtn);
+  btnRow.appendChild(badBtn);
+  btnRow.appendChild(cancelBtn);
+
+  toast.appendChild(text);
+  toast.appendChild(btnRow);
+}
+
+/* a toggle "chip" for one issue category (tracks selection in `selected`) */
+function makeChip({ key, label }, selected) {
+  const chip = document.createElement('button');
+  chip.textContent = label;
+  chip.dataset.key = key;
+  const base = {
+    background: 'rgba(255,255,255,0.08)', color: '#e0e0e0',
+    border: '1px solid rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '14px',
+    fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap',
+  };
+  const on = { background: '#4EACAE', color: '#fff', border: '1px solid #4EACAE' };
+  Object.assign(chip.style, base);
+  chip.addEventListener('click', () => {
+    if (selected.has(key)) { selected.delete(key); Object.assign(chip.style, base); }
+    else { selected.add(key); Object.assign(chip.style, on); }
+  });
+  return chip;
+}
+
+/* report state: summary + category chips + free-text + [Send report] [Try vibe fix] [×] */
+function renderReportState(toast, { bookId, stats, footnoteAudit }) {
+  toast.innerHTML = '';
+  const selected = new Set();
+
+  const text = document.createElement('span');
+  text.textContent = buildSummaryText(stats);
+  text.style.lineHeight = '1.4';
+
+  const prompt = document.createElement('div');
+  prompt.textContent = 'What went wrong? (optional — pick any that apply, it helps the fix)';
+  Object.assign(prompt.style, { fontSize: '12px', opacity: '0.75' });
+
+  const chipRow = document.createElement('div');
+  Object.assign(chipRow.style, { display: 'flex', gap: '6px', flexWrap: 'wrap' });
+  CATEGORIES.forEach((c) => chipRow.appendChild(makeChip(c, selected)));
+
   const textarea = document.createElement('textarea');
   textarea.maxLength = 2000;
   textarea.rows = 2;
-  textarea.placeholder = 'Anything to add about the conversion? (optional)';
+  textarea.placeholder = 'Anything to add? (optional — fed to the fixer)';
   Object.assign(textarea.style, {
-    width: '100%',
-    boxSizing: 'border-box',
-    background: 'rgba(0,0,0,0.3)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '6px',
-    padding: '6px 8px',
-    fontFamily: 'inherit',
-    fontSize: '13px',
-    resize: 'vertical',
+    width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '6px 8px',
+    fontFamily: 'inherit', fontSize: '13px', resize: 'vertical',
   });
 
   const btnRow = document.createElement('div');
   Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
 
-  // Looks good — send positive report
-  const goodBtn = document.createElement('button');
-  goodBtn.textContent = 'Looks good';
-  applyBtnStyle(goodBtn);
-  goodBtn.addEventListener('click', () => {
-    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'good', comment: textarea.value.trim() });
+  // Send report — rides in the conversion-report email we already send (no LLM run)
+  const sendBtn = document.createElement('button');
+  sendBtn.textContent = 'Send report';
+  applyBtnStyle(sendBtn);
+  sendBtn.addEventListener('click', () => {
+    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad',
+                          comment: textarea.value.trim(), issueTypes: [...selected] });
   });
 
-  // Report issue — send negative report
-  const badBtn = document.createElement('button');
-  badBtn.textContent = 'Report issue';
-  applyBtnStyle(badBtn);
-  badBtn.addEventListener('click', () => {
-    sendFeedback(toast, { bookId, stats, footnoteAudit, rating: 'bad', comment: textarea.value.trim() });
-  });
-
-  // Vibe convert — LLM re-conversion of THIS document. The textarea note becomes the
-  // reader's own description of what's wrong, fed to the model.
+  // Try vibe fix — the per-document LLM re-conversion, with the structured signals + note
   const vibeBtn = document.createElement('button');
-  vibeBtn.textContent = '✨ Vibe convert';
+  vibeBtn.textContent = '✨ Try vibe fix';
   applyVibeBtnStyle(vibeBtn);
   vibeBtn.addEventListener('click', () => {
-    startVibeConvert(toast, { bookId, note: textarea.value.trim() });
+    startVibeConvert(toast, { bookId, note: textarea.value.trim(), issueTypes: [...selected] });
   });
 
-  // Cancel (×) — dismiss, nothing sent
   const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = '\u00d7';
+  cancelBtn.textContent = '×';
   applyBtnStyle(cancelBtn);
   Object.assign(cancelBtn.style, { padding: '5px 10px', fontSize: '16px' });
-  cancelBtn.addEventListener('click', () => {
-    hideConversionFeedbackToast();
-  });
+  cancelBtn.addEventListener('click', () => hideConversionFeedbackToast());
 
-  btnRow.appendChild(goodBtn);
-  btnRow.appendChild(badBtn);
+  btnRow.appendChild(sendBtn);
   btnRow.appendChild(vibeBtn);
   btnRow.appendChild(cancelBtn);
 
   toast.appendChild(text);
+  toast.appendChild(prompt);
+  toast.appendChild(chipRow);
   toast.appendChild(textarea);
   toast.appendChild(btnRow);
 }
 
-/* ── send feedback (both good and bad) ────────────────────── */
-async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comment }) {
+/* send feedback (good rating, or bad rating with optional categories + comment) */
+async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comment, issueTypes }) {
   // Disable buttons while sending
   toast.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
@@ -180,6 +245,7 @@ async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comme
     conversionStats: stats,
     footnoteAudit: footnoteAudit || null,
     comment: comment || null,
+    issueTypes: (issueTypes && issueTypes.length) ? issueTypes : null,
     recentLogs: getRecentLogs(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
@@ -202,7 +268,7 @@ async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comme
   renderThankYouState(toast);
 }
 
-/* ── thank-you state ──────────────────────────────────────── */
+/* thank-you state */
 function renderThankYouState(toast) {
   toast.innerHTML = '';
 
@@ -224,7 +290,7 @@ function renderThankYouState(toast) {
   setTimeout(() => hideConversionFeedbackToast(), 3000);
 }
 
-/* ── vibe convert: gradient button + live SSE flow ────────── */
+/* vibe convert: gradient button + live SSE flow */
 function applyVibeBtnStyle(btn) {
   Object.assign(btn.style, {
     background: 'linear-gradient(135deg, #EE4A95, #EF8D34, #4EACAE)',
@@ -246,7 +312,7 @@ function renderVibeWorking(toast, { onCancel, onEmailMe }) {
   header.textContent = '✨ Vibe converting — this can take a minute or two';
   header.style.fontWeight = 'bold';
   const sub = document.createElement('div');
-  sub.textContent = "DeepSeek reasons about why your file confused the converter, proposes a fix, "
+  sub.textContent = 'The fixer reasons about why your file confused the converter, proposes a fix, '
     + 'and tests it on your document — repeating until it works or it runs out of tries.';
   Object.assign(sub.style, { fontSize: '12px', opacity: '0.7', lineHeight: '1.4' });
   const status = document.createElement('div');
@@ -277,7 +343,7 @@ function renderVibeWorking(toast, { onCancel, onEmailMe }) {
 
 /* Run as a BACKGROUND job: POST start, then poll progress (so the user can close the toast or
    ask to be emailed). Beats reveal one-at-a-time with a paced fade-in. */
-async function startVibeConvert(toast, { bookId, note }) {
+async function startVibeConvert(toast, { bookId, note, issueTypes }) {
   const book = bookId || 'unknown';
   let stopped = false;
 
@@ -288,7 +354,11 @@ async function startVibeConvert(toast, { bookId, note }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
       credentials: 'include',
-      body: JSON.stringify({ bookId: book, note: note || null }),
+      body: JSON.stringify({
+        bookId: book,
+        note: note || null,
+        issueTypes: (issueTypes && issueTypes.length) ? issueTypes : null,
+      }),
     });
   } catch { startResp = null; }
   if (!startResp || !startResp.ok) {
@@ -354,13 +424,107 @@ async function startVibeConvert(toast, { bookId, note }) {
 
   await drained();
   if (result && result.phase === 'success') {
-    renderVibeResult(toast, {
-      bookId: book, before: result.before, after: result.after,
-      tier: result.tier || 'clean', caveat: result.caveat || '',
-    });
+    // The job ALREADY auto-applied the fix to the live book and wrote a review marker. Reload so the
+    // reader shows the NEW conversion; checkPendingVibeReview() (on load) then surfaces the Keep/Revert
+    // toast. This also means the result survives navigation — it's driven by the persisted marker.
+    renderVibeEnd(toast, 'Fixed it — reloading to show you the new conversion…');
+    setTimeout(() => location.reload(), 900);
   } else {
     renderVibeEnd(toast, (result && result.message) || 'Could not improve it this time.');
   }
+}
+
+/* ── Post-auto-apply review: Keep the new conversion, or Revert to the original ──────────────────
+   Shown on book load whenever the job left a pending vibe_review.json (so it survives navigation). */
+export async function checkPendingVibeReview(bookId) {
+  if (!bookId) return;
+  let data;
+  try {
+    const r = await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}`, { credentials: 'include' });
+    if (!r.ok) return;
+    data = await r.json();
+  } catch { return; }
+  if (!data || data.status === 'none') return;
+
+  hideConversionFeedbackToast();
+  const toast = document.createElement('div');
+  toast.id = TOAST_ID;
+  const isLight = document.body.classList.contains('theme-light') || document.body.classList.contains('theme-sepia');
+  Object.assign(toast.style, {
+    position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
+    background: isLight ? 'rgba(40, 36, 32, 0.75)' : 'rgba(30, 30, 50, 0.55)',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#e0e0e0',
+    padding: '12px 18px', borderRadius: '8px', fontSize: '14px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', display: 'flex',
+    flexDirection: 'column', gap: '10px', zIndex: '99999', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+    opacity: '0', transition: 'opacity 0.2s ease', width: 'calc(100vw - 32px)', maxWidth: '720px',
+  });
+  document.body.appendChild(toast);
+  if (data.status === 'apply_failed') {
+    renderVibeEnd(toast, 'A vibe fix was found but could not be applied. ' + (data.message || ''));
+  } else {
+    renderVibeReviewToast(toast, { bookId, tier: data.tier, before: data.before, after: data.after, caveat: data.caveat });
+  }
+  requestAnimationFrame(() => { toast.style.opacity = '1'; });
+}
+
+/* The applied-conversion review toast: Keep this / Revert to original. */
+function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
+  toast.innerHTML = '';
+  const msg = document.createElement('div');
+  const heading = tier === 'improved'
+    ? '✨ <b>Re-converted this — but worth a look</b>'
+    : '✨ <b>Re-converted this with a fix</b>';
+  const caveatHtml = (tier === 'improved' && caveat)
+    ? '<br><span style="color:#fbbf24">⚠ ' + caveat + '</span>' : '';
+  msg.innerHTML = heading
+    + (before || after ? '<br><span style="opacity:0.8">before: ' + (before || '') + '<br>after: ' + (after || '') + '</span>' : '')
+    + caveatHtml
+    + '<br><span style="opacity:0.6;font-size:12px">This was applied to your book. Revert restores the '
+    + 'original (kept in version history).</span>';
+  msg.style.lineHeight = '1.5';
+
+  const row = document.createElement('div');
+  Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+
+  const keepBtn = document.createElement('button');
+  keepBtn.textContent = 'Keep this';
+  applyVibeBtnStyle(keepBtn);
+  keepBtn.addEventListener('click', async () => {
+    keepBtn.disabled = true;
+    try {
+      await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/keep`, {
+        method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
+      });
+    } catch {}
+    hideConversionFeedbackToast();
+  });
+
+  const revertBtn = document.createElement('button');
+  revertBtn.textContent = 'Revert to original';
+  applyBtnStyle(revertBtn);
+  revertBtn.addEventListener('click', async () => {
+    revertBtn.disabled = true;
+    revertBtn.textContent = 'Reverting…';
+    try {
+      const r = await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/reject`, {
+        method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
+      });
+      if (r.ok) {
+        renderVibeEnd(toast, 'Reverted to the original — reloading…');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        renderVibeEnd(toast, 'Could not revert.');
+      }
+    } catch {
+      renderVibeEnd(toast, 'Could not revert.');
+    }
+  });
+
+  row.appendChild(keepBtn);
+  row.appendChild(revertBtn);
+  toast.appendChild(msg);
+  toast.appendChild(row);
 }
 
 /* success state: before/after + accept/reject. tier 'clean' = confident; 'improved' = better
@@ -433,7 +597,7 @@ function renderVibeEnd(toast, text) {
   toast.appendChild(dismiss);
 }
 
-/* ── hide / remove ────────────────────────────────────────── */
+/* hide / remove */
 export function hideConversionFeedbackToast() {
   const toast = document.getElementById(TOAST_ID);
   if (!toast) return;

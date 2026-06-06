@@ -170,9 +170,17 @@ class ImageProcessor(EpubTransform):
         images_processed = 0
         figures_created = 0
 
-        # Find the base path for the project (go up from app/Python to project root)
+        # Find the project root = the dir holding Laravel's `artisan`, by walking UP from this file.
+        # (Do NOT hardcode a .parent chain: this file moved from app/Python/ to app/Python/ingestion/epub/
+        # in the folder reorg, and the old `.parent.parent.parent` then resolved to app/Python — so images
+        # were copied to app/Python/storage/… which the web server never serves → every image 404'd and the
+        # reader injected a broken-image-wrapper per image, churning integrity. The sentinel survives reorgs.)
         import pathlib
-        project_root = pathlib.Path(__file__).parent.parent.parent
+        here = pathlib.Path(__file__).resolve()
+        project_root = next((p for p in here.parents if (p / 'artisan').is_file()), None)
+        if project_root is None:
+            log("  Warning: project root (artisan) not found above this module; skipping image copy")
+            return {'images_processed': 0}
 
         # Create storage directory for this book's images
         storage_dir = project_root / 'storage' / 'app' / 'public' / 'books' / self.book_id / 'images'

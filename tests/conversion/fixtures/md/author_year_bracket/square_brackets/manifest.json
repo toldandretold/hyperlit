@@ -1,0 +1,17 @@
+{
+    "name": "square_brackets",
+    "description": "Square-bracket [Author YEAR] author-date citations ONLY (no parentheses) — pins that a bracket-only source links (the gate fires on [Author YEAR], not just parens).",
+    "book_id": "md_author_year_square_brackets",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "md",
+    "expected": {
+        "references_count": 3,
+        "citations_total": 5,
+        "citations_linked": 5,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes",
+        "citation_style": "author-year-bracket"
+    }
+}

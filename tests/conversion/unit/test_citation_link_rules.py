@@ -44,7 +44,7 @@ def test_pre_linked_anchor_converter_skips_bib_and_unmatched(soup):
 
 
 # ---------------------------------------------------------------------------
-# CitationPatternGate — the two skip reasons
+# CitationPatternGate — skip reasons + the (Author YEAR) / [Author YEAR] pre-check
 # ---------------------------------------------------------------------------
 def test_gate_skips_when_no_bibliography(soup):
     s = soup('<body><p>(Marcuse 2009) is here.</p></body>')
@@ -54,20 +54,39 @@ def test_gate_skips_when_no_bibliography(soup):
     assert ctx.skip_reason == 'no_bibliography'
 
 
-def test_gate_skips_when_no_paren_patterns(soup):
-    s = soup('<body><p>no parenthesised citations here</p></body>')
+def test_gate_skips_when_no_citation_patterns(soup):
+    s = soup('<body><p>no parenthesised or bracketed citations here</p></body>')
     ctx = CitationLinkContext(s, {'marcuse2009': 'bib1'})
     CitationPatternGate().apply(ctx)
     assert ctx.skip_citation_scan is True
-    assert ctx.skip_reason == 'no_paren_patterns'
+    assert ctx.skip_reason == 'no_citation_patterns'
 
 
-def test_gate_proceeds_when_patterns_present(soup):
+def test_gate_proceeds_when_paren_patterns_present(soup):
     s = soup('<body><p>As shown (Marcuse 2009).</p></body>')
     ctx = CitationLinkContext(s, {'marcuse2009': 'bib1'})
     CitationPatternGate().apply(ctx)
     assert ctx.skip_citation_scan is False
     assert ctx.skip_reason is None
+
+
+def test_gate_proceeds_on_square_bracket_author_date(soup):
+    # [Author, YEAR] with NO parentheses anywhere — must still fire (the fix).
+    s = soup('<body><p>As shown [Baldwin, 2018] in recent work.</p></body>')
+    ctx = CitationLinkContext(s, {'baldwin2018': 'bib1'})
+    CitationPatternGate().apply(ctx)
+    assert ctx.skip_citation_scan is False
+    assert ctx.skip_reason is None
+
+
+def test_gate_does_not_fire_on_numeric_or_bare_year_brackets(soup):
+    # Numeric STEM cites [36] / [6-8] (handled by the PDF wrap_stem_citations) and bare bracketed dates
+    # [2013] (no author letter) must NOT trip the gate — only AUTHOR-date brackets do.
+    s = soup('<body><p>see [36] and [6-8]; the book [2013] is older.</p></body>')
+    ctx = CitationLinkContext(s, {'x2013': 'bib1'})
+    CitationPatternGate().apply(ctx)
+    assert ctx.skip_citation_scan is True
+    assert ctx.skip_reason == 'no_citation_patterns'
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +131,17 @@ def test_square_bracket_linker_links_matching_citation(soup):
     a = s.find('a', class_='in-text-citation')
     assert a is not None and a['href'] == '#bib-marcuse'
     assert ctx.citations_linked == 1
+
+
+def test_bracket_only_document_links_through_full_chain(soup):
+    # The regression case for the fix: a source citing ONLY with [Author, YEAR] (NO parentheses) must
+    # link end-to-end — the gate now fires on the bracket pattern, so SquareBracketCitationLinker runs.
+    s = soup('<body><p>Recent work [Baldwin, 2018] and others [Wolfe, 2018] agree.</p></body>')
+    bib = {_key('Baldwin 2018'): 'bib-baldwin', _key('Wolfe 2018'): 'bib-wolfe'}
+    found, linked, unlinked = link_citations_rules(s, bib)
+    assert linked == 2, 'both square-bracket author-date citations should link'
+    hrefs = sorted(a['href'] for a in s.find_all('a', class_='in-text-citation'))
+    assert hrefs == ['#bib-baldwin', '#bib-wolfe']
 
 
 # ---------------------------------------------------------------------------

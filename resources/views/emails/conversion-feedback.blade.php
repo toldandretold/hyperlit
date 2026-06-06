@@ -21,6 +21,22 @@
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Timestamp</td><td>{{ $timestamp ?? '' }}</td></tr>
     </table>
 
+    @if(!empty($issueTypes))
+    @php
+        $issueLabels = [
+            'citations_not_matched' => 'Citations not matched',
+            'citations_wrongly_matched' => 'Citations wrongly matched',
+            'footnotes_not_matched' => 'Footnotes not matched',
+            'footnotes_wrongly_matched' => 'Footnotes wrongly matched',
+            'headings_wrong' => 'Headings wrong / bad hierarchy',
+        ];
+    @endphp
+    <h3 style="color:#f59e0b;">Issue categories (reader-selected)</h3>
+    <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px;">
+        {{ implode(' · ', array_map(fn($t) => $issueLabels[$t] ?? $t, $issueTypes)) }}
+    </div>
+    @endif
+
     @if(!empty($comment))
     <h3 style="color:#22c55e;">User comment</h3>
     <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; white-space:pre-wrap; word-break:break-word;">{{ $comment }}</div>

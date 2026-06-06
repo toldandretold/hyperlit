@@ -52,6 +52,12 @@ from conversion import fix_categories  # the living fix-category registry (promp
 # modus operandi says is worse than leaving them unlinked.
 MISALIGNED_REJECT_RATIO = 0.5
 
+# Over-extraction guards (a bibliography "fix" that over-matches reads as 'improved' on raw ref count
+# while actually producing junk). Both are FALSIFIABLE: a 100+-char reference key is provably not an
+# author-year slug, and halving the in-text citations the converter even RECOGNISES is a detection regression.
+MAX_SANE_REF_KEY = 100        # referenceId longer than this = concatenated garbage, not 'adornotheodor2003'
+CITATION_COLLAPSE_RATIO = 0.5  # after.citations_total below this × baseline = citation DETECTION regressed
+
 # LLM spend tracking. Fireworks returns exact token usage per call; the $ comes from the SAME
 # pricing table the app uses (config/services.php → services.llm.pricing, read by
 # AiBrainController::calculateCost), so there's one source of truth. Env LLM_PRICE_PER_MTOK_IN/_OUT
@@ -201,11 +207,16 @@ def load_artifacts(book_dir):
         if os.path.isfile(p):
             source = open(p, encoding='utf-8').read()
             break
+    _stats = _read_json('conversion_stats.json') or {}
+    _headings = _count_headings(os.path.join(book_dir, 'nodes.jsonl'))
+    _stats['headings_total'] = _headings['total']   # so _stat_summary can SHOW headings in every beat
     return {
         'book_dir': book_dir,
         'assessment': (assessment or {}).get('records', []) if assessment else [],
         'audit': _read_json('audit.json') or {},
-        'stats': _read_json('conversion_stats.json') or {},
+        'stats': _stats,
+        'headings': _headings,
+        'refs': _ref_key_stats(os.path.join(book_dir, 'references.json')),
         'source': source,
         'is_pdf': os.path.isfile(os.path.join(book_dir, 'ocr_response.json')),
         # Detect EPUB from the source OR from epub_normalizer's footprint — the latter matters when
@@ -356,6 +367,53 @@ def _with_siblings(paths):
     return out
 
 
+# Human-reported issue categories (the toast picker) → the module(s) to send + a one-line routing gloss.
+# Used TWO ways: modules_for() includes these files EVEN WHEN the system flagged nothing — a WRONG link or
+# bad heading is invisible to self-assessment, so the human is the only signal — and build_diagnostic_context
+# renders the gloss as a high-priority "what the reader reports" section. Basenames resolve to real
+# (post-reorg) paths via _real_path. Keep the FIVE keys in sync with the JS chips + the PHP enum.
+_ISSUE_CATEGORY_MODULES = {
+    'citations_not_matched':     ['bibliography.py', 'citation_link_rules.py', 'refkeys.py'],
+    'citations_wrongly_matched': ['bibliography.py', 'refkeys.py', 'citation_link_rules.py'],
+    'footnotes_not_matched':     ['footnotes.py', 'footnote_link_rules.py', 'strategy.py'],
+    'footnotes_wrongly_matched': ['footnote_link_rules.py', 'footnotes.py'],
+    'headings_wrong':            ['headingMatching.py', 'epub_normalizer.py', 'finalNormalisation.py'],
+}
+
+_ISSUE_CATEGORY_GLOSS = {
+    'citations_not_matched':     ('in-text citations did NOT link to the bibliography — suspect the link '
+                                  'TARGETS (bibliography extraction) or citation-style detection, OR that '
+                                  'they were never real citations. Read the actual text before changing anything.'),
+    'citations_wrongly_matched': ('a citation linked to the WRONG entry (not missing — WRONG). The pipeline '
+                                  'CANNOT self-detect this; trust the human. Suspect key generation / '
+                                  'author+year collision-suffixing (bibliography.py + refkeys.py) — a bare '
+                                  '"(Author Year)" resolves to the LAST same-key entry.'),
+    'footnotes_not_matched':     ('footnote markers did NOT reach their definitions — suspect footnote '
+                                  'extraction / strategy selection / the marker linker (look UPSTREAM of the '
+                                  'audit, which only measures the gap).'),
+    'footnotes_wrongly_matched': ('a footnote marker opened the WRONG definition. The pipeline CANNOT '
+                                  'self-detect this; trust the human. Suspect NUMBER-based pairing where '
+                                  'numbering restarts/offsets — pair by EXPLICIT id, not number.'),
+    'headings_wrong':            ('headings are missing / none are h1 / wrong hierarchy. Look at heading '
+                                  'DETECTION (EPUB schemes in headingMatching.py) and level-gap normalisation '
+                                  '(HeadingNormalizer in finalNormalisation.py), NOT the citation/footnote linkers.'),
+}
+
+
+def _issue_category_modules(issue_types):
+    """Repo paths for the human-reported categories — sent EVEN when the system flagged nothing (a wrong
+    link / bad heading is invisible to the pipeline's own assessment, so the report is the only signal).
+    The lists are CURATED (no _with_siblings expansion) so a headings report doesn't drag in the footnote
+    linker via an unrelated decomposition-sibling edge."""
+    out = []
+    for cat in (issue_types or []):
+        for base in _ISSUE_CATEGORY_MODULES.get(cat, []):
+            p = _real_path(base)
+            if p not in out:
+                out.append(p)
+    return out
+
+
 def _footnote_fix_modules(art):
     """A failing footnote_audit names audit.py — but audit.py only MEASURES the orphans;
     they're created upstream in the detector/linker. Send the code that can actually fix it,
@@ -375,9 +433,11 @@ def _citation_fix_modules(art):
     return _with_siblings([_real_path('citations.py'), _real_path('bibliography.py')])
 
 
-def modules_for(records, art=None):
-    """Module files named by the flagged forks' code_refs (the code to send the LLM).
-    A flagged footnote_audit is redirected to the detector/linker (see _footnote_fix_modules)."""
+def modules_for(records, art=None, issue_types=None):
+    """Module files named by the flagged forks' code_refs (the code to send the LLM), PLUS the modules a
+    human reported via the issue picker (issue_types) — those are included even when the records are empty,
+    because a wrong link / bad heading flags nothing in the system. A flagged footnote_audit is redirected
+    to the detector/linker (see _footnote_fix_modules)."""
     paths = []
 
     def _add(p):
@@ -398,6 +458,9 @@ def modules_for(records, art=None):
         # (e.g. citations.py is a thin shell over citation_link_rules.py).
         for p in _with_siblings([_code_ref_to_path(r.get('code_ref', ''))] if _code_ref_to_path(r.get('code_ref', '')) else []):
             _add(p)
+    # The human-reported categories ALWAYS contribute their modules (system may have flagged nothing).
+    for p in _issue_category_modules(issue_types):
+        _add(p)
     return paths
 
 
@@ -464,7 +527,7 @@ _STAT_GLOSS = {
 def _render_stats(st):
     """The symptom, but legible: each stat with what it COUNTS and the file that COMPUTES it (a tree node).
     So '8 references / 24 citations / 0 linked' reads as a causal chain, not six opaque numbers."""
-    lines = ["## The problem — what converted, and WHERE each number comes from",
+    lines = ["## What converted — and WHERE each number comes from",
              "Each line is `stat = value` — what it counts · the pipeline step that computes it (find that "
              "file in the pipeline tree below). They form a CHAIN: a citation links only if its target was "
              "extracted; a footnote links only if its definition was detected AND its marker survived."]
@@ -478,7 +541,7 @@ def _render_stats(st):
 # ---------------------------------------------------------------------------
 # 2. Build the prompt
 # ---------------------------------------------------------------------------
-def build_diagnostic_context(art, modules, user_note=None):
+def build_diagnostic_context(art, modules, user_note=None, issue_types=None):
     """The SHARED diagnostic payload BOTH engines send (native + aider), so native-vs-aider —
     and model-vs-model — is a CONTROLLED experiment: the DIAGNOSIS is byte-identical; only the edit
     MECHANISM (JSON ops vs aider's diff+`--test-cmd` loop) and how the module SOURCE is delivered (native
@@ -489,10 +552,18 @@ def build_diagnostic_context(art, modules, user_note=None):
     st = art['stats']
     parts = []
 
-    # ── 1. THE PROBLEM (lead with it) ────────────────────────────────────────────────────────────
+    # ── 1. WHAT THE HUMAN REPORTED (lead with it — weigh heavily) ─────────────────────────────────
     if user_note:
         parts.append("## What the reader says is wrong (human-spotted — weigh this heavily)\n"
                      + user_note.strip()[:1500])
+    if issue_types:
+        gl = ["## What the reader reports (structured signals — the human caught what the pipeline could "
+              "NOT self-detect; weigh heavily and start here)"]
+        for cat in issue_types:
+            label = cat.replace('_', ' ')
+            gloss = _ISSUE_CATEGORY_GLOSS.get(cat)
+            gl.append(f"- **{label}** → {gloss}" if gloss else f"- **{label}**")
+        parts.append("\n".join(gl))
     parts.append(_render_stats(st))
     flagged_block = ["## Flagged decisions (assessment.json — where the pipeline was unsure or dropped work)"]
     for r in flagged:
@@ -503,8 +574,9 @@ def build_diagnostic_context(art, modules, user_note=None):
     parts.append("\n".join(flagged_block))
     if art['assessment']:
         parts.append("## Where it happened — this conversion's PATHWAY through the pipeline\n"
-                     "The ordered decisions this document took; ⚑ marks a FLAGGED node (the likely fault), and "
-                     "each line resolves to the real file to edit:\n"
+                     "The ordered decisions this document took; ⚑ marks a node the pipeline flagged as "
+                     "UNCERTAIN — a SUSPICION to verify, not a proven fault — and each line resolves to the "
+                     "real file to inspect:\n"
                      + "\n".join(_pathway_lines(art['assessment'], flagged)))
 
     # ── 2. THE PIPELINE (orientation — every step is a file with a stated job) ────────────────────
@@ -528,7 +600,7 @@ def build_diagnostic_context(art, modules, user_note=None):
                      "extract_header) — those only affect a fresh OCR and CANNOT be validated or applied "
                      "to this document.")
     parts.append(
-        "## How to localize the cause — read the stats as a CAUSAL CHAIN and fix the EARLIEST cause\n"
+        "## How to localize the cause — read the stats as a CAUSAL CHAIN and, IF confirmed, fix the EARLIEST cause\n"
         "- `citations_linked` is DOWNSTREAM of `references_found`: a citation links ONLY if a matching "
         "bibliography entry exists. So `citations 0/158` with `references_found 1` means the link "
         "TARGETS are missing — the cause is bibliography extraction (bibliography.py) or a mis-detected "
@@ -541,7 +613,7 @@ def build_diagnostic_context(art, modules, user_note=None):
            "ASK: is the missing artifact ABSENT from the assembled markdown (→ cause is UPSTREAM in "
            "mistral_ocr ASSEMBLY: classify_footnotes / assemble_markdown) or PRESENT-but-unlinked (→ "
            "cause is the downstream linker)? Localize before editing.\n" if art.get('is_pdf') else "")
-        + "- Prefer the SMALLEST edit to the responsible DECISION function. Adding a new DocPass to "
+        + "- Prefer the SMALLEST edit to the DECISION function that made this call. Adding a new DocPass to "
         "DOC_PASSES is high-blast-radius and frequently crashes — reserve a NEW phase for a genuinely new "
         "phase, never as a way to patch a linking/extraction symptom.")
 
@@ -574,21 +646,26 @@ def build_diagnostic_context(art, modules, user_note=None):
         parts.append(fix_categories.render_prompt_block(modules))
 
     # ── 6. PRINCIPLE ─────────────────────────────────────────────────────────────────────────────
-    parts.append("## Principle\nUphold the modus operandi: correct where determinable, NO link where "
-                 "ambiguous — a wrong/misaligned link is WORSE than a missing one. Make the MINIMAL change "
-                 "that fixes the cause; don't rewrite whole functions to change a few lines.")
+    parts.append("## Principle\nEvery item above is a SUSPICION, not a verdict. FIRST confirm it against the "
+                 "actual text / evidence shown here. If a suspicion does NOT hold, proposing NO change (with "
+                 "a one-line reason why it's fine) is a CORRECT, valued outcome — the gate credits "
+                 "not-'fixing' a non-problem. Fix ONLY what you can confirm is genuinely wrong. Then uphold "
+                 "the modus operandi: correct where determinable, NO link where ambiguous — a wrong/misaligned "
+                 "link is WORSE than a missing one. Make the MINIMAL change that fixes the cause; don't "
+                 "rewrite whole functions to change a few lines.")
     return parts
 
 
-def build_prompt(art, module_paths, user_note=None):
+def build_prompt(art, module_paths, user_note=None, issue_types=None):
     """The NATIVE engine prompt = the shared diagnostic context + the module SOURCE inlined (an API
     completion can't read files) + the JSON-ops edit contract. The diagnosis is identical to the aider
     engine's (vibe_aider.build_aider_message) — see build_diagnostic_context. (The engine is model-
     agnostic: it runs whatever --model it's given; don't name it after a model.)"""
-    parts = ["You are improving a document-conversion pipeline. A book converted badly. Below are the "
-             "problem (what converted + where each number comes from), the pipeline's own flagged "
-             "decisions, the pipeline structure, the audit verdict, and the responsible module source."]
-    parts += build_diagnostic_context(art, module_paths, user_note)
+    parts = ["You are improving a document-conversion pipeline. A book's conversion was flagged for "
+             "review. Below are the SUSPECTED issues (what converted + where each number comes from), the "
+             "pipeline's own UNCERTAIN decisions, the pipeline structure, the audit verdict, and the module "
+             "source. Each item is a suspicion to CONFIRM against the evidence, not a proven fault."]
+    parts += build_diagnostic_context(art, module_paths, user_note, issue_types)
     parts.append("## Responsible module source (you may edit any function in these files)")
     for p in module_paths:
         parts.append(f"--- {p} ---\n" + open(os.path.join(REPO_ROOT, p), encoding='utf-8').read())
@@ -1120,6 +1197,24 @@ def _flex_find(hay, needle):
     return None
 
 
+def _available_scopes(src):
+    """Names op:edit can scope to in `src`: top-level functions/classes + each Class.method.
+    Used to turn a 'not found' into a did-you-mean so the model's retry lands instead of guessing."""
+    import ast
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return []
+    _F = (ast.FunctionDef, ast.AsyncFunctionDef)
+    names = []
+    for n in tree.body:
+        if isinstance(n, _F + (ast.ClassDef,)):
+            names.append(n.name)
+        if isinstance(n, ast.ClassDef):
+            names += [f"{n.name}.{m.name}" for m in n.body if isinstance(m, _F)]
+    return names
+
+
 def _apply_edit(src, search, replace, scope_name=None):
     """Surgical search/replace (op:edit) — the scalpel that lets the model change a few lines of a
     big method instead of resending the whole body (which kept clobbering working logic). Optionally
@@ -1128,7 +1223,13 @@ def _apply_edit(src, search, replace, scope_name=None):
     if scope_name:
         span = _scope_span(src, scope_name)
         if span is None:
-            return None, f"scope function '{scope_name}' not found"
+            avail = _available_scopes(src)
+            import difflib
+            near = difflib.get_close_matches(scope_name, avail, n=3, cutoff=0.5)
+            hint = (f" — did you mean {', '.join(near)}?" if near
+                    else (f" — this file defines: {', '.join(avail)}" if avail else ""))
+            return None, (f"scope function '{scope_name}' not found{hint}. Use one of the names "
+                          f"listed, or omit 'name' and put the verbatim search text instead")
         rs, re_ = span
     region = src[rs:re_]
     found = _flex_find(region, search)
@@ -1211,8 +1312,14 @@ def make_sandbox():
         src = os.path.join(REPO_ROOT, rel)
         dst = os.path.join(tmp, rel)
         if os.path.isdir(src):
+            # The sandbox needs only the CODE (the gate imports vibe_convert from app/Python). Exclude
+            # heavy non-code so aider's repo scan doesn't ingest it and blow the model context window:
+            #   • test fixtures/goldens/import-samples (the gate never uses them),
+            #   • STRAY conversion artifacts (a leftover main-text.md/ocr_response.json etc. in app/Python
+            #     is ~200k tokens of book text — it exhausted aider every run).
             shutil.copytree(src, dst, ignore=shutil.ignore_patterns(
-                '__pycache__', '*.pyc', 'fixtures-local', 'corpus'))
+                '__pycache__', '*.pyc', 'fixtures-local', 'fixtures', 'corpus', 'import-samples',
+                'main-text.md', 'main-text.html', 'ocr_response.json', '*.jsonl'))
         elif os.path.isfile(src):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copy2(src, dst)
@@ -1262,9 +1369,51 @@ def _pipeline_into(py_dir, book_dir, out):
     return _run(os.path.join(py_dir, 'process_document.py'), src, out, 'vibebook') if src else None
 
 
+def _count_headings(nodes_path):
+    """The heading STRUCTURE of a conversion's output, for the gate — counted straight from nodes.jsonl
+    (each node's `type` is the HTML tag, e.g. 'h1'..'h6'). Returns total h1–h6, the h1 count (a missing
+    top-level title is the common EPUB failure), and hierarchy GAPS (a heading that jumps MORE than one
+    level below the previous — the 'wrong hierarchy' signal). Missing/garbled file → all zeros."""
+    levels = []
+    try:
+        with open(nodes_path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                t = (json.loads(line).get('type') or '').lower()
+                if len(t) == 2 and t[0] == 'h' and t[1] in '123456':
+                    levels.append(int(t[1]))
+    except Exception:
+        pass
+    gaps = sum(1 for i in range(1, len(levels)) if levels[i] - levels[i - 1] > 1)
+    return {'total': len(levels), 'h1': levels.count(1), 'gaps': gaps}
+
+
+def _ref_key_stats(refs_path):
+    """Reference-KEY shape, for the over-extraction guard. A real referenceId is a short author-year slug
+    ('adornotheodor2003', ~17 chars); bibliography OVER-extraction concatenates a paragraph of words into
+    one key (a 338-char id was seen in the wild — it also overflows the DB's varchar(255)). Returns the
+    entry count, the longest key length, and how many keys are unreasonably long. Missing file → zeros."""
+    out = {'count': 0, 'max_key_len': 0, 'overlong_keys': 0}
+    try:
+        data = json.load(open(refs_path, encoding='utf-8'))
+    except Exception:
+        return out
+    if not isinstance(data, list):
+        return out
+    out['count'] = len(data)
+    for r in data:
+        k = (r.get('referenceId') or '') if isinstance(r, dict) else ''
+        out['max_key_len'] = max(out['max_key_len'], len(k))
+        if len(k) > MAX_SANE_REF_KEY:
+            out['overlong_keys'] += 1
+    return out
+
+
 def _reconvert(sandbox, book_dir):
     """Re-convert THIS doc in the sandbox and read the fresh result. Returns
-    {ok, audit, stats, assessment, stderr} (stderr tail on failure → fed back to the model)."""
+    {ok, audit, stats, assessment, headings, refs, stderr} (stderr tail on failure → fed back to the model)."""
     out = tempfile.mkdtemp(prefix='vibe-out-')
     r = _pipeline_into(os.path.join(sandbox, 'app', 'Python'), book_dir, out)
 
@@ -1273,10 +1422,13 @@ def _reconvert(sandbox, book_dir):
         return json.load(open(p, encoding='utf-8')) if os.path.isfile(p) else {}
     audit, stats = _rd('audit.json'), _rd('conversion_stats.json')
     assessment = (_rd('assessment.json') or {}).get('records', [])
+    headings = _count_headings(os.path.join(out, 'nodes.jsonl'))   # count BEFORE the temp dir is wiped
+    refs = _ref_key_stats(os.path.join(out, 'references.json'))
+    stats['headings_total'] = headings['total']   # so _stat_summary can SHOW headings in every beat
     stderr = (r.stderr or '')[-700:] if (r and r.returncode != 0) else ''
     shutil.rmtree(out, ignore_errors=True)
     return {'ok': bool(r and r.returncode == 0), 'audit': audit, 'stats': stats,
-            'assessment': assessment, 'stderr': stderr}
+            'assessment': assessment, 'headings': headings, 'refs': refs, 'stderr': stderr}
 
 
 def _problem_set(records, audit):
@@ -1287,20 +1439,29 @@ def _problem_set(records, audit):
 
 
 def _stat_summary(stats):
+    # headings included so a heading fix (or its absence) is VISIBLE in the beat — the gate measures
+    # h1–h6 nodes, but if the line only shows refs/citations/footnotes it LOOKS like headings are ignored.
+    h = stats.get('headings_total')
     return (f"refs {stats.get('references_found', 0)}, "
             f"citations {stats.get('citations_linked', 0)}/{stats.get('citations_total', 0)}, "
-            f"footnotes {stats.get('footnotes_matched', 0)}")
+            f"footnotes {stats.get('footnotes_matched', 0)}"
+            + (f", headings {h}" if h is not None else ""))
 
 
-def evaluate(baseline_art, after, patched_files=None):
+def evaluate(baseline_art, after, patched_files=None, issue_types=None):
     """The path-A gate, THREE-TIER (the patch only ever touches THIS doc — no regression suite):
         'clean'    — the flagged problem(s) resolved with NO new flags/faults → offer confidently
-        'improved' — got materially better, either MORE links OR FEWER audit faults (a wrong link is
-                     worse than a missing one, so reducing orphans/gaps at equal links is a real win)
-                     → SHOW the user with the caveat, they judge
+        'improved' — got materially better on ANY measured dimension (citations / footnotes / HEADINGS,
+                     or FEWER audit faults — a wrong link is worse than a missing one) → SHOW with caveat
         'reject'   — crashed, regressed a previously-good metric, or no measurable improvement
     Returns (tier, reason). Accepting is non-destructive: the nodes_versioning_trigger archives the
     prior conversion to nodes_history, so the user can always revert.
+
+    MULTI-DIMENSION: a gain in any of citations / footnotes / headings is credited; a regression in any is
+    blocked. `issue_types` is what the READER reported (the toast picker) — it lets the gate honour a
+    dimension only the human can see ('…_wrongly_matched': a confident-wrong link still counts as linked,
+    so it can't be measured — if the reader flagged it and the patch touched the matching module without
+    regressing anything, offer it for the human to Keep/Revert).
 
     `patched_files` (repo paths the patch edited) guards against the model GAMING the gate by editing
     the AUDIT to report fewer faults — audit faults come from audit.py:compute_footnote_audit, so a
@@ -1308,6 +1469,7 @@ def evaluate(baseline_art, after, patched_files=None):
     if not after['ok']:
         return 'reject', "the patched code crashed converting the document"
     b, a = baseline_art['stats'], after['stats']
+    bh, ah = baseline_art.get('headings') or {}, after.get('headings') or {}
     b_fl, b_faults = _problem_set(baseline_art['assessment'], baseline_art['audit'])
     a_fl, a_faults = _problem_set(after['assessment'], after['audit'])
     fault_drop = b_faults - a_faults                       # >0 = fewer audit faults (good)
@@ -1325,6 +1487,25 @@ def evaluate(baseline_art, after, patched_files=None):
     if a.get('footnotes_matched', 0) < b.get('footnotes_matched', 0) and not creditable_fault_drop:
         return 'reject', (f"it matched FEWER footnotes ({a.get('footnotes_matched', 0)} vs "
                           f"{b.get('footnotes_matched', 0)})")
+    # Headings are objectively measurable (h1–h6 nodes); losing document structure is a regression.
+    if ah.get('total', 0) < bh.get('total', 0):
+        return 'reject', (f"it produced FEWER headings ({ah.get('total', 0)} vs {bh.get('total', 0)}) "
+                          f"— lost document structure")
+    # OVER-EXTRACTION guard 1: garbage reference keys. A bibliography "fix" that over-matches concatenates
+    # words into absurd keys (a 338-char id was seen — it also overflows the DB's varchar(255)). A 100+-char
+    # referenceId is provably not an author-year slug; if the patch introduced any (baseline had none), reject.
+    br, ar = baseline_art.get('refs') or {}, after.get('refs') or {}
+    if ar.get('overlong_keys', 0) > br.get('overlong_keys', 0):
+        return 'reject', (f"it produced malformed reference key(s) up to {ar.get('max_key_len', 0)} chars "
+                          f"— bibliography over-extraction (a real key is a short author-year slug, and "
+                          f"keys this long break the DB / match no citation)")
+    # OVER-EXTRACTION guard 2: citation-DETECTION collapse. citations_linked rising looks like a win, but if
+    # citations_total (how many in-text citations are even RECOGNISED) has collapsed, the change links a few
+    # while losing most — a net regression the raw link count hides. (8694: linked 0→47 but detected 1370→159.)
+    bct, act = b.get('citations_total', 0), a.get('citations_total', 0)
+    if bct >= 20 and act < CITATION_COLLAPSE_RATIO * bct:
+        return 'reject', (f"in-text citation DETECTION collapsed ({bct}→{act}) — it links a few but stops "
+                          f"recognising most citations; a net regression the link count hides")
 
     introduced = a_fl - b_fl
     persists = a_fl & b_fl
@@ -1361,10 +1542,47 @@ def evaluate(baseline_art, after, patched_files=None):
         return 'improved', (f"reduced audit faults {b_faults}→{a_faults} (e.g. fewer orphaned "
                             f"definitions / numbering gaps) with no new faults — a correctness win "
                             f"even though the link count didn't rise")
+
+    # HEADING win: the conversion recovered document structure — more headings, the top-level title
+    # (h1) appearing where there was none, or a cleaner hierarchy. Objectively measured; the user judges
+    # whether they're the RIGHT headings via Keep/Revert.
+    head_win = (ah.get('total', 0) > bh.get('total', 0)
+                or (bh.get('h1', 0) == 0 and ah.get('h1', 0) > 0)
+                or ah.get('gaps', 0) < bh.get('gaps', 0))
+    if head_win:
+        cav = (" — caveat: new flag " + str(sorted(introduced))) if introduced else ""
+        return 'improved', (f"recovered document headings ({bh.get('total', 0)}→{ah.get('total', 0)}, "
+                            f"h1 {bh.get('h1', 0)}→{ah.get('h1', 0)})" + cav)
+
+    # READER-REPORTED 'wrongly matched' — the ONE dimension counts can't capture (a confident-wrong link
+    # still counts as linked). If the reader flagged it AND the patch touched a matching module AND nothing
+    # measurable regressed (we got here, so no regression fired), offer it for the human to Keep/Revert.
+    _wrongly = {'citations_wrongly_matched', 'footnotes_wrongly_matched'} & set(issue_types or [])
+    if _wrongly and patched_files:
+        _matchers = {'bibliography.py', 'refkeys.py', 'citation_link_rules.py',
+                     'footnote_link_rules.py', 'footnotes.py'}
+        if any(os.path.basename(p or '') in _matchers for p in patched_files):
+            return 'improved', ("addressed a reader-reported WRONG match (" + ", ".join(sorted(_wrongly))
+                                + ") — this can't be auto-verified; review the result and Keep or Revert")
+
     return 'reject', "no measurable improvement to this document"
 
 
-def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file_issue=False):
+def _pick_best(current, candidate):
+    """Best-of-N selector for the retry loop, ORDER-INDEPENDENT. Rank = (score, is_clean): higher
+    score wins (more content correctly linked); a 'clean' result (no residual flags) breaks ties.
+    So the best attempt is applied no matter WHEN it appeared — attempt 1 is kept if it's the best, a
+    weaker later attempt never displaces it, and a late low-value 'clean' can't stomp an earlier
+    high-value 'improved'. Each arg is a candidate dict ({score, tier, funcs, …}) or None."""
+    if current is None:
+        return candidate
+    if candidate is None:
+        return current
+    key = lambda c: (c['score'], c['tier'] == 'clean')
+    return candidate if key(candidate) > key(current) else current
+
+
+def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file_issue=False, issue_types=None):
     """The user-facing path: bounded retry. Each attempt asks the LLM for a patch, applies
     it in a throwaway sandbox, re-converts THIS document, and evaluates. On failure it feeds
     the new result back to the LLM and tries again — up to max_attempts. The winning diff is
@@ -1373,7 +1591,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
     reset_usage()  # per-case token/cost accounting → snapshotted into the report by _finalize
     art = load_artifacts(book_dir)
     flagged = flagged_forks(art['assessment'])
-    modules = modules_for(flagged, art) or modules_for(art['assessment'], art)
+    modules = modules_for(flagged, art, issue_types) or modules_for(art['assessment'], art, issue_types)
     base_flagged, base_faults = _problem_set(art['assessment'], art['audit'])
     # Describe the ACTUAL uncertain decision (not a misleading "fell outside N of M pathways" —
     # the converter handles many end-results; usually only one decision was uncertain here).
@@ -1399,7 +1617,7 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
              f"(attempt {attempt} of {max_attempts})",
              attempt=attempt, max_attempts=max_attempts)
         try:
-            patch = propose_patch(build_prompt(art, modules, user_note=user_note) + feedback,
+            patch = propose_patch(build_prompt(art, modules, user_note=user_note, issue_types=issue_types) + feedback,
                                   mock_diff=mock_diff, model=model)
         except ValueError as e:
             # Transient (e.g. truncated JSON) — retry this attempt rather than aborting.
@@ -1458,24 +1676,27 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
                  "Running the proposed pipeline on THIS document to confirm it actually makes "
                  "things better (and breaks nothing else here)…", attempt=attempt)
             after = _reconvert(sandbox, book_dir)
-            tier, why = evaluate(art, after, patched_files=[f.get('file') for f in funcs])
+            tier, why = evaluate(art, after, patched_files=[f.get('file') for f in funcs],
+                                 issue_types=issue_types)
             st = after['stats']
             journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
                             'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st), **_meta})
-            if tier == 'clean':
-                _persist_patch(book_dir, patch, funcs)
-                _finalize(book_dir, art, journal, 'clean', best=None, file_issue=False)
-                emit('success', f"Fixed it cleanly — {_stat_summary(st)}.",
-                     tier='clean', attempt=attempt, before=_stat_summary(art['stats']),
-                     after=_stat_summary(st), rationale=patch.get('rationale', '')[:300])
-                return 0, funcs
-            if tier == 'improved':
+            if tier in ('clean', 'improved'):
                 score = st.get('footnotes_matched', 0) + st.get('citations_linked', 0)
-                if best is None or score > best['score']:
-                    best = {'funcs': funcs, 'rationale': patch.get('rationale', ''),
-                            'after': _stat_summary(st), 'why': why, 'score': score}
+                cand = {'funcs': funcs, 'rationale': patch.get('rationale', ''),
+                        'after': _stat_summary(st), 'why': why, 'score': score, 'tier': tier}
+                # Keep the BEST across ALL attempts, INDEPENDENT OF ORDER (see _pick_best): the first
+                # attempt is kept if it's the best, a weaker later attempt never overwrites it, and a
+                # late LOW-value 'clean' can no longer stomp an earlier HIGH-value 'improved'.
+                best = _pick_best(best, cand)
+                if tier == 'clean':
+                    # The flagged problem is fully resolved — stop searching (more attempts only risk
+                    # regression), but APPLY whichever candidate ranked best (maybe an earlier 'improved').
+                    emit('improved_partial', f"Fixed it cleanly — {_stat_summary(st)}. Finalising the "
+                         f"best result found across attempts…", attempt=attempt)
+                    break
                 emit('improved_partial',
-                     f"Better — {_stat_summary(st)} ({why}). Keeping it as a candidate and "
+                     f"Better — {_stat_summary(st)} ({why}). Keeping the best so far and "
                      f"trying for a cleaner fix…", attempt=attempt)
             else:
                 emit('not_yet', f"Not quite — {_stat_summary(st)} ({why}). Telling the model "
@@ -1494,13 +1715,18 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
             break
 
     if best is not None:
-        # No fully-clean fix, but a genuine net improvement — offer it to the user WITH the
-        # caveat; accepting is non-destructive (nodes_history archives the original to revert).
+        # Apply the best result found across ALL attempts (clean preferred, else highest-scoring
+        # improvement). Accepting is non-destructive (nodes_history archives the original to revert).
         _persist_patch(book_dir, {'rationale': best['rationale']}, best['funcs'])
-        _finalize(book_dir, art, journal, 'improved', best=best, file_issue=False)
-        emit('success', f"Improved your document — {best['after']}. {best['why']}",
-             tier='improved', before=_stat_summary(art['stats']), after=best['after'],
-             caveat=best['why'], rationale=best['rationale'][:300])
+        _finalize(book_dir, art, journal, best['tier'], best=best, file_issue=False)
+        if best['tier'] == 'clean':
+            emit('success', f"Fixed it cleanly — {best['after']}.",
+                 tier='clean', before=_stat_summary(art['stats']), after=best['after'],
+                 rationale=best['rationale'][:300])
+        else:
+            emit('success', f"Improved your document — {best['after']}. {best['why']}",
+                 tier='improved', before=_stat_summary(art['stats']), after=best['after'],
+                 caveat=best['why'], rationale=best['rationale'][:300])
         return 0, best['funcs']
 
     report = _finalize(book_dir, art, journal, 'exhausted', best=None, file_issue=file_issue)
@@ -1626,6 +1852,28 @@ def _apply_diff(sandbox, diff_path):
     return (r2.returncode == 0), (r.stderr or r2.stderr or 'git apply failed')[-300:]
 
 
+def _regenerate_nodes_json(outdir, book_dir):
+    """Build book_dir/nodes.json (a JSON array) from the freshly-converted nodes.jsonl (one object
+    per line). ConversionArtifactSaver.saveNodes reads nodes.json and re-derives startLine/chunk_id/
+    node_id itself, so a straight array of the line objects is all it needs — this just makes the
+    apply's artifact set as complete as the import's. No-op (and leaves any existing file) if the
+    fresh jsonl is absent."""
+    jl = os.path.join(outdir, 'nodes.jsonl')
+    if not os.path.isfile(jl):
+        return
+    nodes = []
+    with open(jl, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    nodes.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    with open(os.path.join(book_dir, 'nodes.json'), 'w', encoding='utf-8') as f:
+        json.dump(nodes, f, ensure_ascii=False, indent=2)
+
+
 def apply_patch_to_book(book_dir, patch_path=None):
     """'Use this conversion': apply the validated patch in a sandbox, re-convert THIS book, and copy
     the fresh artifacts into book_dir — regenerating this one book's output. Production code is never
@@ -1657,11 +1905,17 @@ def apply_patch_to_book(book_dir, patch_path=None):
             print("Re-convert failed:", (r.stderr[-300:] if r else 'no source'))
             shutil.rmtree(outdir, ignore_errors=True)
             return 1
-        for fn in ('main-text.md', 'intermediate.html', 'nodes.jsonl', 'footnotes.jsonl',
-                   'references.json', 'audit.json', 'conversion_stats.json', 'assessment.json'):
+        for fn in ('main-text.md', 'main-text.html', 'intermediate.html', 'nodes.jsonl',
+                   'footnotes.jsonl', 'references.json', 'audit.json', 'conversion_stats.json',
+                   'assessment.json'):
             p = os.path.join(outdir, fn)
             if os.path.isfile(p):
                 shutil.copy2(p, os.path.join(book_dir, fn))
+        # Regenerate nodes.json (the ARRAY form) from the fresh nodes.jsonl. The pipeline only writes
+        # nodes.jsonl; nodes.json is normally produced by the Laravel import — but ConversionArtifactSaver
+        # reads nodes.json. Without this, apply copied the linked nodes.jsonl yet the saver persisted the
+        # STALE nodes.json → bibliography updated but in-text citations stayed unlinked in the live book.
+        _regenerate_nodes_json(outdir, book_dir)
         shutil.rmtree(outdir, ignore_errors=True)
         print("Applied — this book's artifacts regenerated from the patched conversion.")
         return 0
@@ -1683,6 +1937,10 @@ def main():
                     help="LLM model id via Fireworks. Unset → each engine's default (deepseek: V4 Pro; "
                          "aider: gpt-oss-120b). Pass it to A/B the SAME model across both engines.")
     ap.add_argument('--user-note', help="The reader's own description of what's wrong (fed to the model).")
+    ap.add_argument('--issue-types', type=json.loads, default=None,
+                    help='JSON array of the reader\'s structured issue categories (citations_not_matched, '
+                         'citations_wrongly_matched, footnotes_not_matched, footnotes_wrongly_matched, '
+                         'headings_wrong) — routes the relevant modules + a per-category gloss to the model.')
     ap.add_argument('--prompt-variant', choices=['full', 'lean'], default=None,
                     help="Prompt CONTENT variant to A/B: 'full' (default — includes the fix-category menu) "
                          "or 'lean' (drops the menu, relying on the self-describing pipeline tree).")
@@ -1717,18 +1975,31 @@ def main():
 
     if args.print_prompt:
         art = load_artifacts(args.book_dir)
-        modules = modules_for(flagged_forks(art['assessment']), art) or modules_for(art['assessment'], art)
-        print(build_prompt(art, modules, user_note=args.user_note))
+        modules = (modules_for(flagged_forks(art['assessment']), art, args.issue_types)
+                   or modules_for(art['assessment'], art, args.issue_types))
+        print(build_prompt(art, modules, user_note=args.user_note, issue_types=args.issue_types))
         return
 
     if args.engine == 'aider':
         import vibe_aider  # lazy — only the aider path needs it
+        # CRITICAL: this script runs as `__main__`, so main() set the progress globals on the __main__
+        # module. vibe_aider does `import vibe_convert as vc` — a SEPARATE module object whose globals are
+        # still defaults (None). Mirror them onto that imported module so vc.emit()/_cancelled() in the
+        # aider path actually write the progress file (otherwise the toast gets no beats and hangs forever).
+        import vibe_convert as _vc
+        if _vc is not sys.modules['__main__']:
+            _vc._PROGRESS_FILE = _PROGRESS_FILE
+            _vc._CANCEL_FILE = _CANCEL_FILE
+            _vc._JSON_PROGRESS = _JSON_PROGRESS
+            _vc._DOCKER_IMAGE = _DOCKER_IMAGE
         rc, _ = vibe_aider.run_aider_loop(args.book_dir, args.max_attempts, args.model,
-                                          user_note=args.user_note, file_issue=args.github)
+                                          user_note=args.user_note, file_issue=args.github,
+                                          issue_types=args.issue_types)
         sys.exit(rc)
 
     rc, _ = run_loop(args.book_dir, args.max_attempts, args.model,
-                     mock_diff=args.mock_diff, user_note=args.user_note, file_issue=args.github)
+                     mock_diff=args.mock_diff, user_note=args.user_note, file_issue=args.github,
+                     issue_types=args.issue_types)
     sys.exit(rc)
 
 

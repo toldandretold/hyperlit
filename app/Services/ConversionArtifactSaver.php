@@ -35,9 +35,53 @@ class ConversionArtifactSaver
     /** Swap nodes + footnotes + references for a book from its regenerated artifacts. */
     public function saveAll(string $path, string $bookId): void
     {
+        $this->establishOwnerContext($bookId);
         $this->saveNodes($path, $bookId);
         $this->saveFootnotes($path, $bookId);
         $this->saveReferences($path, $bookId);
+    }
+
+    /**
+     * Satisfy the row-level-security policies on nodes / bibliography / sub_books before writing.
+     * Web requests get this from the SetDatabaseSessionContext middleware, but SERVER-SIDE callers
+     * (the vibe auto-apply queue job) have no HTTP session — so the INSERT failed with "new row
+     * violates row-level security policy for table nodes" and the new conversion was silently not saved.
+     *
+     * The policies authorise a write by **app.current_token** (NOT the username): for a LOGGED-IN owner
+     * it must equal that user's `users.user_token` (the policy joins `library.creator = users.name`);
+     * for an ANONYMOUS owner it's `library.creator_token`. We read the owner from library on the admin
+     * connection (bypasses RLS) and set the session token on the default connection so the writes below
+     * are authorised AS the owner. is_local=false → persists for this connection's saveAll.
+     */
+    private function establishOwnerContext(string $bookId): void
+    {
+        try {
+            $lib = DB::connection('pgsql_admin')->table('library')->where('book', $bookId)
+                ->first(['creator', 'creator_token']);
+            if (!$lib) {
+                return;
+            }
+            $token = null;
+            if (!empty($lib->creator)) {
+                // Logged-in owner: the RLS check is users.user_token, looked up via the creator name.
+                $token = DB::connection('pgsql_admin')->table('users')
+                    ->where('name', $lib->creator)->value('user_token');
+                DB::statement("SELECT set_config('app.current_user', ?, false)", [$lib->creator]);
+            }
+            if (empty($token) && !empty($lib->creator_token)) {
+                $token = (string) $lib->creator_token;   // anonymous owner
+            }
+            if (!empty($token)) {
+                DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $token]);
+            } else {
+                Log::warning('ConversionArtifactSaver: no owner token for RLS context; save will likely fail',
+                    ['book' => $bookId, 'creator' => $lib->creator]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ConversionArtifactSaver: could not establish owner RLS context', [
+                'book' => $bookId, 'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function saveNodes(string $path, string $bookId): void
@@ -200,9 +244,18 @@ class ConversionArtifactSaver
 
             $now = now();
             $insertData = [];
+            $skippedLong = 0;
             foreach ($referencesData as $ref) {
                 $referenceId = $ref['referenceId'] ?? null;
                 if (!$referenceId) {
+                    continue;
+                }
+                // `referenceId` is varchar(255). A malformed key (e.g. bibliography over-extraction
+                // concatenating a paragraph of words into one id) overflows it, and a single bad row
+                // fails the WHOLE batch insert → 0 bibliography entries. Skip it so the valid refs still
+                // save — a >255-char key can't match any real in-text citation anyway.
+                if (strlen($referenceId) > 255 || strlen($ref['source_id'] ?? '') > 255) {
+                    $skippedLong++;
                     continue;
                 }
                 $insertData[] = [
@@ -221,11 +274,16 @@ class ConversionArtifactSaver
             foreach (array_chunk($insertData, 500) as $batch) {
                 DB::table('bibliography')->insert($batch);
             }
-            Log::info('ConversionArtifactSaver: saved references', ['book' => $bookId, 'count' => count($insertData)]);
+            Log::info('ConversionArtifactSaver: saved references',
+                ['book' => $bookId, 'count' => count($insertData), 'skipped_overlong' => $skippedLong]);
         } catch (\Exception $e) {
+            // Do NOT swallow: a silent failure here let saveAll report "success" while the bibliography
+            // stayed empty (the user was told the fix was applied when it wasn't). Surface it so the apply
+            // reports honestly (apply_failed) instead of a false "improved".
             Log::error('ConversionArtifactSaver: failed to save references', [
                 'book' => $bookId, 'error' => substr($e->getMessage(), 0, 500),
             ]);
+            throw $e;
         }
     }
 }

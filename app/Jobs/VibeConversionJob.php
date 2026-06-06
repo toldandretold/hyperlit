@@ -5,6 +5,9 @@ namespace App\Jobs;
 use App\Mail\VibeOutcomeMail;
 use App\Models\User;
 use App\Services\BillingService;
+use App\Services\ConversionArtifactSaver;
+use App\Services\VibePatchApplier;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,6 +43,7 @@ class VibeConversionJob implements ShouldQueue
         private string $bookId,
         private ?int $userId = null,
         private ?string $note = null,
+        private array $issueTypes = [],
     ) {
         $this->onQueue('default');
     }
@@ -66,11 +70,18 @@ class VibeConversionJob implements ShouldQueue
             $cmd[] = '--user-note';
             $cmd[] = $this->note;
         }
+        if ($this->issueTypes) {
+            $cmd[] = '--issue-types';
+            $cmd[] = json_encode(array_values($this->issueTypes));
+        }
         // Edit-gen engine (a MECHANISM, not a model — it runs whatever model the script picks):
         // 'native' (our full-function-JSON loop, default) or 'aider' (repo-map + search/replace +
         // test-driven retry). aider runs on the HOST and needs VIBE_AIDER_BIN (a venv's aider) — the
         // gate's reconvert still runs in the container (below).
         $procEnv = null;
+        // Default to the NATIVE engine (deepseek-v4-pro): it produces the structured edits this needs.
+        // aider was tried but a heavy reasoning model overflows its reflection loop (context blow-out);
+        // aider stays available via VIBE_ENGINE=aider (best paired with a FAST model like gpt-oss-120b).
         if (env('VIBE_ENGINE', 'native') === 'aider') {
             $cmd[] = '--engine';
             $cmd[] = 'aider';
@@ -108,6 +119,43 @@ class VibeConversionJob implements ShouldQueue
             }
         }
 
+        // AUTO-APPLY a clean/improved fix to the LIVE book, then leave a review marker so the reader can
+        // surface a Keep/Revert toast (on the success poll OR on any later book load). The original
+        // conversion is archived by the nodes_versioning_trigger; "Revert" restores it to $restoreTs.
+        if (in_array($outcome, ['clean', 'improved'], true)) {
+            // Make sure the ORIGINAL conversion is in the DB so the apply ARCHIVES it (→ revert target).
+            // Imports only populate the `nodes` table on edit/sync, so a freshly-imported book can have
+            // zero PG nodes; load the current artifacts first IFF empty (never clobber a user's edits).
+            try {
+                if (DB::table('nodes')->where('book', $this->bookId)->count() === 0) {
+                    app(ConversionArtifactSaver::class)->saveAll($dir, $this->bookId);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('VibeConversionJob: pre-apply original load failed',
+                    ['book' => $this->bookId, 'err' => $e->getMessage()]);
+            }
+            // Capture the restore point BEFORE applying — the live nodes are still active at this instant,
+            // so restoring here gets the original back once the apply archives them.
+            $restoreTs = now()->utc()->format('Y-m-d\TH:i:s.uP');   // timestamptz-compatible
+            $applied = app(VibePatchApplier::class)->apply($this->bookId);
+            if ($applied['success']) {
+                $beat = $this->lastSuccessBeat($dir);
+                File::put("{$dir}/vibe_review.json", json_encode([
+                    'status' => 'pending',
+                    'tier' => $beat['tier'] ?? $outcome,
+                    'before' => $beat['before'] ?? ($report['baseline'] ?? null),
+                    'after' => $beat['after'] ?? null,
+                    'caveat' => $beat['caveat'] ?? null,
+                    'restore_ts' => $restoreTs,
+                    'created_at' => now()->toIso8601String(),
+                ], JSON_PRETTY_PRINT));
+            } else {
+                File::put("{$dir}/vibe_review.json", json_encode([
+                    'status' => 'apply_failed', 'message' => $applied['message'] ?? 'Could not apply.',
+                ], JSON_PRETTY_PRINT));
+            }
+        }
+
         // Email the outcome: fml@hyperlit.io always (a high-signal bug), and the user too IF they
         // hit "email me when done" mid-run (which dropped a vibe_notify marker with their address).
         if (is_array($report)) {
@@ -125,5 +173,25 @@ class VibeConversionJob implements ShouldQueue
                 Log::warning('VibeConversionJob: email failed', ['book' => $this->bookId, 'err' => $e->getMessage()]);
             }
         }
+    }
+
+    /** The final phase:"success" beat from vibe_progress.json (carries before/after/tier/caveat). */
+    private function lastSuccessBeat(string $dir): array
+    {
+        $path = "{$dir}/vibe_progress.json";
+        if (!is_file($path)) {
+            return [];
+        }
+        $last = [];
+        foreach (preg_split('/\r?\n/', trim(File::get($path))) as $line) {
+            if ($line === '') {
+                continue;
+            }
+            $b = json_decode($line, true);
+            if (is_array($b) && ($b['phase'] ?? '') === 'success') {
+                $last = $b;
+            }
+        }
+        return $last;
     }
 }

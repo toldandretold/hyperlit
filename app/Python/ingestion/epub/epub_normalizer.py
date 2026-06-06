@@ -188,6 +188,8 @@ from ingestion.epub.structuralNormalisation import (  # noqa: E402,F401
 )
 from ingestion.epub.headingMatching import (  # noqa: E402,F401
     CalibreSpanHeadingDetector,
+    SectionNumberHeadingDetector,
+    StyledSectionTitleHeadingDetector,
     DivToSemanticConverter,
     CSSClassHeadingDetector,
 )
@@ -224,6 +226,8 @@ TRANSFORM_PIPELINE = [
     # Phase 1: Structural fixes (fix container abuse, unwrap fake elements)
     CalibreBlockquoteUnwrapper(),      # Unwrap <blockquote class="calibreN">
     CalibreSpanHeadingDetector(),      # Convert <span class="calibre5/8"> to headings
+    SectionNumberHeadingDetector(),    # Bold section-numbered <blockquote>/<div> (1.1. Title) → headings
+    StyledSectionTitleHeadingDetector(),  # Bold section titles (BIBLIOGRAPHY/INDEX/NOTES…) → h1 (unblocks bib extraction)
     EmptyElementRemover(),              # Remove empty <div> and <p> spacers
     SpanUnwrapper(),                    # Unwrap remaining styling-only spans
     CalibreClassStripper(),             # Strip calibreN classes from all elements
@@ -530,6 +534,10 @@ class EpubNormalizer:
     _HEADING_NEEDS = {
         'CalibreSpanHeadingDetector': 'font-sized <span> classes → calibre5 (1.67em) → h1, '
                                       'calibre8 (1.29em) → h2, bold → h3',
+        'SectionNumberHeadingDetector': 'bold section-numbered <blockquote>/<div> (1.→h1, 1.1.→h2, '
+                                        '2.3.2.1.→h4; PART/CHAPTER → h1) — the non-<p> wrapper scheme',
+        'StyledSectionTitleHeadingDetector': 'bold section-title <p>/<blockquote> (BIBLIOGRAPHY, REFERENCES, '
+                                             'NOTES, INDEX, APPENDIX…) → h1 — unblocks bibliography extraction',
         'CSSClassHeadingDetector': 'CSS-classed <p> → title/fmtitle/bmtitle/con → h1, publisher '
                                    'h1 → h3, h2 → h4 (publisher classes are RELATIVE, not HTML levels)',
         'DivToSemanticConverter': 'styled <div> classes (USFM/publisher) → mt/mt1 → h1, mt2 → h2, '

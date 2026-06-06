@@ -1,7 +1,52 @@
-"""Phase 1 — heading matching. Recovers real h1/h2/h3 from publisher-faked headings
+r"""Phase 1 — heading matching. Recovers real h1/h2/h3 from publisher-faked headings
 (font-sized Calibre spans, CSS-classed <p>, styled <div>s) and then normalises the
 heading hierarchy to remove level gaps. Runs BEFORE footnote detection — see
-EpubNormalizer._HEADING_NEEDS for the markup -> level rules each detector applies."""
+EpubNormalizer._HEADING_NEEDS for the markup -> level rules each detector applies.
+
+═══════════════════════════════════════════════════════════════════════════════════════
+HOW EPUBs FAKE HEADINGS — and how to add a detector when a book's scheme isn't captured
+═══════════════════════════════════════════════════════════════════════════════════════
+EPUBs almost never use semantic <h1>–<h6>. Publishers (and Calibre's HTML export) render
+headings as ordinary blocks given a *visual* style — font-size, bold, a CSS class, a
+container tag. Each distinct styling is a SCHEME, and each scheme gets its own detector
+(an `EpubTransform`) registered in `TRANSFORM_PIPELINE` in epub_normalizer.py. A heading is
+"lost" (stays a <p>/<blockquote> in the output, 0 h-nodes) when a book uses a scheme no
+detector recognises — the symptom is `_count_headings` == 0 while the TOC (toc.ncx) clearly
+lists a hierarchy.
+
+Schemes currently handled (detector → signal → level rule):
+  • CalibreSpanHeadingDetector  — <p> whose ONLY child is <span class="calibre5|calibre8|bold">;
+                                   font-size class → level (calibre5≈h1, calibre8≈h2, bold→h3).
+  • DivToSemanticConverter      — <div class="…heading…|title|mt/mt1/s1/…"> (incl. Bible USFM);
+                                   class name → level; VOLUME/PART/BOOK forced to h1.
+  • CSSClassHeadingDetector     — <p class="h|fmtitle|title|ch-num+ch-title|…">; publisher class
+                                   names are RELATIVE (class="h1" is a SUBSECTION → real h3).
+
+Schemes NOT yet handled (each is a candidate for a new detector — the recipe is below):
+  • SECTION-NUMBERED BOLD BLOCKS in a non-<p> wrapper. e.g. Routledge/Calibre exports
+    (christian2014digital): the heading is
+        <blockquote class="calibre_21"><a><span class="bold">1.1. The Need for …</span></a></blockquote>
+    All THREE handled detectors miss it because (a) they scan find_all('p') only — never
+    <blockquote>; and (b) CalibreBlockquoteUnwrapper's regex is `^calibre\d*$`, which does NOT
+    match the UNDERSCORE variant `calibre_21`, so the wrapper survives as a <blockquote>. The
+    level is recoverable WITHOUT any class, from the dotted numbering itself: `1.`→h1, `1.1.`→h2,
+    `2.3.2.1.`→h4 (depth = dot-count), and `PART <ROMAN>`/`CHAPTER N`→h1. Discriminate real
+    headings from body text that merely starts with a digit ("711 Third Avenue", a cataloguing
+    line "1. Knowledge workers…") by requiring BOTH the numbered/PART pattern AND a bold child
+    AND a short length — the body false-positives are plain <p> with no bold.
+
+To ADD a new detector (the registry pattern — never edit a scan, add a unit):
+  1. Subclass `EpubTransform` here. Implement `detect(self, soup) -> bool` (cheap: is the scheme
+     PRESENT?), `transform(self, soup, log) -> dict` (do the conversion; set `el.name = f'h{n}'`,
+     reset `el.attrs`, preserve any `id`), and set `name` / `description` / `plain` (the `plain`
+     one-liner feeds the vibe-loop prompt + the assessment tree — say what markup → what level).
+  2. Register it in `TRANSFORM_PIPELINE` (epub_normalizer.py) at the right ORDER. Ordering bites:
+     run BEFORE `SpanUnwrapper`/`CalibreClassStripper` if you need the bold <span>/class as a
+     signal (they're gone afterwards); run AFTER structural unwrappers if you need the final tag.
+  3. Add the markup→level rule to `EpubNormalizer._HEADING_NEEDS` (the human-readable index).
+  4. Keep `detect()` TIGHT so other books' goldens don't move — then `run_regression.py` stays green.
+═══════════════════════════════════════════════════════════════════════════════════════
+"""
 import os
 import re
 import time
@@ -425,3 +470,151 @@ class CSSClassHeadingDetector(EpubTransform):
             return 'h3'  # Italic only = subsection
         else:
             return 'h2'  # Default
+
+
+class SectionNumberHeadingDetector(EpubTransform):
+    """Headings encoded as a bold, SECTION-NUMBERED block in a non-<p> wrapper (a <blockquote>/<div>,
+    commonly <blockquote class="calibre_NN"> in Routledge/Calibre exports) — a scheme the <p>-only
+    detectors miss entirely. The level comes from the dotted numbering itself, so it needs NO class map:
+    '1.'→h1, '1.1.'→h2, '2.3.2.1.'→h4 (depth = dot-count), and 'PART <ROMAN>' / 'CHAPTER N' → h1.
+
+    Tight by design (see this module's header): only fires on a wrapper that is a single heading LINE
+    — bold child + number/PART pattern + short — so body text that merely starts with a digit
+    ('711 Third Avenue', the cataloguing line '1. Knowledge workers. 2. …') is left alone."""
+
+    name = "SectionNumberHeadingDetector"
+    description = "Convert bold section-numbered blocks (e.g. <blockquote>1.1. Title</blockquote>) to headings"
+    plain = ('Bold, section-NUMBERED blocks in a non-<p> wrapper (e.g. <blockquote class="calibre_21">'
+             '<span class="bold">1.1. Title</span>) → headings; level from the dotted numbering '
+             '(1.→h1, 1.1.→h2, 2.3.2.1.→h4), or PART/CHAPTER → h1. For the scheme the <p>-only detectors miss.')
+
+    _WRAPPERS = ('blockquote', 'div')
+    # a dot-separated number group that ENDS in a dot, then whitespace + a non-space (the heading text)
+    _NUM = re.compile(r'^(\d+(?:\.\d+)*)\.\s+\S')
+    _MAJOR = re.compile(r'^(PART\s+[IVXLCDM]+|CHAPTER\s+\d+|BOOK\s+[IVXLCDM\d]+)\b', re.I)
+
+    def _level_for(self, text):
+        text = text.strip()
+        if self._MAJOR.match(text):
+            return 1
+        m = self._NUM.match(text)
+        if m:
+            return min(m.group(1).count('.') + 1, 6)   # '1'→1, '1.1'→2, '2.3.2.1'→4
+        return None
+
+    @staticmethod
+    def _is_bold(el):
+        return bool(el.find(['b', 'strong']) or el.find('span', class_='bold'))
+
+    def _is_heading_block(self, el):
+        # a heading is a single LINE, not a container — reject wrappers holding block-level children
+        if el.find(['p', 'div', 'blockquote', 'table', 'ul', 'ol']):
+            return False
+        txt = el.get_text(strip=True)
+        return bool(txt and len(txt) < 200 and self._is_bold(el) and self._level_for(txt))
+
+    def detect(self, soup) -> bool:
+        body = soup.body if soup.body else soup
+        return any(self._is_heading_block(el) for el in body.find_all(self._WRAPPERS))
+
+    def transform(self, soup, log) -> dict:
+        converted = 0
+        body = soup.body if soup.body else soup
+        for el in list(body.find_all(self._WRAPPERS)):
+            if not self._is_heading_block(el):
+                continue
+            level = self._level_for(el.get_text(strip=True))
+            preserved_id = el.get('id')
+            el.name = f'h{level}'
+            el.attrs = {}
+            if preserved_id:
+                el['id'] = preserved_id
+            for a in el.find_all('a'):   # a heading shouldn't be a TOC back-link — keep its text only
+                a.unwrap()
+            text = el.get_text(strip=True)
+            converted += 1
+            log(f"    Section-numbered → h{level}: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        if converted:
+            log(f"  Converted {converted} section-numbered blocks to headings")
+        return {'converted': converted}
+
+
+class StyledSectionTitleHeadingDetector(EpubTransform):
+    """Front/back-matter SECTION TITLES faked as a bold styled <p>/<blockquote> — 'BIBLIOGRAPHY',
+    'REFERENCES', 'NOTES', 'INDEX', 'APPENDIX' … — that the <p>-only and number-based detectors miss
+    (no number; the bold sits inside a nested <a><span>, not a bare span).
+
+    These are top-level divisions → h1. Recognising the bibliography/references title in particular
+    UNBLOCKS bibliography extraction: `_find_reference_paragraphs`'s PRIMARY scan keys off an <h*>
+    'Bibliography'/'References' heading, so while the title stays a <p> the whole reference list is
+    invisible (the reverse-scan fallback dies in the trailing Index) and every in-text citation goes
+    unlinked. Making INDEX/NOTES headings too gives that scan a clean section boundary to stop at."""
+
+    name = "StyledSectionTitleHeadingDetector"
+    description = "Convert bold section-title paragraphs (BIBLIOGRAPHY, INDEX, NOTES…) to headings"
+    plain = ('Front/back-matter SECTION TITLES faked as a bold <p>/<blockquote> (BIBLIOGRAPHY, REFERENCES, '
+             'NOTES, INDEX, APPENDIX…) → h1. Recognising the bibliography/references title is what lets '
+             'bibliography extraction FIND the reference list (its scan keys off an <h*> heading) — without '
+             'it, refs stay ~1 and every citation goes unlinked.')
+
+    # Canonical front/back-matter section titles (lowercased, matched against the element's WHOLE text).
+    SECTION_TITLES = {
+        'bibliography', 'references', 'works cited', 'reference list', 'literature', 'literature cited',
+        'notes', 'endnotes', 'index', 'name index', 'subject index', 'appendix', 'appendices',
+        'glossary', 'abbreviations', 'acknowledgments', 'acknowledgements',
+    }
+    _WRAPPERS = ('p', 'blockquote', 'div')
+
+    @staticmethod
+    def _is_bold(el):
+        return bool(el.find(['b', 'strong']) or el.find('span', class_='bold'))
+
+    @staticmethod
+    def _followed_by_content(el):
+        """True if a substantial body paragraph follows soon — the discriminator between a REAL section
+        heading (followed by the section's content, e.g. the reference list) and a TABLE-OF-CONTENTS entry
+        with the same title text (followed by MORE nav links: 'glossary' in a toc points at the glossary
+        file, its siblings point at other files). Robust to publisher class names."""
+        sib, seen = el.find_next_sibling(), 0
+        while sib is not None and seen < 4:
+            if getattr(sib, 'name', None) in ('p', 'blockquote', 'div', 'ul', 'ol', 'table'):
+                seen += 1
+                txt = sib.get_text(' ', strip=True)
+                link_only = bool(sib.find('a')) and len(txt) < 60   # a short nav link, not body content
+                if txt and len(txt) >= 60 and not link_only:
+                    return True
+            sib = sib.find_next_sibling()
+        return False
+
+    def _is_section_title(self, el):
+        # a heading is a single LINE, not a container holding block children
+        if el.find(['p', 'div', 'blockquote', 'table', 'ul', 'ol']):
+            return False
+        txt = el.get_text(strip=True)
+        # tight: WHOLE text is a known section word, bold (publisher styling), short — AND it's a real
+        # section start (content follows), not a same-named entry sitting in the table of contents.
+        return bool(txt and len(txt) <= 40 and txt.lower() in self.SECTION_TITLES
+                    and self._is_bold(el) and self._followed_by_content(el))
+
+    def detect(self, soup) -> bool:
+        body = soup.body if soup.body else soup
+        return any(self._is_section_title(el) for el in body.find_all(self._WRAPPERS))
+
+    def transform(self, soup, log) -> dict:
+        converted = 0
+        body = soup.body if soup.body else soup
+        for el in list(body.find_all(self._WRAPPERS)):
+            if not self._is_section_title(el):
+                continue
+            preserved_id = el.get('id')
+            el.name = 'h1'
+            el.attrs = {}
+            if preserved_id:
+                el['id'] = preserved_id
+            for a in el.find_all('a'):   # drop the TOC back-link, keep the title text
+                a.unwrap()
+            converted += 1
+            log(f"    Section title → h1: '{el.get_text(strip=True)[:40]}'")
+        if converted:
+            log(f"  Converted {converted} section-title paragraphs to headings")
+        return {'converted': converted}

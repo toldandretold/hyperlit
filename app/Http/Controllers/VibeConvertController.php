@@ -4,14 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Jobs\VibeConversionJob;
 use App\Services\BillingService;
-use App\Services\ConversionArtifactSaver;
+use App\Services\BookVersionRestorer;
+use App\Services\VibePatchApplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\Process\Process;
 
 /**
  * User-facing "✨ Vibe convert" — per-document LLM re-conversion (path A).
@@ -32,8 +31,10 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
         }
         $validated = $request->validate([
-            'bookId' => 'required|string|max:255',
-            'note'   => 'nullable|string|max:2000',
+            'bookId'       => 'required|string|max:255',
+            'note'         => 'nullable|string|max:2000',
+            'issueTypes'   => 'nullable|array|max:8',
+            'issueTypes.*' => 'string|in:citations_not_matched,citations_wrongly_matched,footnotes_not_matched,footnotes_wrongly_matched,headings_wrong',
         ]);
         $user->refresh();
         if (!$billingService->canProceed($user)) {
@@ -50,7 +51,7 @@ class VibeConvertController extends Controller
         File::delete("{$dir}/vibe_cancel");
         File::delete("{$dir}/vibe_notify");
 
-        VibeConversionJob::dispatch($bookId, $user->id, $validated['note'] ?? null);
+        VibeConversionJob::dispatch($bookId, $user->id, $validated['note'] ?? null, $validated['issueTypes'] ?? []);
 
         return response()->json(['success' => true]);
     }
@@ -120,50 +121,68 @@ class VibeConvertController extends Controller
      *      nodes_versioning_trigger → the prior conversion is archived to nodes_history, so the
      *      reader sees the new version AND can revert via the existing version-history UX.
      */
-    public function accept(Request $request, ConversionArtifactSaver $saver): JsonResponse
+    public function accept(Request $request, VibePatchApplier $applier): JsonResponse
     {
         $user = Auth::user();
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
         }
         $validated = $request->validate(['bookId' => 'required|string|max:255']);
-        $bookId = $validated['bookId'];
-        $artifactDir = resource_path("markdown/{$bookId}");
-        // The aider engine writes a git diff (vibe_patch.diff); the deepseek engine writes
-        // full-function JSON (vibe_patch.json). apply_patch_to_book handles both by extension.
-        $patch = is_file("{$artifactDir}/vibe_patch.diff")
-            ? "{$artifactDir}/vibe_patch.diff"
-            : "{$artifactDir}/vibe_patch.json";
+        $result = $applier->apply($validated['bookId']);
+        $code = $result['success'] ? 200 : (($result['message'] ?? '') === 'No vibe patch to apply.' ? 404 : 500);
+        return response()->json($result, $code);
+    }
 
-        if (!is_file($patch)) {
-            return response()->json(['success' => false, 'message' => 'No vibe patch to apply.'], 404);
+    /**
+     * The post-vibe REVIEW marker (vibe_review.json) the job writes after it AUTO-APPLIES a clean/improved
+     * fix to the live book. The reader polls this on load so the Keep/Revert toast surfaces reliably even
+     * if the original toast was destroyed by navigation. Returns {status:'none'} when there's nothing.
+     */
+    public function review(Request $request, string $book): JsonResponse
+    {
+        if (!Auth::check()) {
+            return response()->json(['status' => 'none'], 401);
         }
-
-        // 1. Regenerate the artifacts with the patched pipeline (sandboxed; prod untouched).
-        $pythonBin = env('PYTHON_PATH', 'python3');
-        $script = base_path('app/Python/vibe_convert.py');
-        $process = new Process([$pythonBin, $script, $artifactDir, '--apply', $patch], base_path(), null, null, 300);
-        $process->run();
-        if (!$process->isSuccessful()) {
-            Log::error('VibeConvert: accept re-convert failed', ['book' => $bookId, 'err' => $process->getErrorOutput()]);
-            return response()->json(['success' => false, 'message' => 'Could not apply the conversion.'], 500);
+        $path = resource_path("markdown/{$book}/vibe_review.json");
+        if (!is_file($path)) {
+            return response()->json(['status' => 'none']);
         }
+        $data = json_decode(File::get($path), true);
+        return response()->json(is_array($data) ? $data : ['status' => 'none']);
+    }
 
-        // 2. Swap the regenerated artifacts into the DB (nodes delete+insert → trigger archives original).
-        try {
-            $saver->saveAll($artifactDir, $bookId);
-        } catch (\Throwable $e) {
-            Log::error('VibeConvert: accept DB save failed', ['book' => $bookId, 'err' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Could not save the new conversion.'], 500);
+    /** "Keep this" — accept the auto-applied conversion: just clear the review marker. */
+    public function keepReview(Request $request, string $book): JsonResponse
+    {
+        if (!Auth::check()) {
+            return response()->json(['success' => false], 401);
         }
-
-        // 3. Bump the book's annotations timestamp so other open clients re-sync.
-        try {
-            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, (int) round(microtime(true) * 1000)]);
-        } catch (\Throwable $e) {
-            // best-effort
-        }
-
+        File::delete(resource_path("markdown/{$book}/vibe_review.json"));
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * "Revert to original" — restore the book's nodes to the pre-vibe timestamp captured in the review
+     * marker (reuses the temporal nodes_history restore), then clear the marker.
+     */
+    public function rejectReview(Request $request, string $book, BookVersionRestorer $restorer): JsonResponse
+    {
+        if (!Auth::check()) {
+            return response()->json(['success' => false], 401);
+        }
+        $path = resource_path("markdown/{$book}/vibe_review.json");
+        $marker = is_file($path) ? json_decode(File::get($path), true) : null;
+        $restoreTs = $marker['restore_ts'] ?? null;
+        if (!$restoreTs) {
+            return response()->json(['success' => false, 'message' => 'No restore point recorded.'], 404);
+        }
+        try {
+            $restored = $restorer->restoreTo($book, $restoreTs);
+        } catch (\Throwable $e) {
+            Log::error('VibeConvert: reject restore failed', ['book' => $book, 'err' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Could not revert the conversion.'], 500);
+        }
+        File::delete($path);
+        return response()->json(['success' => true, 'nodes_restored' => $restored]);
     }
 }

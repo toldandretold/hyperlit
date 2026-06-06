@@ -687,71 +687,8 @@ class NodeHistoryController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
-            // Get all nodes as they were at the timestamp
-            $historicalNodes = DB::select("
-                -- Current nodes that existed at that time
-                SELECT
-                    id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes
-                FROM nodes
-                WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
-
-                UNION ALL
-
-                -- Historical nodes that were active at that time
-                SELECT
-                    id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes
-                FROM nodes_history
-                WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
-            ", [$book, $timestamp, $book, $timestamp]);
-
-            if (empty($historicalNodes)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No nodes found at the specified timestamp'
-                ], 404);
-            }
-
-            // Delete all current nodes (this archives them via trigger)
-            PgNodeChunk::where('book', $book)->delete();
-
-            // Recreate nodes from historical state
-            $restored = 0;
-            foreach ($historicalNodes as $node) {
-                PgNodeChunk::create([
-                    'book' => $node->book,
-                    'node_id' => $node->node_id,
-                    'startLine' => $node->startLine,
-                    'chunk_id' => $node->chunk_id,
-                    'content' => $node->content,
-                    'plainText' => $node->plainText,
-                    'type' => $node->type,
-                    'raw_json' => is_string($node->raw_json)
-                        ? json_decode($node->raw_json, true)
-                        : $node->raw_json,
-                    'footnotes' => is_string($node->footnotes)
-                        ? json_decode($node->footnotes, true)
-                        : $node->footnotes,
-                ]);
-                $restored++;
-            }
-
-            // Update library timestamp so clients detect the change
-            PgLibrary::where('book', $book)->update([
-                'timestamp' => round(microtime(true) * 1000)
-            ]);
-
-            DB::commit();
-
-            Log::info('Book restored to timestamp', [
-                'book' => $book,
-                'timestamp' => $timestamp,
-                'nodes_restored' => $restored
-            ]);
+            // Shared with the vibe-convert "Revert to original" path — see BookVersionRestorer.
+            $restored = app(\App\Services\BookVersionRestorer::class)->restoreTo($book, $timestamp);
 
             return response()->json([
                 'success' => true,
@@ -759,9 +696,12 @@ class NodeHistoryController extends Controller
                 'nodes_restored' => $restored
             ]);
 
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No nodes found at the specified timestamp'
+            ], 404);
         } catch (\Exception $e) {
-            DB::rollBack();
-
             Log::error('Failed to restore book to timestamp', [
                 'book' => $book,
                 'timestamp' => $timestamp,

@@ -46,16 +46,16 @@ def test_bracket_citation_links_when_scan_active(soup):
     assert linked == 2
 
 
-def test_bracket_only_is_skipped_by_paren_gate(soup):
-    # LATENT BUG (faithfully preserved): the whole citation scan is gated on a
-    # PARENTHESIZED `(...YYYY...)` pre-check. A document that uses ONLY [Author Year]
-    # brackets never reaches the bracket linker — its citations are silently skipped.
-    # A book in pure square-bracket style would convert with zero in-text links.
+def test_bracket_only_document_links(soup):
+    # FIXED (was a latent bug): the scan used to be gated on a PARENTHESIZED `(...YYYY...)` pre-check,
+    # so a document citing ONLY with [Author Year] brackets was silently skipped. The gate now fires on
+    # [Author YEAR] brackets too, so a pure square-bracket source links end-to-end.
     s = _doc(soup, '<p>As shown [Hardin 1968] clearly.</p>')
     found, linked, unlinked = link_citations(s, {'hardin1968': 'bib_hardin_1968'})
 
-    assert s.find('a', class_='in-text-citation') is None
-    assert (found, linked) == (0, 0)
+    a = s.find('a', class_='in-text-citation')
+    assert a is not None and a['href'] == '#bib_hardin_1968'
+    assert (found, linked) == (1, 1)
 
 
 def test_multi_citation_semicolon_links_each(soup):
@@ -91,14 +91,14 @@ def test_existing_anchor_converted_to_citation(soup):
 from shared.assessment import ASSESSMENT
 
 
-def test_bracket_only_gate_recorded_as_fallthrough(soup):
+def test_bracket_only_records_a_link_not_a_skip(soup):
     ASSESSMENT.reset()
     s = _doc(soup, '<p>As shown [Hardin 1968] clearly.</p>')   # bracket-only, non-empty bib
     link_citations(s, {'hardin1968': 'bib_h'})
     rec = ASSESSMENT.records[-1]
     assert rec['module'] == 'citation_link_audit'
-    assert 'skipped' in rec['decision']
-    assert 'square' in rec['considered'][0]['would_need']      # the gate is surfaced
+    assert 'skipped' not in rec['decision']                    # the scan now RUNS for brackets
+    assert rec['evidence']['linked'] == 1
 
 
 def test_unlinked_citation_recorded_with_keys_tried(soup):

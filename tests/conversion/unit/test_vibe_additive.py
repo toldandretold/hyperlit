@@ -152,6 +152,23 @@ def test_edit_missing_search_is_refused():
     assert out is None and 'not found' in reason
 
 
+def test_edit_unknown_scope_suggests_real_names():
+    # the model hallucinated a function name — the refusal should point it at the real one so the
+    # retry lands (the bibliography.py:'is_likely_reference' → '_find_reference_paragraphs' case).
+    src = "def _find_reference_paragraphs(soup):\n    return []\n\ndef extract_bibliography(soup):\n    return {}\n"
+    out, reason = v._apply_edit(src, "return []", "return [1]", scope_name='find_reference_paragraphs')
+    assert out is None
+    assert 'did you mean _find_reference_paragraphs' in reason
+
+
+def test_edit_unknown_scope_no_near_match_lists_available():
+    src = "def alpha():\n    pass\n\nclass Beta:\n    def gamma(self):\n        pass\n"
+    out, reason = v._apply_edit(src, "pass", "return", scope_name='zzz_totally_unrelated')
+    assert out is None
+    # no close match → enumerate what the file actually defines (incl. Class.method)
+    assert 'this file defines' in reason and 'alpha' in reason and 'Beta.gamma' in reason
+
+
 def test_edit_whitespace_flexible_match():
     # search supplied with the WRONG indentation still matches
     out, _ = v._apply_edit(_DUP, "if a.get('class'):\n    continue", "pass  # flexed", scope_name='A.transform')

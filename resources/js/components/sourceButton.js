@@ -4,6 +4,7 @@ import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, c
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
 import { canUserEditBook, clearEditPermissionCache, getAuthContextSync } from "../utilities/auth.js";
+import { loadSnapshots } from "../conversion/versionRestore.js";
 
 // SVG icons for privacy toggle
 const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -688,24 +689,15 @@ export class SourceContainerManager extends ContainerManager {
     if (!listEl) return;
 
     try {
-      const resp = await fetch(`/api/books/${encodeURIComponent(book)}/snapshots`, {
-        credentials: 'include'
-      });
+      const snapshots = await loadSnapshots(book);   // shared helper — see conversion/versionRestore.js
 
-      if (!resp.ok) {
-        listEl.textContent = 'Could not load version history.';
-        return;
-      }
-
-      const data = await resp.json();
-
-      if (!data.success || !data.snapshots || data.snapshots.length === 0) {
+      if (!snapshots || snapshots.length === 0) {
         listEl.textContent = 'No version history available yet.';
         return;
       }
 
       listEl.innerHTML = '';
-      for (const snap of data.snapshots) {
+      for (const snap of snapshots) {
         const a = document.createElement('a');
         a.href = `/${encodeURIComponent(book)}/timemachine?at=${encodeURIComponent(snap.changed_at)}`;
         a.className = 'version-history-item';
