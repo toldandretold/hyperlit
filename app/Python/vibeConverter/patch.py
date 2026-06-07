@@ -298,47 +298,78 @@ def _apply_edit(src, search, replace, scope_name=None):
 def apply_function_replacements(sandbox, functions):
     """Apply each edit ({file, op, ...}) in the sandbox, grouped per file and ordered
     replace → edit → add → register (so a surgical edit hits the original body, and an added
-    detector exists before it's registered). Every file ends with an ast re-parse gate.
-    Returns (ok, message)."""
+    detector exists before it's registered).
+
+    BEST-EFFORT: an edit that doesn't match (wrong/absent search text) or that would break the file's
+    syntax is SKIPPED and reported — it does NOT discard the rest of the patch. So one good edit isn't
+    lost to a co-bundled bad one (the schumpeter case: a clean one-line footnote fix was nuked because
+    the model bundled it with a bibliography edit whose search text didn't match verbatim). Each edit is
+    parse-checked atomically (a non-parsing result is reverted), so a written file always parses.
+
+    Returns (ok, message): ok=True if AT LEAST ONE edit applied; `message` says how many applied and lists
+    what was skipped + why (fed back to the model so it can re-send the skipped edits with exact text).
+    ok=False only when NOTHING applied (the loop treats that as an apply failure)."""
     import ast
     by_file = {}
     for fn in functions:
         by_file.setdefault(fn['file'].replace('\\', '/').lstrip('./'), []).append(fn)
+
+    applied_n, skipped = 0, []
+    src, file_applied = '', 0
+
+    def _try(new, label):
+        """Accept `new` if it's non-None AND parses; else record `label` as skipped. Mutates src + counters."""
+        nonlocal src, file_applied, applied_n
+        if new is None:
+            skipped.append(label)
+            return False
+        try:
+            ast.parse(new)
+        except SyntaxError as e:
+            skipped.append(f"{label} [would break syntax: {e}]")
+            return False
+        src = new
+        file_applied += 1
+        applied_n += 1
+        return True
+
     for path, fns in by_file.items():
         full = os.path.join(sandbox, path)
         if not os.path.isfile(full):
-            return False, f"target file not in sandbox: {path}"
+            skipped.append(f"{path}: target file not in sandbox")
+            continue
         src = open(full, encoding='utf-8').read()
+        file_applied = 0
+        add_failed = False
         # An added def is placed just before the list that registers it (when both are present).
         anchor = next((f['name'] for f in fns if (f.get('op') == 'register')), None)
+
         for fn in [f for f in fns if (f.get('op') or 'replace') == 'replace']:
-            new = _replace_function(src, fn['name'], fn['code'])
-            if new is None:
-                return False, (f"function '{fn['name']}' not found in {path} (or its code didn't "
-                               f"parse) — if it's NEW, use op:add")
-            src = new
+            _try(_replace_function(src, fn['name'], fn['code']),
+                 f"{path}: op:replace '{fn['name']}' not found (or its code didn't parse) — if NEW use op:add")
         for fn in [f for f in fns if f.get('op') == 'edit']:
             new, reason = _apply_edit(src, fn['search'], fn.get('replace') or '', scope_name=fn.get('name'))
-            if new is None:
-                return False, f"op:edit on {path}: {reason}"
-            src = new
+            _try(new, f"{path}: op:edit — {reason}")
         for fn in [f for f in fns if f.get('op') == 'add']:
-            new = _add_definition(src, fn['name'], fn['code'], before_name=anchor)
-            if new is None:
-                return False, (f"could not add '{fn['name']}' to {path} (didn't parse, name "
-                               f"mismatch, or already exists — use op:replace to change it)")
-            src = new
+            if not _try(_add_definition(src, fn['name'], fn['code'], before_name=anchor),
+                        f"{path}: op:add '{fn['name']}' (didn't parse, name mismatch, or already exists)"):
+                add_failed = True
         for fn in [f for f in fns if f.get('op') == 'register']:
-            new = _register_in_list(src, fn['name'], fn['code'])
-            if new is None:
-                return False, f"could not register into '{fn['name']}' in {path} (no such module-level list/tuple)"
-            src = new
-        try:
-            ast.parse(src)
-        except SyntaxError as e:
-            return False, f"edits broke {path}: {e}"
-        open(full, 'w', encoding='utf-8').write(src)
-    return True, "ok"
+            if add_failed:                 # don't register a class whose op:add was skipped (would NameError)
+                skipped.append(f"{path}: op:register '{fn['name']}' skipped — its op:add didn't apply")
+                continue
+            _try(_register_in_list(src, fn['name'], fn['code']),
+                 f"{path}: op:register into '{fn['name']}' — no such module-level list/tuple")
+
+        if file_applied:
+            open(full, 'w', encoding='utf-8').write(src)
+
+    if applied_n == 0:
+        return False, "no edits could be applied — " + "; ".join(skipped)
+    msg = f"applied {applied_n} edit(s)"
+    if skipped:
+        msg += f"; SKIPPED {len(skipped)}: " + "; ".join(skipped)
+    return True, msg
 
 
 

@@ -266,6 +266,10 @@ def build_prompt(art, module_paths, user_note=None, issue_types=None):
         "  • op=\"add\" — {file, name, code}: a NEW top-level function or class (e.g. a new EpubTransform).\n"
         "  • op=\"register\" — {file, name, code}: append to a module-level list/tuple — `name` is the "
         f"LIST name (only {sorted(REGISTERABLE_LISTS)}), `code` is the expression to append (e.g. \"MyDetector()\").\n"
-        "`file` may only be app/Python/conversion/*.py or a shown front-end module. Combine edits if the "
-        "fix spans stages (op:add a detector + op:register it). Keep edits minimal.")
+        "`file` may only be app/Python/conversion/*.py or a shown front-end module. Combine edits ONLY when "
+        "one fix spans stages (op:add a detector + op:register it). Keep edits minimal.\n"
+        "SINGLE-CONCERN: fix the ONE highest-confidence root cause in this patch. Do NOT bundle a second, "
+        "unrelated edit (e.g. a bibliography fix alongside a footnote fix) — edits apply best-effort, but a "
+        "shaky extra edit whose search text is slightly off just wastes the attempt and muddies the signal. "
+        "Land the sure thing alone; the next attempt can tackle the next cause.")
     return "\n\n".join(parts)

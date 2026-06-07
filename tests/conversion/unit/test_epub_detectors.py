@@ -347,3 +347,65 @@ def test_document_profile_fingerprints_faked_headings(soup):
     assert prof['shape_signals']['bold_short_blocks'] >= 1       # the bold 'BIBLIOGRAPHY' title
     assert prof['tag_histogram']['p'] == 3
     assert prof['top_classes']['p.calibre_45'] == 2              # publisher fingerprint surfaces
+
+
+# ---------------------------------------------------------------------------
+# Resilience: one detector throwing must NOT kill the whole conversion. The error is reported in the
+# `[detector-error]` format the vibe loop captures + feeds back to the model.
+# ---------------------------------------------------------------------------
+def test_report_detector_error_emits_model_facing_line(capsys):
+    class _Boom:
+        name = 'BoomFootnoteDetector'
+    logs, log = _logs()
+    try:
+        raise AttributeError("'NoneType' object has no attribute 'find_next'")
+    except AttributeError as e:
+        E._report_detector_error(_Boom(), e, log)
+    err = capsys.readouterr().err
+    assert '[detector-error] BoomFootnoteDetector raised AttributeError' in err   # header the model sees
+    assert 'find_next' in err                                                     # the actual cause
+    assert any('[detector-error]' in m for m in logs)                             # also in the debug log
+
+
+# ---------------------------------------------------------------------------
+# InlineAnchorNoteFootnoteDetector — empty <a id=X></a> + following note block, linked by <a href=#X><sup>
+# ---------------------------------------------------------------------------
+def test_inline_anchor_note_detect_extract_and_pair(soup):
+    s = soup('<body>'
+             '<p>Claim<a href="#fn1"><sup>1</sup></a> and<a href="#fn2"><sup>2</sup></a>.</p>'
+             '<h2>NOTES</h2>'
+             '<a id="fn1"> </a><p class="smallhangingpara">1 First note text.</p>'
+             '<a id="fn2"> </a><p class="smallhangingpara">2 Second note text.</p>'
+             '</body>')
+    det = E.InlineAnchorNoteFootnoteDetector()
+    assert det.detect(s) is True
+    _, log = _logs()
+    out = det.transform(s, log)
+    assert [f['id'] for f in out['footnotes']] == ['fn1', 'fn2']     # paired by EXPLICIT id, in order
+    assert out['footnotes'][0]['strategy'] == 'inline_anchor_note'
+    body = out['footnotes'][0]['element'].get_text(strip=True)
+    assert body == 'First note text.'                                # content from following block, '1 ' stripped
+
+
+def test_inline_anchor_note_excludes_toc_links(soup):
+    # A TOC <a><sup> link whose target is a chapter HEADING (no following note block) is NOT a footnote.
+    s = soup('<body>'
+             '<nav><a href="#ch1"><sup>I.</sup></a></nav>'
+             '<a id="ch1"></a><h1>Chapter One</h1><p>Body text.</p>'
+             '</body>')
+    det = E.InlineAnchorNoteFootnoteDetector()
+    assert det.detect(s) is False
+    _, log = _logs()
+    assert det.transform(s, log)['footnotes'] == []
+
+
+def test_inline_anchor_note_ignores_non_sup_link_targets(soup):
+    # A page-nav / cross-ref <a href> (NO <sup>) pointing at an empty anchor must not make it a footnote.
+    s = soup('<body>'
+             '<a href="#pg1">go to page</a>'
+             '<a id="pg1"> </a><p>Page one starts here.</p>'
+             '</body>')
+    det = E.InlineAnchorNoteFootnoteDetector()
+    assert det.detect(s) is False
+    _, log = _logs()
+    assert det.transform(s, log)['footnotes'] == []

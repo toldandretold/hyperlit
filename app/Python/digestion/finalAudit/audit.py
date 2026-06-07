@@ -9,6 +9,8 @@ gaps/duplicates/unmatched counts.
 
 from collections import Counter
 
+from digestion.citationLinking.citation_link_rules import looks_like_reading_list
+
 # Cap per-gap expansion to avoid millions of entries when lettered footnotes cause
 # sparse numeric sequences.
 MAX_GAP_EXPANSION = 50
@@ -197,7 +199,11 @@ def assess_link_fidelity(stats, audit_data, records):
     # (1) citation_target_gap — many in-text citations, ~none linked, far fewer reference TARGETS than
     # citations. The cause is upstream (bibliography extraction under-counted, OR the style is mis-detected
     # and these aren't really citations) — the linker can't link to targets that were never extracted.
-    if cit_total >= 5 and cit_linked == 0 and refs < cit_total * 0.5:
+    # …UNLESS it's a reading-list / footnote-cited source (a couple of refs, dozens of bare-year candidates,
+    # none linkable): there is no upstream target to recover, so this fork is non-actionable noise. The
+    # citation_link_audit fork already records the confident "nothing to link" decision; don't double-flag.
+    if (cit_total >= 5 and cit_linked == 0 and refs < cit_total * 0.5
+            and not looks_like_reading_list(refs, cit_total, cit_linked)):
         bib = _record_for(records, 'bibliography_extraction') or {}
         cit = _record_for(records, 'citation_link_audit') or {}
         detection = (bib.get('evidence') or {}).get('detection', 'unknown')

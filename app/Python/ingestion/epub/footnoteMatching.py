@@ -752,6 +752,115 @@ class AnchorHeadingFootnoteDetector(EpubTransform):
         return {'footnotes': footnotes, 'noterefs': []}
 
 
+class InlineAnchorNoteFootnoteDetector(EpubTransform):
+    """
+    Detect footnotes encoded as an EMPTY inline anchor whose note text lives in the FOLLOWING block:
+
+        <a href="ch048.xhtml#p2001a9d08940418007"><sup>1</sup></a>   (in-text marker)
+        ...
+        <a id="p2001a9d08940418007"> </a>                            (empty definition anchor)
+        <div class="hangingpara"><p class="smallhangingpara">1 The note text…</p></div>   (the content)
+
+    The marker's href-fragment equals the definition anchor's id, so it pairs 100% by id (never by
+    number — survives per-chapter numbering restarts). The other detectors miss it: the id is opaque
+    (matches no fn/en ID_PATTERN), and the inline <a> anchor is empty, so the linker's
+    ReverseDefinitionLookup skips it as a non-block element. We consolidate "<a id=X></a> + its following
+    block(s)" into a single <div id=X> (like AnchorHeadingFootnoteDetector) so the standard converter
+    extracts + links it.
+
+    PRECISE — matched ONLY when the anchor is (a) EMPTY, (b) the target of an in-text <a href=#X> marker,
+    and (c) immediately followed by a NON-HEADING content block. A TOC entry's target is a chapter
+    heading/section, not an empty-anchor+note-block, so it is structurally excluded (no over-matching).
+    """
+
+    name = "InlineAnchorNoteFootnoteDetector"
+    description = "Footnotes as empty <a id=X></a> + following note block, linked by <a href=#X><sup>"
+    plain = ('Footnotes whose definition is an EMPTY inline <a id=X></a> anchor followed by the note '
+             'paragraph, linked by an in-text <a href="#X"><sup>N</sup></a>. Matched by id correspondence '
+             '(never by number); a TOC link’s target has no following note block, so it is excluded.')
+
+    _LEADING_NUM_RE = re.compile(r'^\s*\d{1,4}[.\)\s]\s*')
+
+    def _linked_ids(self, soup):
+        """Ids targeted by a FOOTNOTE MARKER specifically — an <a href="#X"> associated with a <sup>
+        (the marker carries the superscript number). NOT every internal-link target: page-number nav and
+        cross-references also point at empty anchors, and treating those as footnotes over-matches."""
+        ids = set()
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            if '#' not in href:
+                continue
+            if a.find('sup') or a.find_parent('sup'):          # <a><sup>N</sup></a> or <sup><a>N</a></sup>
+                ids.add(href.split('#', 1)[1])
+        return ids
+
+    @staticmethod
+    def _is_empty_anchor(a):
+        return a.name == 'a' and a.get('id') and not a.get('href') and a.get_text(strip=True) == ''
+
+    def _candidates(self, soup, linked):
+        """Empty <a id=X> anchors whose id is marker-linked, in document order."""
+        return [a for a in soup.find_all('a', id=True)
+                if a.get('id') in linked and self._is_empty_anchor(a)]
+
+    def detect(self, soup) -> bool:
+        linked = self._linked_ids(soup)
+        if not linked:
+            return False
+        # True if ANY candidate is a real footnote (first real following sibling is a content block, not a
+        # heading). Must scan all candidates: the first is often a "NOTES" section anchor with no content.
+        for a in self._candidates(soup, linked):
+            for sib in a.find_next_siblings():
+                if getattr(sib, 'name', None) is None:        # whitespace NavigableString
+                    continue
+                if sib.name not in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6') and sib.get_text(strip=True):
+                    return True
+                break                                          # not a footnote — try the next candidate
+        return False
+
+    def transform(self, soup, log) -> dict:
+        linked = self._linked_ids(soup)
+        footnotes = []
+        for a in self._candidates(soup, linked):
+            note_id = a.get('id')
+            # Content = following siblings up to the next empty anchor (the next footnote) or a heading.
+            content_sibs = []
+            for sib in a.find_next_siblings():
+                nm = getattr(sib, 'name', None)
+                if nm is None:                                # whitespace
+                    if content_sibs:
+                        content_sibs.append(sib)
+                    continue
+                if nm in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+                    break
+                if nm == 'a' and self._is_empty_anchor(sib) and sib.get('id') in linked:
+                    break                                     # the next footnote's anchor
+                content_sibs.append(sib)
+            # Require at least one real content block (excludes anchor-before-heading TOC targets).
+            if not any(getattr(s, 'name', None) and s.get_text(strip=True) for s in content_sibs):
+                continue
+            wrapper = soup.new_tag('div')
+            wrapper['id'] = note_id
+            for sib in content_sibs:
+                wrapper.append(sib.extract())
+            self._strip_leading_number(wrapper)
+            a.replace_with(wrapper)                            # the empty anchor is gone; id lives on the div
+            footnotes.append({'id': note_id, 'element': wrapper,
+                              'type': 'footnote', 'strategy': 'inline_anchor_note'})
+        log(f"    Total: {len(footnotes)} inline-anchor note definitions")
+        return {'footnotes': footnotes, 'noterefs': []}
+
+    def _strip_leading_number(self, wrapper):
+        """Drop the leading footnote number (e.g. '1 ') from the note text — it's redundant with the
+        in-text marker the converter renders."""
+        for ns in wrapper.descendants:
+            if isinstance(ns, NavigableString) and ns.strip():
+                new = self._LEADING_NUM_RE.sub('', str(ns), count=1)
+                if new != str(ns):
+                    ns.replace_with(new)
+                return
+
+
 class HeuristicFootnoteDetector(EpubTransform):
     """
     Fallback heuristic footnote detection.

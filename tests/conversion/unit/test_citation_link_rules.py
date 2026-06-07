@@ -148,11 +148,12 @@ def test_bracket_only_document_links_through_full_chain(soup):
 # AssessmentRecorder — records the pass without mutating the soup
 # ---------------------------------------------------------------------------
 def test_assessment_recorder_raises_suspicion_on_full_miss(soup):
-    # A bibliography exists but 0 of N bracketed-year candidates linked → a SUSPICION (not a verdict):
-    # MIGHT be missing references upstream, OR prose-years. Low confidence + a "please read" margin.
+    # A REAL-sized bibliography exists but 0 of N bracketed-year candidates linked → a SUSPICION (not a
+    # verdict): MIGHT be missing references upstream, OR prose-years. Low confidence + a "please read" margin.
     from shared.assessment import ASSESSMENT
     ASSESSMENT.reset('/tmp')
-    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'but1936': 'but1936'})
+    bib = {f'auth{i}198{i}': f'auth{i}198{i}' for i in range(6)}   # 6 entries — NOT the reading-list signature
+    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), bib)
     ctx.citations_found, ctx.citations_linked = 158, 0
     ctx.citations_unlinked = [{'citation': 'March, 1923', 'generated_keys': ['march1923']}]
     AssessmentRecorder().apply(ctx)
@@ -160,6 +161,22 @@ def test_assessment_recorder_raises_suspicion_on_full_miss(soup):
     assert rec['evidence']['full_miss'] is True
     assert rec['confidence'] < 0.5                # flagged as a suspicion, never asserted as a fault
     assert 'MIGHT' in rec['margin'] and 'read the text' in rec['margin']
+
+
+def test_assessment_recorder_treats_reading_list_as_confident_non_action(soup):
+    # A reading-list / footnote-cited source: only 1 "reference" but dozens of bracketed-year candidates,
+    # NONE linkable (bare years / prose numbers). Not a suspicion to chase — a CONFIDENT non-action (1.0),
+    # so the vibe loop is not routed to citation modules and stays focused on footnotes.
+    from shared.assessment import ASSESSMENT
+    ASSESSMENT.reset('/tmp')
+    ctx = CitationLinkContext(soup('<body><p>x</p></body>'), {'but1936': 'but1936'})   # 1 entry
+    ctx.citations_found, ctx.citations_linked = 55, 0
+    ctx.citations_unlinked = [{'citation': 'March, 1923', 'generated_keys': ['march1923']}]
+    AssessmentRecorder().apply(ctx)
+    rec = [r for r in ASSESSMENT.records if r['module'] == 'citation_link_audit'][-1]
+    assert rec['evidence']['full_miss'] is True
+    assert rec['confidence'] == 1.0              # confident non-action — NOT flagged (>= 0.5)
+    assert 'reading-list' in rec['margin']
 
 
 def test_assessment_recorder_does_not_flag_markup_cited_doc(soup):

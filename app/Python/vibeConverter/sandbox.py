@@ -40,7 +40,7 @@ def make_sandbox():
 
 
 
-def _pipeline_into(py_dir, book_dir, out, book_id='vibebook'):
+def _pipeline_into(py_dir, book_dir, out, book_id='vibebook', extra_env=None):
     """Run the PATHWAY-AWARE conversion chain (patched code in py_dir) into `out`, so a patch
     to ANY post-cache stage is actually exercised:
 
@@ -63,10 +63,17 @@ def _pipeline_into(py_dir, book_dir, out, book_id='vibebook'):
             # at identical paths. The container has no network and no host env → secrets are
             # unreachable to the model-written code it runs.
             sandbox_root = os.path.dirname(os.path.dirname(py_dir))
-            full = _docker_cmd(runtime._DOCKER_IMAGE, [sandbox_root, book_dir], [out], ['python', *cmd])
+            rw = [out]
+            root = (extra_env or {}).get('HYPERLIT_PROJECT_ROOT')
+            if root:   # APPLY: let ImageProcessor write this book's images to the REAL live storage
+                book_store = os.path.join(root, 'storage', 'app', 'public', 'books', book_id)
+                os.makedirs(book_store, exist_ok=True)
+                rw.append(book_store)
+            full = _docker_cmd(runtime._DOCKER_IMAGE, [sandbox_root, book_dir], rw, ['python', *cmd],
+                               env=extra_env)
             return subprocess.run(full, capture_output=True, text=True)
-        return subprocess.run([sys.executable, *cmd], cwd=py_dir, capture_output=True,
-                              text=True, env=SCRUBBED_ENV)
+        env = SCRUBBED_ENV if not extra_env else {**SCRUBBED_ENV, **extra_env}
+        return subprocess.run([sys.executable, *cmd], cwd=py_dir, capture_output=True, text=True, env=env)
     if os.path.isfile(os.path.join(book_dir, 'ocr_response.json')):
         shutil.copy2(os.path.join(book_dir, 'ocr_response.json'), os.path.join(out, 'ocr_response.json'))
         r = _run(os.path.join(py_dir, 'mistral_ocr.py'), '/dev/null', out)
@@ -105,7 +112,13 @@ def _reconvert(sandbox, book_dir):
     headings = _count_headings(os.path.join(out, 'nodes.jsonl'))   # count BEFORE the temp dir is wiped
     refs = _ref_key_stats(os.path.join(out, 'references.json'))
     stats['headings_total'] = headings['total']   # so _stat_summary can SHOW headings in every beat
-    stderr = (r.stderr or '')[-700:] if (r and r.returncode != 0) else ''
+    # On a CRASH, send the model the stderr tail. On a guarded SUCCESS, still surface any
+    # `[detector-error]` (a detector that threw was skipped, not fatal) so the model can fix its detector.
+    raw_err = (r.stderr or '') if r else ''
+    if r and r.returncode != 0:
+        stderr = raw_err[-700:]
+    else:
+        stderr = raw_err[-700:] if '[detector-error]' in raw_err else ''
     shutil.rmtree(out, ignore_errors=True)
     return {'ok': bool(r and r.returncode == 0), 'audit': audit, 'stats': stats,
             'assessment': assessment, 'headings': headings, 'refs': refs, 'stderr': stderr}

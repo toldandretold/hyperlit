@@ -171,14 +171,18 @@ _DOCKER_IMAGE = None
 
 
 
-def _docker_cmd(image, ro_mounts, rw_mounts, run):
+def _docker_cmd(image, ro_mounts, rw_mounts, run, env=None):
     """Wrap `run` (e.g. ['python', '/abs/script', '/abs/arg', …]) in a locked-down `docker run`:
     no network, no host env (so no secrets), read-only rootfs, unprivileged, resource-capped. Host
-    dirs are bind-mounted at IDENTICAL paths, so the absolute paths in `run` need no translation."""
+    dirs are bind-mounted at IDENTICAL paths, so the absolute paths in `run` need no translation.
+    `env` is an optional {KEY: VALUE} of EXPLICIT, non-secret vars to pass in (e.g. the apply's
+    HYPERLIT_PROJECT_ROOT so ImageProcessor can write to the mounted live storage)."""
     cmd = ['docker', 'run', '--rm', '--network', 'none', '--read-only',
            '--tmpfs', '/tmp:exec', '--memory', '1g', '--cpus', '1', '--pids-limit', '256',
            '--security-opt', 'no-new-privileges',
            '-e', 'PYTHONHASHSEED=0', '-e', 'PYTHONDONTWRITEBYTECODE=1']
+    for _k, _v in (env or {}).items():
+        cmd += ['-e', f'{_k}={_v}']
     if hasattr(os, 'getuid'):
         cmd += ['--user', f'{os.getuid()}:{os.getgid()}']  # keep the worker's ownership on outputs
     for m in dict.fromkeys(ro_mounts):

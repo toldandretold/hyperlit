@@ -9,6 +9,7 @@ import tempfile
 import ast
 import glob
 from vibeConverter.patch import (_apply_diff, apply_function_replacements)
+from vibeConverter.runtime import (REPO_ROOT)
 from vibeConverter.sandbox import (_pipeline_into, make_sandbox)
 
 
@@ -68,7 +69,12 @@ def apply_patch_to_book(book_dir, patch_path=None):
         # APPLY path: re-convert under the REAL book id so the regenerated <img src> paths resolve to
         # /storage/books/<realId>/images/ (which already exists). The gate uses the default 'vibebook'.
         real_book_id = os.path.basename(book_dir.rstrip('/'))
-        r = _pipeline_into(os.path.join(sandbox, 'app', 'Python'), book_dir, outdir, book_id=real_book_id)
+        # Tell the sandboxed ImageProcessor the REAL repo root so it writes this book's images to the LIVE
+        # storage (storage/app/public/books/<id>/images) + rewrites <img src> to /storage/... — the sandbox
+        # has no `artisan` to walk to, so without this images break (raw epub_original paths, no live files).
+        r = _pipeline_into(os.path.join(sandbox, 'app', 'Python'), book_dir, outdir, book_id=real_book_id,
+                           extra_env={'HYPERLIT_PROJECT_ROOT': REPO_ROOT,
+                                      'HYPERLIT_SOURCE_ROOT': os.path.abspath(book_dir)})
         if r is None or r.returncode != 0:
             print("Re-convert failed:", (r.stderr[-300:] if r else 'no source'))
             shutil.rmtree(outdir, ignore_errors=True)

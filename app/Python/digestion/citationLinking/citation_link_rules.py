@@ -21,6 +21,21 @@ from bs4 import NavigableString
 
 from shared.assessment import ASSESSMENT
 
+# A "reading-list" / footnote-cited source has only a handful of "references" but MANY bracketed-year
+# candidates, NONE of which link — they're bare years / prose numbers, not an author-date bibliography.
+# This is a pure COUNTING signal (format-independent), so it lives once here and is reused by the audit.
+# A 0/N citation "miss" under this signature is a CONFIDENT non-action, not a suspicion to chase — and it
+# is SAFE: a real bibliography has many refs, so it is never suppressed (a genuine link failure still flags).
+_READING_LIST_MAX_REFS = 2
+_READING_LIST_MIN_CITATIONS = 20
+
+
+def looks_like_reading_list(references_found, citations_total, citations_linked):
+    return (int(references_found or 0) <= _READING_LIST_MAX_REFS
+            and int(citations_total or 0) >= _READING_LIST_MIN_CITATIONS
+            and int(citations_linked or 0) == 0)
+
+
 # Human-readable `plain` note for the citation-linking tree node (one source — node_help + generator + LLM).
 # Flag-not-verdict framing (README §0): we do NOT decide "is this really a citation" — we report raw facts
 # and raise a SUSPICION for a human / the vibe loop to check.
@@ -380,6 +395,14 @@ class AssessmentRecorder(LinkRule):
                 _margin = (f'{anchor_converted} citation(s) were wired via source markup (id/class anchors); '
                            f'the text "(Year)" scan linked 0, which is EXPECTED for a markup-cited document '
                            f'— not a miss.')
+            elif full_miss and looks_like_reading_list(bib_n, citations_found, citations_linked):
+                # Reading-list / footnote-cited source — there is NO author-date bibliography to link
+                # against (a handful of "references" but dozens of bare-year candidates). A CONFIDENT
+                # non-action, so the vibe loop is NOT routed here to chase a non-problem.
+                _confidence = 1.0
+                _margin = (f'{citations_found} bracketed-year candidate(s) but only {bib_n} bibliography '
+                           f'entr(y/ies) — a reading-list / footnote-cited source, not an author-date '
+                           f'bibliography; nothing to link (the candidates are bare years / prose numbers).')
             elif full_miss:
                 _confidence = 0.3
                 _margin = (f'{citations_found} bracketed-year candidate(s) but 0 linked to the {bib_n}-entry '

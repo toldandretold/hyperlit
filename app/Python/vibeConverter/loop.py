@@ -215,6 +215,12 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
                 if mock_diff:
                     break
                 continue
+            # BEST-EFFORT apply: some edits may have landed and others been skipped (e.g. a co-bundled
+            # edit whose search text didn't match). We re-convert with what DID land — a good fix is no
+            # longer lost to a bad sibling — and tell the model which edits to re-send verbatim.
+            partial = 'SKIPPED' in (out or '')
+            if partial:
+                emit('proposed', f"Applied part of the fix — {out}", attempt=attempt)
             emit('reconverting',
                  "Running the proposed pipeline on THIS document to confirm it actually makes "
                  "things better (and breaks nothing else here)…", attempt=attempt)
@@ -245,10 +251,19 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
                 emit('not_yet', f"Not quite — {_stat_summary(st)} ({why}). Telling the model "
                      f"why and trying again…", attempt=attempt)
             nf, _ = _problem_set(after['assessment'], after['audit'])
-            crash = (f"\nThe re-conversion crashed with:\n{after['stderr']}"
-                     if after.get('stderr') else "")
+            if after.get('stderr'):
+                _lbl = ("The re-conversion CRASHED with" if not after.get('ok')
+                        else "A detector you added/edited raised an error and was SKIPPED — fix it so it "
+                             "runs cleanly (the rest of the conversion still ran)")
+                crash = f"\n{_lbl}:\n{after['stderr']}"
+            else:
+                crash = ""
+            skip_note = (f"\nNOTE: part of your patch DID NOT apply ({out}); the stats above reflect ONLY "
+                         f"the edit(s) that landed. Re-send the skipped edit(s) with the `search` copied "
+                         f"VERBATIM from the source (exact indentation) or `name`-scoped — and keep each "
+                         f"patch SINGLE-CONCERN so a shaky edit can't drag down a good one." if partial else "")
             feedback = (f"\n\n## Attempt {attempt} feedback\nYour change applied, but {why}. "
-                        f"New stats: {_stat_summary(st)}; flagged now: {sorted(nf)}.{crash}\n"
+                        f"New stats: {_stat_summary(st)}; flagged now: {sorted(nf)}.{crash}{skip_note}\n"
                         f"The footnote definitions DO exist (see the def-looking lines above) — match "
                         f"them to the [^N] refs and emit [^N]: definitions, WITHOUT introducing "
                         f"numbering gaps or unmatched refs. Try a more complete fix.")

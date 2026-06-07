@@ -467,3 +467,50 @@ def test_apply_replace_missing_function_hints_op_add(tmp_path):
     ok, msg = v.apply_function_replacements(
         str(tmp_path), [{'file': rel, 'name': 'ghost', 'op': 'replace', 'code': 'def ghost():\n    return 0'}])
     assert not ok and 'op:add' in msg
+
+
+# --- BEST-EFFORT apply: a good edit survives a bad sibling (the schumpeter v5 regression) ----------
+
+def test_apply_is_best_effort_good_edit_survives_a_bad_sibling(tmp_path):
+    # Mirrors schumpeter v5: a clean one-line footnote edit bundled with a bibliography edit whose
+    # search text doesn't match. The good edit must LAND; the bad one is skipped + reported.
+    good_rel = 'app/Python/conversion/_be_good.py'
+    bad_rel = 'app/Python/conversion/_be_bad.py'
+    (tmp_path / 'app/Python/conversion').mkdir(parents=True)
+    (tmp_path / good_rel).write_text("_BLOCK_TAGS = {'p', 'div'}\n", encoding='utf-8')
+    (tmp_path / bad_rel).write_text("X = 1\n", encoding='utf-8')
+    funcs = [
+        {'file': good_rel, 'op': 'edit', 'search': "_BLOCK_TAGS = {'p', 'div'}",
+         'replace': "_BLOCK_TAGS = {'p', 'div', 'a'}"},
+        {'file': bad_rel, 'op': 'edit', 'search': "THIS TEXT IS NOT IN THE FILE", 'replace': "whatever"},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert ok, msg                                                  # patch NOT discarded
+    assert "'a'" in (tmp_path / good_rel).read_text(encoding='utf-8')   # the good edit landed
+    assert 'SKIPPED' in msg and '_be_bad.py' in msg                # the bad edit is reported back
+    assert (tmp_path / bad_rel).read_text(encoding='utf-8') == "X = 1\n"  # bad file untouched
+
+
+def test_apply_returns_false_only_when_nothing_lands(tmp_path):
+    rel = 'app/Python/conversion/_be_none.py'
+    (tmp_path / 'app/Python/conversion').mkdir(parents=True)
+    (tmp_path / rel).write_text("X = 1\n", encoding='utf-8')
+    ok, msg = v.apply_function_replacements(
+        str(tmp_path), [{'file': rel, 'op': 'edit', 'search': "NOPE", 'replace': "y"}])
+    assert not ok and 'no edits could be applied' in msg
+
+
+def test_apply_skips_register_when_its_add_is_skipped(tmp_path):
+    # An op:add that fails (invalid code) must also skip the op:register that depends on it — otherwise
+    # the file would reference an undefined name and crash at import.
+    rel = 'app/Python/conversion/_be_reg.py'
+    (tmp_path / 'app/Python/conversion').mkdir(parents=True)
+    (tmp_path / rel).write_text("MY_LIST = []\n", encoding='utf-8')
+    funcs = [
+        {'file': rel, 'name': 'Broken', 'op': 'add', 'code': "class Broken(:\n    pass\n"},  # invalid -> skipped
+        {'file': rel, 'name': 'MY_LIST', 'op': 'register', 'code': 'Broken()'},
+    ]
+    ok, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert not ok                                                  # both skipped -> nothing applied
+    assert 'op:add' in msg and "its op:add" in msg                 # register skipped because its add was
+    assert (tmp_path / rel).read_text(encoding='utf-8') == "MY_LIST = []\n"  # file untouched

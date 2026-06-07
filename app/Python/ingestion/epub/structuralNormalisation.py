@@ -213,14 +213,25 @@ class ImageProcessor(EpubTransform):
         # reader injected a broken-image-wrapper per image, churning integrity. The sentinel survives reorgs.)
         import pathlib
         here = pathlib.Path(__file__).resolve()
-        project_root = next((p for p in here.parents if (p / 'artisan').is_file()), None)
-        if project_root is None:
-            log("  Warning: project root (artisan) not found above this module; skipping image copy")
-            return {'images_processed': 0}
+        # HYPERLIT_PROJECT_ROOT is set by the vibe APPLY: its re-conversion runs from a /tmp sandbox that has
+        # no `artisan` to walk to, so without this ImageProcessor couldn't find the REAL storage — it bailed,
+        # leaving raw epub_original paths (broken images) and never copying the files. The env points it at the
+        # real repo so it writes to the live storage + rewrites URLs correctly. Falls back to the artisan walk.
+        env_root = os.environ.get('HYPERLIT_PROJECT_ROOT')
+        project_root = (pathlib.Path(env_root) if env_root and (pathlib.Path(env_root) / 'artisan').is_file()
+                        else next((p for p in here.parents if (p / 'artisan').is_file()), None))
 
-        # Create storage directory for this book's images
-        storage_dir = project_root / 'storage' / 'app' / 'public' / 'books' / self.book_id / 'images'
-        storage_dir.mkdir(parents=True, exist_ok=True)
+        # The copy needs a reachable storage dir; the URL REWRITE does not (it's the deterministic
+        # /storage/books/<id>/images/<file>). So decouple them: when we can't find the project root we still
+        # rewrite every <img> to the canonical URL (the original import already placed the files there) — we
+        # just skip the physical copy, instead of bailing and leaving a broken raw path.
+        storage_dir = None
+        if project_root is not None:
+            storage_dir = project_root / 'storage' / 'app' / 'public' / 'books' / self.book_id / 'images'
+            storage_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            log("  Warning: project root (artisan) not found; rewriting image URLs to /storage but NOT "
+                "copying files (assuming they exist from the original import)")
 
         # Define allowed base directories for path traversal protection
         allowed_base = pathlib.Path(self.input_dir).resolve()
@@ -260,16 +271,17 @@ class ImageProcessor(EpubTransform):
                 log(f"    Warning: Image not found: {src}")
                 continue
 
-            # Copy image to storage
+            # Copy image to storage (only when a storage dir is reachable — see the decouple note above).
             filename = src_path.name
-            dest_path = storage_dir / filename
+            if storage_dir is not None:
+                dest_path = storage_dir / filename
+                if not dest_path.exists():
+                    import shutil
+                    shutil.copy2(src_path, dest_path)
+                    self.images_copied += 1
 
-            if not dest_path.exists():
-                import shutil
-                shutil.copy2(src_path, dest_path)
-                self.images_copied += 1
-
-            # Update src to public URL
+            # ALWAYS rewrite src to the canonical public URL (deterministic; the file is there from the
+            # copy above OR from the original import).
             img['src'] = f'/storage/books/{self.book_id}/images/{filename}'
             images_processed += 1
 

@@ -204,6 +204,7 @@ from ingestion.epub.footnoteMatching import (  # noqa: E402,F401
     EndnoteCharactersFootnoteDetector,
     EnoteFootnoteDetector,
     AnchorHeadingFootnoteDetector,
+    InlineAnchorNoteFootnoteDetector,
     HeuristicFootnoteDetector,
     FootnoteConverter,
 )
@@ -248,6 +249,7 @@ TRANSFORM_PIPELINE = [
     EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
     EnoteFootnoteDetector(),               # Marxists.org enote class format
     AnchorHeadingFootnoteDetector(),       # <hN id=X>Note N</hN> + content, linked by <a href=#X>
+    InlineAnchorNoteFootnoteDetector(),    # empty <a id=X></a> + following note block, linked by <a href=#X><sup>
     HeuristicFootnoteDetector(),
 
     # Phase 3: Other content detection
@@ -262,6 +264,23 @@ TRANSFORM_PIPELINE = [
 # =============================================================================
 # MAIN NORMALIZER CLASS
 # =============================================================================
+
+def _report_detector_error(transform, exc, log):
+    """A TRANSFORM_PIPELINE detector raised at runtime. Log it loudly to the debug file AND emit a
+    `[detector-error]` line + a short traceback to stderr — the vibe loop captures that and feeds the exact
+    exception back to the model so it can fix its detector (instead of seeing a blank all-zeros conversion).
+    The caller skips this one detector and continues, so a single bad detector is never fatal."""
+    import traceback
+    name = getattr(transform, 'name', type(transform).__name__)
+    head = f"[detector-error] {name} raised {type(exc).__name__}: {exc}"
+    tail = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__)[-3:])
+    try:
+        log(f"\n⚠ {head}\n{tail}")
+    except Exception:
+        pass
+    print(head, file=sys.stderr)
+    print(tail, file=sys.stderr)
+
 
 def _count_footnote_markers(soup):
     """Count candidate footnote MARKERS (noterefs) in the soup — anchors whose href targets a footnote-ish
@@ -326,6 +345,12 @@ class EpubNormalizer:
     def __init__(self, input_path, output_dir, book_id=None):
         self.input_path = input_path
         self.output_dir = output_dir
+        # The base images resolve against. Normally output_dir (== the book dir on a normal import, so
+        # images resolve). The vibe APPLY writes to a SEPARATE temp out dir, so it sets HYPERLIT_SOURCE_ROOT
+        # to the book dir (which holds epub_original/) — otherwise images can't be found and srcs come out as
+        # broken ../../../-to-epub_original paths. Env-gated so ONLY the apply changes; normal import +
+        # the regression harness are untouched.
+        self.source_root = os.environ.get('HYPERLIT_SOURCE_ROOT') or output_dir
         self.book_id = book_id or f"book_{int(time.time())}"
         self.is_directory = os.path.isdir(input_path)
         self.combined_soup = None
@@ -448,35 +473,45 @@ class EpubNormalizer:
                 self._last_structural = transform.name   # the last Phase-1 transform before detection
             # Set context for transforms that need it
             if isinstance(transform, ImageProcessor):
-                transform.set_context(self.book_id, self.output_dir)
+                transform.set_context(self.book_id, self.source_root)
 
-            detected = transform.detect(self.combined_soup)
+            detected = False
             found_here = 0
-            if detected:
-                self._log(f"\n[{transform.name}]")
-                result = transform.transform(self.combined_soup, self._log)
+            try:
+                detected = transform.detect(self.combined_soup)
+                if detected:
+                    self._log(f"\n[{transform.name}]")
+                    result = transform.transform(self.combined_soup, self._log)
 
-                # Accumulate footnotes from all detectors
-                if 'footnotes' in result:
-                    found_here = len(result['footnotes'])
-                    # Deduplicate by ID
-                    for fn in result['footnotes']:
-                        if not any(existing['id'] == fn['id'] for existing in all_footnotes):
-                            all_footnotes.append(fn)
+                    # Accumulate footnotes from all detectors
+                    if 'footnotes' in result:
+                        found_here = len(result['footnotes'])
+                        # Deduplicate by ID
+                        for fn in result['footnotes']:
+                            if not any(existing['id'] == fn['id'] for existing in all_footnotes):
+                                all_footnotes.append(fn)
 
-                if 'noterefs' in result:
-                    # Deduplicate by element identity (same DOM node found by multiple detectors)
-                    seen_noteref_elements = {id(nr['element']) for nr in all_noterefs if nr.get('element')}
-                    for nr in result['noterefs']:
-                        elem = nr.get('element')
-                        if elem and id(elem) not in seen_noteref_elements:
-                            seen_noteref_elements.add(id(elem))
-                            all_noterefs.append(nr)
-                        elif not elem:
-                            all_noterefs.append(nr)
+                    if 'noterefs' in result:
+                        # Deduplicate by element identity (same DOM node found by multiple detectors)
+                        seen_noteref_elements = {id(nr['element']) for nr in all_noterefs if nr.get('element')}
+                        for nr in result['noterefs']:
+                            elem = nr.get('element')
+                            if elem and id(elem) not in seen_noteref_elements:
+                                seen_noteref_elements.add(id(elem))
+                                all_noterefs.append(nr)
+                            elif not elem:
+                                all_noterefs.append(nr)
 
-                # Store other results
-                self.results[transform.name] = result
+                    # Store other results
+                    self.results[transform.name] = result
+            except Exception as e:
+                # RESILIENCE: one detector throwing must NOT kill the whole conversion — skip it, keep the
+                # rest running. Critical for the vibe loop (a model-ADDED detector that crashes would
+                # otherwise wipe the conversion to all-zeros) and for production (a real book that trips one
+                # detector's edge case still converts via the others). The [detector-error] line is fed back
+                # to the model so it can fix its detector.
+                _report_detector_error(transform, e, self._log)
+                detected, found_here = False, 0
 
             if transform.name.endswith('FootnoteDetector'):
                 fn_detector_results.append(
@@ -528,6 +563,7 @@ class EpubNormalizer:
         'EndnoteCharactersFootnoteDetector': '<span class="EndnoteCharacters"> (InDesign export)',
         'EnoteFootnoteDetector': '<sup class="enote…"> superscript markers',
         'AnchorHeadingFootnoteDetector': '<hN id=X>Note N</hN> definitions linked by an <a href="#X"> marker',
+        'InlineAnchorNoteFootnoteDetector': 'empty <a id=X></a> + following note block, linked by an <a href="#X"><sup> marker',
         'HeuristicFootnoteDetector': 'numbered-list / superscript heuristics (always-on fallback)',
     }
 
@@ -849,7 +885,9 @@ class EpubNormalizer:
                         src = img['src']
                         if not src.startswith(('http', 'data:')):
                             img_path = os.path.normpath(os.path.join(os.path.dirname(file_href), src))
-                            final_path = os.path.relpath(os.path.join(opf_dir, img_path), self.output_dir)
+                            # Relative to the SOURCE root (holds epub_original/), NOT output_dir — so the apply's
+                            # temp out dir can't turn this into a ../../../ path ImageProcessor then rejects.
+                            final_path = os.path.relpath(os.path.join(opf_dir, img_path), self.source_root)
                             img['src'] = final_path
 
                     for child in list(item_body.children):
