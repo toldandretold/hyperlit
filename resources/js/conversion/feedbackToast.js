@@ -184,16 +184,11 @@ function makeChip({ key, label }, selected) {
 }
 
 /* report state: summary + category chips + free-text + [Send report] [Try vibe fix] [×] */
-function renderReportState(toast, { bookId, stats, footnoteAudit }) {
-  toast.innerHTML = '';
-  const selected = new Set();
-
-  const text = document.createElement('span');
-  text.textContent = buildSummaryText(stats, footnoteAudit);
-  text.style.lineHeight = '1.4';
-
+/* The issue picker (chips) + free-text note — shared by the initial report state AND the post-apply
+   "give feedback & re-try" panel. Returns the elements + a reader for the selected categories. */
+function buildIssueControls(selected, { promptText, placeholder } = {}) {
   const prompt = document.createElement('div');
-  prompt.textContent = 'What went wrong? (optional — pick any that apply, it helps the fix)';
+  prompt.textContent = promptText || 'What went wrong? (optional — pick any that apply, it helps the fix)';
   Object.assign(prompt.style, { fontSize: '12px', opacity: '0.75' });
 
   const chipRow = document.createElement('div');
@@ -203,12 +198,24 @@ function renderReportState(toast, { bookId, stats, footnoteAudit }) {
   const textarea = document.createElement('textarea');
   textarea.maxLength = 2000;
   textarea.rows = 2;
-  textarea.placeholder = 'Anything to add? (optional — fed to the fixer)';
+  textarea.placeholder = placeholder || 'Anything to add? (optional — fed to the fixer)';
   Object.assign(textarea.style, {
     width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: '#fff',
     border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '6px 8px',
     fontFamily: 'inherit', fontSize: '13px', resize: 'vertical',
   });
+  return { prompt, chipRow, textarea };
+}
+
+function renderReportState(toast, { bookId, stats, footnoteAudit }) {
+  toast.innerHTML = '';
+  const selected = new Set();
+
+  const text = document.createElement('span');
+  text.textContent = buildSummaryText(stats, footnoteAudit);
+  text.style.lineHeight = '1.4';
+
+  const { prompt, chipRow, textarea } = buildIssueControls(selected);
 
   const btnRow = document.createElement('div');
   Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
@@ -318,8 +325,10 @@ function csrfToken() {
   return document.querySelector('meta[name="csrf-token"]')?.content;
 }
 
-/* working state: header + live status list + Cancel / Email-me-when-done */
-function renderVibeWorking(toast, { onCancel, onEmailMe }) {
+/* working state: header + live status list + (Use this one) / Cancel / Email-me-when-done.
+   The "Use this one" button is hidden until an attempt improves the document (revealed by the poll loop
+   when an `improved_partial` beat arrives) — clicking it stops the loop early and applies the best so far. */
+function renderVibeWorking(toast, { onCancel, onEmailMe, onUseNow }) {
   toast.innerHTML = '';
   const header = document.createElement('div');
   header.textContent = '✨ Vibe converting — this can take a minute or two';
@@ -336,6 +345,19 @@ function renderVibeWorking(toast, { onCancel, onEmailMe }) {
   });
   const row = document.createElement('div');
   Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+  // Revealed once an attempt improves the doc — apply the best so far instead of waiting for all tries.
+  const useNowBtn = document.createElement('button');
+  useNowBtn.id = 'vibe-use-now-btn';
+  useNowBtn.textContent = 'Use this one ✓';
+  useNowBtn.title = 'Apply the best improvement found so far (re-validated in a sandbox) instead of waiting '
+    + 'for the remaining attempts.';
+  applyVibeBtnStyle(useNowBtn);
+  useNowBtn.style.display = 'none';
+  useNowBtn.addEventListener('click', () => {
+    useNowBtn.disabled = true;
+    useNowBtn.textContent = 'Applying…';
+    onUseNow && onUseNow();
+  });
   const emailBtn = document.createElement('button');
   emailBtn.textContent = 'Email me when done';
   applyBtnStyle(emailBtn);
@@ -344,6 +366,7 @@ function renderVibeWorking(toast, { onCancel, onEmailMe }) {
   cancelBtn.textContent = 'Cancel';
   applyBtnStyle(cancelBtn);
   cancelBtn.addEventListener('click', onCancel);
+  row.appendChild(useNowBtn);
   row.appendChild(emailBtn);
   row.appendChild(cancelBtn);
 
@@ -387,6 +410,12 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
 
   const status = renderVibeWorking(toast, {
     onCancel: () => { addLine('Cancelling…'); post(`/api/vibe-convert/cancel/${encodeURIComponent(book)}`); },
+    onUseNow: () => {
+      addLine('Using this one — applying the best fix so far (re-validating first)…');
+      post(`/api/vibe-convert/use-now/${encodeURIComponent(book)}`);
+      // keep polling: the loop will stop at the next boundary, apply, and emit `success` → the
+      // existing done → waitForApply → reload path takes over.
+    },
     onEmailMe: () => {
       stopped = true;
       post(`/api/vibe-convert/notify/${encodeURIComponent(book)}`);
@@ -429,7 +458,13 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
     } catch { continue; }
     const beats = data.beats || [];
     for (; shown < beats.length; shown++) {
-      if (beats[shown].message) addLine(beats[shown].message);
+      const b = beats[shown];
+      if (b.message) addLine(b.message);
+      // An attempt improved the doc → offer "Use this one" so the reader needn't wait for the rest.
+      if (b.phase === 'improved_partial') {
+        const btn = document.getElementById('vibe-use-now-btn');
+        if (btn && !btn.disabled) btn.style.display = '';
+      }
     }
     if (data.done) { result = data.last; result._report = data.result; break; }
   }
@@ -563,10 +598,59 @@ function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
     }
   });
 
+  // Give feedback & re-try — iterate the loop ON the applied version with the reader's critique.
+  const feedbackBtn = document.createElement('button');
+  feedbackBtn.textContent = 'Give feedback & re-try';
+  applyBtnStyle(feedbackBtn);
+  feedbackBtn.addEventListener('click', () => {
+    renderFeedbackRetryPanel(toast, { bookId, review: { tier, before, after, caveat } });
+  });
+
   row.appendChild(keepBtn);
+  row.appendChild(feedbackBtn);
   row.appendChild(revertBtn);
   toast.appendChild(msg);
   toast.appendChild(row);
+}
+
+/* "Give feedback & re-try": refine the APPLIED conversion. The reader picks what's still wrong + types a
+   note; re-running starts a fresh loop whose baseline is the already-applied version (the artifacts on disk
+   are now the applied ones), and the note carries the critique (e.g. "better, but citations link wrong").
+   "Revert to original" still restores the very first pre-vibe conversion (the backend pins that origin). */
+function renderFeedbackRetryPanel(toast, { bookId, review }) {
+  toast.innerHTML = '';
+  const selected = new Set();
+  const header = document.createElement('div');
+  header.innerHTML = '✨ <b>Refine this conversion</b>';
+  header.style.lineHeight = '1.5';
+
+  const { prompt, chipRow, textarea } = buildIssueControls(selected, {
+    promptText: "What's still off? (pick any that apply — it focuses the next attempt)",
+    placeholder: 'e.g. "better, but some citations link to the wrong entry"',
+  });
+
+  const btnRow = document.createElement('div');
+  Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+
+  const goBtn = document.createElement('button');
+  goBtn.textContent = '✨ Re-try with this feedback';
+  applyVibeBtnStyle(goBtn);
+  goBtn.addEventListener('click', () => {
+    startVibeConvert(toast, { bookId, note: textarea.value.trim(), issueTypes: [...selected] });
+  });
+
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← Back';
+  applyBtnStyle(backBtn);
+  backBtn.addEventListener('click', () => renderVibeReviewToast(toast, { bookId, ...review }));
+
+  btnRow.appendChild(goBtn);
+  btnRow.appendChild(backBtn);
+  toast.appendChild(header);
+  toast.appendChild(prompt);
+  toast.appendChild(chipRow);
+  toast.appendChild(textarea);
+  toast.appendChild(btnRow);
 }
 
 /* success state: before/after + accept/reject. tier 'clean' = confident; 'improved' = better

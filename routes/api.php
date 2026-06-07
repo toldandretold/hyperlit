@@ -108,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vibe-convert/start', [VibeConvertController::class, 'start']);
     Route::get('/vibe-convert/progress/{book}', [VibeConvertController::class, 'progress']);
     Route::post('/vibe-convert/cancel/{book}', [VibeConvertController::class, 'cancel']);
+    Route::post('/vibe-convert/use-now/{book}', [VibeConvertController::class, 'useNow']);
     Route::post('/vibe-convert/notify/{book}', [VibeConvertController::class, 'notify']);
     Route::post('/vibe-convert/accept', [VibeConvertController::class, 'accept']);
     // Post-auto-apply review: the reader polls review/{book} on load; keep clears it, reject reverts.

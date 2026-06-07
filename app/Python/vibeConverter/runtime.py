@@ -158,6 +158,12 @@ _PROGRESS_FILE = None
 _CANCEL_FILE = None
 
 
+# When this file appears, the loop stops at the next attempt boundary AND APPLIES the best fix found so
+# far (the mid-loop "Use this one" button) — distinct from cancel, which abandons. The loop docker-
+# revalidates the chosen fix before applying.
+_USE_NOW_FILE = None
+
+
 # When set (--docker <image>), the RE-CONVERSION (which executes model-written code) runs inside
 # a locked-down container instead of a host subprocess. The LLM call itself stays on the host.
 _DOCKER_IMAGE = None
@@ -204,6 +210,11 @@ def _cancelled():
     return bool(_CANCEL_FILE) and os.path.exists(_CANCEL_FILE)
 
 
+def _use_now():
+    """True once the reader hit "Use this one" — apply the best fix found so far (see _USE_NOW_FILE)."""
+    return bool(_USE_NOW_FILE) and os.path.exists(_USE_NOW_FILE)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -237,12 +248,13 @@ _DANGEROUS = [
 ]
 
 
-def configure(progress_file=None, cancel_file=None, json_progress=False, docker=None):
+def configure(progress_file=None, cancel_file=None, json_progress=False, docker=None, use_now_file=None):
     """Set the CLI-controlled run state in ONE place (replaces the old cross-module mirror
-    hack). emit()/_cancelled()/_pipeline_into read these via THIS module, so every importer
-    sees the same values."""
-    global _PROGRESS_FILE, _CANCEL_FILE, _JSON_PROGRESS, _DOCKER_IMAGE
+    hack). emit()/_cancelled()/_use_now()/_pipeline_into read these via THIS module, so every
+    importer sees the same values."""
+    global _PROGRESS_FILE, _CANCEL_FILE, _JSON_PROGRESS, _DOCKER_IMAGE, _USE_NOW_FILE
     _PROGRESS_FILE = progress_file
     _CANCEL_FILE = cancel_file
     _JSON_PROGRESS = json_progress
     _DOCKER_IMAGE = docker
+    _USE_NOW_FILE = use_now_file

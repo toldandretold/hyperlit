@@ -36,6 +36,9 @@ def main():
                     help="Emit VIBE:{json} progress lines for the SSE controller to stream.")
     ap.add_argument('--progress-file', help="Append each progress beat (JSON line) here for polling.")
     ap.add_argument('--cancel-file', help="Stop at the next attempt boundary if this file appears.")
+    ap.add_argument('--use-now-file',
+                    help="Stop at the next attempt boundary AND APPLY the best fix so far if this file "
+                         "appears (the mid-loop 'Use this one' button).")
     ap.add_argument('--docker', metavar='IMAGE',
                     help="Run the re-conversion (model code) in this locked-down container image "
                          "(no network/secrets). Recommended on prod, e.g. hyperlit-vibe-sandbox.")
@@ -55,7 +58,7 @@ def main():
     # "mirror the globals onto the imported module" hack: emit()/_cancelled()/_pipeline_into read these
     # via runtime, so the aider path's progress beats land without any per-module mirroring.
     runtime.configure(progress_file=args.progress_file, cancel_file=args.cancel_file,
-                      json_progress=args.json_progress, docker=args.docker)
+                      json_progress=args.json_progress, docker=args.docker, use_now_file=args.use_now_file)
     if args.prompt_variant:
         os.environ['VIBE_PROMPT_VARIANT'] = args.prompt_variant   # read by build_diagnostic_context
 

@@ -10,16 +10,101 @@ import ast
 import glob
 from vibeConverter.artifacts import (_stat_summary, load_artifacts)
 from vibeConverter.diagnosis import (flagged_forks)
-from vibeConverter.gate import (_pick_best, _problem_set, evaluate)
+from vibeConverter.gate import (_pick_best, _problem_set, _rank_key, evaluate)
 from vibeConverter.patch import (apply_function_replacements, validate_replacements)
 from vibeConverter.prompt import (build_prompt)
 from vibeConverter.propose import (propose_patch)
 from vibeConverter.report import (_finalize, _persist_patch)
 from vibeConverter.routing import (_flagged_phrase, _issue_report_phrase, _issue_working_phrase, modules_for)
-from vibeConverter.runtime import (DEFAULT_DEEPSEEK_MODEL, _cancelled, _model_label, emit, reset_usage)
+from vibeConverter.runtime import (DEFAULT_DEEPSEEK_MODEL, _cancelled, _model_label, _use_now, emit, reset_usage)
 from vibeConverter.sandbox import (_reconvert, make_sandbox)
 
 
+
+
+def _candidate_signals(art, after, base_faults):
+    """Quality signals for a re-converted candidate: the raw link count, the audit faults it leaves, the
+    NEW faults vs baseline (`fault_delta` = the false-positive proxy the ranker penalises), the link gain,
+    and a human stat line."""
+    st = after['stats']
+    _, a_faults = _problem_set(after['assessment'], after['audit'])
+    b = art['stats']
+    fn_gain = st.get('footnotes_matched', 0) - b.get('footnotes_matched', 0)
+    cit_gain = st.get('citations_linked', 0) - b.get('citations_linked', 0)
+    return {'score': st.get('footnotes_matched', 0) + st.get('citations_linked', 0),
+            'faults': a_faults, 'fault_delta': a_faults - base_faults,
+            'total_gain': max(0, fn_gain) + max(0, cit_gain), 'after': _stat_summary(st)}
+
+
+def _revalidate_candidate(book_dir, art, cand, base_faults, issue_types):
+    """Re-run a candidate's patch in a FRESH sandbox + re-convert (forcing docker when configured — a
+    second, isolated, deterministic read) and re-evaluate. Returns the candidate with re-measured signals,
+    or None if it now crashes / regresses — so a one-off inflated count can't win."""
+    sandbox = make_sandbox()
+    try:
+        applied, _out = apply_function_replacements(sandbox, cand['funcs'])
+        if not applied:
+            return None
+        after = _reconvert(sandbox, book_dir)
+        tier, why = evaluate(art, after, patched_files=[f.get('file') for f in cand['funcs']],
+                             issue_types=issue_types)
+        if tier not in ('clean', 'improved'):
+            return None
+        return {**cand, 'tier': tier, 'why': why, **_candidate_signals(art, after, base_faults)}
+    finally:
+        shutil.rmtree(sandbox, ignore_errors=True)
+
+
+def _select_winner(book_dir, art, candidates, base_faults, issue_types, force_revalidate=False):
+    """Choose the candidate to APPLY. One candidate → take it (or re-validate it first when
+    `force_revalidate`, e.g. the mid-loop 'use this one'). ≥2 → RE-VALIDATE the top-2 (by true-positive
+    rank) in a fresh sandbox/docker and pick from the re-measured signals, so the applied winner is genuinely
+    best — not a candidate whose higher count was inflated by false positives in a single measurement."""
+    pool = [c for c in candidates if c.get('tier') in ('clean', 'improved')]
+    if not pool:
+        return None
+    if len(pool) < 2:
+        if force_revalidate:
+            emit('compare', "Re-testing the fix in an isolated sandbox before applying…")
+            r = _revalidate_candidate(book_dir, art, pool[0], base_faults, issue_types)
+            return r if r is not None else pool[0]   # if it now regresses, still offer what passed before
+        return pool[0]
+    top = sorted(pool, key=_rank_key, reverse=True)[:2]
+    emit('compare', "Two attempts improved this document — re-testing both to make sure the "
+         "better-looking one isn't just inflated by false positives…")
+    revalidated = [r for r in (_revalidate_candidate(book_dir, art, c, base_faults, issue_types) for c in top)
+                   if r is not None]
+    chosen = None
+    for r in revalidated:
+        chosen = _pick_best(chosen, r)
+    if chosen is None:                       # both failed re-validation → fall back to the pre-validation pool
+        for c in pool:
+            chosen = _pick_best(chosen, c)
+    else:
+        emit('compare', f"Chose the fix with the most CORRECT links ({chosen['after']}; "
+             f"~{max(0, chosen.get('fault_delta', 0))} flagged as misaligned) over the higher raw count.")
+    return chosen
+
+
+def _apply_winner(book_dir, art, candidates, base_faults, issue_types, journal, force_revalidate=False):
+    """Select the winning candidate, persist it (→ vibe_patch.json for the job's apply), finalise the
+    report, and emit the terminal 'success' beat. Returns the winner dict, or None if nothing improved.
+    Shared by the end-of-loop and the mid-loop 'use this one' path."""
+    winner = _select_winner(book_dir, art, candidates, base_faults, issue_types,
+                            force_revalidate=force_revalidate)
+    if winner is None:
+        return None
+    _persist_patch(book_dir, {'rationale': winner['rationale']}, winner['funcs'])
+    _finalize(book_dir, art, journal, winner['tier'], best=winner, file_issue=False)
+    if winner['tier'] == 'clean':
+        emit('success', f"Fixed it cleanly — {winner['after']}.",
+             tier='clean', before=_stat_summary(art['stats']), after=winner['after'],
+             rationale=winner['rationale'][:300])
+    else:
+        emit('success', f"Improved your document — {winner['after']}. {winner['why']}",
+             tier='improved', before=_stat_summary(art['stats']), after=winner['after'],
+             caveat=winner['why'], rationale=winner['rationale'][:300])
+    return winner
 
 
 def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file_issue=False, issue_types=None):
@@ -54,13 +139,22 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
          modules=modules, max_attempts=max_attempts, user_note=bool(user_note))
 
     feedback = ""
-    best = None  # highest-scoring 'improved' result — offered if no fully-clean fix is found
+    best = None  # running best (quality-aware) — for the mid-loop display + cancel record
+    candidates = []  # EVERY clean/improved attempt (patch + quality signals) → _select_winner picks the apply
     journal = []  # per-attempt record → vibe_report.json + the GitHub issue body
     for attempt in range(1, max_attempts + 1):
         if _cancelled():
             emit('cancelled', "Cancelled — your original conversion is unchanged.")
             _finalize(book_dir, art, journal, 'cancelled', best=best, file_issue=False)
             return 1, None
+        # "Use this one" (mid-loop): the reader liked an early attempt — stop searching and APPLY the best
+        # found so far (re-validated in docker first). Only fires once an improving attempt exists.
+        if _use_now() and candidates:
+            emit('use_now', "Applying the best fix found so far, at your request…")
+            winner = _apply_winner(book_dir, art, candidates, base_faults, issue_types, journal,
+                                   force_revalidate=True)
+            if winner is not None:
+                return 0, winner['funcs']
         emit('attempt',
              f"The model ({_model_label(model)}) is working out {working_phrase}… "
              f"(attempt {attempt} of {max_attempts})",
@@ -131,12 +225,12 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
             journal.append({'attempt': attempt, 'diagnosis': patch.get('rationale', '')[:600],
                             'touches': _touch, 'tier': tier, 'why': why, 'stats': _stat_summary(st), **_meta})
             if tier in ('clean', 'improved'):
-                score = st.get('footnotes_matched', 0) + st.get('citations_linked', 0)
-                cand = {'funcs': funcs, 'rationale': patch.get('rationale', ''),
-                        'after': _stat_summary(st), 'why': why, 'score': score, 'tier': tier}
-                # Keep the BEST across ALL attempts, INDEPENDENT OF ORDER (see _pick_best): the first
-                # attempt is kept if it's the best, a weaker later attempt never overwrites it, and a
-                # late LOW-value 'clean' can no longer stomp an earlier HIGH-value 'improved'.
+                cand = {'attempt': attempt, 'funcs': funcs, 'rationale': patch.get('rationale', ''),
+                        'why': why, 'tier': tier, 'before': _stat_summary(art['stats']),
+                        **_candidate_signals(art, after, base_faults)}
+                candidates.append(cand)   # every improving attempt is kept; _select_winner picks the apply
+                # Track the running best (order-independent, quality-aware — see _pick_best) for the mid-loop
+                # display + the cancel record; the FINAL applied winner is chosen by _select_winner below.
                 best = _pick_best(best, cand)
                 if tier == 'clean':
                     # The flagged problem is fully resolved — stop searching (more attempts only risk
@@ -163,20 +257,12 @@ def run_loop(book_dir, max_attempts, model, mock_diff=None, user_note=None, file
         if mock_diff:
             break
 
-    if best is not None:
-        # Apply the best result found across ALL attempts (clean preferred, else highest-scoring
-        # improvement). Accepting is non-destructive (nodes_history archives the original to revert).
-        _persist_patch(book_dir, {'rationale': best['rationale']}, best['funcs'])
-        _finalize(book_dir, art, journal, best['tier'], best=best, file_issue=False)
-        if best['tier'] == 'clean':
-            emit('success', f"Fixed it cleanly — {best['after']}.",
-                 tier='clean', before=_stat_summary(art['stats']), after=best['after'],
-                 rationale=best['rationale'][:300])
-        else:
-            emit('success', f"Improved your document — {best['after']}. {best['why']}",
-                 tier='improved', before=_stat_summary(art['stats']), after=best['after'],
-                 caveat=best['why'], rationale=best['rationale'][:300])
-        return 0, best['funcs']
+    # Choose the winner to APPLY: with ≥2 improving attempts, _select_winner re-validates the top-2 in
+    # docker so a false-positive-inflated count can't win. Accepting is non-destructive (nodes_history
+    # archives the original to revert).
+    winner = _apply_winner(book_dir, art, candidates, base_faults, issue_types, journal)
+    if winner is not None:
+        return 0, winner['funcs']
 
     report = _finalize(book_dir, art, journal, 'exhausted', best=None, file_issue=file_issue)
     suffix = (f" Opened GitHub issue: {report['issue_url']}" if report.get('issue_url') else "")

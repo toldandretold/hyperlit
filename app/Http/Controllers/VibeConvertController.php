@@ -52,6 +52,7 @@ class VibeConvertController extends Controller
         // marker from a previous run must not be mistaken for this run finishing.
         File::delete("{$dir}/vibe_progress.json");
         File::delete("{$dir}/vibe_cancel");
+        File::delete("{$dir}/vibe_use_now");
         File::delete("{$dir}/vibe_notify");
         File::delete("{$dir}/vibe_review.json");
 
@@ -118,6 +119,21 @@ class VibeConvertController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /** "Use this one" — the reader liked an early improving attempt: the loop stops at the next attempt
+     *  boundary and APPLIES the best fix found so far (re-validated in docker first). The auto-apply +
+     *  vibe_review.json then surface the Keep/Revert toast, exactly as a full run does. */
+    public function useNow(Request $request, string $book): JsonResponse
+    {
+        if (!Auth::check()) {
+            return response()->json(['success' => false], 401);
+        }
+        $dir = resource_path("markdown/{$book}");
+        if (is_dir($dir)) {
+            File::put("{$dir}/vibe_use_now", '1');
+        }
+        return response()->json(['success' => true]);
+    }
+
     /**
      * "Use this conversion" — apply the validated patch and SWAP it into this book's live output.
      *   1. vibe_convert.py --apply: sandbox-patch + re-convert → regenerate the artifact files.
@@ -166,15 +182,18 @@ class VibeConvertController extends Controller
     }
 
     /**
-     * "Revert to original" — restore the book's nodes to the pre-vibe timestamp captured in the review
-     * marker (reuses the temporal nodes_history restore), then clear the marker.
+     * "Revert to original" — restore the book's nodes to the PINNED pre-vibe timestamp (vibe_origin.json,
+     * mirrored into the review marker's restore_ts), so it returns to the original conversion no matter how
+     * many feedback rounds were applied. Then clear BOTH the review marker AND the origin pin (we're back at
+     * the original; a future vibe run re-pins a fresh origin).
      */
     public function rejectReview(Request $request, string $book, BookVersionRestorer $restorer): JsonResponse
     {
         if (!Auth::check()) {
             return response()->json(['success' => false], 401);
         }
-        $path = resource_path("markdown/{$book}/vibe_review.json");
+        $dir = resource_path("markdown/{$book}");
+        $path = "{$dir}/vibe_review.json";
         $marker = is_file($path) ? json_decode(File::get($path), true) : null;
         $restoreTs = $marker['restore_ts'] ?? null;
         if (!$restoreTs) {
@@ -187,6 +206,7 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'Could not revert the conversion.'], 500);
         }
         File::delete($path);
+        File::delete("{$dir}/vibe_origin.json");   // back at the original — next run pins a fresh origin
         return response()->json(['success' => true, 'nodes_restored' => $restored]);
     }
 }

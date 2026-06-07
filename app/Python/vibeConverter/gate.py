@@ -191,15 +191,24 @@ def evaluate(baseline_art, after, patched_files=None, issue_types=None):
 
 
 
+def _rank_key(c):
+    """Rank a candidate by TRUE-POSITIVE value, then clean-ness. `true_links = raw_score − misaligned`
+    penalises the false-positive links the audit flagged (`fault_delta` = new audit faults this candidate
+    introduced) — so a candidate that linked MORE but mostly-wrong loses to one that linked slightly fewer
+    but right (the modus operandi: a wrong link is worse than a missing one). Missing `fault_delta` defaults
+    to 0, so a candidate carrying only `{score, tier}` ranks exactly as the old `(score, is_clean)` key did."""
+    true_links = c.get('score', 0) - max(0, c.get('fault_delta', 0))
+    return (true_links, c.get('tier') == 'clean')
+
+
 def _pick_best(current, candidate):
-    """Best-of-N selector for the retry loop, ORDER-INDEPENDENT. Rank = (score, is_clean): higher
-    score wins (more content correctly linked); a 'clean' result (no residual flags) breaks ties.
-    So the best attempt is applied no matter WHEN it appeared — attempt 1 is kept if it's the best, a
-    weaker later attempt never displaces it, and a late low-value 'clean' can't stomp an earlier
-    high-value 'improved'. Each arg is a candidate dict ({score, tier, funcs, …}) or None."""
+    """Best-of-N selector for the retry loop, ORDER-INDEPENDENT (rank = `_rank_key`): higher true-positive
+    value wins; a 'clean' result breaks ties. So the best attempt is applied no matter WHEN it appeared —
+    attempt 1 is kept if it's the best, a weaker later attempt never displaces it (ties keep the earlier),
+    and a high-count-but-false-positive attempt can't stomp a cleaner one. Each arg is a candidate dict
+    ({score, tier, fault_delta, funcs, …}) or None."""
     if current is None:
         return candidate
     if candidate is None:
         return current
-    key = lambda c: (c['score'], c['tier'] == 'clean')
-    return candidate if key(candidate) > key(current) else current
+    return candidate if _rank_key(candidate) > _rank_key(current) else current

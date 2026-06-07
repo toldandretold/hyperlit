@@ -58,13 +58,15 @@ class VibeConversionJob implements ShouldQueue
 
         $progress = "{$dir}/vibe_progress.json";
         $cancel = "{$dir}/vibe_cancel";
+        $useNow = "{$dir}/vibe_use_now";
         @unlink($progress);  // fresh run
         @unlink($cancel);
+        @unlink($useNow);
 
         $cmd = [
             env('PYTHON_PATH', 'python3'), base_path('app/Python/vibe_convert.py'), $dir,
             '--max-attempts', '3', '--github',
-            '--progress-file', $progress, '--cancel-file', $cancel,
+            '--progress-file', $progress, '--cancel-file', $cancel, '--use-now-file', $useNow,
         ];
         if ($this->note) {
             $cmd[] = '--user-note';
@@ -137,6 +139,20 @@ class VibeConversionJob implements ShouldQueue
             // Capture the restore point BEFORE applying — the live nodes are still active at this instant,
             // so restoring here gets the original back once the apply archives them.
             $restoreTs = now()->utc()->format('Y-m-d\TH:i:s.uP');   // timestamptz-compatible
+            // PIN the first pre-vibe restore point so "Revert to original" ALWAYS returns to the pre-vibe
+            // conversion, however many feedback rounds (Give feedback & re-try) get applied on top. The
+            // FIRST apply writes vibe_origin.json; every later round reuses it (the apply on round 2 would
+            // otherwise pin the round-1 version as "original"). It's cleared only by an explicit Revert.
+            $originPath = "{$dir}/vibe_origin.json";
+            if (is_file($originPath)) {
+                $origin = json_decode(File::get($originPath), true);
+                if (is_array($origin) && !empty($origin['restore_ts'])) {
+                    $restoreTs = $origin['restore_ts'];
+                }
+            } else {
+                File::put($originPath, json_encode(['restore_ts' => $restoreTs,
+                    'created_at' => now()->toIso8601String()], JSON_PRETTY_PRINT));
+            }
             $applied = app(VibePatchApplier::class)->apply($this->bookId);
             if ($applied['success']) {
                 $beat = $this->lastSuccessBeat($dir);
