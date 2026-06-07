@@ -179,6 +179,7 @@ def sanitize_html(html_string):
 # ===========================================================================
 from ingestion.epub.epub_base import EpubTransform  # noqa: E402,F401
 from ingestion.epub.structuralNormalisation import (  # noqa: E402,F401
+    NavStripper,
     CalibreBlockquoteUnwrapper,
     EmptyElementRemover,
     SpanUnwrapper,
@@ -224,6 +225,7 @@ from ingestion.epub.finalNormalisation import (  # noqa: E402,F401
 # Order matters! Structural fixes first, then detection, then normalization
 TRANSFORM_PIPELINE = [
     # Phase 1: Structural fixes (fix container abuse, unwrap fake elements)
+    NavStripper(),                     # Drop page-list/landmarks machine-nav (else page anchors → false footnotes)
     CalibreBlockquoteUnwrapper(),      # Unwrap <blockquote class="calibreN">
     CalibreSpanHeadingDetector(),      # Convert <span class="calibre5/8"> to headings
     SectionNumberHeadingDetector(),    # Bold section-numbered <blockquote>/<div> (1.1. Title) → headings
@@ -276,6 +278,42 @@ def _count_footnote_markers(soup):
     return len(seen)
 
 
+def _document_profile(soup):
+    """A STRUCTURAL FINGERPRINT of the RAW combined EPUB — the tags + classes the publisher actually used,
+    captured BEFORE the transform pipeline strips/rewrites them. Cheap (one pass). Two uses: (1) a snapshot
+    a human (or the diagnostic LLM) can read to see how THIS book fakes structure — e.g. headings as bold
+    styled <p>, calibre_NN classes, a toc class; (2) the basis for the 'is this a scheme we handle?' read —
+    a high `bold_short_blocks` with near-zero `semantic_headings` means the headings are faked and may be
+    unrecognised. The falsifiable structure-vs-OUTPUT contradiction (e.g. reference-shaped paragraphs not
+    extracted) is computed downstream in digestion (process_document StructuralCoverageAssessment), which is
+    where the produced counts live."""
+    from collections import Counter
+    body = soup.body if soup.body else soup
+    tags, classes = Counter(), Counter()
+    bold_short = 0
+    for el in body.find_all(True):
+        tags[el.name] += 1
+        for c in (el.get('class') or []):
+            classes[f'{el.name}.{c}'] += 1
+        if el.name in ('p', 'blockquote', 'div'):
+            if (el.find(['b', 'strong']) or el.find('span', class_='bold')):
+                t = el.get_text(strip=True)
+                if t and len(t) < 80 and not el.find(['p', 'div', 'blockquote', 'table']):
+                    bold_short += 1
+    semantic_headings = sum(tags.get(f'h{i}', 0) for i in range(1, 7))
+    return {
+        'tag_histogram': dict(tags.most_common()),
+        'top_classes': dict(classes.most_common(40)),
+        'shape_signals': {
+            'semantic_headings': semantic_headings,        # real <h1>-<h6> the publisher used (often 0)
+            'bold_short_blocks': bold_short,               # heading-LOOKING styled <p>/<blockquote> (faked headings)
+            'paragraphs': tags.get('p', 0),
+            'blockquotes': tags.get('blockquote', 0),
+            'divs': tags.get('div', 0),
+        },
+    }
+
+
 class EpubNormalizer:
     """
     Main EPUB normalizer that runs the transform pipeline.
@@ -322,6 +360,17 @@ class EpubNormalizer:
                     self._load_from_directory()
                 else:
                     self._load_from_epub_file()
+
+                # Step 1b: Snapshot the RAW structural fingerprint (tags + classes the publisher used) BEFORE
+                # the pipeline strips them — a human/LLM-readable record of how this book fakes structure.
+                try:
+                    if self.combined_soup is not None:
+                        profile = _document_profile(self.combined_soup)
+                        with open(os.path.join(self.output_dir, 'document_profile.json'), 'w', encoding='utf-8') as f:
+                            json.dump(profile, f, ensure_ascii=False, indent=2)
+                        self._log(f"Document profile: {profile['shape_signals']}")
+                except Exception as e:
+                    self._log(f"Warning: could not write document_profile.json: {e}")
 
                 # Step 2: Run transform pipeline
                 self._log("\n--- Running Transform Pipeline ---")

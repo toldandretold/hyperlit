@@ -217,3 +217,22 @@ def test_pipeline_map_data_js_matches_code():
     assert committed == render(), (
         "pipeline_map_data.js is STALE vs the registries/folders — "
         "run: python3 tests/conversion/gen_pipeline_map.py")
+
+
+def test_every_doc_pass_is_on_the_map():
+    """EVERY process_document DocPass must be a findable node on the decision tree — a bug in any shared-
+    backend pass (spans leaking to the DB, a structural contradiction unflagged, the STEM branch misfiring,
+    input cleanup dropping content) needs a findable owner, for a human / the assistant / the vibe loop.
+    gen_pipeline_map._DOC_PASS_NODE must cover DOC_PASSES EXACTLY, and every target node it names must
+    actually exist in the rendered map. Add a DocPass → add a _DOC_PASS_NODE row (+ the node if new), or
+    this fails. (test_pipeline_map_data_js_matches_code then forces the committed .js to match.)"""
+    import digestion.process_document as PD
+    from gen_pipeline_map import _DOC_PASS_NODE, build
+    passes = {type(p).__name__ for p in PD.DOC_PASSES}
+    mapped = set(_DOC_PASS_NODE)
+    assert mapped == passes, (f"_DOC_PASS_NODE out of sync with DOC_PASSES — "
+                              f"missing={passes - mapped}, extra={mapped - passes}")
+    payload = build()
+    unplaced = {n for n in set(_DOC_PASS_NODE.values())
+                if n not in payload['nodes'] and n not in payload['skeleton']}
+    assert not unplaced, f"DocPass target nodes are not in the rendered map: {unplaced}"

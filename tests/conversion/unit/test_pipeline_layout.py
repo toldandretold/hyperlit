@@ -22,6 +22,7 @@ _SHIM_MAP = {
     'strip_docx_metadata': ('ingestion.word.strip_docx_metadata', 'main'),
     'simple_md_to_html': ('ingestion.markdown_and_pdf_to_html.simple_md_to_html', 'main'),
     'process_document': ('digestion.process_document', 'run_passes'),
+    'vibe_convert': ('vibeConverter.cli', 'main'),
 }
 
 

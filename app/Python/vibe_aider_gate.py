@@ -25,7 +25,7 @@ if not book:
     print("GATE ERROR: VIBE_GATE_BOOK not set", flush=True)
     sys.exit(2)
 if os.environ.get('VIBE_GATE_DOCKER'):
-    v._DOCKER_IMAGE = os.environ['VIBE_GATE_DOCKER']
+    v.runtime._DOCKER_IMAGE = os.environ['VIBE_GATE_DOCKER']   # set the LIVE value _reconvert reads
 
 try:
     issue_types = json.loads(os.environ.get('VIBE_GATE_ISSUE_TYPES') or 'null')

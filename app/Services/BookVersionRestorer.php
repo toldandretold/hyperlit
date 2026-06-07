@@ -64,10 +64,19 @@ class BookVersionRestorer
                 $restored++;
             }
 
-            // Bump the library timestamp so open clients re-sync.
-            PgLibrary::where('book', $bookId)->update([
-                'timestamp' => round(microtime(true) * 1000),
-            ]);
+            // Bump the library timestamp so open clients re-pull the parent's NODES.
+            $now = round(microtime(true) * 1000);
+            PgLibrary::where('book', $bookId)->update(['timestamp' => $now]);
+
+            // CRITICAL: also bump every SUB-BOOK (footnote) timestamp. A version restore only rewrites
+            // the parent's nodes (footnote-ref markers), but footnotes live in their own `book = $bookId/FnId`
+            // sub-book rows that this restore never touches. The client's enrichSubBookFromDB
+            // (subBookLoader.js) skips re-syncing a sub-book whenever server.timestamp <= local.timestamp —
+            // so without this bump the reader keeps whatever STALE/half-cleared footnote state IndexedDB was
+            // left in by the revert churn, and footnotes render broken even though the DB rows are correct.
+            // Footnotes aren't versioned (their server content is always current), so re-pulling them is safe.
+            $likeBook = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $bookId) . '/%';
+            PgLibrary::where('book', 'like', $likeBook)->update(['timestamp' => $now]);
 
             DB::commit();
             Log::info('BookVersionRestorer: restored', [

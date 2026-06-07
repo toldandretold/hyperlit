@@ -50,6 +50,15 @@ def collect_notes():
     notes['footnote_extraction'] = FX._FOOTNOTE_EXTRACTION_PLAIN
     notes['citation'] = C._CITATION_PLAIN
     notes['audit'] = P.AuditPass.plain
+    # Post-audit digestion tail (diagnostic + cleanup passes — must be discoverable in the tree).
+    notes['structural_coverage'] = P.StructuralCoverageAssessment.plain
+    notes['strip_styling_spans'] = P.StripStylingSpans.plain
+    # Digestion entry + the alternate STEM branch (so EVERY DocPass is on the tree).
+    notes['load'] = ('Digestion entry: load the ingested HTML, seed the assessment trace + read STEM signals '
+                     '(LoadDocument), strip Safari rtl smart-quote spans (SafariRtlFix), and split '
+                     'newline-crammed multi-entry reference paragraphs into one <p> each '
+                     '(SplitBibliographyParagraphs). Cheap prep before bibliography/footnote extraction.')
+    notes['stem_bibliography'] = P.StemBibliography.plain
     # EPUB frontend nodes.
     notes['epub:detection'] = E.EpubNormalizer._DETECTION_PLAIN
     notes['epub:linking'] = E.EpubNormalizer._LINKING_PLAIN

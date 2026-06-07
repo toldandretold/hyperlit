@@ -304,3 +304,46 @@ def test_section_title_detector_no_false_positive(soup):
 
 def test_heading_needs_covers_section_title_detector():
     assert 'StyledSectionTitleHeadingDetector' in E.EpubNormalizer._HEADING_NEEDS
+
+
+# ---------------------------------------------------------------------------
+# _document_profile — the raw structural fingerprint (tags + classes + shape signals)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# NavStripper — drop page-list / landmarks machine-nav (else page anchors → false footnotes)
+# (rudolph1981finance: a 478-anchor page-list put 66 false <sup footnote-ref> at the front)
+# ---------------------------------------------------------------------------
+def test_nav_stripper_removes_machine_nav_keeps_toc(soup):
+    s = soup('<body>'
+             '<nav epub:type="toc"><ol><li><a href="#c1">Chapter 1</a></li></ol></nav>'
+             '<nav epub:type="page-list"><ol><li><a href="#page_406">406</a></li>'
+             '<li><a href="#page_407">407</a></li></ol></nav>'
+             '<nav epub:type="landmarks"><ol><li><a href="#cover">Cover</a></li></ol></nav>'
+             '<p>body</p></body>')
+    det = E.NavStripper()
+    assert det.detect(s) is True
+    out = det.transform(s, _logs()[1])
+    assert out['navs_removed'] == 2 and out['anchors_removed'] == 3
+    navs = s.find_all('nav')
+    assert len(navs) == 1 and 'toc' in (navs[0].get('epub:type') or '')     # toc kept
+    assert s.find('a', href='#page_406') is None                            # page-list gone
+    assert s.find('a', href='#cover') is None                               # landmarks gone
+
+
+def test_nav_stripper_noop_without_machine_nav(soup):
+    s = soup('<body><nav epub:type="toc"><a href="#c1">Chapter 1</a></nav><p>x</p></body>')
+    assert E.NavStripper().detect(s) is False
+
+
+def test_document_profile_fingerprints_faked_headings(soup):
+    # a Calibre-style book: 0 real headings, bold styled <p> section titles → "headings are faked" signal
+    s = soup('<body>'
+             '<p class="calibre_"><span class="bold">BIBLIOGRAPHY</span></p>'
+             '<p class="calibre_45">Adorno, Theodor W. 1968. Late capitalism. Frankfurt: Suhrkamp.</p>'
+             '<p class="calibre_45">Marx, Karl. 1867. Capital. London: Penguin.</p>'
+             '</body>')
+    prof = E._document_profile(s)
+    assert prof['shape_signals']['semantic_headings'] == 0       # no real <h*>
+    assert prof['shape_signals']['bold_short_blocks'] >= 1       # the bold 'BIBLIOGRAPHY' title
+    assert prof['tag_histogram']['p'] == 3
+    assert prof['top_classes']['p.calibre_45'] == 2              # publisher fingerprint surfaces

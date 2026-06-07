@@ -13,6 +13,42 @@ import bleach
 from ingestion.epub.epub_base import EpubTransform
 
 
+class NavStripper(EpubTransform):
+    """Remove EPUB MACHINE-NAVIGATION <nav>s — epub:type 'page-list' (the 'go to page N' index) and
+    'landmarks' (cover/bodymatter pointers). These are metadata, NOT reading content. Left in, they get
+    unwrapped into the body as a bare <ol> of page numbers, and the footnote detector then matches those
+    numbered page-anchors as footnote REFERENCES (rudolph1981finance: a 478-anchor page-list put 66 false
+    <sup class="footnote-ref">PAGE</sup> markers at the front). Runs FIRST, before the footnote detectors,
+    so the anchors never reach them. The table-of-contents nav (epub:type='toc') is KEPT — it's a reading
+    aid and its anchors are TITLES, not numbers, so they don't masquerade as footnotes."""
+
+    name = "NavStripper"
+    description = "Remove page-list / landmarks navigation (machine metadata, not reading content)"
+    plain = ('Drops EPUB machine-navigation <nav>s (epub:type page-list / landmarks) — the "go to page N" '
+             'index and cover/bodymatter pointers. They are not content; left in, their numbered page-anchors '
+             'get matched as footnotes. The reading TOC (epub:type=toc) is kept.')
+
+    STRIP_TYPES = ('page-list', 'landmarks')
+
+    def _is_machine_nav(self, nav):
+        t = (nav.get('epub:type') or nav.get('role') or '').lower()
+        return any(k in t for k in self.STRIP_TYPES)
+
+    def detect(self, soup) -> bool:
+        return any(self._is_machine_nav(n) for n in soup.find_all('nav'))
+
+    def transform(self, soup, log) -> dict:
+        removed, anchors = 0, 0
+        for nav in list(soup.find_all('nav')):
+            if self._is_machine_nav(nav):
+                anchors += len(nav.find_all('a'))
+                nav.decompose()
+                removed += 1
+        if removed:
+            log(f"  Removed {removed} machine-navigation <nav>(s) ({anchors} page/landmark anchors) — not content")
+        return {'navs_removed': removed, 'anchors_removed': anchors}
+
+
 class CalibreBlockquoteUnwrapper(EpubTransform):
     """
     Fixes Calibre's misuse of <blockquote> as a layout container.

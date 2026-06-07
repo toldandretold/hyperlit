@@ -48,9 +48,15 @@ class VibePatchApplier
             return ['success' => false, 'message' => 'Could not save the new conversion.'];
         }
 
-        // 3. Bump the annotations timestamp so other open clients re-sync.
+        // 3. Bump the library CONTENT `timestamp` so open clients re-pull the changed NODES. This is the
+        // one that matters: the client's freshness check (chunkLoadRouter isLocalCacheFresh) re-pulls node
+        // content only when server.timestamp > local.timestamp — `annotations_updated_at` is for highlights /
+        // hypercites, NOT node content, so a re-conversion that bumped only that left the reader showing its
+        // STALE IndexedDB nodes (e.g. raw <a><sup> footnote markers after a fix). Admin conn = bypass RLS.
         try {
-            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, (int) round(microtime(true) * 1000)]);
+            $now = (int) round(microtime(true) * 1000);
+            DB::connection('pgsql_admin')->table('library')->where('book', $bookId)->update(['timestamp' => $now]);
+            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
         } catch (\Throwable $e) {
             // best-effort
         }

@@ -2,7 +2,7 @@
 
 > Built by `gen_pipeline_tree.py` from the actual `app/Python/{ingestion,digestion,shared}/`
 > tree + the decision registries in each module. Do NOT hand-edit — re-run the generator. A
-> no-drift test pins it. (45 per-unit `plain` notes feed the LLM report + the viewer.)
+> no-drift test pins it. (49 per-unit `plain` notes feed the LLM report + the viewer.)
 
 ## ingestion/ — read each input format → the common HTML (one folder per format)
 ```
@@ -31,20 +31,31 @@ word/
 
 ## digestion/ — the shared pipeline over that HTML: extract → link → audit → emit
 ```
+_doc_shared.py — Zero-orchestrator-import leaf: small helpers shared by the digestion DocPasses, kept OUT…
 process_document.py — Digestion orchestrator — runs the DOC_PASSES pipeline over the ingested HTML  · registries: DOC_PASSES
 bibliographyExtraction/
+  bib_passes.py — Digestion — BIBLIOGRAPHY-extraction DocPasses (the STEM numeric-ref branch + the standar…
   bibliography.py — Bibliography / reference-list extraction (PASS 1A)
 citationLinking/
   citation_link_rules.py — Citation linking as an ordered `LinkRule` registry (Decomposition C of the LINKING-layer…  · registries: CITATION_LINK_RULES
+  citation_pass.py — Digestion — citation-LINKING DocPass (wrap (Author Year)/[Author Year] against the bibli…
   citations.py — Citation linking: wrap in-text references like (Author 2009) / [Author 2009] in <a class…
 finalAudit/
   audit.py — Footnote-linking audit: detect gaps, duplicates, and unmatched refs/defs
+  audit_pass.py — Digestion — AUDIT DocPass (validate footnote linking; write audit.json + conversion_stat…
+finalize/
+  finalize.py — Digestion — FINAL stage
 footnoteExtraction/
+  footnote_passes.py — Digestion — footnote-EXTRACTION DocPasses (whole-document / sectioned strategies + map f…
   footnotes.py — Footnote extraction by strategy (whole-document and sequential)
 footnoteLinking/
+  footnote_link_pass.py — Digestion — footnote-LINKING DocPass (link markers to definitions via MARKER_LINK_RULES)
   footnote_link_rules.py — EPUB footnote LINKING as an ordered registry of LinkRule units (was the monolithic `Foot…  · registries: FOOTNOTE_LINK_RULES, MARKER_LINK_RULES
+load/
+  load.py — Digestion — LOAD / input prep (the first DocPasses)
 strategySelection/
   strategy.py — Footnote-strategy selection + the numbering-linkability guard + bibliography-heading det…  · registries: STRATEGY_RULES
+  strategy_pass.py — Digestion — footnote-STRATEGY-selection DocPass (analyze structure -> STRATEGY_RULES; se…
 ```
 
 ## shared/ — cross-cutting helpers used by both ingestion and digestion

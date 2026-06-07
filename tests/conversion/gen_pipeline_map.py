@@ -71,6 +71,29 @@ _BACKEND_FORKS = [
     ('LINK', 'citation', 'citation_link_audit', 'citations.py:link_citations'),
     ('AUDIT', 'audit', 'footnote_audit', 'audit.py:compute_footnote_audit'),
 ]
+# Post-audit digestion tail: (skeleton node id, DocPass class name). Order matches DOC_PASSES; the
+# skeleton routes AUDIT --> SCOV --> SPAN --> EMIT. test_pipeline_map asserts this == the real tail.
+_DIGESTION_TAIL = [
+    ('SCOV', 'StructuralCoverageAssessment'),
+    ('SPAN', 'StripStylingSpans'),
+]
+
+# COMPLETE map of EVERY process_document DocPass → the tree node that represents it (some passes group
+# into one node). test_every_doc_pass_is_on_the_map asserts this covers DOC_PASSES exactly — so NO pass
+# in the shared backend can be invisible (a bug in any of them needs a findable owner). Add a pass → add
+# a row here (and the node, if new). LOAD = input prep; STEMBIB = the alternate STEM (numeric-ref) branch.
+_DOC_PASS_NODE = {
+    'LoadDocument': 'LOAD', 'SafariRtlFix': 'LOAD', 'SplitBibliographyParagraphs': 'LOAD',
+    'StemBibliography': 'STEMBIB',
+    'ExtractBibliography': 'BIB',
+    'SelectFootnoteStrategy': 'STRAT',
+    'TraditionalFootnotes': 'EXFN', 'SectionedFootnotes': 'EXFN', 'FlattenFootnoteMap': 'EXFN',
+    'LinkCitationsPass': 'LINK', 'LinkFootnotesPass': 'LINK',
+    'AuditPass': 'AUDIT',
+    'StructuralCoverageAssessment': 'SCOV',
+    'StripStylingSpans': 'SPAN',
+    'GenerateNodeChunks': 'EMIT', 'SanitizeAndWrite': 'EMIT',
+}
 _RECOVERY = [
     ('REC1', 'recovery:markers', M.normalize_all_footnote_refs, '① markers · normalize_all_footnote_refs',
      'superscript / $^5$ / [N] / bare .46 → [^N] · sequence-validated · NO pdf'),
@@ -181,6 +204,33 @@ def build():
                       'codeRef': f'{_mf(M.classify_footnotes)}:classify_footnotes', 'question': classify_q,
                       'options': [c.name for c in classifiers] + ['unknown']}
 
+    # ---- post-AUDIT digestion tail (DOC_PASSES after AuditPass) — diagnostic + cleanup passes that are
+    # NOT decision forks but DO shape the output, so they MUST be discoverable: a bug here (e.g. spans
+    # leaking to the DB, or a structural contradiction unflagged) needs a findable owner — for a human,
+    # for me, or for the vibe loop. Derived from DOC_PASSES so a NEW tail pass can't stay invisible
+    # (guarded by test_pipeline_map). GenerateNodeChunks + SanitizeAndWrite ARE the EMIT node → excluded.
+    import digestion.process_document as _PD
+    _dp = {type(p).__name__: p for p in _PD.DOC_PASSES}
+
+    def _pass_file(clsname):
+        """The module file a DocPass ACTUALLY lives in now — so codeRefs follow the orchestrator
+        decomposition (process_document.py → finalize.py / …) and the vibe loop routes to the real file."""
+        return type(_dp[clsname]).__module__.rsplit('.', 1)[-1] + '.py'
+
+    for nid, clsname in _DIGESTION_TAIL:
+        p = _dp[clsname]
+        nodes[nid] = {'kind': 'digestion', 'noteKey': p.name, 'module': p.name,
+                      'codeRef': f'{_pass_file(clsname)}:{clsname}', 'description': p.description}
+    # LOAD = the input-prep group (load the ingested HTML + Safari/bib cleanup); STEMBIB = the alternate
+    # STEM (numeric-[N]-ref) bibliography branch. Both derived from the real passes so they can't go stale.
+    _load_group = ['LoadDocument', 'SafariRtlFix', 'SplitBibliographyParagraphs']
+    nodes['LOAD'] = {'kind': 'digestion', 'noteKey': 'load', 'codeRef': f'{_pass_file("LoadDocument")}:LoadDocument',
+                     'transforms': [{'name': n, 'file': _pass_file(n), 'description': _dp[n].description}
+                                    for n in _load_group]}
+    nodes['STEMBIB'] = {'kind': 'digestion', 'noteKey': 'stem_bibliography', 'module': 'stem_bibliography',
+                        'codeRef': f'{_pass_file("StemBibliography")}:StemBibliography',
+                        'description': _dp['StemBibliography'].description}
+
     # ---- EPUB ingestion blocks (structural "open up" + the run-all detector fan) -------------------
     epub_exp, epub_col, epub_exp_clicks, epub_col_clicks = _epub_blocks(nodes)
 
@@ -189,7 +239,7 @@ def build():
                     'codeRef': 'markdown_and_pdf_to_html/simple_md_to_html.py:convert_markdown_to_html'}
 
     clicks = {
-        'core': [f[0] for f in _BACKEND_FORKS] + ['M2H'],
+        'core': [f[0] for f in _BACKEND_FORKS] + [t[0] for t in _DIGESTION_TAIL] + ['LOAD', 'STEMBIB', 'M2H'],
         'pdf_expanded': ['TOG_pdf', 'SIG'] + [k for k in nodes if k.startswith('C_')] + sorted(seen_asm)
                         + ['REC1', 'REC2', 'REC3', 'FID'],
         'pdf_collapsed': ['TOG_pdf', 'OCRC'],
@@ -325,13 +375,16 @@ ${PDF}
       PDFMD(["main-text.md"]) --> M2H["ingestion/markdown_and_pdf_to_html · simple_md_to_html.py"]
       MDIN --> M2H
     end
-    EPUBOUT -->|main-text.html| BIB
-    M2H -->|intermediate.html| BIB
-    HTMLP -->|html| BIB
-    DOCXP -->|html| BIB
+    EPUBOUT -->|main-text.html| LOAD
+    M2H -->|intermediate.html| LOAD
+    HTMLP -->|html| LOAD
+    DOCXP -->|html| LOAD
     subgraph CORE["② digestion — shared processing · process_document.py · DOC_PASSES"]
       direction TB
-      BIB["bibliographyExtraction · extract_bibliography"]
+      LOAD["load + input cleanup<br/>LoadDocument · SafariRtlFix · SplitBibliographyParagraphs"]
+      LOAD -->|"numeric [N] / wackSTEM refs"| STEMBIB["STEM bibliography · StemBibliography<br/>numeric-ref path — extract [N] bib + cites, SKIP footnote machinery"]
+      STEMBIB -.->|"skips footnotes"| SPAN
+      LOAD -->|"author–year / standard"| BIB["bibliographyExtraction · extract_bibliography"]
       BIB --> STRAT{"strategySelection · STRATEGY_RULES<br/>analyze_document_structure"}
       STRAT -->|"sequential · whole_document · sectioned"| EXFN["footnoteExtraction · footnotes.py"]
       STRAT -.->|"no_footnotes ✗ · pre_processed ∅"| EXFN
@@ -339,7 +392,9 @@ ${PDF}
       GUARD -.->|"no ∅ — extract notes, emit NO links"| EMIT
       GUARD -->|yes| LINK["citationLinking + footnoteLinking<br/>CITATION_LINK_RULES · MARKER_LINK_RULES"]
       LINK --> AUDIT["finalAudit · compute_footnote_audit — the verdict"]
-      AUDIT --> EMIT["nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json"]
+      AUDIT --> SCOV{"structural_coverage — structure-vs-output contradictions<br/>(refs/footnotes present but not extracted → flag the real owner)"}
+      SCOV --> SPAN["strip_styling_spans — remove ALL &lt;span&gt;s before the DB<br/>(italic/bold → i/b · id → anchor · no spans reach the database)"]
+      SPAN --> EMIT["nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json"]
     end
 ${CLICKS}"""
 

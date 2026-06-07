@@ -142,15 +142,18 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  ├─ MD    simple_md_to_html.py → intermediate.html
 │  ├─ HTML  ar5iv_preprocessor.py (arXiv only, else raw) → html
 │  └─ DOCX  strip_docx_metadata.py + pandoc → html
-└─ BACKEND  process_document.py (DOC_PASSES)  GOAL → nodes + footnotes + references + audit + assessment
-   ├─ Load (+footnote_meta→is_stem) · [STEM wackSTEM branch]
+└─ BACKEND  process_document.py (DOC_PASSES, the orchestrator) · _doc_shared.py (shared helpers)  GOAL → nodes + footnotes + references + audit + assessment
+   ├─ LOAD     load.py — LoadDocument(+footnote_meta→is_stem) · SafariRtlFix · SplitBibliographyParagraphs · [STEM wackSTEM branch]
    ├─ EXTRACT  bibliography.py(extract_bibliography) · strategy.py(analyze_document_structure →
    │           STRATEGY_RULES {sequential|whole_document|sectioned | no_footnotes ✗ | pre_processed ∅})
    │           · footnotes.py + strategy.py(detect_footnote_sections)
    │           · _footnote_numbering_is_linkable  [GUARD → extract-but-DON'T-link ∅]
+   │           [DocPasses: bib_passes.py · strategy_pass.py · footnote_passes.py]
    ├─ LINK     citations.py→CITATION_LINK_RULES · footnotes.py→MARKER_LINK_RULES
-   ├─ AUDIT    audit.py(compute_footnote_audit → verdict)
-   └─ EMIT     GenerateNodeChunks → sanitize.py → *.jsonl / references.json
+   │           [DocPasses: citation_pass.py · footnote_link_pass.py]
+   ├─ AUDIT    audit.py(compute_footnote_audit → verdict)  [DocPass: audit_pass.py]
+   └─ FINAL    finalize.py — structural_coverage (flag) · strip_styling_spans (no spans in DB) ·
+               GenerateNodeChunks · sanitize.py → *.jsonl / references.json
 ```
 
 ## Per-pathway goal (what each frontend produces, and the type it detects)
@@ -190,8 +193,15 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 The completeness gate forces these to be classified too. They are the "dead ends" of the *codebase*.
 
 ### Other subsystems (live, but not import-conversion)
-- `vibe_convert.py` · `vibe_aider.py` · `vibe_aider_gate.py` · `conversion/fix_categories.py` — the
-  **vibe self-improving loop** (invoked by `VibeConversionJob.php`, not by an import).
+- The **vibe self-improving loop** — the `vibeConverter/` package (invoked by `VibeConversionJob.php` via
+  the `vibe_convert.py` shim, not by an import). One file per stage:
+  `runtime.py` (zero-import leaf: constants + mutable run state) → `artifacts.py` (read artifacts) →
+  `diagnosis.py` (flag problem forks) → `routing.py` (which modules to send + issue narration) →
+  `samplers.py` (marker/def/ref evidence) → `prompt.py` (assemble the prompt) → `propose.py` (LLM call) →
+  `patch.py` (AST patch engine) → `sandbox.py` (throwaway copy + re-convert) → `gate.py` (accept/reject) →
+  `report.py` (persist + GitHub issue) → `loop.py` (bounded-retry orchestrator) → `apply.py` (apply +
+  regenerate) → `cli.py` (CLI entry). Plus `vibe_aider.py` · `vibe_aider_gate.py` (the aider edit-gen
+  engine) and `conversion/fix_categories.py` (the fix taxonomy).
 - `footnote-jason.py` — the **footnotes-refresh** endpoint (`FootnotesController.php:50`).
 
 ### Legacy / superseded (still on disk — deletion candidates)

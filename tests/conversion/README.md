@@ -15,6 +15,8 @@ conversion" possible.
 > [`pipeline_map.json`](pipeline_map.json), and [`unit/test_pipeline_map.py`](unit/test_pipeline_map.py)
 > **fails the build if any `app/Python` module or decision-registry isn't placed in it** — so the map
 > can't drift from the code. Start there to locate where a given issue sits.
+>
+> 🖱️ Interactive (clickable nodes): **[`pipeline_map.html`](pipeline_map.html)** — download/clone and open in a browser (GitHub shows HTML as source).
 
 ---
 

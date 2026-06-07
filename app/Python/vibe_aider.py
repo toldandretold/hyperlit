@@ -266,8 +266,8 @@ def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_is
         env['VIBE_GATE_BOOK'] = os.path.abspath(book_dir)
         if issue_types:
             env['VIBE_GATE_ISSUE_TYPES'] = json.dumps(issue_types)   # the gate honours the reader's report
-        if vc._DOCKER_IMAGE:
-            env['VIBE_GATE_DOCKER'] = vc._DOCKER_IMAGE
+        if vc.runtime._DOCKER_IMAGE:                       # live value (set via runtime.configure)
+            env['VIBE_GATE_DOCKER'] = vc.runtime._DOCKER_IMAGE
 
         cmd = [aider,
                '--model', f'fireworks_ai/{model}',

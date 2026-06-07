@@ -102,12 +102,25 @@ def test_footnote_audit_routes_to_epub_detector():
     assert v._real_path('audit.py') not in mods  # audit only measures, never the fix
 
 
-def test_footnote_audit_routes_to_shared_path_when_not_epub():
+def test_footnote_audit_routes_to_pdf_classifier():
+    # A PDF footnote miss lives in the OCR footnote LAYOUT classifier + assembler — NOT process_document,
+    # which only runs on the already-assembled markdown (downstream of where the markers are created).
     rec = {'module': 'footnote_audit', 'code_ref': 'audit.py:compute_footnote_audit'}
     mods = v.modules_for([rec], {'is_epub': False, 'is_pdf': True})
+    assert v._real_path('classification.py') in mods
+    assert v._real_path('assembly.py') in mods
+    assert v._real_path('footnotes.py') in mods
+    assert v._real_path('epub_normalizer.py') not in mods
+    assert v._real_path('process_document.py') not in mods
+
+
+def test_footnote_audit_routes_to_shared_path_for_html():
+    rec = {'module': 'footnote_audit', 'code_ref': 'audit.py:compute_footnote_audit'}
+    mods = v.modules_for([rec], {'is_epub': False, 'is_pdf': False})
     assert v._real_path('process_document.py') in mods
     assert v._real_path('footnotes.py') in mods
     assert v._real_path('epub_normalizer.py') not in mods
+    assert v._real_path('classification.py') not in mods
 
 
 def test_non_audit_records_use_their_code_ref():

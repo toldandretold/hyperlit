@@ -47,9 +47,12 @@ function applyBtnStyle(btn) {
   btn.addEventListener('mouseup', () => { btn.style.background = '#4EACAE'; });
 }
 
-/* build summary text from conversion stats */
-function buildSummaryText(stats) {
-  if (!stats) return 'PDF imported.';
+/* build summary text from conversion stats (+ the footnote audit, for the linked ratio) */
+function buildSummaryText(stats, footnoteAudit) {
+  // Mirror the real source type (the converter writes file_type into conversion_stats); fall back to a
+  // neutral word so a missing field never mislabels (it used to hard-code "PDF" even for EPUBs).
+  const kind = stats?.file_type || 'Document';
+  if (!stats) return `${kind} imported.`;
 
   const parts = [];
 
@@ -58,12 +61,22 @@ function buildSummaryText(stats) {
   const total = stats.citations_total ?? 0;
   const fn = stats.footnotes_matched ?? 0;
 
-  if (refs > 0) parts.push(`${refs} references`);
-  if (total > 0) parts.push(`${linked}/${total} citations linked`);
-  if (fn > 0) parts.push(`${fn} footnotes`);
+  // Be explicit about WHICH thing each count is — "references" was ambiguous (bibliography entries vs
+  // footnote markers). refs = entries found in the bibliography; total/linked = in-text (Author Year) citations.
+  if (refs > 0) parts.push(`${refs} references found in the bibliography`);
+  if (total > 0) parts.push(`${linked}/${total} in-text citations linked`);
+  // Footnotes: show how many are actually LINKED, like citations — `footnotes_matched` is just the count of
+  // definitions found (a misnomer), so the linked count comes from the audit (defs that have an in-text [^1]).
+  if (footnoteAudit && footnoteAudit.total_defs > 0) {
+    const defs = footnoteAudit.total_defs;
+    const linkedFn = defs - (footnoteAudit.unmatched_defs?.length ?? 0);   // defs with an in-text [^1]
+    parts.push(`${linkedFn}/${defs} footnotes linked`);
+  } else if (fn > 0) {
+    parts.push(`${fn} footnote definitions found`);
+  }
 
-  if (parts.length === 0) return 'PDF imported (no references detected).';
-  return `PDF imported: ${parts.join(', ')}.`;
+  if (parts.length === 0) return `${kind} imported (no bibliography, citations or footnotes detected).`;
+  return `${kind} imported: ${parts.join('; ')}.`;
 }
 
 /* main export */
@@ -115,7 +128,7 @@ function renderInitialState(toast, { bookId, stats, footnoteAudit }) {
   toast.innerHTML = '';
 
   const text = document.createElement('span');
-  text.textContent = buildSummaryText(stats);
+  text.textContent = buildSummaryText(stats, footnoteAudit);
   text.style.lineHeight = '1.4';
 
   const btnRow = document.createElement('div');
@@ -176,7 +189,7 @@ function renderReportState(toast, { bookId, stats, footnoteAudit }) {
   const selected = new Set();
 
   const text = document.createElement('span');
-  text.textContent = buildSummaryText(stats);
+  text.textContent = buildSummaryText(stats, footnoteAudit);
   text.style.lineHeight = '1.4';
 
   const prompt = document.createElement('div');
@@ -424,14 +437,43 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
 
   await drained();
   if (result && result.phase === 'success') {
-    // The job ALREADY auto-applied the fix to the live book and wrote a review marker. Reload so the
-    // reader shows the NEW conversion; checkPendingVibeReview() (on load) then surfaces the Keep/Revert
-    // toast. This also means the result survives navigation — it's driven by the persisted marker.
-    renderVibeEnd(toast, 'Fixed it — reloading to show you the new conversion…');
-    setTimeout(() => location.reload(), 900);
+    // The loop FOUND a fix — but `phase:'success'` fires the instant the Python loop ends, BEFORE the
+    // job's VibePatchApplier::apply() re-converts + saves to the DB + bumps the library timestamp (a
+    // seconds-to-minutes step). Reloading now would race that: the server timestamp is still the OLD
+    // value, isLocalCacheFresh() sees the cache as fresh, and the reader shows STALE nodes/footnotes
+    // (the "nothing changed until a hard refresh" bug). So WAIT for apply() to land before reloading.
+    // The job writes vibe_review.json at the very END of apply(), so its appearance is the "DB updated,
+    // timestamp bumped" signal — then a normal reload's checkAndUpdateIfNeeded → fetchInitialChunk
+    // re-syncs nodes + footnotes + bibliography automatically. (start() cleared any prior marker.)
+    renderVibeEnd(toast, 'Fixed it — applying to your book…');
+    const applied = await waitForApply(book, 120000);
+    if (applied === 'apply_failed') {
+      renderVibeEnd(toast, 'A vibe fix was found but could not be applied to your book.');
+      return;
+    }
+    renderVibeEnd(toast, 'Applied — reloading to show you the new conversion…');
+    setTimeout(() => location.reload(), 600);
   } else {
     renderVibeEnd(toast, (result && result.message) || 'Could not improve it this time.');
   }
+}
+
+/* Poll the review marker until the job's apply() has landed (DB saved + library timestamp bumped).
+   Returns 'pending' (applied OK), 'apply_failed', or 'timeout' (fall back to a reload anyway so a
+   missed signal can't hang the toast). */
+async function waitForApply(book, capMs) {
+  const deadline = Date.now() + capMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const r = await fetch(`/api/vibe-convert/review/${encodeURIComponent(book)}`, { credentials: 'include' });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.status && data.status !== 'none') return data.status; // 'pending' | 'apply_failed'
+      }
+    } catch { /* keep polling */ }
+  }
+  return 'timeout';
 }
 
 /* ── Post-auto-apply review: Keep the new conversion, or Revert to the original ──────────────────

@@ -14,6 +14,10 @@ window.PIPELINE_MAP = {
       "GUARD",
       "LINK",
       "AUDIT",
+      "SCOV",
+      "SPAN",
+      "LOAD",
+      "STEMBIB",
       "M2H"
     ],
     "epub_collapsed": [
@@ -71,7 +75,7 @@ window.PIPELINE_MAP = {
       "kind": "fork",
       "module": "footnote_audit",
       "noteKey": "audit",
-      "question": "Did the footnote linking produce a clean ref/def correspondence? (the VERDICT)"
+      "question": ""
     },
     "A_chapter_endnotes": {
       "codeRef": "assembly.py:PDF_ASSEMBLERS[\"chapter_endnotes\"]",
@@ -364,6 +368,11 @@ window.PIPELINE_MAP = {
       "noteKey": "epub:structural",
       "transforms": [
         {
+          "description": "Remove page-list / landmarks navigation (machine metadata, not reading content)",
+          "file": "structuralNormalisation.py",
+          "name": "NavStripper"
+        },
+        {
           "description": "Unwrap Calibre's fake blockquote containers",
           "file": "structuralNormalisation.py",
           "name": "CalibreBlockquoteUnwrapper"
@@ -433,6 +442,28 @@ window.PIPELINE_MAP = {
       "noteKey": "citation",
       "question": "Were in-text citations linked to the bibliography?"
     },
+    "LOAD": {
+      "codeRef": "load.py:LoadDocument",
+      "kind": "digestion",
+      "noteKey": "load",
+      "transforms": [
+        {
+          "description": "Seed the assessment trace, parse the HTML, and read footnote_meta.json (STEM signals).",
+          "file": "load.py",
+          "name": "LoadDocument"
+        },
+        {
+          "description": "Strip <span dir=\"rtl\"> smart-quote spans that freeze Safari bidi analysis.",
+          "file": "load.py",
+          "name": "SafariRtlFix"
+        },
+        {
+          "description": "Split multi-entry reference paragraphs (newline-crammed PDF bibliographies) into one <p> each.",
+          "file": "load.py",
+          "name": "SplitBibliographyParagraphs"
+        }
+      ]
+    },
     "M2H": {
       "codeRef": "markdown_and_pdf_to_html/simple_md_to_html.py:convert_markdown_to_html",
       "kind": "md",
@@ -471,6 +502,13 @@ window.PIPELINE_MAP = {
       "name": "③ missing defs · recover_missing_defs",
       "noteKey": "recovery:missingdefs"
     },
+    "SCOV": {
+      "codeRef": "finalize.py:StructuralCoverageAssessment",
+      "description": "[standard] Flag FALSIFIABLE structure-vs-output contradictions: structure that is clearly PRESENT in the document but absent from the OUTPUT. The flagship case — many reference-shaped paragraphs exist but almost none were extracted → the reference section was never FOUND (its \"Bibliography\"/\"References\" header is a styled <p>, not an <h*>, so the scan misses it). Routes the fix to heading detection instead of the reference matcher.",
+      "kind": "digestion",
+      "module": "structural_coverage",
+      "noteKey": "structural_coverage"
+    },
     "SIG": {
       "codeRef": "classification.py:classify_footnotes",
       "kind": "fork",
@@ -485,6 +523,20 @@ window.PIPELINE_MAP = {
         "unknown"
       ],
       "question": "What is the PDF footnote layout? (drives renumbering + assembly)"
+    },
+    "SPAN": {
+      "codeRef": "finalize.py:StripStylingSpans",
+      "description": "[always] FINAL span removal — unwrap every <span> (keeping its text) so NONE reach the database, across ALL of it: node content AND footnote / reference content. In our pipeline spans are styling-only; left in they fragment text and break downstream consumers (e.g. a heading whose text sits inside <span>s never shows in the table of contents). Runs LAST in the SHARED backend, AFTER all detection/linking that might key on span styling, so EPUB / PDF / HTML / DOCX are ALL covered in one place. (EPUB has an earlier SpanUnwrapper, but it only catches calibre/class-less spans; this is the universal guarantee.) id-bearing spans are kept — they are anchor link targets.",
+      "kind": "digestion",
+      "module": "strip_styling_spans",
+      "noteKey": "strip_styling_spans"
+    },
+    "STEMBIB": {
+      "codeRef": "bib_passes.py:StemBibliography",
+      "description": "[STEM only] Convert wackSTEM markers to bib-entry/in-text-citation; write audit + stats.",
+      "kind": "digestion",
+      "module": "stem_bibliography",
+      "noteKey": "stem_bibliography"
     },
     "STRAT": {
       "codeRef": "strategy.py:analyze_document_structure",
@@ -502,5 +554,5 @@ window.PIPELINE_MAP = {
       "question": "Which footnote strategy for this document?"
     }
   },
-  "skeleton": "flowchart TD\n    IMPORT([Import a file]) --> EXT{file extension?}\n    subgraph CONV[\"① ingestion — turn the file into common HTML\"]\n      direction TB\n${EPUB}\n      EXT -->|\".html / .htm\"| HTMLP[\"ingestion/html · ar5iv_preprocessor.py<br/>arXiv only; else raw HTML\"]\n      EXT -->|\".docx / .doc\"| DOCXP[\"ingestion/word · strip_docx_metadata.py + pandoc\"]\n      EXT -->|\".md / .zip\"| MDIN([\"markdown input\"])\n${PDF}\n      PDFMD([\"main-text.md\"]) --> M2H[\"ingestion/markdown_and_pdf_to_html · simple_md_to_html.py\"]\n      MDIN --> M2H\n    end\n    EPUBOUT -->|main-text.html| BIB\n    M2H -->|intermediate.html| BIB\n    HTMLP -->|html| BIB\n    DOCXP -->|html| BIB\n    subgraph CORE[\"② digestion — shared processing · process_document.py · DOC_PASSES\"]\n      direction TB\n      BIB[\"bibliographyExtraction · extract_bibliography\"]\n      BIB --> STRAT{\"strategySelection · STRATEGY_RULES<br/>analyze_document_structure\"}\n      STRAT -->|\"sequential · whole_document · sectioned\"| EXFN[\"footnoteExtraction · footnotes.py\"]\n      STRAT -.->|\"no_footnotes ✗ · pre_processed ∅\"| EXFN\n      EXFN --> GUARD{\"linkability guard<br/>_footnote_numbering_is_linkable\"}\n      GUARD -.->|\"no ∅ — extract notes, emit NO links\"| EMIT\n      GUARD -->|yes| LINK[\"citationLinking + footnoteLinking<br/>CITATION_LINK_RULES · MARKER_LINK_RULES\"]\n      LINK --> AUDIT[\"finalAudit · compute_footnote_audit — the verdict\"]\n      AUDIT --> EMIT[\"nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json\"]\n    end\n${CLICKS}"
+  "skeleton": "flowchart TD\n    IMPORT([Import a file]) --> EXT{file extension?}\n    subgraph CONV[\"① ingestion — turn the file into common HTML\"]\n      direction TB\n${EPUB}\n      EXT -->|\".html / .htm\"| HTMLP[\"ingestion/html · ar5iv_preprocessor.py<br/>arXiv only; else raw HTML\"]\n      EXT -->|\".docx / .doc\"| DOCXP[\"ingestion/word · strip_docx_metadata.py + pandoc\"]\n      EXT -->|\".md / .zip\"| MDIN([\"markdown input\"])\n${PDF}\n      PDFMD([\"main-text.md\"]) --> M2H[\"ingestion/markdown_and_pdf_to_html · simple_md_to_html.py\"]\n      MDIN --> M2H\n    end\n    EPUBOUT -->|main-text.html| LOAD\n    M2H -->|intermediate.html| LOAD\n    HTMLP -->|html| LOAD\n    DOCXP -->|html| LOAD\n    subgraph CORE[\"② digestion — shared processing · process_document.py · DOC_PASSES\"]\n      direction TB\n      LOAD[\"load + input cleanup<br/>LoadDocument · SafariRtlFix · SplitBibliographyParagraphs\"]\n      LOAD -->|\"numeric [N] / wackSTEM refs\"| STEMBIB[\"STEM bibliography · StemBibliography<br/>numeric-ref path — extract [N] bib + cites, SKIP footnote machinery\"]\n      STEMBIB -.->|\"skips footnotes\"| SPAN\n      LOAD -->|\"author–year / standard\"| BIB[\"bibliographyExtraction · extract_bibliography\"]\n      BIB --> STRAT{\"strategySelection · STRATEGY_RULES<br/>analyze_document_structure\"}\n      STRAT -->|\"sequential · whole_document · sectioned\"| EXFN[\"footnoteExtraction · footnotes.py\"]\n      STRAT -.->|\"no_footnotes ✗ · pre_processed ∅\"| EXFN\n      EXFN --> GUARD{\"linkability guard<br/>_footnote_numbering_is_linkable\"}\n      GUARD -.->|\"no ∅ — extract notes, emit NO links\"| EMIT\n      GUARD -->|yes| LINK[\"citationLinking + footnoteLinking<br/>CITATION_LINK_RULES · MARKER_LINK_RULES\"]\n      LINK --> AUDIT[\"finalAudit · compute_footnote_audit — the verdict\"]\n      AUDIT --> SCOV{\"structural_coverage — structure-vs-output contradictions<br/>(refs/footnotes present but not extracted → flag the real owner)\"}\n      SCOV --> SPAN[\"strip_styling_spans — remove ALL &lt;span&gt;s before the DB<br/>(italic/bold → i/b · id → anchor · no spans reach the database)\"]\n      SPAN --> EMIT[\"nodes.jsonl · footnotes.jsonl · references.json<br/>audit.json · conversion_stats.json · assessment.json\"]\n    end\n${CLICKS}"
 };

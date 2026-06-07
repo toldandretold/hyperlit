@@ -879,7 +879,7 @@ export class ImportBookTransition {
       }
 
       if (audit.unmatched_refs?.length) {
-        detailsHtml += `<div style="margin-bottom:10px"><strong>Unmatched references (${audit.unmatched_refs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        detailsHtml += `<div style="margin-bottom:10px"><strong>In-text footnotes <code>[^1]</code> with no definition (${audit.unmatched_refs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
         for (const ref of audit.unmatched_refs.slice(0, 5)) {
           detailsHtml += `<li>[^${ref.number}] has no definition</li>`;
         }
@@ -888,7 +888,7 @@ export class ImportBookTransition {
       }
 
       if (audit.unmatched_defs?.length) {
-        detailsHtml += `<div style="margin-bottom:10px"><strong>Unmatched definitions (${audit.unmatched_defs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
+        detailsHtml += `<div style="margin-bottom:10px"><strong>Footnote definitions <code>[1]:</code> with no in-text <code>[^1]</code> marker (${audit.unmatched_defs.length}):</strong><ul style="margin:4px 0;padding-left:20px;text-align:left;font-size:13px">`;
         for (const def of audit.unmatched_defs.slice(0, 5)) {
           const numLabel = def.number ? `[^${def.number}]` : def.footnote_id;
           const secLabel = def.section ? ` (section ${def.section})` : '';
@@ -901,7 +901,7 @@ export class ImportBookTransition {
 
       alertBox.innerHTML = `
         <h3>Footnote Audit</h3>
-        <p style="margin-bottom:8px">${audit.total_refs} references, ${audit.total_defs} definitions</p>
+        <p style="margin-bottom:8px">${audit.total_refs} in-text footnotes <code>[^1]</code>, ${audit.total_defs} footnote definitions <code>[1]:</code></p>
         <p style="margin-bottom:12px">Detected <strong>${issueCount} issue${issueCount !== 1 ? 's' : ''}</strong> in your document.</p>
         ${detailsHtml}
         <div class="alert-buttons" style="margin-top:16px">

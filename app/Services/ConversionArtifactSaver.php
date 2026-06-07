@@ -166,6 +166,15 @@ class ConversionArtifactSaver
                 return;
             }
 
+            // Re-saving a conversion: clear this book's footnote sub-books from the PRIOR run FIRST (mirrors
+            // saveNodes' delete-then-insert). Footnote ids are regenerated each conversion, so without this the
+            // old sub-book node (same startLine=1) blocks the new insert on nodes_book_startline_unique and the
+            // WHOLE save silently dies — the in-text markers then point at definitions that never reached the DB.
+            $likeBook = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $bookId) . '/%';
+            PgFootnote::where('book', $bookId)->delete();
+            PgNodeChunk::where('book', 'like', $likeBook)->delete();
+            PgLibrary::where('book', 'like', $likeBook)->where('type', 'sub_book')->delete();
+
             $enrichedForJson = [];
             foreach ($footnotesData as $footnote) {
                 $footnoteId = $footnote['footnoteId'] ?? null;
@@ -209,9 +218,9 @@ class ConversionArtifactSaver
                 );
 
                 PgNodeChunk::updateOrCreate(
-                    ['book' => $subBookId, 'node_id' => $uuid],
-                    ['chunk_id' => 0, 'startLine' => 1, 'content' => $nodeHtml,
-                     'plainText' => $plainText, 'raw_json' => json_encode([])]
+                    ['book' => $subBookId, 'startLine' => 1],   // one node per sub-book — match the UNIQUE key,
+                    ['chunk_id' => 0, 'node_id' => $uuid,        // not a fresh uuid (which never matched → dup insert)
+                     'content' => $nodeHtml, 'plainText' => $plainText, 'raw_json' => json_encode([])]
                 );
 
                 $enrichedForJson[] = [
@@ -222,9 +231,12 @@ class ConversionArtifactSaver
             File::put($footnotesPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             Log::info('ConversionArtifactSaver: saved footnotes', ['book' => $bookId, 'count' => count($enrichedForJson)]);
         } catch (\Exception $e) {
+            // Do NOT swallow: a silent failure here let the in-text markers save while the DEFINITIONS did
+            // not (footnotes did nothing in the reader) and the apply still reported success. Surface it.
             Log::error('ConversionArtifactSaver: failed to save footnotes', [
                 'book' => $bookId, 'error' => substr($e->getMessage(), 0, 500),
             ]);
+            throw $e;
         }
     }
 

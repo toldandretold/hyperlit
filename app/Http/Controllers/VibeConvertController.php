@@ -46,10 +46,14 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'No conversion decision-trace for this book yet.'], 404);
         }
 
-        // Fresh run: clear any prior progress / cancel / notify markers.
+        // Fresh run: clear any prior progress / cancel / notify markers. Also clear the prior
+        // vibe_review.json — the toast waits for THIS run's apply() to (re)write it as the
+        // "apply landed, DB + library timestamp updated" signal before reloading, so a stale
+        // marker from a previous run must not be mistaken for this run finishing.
         File::delete("{$dir}/vibe_progress.json");
         File::delete("{$dir}/vibe_cancel");
         File::delete("{$dir}/vibe_notify");
+        File::delete("{$dir}/vibe_review.json");
 
         VibeConversionJob::dispatch($bookId, $user->id, $validated['note'] ?? null, $validated['issueTypes'] ?? []);
 
