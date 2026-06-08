@@ -41,10 +41,19 @@ at 5+. That's the **`throttle:60,1` rate limiter** (60 req/min/IP) returning 429
 the limiter working. Two consequences:
 
 1. **A single IP can't stress these endpoints** — you hit the throttle long before
-   the backend. So a one-machine probe measures the *rate limiter*, not capacity.
-   To measure real capacity you must either run against a build with throttling
-   relaxed, distribute the load across IPs, or target the race below (which fits
-   under the budget).
+   the backend, so a naive one-machine probe measures the *rate limiter*, not
+   capacity. **Solution: `--ip-spread`.** The app trusts proxy headers
+   (`trustProxies '*'`) and the limiter keys off `$request->ip()`, so sending a
+   distinct `X-Forwarded-For` per request gives each request its own throttle
+   bucket — one machine simulating N distinct users:
+
+   ```bash
+   php tests/load/loadprobe.php http://hyperlit.test/api/vibes/public --ip-spread
+   ```
+
+   With `--ip-spread` the 429 wall disappears and you see the real curve (p50
+   climbing with concurrency = genuine saturation). ⚠️ Controlled load
+   environments only — never spoof `X-Forwarded-For` against production.
 2. **The throttle is per-IP, so it does NOT protect shared resources from many
    *legitimate* users.** N real users = N budgets. That's why **F12 (cache
    stampede) is the headline multi-user risk**, not raw RPS — it fires at ~10–25

@@ -9,8 +9,10 @@ use App\Services\LibraryCardGenerator;
 use App\Services\SearchService;
 use App\Services\ShelfCacheInvalidator;
 use Carbon\Carbon;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -335,6 +337,38 @@ class ShelfController extends Controller
      * Render a shelf as a synthetic book (generate nodes from shelf items).
      * Returns the synthetic book ID for chunk loading.
      */
+    /**
+     * F12: single-flight the synthetic-book node DELETE+INSERT.
+     *
+     * render()/publicRender() rebuild a SHARED row set ("shelf_{id}_{sort}[_pub]")
+     * on a cache miss. Without a lock, concurrent first-viewers (esp. on the public,
+     * unauthenticated path) all delete+insert at once and collide on the
+     * nodes_book_startline_unique / nodes_book_node_id_unique indexes → 500s + a
+     * half-built render. Here only ONE caller writes; the rest wait, see the rows
+     * now exist (double-check), and skip. The lock TTL is a crash backstop.
+     */
+    private function writeRenderNodes(string $syntheticBookId, array $chunks): void
+    {
+        $admin = DB::connection('pgsql_admin');
+        $lock = Cache::lock("shelf-render:{$syntheticBookId}", 30);
+        try {
+            $lock->block(10);
+        } catch (LockTimeoutException $e) {
+            return; // another request is building these rows; ours would only collide
+        }
+        try {
+            if ($admin->table('nodes')->where('book', $syntheticBookId)->exists()) {
+                return; // built while we waited
+            }
+            $admin->table('nodes')->where('book', $syntheticBookId)->delete();
+            foreach (array_chunk($chunks, 500) as $batch) {
+                $admin->table('nodes')->insert($batch);
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
     public function render(Request $request, string $id)
     {
         $user = Auth::user();
@@ -431,11 +465,9 @@ class ShelfController extends Controller
             ]
         );
 
-        // Insert nodes
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
-        foreach (array_chunk($chunks, 500) as $batch) {
-            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
-        }
+        // Insert nodes — single-flight so concurrent first-viewers of the same
+        // shelf don't race the shared synthetic rows (F12; see writeRenderNodes).
+        $this->writeRenderNodes($syntheticBookId, $chunks);
 
         return response()->json(['bookId' => $syntheticBookId]);
     }
@@ -526,11 +558,9 @@ class ShelfController extends Controller
             ]
         );
 
-        // Insert nodes
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
-        foreach (array_chunk($chunks, 500) as $batch) {
-            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
-        }
+        // Insert nodes — single-flight so concurrent first-viewers of the same
+        // shelf don't race the shared synthetic rows (F12; see writeRenderNodes).
+        $this->writeRenderNodes($syntheticBookId, $chunks);
 
         return response()->json(['bookId' => $syntheticBookId]);
     }

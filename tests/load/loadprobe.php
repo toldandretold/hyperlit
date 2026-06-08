@@ -34,12 +34,14 @@ $url = null;
 $levels = [1, 5, 10, 20, 50];
 $perLevel = 60;
 $headers = [];
+$ipSpread = false;
 
 for ($i = 0; $i < count($args); $i++) {
     $a = $args[$i];
     if ($a === '--levels')      { $levels = array_map('intval', explode(',', $args[++$i])); }
     elseif ($a === '--per-level') { $perLevel = max(1, (int) $args[++$i]); }
     elseif ($a === '--header')  { $headers[] = $args[++$i]; }
+    elseif ($a === '--ip-spread') { $ipSpread = true; }
     elseif ($url === null)      { $url = $a; }
 }
 
@@ -49,19 +51,29 @@ if (!$url) {
 }
 
 /** Fire $total requests at most $concurrency in flight; return per-request [time, code]. */
-function runLevel(string $url, int $concurrency, int $total, array $headers): array
+function runLevel(string $url, int $concurrency, int $total, array $headers, bool $ipSpread): array
 {
     $mh = curl_multi_init();
     $active = [];      // handle => start time
     $results = [];
     $launched = 0;
 
-    $launch = function () use (&$mh, &$active, &$launched, $url, $headers) {
+    $launch = function () use (&$mh, &$active, &$launched, $url, $headers, $ipSpread) {
         $ch = curl_init($url);
+        $reqHeaders = array_merge(['Accept: application/json'], $headers);
+        if ($ipSpread) {
+            // Distinct X-Forwarded-For per request → distinct throttle bucket. Works
+            // because the app trusts proxies (trustProxies '*') and the rate limiter
+            // keys off $request->ip(). This is how a single machine simulates MANY
+            // users (bypassing the per-IP 60/min limit). Controlled load envs only —
+            // never spoof XFF against production.
+            $n = $launched + 1;
+            $reqHeaders[] = sprintf('X-Forwarded-For: 10.%d.%d.%d', ($n >> 16) & 255, ($n >> 8) & 255, $n & 255);
+        }
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 30,
-            CURLOPT_HTTPHEADER     => array_merge(['Accept: application/json'], $headers),
+            CURLOPT_HTTPHEADER     => $reqHeaders,
             CURLOPT_NOBODY         => false,
         ]);
         curl_multi_add_handle($mh, $ch);
@@ -116,7 +128,7 @@ echo str_repeat('─', 92) . "\n";
 
 foreach ($levels as $conc) {
     $t0 = microtime(true);
-    $res = runLevel($url, $conc, $perLevel, $headers);
+    $res = runLevel($url, $conc, $perLevel, $headers, $ipSpread);
     $wall = microtime(true) - $t0;
 
     $times = array_map(fn ($r) => $r['time'], $res);

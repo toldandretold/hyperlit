@@ -164,7 +164,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | POST | /api/db/footnotes/upsert | DbFootnoteController@upsert | ✅ | AnnotationsApiTest (auth/422; F10 fixed) |
 | POST | /api/db/references/upsert | DbReferencesController@upsertReferences | ✅ | AnnotationsApiTest (auth/422) |
 | POST | /api/db/node-chunks/{upsert,bulk-create,targeted-upsert} | DbNodeChunkController@* | ✅ | NodeChunkApiTest (auth/validation) |
-| POST | /api/db/unified-sync | UnifiedSyncController@sync | 🟡 | SyncApiTest (auth/validation; F8) |
+| POST | /api/db/unified-sync | UnifiedSyncController@sync | ✅ | SyncApiTest (auth/validation/happy; F8 fixed) |
 | POST | /api/db/sync/beacon | BeaconSyncController@handleSync | 🟡 | SyncApiTest (auth/422) |
 
 ### H. Node history / time machine

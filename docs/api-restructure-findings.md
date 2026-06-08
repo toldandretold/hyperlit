@@ -11,10 +11,10 @@ links back here in a comment so the gap is visible at the call site.
 Status legend: 🔴 real bug / data-race · 🟠 inconsistency / footgun · 🟡 cosmetic.
 ✅ FIXED markers note items already resolved (with the commit/PR that did it).
 
-**Fixed so far:** F1, F2, F4 (job-dispatch guards) and F10 (validation masked as
-500) — see the ✅ notes inline. Remaining: F3, F5–F9, F11, and **F12** (🔴 cache
-stampede rebuilding shared homepage/shelf node rows — confirmed real, the most
-likely *multi-user* bug; not yet fixed).
+**Fixed so far:** F1, F2, F4 (job-dispatch guards), F8 (sync atomicity / mixed
+connections), F10 (validation masked as 500), and **F12** (🔴 cache stampede on
+shared homepage/shelf node rows). Remaining: F3, F5, F6, F7, F9, F11 — the bulk of
+which is the F5/F6/F7 response-consistency sweep.
 
 ---
 
@@ -109,7 +109,7 @@ expected. **Fix candidates:** a `whereUuid` route constraint, or validate/guard
 the param before the query. **Covered by:** `ShelfApiTest` (note on the not-found
 tests; they use a real UUID to reach the intended 404).
 
-### F12 🔴 Cache stampede → concurrent rebuild of SHARED node rows
+### F12 🔴 ✅ FIXED — Cache stampede → concurrent rebuild of SHARED node rows
 The two server-rendered "synthetic book" surfaces regenerate shared `nodes` rows
 with a non-atomic `DELETE`+`INSERT` guarded only by a best-effort cache check, so a
 burst of concurrent requests on a cold/expired cache all rebuild at once and
@@ -141,18 +141,43 @@ users**, so ordinary multi-user traffic triggers it.
   result. (Same lock primitive as the F1/F2 fix.) Alternatively build into a fresh
   table and swap, or `INSERT … ON CONFLICT DO NOTHING`. The homepage is the urgent
   one (traffic × predictable 15-min expiry).
-- **Reproduce with:** `tests/load/loadprobe.php` — clear the synthetic rebuild
-  rows on the server's DB (cold cache) then burst ~15 concurrent; a non-zero 5xx
-  column (0 at concurrency 1) confirms it. Recipe in `tests/load/README.md`.
+- **Fix:** a single-flight `Cache::lock` around each rebuild (same primitive as
+  F1/F2). Homepage: `getHomePageBooks` serves cache fast-path, else acquires
+  `homepage_books:rebuild` and rebuilds once under the lock (others block ≤10s then
+  read the warm cache); `updateHomePageBooks` takes the same lock.
+  HomePageServerController.php:41–86. Shelf: `render`/`publicRender` route the
+  node DELETE+INSERT through `writeRenderNodes()`, which locks
+  `shelf-render:{syntheticBookId}` + double-checks before writing.
+  ShelfController.php:338–369.
+- **Verify with:** `tests/load/loadprobe.php` — clear the synthetic rebuild rows on
+  the server's DB (cold cache) then burst ~15 concurrent. Pre-fix: a non-zero 5xx
+  column (0 at concurrency 1). Post-fix: all 2xx. Recipe in `tests/load/README.md`.
 - **Note on rate limiting:** the per-IP `throttle:60,1` does NOT mitigate this —
   it's per-IP, and the stampede fires at ~10–25 concurrent (under one budget),
-  driven by *distinct* users, not a single hammering client.
+  driven by *distinct* users. Use `loadprobe.php --ip-spread` to simulate distinct
+  users from one machine (the app trusts `X-Forwarded-For`).
 
-### F8 🟠 `UnifiedSyncController::sync` wraps child controllers in nested transactions
-`sync()` opens a transaction and calls `DbNodeChunkController` etc., each of which
-opens its own transaction. Nested savepoints can let a child "succeed" while the
-outer intent fails. Candidate for extraction into a service with one transaction
-boundary.
+### F8 🟠 ✅ FIXED — `UnifiedSyncController::sync` atomicity gap (mixed connections)
+On closer inspection the documented "nested savepoints" worry was mostly benign —
+only `DbLibraryController::upsert` opens its own `DB::transaction`, and that's a
+savepoint on the SAME (default) connection, so it rolls back with the outer. The
+REAL gap: two deletion steps cleaned up via the **`pgsql_admin` connection**
+(`DbHyperlightController::delete` → sub-book content + hypercite delinking;
+`DbFootnoteController::delink`). That connection is NOT part of the sync's
+`DB::transaction`, so those writes committed immediately — if a *later* sync step
+then rolled the (default-connection) transaction back, the admin-connection cleanup
+was already gone → orphaned sub-book content / delinked hypercites.
+- **Fix:** moved `hyperlightDeletions` + `footnoteDeletions` out of the transaction
+  into `applyHyperlightDeletions()` / `applyFootnoteDeletions()`, called **after**
+  the upsert transaction commits. So the admin-connection cleanup only runs once the
+  upserts have durably landed; a rolled-back sync can no longer orphan anything.
+  (No ordering risk: `library` upsert takes counts from the payload, not a recount.)
+  UnifiedSyncController.php.
+- **Behaviour note:** a deletion failure now 500s with the upserts already
+  committed (vs. previously rolling everything back). That's the safer trade — the
+  client retries the whole sync and the upserts are idempotent.
+- **Covered by:** `SyncApiTest` happy-path (transaction + child upsert + post-commit
+  deletion helpers + envelope).
 
 ### F9 🟡 No API versioning / resource layer
 All routes are a flat `/api/...` namespace; models are serialized directly with no

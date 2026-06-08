@@ -25,6 +25,7 @@ curl -X POST http://localhost:8000/api/homepage/books/update \
 
 namespace App\Http\Controllers;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -40,9 +41,27 @@ class HomePageServerController extends Controller
 
     public function getHomePageBooks(Request $request)
     {
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return $this->generateHomePageBooks();
-        });
+        // Fast path: serve the cached payload.
+        $cached = Cache::get(self::CACHE_KEY);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // F12: single-flight the rebuild. `Cache::remember` is NOT stampede-safe —
+        // when the 15-min TTL lapses, every concurrent homepage load would otherwise
+        // run generateHomePageBooks() at once and collide on the shared
+        // most-recent/most-connected/most-lit node rows (unique index) → 500s + a
+        // half-built homepage. Only ONE caller rebuilds under the lock; the rest
+        // block briefly and then read the freshly-cached result.
+        try {
+            return Cache::lock(self::CACHE_KEY . ':rebuild', 60)->block(10, function () {
+                return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, fn () => $this->generateHomePageBooks());
+            });
+        } catch (LockTimeoutException $e) {
+            // Couldn't acquire within 10s: serve cache if it landed, else generate
+            // directly (degraded, but never error the homepage).
+            return Cache::get(self::CACHE_KEY) ?? $this->generateHomePageBooks();
+        }
     }
 
     public function updateHomePageBooks(Request $request, $forceUpdate = false)
@@ -51,7 +70,19 @@ class HomePageServerController extends Controller
             Cache::forget(self::CACHE_KEY);
         }
 
-        return $this->generateHomePageBooks();
+        // Serialise with the read-path rebuild (same lock) so two callers never
+        // delete+insert the shared node rows at once (F12).
+        try {
+            return Cache::lock(self::CACHE_KEY . ':rebuild', 60)->block(10, function () {
+                $result = $this->generateHomePageBooks();
+                Cache::put(self::CACHE_KEY, $result, self::CACHE_TTL);
+                return $result;
+            });
+        } catch (LockTimeoutException $e) {
+            $result = $this->generateHomePageBooks();
+            Cache::put(self::CACHE_KEY, $result, self::CACHE_TTL);
+            return $result;
+        }
     }
 
     private function generateHomePageBooks()

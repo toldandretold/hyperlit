@@ -192,48 +192,11 @@ class UnifiedSyncController extends Controller
                     }
                 }
 
-                // 4. Sync hyperlight deletions (if present)
-                if (! empty($data['hyperlightDeletions'])) {
-                    $hyperlightController = new DbHyperlightController;
-
-                    foreach ($data['hyperlightDeletions'] as $item) {
-                        $action = $item['_action'] ?? 'delete';
-
-                        if ($action === 'delete') {
-                            $deleteRequest = new Request(['book' => $item['book'], 'data' => [$item]]);
-                            $deleteRequest->setUserResolver(function () use ($request) {
-                                return $request->user();
-                            });
-                            foreach ($request->cookies as $key => $value) {
-                                $deleteRequest->cookies->set($key, $value);
-                            }
-
-                            $response = $hyperlightController->delete($deleteRequest);
-                            $deleteResult = json_decode($response->getContent(), true);
-
-                            if (! ($deleteResult['success'] ?? false)) {
-                                throw new \Exception('Hyperlight deletion failed: '.($deleteResult['message'] ?? 'Unknown error'));
-                            }
-                        } elseif ($action === 'hide') {
-                            $hideRequest = new Request(['book' => $item['book'], 'data' => [$item]]);
-                            $hideRequest->setUserResolver(function () use ($request) {
-                                return $request->user();
-                            });
-                            foreach ($request->cookies as $key => $value) {
-                                $hideRequest->cookies->set($key, $value);
-                            }
-
-                            $response = $hyperlightController->hide($hideRequest);
-                            $hideResult = json_decode($response->getContent(), true);
-
-                            if (! ($hideResult['success'] ?? false)) {
-                                throw new \Exception('Hyperlight hide failed: '.($hideResult['message'] ?? 'Unknown error'));
-                            }
-                        }
-                    }
-
-                    $results['hyperlightDeletions'] = ['success' => true];
-                }
+                // 4. Hyperlight deletions: applied AFTER this transaction commits (F8).
+                //    delete() does pgsql_admin cleanup (sub-book content / hypercite
+                //    delinking) on a SEPARATE connection that can't be rolled back, so
+                //    it must only run once the upserts here have durably committed.
+                //    See applyHyperlightDeletions().
 
                 // 5. Sync footnotes (if present)
                 // Group by each footnote's own book field to support cross-book citations
@@ -265,30 +228,9 @@ class UnifiedSyncController extends Controller
                     $results['footnotes'] = ['success' => true, 'message' => 'Footnotes synced successfully'];
                 }
 
-                // 5.1. Handle footnote deletions — delink orphaned hypercites only
-                // (footnote record + sub-book content are preserved for cut+paste)
-                if (! empty($data['footnoteDeletions'])) {
-                    $footnoteController = new DbFootnoteController;
-
-                    foreach ($data['footnoteDeletions'] as $item) {
-                        $delinkRequest = new Request(['data' => [$item]]);
-                        $delinkRequest->setUserResolver(function () use ($request) {
-                            return $request->user();
-                        });
-                        foreach ($request->cookies as $key => $value) {
-                            $delinkRequest->cookies->set($key, $value);
-                        }
-
-                        $response = $footnoteController->delink($delinkRequest);
-                        $delinkResult = json_decode($response->getContent(), true);
-
-                        if (! ($delinkResult['success'] ?? false)) {
-                            throw new \Exception('Footnote delink failed: '.($delinkResult['message'] ?? 'Unknown error'));
-                        }
-                    }
-
-                    $results['footnoteDeletions'] = ['success' => true];
-                }
+                // 5.1. Footnote deletions (delink): applied AFTER this transaction
+                //      commits (F8) — delink() also cleans up via pgsql_admin. See
+                //      applyFootnoteDeletions().
 
                 // 5.5. Sync bibliography/references (if present)
                 // Group by each reference's own book field to support cross-book citations
@@ -361,6 +303,14 @@ class UnifiedSyncController extends Controller
                 return $results;
             });
 
+            // F8: deletions whose cleanup runs on the pgsql_admin connection happen
+            // HERE, after the upsert transaction has durably committed — so a sync
+            // that rolls back can never orphan sub-book content / delinked hypercites.
+            // (A failure here still 500s; the client retries the whole sync, whose
+            // upserts are idempotent.)
+            $result['hyperlightDeletions'] = $this->applyHyperlightDeletions($request, $data);
+            $result['footnoteDeletions'] = $this->applyFootnoteDeletions($request, $data);
+
             // NOTE: preview_nodes updates are now handled by DbNodeChunkController
             // which is called above for all node operations (bulkTargetedUpsert, etc.)
 
@@ -390,5 +340,66 @@ class UnifiedSyncController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Apply hyperlight deletions/hides. Runs OUTSIDE the sync transaction (F8)
+     * because delete() cleans up sub-book content + delinks hypercites on the
+     * pgsql_admin connection, which can't participate in (or be rolled back by) the
+     * upsert transaction. Throws on failure so the caller's catch returns 500.
+     */
+    private function applyHyperlightDeletions(Request $request, array $data): ?array
+    {
+        if (empty($data['hyperlightDeletions'])) {
+            return null;
+        }
+
+        $hyperlightController = new DbHyperlightController;
+
+        foreach ($data['hyperlightDeletions'] as $item) {
+            $action = $item['_action'] ?? 'delete';
+            $req = new Request(['book' => $item['book'], 'data' => [$item]]);
+            $req->setUserResolver(fn () => $request->user());
+            foreach ($request->cookies as $key => $value) {
+                $req->cookies->set($key, $value);
+            }
+
+            $verb = $action === 'hide' ? 'hide' : 'delete';
+            $res = json_decode($hyperlightController->{$verb}($req)->getContent(), true);
+            if (! ($res['success'] ?? false)) {
+                throw new \Exception("Hyperlight {$verb} failed: ".($res['message'] ?? 'Unknown error'));
+            }
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Delink hypercites for deleted footnotes. Runs OUTSIDE the sync transaction
+     * (F8) — delink() cleans up via pgsql_admin. The footnote record + sub-book
+     * content are preserved (for cut+paste); only orphaned hypercites are delinked.
+     */
+    private function applyFootnoteDeletions(Request $request, array $data): ?array
+    {
+        if (empty($data['footnoteDeletions'])) {
+            return null;
+        }
+
+        $footnoteController = new DbFootnoteController;
+
+        foreach ($data['footnoteDeletions'] as $item) {
+            $req = new Request(['data' => [$item]]);
+            $req->setUserResolver(fn () => $request->user());
+            foreach ($request->cookies as $key => $value) {
+                $req->cookies->set($key, $value);
+            }
+
+            $res = json_decode($footnoteController->delink($req)->getContent(), true);
+            if (! ($res['success'] ?? false)) {
+                throw new \Exception('Footnote delink failed: '.($res['message'] ?? 'Unknown error'));
+            }
+        }
+
+        return ['success' => true];
     }
 }
