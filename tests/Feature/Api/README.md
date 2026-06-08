@@ -100,12 +100,12 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | POST | /import-url/inspect | UrlImportController@inspect | author | 🟡 | ImportUrlCitationApiTest (auth/422) |
 | POST | /import-url | UrlImportController@commit | author | 🟡 | ImportUrlCitationApiTest (422) |
 | GET | /api/books/{book}/reconvert-info | ImportController@reconvertInfo | author | ✅ | ImportUrlCitationApiTest |
-| POST | /api/books/{book}/reconvert | ImportController@reconvert | author | ✅ | ImportApiTest (auth/owner/dispatch; F1/F4) |
+| POST | /api/books/{book}/reconvert | ImportController@reconvert | author | ✅ | ImportApiTest (auth/owner/dispatch; F1/F4 fixed) |
 
 ### C. Vibe conversion — async: VibeConversionJob (queue: vibe)
 | M | URI | Controller@method | Auth | Status | Covered by |
 |---|-----|-------------------|------|--------|-----------|
-| POST | /api/vibe-convert/start | VibeConvertController@start | sanctum | ✅ | VibeConvertApiTest (auth/billing/dispatch; F1) |
+| POST | /api/vibe-convert/start | VibeConvertController@start | sanctum | ✅ | VibeConvertApiTest (auth/billing/dispatch; F1 fixed) |
 | GET | /api/vibe-convert/progress/{book} | VibeConvertController@progress | sanctum | 🟡 | VibeConvertApiTest (auth) |
 | POST | /api/vibe-convert/cancel/{book} | VibeConvertController@cancel | sanctum | 🟡 | VibeConvertApiTest (auth) |
 | POST | /api/vibe-convert/use-now/{book} | VibeConvertController@useNow | sanctum | 🟡 | VibeConvertApiTest (auth) |
@@ -118,10 +118,10 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 ### D. Citations — async: CitationScanBibliographyJob, CitationPipelineJob
 | M | URI | Controller@method | Auth | Status | Covered by |
 |---|-----|-------------------|------|--------|-----------|
-| POST | /api/citation-scanner/scan | CitationScannerController@scan | sanctum | ✅ | CitationApiTest (auth/validation/guard; F2) |
+| POST | /api/citation-scanner/scan | CitationScannerController@scan | sanctum | ✅ | CitationApiTest (auth/validation/guard; F2 fixed) |
 | GET | /api/citation-scanner/status/{scanId} | CitationScannerController@status | sanctum | 🟡 | CitationApiTest (404) |
 | GET | /api/citation-scanner/history/{book} | CitationScannerController@history | sanctum | ✅ | ImportUrlCitationApiTest |
-| POST | /api/citation-pipeline/trigger | CitationScannerController@triggerPipeline | sanctum | ✅ | CitationApiTest (auth/billing/guard; F2) |
+| POST | /api/citation-pipeline/trigger | CitationScannerController@triggerPipeline | sanctum | ✅ | CitationApiTest (auth/billing/guard; F2 fixed) |
 | GET | /api/citation-pipeline/status/{pipelineId} | CitationScannerController@pipelineStatus | sanctum | 🟡 | CitationApiTest (404) |
 | GET | /api/citation-pipeline/running/{book} | CitationScannerController@pipelineRunning | sanctum | ✅ | ImportUrlCitationApiTest |
 | POST | /api/citation-pipeline/resume/{pipelineId} | CitationScannerController@resumePipeline | sanctum | 🟡 | ImportUrlCitationApiTest (auth/404) |
@@ -159,9 +159,9 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | POST | /api/db/library/set-slug | DbLibraryController@setSlug | 🟡 | LibraryApiTest (invalid-slug 422) |
 | POST | /api/validate-book-id | DbLibraryController@validateBookId | ✅ | LibraryApiTest |
 | DELETE | /api/books/{book} | DbLibraryController@destroy | ✅ | LibraryApiTest (auth/404/403) |
-| POST | /api/db/hyperlights/{upsert,bulk-create,delete,hide} | DbHyperlightController@* | ✅ | AnnotationsApiTest (auth/validation; F10) |
-| POST | /api/db/hypercites/{upsert,bulk-create} + find | DbHyperciteController@* | ✅ | AnnotationsApiTest (auth/validation) |
-| POST | /api/db/footnotes/upsert | DbFootnoteController@upsert | ✅ | AnnotationsApiTest (auth; F10) |
+| POST | /api/db/hyperlights/{upsert,bulk-create,delete,hide} | DbHyperlightController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed) |
+| POST | /api/db/hypercites/{upsert,bulk-create} + find | DbHyperciteController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed) |
+| POST | /api/db/footnotes/upsert | DbFootnoteController@upsert | ✅ | AnnotationsApiTest (auth/422; F10 fixed) |
 | POST | /api/db/references/upsert | DbReferencesController@upsertReferences | ✅ | AnnotationsApiTest (auth/422) |
 | POST | /api/db/node-chunks/{upsert,bulk-create,targeted-upsert} | DbNodeChunkController@* | ✅ | NodeChunkApiTest (auth/validation) |
 | POST | /api/db/unified-sync | UnifiedSyncController@sync | 🟡 | SyncApiTest (auth/validation; F8) |
@@ -180,7 +180,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 ### I. Shelves, vibes, prefs, billing, integrity, misc
 | M | URI | Controller@method | Status | Covered by |
 |---|-----|-------------------|--------|-----------|
-| GET/POST/PATCH/DELETE | /api/shelves… (+ public render/search) | ShelfController@* | ✅ | ShelfApiTest (auth/validation/404/create; F11) |
+| GET/POST/PATCH/DELETE | /api/shelves… (+ public render/search) | ShelfController@* | ✅ | ShelfApiTest (auth/validation/404/create; F11; render F12) |
 | GET/POST/PATCH/DELETE | /api/vibes… (+ public) | VibesController@* | ✅ | VibesApiTest (auth/validation/404/create/public) |
 | POST | /api/vibe-css/{generate,can-proceed} | VibeCSSController@* | ✅ | AiVibeCssApiTest (auth/validation/gate) |
 | POST | /api/ai-brain/{query,status} | AiBrainController@* | ✅ | AiVibeCssApiTest (auth/validation/404) |
@@ -193,7 +193,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | GET/POST | /api/search/openalex, /api/openalex/{lookup-citation,save-to-library} | OpenAlexController@* | 🟡 | OpenAlexCanonicalApiTest (auth/422) |
 | POST | /api/db/sub-books/{create,migrate-existing} | SubBookController@* | ✅ | ScrapeSubBookApiTest (auth/validation) |
 | POST | /api/scrape/novel/{chapters,chapter} | ScrapeController@* | 🟡 | ScrapeSubBookApiTest (auth/422) |
-| GET/POST | /api/homepage/books{,/update} | HomePageServerController@* | 🟡 | AdminHomeStripeApiTest (auth) |
+| GET/POST | /api/homepage/books{,/update} | HomePageServerController@* | 🟡 | AdminHomeStripeApiTest (auth); cache stampede F12 |
 | POST | /api/conversion-tests/* | ConversionTestController@* | admin | ✅ | AdminHomeStripeApiTest (auth/admin-403) |
 
 > Keep this matrix honest: flip a row to ✅/🟡 in the **same PR** that adds its

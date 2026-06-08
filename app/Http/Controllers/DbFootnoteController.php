@@ -49,18 +49,21 @@ class DbFootnoteController extends Controller
 
     public function upsert(Request $request)
     {
+        // Validate OUTSIDE the try/catch. Inside it, the ValidationException is
+        // swallowed by catch(\Exception) and re-emitted as a 500 — hiding the real
+        // 422 + field errors the SPA needs to tell the user what to fix. (Was F10.)
+        $validated = $request->validate([
+            'book' => 'required|string',
+            'data' => 'required|array',
+            'data.*.footnoteId' => 'required|string',
+            'data.*.content' => 'present',
+        ]);
+
         try {
             Log::info('Footnote upsert request received:', [
                 'book' => $request->input('book'),
                 'has_data' => $request->has('data'),
                 'data_type' => gettype($request->input('data'))
-            ]);
-
-            $validated = $request->validate([
-                'book' => 'required|string',
-                'data' => 'required|array',
-                'data.*.footnoteId' => 'required|string',
-                'data.*.content' => 'present',
             ]);
 
             $book = $validated['book'];

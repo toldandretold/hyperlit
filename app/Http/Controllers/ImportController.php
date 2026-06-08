@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
@@ -669,33 +670,48 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'No source file found'], 404);
         }
 
-        // 4. Clean stale output files
-        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'notify_email.json'] as $staleFile) {
-            $f = "{$path}/{$staleFile}";
-            if (File::exists($f)) File::delete($f);
+        // F1/F4: stop a concurrent re-trigger (e.g. a double-click) from launching
+        // a SECOND conversion that races this one on the same files/rows. A short
+        // atomic lock makes the check-and-mark sequence safe against simultaneous
+        // requests; the fresh progress.json marker is the longer-lived in-flight
+        // signal. The lock has a TTL so a crash never permanently blocks the book.
+        $lock = Cache::lock("reconvert:{$book}", 30);
+        if (!$lock->get()) {
+            return response()->json(['success' => false, 'message' => 'A conversion is already starting for this book.'], 409);
         }
+        try {
+            $progressFile = "{$path}/progress.json";
+            if (File::exists($progressFile)) {
+                $prev   = json_decode(File::get($progressFile), true) ?: [];
+                $prevAt = isset($prev['updated_at']) ? strtotime($prev['updated_at']) : 0;
+                $fresh  = $prevAt && (time() - $prevAt) < 1800;   // ignore markers >30 min stale
+                if (in_array($prev['status'] ?? '', ['queued', 'processing'], true) && $fresh) {
+                    return response()->json(['success' => false, 'message' => 'A conversion is already in progress for this book.'], 409);
+                }
+            }
 
-        // 5. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
-        $this->clearBookContent($book);
+            // 4. Clean stale output files
+            foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'notify_email.json'] as $staleFile) {
+                $f = "{$path}/{$staleFile}";
+                if (File::exists($f)) File::delete($f);
+            }
 
-        // 6. Dispatch the SAME background job that fresh imports use, then return
-        //    immediately. Running the conversion inline here used to block the
-        //    request for >100s (Cloudflare 524) and spike memory enough to
-        //    OOM-kill PHP-FPM, which 502'd the whole site. The job runs on the
-        //    queue worker and writes progress.json; the client polls
-        //    /api/import-progress/{book} for completion (the embedded result
-        //    carries footnoteAudit, exactly as the old sync response did).
-        //
-        //    ProcessDocumentImportJob handles everything the inline path did:
-        //    it streams nodes.jsonl, deletes the book's existing nodes before
-        //    re-inserting, saves footnotes/references, and bills OCR for PDFs.
-        File::put("{$path}/progress.json", json_encode([
-            'status'     => 'queued',
-            'percent'    => 0,
-            'stage'      => 'queued',
-            'detail'     => 'Waiting to start...',
-            'updated_at' => now()->toIso8601String(),
-        ], JSON_PRETTY_PRINT));
+            // 5. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
+            $this->clearBookContent($book);
+
+            // 6. Mark queued. The job (dispatched below) writes progress.json; the
+            //    client polls /api/import-progress/{book}. Running the conversion
+            //    inline here used to 524/OOM the site, hence the background job.
+            File::put("{$path}/progress.json", json_encode([
+                'status'     => 'queued',
+                'percent'    => 0,
+                'stage'      => 'queued',
+                'detail'     => 'Waiting to start...',
+                'updated_at' => now()->toIso8601String(),
+            ], JSON_PRETTY_PRINT));
+        } finally {
+            $lock->release();
+        }
 
         ProcessDocumentImportJob::dispatch(
             $book,

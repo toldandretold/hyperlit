@@ -9,6 +9,7 @@ use App\Services\VibePatchApplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
@@ -44,6 +45,15 @@ class VibeConvertController extends Controller
         $dir = resource_path("markdown/{$bookId}");
         if (!is_dir($dir) || !file_exists("{$dir}/assessment.json")) {
             return response()->json(['success' => false, 'message' => 'No conversion decision-trace for this book yet.'], 404);
+        }
+
+        // F1: hold a per-book lock for the whole run so a duplicate/concurrent start
+        // (e.g. a double-click) can't launch a SECOND vibe job racing this one on the
+        // same files. VibeConversionJob releases it when it finishes; the TTL (>= the
+        // job's Process timeout) is the crash backstop so the book is never stuck.
+        $lock = Cache::lock("vibe-convert:{$bookId}", 1800);
+        if (!$lock->get()) {
+            return response()->json(['success' => false, 'message' => 'A vibe conversion is already in progress for this book.'], 409);
         }
 
         // Fresh run: clear any prior progress / cancel / notify markers. Also clear the prior

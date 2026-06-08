@@ -122,7 +122,7 @@ class DbHyperlightController extends Controller
             $data = $request->all();
             
             Log::info('DbHyperlightController::bulkCreate - Received data', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
             
@@ -218,7 +218,7 @@ class DbHyperlightController extends Controller
             $data = $request->all();
             
             Log::info('DbHyperlightController::upsert - Received data', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
             
@@ -382,7 +382,7 @@ class DbHyperlightController extends Controller
             $data = $request->all();
             
             Log::info('DbHyperlightController::delete - Received data', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0
+                'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0
             ]);
             
             if (isset($data['data']) && is_array($data['data'])) {
@@ -493,7 +493,7 @@ class DbHyperlightController extends Controller
             $data = $request->all();
             
             Log::info('DbHyperlightController::hide - Received data', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0
+                'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0
             ]);
             
             if (isset($data['data']) && is_array($data['data'])) {

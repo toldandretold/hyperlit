@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use App\Services\ConversionArtifactSaver;
 use App\Services\VibePatchApplier;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -58,6 +59,7 @@ class VibeConversionJob implements ShouldQueue
         $dir = resource_path("markdown/{$this->bookId}");
         if (!is_dir($dir) || !file_exists("{$dir}/assessment.json")) {
             Log::warning('VibeConversionJob: no conversion artifacts', ['book' => $this->bookId]);
+            $this->releaseConvertLock();   // free the start() lock so a retry can run
             return;
         }
 
@@ -194,6 +196,22 @@ class VibeConversionJob implements ShouldQueue
                 Log::warning('VibeConversionJob: email failed', ['book' => $this->bookId, 'err' => $e->getMessage()]);
             }
         }
+
+        $this->releaseConvertLock();   // run finished — let the next vibe start
+    }
+
+    /**
+     * Release the per-book lock start() acquired (F1). Also called on a thrown
+     * failure via failed(); a fatal crash is covered by the lock's TTL.
+     */
+    private function releaseConvertLock(): void
+    {
+        Cache::lock("vibe-convert:{$this->bookId}")->forceRelease();
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        $this->releaseConvertLock();
     }
 
     /** The final phase:"success" beat from vibe_progress.json (carries before/after/tier/caveat). */

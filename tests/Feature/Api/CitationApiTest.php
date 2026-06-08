@@ -75,9 +75,9 @@ test('POST /api/citation-scanner/scan 409s when a scan is already pending for th
     // Guard worked sequentially: exactly one job dispatched, one scan row.
     Queue::assertPushed(CitationScanBibliographyJob::class, 1);
     expect(DB::connection('pgsql_admin')->table('citation_scans')->where('book', $book)->count())->toBe(1);
-    // NB: this proves the guard SEQUENTIALLY. The SELECT-then-INSERT is not atomic;
-    // two concurrent requests can both pass the check. See findings F2 — the live
-    // harness (tests/Feature/Api/Concurrency) is what actually exercises that race.
+    // F2 fixed: the check-and-insert now runs under an atomic per-book Cache lock,
+    // so concurrent requests can no longer both pass the check. The live harness
+    // (tests/Feature/Api/Concurrency) exercises the true-parallel version.
 });
 
 /* ─── pipeline: auth, billing, guard ──────────────────────────────── */

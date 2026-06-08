@@ -117,17 +117,18 @@ test('POST /api/books/{book}/reconvert dispatches the import job for the owner',
     Queue::assertPushed(ProcessDocumentImportJob::class, 1);
 });
 
-test('POST /api/books/{book}/reconvert has NO in-flight guard — two calls queue two jobs', function () {
+test('POST /api/books/{book}/reconvert blocks a concurrent re-trigger (F1/F4 fixed)', function () {
     Queue::fake();
     $user = $this->loginUser();
     $book = $this->makeBook($user, ['via' => 'app']);
     File::ensureDirectoryExists(resource_path("markdown/{$book}"));
     File::put(resource_path("markdown/{$book}/original.md"), "# Hi\n");
 
+    // First reconvert queues the job and writes a fresh 'queued' progress marker.
     $this->postJson("/api/books/{$book}/reconvert")->assertStatus(200);
-    $this->postJson("/api/books/{$book}/reconvert")->assertStatus(200);
+    // Second, while the first is still in flight, is rejected — only ONE job runs.
+    // (Was the F4 gap: both used to succeed and queue two racing jobs.)
+    $this->assertApiError($this->postJson("/api/books/{$book}/reconvert"), 409);
 
-    // Characterization of findings F4: no check for an already-running import, so
-    // two jobs race on the same book's files. Flip to 1 + a 409 when a guard lands.
-    Queue::assertPushed(ProcessDocumentImportJob::class, 2);
+    Queue::assertPushed(ProcessDocumentImportJob::class, 1);
 });

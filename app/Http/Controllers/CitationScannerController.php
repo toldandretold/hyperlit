@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Jobs\CitationScanBibliographyJob;
@@ -26,51 +27,66 @@ class CitationScannerController extends Controller
         $bookId = $request->input('book');
         $db = DB::connection('pgsql_admin');
 
-        // Check that the book exists in the library
-        $bookExists = $db->table('library')->where('book', $bookId)->exists();
-        if (!$bookExists) {
+        // F2: serialise the "is one already running?" check and the insert so two
+        // concurrent requests can't both pass the check and create duplicate scans
+        // (the check + insert were not atomic). The lock TTL is a short backstop.
+        $lock = Cache::lock("citation-scan:{$bookId}", 15);
+        if (!$lock->get()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Book not found',
-            ], 404);
-        }
-
-        // Check no running scan for this book
-        $runningScan = $db->table('citation_scans')
-            ->where('book', $bookId)
-            ->whereIn('status', ['pending', 'running'])
-            ->first();
-
-        if ($runningScan) {
-            return response()->json([
-                'success' => false,
-                'message' => 'A scan is already in progress for this book',
-                'scan_id' => $runningScan->id,
+                'message' => 'A scan is already starting for this book.',
             ], 409);
         }
 
-        // Count bibliography entries
-        $entryCount = $db->table('bibliography')->where('book', $bookId)->count();
+        try {
+            // Check that the book exists in the library
+            $bookExists = $db->table('library')->where('book', $bookId)->exists();
+            if (!$bookExists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Book not found',
+                ], 404);
+            }
 
-        // Create scan record
-        $scanId = (string) Str::uuid();
-        $db->table('citation_scans')->insert([
-            'id'            => $scanId,
-            'book'          => $bookId,
-            'status'        => 'pending',
-            'total_entries' => $entryCount,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
+            // Check no running scan for this book
+            $runningScan = $db->table('citation_scans')
+                ->where('book', $bookId)
+                ->whereIn('status', ['pending', 'running'])
+                ->first();
 
-        // Dispatch the job
-        CitationScanBibliographyJob::dispatch($scanId, $bookId);
+            if ($runningScan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A scan is already in progress for this book',
+                    'scan_id' => $runningScan->id,
+                ], 409);
+            }
 
-        return response()->json([
-            'success'       => true,
-            'scan_id'       => $scanId,
-            'total_entries' => $entryCount,
-        ]);
+            // Count bibliography entries
+            $entryCount = $db->table('bibliography')->where('book', $bookId)->count();
+
+            // Create scan record
+            $scanId = (string) Str::uuid();
+            $db->table('citation_scans')->insert([
+                'id'            => $scanId,
+                'book'          => $bookId,
+                'status'        => 'pending',
+                'total_entries' => $entryCount,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+
+            // Dispatch the job
+            CitationScanBibliographyJob::dispatch($scanId, $bookId);
+
+            return response()->json([
+                'success'       => true,
+                'scan_id'       => $scanId,
+                'total_entries' => $entryCount,
+            ]);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -142,51 +158,64 @@ class CitationScannerController extends Controller
         $force  = $request->boolean('force', false);
         $db = DB::connection('pgsql_admin');
 
-        // Check that the book exists
-        $bookExists = $db->table('library')->where('book', $bookId)->exists();
-        if (!$bookExists) {
+        // F2: serialise the running-pipeline check and the insert (see scan()).
+        $lock = Cache::lock("citation-pipeline:{$bookId}", 15);
+        if (!$lock->get()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Book not found',
-            ], 404);
+                'message' => 'A citation pipeline is already starting for this book.',
+            ], 409);
         }
 
-        // Check no existing running pipeline for this book
-        $existing = $db->table('citation_pipelines')
-            ->where('book', $bookId)
-            ->whereIn('status', ['pending', 'running'])
-            ->first();
-
-        if ($existing) {
-            $existing = $this->autoFailStalePipeline($existing);
-
-            // If still active after stale check, block the new trigger
-            if (in_array($existing->status, ['pending', 'running'])) {
+        try {
+            // Check that the book exists
+            $bookExists = $db->table('library')->where('book', $bookId)->exists();
+            if (!$bookExists) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'A citation pipeline is already in progress for this book.',
-                ], 409);
+                    'message' => 'Book not found',
+                ], 404);
             }
+
+            // Check no existing running pipeline for this book
+            $existing = $db->table('citation_pipelines')
+                ->where('book', $bookId)
+                ->whereIn('status', ['pending', 'running'])
+                ->first();
+
+            if ($existing) {
+                $existing = $this->autoFailStalePipeline($existing);
+
+                // If still active after stale check, block the new trigger
+                if (in_array($existing->status, ['pending', 'running'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A citation pipeline is already in progress for this book.',
+                    ], 409);
+                }
+            }
+
+            // Create a pipeline record so the frontend can poll immediately
+            $pipelineId = (string) Str::uuid();
+            $db->table('citation_pipelines')->insert([
+                'id'         => $pipelineId,
+                'book'       => $bookId,
+                'user_id'    => Auth::id(),
+                'status'     => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user->id);
+
+            return response()->json([
+                'success'     => true,
+                'pipeline_id' => $pipelineId,
+                'message'     => 'Citation pipeline has been queued.',
+            ]);
+        } finally {
+            $lock->release();
         }
-
-        // Create a pipeline record so the frontend can poll immediately
-        $pipelineId = (string) Str::uuid();
-        $db->table('citation_pipelines')->insert([
-            'id'         => $pipelineId,
-            'book'       => $bookId,
-            'user_id'    => Auth::id(),
-            'status'     => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user->id);
-
-        return response()->json([
-            'success'     => true,
-            'pipeline_id' => $pipelineId,
-            'message'     => 'Citation pipeline has been queued.',
-        ]);
     }
 
     /**

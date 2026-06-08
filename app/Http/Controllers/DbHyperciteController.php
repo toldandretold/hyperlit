@@ -132,7 +132,7 @@ class DbHyperciteController extends Controller
         $data = $request->all();
 
         Log::info('DbHyperciteController::bulkCreate - Received data', [
-            'data_count' => isset($data['data']) ? count($data['data']) : 0,
+            'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
             'request_size' => strlen(json_encode($data))
         ]);
 
@@ -226,7 +226,7 @@ class DbHyperciteController extends Controller
             $data = $request->all();
 
             Log::info('DbHyperciteController::upsert - Received data', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
 

@@ -85,19 +85,19 @@ test('POST /api/vibe-convert/start dispatches the job when a decision-trace exis
     Queue::assertPushed(VibeConversionJob::class, 1);
 });
 
-test('POST /api/vibe-convert/start has NO in-flight guard — two starts queue two jobs', function () {
+test('POST /api/vibe-convert/start blocks a concurrent start (F1 fixed)', function () {
     Queue::fake();
     $user = $this->loginUser(['status' => 'premium']);
     $book = $this->makeBook($user);
     seedVibeDecisionTrace($book);
 
+    // First start claims a per-book lock held for the run.
     $this->postJson('/api/vibe-convert/start', ['bookId' => $book])->assertStatus(200);
-    $this->postJson('/api/vibe-convert/start', ['bookId' => $book])->assertStatus(200);
+    // Second start, while the job is still in flight (lock held), is rejected.
+    // (Was the F1 gap: both used to succeed and queue two jobs for one book.)
+    $this->assertApiError($this->postJson('/api/vibe-convert/start', ['bookId' => $book]), 409);
 
-    // Characterization: today both succeed and TWO jobs are queued for one book.
-    // This is the gap recorded as findings F1 (no ShouldBeUnique / lock). When a
-    // guard is added, flip this expectation to 1 and assert the 2nd returns 409.
-    Queue::assertPushed(VibeConversionJob::class, 2);
+    Queue::assertPushed(VibeConversionJob::class, 1);
 });
 
 /* ─── accept / review: validation + not-found ─────────────────────── */

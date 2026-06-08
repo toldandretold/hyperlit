@@ -32,28 +32,27 @@ test('annotation write endpoints require an author', function (string $route) {
     $this->assertApiError($this->postJson($route, ['data' => []]), 401);
 })->with('annotation_write_routes');
 
-/* ─── validation: hyperlights/hypercites reject missing data (400) ── */
+/* ─── validation: hyperlights/hypercites reject bad data (400) ─────── */
 
-test('POST /api/db/hyperlights/upsert 400s when data is omitted', function () {
+test('POST /api/db/hyperlights/upsert 400s when data is non-array (F10 fixed)', function () {
     $this->loginUser();
-    // Omit `data` to reach the intended "Invalid data format" 400. (A non-array
-    // `data` instead 500s on count() — see findings F10.)
-    $this->assertApiError($this->postJson('/api/db/hyperlights/upsert', []), 400);
+    // F10 fixed: count() is now guarded by is_array, so a non-array `data` reaches
+    // the intended "Invalid data format" 400 instead of TypeError-ing into a 500.
+    $this->assertApiError($this->postJson('/api/db/hyperlights/upsert', ['data' => 'nope']), 400);
 });
 
-test('POST /api/db/hypercites/upsert 400s when data is omitted', function () {
+test('POST /api/db/hypercites/upsert 400s when data is non-array (F10 fixed)', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/hypercites/upsert', []), 400);
+    $this->assertApiError($this->postJson('/api/db/hypercites/upsert', ['data' => 'nope']), 400);
 });
 
-/* ─── validation: footnotes mask the 422 as 500 (F10); references 422 ─ */
+/* ─── validation: footnotes now return a clean 422; references 422 ─── */
 
-test('POST /api/db/footnotes/upsert returns 500 on bad input (validation masked — F10)', function () {
+test('POST /api/db/footnotes/upsert 422s on bad input (F10 fixed)', function () {
     $this->loginUser();
-    // CHARACTERIZATION: validate() runs inside a try/catch(\Exception), so the
-    // ValidationException is swallowed and re-emitted as 500 instead of 422.
-    // See docs/api-restructure-findings.md#f10. Flip to 422 when fixed.
-    $this->assertApiError($this->postJson('/api/db/footnotes/upsert', []), 500);
+    // F10 fixed: validate() runs before the try/catch, so the ValidationException
+    // surfaces as a proper 422 with field errors instead of a masked 500.
+    $this->assertApiError($this->postJson('/api/db/footnotes/upsert', []), 422);
 });
 
 test('POST /api/db/references/upsert 422s without book + data', function () {
