@@ -409,3 +409,39 @@ def test_inline_anchor_note_ignores_non_sup_link_targets(soup):
     assert det.detect(s) is False
     _, log = _logs()
     assert det.transform(s, log)['footnotes'] == []
+
+
+# ---------------------------------------------------------------------------
+# AnchoredFootnoteScheme — the declarative factory the two detectors above are now instances of
+# ---------------------------------------------------------------------------
+def test_anchored_scheme_inline_anchor_via_factory(soup):
+    s = soup('<body><p>x<a href="#fn1"><sup>1</sup></a></p>'
+             '<a id="fn1"> </a><p class="smallhangingpara">1 note one.</p></body>')
+    det = E.AnchoredFootnoteScheme(name='X', marker='sup-link', definition='empty-anchor')
+    assert det.detect(s) is True
+    _, log = _logs()
+    out = det.transform(s, log)
+    assert [f['id'] for f in out['footnotes']] == ['fn1']
+    assert out['footnotes'][0]['element'].get_text(strip=True) == 'note one.'   # number stripped (empty-anchor default)
+
+
+def test_anchored_scheme_note_heading_via_factory(soup):
+    s = soup('<body><p>x<a href="#n1">Note 1</a></p>'
+             '<h2 id="n1">Note 1</h2><p>The note body.</p><h2>Next chapter</h2></body>')
+    det = E.AnchoredFootnoteScheme(name='Y', marker='any-href', definition='note-heading')
+    assert det.detect(s) is True
+    _, log = _logs()
+    out = det.transform(s, log)
+    assert [f['id'] for f in out['footnotes']] == ['n1']
+    assert out['footnotes'][0]['element'].get_text(strip=True) == 'The note body.'
+    assert s.find('a', href='#n1').get_text(strip=True) == '1'                  # 'Note 1' marker normalised → '1'
+
+
+def test_anchored_scheme_rejects_unknown_enum():
+    import pytest
+    with pytest.raises(ValueError):
+        E.AnchoredFootnoteScheme(name='Z', marker='bogus', definition='empty-anchor')
+    with pytest.raises(ValueError):
+        E.AnchoredFootnoteScheme(name='Z', marker='sup-link', definition='bogus')
+    with pytest.raises(ValueError):
+        E.AnchoredFootnoteScheme(name='Z', marker='sup-link', definition='empty-anchor', content='nope')

@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import re
+import time
 import argparse
 import base64
 from pathlib import Path
@@ -18,6 +19,31 @@ MISTRAL_MAX_BYTES = 50 * 1024 * 1024
 CHUNK_TARGET_BYTES = 40 * 1024 * 1024
 
 
+def _get_signed_url_with_retry(client, file_id, expiry=1, attempts=6):
+    """Fetch a signed URL for a just-uploaded file, retrying on a transient 404.
+
+    Mistral's `files.upload` returns before the new file is consistently queryable,
+    so an immediate `get_signed_url` can 404 with "No file matches the given query"
+    even though the upload succeeded. That's eventual-consistency, not a real miss —
+    retry with exponential backoff (~0.5,1,2,4,8s ≈ 15s total) before giving up.
+    Any non-404 error is re-raised immediately (genuine auth/SDK failure).
+    """
+    last_err = None
+    for i in range(attempts):
+        try:
+            return client.files.get_signed_url(file_id=file_id, expiry=expiry)
+        except Exception as e:  # noqa: BLE001 — SDK error class path varies by version
+            msg = str(e)
+            if "404" not in msg and "No file matches" not in msg:
+                raise
+            last_err = e
+            if i < attempts - 1:
+                wait = 0.5 * (2 ** i)
+                print(f"  signed-url 404 (file not yet queryable), retry {i + 1}/{attempts - 1} in {wait:.1f}s...")
+                time.sleep(wait)
+    raise last_err
+
+
 def fetch_ocr(pdf_path, api_key):
     """Upload PDF to Mistral OCR and return raw response dict."""
     client = Mistral(api_key=api_key)
@@ -29,7 +55,7 @@ def fetch_ocr(pdf_path, api_key):
         purpose="ocr",
     )
     print(f"Upload response: id={uploaded_file.id}")
-    signed_url = client.files.get_signed_url(file_id=uploaded_file.id, expiry=1)
+    signed_url = _get_signed_url_with_retry(client, uploaded_file.id, expiry=1)
 
     print("Running OCR... (this may take a few minutes)")
     ocr_response = client.ocr.process(

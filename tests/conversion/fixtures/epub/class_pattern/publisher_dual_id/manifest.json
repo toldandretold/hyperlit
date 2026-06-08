@@ -1,0 +1,20 @@
+{
+    "name": "publisher_dual_id",
+    "description": "Synthetic EPUB modelling the publisher dual-id footnote scheme that bit edward2016orientalism (Said, Orientalism): each definition is <p class=\"footnote\" id=\"PUB001\"><a href=\"#ft_1\" id=\"fn1\">1</a>. text</p> and the in-text marker is <sup class=\"EBsup\"><a href=\"#fn1\" id=\"ft_1\">. The note is addressable by TWO ids — the <p>'s own publisher id (PUB001, which nothing references) AND the child anchor id (fn1, the marker target). ClassPatternFootnoteDetector used to register BOTH, making every note a duplicate definition of the same <p>; only the child-anchor copy could win the marker, orphaning the other (835 defs for 414 notes => 414/835 matched). Locks in the register-once fix (prefer child-anchor id, fall back to the element's own id).",
+    "book_id": "publisher_dual_id",
+    "citation_style": "none",
+    "footnote_strategy": "pre_processed",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 2,
+        "audit_gaps": 0,
+        "max_unmatched_defs": 0,
+        "footnote_strategy": "pre_processed",
+        "footnote_links": [
+            {"marker": "1", "content_contains": "cathedrals"},
+            {"marker": "2", "content_contains": "bazaars"}
+        ],
+        "detectors_fired": ["ClassPatternFootnoteDetector"]
+    }
+}

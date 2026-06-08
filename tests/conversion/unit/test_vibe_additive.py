@@ -514,3 +514,42 @@ def test_apply_skips_register_when_its_add_is_skipped(tmp_path):
     assert not ok                                                  # both skipped -> nothing applied
     assert 'op:add' in msg and "its op:add" in msg                 # register skipped because its add was
     assert (tmp_path / rel).read_text(encoding='utf-8') == "MY_LIST = []\n"  # file untouched
+
+
+def test_op_register_anchored_footnote_scheme_into_transform_pipeline(tmp_path):
+    """The vibe loop's ROBUST footnote fix: op:register a declarative AnchoredFootnoteScheme(...) into
+    TRANSFORM_PIPELINE — no class to write, nothing to crash. validate accepts it, apply lands it, the file
+    re-parses with the pipeline grown by one, and the expression constructs against the real factory."""
+    rel = v._real_path('epub_normalizer.py')
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    shutil.copyfile(os.path.join(_REPO, rel), str(full))
+
+    def pipeline_len(src):
+        for n in ast.parse(src).body:
+            if isinstance(n, ast.Assign) and any(getattr(t, 'id', None) == 'TRANSFORM_PIPELINE' for t in n.targets):
+                return len(n.value.elts)
+        return -1
+
+    before = pipeline_len(full.read_text(encoding='utf-8'))
+    code = ("AnchoredFootnoteScheme(name='MySchemeFootnoteDetector', marker='sup-link', "
+            "definition='empty-anchor', content='following-siblings', boundary='heading-or-anchor', "
+            "strip_number=True)")
+    funcs = [{'file': rel, 'name': 'TRANSFORM_PIPELINE', 'op': 'register', 'code': code}]
+
+    ok, reason, _ = v.validate_replacements(funcs)
+    assert ok, reason                                   # TRANSFORM_PIPELINE is registerable; no dangerous code
+
+    applied, msg = v.apply_function_replacements(str(tmp_path), funcs)
+    assert applied, msg
+    after = full.read_text(encoding='utf-8')
+    ast.parse(after)                                    # the patched file re-parses
+    assert pipeline_len(after) == before + 1            # pipeline grown by exactly one
+    assert 'AnchoredFootnoteScheme(' in after
+
+    # the registered expression is runnable against the real factory (it would actually fire in re-conversion)
+    import epub_normalizer as E
+    inst = E.AnchoredFootnoteScheme(name='MySchemeFootnoteDetector', marker='sup-link',
+                                    definition='empty-anchor', content='following-siblings',
+                                    boundary='heading-or-anchor', strip_number=True)
+    assert inst.name == 'MySchemeFootnoteDetector' and inst.strip_number is True

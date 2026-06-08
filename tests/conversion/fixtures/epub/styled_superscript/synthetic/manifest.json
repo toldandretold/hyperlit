@@ -1,0 +1,19 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic OBFUSCATED EPUB whose footnote markers are inline <a href=#X> styled SUPERSCRIPT by CSS (vertical-align:super, .fnmark) — NOT a literal <sup> — and whose definitions are numbered self-anchored blocks <div id=X>N. text</div>. A same-shaped page-reference link (.pref, NOT superscript) must be IGNORED. StyledSuperscriptFootnoteDetector reads the CSS to tell the footnote marker from the page-ref, then pairs to the def by id. Locks in the antonio0101selections / Gramsci footnote case.",
+    "book_id": "styled_superscript",
+    "citation_style": "none",
+    "footnote_strategy": "pre_processed",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 2,
+        "audit_gaps": 0,
+        "max_unmatched_defs": 0,
+        "footnote_links": [
+            {"marker": "1", "content_contains": "cathedrals"},
+            {"marker": "2", "content_contains": "bazaars"}
+        ],
+        "detectors_fired": ["StyledSuperscriptFootnoteDetector"]
+    }
+}

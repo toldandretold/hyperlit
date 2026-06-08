@@ -137,6 +137,7 @@
     "digestion/finalize/finalize.py": {"band": "backend", "role": "FINAL stage — coverage flag · span strip · node generation · emit"},
     "ingestion/epub/epub_normalizer.py": {"band": "frontend", "filetype": "epub", "role": "TRANSFORM_PIPELINE registry + EpubNormalizer orchestrator (re-exports the base + phase modules)"},
     "ingestion/epub/epub_base.py": {"band": "frontend", "filetype": "epub", "role": "EpubTransform base ABC (zero-import leaf; broken out so the runpy-as-__main__ backend path can't deadlock)"},
+    "ingestion/epub/styleProfiler.py": {"band": "frontend", "filetype": "epub", "role": "The CSS 'universal key' (zero-import leaf): StyleProfiler reads the stylesheet into per-class typographic fingerprints + TocIndex parses toc.ncx — feeds StyleHeadingDetector / StyledSuperscriptFootnoteDetector for obfuscated EPUBs"},
     "ingestion/epub/structuralNormalisation.py": {"band": "frontend", "filetype": "epub", "role": "Phase 1 structural transforms (unwrap calibre/spans/sections, images, dead links)"},
     "ingestion/epub/headingMatching.py": {"band": "frontend", "filetype": "epub", "role": "Phase 1 heading detection (publisher markup -> h1/h2/h3) + HeadingNormalizer"},
     "ingestion/epub/footnoteMatching.py": {"band": "frontend", "filetype": "epub", "role": "Phase 2 run-all footnote detector fan + FootnoteConverter"},

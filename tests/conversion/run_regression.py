@@ -469,15 +469,16 @@ def compare_footnote_links(fixture, tmp_dir):
 
 
 def detectors_that_fired(debug_text):
-    """Names of epub_normalizer footnote detectors that actually FOUND something.
-    A detector's section in epub_normalizer_debug.txt is bracketed [Name]; it fired
-    if its section logs a 'Found footnote/endnote' line or a non-zero Total. (Just
-    running — e.g. HeuristicFootnoteDetector always does — does not count.)"""
+    """Names of epub_normalizer detectors that actually DID something.
+    A detector's section in epub_normalizer_debug.txt is bracketed [Name]; it fired if its section logs a
+    'Found footnote/endnote' line, a non-zero 'Total: N', or 'Recovered N headings' (StyleHeadingDetector).
+    (Just running — e.g. HeuristicFootnoteDetector always does — does not count.)"""
     fired = []
     marks = list(re.finditer(r'^\[([A-Za-z0-9_]+Detector)\]', debug_text, re.M))
     for i, m in enumerate(marks):
         section = debug_text[m.end():(marks[i + 1].start() if i + 1 < len(marks) else len(debug_text))]
-        if re.search(r'Found (?:footnote|endnote)', section) or re.search(r'Total:\s*[1-9]', section):
+        if (re.search(r'Found (?:footnote|endnote)', section) or re.search(r'Total:\s*[1-9]', section)
+                or re.search(r'Recovered\s*[1-9]', section)):
             fired.append(m.group(1))
     return fired
 

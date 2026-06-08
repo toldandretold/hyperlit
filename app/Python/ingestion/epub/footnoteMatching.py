@@ -175,8 +175,31 @@ class ClassPatternFootnoteDetector(EpubTransform):
             if any(re.search(p, class_str, re.I) for p in self.FOOTNOTE_PATTERNS):
                 elem_id = elem.get('id', '')
 
-                # Register element's own ID if present
-                if elem_id and elem_id not in seen_ids:
+                # A footnote definition is ONE element — register it once. Prefer the
+                # element's child anchor id(s) as the linkable target: in the very common
+                # publisher pattern
+                #     <p class="footnote" id="ORI0000971"><a id="fnN" href="#refN">N</a>. …</p>
+                # the in-text marker's href points at the CHILD anchor (fnN), while the
+                # element's own id is just the publisher's internal handle that nothing
+                # references. Registering BOTH ids made every such note a DUPLICATE
+                # definition (same <p>), of which only the child-anchor copy could win the
+                # marker — the other was orphaned (edward2016orientalism: 835 "defs" for
+                # 414 real notes, 414/835 matched). So register child-anchor id(s) when
+                # present, else fall back to the element's own id.
+                child_anchor_ids = [a.get('id', '') for a in elem.find_all('a', id=True)
+                                    if a.get('id', '')]
+                if child_anchor_ids:
+                    for child_id in child_anchor_ids:
+                        if child_id not in seen_ids:
+                            seen_ids.add(child_id)
+                            footnotes.append({
+                                'id': child_id,
+                                'element': elem,  # Use parent as the footnote element
+                                'type': 'footnote',
+                                'strategy': 'class_pattern_child_anchor'
+                            })
+                            log(f"    Found footnote (class, child anchor): id={child_id}")
+                elif elem_id and elem_id not in seen_ids:
                     seen_ids.add(elem_id)
                     footnotes.append({
                         'id': elem_id,
@@ -185,20 +208,6 @@ class ClassPatternFootnoteDetector(EpubTransform):
                         'strategy': 'class_pattern'
                     })
                     log(f"    Found footnote (class): id={elem_id}")
-
-                # ALSO check child anchors - references often point to these
-                # (e.g., <p class="endnote" id="cap123"><a id="inen08"/>...)
-                for child_a in elem.find_all('a', id=True):
-                    child_id = child_a.get('id', '')
-                    if child_id and child_id not in seen_ids:
-                        seen_ids.add(child_id)
-                        footnotes.append({
-                            'id': child_id,
-                            'element': elem,  # Use parent as the footnote element
-                            'type': 'footnote',
-                            'strategy': 'class_pattern_child_anchor'
-                        })
-                        log(f"    Found footnote (class, child anchor): id={child_id}")
 
         for elem in soup.find_all('a'):
             class_str = ' '.join(elem.get('class', []))
@@ -657,208 +666,314 @@ class EnoteFootnoteDetector(EpubTransform):
         return False
 
 
-class AnchorHeadingFootnoteDetector(EpubTransform):
+_HEADINGS = ('h1', 'h2', 'h3', 'h4', 'h5', 'h6')
+
+
+class AnchoredFootnoteScheme(EpubTransform):
+    """A DECLARATIVE detector for the id-ANCHORED footnote family — the recurring shape where an in-text
+    marker links to a definition by an explicit href↔id, and the note content sits at a known place. It is
+    configured with plain string/bool ENUMS (no callables), so the vibe loop can op:register a whole new
+    scheme as ONE expression and it's schema-validatable. The two hand-written detectors below are now thin
+    subclasses of it; a novel id-anchored scheme is `AnchoredFootnoteScheme(name=…, marker=…, definition=…)`.
+
+    Pairs ONLY by id (never by number → survives per-chapter renumbering), and consolidates each definition
+    into a `<div id=X>` so the standard FootnoteConverter extracts + links it. Returns `{'footnotes': [...],
+    'noterefs': []}`.
+
+    Parameters (see __init__ for validation):
+      marker      'sup-link' — <a href="#X"> carrying a <sup> (footnote-specific; avoids page-nav over-match)
+                  'any-href' — every <a href="#X"> (rely on the DEFINITION side to discriminate)
+      definition  'empty-anchor' — an EMPTY <a id=X></a> (note text is in the FOLLOWING block)
+                  'note-heading' — <hN id=X>Note N</hN> (note text is in the FOLLOWING block)
+      content     'following-siblings' (the only shape so far — gather following siblings up to a boundary)
+      boundary    'heading' | 'heading-or-anchor' — where the content stops (defaults by definition)
+      strip_number / normalize_marker — drop the leading "1 " from the note / rewrite a "Note 33" marker→"33"
+                  (both default by definition; expose so a new scheme can tune them)
     """
-    Detect endnotes encoded as a heading anchor plus following content:
-
-        <a class="..." href="#noteId">Note 33</a>      (in-text reference)
-        ...
-        <h2 id="noteId">Note 33</h2>                    (definition label)
-        <p>Note for accountants: ...</p>                (definition content)
-
-    A common Calibre/InDesign export shape (e.g. some O'Reilly titles). It is
-    100% reliable because marker and definition are joined by an explicit id/href
-    anchor — no numbering or counting involved. The other detectors miss it: the
-    marker text is "Note N" (not a bare number or superscript), the marker carries
-    a Calibre class (so HeuristicFootnoteDetector Pattern 5 skips it), and the
-    definition is a <hN> heading with an opaque publisher id that matches none of
-    the fn/en ID_PATTERNS.
-
-    We consolidate each "<hN id=X>Note N</hN> + following content" into a single
-    block <div id="X"> (dropping the redundant "Note N" label) so the standard
-    FootnoteConverter can extract the content, reverse-map the references by id,
-    and remove the definition — exactly as it handles block-level footnotes.
-    """
-
-    name = "AnchorHeadingFootnoteDetector"
-    description = "Endnotes as <hN id=X>Note N</hN> + content, linked by <a href=#X>"
-    plain = ('Endnotes written as HEADINGS: <hN id=X>Note N</hN> + its content, linked by an in-text '
-             '<a href="#X">. Matched by id correspondence (not number), so it survives per-chapter '
-             'numbering restarts.')
 
     _NOTE_HEADING_RE = re.compile(r'^(?:end)?note\s+\d+\.?$', re.I)
     _NOTE_MARKER_RE = re.compile(r'^(?:end)?note\s+(\d+)$', re.I)
+    _LEADING_NUM_RE = re.compile(r'^\s*\d{1,4}[.\)\s]\s*')
+
+    _MARKERS = {'sup-link', 'any-href', 'styled-superscript'}
+    _DEFINITIONS = {'empty-anchor', 'note-heading', 'self-anchored-block'}
+    _CONTENTS = {'following-siblings', 'self'}
+    _BOUNDARIES = {'heading', 'heading-or-anchor'}
+    # A self-anchored-block definition's text begins with the note number ("1. ", "12) ").
+    _NUM_PREFIX_RE = re.compile(r'^\s*\d{1,4}[.\)\s]')
+
+    def __init__(self, definition, marker='sup-link', content='following-siblings', boundary=None,
+                 strip_number=None, normalize_marker=None, note_type='footnote', strategy=None,
+                 name=None, description=None, plain=None):
+        if marker not in self._MARKERS:
+            raise ValueError(f"AnchoredFootnoteScheme: marker must be one of {sorted(self._MARKERS)}, got {marker!r}")
+        if definition not in self._DEFINITIONS:
+            raise ValueError(f"AnchoredFootnoteScheme: definition must be one of {sorted(self._DEFINITIONS)}, "
+                             f"got {definition!r}")
+        # A self-anchored-block carries its content IN the id-bearing block, so it defaults to content='self'.
+        if definition == 'self-anchored-block' and content == 'following-siblings':
+            content = 'self'
+        if content not in self._CONTENTS:
+            raise ValueError(f"AnchoredFootnoteScheme: content must be one of {sorted(self._CONTENTS)}, "
+                             f"got {content!r}")
+        # Defaults derived from the definition (reproduce the two hand-written detectors exactly):
+        if boundary is None:
+            boundary = 'heading-or-anchor' if definition == 'empty-anchor' else 'heading'
+        if boundary not in self._BOUNDARIES:
+            raise ValueError(f"AnchoredFootnoteScheme: boundary must be one of {sorted(self._BOUNDARIES)}, "
+                             f"got {boundary!r}")
+        # name/description/plain may come from the arg (model's direct use) OR a subclass CLASS attribute
+        # (the two hand-written detectors below — the pipeline-map/notes generators read them off the class).
+        if name is not None:
+            self.name = name
+        if description is not None:
+            self.description = description
+        if plain is not None:
+            self.plain = plain
+        if not getattr(self, 'name', None):
+            self.name = f"AnchoredFootnoteScheme({marker}/{definition})"
+        if not getattr(self, 'description', None) or self.description == 'Base transform class':
+            self.description = f"id-anchored footnotes ({marker} → {definition})"
+        if not getattr(self, 'plain', None):
+            self.plain = self.description
+        self.marker = marker
+        self.definition = definition
+        self.content = content
+        self.boundary = boundary
+        self.strip_number = (definition in ('empty-anchor', 'self-anchored-block')) \
+            if strip_number is None else bool(strip_number)
+        self.normalize_marker = (definition == 'note-heading') if normalize_marker is None else bool(normalize_marker)
+        self.note_type = note_type
+        self.strategy = strategy or definition.replace('-', '_')
+        # empty-anchor requires a TEXT-bearing following block (TOC exclusion); note-heading just needs a
+        # following block to exist — and its detect() doesn't gate on content (matches the originals). A
+        # self-anchored-block IS its own content, so presence of a linked def block is enough.
+        self._require_text = (definition == 'empty-anchor')
+        self._detect_requires_content = (definition == 'empty-anchor')
+        # Style context for the 'styled-superscript' marker (a CSS-superscript <a>, not a literal <sup>).
+        # Injected by the pipeline via set_style_context; None ⇒ fall back to a literal <sup>.
+        self.profiler = None
+        self.toc = None
+
+    def set_style_context(self, profiler, toc_index):
+        self.profiler = profiler
+        self.toc = toc_index
+
+    def _is_superscript_marker(self, a):
+        """A footnote marker styled as superscript by CSS (vertical-align:super, read from the StyleProfiler).
+        This is exactly the case the literal-<sup> detectors (sup-link) MISS — so we deliberately do NOT fall
+        back to a literal <sup> here, keeping this scheme non-overlapping with them (a book whose markers ARE
+        literal <sup> stays with InlineAnchorNote/Heuristic, unchanged). The CSS superscript is also what
+        separates a footnote marker from an ordinary same-shaped page-reference link (which is not superscript)."""
+        if self.profiler is None:
+            return False
+        sig = self.profiler.fingerprint(a)
+        return sig is not None and sig.vertical_align == 'super'
+
+    @staticmethod
+    def _is_empty_anchor(a):
+        return a.name == 'a' and a.get('id') and not a.get('href') and a.get_text(strip=True) == ''
 
     def _linked_ids(self, soup):
         ids = set()
         for a in soup.find_all('a', href=True):
             href = a.get('href', '')
-            if href.startswith('#'):
-                ids.add(href[1:])
+            if '#' not in href:
+                continue
+            target = href.split('#', 1)[1]
+            if self.marker == 'sup-link':
+                if a.find('sup') or a.find_parent('sup'):
+                    ids.add(target)
+            elif self.marker == 'styled-superscript':
+                if self._is_superscript_marker(a):
+                    ids.add(target)
+            elif href.startswith('#'):                         # 'any-href'
+                ids.add(target)
         return ids
+
+    def _definitions(self, soup, linked):
+        """(element, id) pairs for definitions whose id is marker-linked, in document order."""
+        if self.definition == 'empty-anchor':
+            for a in soup.find_all('a', id=True):
+                if a.get('id') in linked and self._is_empty_anchor(a):
+                    yield a, a.get('id')
+        elif self.definition == 'note-heading':
+            for h in soup.find_all(list(_HEADINGS)):
+                if h.get('id') in linked and self._NOTE_HEADING_RE.match(h.get_text(strip=True)):
+                    yield h, h.get('id')
+        else:                                                  # 'self-anchored-block'
+            # The id sits ON the content block. A high-confidence marker (a CSS-superscript / <sup> link) has
+            # ALREADY vouched the target is a note (page-refs aren't superscript), so we accept any non-heading
+            # block it points at. A low-confidence 'any-href' marker still needs the block's text to start with
+            # the note number (so a heading/page anchor that happens to be linked isn't grabbed).
+            require_num = self.marker not in ('styled-superscript', 'sup-link')
+            for el in soup.find_all(['div', 'p', 'blockquote', 'li']):
+                eid = el.get('id')
+                if eid not in linked or el.name in _HEADINGS:
+                    continue
+                txt = el.get_text(strip=True)
+                if not txt:
+                    continue
+                if require_num and not self._NUM_PREFIX_RE.match(txt):
+                    continue
+                yield el, eid
+
+    def _collect_content(self, el, linked):
+        sibs = []
+        for sib in el.find_next_siblings():
+            if sib.name in _HEADINGS:
+                break
+            if self.boundary == 'heading-or-anchor' and self._is_empty_anchor(sib) and sib.get('id') in linked:
+                break                                          # the next footnote's anchor
+            sibs.append(sib)
+        return sibs
+
+    def _has_content(self, sibs):
+        if self._require_text:
+            return any(s.get_text(strip=True) for s in sibs)   # excludes anchor-before-heading TOC targets
+        return bool(sibs)
 
     def detect(self, soup) -> bool:
         linked = self._linked_ids(soup)
         if not linked:
             return False
-        for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-            if h.get('id') in linked and self._NOTE_HEADING_RE.match(h.get_text(strip=True)):
+        for el, _id in self._definitions(soup, linked):
+            if not self._detect_requires_content:
+                return True
+            if self._has_content(self._collect_content(el, linked)):
                 return True
         return False
 
     def transform(self, soup, log) -> dict:
         linked = self._linked_ids(soup)
         footnotes = []
-        # Collect definition headings up front (document order) before mutating.
-        defs = [
-            h for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-            if h.get('id') in linked and self._NOTE_HEADING_RE.match(h.get_text(strip=True))
-        ]
-        for h in defs:
-            note_id = h.get('id')
-            # Definition content = following siblings until the next heading.
-            content_sibs = []
-            for sib in h.find_next_siblings():
-                if getattr(sib, 'name', None) in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
-                    break
-                content_sibs.append(sib)
-            if not content_sibs:
+        for el, note_id in list(self._definitions(soup, linked)):   # materialise before mutating
+            if self.content == 'self':
+                # The id-bearing block IS the note. Retag it <aside> so SectionUnwrapper (which runs next and
+                # div.unwrap()s plain containers) PRESERVES it — otherwise the captured element is emptied
+                # before linking. Keeps id + content; the converter's extract_footnote_content() pulls the
+                # children and strips the leading "N." number.
+                el.name = 'aside'
+                self._strip_self_backlink(el)
+                if self.strip_number:
+                    self._strip_leading_number(el)
+                footnotes.append({'id': note_id, 'element': el,
+                                  'type': self.note_type, 'strategy': self.strategy})
                 continue
-            # Consolidate into one block element carrying the note id; drop the
-            # "Note N" heading label (redundant with the in-text marker).
-            wrapper = soup.new_tag('div')
-            wrapper['id'] = note_id
-            for sib in content_sibs:
-                wrapper.append(sib.extract())
-            h.replace_with(wrapper)
-            footnotes.append({
-                'id': note_id,
-                'element': wrapper,
-                'type': 'endnote',
-                'strategy': 'anchor_heading',
-            })
-
-        # Normalise in-text marker text "Note 33" -> "33" so the converter renders
-        # a clean numeric superscript instead of the verbose "Note 33" label.
-        fn_ids = {fn['id'] for fn in footnotes}
-        for a in soup.find_all('a', href=True):
-            href = a.get('href', '')
-            if href.startswith('#') and href[1:] in fn_ids:
-                m = self._NOTE_MARKER_RE.match(a.get_text(strip=True))
-                if m:
-                    a.string = m.group(1)
-
-        log(f"    Total: {len(footnotes)} anchor-heading endnote definitions")
-        return {'footnotes': footnotes, 'noterefs': []}
-
-
-class InlineAnchorNoteFootnoteDetector(EpubTransform):
-    """
-    Detect footnotes encoded as an EMPTY inline anchor whose note text lives in the FOLLOWING block:
-
-        <a href="ch048.xhtml#p2001a9d08940418007"><sup>1</sup></a>   (in-text marker)
-        ...
-        <a id="p2001a9d08940418007"> </a>                            (empty definition anchor)
-        <div class="hangingpara"><p class="smallhangingpara">1 The note text…</p></div>   (the content)
-
-    The marker's href-fragment equals the definition anchor's id, so it pairs 100% by id (never by
-    number — survives per-chapter numbering restarts). The other detectors miss it: the id is opaque
-    (matches no fn/en ID_PATTERN), and the inline <a> anchor is empty, so the linker's
-    ReverseDefinitionLookup skips it as a non-block element. We consolidate "<a id=X></a> + its following
-    block(s)" into a single <div id=X> (like AnchorHeadingFootnoteDetector) so the standard converter
-    extracts + links it.
-
-    PRECISE — matched ONLY when the anchor is (a) EMPTY, (b) the target of an in-text <a href=#X> marker,
-    and (c) immediately followed by a NON-HEADING content block. A TOC entry's target is a chapter
-    heading/section, not an empty-anchor+note-block, so it is structurally excluded (no over-matching).
-    """
-
-    name = "InlineAnchorNoteFootnoteDetector"
-    description = "Footnotes as empty <a id=X></a> + following note block, linked by <a href=#X><sup>"
-    plain = ('Footnotes whose definition is an EMPTY inline <a id=X></a> anchor followed by the note '
-             'paragraph, linked by an in-text <a href="#X"><sup>N</sup></a>. Matched by id correspondence '
-             '(never by number); a TOC link’s target has no following note block, so it is excluded.')
-
-    _LEADING_NUM_RE = re.compile(r'^\s*\d{1,4}[.\)\s]\s*')
-
-    def _linked_ids(self, soup):
-        """Ids targeted by a FOOTNOTE MARKER specifically — an <a href="#X"> associated with a <sup>
-        (the marker carries the superscript number). NOT every internal-link target: page-number nav and
-        cross-references also point at empty anchors, and treating those as footnotes over-matches."""
-        ids = set()
-        for a in soup.find_all('a', href=True):
-            href = a.get('href', '')
-            if '#' not in href:
-                continue
-            if a.find('sup') or a.find_parent('sup'):          # <a><sup>N</sup></a> or <sup><a>N</a></sup>
-                ids.add(href.split('#', 1)[1])
-        return ids
-
-    @staticmethod
-    def _is_empty_anchor(a):
-        return a.name == 'a' and a.get('id') and not a.get('href') and a.get_text(strip=True) == ''
-
-    def _candidates(self, soup, linked):
-        """Empty <a id=X> anchors whose id is marker-linked, in document order."""
-        return [a for a in soup.find_all('a', id=True)
-                if a.get('id') in linked and self._is_empty_anchor(a)]
-
-    def detect(self, soup) -> bool:
-        linked = self._linked_ids(soup)
-        if not linked:
-            return False
-        # True if ANY candidate is a real footnote (first real following sibling is a content block, not a
-        # heading). Must scan all candidates: the first is often a "NOTES" section anchor with no content.
-        for a in self._candidates(soup, linked):
-            for sib in a.find_next_siblings():
-                if getattr(sib, 'name', None) is None:        # whitespace NavigableString
-                    continue
-                if sib.name not in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6') and sib.get_text(strip=True):
-                    return True
-                break                                          # not a footnote — try the next candidate
-        return False
-
-    def transform(self, soup, log) -> dict:
-        linked = self._linked_ids(soup)
-        footnotes = []
-        for a in self._candidates(soup, linked):
-            note_id = a.get('id')
-            # Content = following siblings up to the next empty anchor (the next footnote) or a heading.
-            content_sibs = []
-            for sib in a.find_next_siblings():
-                nm = getattr(sib, 'name', None)
-                if nm is None:                                # whitespace
-                    if content_sibs:
-                        content_sibs.append(sib)
-                    continue
-                if nm in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
-                    break
-                if nm == 'a' and self._is_empty_anchor(sib) and sib.get('id') in linked:
-                    break                                     # the next footnote's anchor
-                content_sibs.append(sib)
-            # Require at least one real content block (excludes anchor-before-heading TOC targets).
-            if not any(getattr(s, 'name', None) and s.get_text(strip=True) for s in content_sibs):
+            content_sibs = self._collect_content(el, linked)
+            if not self._has_content(content_sibs):
                 continue
             wrapper = soup.new_tag('div')
             wrapper['id'] = note_id
             for sib in content_sibs:
                 wrapper.append(sib.extract())
-            self._strip_leading_number(wrapper)
-            a.replace_with(wrapper)                            # the empty anchor is gone; id lives on the div
+            if self.strip_number:
+                self._strip_leading_number(wrapper)
+            el.replace_with(wrapper)
             footnotes.append({'id': note_id, 'element': wrapper,
-                              'type': 'footnote', 'strategy': 'inline_anchor_note'})
-        log(f"    Total: {len(footnotes)} inline-anchor note definitions")
+                              'type': self.note_type, 'strategy': self.strategy})
+        if self.normalize_marker:
+            # Rewrite a verbose "Note 33" marker → "33" so the converter renders a clean numeric superscript.
+            fn_ids = {fn['id'] for fn in footnotes}
+            for a in soup.find_all('a', href=True):
+                href = a.get('href', '')
+                if href.startswith('#') and href[1:] in fn_ids:
+                    m = self._NOTE_MARKER_RE.match(a.get_text(strip=True))
+                    if m:
+                        a.string = m.group(1)
+        log(f"    Total: {len(footnotes)} {self.strategy} definitions")
         return {'footnotes': footnotes, 'noterefs': []}
+
+    _BACKLINK_RE = re.compile(r'^[\s\[]*[←↩⤴⬆]')   # a self-anchored def often opens with "[←N]" back-link
+
+    def _strip_self_backlink(self, el):
+        """Remove a leading back-link from a self-anchored note (e.g. `[<a href="#ref">←1</a>] text` → `text`).
+        The back-arrow anchor points back to the in-text marker — noise once the note is its own block."""
+        removed = False
+        for a in list(el.find_all('a')):
+            if self._BACKLINK_RE.match(a.get_text(strip=True) or ''):
+                a.decompose()
+                removed = True
+        if not removed:
+            return    # don't touch brackets in notes that legitimately open with "[" (no back-link)
+        # Strip the leading whitespace/brackets the removed "[ … ]" anchor left behind (split across nodes).
+        for ns in list(el.descendants):
+            if not isinstance(ns, NavigableString) or not str(ns).strip():
+                continue
+            cleaned = re.sub(r'^[\s\[\]]+', '', str(ns))
+            if cleaned != str(ns):
+                ns.replace_with(cleaned)
+            if cleaned.strip():
+                break
 
     def _strip_leading_number(self, wrapper):
-        """Drop the leading footnote number (e.g. '1 ') from the note text — it's redundant with the
-        in-text marker the converter renders."""
+        """Drop the leading footnote number (e.g. '1 ') from the note text — redundant with the marker."""
         for ns in wrapper.descendants:
             if isinstance(ns, NavigableString) and ns.strip():
                 new = self._LEADING_NUM_RE.sub('', str(ns), count=1)
                 if new != str(ns):
                     ns.replace_with(new)
                 return
+
+
+class AnchorHeadingFootnoteDetector(AnchoredFootnoteScheme):
+    """Endnotes as <hN id=X>Note N</hN> + following content, linked by an in-text <a href="#X">Note N</a>.
+    A Calibre/InDesign export shape; matched by id correspondence (not number). Now a thin instance of the
+    AnchoredFootnoteScheme family (definition='note-heading')."""
+
+    # CLASS attributes (the pipeline-map / notes generators + _DETECTOR_NEEDS test read these off the class).
+    name = 'AnchorHeadingFootnoteDetector'
+    description = "Endnotes as <hN id=X>Note N</hN> + content, linked by <a href=#X>"
+    plain = ('Endnotes written as HEADINGS: <hN id=X>Note N</hN> + its content, linked by an in-text '
+             '<a href="#X">. Matched by id correspondence (not number), so it survives per-chapter '
+             'numbering restarts.')
+
+    def __init__(self):
+        super().__init__(marker='any-href', definition='note-heading',
+                         note_type='endnote', strategy='anchor_heading')
+
+
+class InlineAnchorNoteFootnoteDetector(AnchoredFootnoteScheme):
+    """Footnotes whose definition is an EMPTY inline <a id=X></a> anchor followed by the note paragraph,
+    linked by an in-text <a href="#X"><sup>N</sup></a> (schumpeter's scheme). Now a thin instance of the
+    AnchoredFootnoteScheme family (marker='sup-link', definition='empty-anchor')."""
+
+    name = 'InlineAnchorNoteFootnoteDetector'
+    description = "Footnotes as empty <a id=X></a> + following note block, linked by <a href=#X><sup>"
+    plain = ('Footnotes whose definition is an EMPTY inline <a id=X></a> anchor followed by the note '
+             'paragraph, linked by an in-text <a href="#X"><sup>N</sup></a>. Matched by id '
+             'correspondence (never by number); a TOC link’s target has no following note block.')
+
+    def __init__(self):
+        super().__init__(marker='sup-link', definition='empty-anchor',
+                         note_type='footnote', strategy='inline_anchor_note')
+
+
+class StyledSuperscriptFootnoteDetector(AnchoredFootnoteScheme):
+    """The Stage-2 companion to StyleHeadingDetector — footnotes in obfuscated EPUBs where the in-text marker
+    is an inline <a href="#X">N</a> styled as SUPERSCRIPT by CSS (vertical-align:super) rather than a literal
+    <sup>, and the definition is a numbered self-anchored block <div id="X">N. text…</div>.
+
+    The superscript styling (read from the StyleProfiler) is what distinguishes a footnote marker from an
+    ordinary same-shaped page-reference link (Gramsci has thousands of `see pp. 382` links that are NOT
+    superscript). A thin instance of the AnchoredFootnoteScheme family
+    (marker='styled-superscript', definition='self-anchored-block'). Inert without CSS."""
+
+    name = 'StyledSuperscriptFootnoteDetector'
+    description = "Footnotes via CSS-superscript <a> markers + numbered self-anchored <div id=X> defs"
+    plain = ('Footnotes in OBFUSCATED EPUBs: the in-text marker is an <a href="#X">N</a> styled superscript '
+             'by CSS (vertical-align:super) — NOT a literal <sup> — and the definition is a numbered block '
+             '<div id="X">N. text</div>. The superscript style separates real markers from look-alike '
+             'page-reference links. Reads the CSS via the StyleProfiler; inert without it.')
+
+    def __init__(self):
+        super().__init__(marker='styled-superscript', definition='self-anchored-block', content='self',
+                         strip_number=True, note_type='footnote', strategy='styled_superscript')
+
+    def detect(self, soup) -> bool:
+        if self.profiler is None or not getattr(self.profiler, 'has_css', False):
+            return False
+        return super().detect(soup)
 
 
 class HeuristicFootnoteDetector(EpubTransform):

@@ -275,14 +275,15 @@ def _epub_blocks(nodes):
 
     # Segment the pipeline by RUNTIME position: Phase 1 (pre-footnote) splits into structural + heading;
     # Phase 2 = the footnote fan; Phase 3 = bibliography; Phase 4 = whatever runs AFTER the footnotes.
-    first_foot = next(i for i, t in enumerate(pipeline) if cat(t) == 'footnote')
     last_foot = max(i for i, t in enumerate(pipeline) if cat(t) == 'footnote')
-    pre, post = pipeline[:first_foot], pipeline[last_foot + 1:]
-    structural = [t for t in pre if cat(t) == 'other']                 # Phase-1 structural cleanup
+    # Category-based segmentation: a footnote detector may run in PHASE 1 (StyledSuperscriptFootnoteDetector
+    # must precede SectionUnwrapper, which would otherwise unwrap its id-bearing def blocks), so the footnote
+    # detectors are NOT one contiguous slice — segment by category, not by position.
+    structural = [t for i, t in enumerate(pipeline) if cat(t) == 'other' and i < last_foot]  # Phase-1 cleanup
     headings = [t for t in pipeline if cat(t) == 'heading']            # Phase-1 heading strategies
-    detectors = pipeline[first_foot:last_foot + 1]                     # Phase-2 footnote schemes
-    biblio = [t for t in post if cat(t) == 'bibliography']             # Phase-3 bibliography section
-    final = [t for t in post if cat(t) != 'bibliography']              # Phase-4 final normalisation
+    detectors = [t for t in pipeline if cat(t) == 'footnote']          # Phase-2 footnote schemes
+    biblio = [t for t in pipeline if cat(t) == 'bibliography']         # Phase-3 bibliography section
+    final = [t for i, t in enumerate(pipeline) if cat(t) == 'other' and i > last_foot]       # Phase-4 final
 
     def short(name):
         for suf in ('FootnoteDetector', 'HeadingDetector', 'Detector', 'Converter', 'Unwrapper',

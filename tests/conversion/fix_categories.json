@@ -33,6 +33,21 @@
       "added_in": "v1"
     },
     {
+      "id": "add_epub_footnote_scheme",
+      "name": "Register a declarative EPUB footnote scheme (no class to write)",
+      "scope": "model",
+      "symptom": "An EPUB's footnotes are ID-ANCHORED — an in-text <a href=\"#X\"> (often with a <sup>) points at a definition by id (an empty <a id=X></a> or an <hN id=X>Note N</hN>), with the note text in the following block. The raw-marker samples show the scheme but footnotes_matched is 0. PREFER THIS over hand-writing a detector — it can't crash at runtime.",
+      "stage": "epub-frontend",
+      "file": "app/Python/ingestion/epub/footnoteMatching.py · app/Python/ingestion/epub/epub_normalizer.py",
+      "slot": "the TRANSFORM_PIPELINE list in epub_normalizer.py (the registration point) — AnchoredFootnoteScheme is already defined+imported, so NO op:add is needed.",
+      "recipe": "op:register ONE expression into TRANSFORM_PIPELINE (in epub_normalizer.py): AnchoredFootnoteScheme(name='MySchemeFootnoteDetector', marker='sup-link'|'any-href', definition='empty-anchor'|'note-heading', content='following-siblings', boundary='heading-or-anchor'|'heading', strip_number=true|false). Pick marker/definition from the RAW-marker samples in the prompt: sup-link = the <a href> carries a <sup>; empty-anchor = the definition is an empty <a id=X></a> whose note text follows. Pairs by id (never number); a target with no following note block is excluded, so it won't over-match TOC links.",
+      "expressible": "additive",
+      "risk": "very low — declarative parameters validated by the factory; if the scheme doesn't match it yields 0 footnotes (gate rejects), and a runtime error is caught per-detector. No bespoke logic to get wrong.",
+      "examples": [],
+      "status": "seed",
+      "added_in": "v1"
+    },
+    {
       "id": "extend_marker_pattern",
       "name": "Extend a marker / citation pattern",
       "scope": "model",

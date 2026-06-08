@@ -662,21 +662,10 @@ export class ImportBookTransition {
             restoreForm() {},
           });
 
-          // Check for footnote audit issues
+          // Footnote-audit issues are no longer gated by a blocking pre-scan modal:
+          // the same audit rides into the conversion feedback toast below, whose
+          // "✨ Try vibe fix" button is the proper way to repair footnotes now.
           const completedResult = completeData?.result || completeData;
-          if (completedResult?.hasFootnoteIssues && completedResult?.footnoteAudit) {
-            const userChoice = await this.showFootnoteAuditModal(completedResult.footnoteAudit, result.bookId);
-
-            if (userChoice === 'resubmit') {
-              await this.deleteImportedBook(result.bookId);
-              if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Submit';
-              }
-              if (progressUI) progressUI.restoreForm();
-              return null;
-            }
-          }
 
           // Update IndexedDB library record with server-extracted metadata
           if (completedResult?.updatedLibrary) {
@@ -757,20 +746,8 @@ export class ImportBookTransition {
         throw new Error('No bookId returned from backend');
       }
 
-      // Check for footnote audit issues before proceeding
-      if (result.hasFootnoteIssues && result.footnoteAudit) {
-        const userChoice = await this.showFootnoteAuditModal(result.footnoteAudit, result.bookId);
-
-        if (userChoice === 'resubmit') {
-          await this.deleteImportedBook(result.bookId);
-
-          if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Submit';
-          }
-          return null;
-        }
-      }
+      // (No blocking footnote-audit pre-scan — issues surface in the feedback toast
+      // below, with "✨ Try vibe fix" as the repair path.)
 
       // Pre-load the book's content into IndexedDB
       try {

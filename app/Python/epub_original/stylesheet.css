@@ -1,0 +1,5 @@
+/* The footnote MARKER is distinguished from a same-shaped page-reference link ONLY by being superscript. */
+.bodytext { font-family: Georgia, serif; }
+.fnmark   { vertical-align: super; font-size: 0.8em; }    /* footnote marker */
+.pref     { color: blue; text-decoration: underline; }    /* page-reference link — NOT a footnote */
+.ntx      { font-family: Georgia, serif; }                 /* note definition block (neutral class) */

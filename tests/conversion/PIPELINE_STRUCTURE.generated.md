@@ -2,7 +2,7 @@
 
 > Built by `gen_pipeline_tree.py` from the actual `app/Python/{ingestion,digestion,shared}/`
 > tree + the decision registries in each module. Do NOT hand-edit — re-run the generator. A
-> no-drift test pins it. (50 per-unit `plain` notes feed the LLM report + the viewer.)
+> no-drift test pins it. (52 per-unit `plain` notes feed the LLM report + the viewer.)
 
 ## ingestion/ — read each input format → the common HTML (one folder per format)
 ```
@@ -14,6 +14,7 @@ epub/
   footnoteMatching.py — Phase 2 — footnote matching
   headingMatching.py — Phase 1 — heading matching
   structuralNormalisation.py — Phase 1 — structural normalisation
+  styleProfiler.py — Phase ① helper — the "universal key" for cooked EPUBs: read the CSS and classify element…
 html/
   ar5iv_preprocessor.py — ar5iv → Hyperlit preprocessor
 markdown_and_pdf_to_html/

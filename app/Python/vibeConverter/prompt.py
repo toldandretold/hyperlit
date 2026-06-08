@@ -209,6 +209,26 @@ def build_diagnostic_context(art, modules, user_note=None, issue_types=None):
             f"the scheme against these VERBATIM samples from the source, then teach the EPUB footnote "
             f"detector / strategy selector to recognise it (look UPSTREAM of the linker and audit):\n- "
             + "\n- ".join(raw_samples))
+        # The robust path for the common case: id-anchored markers. Instead of hand-writing a detector
+        # (which can crash at runtime), register a DECLARATIVE scheme — the factory is tested + safe.
+        if art.get('is_epub'):
+            parts.append(
+                "## EASIEST FIX for id-anchored EPUB footnotes — register a declarative scheme (no class to write)\n"
+                "If the marker is an `<a href=\"#X\">` (usually carrying a `<sup>`) that points BY ID at a "
+                "definition — an empty `<a id=X></a>` (note text in the following block) or an `<hN id=X>Note N</hN>` "
+                "— do NOT write a detector. `AnchoredFootnoteScheme` already handles this family; just op:register "
+                "ONE instance into `TRANSFORM_PIPELINE` (in epub_normalizer.py):\n"
+                "  AnchoredFootnoteScheme(name='MySchemeFootnoteDetector', marker='sup-link', "
+                "definition='empty-anchor', content='following-siblings', boundary='heading-or-anchor', "
+                "strip_number=True)\n"
+                "Pick the parameters from the VERBATIM samples above:\n"
+                "  • marker:     'sup-link' (the <a href> carries a <sup>)  |  'any-href' (any <a href=#X>)\n"
+                "  • definition: 'empty-anchor' (empty <a id=X></a> + note follows)  |  'note-heading' (<hN id=X>Note N</hN>)\n"
+                "  • boundary:   'heading-or-anchor' (stop at the next note anchor)  |  'heading'\n"
+                "  • strip_number: drop a leading '1 ' from the note text\n"
+                "It pairs ONLY by id (never by number) and ignores targets with no following note block, so it "
+                "won't over-match TOC/page links. If the scheme is NOT id-anchored (table layout, number-paired, "
+                "etc.), fall back to op:add a bespoke EpubTransform (the add_epub_detector category).")
     ctx = _markup_in_context(art)
     if ctx:
         parts.append("## Markup in context (a reference + a definition INSIDE their block — the element "

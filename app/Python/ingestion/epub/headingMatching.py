@@ -618,3 +618,172 @@ class StyledSectionTitleHeadingDetector(EpubTransform):
         if converted:
             log(f"  Converted {converted} section-title paragraphs to headings")
         return {'converted': converted}
+
+
+class StyleHeadingDetector(EpubTransform):
+    """The "universal key" for cooked EPUBs — recover headings by reading the CSS and building the book's
+    own FONT HIERARCHY, instead of matching hardcoded class names.
+
+    Obfuscated Calibre exports (e.g. `<div class="class33">CHAPTER</div>`) carry no semantic heading markup,
+    but the stylesheet defines `.class33` as bold / small-caps / centred / larger. This detector:
+      1. finds the body BASELINE (the style covering the most running text),
+      2. scores every other style's PROMINENCE relative to it across ALL axes (size, weight, family-switch,
+         centring, caps, spacing) — no single axis hardcoded, so whatever a given book uses surfaces,
+      3. clusters the above-baseline styles into TIERS → heading levels (most prominent → h1, next → h2…),
+      4. corroborates with toc.ncx (authoritative for which blocks are headings + their level).
+
+    It is a LAST-RESORT FALLBACK: it self-gates to engage only when the structural/semantic detectors left a
+    big shortfall vs the TOC, so it can never disturb the (vast majority of) books that already recover
+    headings. Inert unless real CSS was found. See styleProfiler.StyleProfiler / TocIndex.
+    """
+
+    name = "StyleHeadingDetector"
+    description = "Recover headings from the CSS font hierarchy (cooked EPUBs)"
+    plain = ('Last-resort heading recovery for OBFUSCATED EPUBs whose titles are styled <div>s with '
+             'meaningless class names (class33, class57…). Reads the CSS, finds the body baseline, ranks every '
+             'other style by how much bigger/bolder/more-centred/caps it is, and the prominence TIERS become '
+             'h1/h2/h3 — corroborated by toc.ncx. Only fires when the other heading detectors fell short of '
+             'the TOC, so it never disturbs books that already work.')
+
+    _MIN_PROMINENCE = 2.0          # a style must clearly out-rank body to be a heading on style alone
+    _MAX_HEADING_LEN = 200        # a heading is a short single line
+    _SHORTFALL_RATIO = 0.5        # engage only if recovered headings < this fraction of the TOC's count
+    _BLOCK_DESC = ['p', 'div', 'blockquote', 'table', 'ul', 'ol', 'li', 'figure', 'section']
+    _HTAGS = ('h1', 'h2', 'h3', 'h4', 'h5', 'h6')
+
+    def __init__(self):
+        self.profiler = None
+        self.toc = None
+        self._plan = []
+
+    def set_style_context(self, profiler, toc_index):
+        self.profiler = profiler
+        self.toc = toc_index
+
+    def _is_heading_shape(self, el):
+        txt = el.get_text(strip=True)
+        if not txt or len(txt) > self._MAX_HEADING_LEN:
+            return False
+        return el.find(self._BLOCK_DESC) is None      # no block-level descendants → a single line
+
+    @staticmethod
+    def _categorical(sig, base):
+        """Does the style differ from baseline on a CATEGORICAL axis (bold / caps / centred / family-switch)?
+        A pure size bump (epigraph, block-quote, first-line) is NOT a heading — requiring a categorical
+        signal filters those out, while staying axis-agnostic (any ONE of the four qualifies)."""
+        if sig is None:
+            return False
+        if sig.bold and not (base and base.bold):
+            return True
+        if sig.caps:
+            return True
+        if sig.text_align == 'center' and not (base and base.text_align == 'center'):
+            return True
+        if (sig.serif is not None and base is not None and base.serif is not None
+                and sig.serif != base.serif):
+            return True
+        return False
+
+    @staticmethod
+    def _norm(text):
+        return re.sub(r'\s+', ' ', (text or '')).strip().lower()
+
+    def _level_for(self, prominence, toc_depth):
+        """toc.ncx is authoritative for LEVEL when the block is a nav target; otherwise map prominence to a
+        coarse band (more prominent → higher level). HeadingNormalizer later closes any gaps."""
+        if toc_depth is not None:
+            return min(max(toc_depth, 1), 6)
+        if prominence >= 4.0:
+            return 1
+        if prominence >= 2.8:
+            return 2
+        return 3
+
+    def _plan_headings(self, soup):
+        from collections import defaultdict
+        prof = self.profiler
+        blocks = soup.find_all(['div', 'p', 'blockquote'])
+        if not blocks:
+            return []
+        # Tally running text per distinct style → the dominant style (most text) is the body baseline.
+        text_by_key, sig_by_key = defaultdict(int), {}
+        for el in blocks:
+            sig = prof.fingerprint(el)
+            k = sig.key() if sig else None
+            sig_by_key[k] = sig
+            text_by_key[k] += len(el.get_text(strip=True))
+        baseline = sig_by_key.get(max(text_by_key, key=text_by_key.get))
+        # A style is a HEADING style if it is clearly more prominent than body AND differs categorically
+        # (not just a size bump). prominence is the axis-agnostic font-hierarchy score.
+        prom_by_key = {k: prof.prominence(sig, baseline) for k, sig in sig_by_key.items()}
+        heading_styles = {k for k, p in prom_by_key.items()
+                          if p >= self._MIN_PROMINENCE and self._categorical(sig_by_key[k], baseline)}
+        toc = self.toc
+
+        def block_of(el):
+            while el is not None and getattr(el, 'name', None) not in ('div', 'p', 'blockquote') + self._HTAGS:
+                el = el.parent
+            return el
+
+        plan, seen = [], set()
+        # (1) STYLE decides presence — every block in a heading style (one short line).
+        for el in blocks:
+            if el.name in self._HTAGS or id(el) in seen or not self._is_heading_shape(el):
+                continue
+            sig = prof.fingerprint(el)
+            k = sig.key() if sig else None
+            if k not in heading_styles:
+                continue
+            eid = el.get('id')
+            toc_depth = toc.depth_for_id(eid) if (eid and toc) else None
+            plan.append((el, self._level_for(prom_by_key.get(k, 0), toc_depth)))
+            seen.add(id(el))
+        # (2) toc.ncx CATCHES headings whose style is too subtle — but only when the nav anchor genuinely
+        # sits on its title (the block's text matches the nav label), so mis-anchored TOCs (anchor on a
+        # body paragraph / page number) can't promote non-headings.
+        if toc:
+            for pid, depth in toc._depth.items():
+                target = soup.find(id=pid)
+                if target is None:
+                    continue
+                blk = block_of(target)
+                if blk is None or id(blk) in seen or blk.name in self._HTAGS:
+                    continue
+                if not self._is_heading_shape(blk):
+                    continue
+                label = toc.label_for_id(pid)
+                if label and self._norm(blk.get_text()) == self._norm(label):
+                    plan.append((blk, min(max(depth, 1), 6)))
+                    seen.add(id(blk))
+        return plan
+
+    def detect(self, soup) -> bool:
+        self._plan = []
+        if not self.profiler or not self.profiler.has_css:
+            return False
+        existing = len(soup.find_all(list(self._HTAGS)))
+        toc_n = self.toc.navpoint_count if self.toc else 0
+        # Fallback gate — only engage on a big shortfall vs the TOC (so books that already recover their
+        # headings are untouched). With no usable TOC, engage only when nothing else found headings.
+        if toc_n > 0 and existing >= toc_n * self._SHORTFALL_RATIO:
+            return False
+        if toc_n == 0 and existing > 0:
+            return False
+        self._plan = self._plan_headings(soup)
+        return bool(self._plan)
+
+    def transform(self, soup, log) -> dict:
+        converted = 0
+        for el, level in self._plan:
+            if el.name in self._HTAGS:
+                continue
+            eid = el.get('id')
+            el.name = f'h{level}'
+            el.attrs = {}
+            if eid:
+                el['id'] = eid
+            for a in el.find_all('a'):     # drop any TOC back-link / inner anchor, keep the title text
+                a.unwrap()
+            converted += 1
+        log(f"    Recovered {converted} headings from the CSS font hierarchy")
+        return {'headings_converted': converted}

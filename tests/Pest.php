@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Feature\Api\Support\InteractsWithApi;
 use Tests\TestCase;
 
 /*
@@ -15,6 +16,10 @@ use Tests\TestCase;
 */
 
 uses(TestCase::class, RefreshDatabase::class)->in('Feature');
+
+// API endpoint suite: bind the shared helper trait (loginUser/makeBook/anonSession/
+// assertApiError) to every test under tests/Feature/Api/. See InteractsWithApi.
+uses(InteractsWithApi::class)->in('Feature/Api');
 
 /*
 |--------------------------------------------------------------------------

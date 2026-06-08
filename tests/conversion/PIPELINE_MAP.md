@@ -125,6 +125,9 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  │     split into siblings (folders mirror the tree): unzip+combine (epub_normalizer) →
 │  │     structuralNormalisation.py → headingMatching.py → footnoteMatching.py → bibliographyDetection.py
 │  │     → finalNormalisation.py
+│  │     styleProfiler.py (zero-import leaf): the CSS "universal key" — parses the stylesheet into per-class
+│  │     typographic fingerprints + toc.ncx (TocIndex); feeds StyleHeadingDetector + StyledSuperscript-
+│  │     FootnoteDetector to recover headings/footnotes from OBFUSCATED (cooked) EPUBs by appearance
 │  │     TRANSFORM_PIPELINE: structural-normalise → heading-detect → footnote-detect
 │  │       {epub3_semantic|aria_role|class_pattern|anchor_heading|notes_class|
 │  │        endnote_characters|table|heuristic | pre_processed ∅ | none ✗}  → FOOTNOTE_LINK_RULES

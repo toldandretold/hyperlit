@@ -74,11 +74,12 @@ import random
 import string
 import json
 from abc import ABC, abstractmethod
-from ebooklib import epub, ITEM_DOCUMENT
+from ebooklib import epub, ITEM_DOCUMENT, ITEM_STYLE, ITEM_NAVIGATION
 from bs4 import BeautifulSoup, NavigableString
 import bleach
 
 from digestion.footnoteLinking.footnote_link_rules import link_epub_footnotes
+from ingestion.epub.styleProfiler import StyleProfiler, TocIndex, spine_id_prefix
 
 
 # =============================================================================
@@ -193,6 +194,7 @@ from ingestion.epub.headingMatching import (  # noqa: E402,F401
     StyledSectionTitleHeadingDetector,
     DivToSemanticConverter,
     CSSClassHeadingDetector,
+    StyleHeadingDetector,
 )
 from ingestion.epub.footnoteMatching import (  # noqa: E402,F401
     Epub3SemanticFootnoteDetector,
@@ -203,8 +205,10 @@ from ingestion.epub.footnoteMatching import (  # noqa: E402,F401
     PandocFootnoteDetector,
     EndnoteCharactersFootnoteDetector,
     EnoteFootnoteDetector,
+    AnchoredFootnoteScheme,                # the declarative id-anchored family (vibe loop can op:register one)
     AnchorHeadingFootnoteDetector,
     InlineAnchorNoteFootnoteDetector,
+    StyledSuperscriptFootnoteDetector,
     HeuristicFootnoteDetector,
     FootnoteConverter,
 )
@@ -234,9 +238,14 @@ TRANSFORM_PIPELINE = [
     EmptyElementRemover(),              # Remove empty <div> and <p> spacers
     SpanUnwrapper(),                    # Unwrap remaining styling-only spans
     CalibreClassStripper(),             # Strip calibreN classes from all elements
+    StyleHeadingDetector(),             # FALLBACK: recover headings from the CSS font hierarchy — MUST run
+                                        # before DivToSemanticConverter (which converts <div>→<p> + resets the
+                                        # classNN this reads); after CalibreClassStripper (touches only calibreN)
     DivToSemanticConverter(),           # Convert semantic class divs to proper elements
     CSSClassHeadingDetector(),          # Convert CSS-classed <p> to headings (publisher formats)
     ImageProcessor(),                   # Copy images to storage, fix paths, convert to <figure>
+    StyledSuperscriptFootnoteDetector(),  # CSS-superscript markers + numbered self-anchored defs — MUST run
+                                        # before SectionUnwrapper (which div.unwrap()s the id-bearing def blocks)
     SectionUnwrapper(),                 # Unwrap section/div containers for node chunking
 
     # Phase 2: Footnote detection (multiple strategies, results accumulate)
@@ -356,6 +365,12 @@ class EpubNormalizer:
         self.combined_soup = None
         self.debug_log = None
         self.results = {}  # Accumulated results from all transforms
+        # The "universal key" for cooked EPUBs — populated by the loaders (CSS + toc.ncx collection),
+        # consumed by style-driven detectors via set_style_context(). None/empty ⇒ those detectors no-op.
+        self._raw_css = ""
+        self._toc_ncx_xml = None
+        self.style_profiler = None
+        self.toc_index = None
 
     def _progress(self, pct, stage, detail=""):
         """Emit a machine-readable progress line for the PHP job runner."""
@@ -385,6 +400,14 @@ class EpubNormalizer:
                     self._load_from_directory()
                 else:
                     self._load_from_epub_file()
+
+                # Build the "universal key" from the collected CSS + toc.ncx. Both no-op gracefully when
+                # absent (the whole existing corpus has no CSS), so style-driven detectors stay inert there.
+                self.style_profiler = StyleProfiler.from_css_text(self._raw_css)
+                self.toc_index = TocIndex.from_ncx(self._toc_ncx_xml)
+                if self.style_profiler.has_css:
+                    self._log(f"StyleProfiler: {len(self.style_profiler._class_rules)} class styles parsed; "
+                              f"TocIndex: {self.toc_index.navpoint_count} navPoints")
 
                 # Step 1b: Snapshot the RAW structural fingerprint (tags + classes the publisher used) BEFORE
                 # the pipeline strips them — a human/LLM-readable record of how this book fakes structure.
@@ -451,6 +474,12 @@ class EpubNormalizer:
         """Run all transforms in the pipeline."""
         all_footnotes = []
         all_noterefs = []
+        # Running guards for the footnote accumulation below: dedupe by ID *and* by source
+        # element identity. The element guard is the structural invariant — see the comment
+        # at the accumulation site.
+        seen_fn_ids = set()
+        seen_fn_elements = set()
+        self._fn_element_dups = 0
 
         # Track every footnote DETECTOR's detect() verdict (and how many it found) so the
         # assessment can record the "considered but rejected" set — the detectors that ran
@@ -474,6 +503,10 @@ class EpubNormalizer:
             # Set context for transforms that need it
             if isinstance(transform, ImageProcessor):
                 transform.set_context(self.book_id, self.source_root)
+            # Hand style-driven detectors the parsed CSS + toc.ncx (duck-typed, so any future
+            # style-aware transform opts in just by defining set_style_context).
+            if hasattr(transform, 'set_style_context'):
+                transform.set_style_context(self.style_profiler, self.toc_index)
 
             detected = False
             found_here = 0
@@ -486,10 +519,31 @@ class EpubNormalizer:
                     # Accumulate footnotes from all detectors
                     if 'footnotes' in result:
                         found_here = len(result['footnotes'])
-                        # Deduplicate by ID
                         for fn in result['footnotes']:
-                            if not any(existing['id'] == fn['id'] for existing in all_footnotes):
-                                all_footnotes.append(fn)
+                            fid = fn.get('id')
+                            elem = fn.get('element')
+                            # Deduplicate by ID (same note found by two detectors).
+                            if fid in seen_fn_ids:
+                                continue
+                            # STRUCTURAL INVARIANT — one source element = one footnote definition.
+                            # A footnote's content is serialized FROM its element, so two footnotes
+                            # built from the SAME element produce identical content; the second can
+                            # never win an in-text marker and just orphans. This catches the whole
+                            # duplicate-definition class UPSTREAM of any single detector — including a
+                            # future vibe-registered one that slips — not just the dual-id shape that
+                            # bit edward2016orientalism (<p class="footnote" id> + child <a id>, both
+                            # registered → 835 defs for 414 notes). Recorded (never silent): the count
+                            # rides into the assessment so a real multi-note CONTAINER mis-modelled as
+                            # one element shows up as dropped notes rather than passing unnoticed.
+                            if elem is not None and id(elem) in seen_fn_elements:
+                                self._fn_element_dups += 1
+                                self._log(f"    [dedup] dropped footnote id={fid}: shares its source "
+                                          f"element with an already-registered note (duplicate definition)")
+                                continue
+                            seen_fn_ids.add(fid)
+                            if elem is not None:
+                                seen_fn_elements.add(id(elem))
+                            all_footnotes.append(fn)
 
                     if 'noterefs' in result:
                         # Deduplicate by element identity (same DOM node found by multiple detectors)
@@ -564,6 +618,7 @@ class EpubNormalizer:
         'EnoteFootnoteDetector': '<sup class="enote…"> superscript markers',
         'AnchorHeadingFootnoteDetector': '<hN id=X>Note N</hN> definitions linked by an <a href="#X"> marker',
         'InlineAnchorNoteFootnoteDetector': 'empty <a id=X></a> + following note block, linked by an <a href="#X"><sup> marker',
+        'StyledSuperscriptFootnoteDetector': 'CSS-superscript <a href="#X">N</a> markers (vertical-align:super) + numbered self-anchored <div id="X">N. text</div> defs (obfuscated EPUBs)',
         'HeuristicFootnoteDetector': 'numbered-list / superscript heuristics (always-on fallback)',
     }
 
@@ -627,6 +682,9 @@ class EpubNormalizer:
                                    'h1 → h3, h2 → h4 (publisher classes are RELATIVE, not HTML levels)',
         'DivToSemanticConverter': 'styled <div> classes (USFM/publisher) → mt/mt1 → h1, mt2 → h2, '
                                   's/s1 → h3, psalmlabel → h2; or a numbered class (heading2 → h2)',
+        'StyleHeadingDetector': 'CSS font HIERARCHY (obfuscated EPUBs): rank styles by prominence vs the body '
+                                'baseline (size/weight/family/centre/caps) → tiers become h1/h2/h3, anchored '
+                                'by toc.ncx; fallback, only on a TOC shortfall',
     }
 
     def _write_assessment(self, all_footnotes, all_noterefs, linking=None):
@@ -673,6 +731,7 @@ class EpubNormalizer:
                 'decision': f'{len(all_footnotes)} footnote(s) via {", ".join(fired) or "heuristic fallback"}',
                 'rationale': 'detector(s) matched the source markup',
                 'evidence': {'total_footnotes': len(all_footnotes), 'by_strategy': dict(by_strategy),
+                             'duplicate_defs_dropped': getattr(self, '_fn_element_dups', 0),
                              'detector_results': fn_results},
                 'question': "Which detector identifies this EPUB's footnotes?",
                 'considered': considered,
@@ -819,6 +878,27 @@ class EpubNormalizer:
         spine = [item.get('idref') for item in root.findall('.//spine/itemref')]
         self._log(f"Manifest: {len(manifest)} items, Spine: {len(spine)} items")
 
+        # Collect the stylesheet(s) + toc.ncx for the StyleProfiler / TocIndex (the "universal key").
+        # Best-effort: a missing/broken CSS or ncx must NEVER break the conversion (the style detectors
+        # just no-op without it). Resolve hrefs relative to the OPF dir.
+        try:
+            css_parts = []
+            for item in root.findall('.//manifest/item'):
+                mtype = (item.get('media-type') or '').strip().lower()
+                href = item.get('href')
+                if not href:
+                    continue
+                path = os.path.normpath(os.path.join(opf_dir, href))
+                if mtype == 'text/css' and os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8', errors='replace') as cf:
+                        css_parts.append(cf.read())
+                elif mtype == 'application/x-dtbncx+xml' and self._toc_ncx_xml is None and os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8', errors='replace') as nf:
+                        self._toc_ncx_xml = nf.read()
+            self._raw_css = "\n".join(css_parts)
+        except Exception as e:
+            self._log(f"Warning: CSS/toc collection failed: {e}")
+
         # Combine spine items
         self.combined_soup = BeautifulSoup(
             '<html><head><title>Combined EPUB</title></head><body></body></html>',
@@ -848,7 +928,8 @@ class EpubNormalizer:
 
                 if item_body:
                     # Generate prefix from file name to avoid duplicate IDs across chapters
-                    file_prefix = os.path.splitext(os.path.basename(file_href))[0] + "_"
+                    # (SHARED with TocIndex via spine_id_prefix so toc.ncx targets resolve identically).
+                    file_prefix = spine_id_prefix(file_href)
 
                     # Collect all IDs in this chapter (before prefixing)
                     local_ids = set()
@@ -918,6 +999,24 @@ class EpubNormalizer:
         book = epub.read_epub(self.input_path)
         self._log(f"Title: {book.get_metadata('DC', 'title')}")
 
+        # Collect stylesheet(s) + toc.ncx for the StyleProfiler / TocIndex. Best-effort (never fatal).
+        try:
+            css_parts = []
+            for item in book.get_items_of_type(ITEM_STYLE):
+                try:
+                    css_parts.append(item.get_content().decode('utf-8', errors='replace'))
+                except Exception:
+                    pass
+            self._raw_css = "\n".join(css_parts)
+            for item in book.get_items_of_type(ITEM_NAVIGATION):
+                try:
+                    self._toc_ncx_xml = item.get_content().decode('utf-8', errors='replace')
+                    break
+                except Exception:
+                    pass
+        except Exception as e:
+            self._log(f"Warning: CSS/toc collection failed: {e}")
+
         self.combined_soup = BeautifulSoup(
             '<html><head><title>Combined EPUB</title></head><body></body></html>',
             'html.parser'
@@ -939,7 +1038,7 @@ class EpubNormalizer:
                 if item_body:
                     # Generate prefix from item name to avoid duplicate IDs across chapters
                     item_name = item.get_name()
-                    file_prefix = os.path.splitext(os.path.basename(item_name))[0] + "_"
+                    file_prefix = spine_id_prefix(item_name)
 
                     # Collect all IDs in this chapter (before prefixing)
                     local_ids = set()

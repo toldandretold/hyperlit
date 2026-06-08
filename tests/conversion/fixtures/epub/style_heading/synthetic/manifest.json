@@ -1,0 +1,14 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic OBFUSCATED EPUB whose headings are styled <div>s with meaningless class names (.chap, .sect) — the role lives ONLY in the CSS (sans+bold+centred vs serif body). No existing heading detector keys off these names, so StyleHeadingDetector must read the stylesheet, build the font hierarchy (chapter > section > body), and recover h1/h2, corroborated by toc.ncx. Locks in the CSS-font-hierarchy heading recovery (the antonio0101selections / Gramsci case).",
+    "book_id": "style_heading",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "detectors_fired": ["StyleHeadingDetector"]
+    }
+}

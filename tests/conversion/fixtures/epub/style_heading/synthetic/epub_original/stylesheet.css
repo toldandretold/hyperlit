@@ -1,0 +1,6 @@
+/* Obfuscated-style class names whose ROLE lives only in the CSS — the StyleHeadingDetector must read
+   this to recover the hierarchy (body = serif baseline; headings = sans + bold, chapter also centred). */
+.bodytext { font-family: Georgia, serif; margin-top: 1em; }
+.chap { font-family: Arial, sans-serif; font-weight: bold; font-size: 1.5em; text-align: center; margin-top: 1em; }
+.sect { font-family: Arial, sans-serif; font-weight: bold; font-size: 1.2em; margin-top: 1em; }
+.pagenum { font-family: Georgia, serif; font-size: 0.75em; }

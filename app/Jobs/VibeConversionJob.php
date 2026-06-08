@@ -45,7 +45,12 @@ class VibeConversionJob implements ShouldQueue
         private ?string $note = null,
         private array $issueTypes = [],
     ) {
-        $this->onQueue('default');
+        // OWN queue — a vibe conversion shells out to Python for up to ~28 min (Process timeout 1700s),
+        // so it must NOT share the `default` queue with imports: a single serial worker would let one
+        // vibe run head-of-line-block every user's import. A DEDICATED `vibe` worker runs it in parallel
+        // (mirrors GenerateNodeEmbedding→'embeddings' / the citation jobs→'citation-pipeline'). REQUIRES a
+        // worker listening on `vibe` (Supervisor hyperlit-vibe.conf / `npm run queue:vibe`) or it never runs.
+        $this->onQueue('vibe');
     }
 
     public function handle(): void
