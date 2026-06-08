@@ -19,17 +19,19 @@ test('node-chunk endpoints require an author', function (string $route) {
     $this->assertApiError($this->postJson($route, ['book' => 'x', 'data' => []]), 401);
 })->with('node_chunk_routes');
 
-test('POST /api/db/node-chunks/upsert 400s without a book', function () {
+// Standardized F5/F6: these validation failures now return 422 {success,message}
+// (were bare 400). The SPA consumers key off res.ok, so the code change is transparent.
+test('POST /api/db/node-chunks/upsert 422s without a book', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/node-chunks/upsert', ['data' => []]), 400);
+    $this->assertApiError($this->postJson('/api/db/node-chunks/upsert', ['data' => []]), 422);
 });
 
-test('POST /api/db/node-chunks/bulk-create 400s without a book', function () {
+test('POST /api/db/node-chunks/bulk-create 422s without a book', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/node-chunks/bulk-create', ['data' => []]), 400);
+    $this->assertApiError($this->postJson('/api/db/node-chunks/bulk-create', ['data' => []]), 422);
 });
 
-test('POST /api/db/node-chunks/targeted-upsert 400s with empty data', function () {
+test('POST /api/db/node-chunks/targeted-upsert 422s with empty data', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/node-chunks/targeted-upsert', ['data' => []]), 400);
+    $this->assertApiError($this->postJson('/api/db/node-chunks/targeted-upsert', ['data' => []]), 422);
 });

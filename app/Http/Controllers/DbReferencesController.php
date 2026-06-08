@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\ApiResponse;
 use App\Models\PgReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,8 @@ class DbReferencesController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            // F5: standard envelope ({success:false, message, errors}) — was bare {errors}.
+            return ApiResponse::validationError($validator->errors());
         }
 
         $bookId = $request->input('book');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\Concerns\SubBookPreviewTrait;
+use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class DbHyperlightController extends Controller
 {
@@ -193,10 +195,8 @@ class DbHyperlightController extends Controller
                 return response()->json(['success' => true]);
             }
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format'
-            ], 400);
+            // F5/F6: standard envelope + 422 (was a bare 400).
+            return ApiResponse::error('Invalid data format', 422);
             
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::bulkCreate - Exception', [
@@ -214,9 +214,18 @@ class DbHyperlightController extends Controller
 
     public function upsert(Request $request)
     {
+        // F5/F6/F7: validate inline (NOT a Form Request — also called by
+        // UnifiedSyncController with a plain Request). `present|array` preserves prior
+        // behaviour; missing/non-array `data` now returns the standard 422 envelope
+        // instead of a bare 400.
+        $validator = Validator::make($request->all(), ['data' => 'present|array']);
+        if ($validator->fails()) {
+            return ApiResponse::validationError($validator->errors());
+        }
+
         try {
             $data = $request->all();
-            
+
             Log::info('DbHyperlightController::upsert - Received data', [
                 'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
@@ -351,28 +360,20 @@ class DbHyperlightController extends Controller
                     'records_processed' => $processedCount
                 ]);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Hyperlights synced successfully'
-                ]);
+                return ApiResponse::ok([], 'Hyperlights synced successfully');
             }
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format'
-            ], 400);
-            
+
+            // Unreachable now that `data` is validated as present|array above; kept
+            // as a defensive fallback, in the standard shape (422, not the old 400).
+            return ApiResponse::error('Invalid data format', 422);
+
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::upsert - Exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to sync data',
-                'error' => $e->getMessage()
-            ], 500);
+
+            return ApiResponse::error('Failed to sync data', 500, ['error' => $e->getMessage()]);
         }
     }
 
@@ -468,10 +469,8 @@ class DbHyperlightController extends Controller
                 ]);
             }
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format'
-            ], 400);
+            // F5/F6: standard envelope + 422 (was a bare 400).
+            return ApiResponse::error('Invalid data format', 422);
             
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::delete - Exception', [
@@ -559,10 +558,8 @@ class DbHyperlightController extends Controller
                 ]);
             }
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format'
-            ], 400);
+            // F5/F6: standard envelope + 422 (was a bare 400).
+            return ApiResponse::error('Invalid data format', 422);
             
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::hide - Exception', [

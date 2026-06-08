@@ -13,8 +13,45 @@ Status legend: 🔴 real bug / data-race · 🟠 inconsistency / footgun · 🟡
 
 **Fixed so far:** F1, F2, F4 (job-dispatch guards), F8 (sync atomicity / mixed
 connections), F10 (validation masked as 500), and **F12** (🔴 cache stampede on
-shared homepage/shelf node rows). Remaining: F3, F5, F6, F7, F9, F11 — the bulk of
-which is the F5/F6/F7 response-consistency sweep.
+shared homepage/shelf node rows). **F5/F6/F7 standard established** (see below) with
+one endpoint migrated as the worked example; the rest is incremental. Remaining:
+F3, F9, F11, and the F5/F6/F7 per-endpoint migration tail.
+
+**F5/F6/F7 — response-consistency sweep (◐ IN PROGRESS, standard set):**
+The frontend survey (`docs/api-conventions.md`) showed there's already a de-facto
+envelope the SPA expects — `{success, <named payload>, message, errors}` + correct
+HTTP status — and that a generic `data` wrapper would BREAK it. So the sweep is
+"conform deviators to the existing shape," not "introduce a new one."
+- **Standard:** `App\Http\Responses\ApiResponse` (ok/error/validationError) +
+  `docs/api-conventions.md`.
+- **Migrated: the ENTIRE `db/*` write group** (everything the editor saves +
+  the sync orchestrator drives):
+  - `DbLibraryController::upsert`
+  - `DbHyperciteController::upsert`
+  - `DbHyperlightController::upsert` + `bulkCreate` + `delete` + `hide`
+  - `DbFootnoteController::upsert`
+  - `DbReferencesController::upsertReferences`
+  - `DbNodeChunkController` (upsert / bulkCreate / targetedUpsert validation paths)
+
+  All validation failures now return the standard **422** `{success, message[, errors]}`
+  (were bare 400 / bare `{errors}` / Laravel's `{message,errors}`). Tests flipped;
+  full Api suite green (187); `SyncApiTest` confirms the dual-entry orchestrator
+  path still works through every one.
+- **Two learnings baked into `api-conventions.md`:** (1) no central fetch wrapper →
+  the SPA branches on HTTP status first, so codes matter most; (2) the `db/*`
+  endpoints are **dual-entry** (HTTP + `UnifiedSyncController`), so they use an
+  inline `Validator`, NOT a Form Request (a Form Request type-hint TypeErrors when
+  the orchestrator passes a plain `Request`).
+- **Verification caveat:** the Playwright broad-net smoke is currently
+  *environmentally* blocked — `page.goto` hangs on the SPA `load` event in a fresh
+  browser (the `public/sw.js` service worker, a documented project gotcha),
+  unrelated to any API change. So migrations are verified per-endpoint via the Pest
+  contract + reading the specific `resources/js` consumer (which for these
+  background-sync endpoints key off `res.ok`, making 400→422 transparent). Fixing
+  the E2E SW/Playwright boot is its own task.
+- **Remaining:** the `{error,reason}` shapes (`RequireAuthor` middleware) and the
+  read-endpoint tail (search/billing/shelf/etc.) — same mechanical recipe each,
+  lower-traffic than the write group just completed.
 
 ---
 

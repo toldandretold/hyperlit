@@ -36,9 +36,14 @@ test('POST /api/db/library/upsert requires an author', function () {
     $this->assertApiError($this->postJson('/api/db/library/upsert', ['data' => ['book' => 'x']]), 401);
 });
 
-test('POST /api/db/library/upsert 400s without data.book', function () {
+test('POST /api/db/library/upsert 422s without data.book (standard envelope; F5/F6/F7)', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/library/upsert', ['data' => []]), 400);
+    // Standardized: inline Validator + ApiResponse → 422 {success:false, message, errors}
+    // (was a bare 400). Consumer keys off response.ok, so the code change is transparent.
+    $this->postJson('/api/db/library/upsert', ['data' => []])
+        ->assertStatus(422)
+        ->assertJson(['success' => false])
+        ->assertJsonStructure(['success', 'message', 'errors']);
 });
 
 /* ─── bulk-create + stats ─────────────────────────────────────────── */

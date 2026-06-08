@@ -34,16 +34,25 @@ test('annotation write endpoints require an author', function (string $route) {
 
 /* ─── validation: hyperlights/hypercites reject bad data (400) ─────── */
 
-test('POST /api/db/hyperlights/upsert 400s when data is non-array (F10 fixed)', function () {
+test('POST /api/db/hyperlights/upsert 422s with the standard envelope on bad data (F5/F6/F7)', function () {
     $this->loginUser();
-    // F10 fixed: count() is now guarded by is_array, so a non-array `data` reaches
-    // the intended "Invalid data format" 400 instead of TypeError-ing into a 500.
-    $this->assertApiError($this->postJson('/api/db/hyperlights/upsert', ['data' => 'nope']), 400);
+    // Standardized like hypercites: inline Validator + ApiResponse → 422
+    // {success:false, message, errors} (was a bare 400). Consumer keys off res.ok.
+    $this->postJson('/api/db/hyperlights/upsert', ['data' => 'nope'])
+        ->assertStatus(422)
+        ->assertJson(['success' => false])
+        ->assertJsonStructure(['success', 'message', 'errors' => ['data']]);
 });
 
-test('POST /api/db/hypercites/upsert 400s when data is non-array (F10 fixed)', function () {
+test('POST /api/db/hypercites/upsert 422s with the standard envelope on bad data (F5/F6/F7)', function () {
     $this->loginUser();
-    $this->assertApiError($this->postJson('/api/db/hypercites/upsert', ['data' => 'nope']), 400);
+    // Standardized: inline Validator + ApiResponse → 422 {success:false, message, errors}
+    // (was a bare 400 'Invalid data format'). The SPA consumer keys off !res.ok, so
+    // 400→422 is transparent to it.
+    $this->postJson('/api/db/hypercites/upsert', ['data' => 'nope'])
+        ->assertStatus(422)
+        ->assertJson(['success' => false])
+        ->assertJsonStructure(['success', 'message', 'errors' => ['data']]);
 });
 
 /* ─── validation: footnotes now return a clean 422; references 422 ─── */

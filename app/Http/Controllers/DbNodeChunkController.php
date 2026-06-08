@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\Concerns\SubBookPreviewTrait;
+use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\PgNodeChunk;
@@ -181,10 +182,7 @@ class DbNodeChunkController extends Controller
 
             $bookId = $data['book'] ?? null;
             if (! $bookId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Book ID is required',
-                ], 400);
+                return ApiResponse::error('Book ID is required', 422); // F5/F6 (was 400)
             }
 
             // Check book ownership permissions
@@ -242,10 +240,7 @@ class DbNodeChunkController extends Controller
                 return response()->json(['success' => true]);
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format',
-            ], 400);
+            return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
 
         } catch (\Exception $e) {
             Log::error('Bulk create failed', [
@@ -274,10 +269,7 @@ class DbNodeChunkController extends Controller
 
             $book = $data['book'] ?? null;
             if (! $book) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Book name is required',
-                ], 400);
+                return ApiResponse::error('Book name is required', 422); // F5/F6 (was 400)
             }
 
             // Check book ownership permissions
@@ -382,10 +374,7 @@ class DbNodeChunkController extends Controller
                 ]);
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format',
-            ], 400);
+            return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
 
         } catch (\Exception $e) {
             Log::error('Upsert failed', [
@@ -415,7 +404,7 @@ class DbNodeChunkController extends Controller
             $data = $request->all();
 
             if (! isset($data['data']) || ! is_array($data['data']) || empty($data['data'])) {
-                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
+                return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
             }
 
             // Group items by book to handle multi-book updates (e.g., hypercite delinks)
@@ -726,7 +715,7 @@ class DbNodeChunkController extends Controller
             $data = $request->all();
 
             if (! isset($data['data']) || ! is_array($data['data']) || empty($data['data'])) {
-                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
+                return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
             }
 
             // Group items by book

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\SubBookIdHelper;
+use App\Http\Responses\ApiResponse;
 use App\Models\PgFootnote;
 use App\Services\BookDeletionService;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class DbFootnoteController extends Controller
 {
@@ -49,15 +51,20 @@ class DbFootnoteController extends Controller
 
     public function upsert(Request $request)
     {
-        // Validate OUTSIDE the try/catch. Inside it, the ValidationException is
-        // swallowed by catch(\Exception) and re-emitted as a 500 — hiding the real
-        // 422 + field errors the SPA needs to tell the user what to fix. (Was F10.)
-        $validated = $request->validate([
+        // Validate OUTSIDE the try/catch (was F10: a ValidationException inside the
+        // try is swallowed by catch(\Exception) and re-emitted as a 500). F5/F6: use
+        // Validator + ApiResponse for the standard {success:false, message, errors}
+        // envelope rather than $request->validate()'s bare {message, errors}.
+        $validator = Validator::make($request->all(), [
             'book' => 'required|string',
             'data' => 'required|array',
             'data.*.footnoteId' => 'required|string',
             'data.*.content' => 'present',
         ]);
+        if ($validator->fails()) {
+            return ApiResponse::validationError($validator->errors());
+        }
+        $validated = $validator->validated();
 
         try {
             Log::info('Footnote upsert request received:', [

@@ -152,18 +152,18 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 ### G. Library, annotations, nodes, sync (author-gated writes)
 | M | URI | Controller@method | Status | Covered by |
 |---|-----|-------------------|--------|-----------|
-| POST | /api/db/library/upsert | DbLibraryController@upsert | 🟡 | LibraryApiTest (auth/validation) |
+| POST | /api/db/library/upsert | DbLibraryController@upsert | 🟡 | LibraryApiTest (auth/validation; standardized F5/F6/F7) |
 | POST | /api/db/library/bulk-create | DbLibraryController@bulkCreate | 🟡 | LibraryApiTest (auth) |
 | POST | /api/library/{book}/update-stats | DbLibraryController@updateBookStats | 🟡 | LibraryApiTest (auth) |
 | POST | /api/db/library/update-timestamp | DbLibraryController@updateTimestamp | 🟡 | LibraryApiTest (auth/validation) |
 | POST | /api/db/library/set-slug | DbLibraryController@setSlug | 🟡 | LibraryApiTest (invalid-slug 422) |
 | POST | /api/validate-book-id | DbLibraryController@validateBookId | ✅ | LibraryApiTest |
 | DELETE | /api/books/{book} | DbLibraryController@destroy | ✅ | LibraryApiTest (auth/404/403) |
-| POST | /api/db/hyperlights/{upsert,bulk-create,delete,hide} | DbHyperlightController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed) |
-| POST | /api/db/hypercites/{upsert,bulk-create} + find | DbHyperciteController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed) |
-| POST | /api/db/footnotes/upsert | DbFootnoteController@upsert | ✅ | AnnotationsApiTest (auth/422; F10 fixed) |
-| POST | /api/db/references/upsert | DbReferencesController@upsertReferences | ✅ | AnnotationsApiTest (auth/422) |
-| POST | /api/db/node-chunks/{upsert,bulk-create,targeted-upsert} | DbNodeChunkController@* | ✅ | NodeChunkApiTest (auth/validation) |
+| POST | /api/db/hyperlights/{upsert,bulk-create,delete,hide} | DbHyperlightController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed; upsert standardized F5/F6/F7) |
+| POST | /api/db/hypercites/{upsert,bulk-create} + find | DbHyperciteController@* | ✅ | AnnotationsApiTest (auth/validation; F10 fixed; upsert standardized F5/F6/F7) |
+| POST | /api/db/footnotes/upsert | DbFootnoteController@upsert | ✅ | AnnotationsApiTest (auth/422; F10 fixed; standardized F5/F6/F7) |
+| POST | /api/db/references/upsert | DbReferencesController@upsertReferences | ✅ | AnnotationsApiTest (auth/422; standardized F5/F6/F7) |
+| POST | /api/db/node-chunks/{upsert,bulk-create,targeted-upsert} | DbNodeChunkController@* | ✅ | NodeChunkApiTest (auth/validation; standardized F5/F6/F7) |
 | POST | /api/db/unified-sync | UnifiedSyncController@sync | ✅ | SyncApiTest (auth/validation/happy; F8 fixed) |
 | POST | /api/db/sync/beacon | BeaconSyncController@handleSync | 🟡 | SyncApiTest (auth/422) |
 

@@ -15,7 +15,9 @@ namespace App\Http\Controllers;
 use App\Models\PgLibrary;
 use App\Models\PgHypercite;
 use App\Models\PgHyperlight;
+use App\Http\Responses\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -167,15 +169,20 @@ class DbLibraryController extends Controller
 
 public function upsert(Request $request)
 {
+    // F5/F6/F7: validate inline (NOT a Form Request — also called by
+    // UnifiedSyncController with a plain Request). A missing data.book now returns
+    // the standard 422 envelope instead of a bare 400. The other returns below
+    // already follow the {success, message, library} standard.
+    $validator = Validator::make($request->all(), ['data.book' => 'required']);
+    if ($validator->fails()) {
+        return ApiResponse::validationError($validator->errors());
+    }
+
     // The transaction is still a great idea to ensure the update is atomic.
     return DB::transaction(function () use ($request) {
         try {
             $data = (array) $request->input('data');
-            $bookId = $data['book'] ?? null;
-
-            if (!$bookId) {
-                return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
-            }
+            $bookId = $data['book']; // validated as required above
 
             $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
 
