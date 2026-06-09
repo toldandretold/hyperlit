@@ -4,4 +4,6 @@ pypandoc
 bleach
 python-docx
 Pillow>=10.0
+tinycss2>=1.4   # CSS parsing for the StyleProfiler (ingestion/epub/styleProfiler.py) — REQUIRED for
+                # heading/footnote recovery in obfuscated EPUBs; without it those detectors silently no-op
 
