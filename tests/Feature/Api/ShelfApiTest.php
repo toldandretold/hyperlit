@@ -5,21 +5,24 @@
  * Writes go through pgsql_admin (shelves/shelf_items/shelf_pins), cleaned up by
  * cleanupApiFixtures via the creator (test username) prefix.
  *
- * NOTE: shelves.id is a UUID. A non-UUID {id} hits a Postgres cast error → 500
- * (an unvalidated-route-param wart, finding F11) rather than a clean 404, so the
- * not-found tests use a real UUID.
+ * NOTE: shelves.id is a UUID; the routes now constrain it with whereUuid (F11
+ * fixed), so a non-UUID {id} 404s (route miss) instead of 500ing on a Postgres
+ * uuid cast. The not-found tests use a real (but unknown) UUID to reach the
+ * controller's own 404.
  */
 
 use Illuminate\Support\Str;
 
 afterEach(fn () => $this->cleanupApiFixtures());
 
+// Use a valid UUID for {id} routes: with the whereUuid constraint (F11), a
+// non-UUID segment 404s at routing BEFORE the auth middleware runs.
 dataset('shelf_auth_routes', [
     ['get',    '/api/shelves'],
     ['post',   '/api/shelves'],
-    ['get',    '/api/shelves/1/render'],
-    ['get',    '/api/shelves/1/search?q=ab'],
-    ['delete', '/api/shelves/1'],
+    ['get',    '/api/shelves/00000000-0000-4000-8000-000000000000/render'],
+    ['get',    '/api/shelves/00000000-0000-4000-8000-000000000000/search?q=ab'],
+    ['delete', '/api/shelves/00000000-0000-4000-8000-000000000000'],
 ]);
 
 test('shelf endpoints require authentication', function (string $method, string $route) {
@@ -41,6 +44,14 @@ test('POST /api/shelves creates a shelf', function () {
 test('DELETE /api/shelves/{id} 404s for an unknown shelf', function () {
     $this->loginUser();
     $this->assertApiError($this->deleteJson('/api/shelves/' . Str::uuid()), 404);
+});
+
+test('shelf routes 404 (route miss) on a non-UUID id instead of 500 (F11 fixed)', function () {
+    $this->loginUser();
+    // whereUuid route constraint: a non-UUID segment never matches → 404, not a
+    // Postgres uuid-cast 500.
+    $this->assertApiError($this->getJson('/api/shelves/not-a-uuid/render'), 404);
+    $this->assertApiError($this->deleteJson('/api/shelves/99999999'), 404);
 });
 
 test('GET /api/shelves/{id}/render 404s for an unknown shelf', function () {

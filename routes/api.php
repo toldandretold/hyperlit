@@ -79,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Billing
     Route::get('/billing/balance', [BillingController::class, 'balance']);
     Route::get('/billing/ledger', [BillingController::class, 'ledger']);
-    Route::get('/billing/ledger/{id}', [BillingController::class, 'show']);
+    Route::get('/billing/ledger/{id}', [BillingController::class, 'show'])->whereUuid('id');
     Route::post('/billing/credits', [BillingController::class, 'addCredits']);
     Route::post('/billing/checkout', [StripeController::class, 'createCheckoutSession']);
     Route::post('/billing/tier', [UserHomeServerController::class, 'updateTier']);
@@ -89,12 +89,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);
-    Route::get('/citation-scanner/status/{scanId}', [CitationScannerController::class, 'status']);
+    Route::get('/citation-scanner/status/{scanId}', [CitationScannerController::class, 'status'])->whereUuid('scanId');
     Route::get('/citation-scanner/history/{book}', [CitationScannerController::class, 'history']);
     Route::post('/citation-pipeline/trigger', [CitationScannerController::class, 'triggerPipeline']);
-    Route::get('/citation-pipeline/status/{pipelineId}', [CitationScannerController::class, 'pipelineStatus']);
+    Route::get('/citation-pipeline/status/{pipelineId}', [CitationScannerController::class, 'pipelineStatus'])->whereUuid('pipelineId');
     Route::get('/citation-pipeline/running/{book}', [CitationScannerController::class, 'pipelineRunning']);
-    Route::post('/citation-pipeline/resume/{pipelineId}', [CitationScannerController::class, 'resumePipeline']);
+    Route::post('/citation-pipeline/resume/{pipelineId}', [CitationScannerController::class, 'resumePipeline'])->whereUuid('pipelineId');
 
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
@@ -123,11 +123,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Saved vibes
     Route::get('/vibes/mine', [VibesController::class, 'mine']);
     Route::post('/vibes', [VibesController::class, 'store']);
-    Route::patch('/vibes/{id}', [VibesController::class, 'update']);
-    Route::delete('/vibes/{id}', [VibesController::class, 'destroy']);
+    // F11: constrain UUID params so a malformed id 404s (route miss) instead of
+    // reaching the controller and 500ing on a Postgres uuid cast error.
+    Route::patch('/vibes/{id}', [VibesController::class, 'update'])->whereUuid('id');
+    Route::delete('/vibes/{id}', [VibesController::class, 'destroy'])->whereUuid('id');
 
-    // Shelves
-    Route::prefix('shelves')->group(function () {
+    // Shelves — whereUuid('id') on the group constrains the {id} routes; the
+    // {shelfKey} (shelf:uuid) and {book} routes are unaffected (F11).
+    Route::prefix('shelves')->whereUuid('id')->group(function () {
         Route::get('/', [ShelfController::class, 'index']);
         Route::post('/', [ShelfController::class, 'store']);
         Route::patch('/{id}', [ShelfController::class, 'update']);
@@ -142,7 +145,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Public shelf endpoints — no auth, throttled
-Route::prefix('public/shelves')->middleware('throttle:60,1')->group(function () {
+Route::prefix('public/shelves')->middleware('throttle:60,1')->whereUuid('id')->group(function () {
     Route::get('/{id}/render', [ShelfController::class, 'publicRender']);
     Route::get('/{id}/search', [ShelfController::class, 'publicSearch']);
 });

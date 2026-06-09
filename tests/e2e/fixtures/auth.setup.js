@@ -6,8 +6,13 @@ const authFile = resolve(import.meta.dirname, '.auth-state.json');
 setup('authenticate', async ({ page }) => {
   const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8000';
 
-  // Navigate to the app
-  await page.goto(baseURL);
+  // Navigate to the app.
+  // Wait only for DOMContentLoaded, not the full `load` event: the SPA fires an
+  // on-boot fetch (e.g. /api/vibe-convert/review/most-recent) that can keep a
+  // request in flight, so `load` may never settle within the navigation timeout.
+  // The app shell (and #userButton below) is interactive well before `load`, so
+  // DOMContentLoaded is the correct readiness signal here.
+  await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
 
   // Click the user button to open login form
   await page.click('#userButton');

@@ -13,9 +13,10 @@ Status legend: 🔴 real bug / data-race · 🟠 inconsistency / footgun · 🟡
 
 **Fixed so far:** F1, F2, F4 (job-dispatch guards), F8 (sync atomicity / mixed
 connections), F10 (validation masked as 500), and **F12** (🔴 cache stampede on
-shared homepage/shelf node rows). **F5/F6/F7 standard established** (see below) with
-one endpoint migrated as the worked example; the rest is incremental. Remaining:
-F3, F9, F11, and the F5/F6/F7 per-endpoint migration tail.
+shared homepage/shelf node rows). **F5/F6/F7 standard established** (see below); the entire `db/*` write group is
+migrated, the rest is incremental. **F11 fixed.** Remaining: F3 (mostly mitigated),
+F9 (versioning — deferred), the `{error,reason}` middleware shape (deferred — has a
+real frontend consumer), and the read-endpoint shape tail.
 
 **F5/F6/F7 — response-consistency sweep (◐ IN PROGRESS, standard set):**
 The frontend survey (`docs/api-conventions.md`) showed there's already a de-facto
@@ -138,13 +139,17 @@ In `Db{Hyperlight,Hypercite,Footnote}Controller`, input handling sits inside a
   (hyperlights, hypercites) on bad input. *(Note: the broader `{success,message}`
   vs `{message,errors}` envelope inconsistency is still F5/F6.)*
 
-### F11 🟡 Unvalidated UUID route params 500 instead of 404
-Routes like `/api/shelves/{id}` read `…->where('id', $id)` with no constraint on
-`{id}`. A non-UUID segment (e.g. `/api/shelves/99999999`) reaches Postgres as an
-invalid uuid and raises a `QueryException` → **500**, where a `404` (or `422`) is
-expected. **Fix candidates:** a `whereUuid` route constraint, or validate/guard
-the param before the query. **Covered by:** `ShelfApiTest` (note on the not-found
-tests; they use a real UUID to reach the intended 404).
+### F11 🟡 ✅ FIXED — Unvalidated UUID route params 500 instead of 404
+Routes like `/api/shelves/{id}` read `…->where('id', $id)` with no constraint, so a
+non-UUID segment reached Postgres as an invalid uuid → `QueryException` → **500**.
+- **Fix:** `whereUuid` route constraints (group-level for the shelf groups,
+  per-route for vibes/billing-ledger/citation status+resume) in `routes/api.php`.
+  A non-UUID id now misses the route → clean **404**, never reaching the DB.
+  (`{id}` is NOT globally UUID — `email/verify/{id}` is an integer user id — so a
+  global pattern was unsafe; the constraints are targeted.)
+- **Side effect to know:** the constraint moves the routing boundary BEFORE auth,
+  so a non-UUID on an auth-gated route now 404s (route miss) rather than 401.
+- **Covered by:** `ShelfApiTest` ("…404 on a non-UUID id instead of 500").
 
 ### F12 🔴 ✅ FIXED — Cache stampede → concurrent rebuild of SHARED node rows
 The two server-rendered "synthetic book" surfaces regenerate shared `nodes` rows
