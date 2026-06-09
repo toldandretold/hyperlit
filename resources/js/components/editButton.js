@@ -358,7 +358,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   }
 }
 
-export function disableEditMode() {
+export function disableEditMode({ skipPersistence = false } = {}) {
   window.isEditing = false; // Reset state immediately
 
   // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
@@ -396,6 +396,11 @@ export function disableEditMode() {
 
     await stopObserving();
 
+    // On logout (skipPersistence) the local IDB is being wiped and the content
+    // is already on the server, so flushing pending saves into a fresh anonymous
+    // session and verifying the DOM against an emptied DB is both pointless and
+    // the source of false "missingFromIDB" integrity reports. Skip the block.
+    if (!skipPersistence) {
     // Flush pending saves BEFORE integrity check so queued nodes
     // are written to IDB before verification
     flushInputDebounce();
@@ -482,6 +487,7 @@ export function disableEditMode() {
     } catch (e) {
       console.warn('[integrity] Edit-exit verification failed:', e);
     }
+    } // end if (!skipPersistence)
 
     // Check if renumbering is needed (only when decimals are deeply nested)
     const MAX_DECIMAL_DEPTH = 3;

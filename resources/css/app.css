@@ -163,6 +163,7 @@ u.single.hypercite-target {
 
 /* Base transitions for all hypercite types */
 u.single, u.couple, u.poly {
+    cursor: pointer; /* was an inline style; lives in CSS so it survives edit-time style stripping */
     transition: all 2000ms ease-in-out; /* Smooth transitions for all state changes */
 }
 
@@ -607,15 +608,15 @@ black #221F20;
 /* General mark styles first */
 mark[data-highlight-count] {
   position: relative;
-  background-color: rgba(238, 74, 149, var(--highlight-intensity));
-  border-width: calc(var(--highlight-intensity) * 3px);
+  background-color: rgba(238, 74, 149, var(--highlight-intensity, var(--highlight-resting-opacity)));
+  border-width: calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 3px);
   color: var(--color-text);
 }
 
 mark:hover {
     text-decoration: none !important;
     cursor: pointer;
-    background-color: rgba(238, 74, 149, var(--highlight-intensity));
+    background-color: rgba(238, 74, 149, var(--highlight-intensity, var(--highlight-resting-opacity)));
     filter: brightness(1.4);
     transition: filter var(--transition-fast);
 }
@@ -634,13 +635,13 @@ mark[data-highlight-count="9"]:hover {
 
 /* User-specific overrides (more specific, comes after) */
 mark[data-highlight-count].user-highlight {
-    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8));
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 1.8));
     color: var(--color-text);
     text-decoration: none !important;
 }
 
 mark[data-highlight-count].user-highlight:hover {
-    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8));
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 1.8));
     filter: brightness(1.4);
     color: var(--color-text);
     text-decoration: none !important;
@@ -660,19 +661,19 @@ mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
 
 /* AI Review verdict-colored highlights */
 mark.hl-confirmed {
-  background-color: rgba(39, 174, 96, var(--highlight-intensity)) !important;
+  background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 mark.hl-likely {
-  background-color: rgba(100, 200, 100, var(--highlight-intensity)) !important;
+  background-color: rgba(100, 200, 100, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 mark.hl-plausible {
-  background-color: rgba(241, 196, 15, var(--highlight-intensity)) !important;
+  background-color: rgba(241, 196, 15, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 mark.hl-unlikely {
-  background-color: rgba(231, 65, 50, var(--highlight-intensity)) !important;
+  background-color: rgba(231, 65, 50, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 mark.hl-rejected {
-  background-color: rgba(231, 76, 60, var(--highlight-intensity)) !important;
+  background-color: rgba(231, 76, 60, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 
 /* Dark text for light verdict highlights at high intensity (3+ overlaps) */
@@ -681,11 +682,11 @@ mark.hl-plausible:not([data-highlight-count="1"]):not([data-highlight-count="2"]
   color: var(--hyperlit-black) !important;
 }
 
-mark.hl-confirmed:hover { background-color: rgba(39, 174, 96, var(--highlight-intensity)) !important; }
-mark.hl-likely:hover { background-color: rgba(100, 200, 100, var(--highlight-intensity)) !important; }
-mark.hl-plausible:hover { background-color: rgba(241, 196, 15, var(--highlight-intensity)) !important; }
-mark.hl-unlikely:hover { background-color: rgba(231, 65, 50, var(--highlight-intensity)) !important; }
-mark.hl-rejected:hover { background-color: rgba(231, 76, 60, var(--highlight-intensity)) !important; }
+mark.hl-confirmed:hover { background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-likely:hover { background-color: rgba(100, 200, 100, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-plausible:hover { background-color: rgba(241, 196, 15, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-unlikely:hover { background-color: rgba(231, 65, 50, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-rejected:hover { background-color: rgba(231, 76, 60, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
 
 /* Sustained glow on the base mark element when navigating to a hyperlight */
 mark.cascade-origin,

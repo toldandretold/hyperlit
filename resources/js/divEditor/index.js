@@ -77,6 +77,7 @@ import {
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
+import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle.js';
 
 import {
   trackChunkNodeCount,
@@ -440,10 +441,12 @@ export async function startObserving(editableDiv, bookId = null) {
     if (parentWithId?.id) {
       lastInputNodeId = parentWithId.id;
       // Strip browser-injected inline style attributes (e.g. font-family from execCommand)
-      // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner
+      // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner.
+      // Preserve the *-intensity custom properties (hyperlight/hypercite opacity) so marks
+      // don't go invisible mid-edit — same as batch.js, so DOM and IndexedDB stay in sync.
       parentWithId.querySelectorAll('[style]').forEach(el => {
         if (!el.matches(BLOCK_ELEMENT_SELECTOR + ', li')) {
-          el.removeAttribute('style');
+          stripInlineStylePreservingIntensity(el);
         }
       });
       verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');

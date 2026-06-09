@@ -77,6 +77,27 @@
             document.documentElement.style.backgroundColor = colors[theme] || '#221F20';
         })();
     </script>
+    <script>
+        // Apply the user's text-size preference synchronously, BEFORE first paint.
+        // Otherwise the page renders at the CSS default (--font-size-base: 28px) and
+        // only shrinks to the user's size once settingsContainer.applyTextAdjustments()
+        // runs post-render — the visible "text sinks smaller" reflow on refresh.
+        // An inline style on <html> outranks the stylesheet's :root default, so this
+        // value wins even though it's set before the CSS files load.
+        // Source of truth: server-injected window.__userPreferences (device-scoped),
+        // falling back to localStorage (seeded on prior visits by seedFromServer()).
+        (function() {
+            try {
+                var prefs = window.__userPreferences || {};
+                var device = window.innerWidth <= 500 ? 'mobile' : 'desktop';
+                var size = prefs['text_size_' + device] ?? prefs.text_size
+                    ?? localStorage.getItem('hyperlit_text_size');
+                if (size != null && size !== '') {
+                    document.documentElement.style.setProperty('--font-size-base', parseInt(size, 10) + 'px');
+                }
+            } catch (e) {}
+        })();
+    </script>
     @yield('styles')
 </head>
 

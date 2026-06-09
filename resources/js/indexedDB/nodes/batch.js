@@ -13,6 +13,7 @@ import { withPending } from '../../utilities/operationState.js';
 import { queueForSync } from '../syncQueue/queue.js';
 import { reportIntegrityFailure } from '../../integrity/reporter.js';
 import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
+import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle.js';
 // Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/batch.test.js
 import { resolveBookIdForBatch } from './bookIdResolver.js';
@@ -171,10 +172,12 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   });
 
   // 🧹 STRIP ALL inline style attributes from ALL elements (prevents bloat from copy/paste)
-  // Keep our semantic tags clean - styles should come from CSS, not inline attributes
+  // Keep our semantic tags clean - styles should come from CSS, not inline attributes.
+  // Exception: preserve the *-intensity custom properties (hyperlight/hypercite opacity),
+  // so the persisted content matches the live DOM (which keeps them) — no integrity mismatch.
   const allElementsWithStyle = Array.from(contentClone.querySelectorAll('[style]'));
   allElementsWithStyle.forEach(element => {
-    element.removeAttribute('style');
+    stripInlineStylePreservingIntensity(element);
   });
 
   // 🔄 NORMALIZE: Migrate old hypercite format to new single-element format on save

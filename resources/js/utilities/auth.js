@@ -655,7 +655,10 @@ export function initializeAuthStateListener() {
       if (type === 'logout' && window.isEditing) {
         console.log('🔄 User was in edit mode, disabling edit mode on logout...');
         const { disableEditMode } = await import('../components/editButton.js');
-        disableEditMode();
+        // IDB was already wiped by clearDatabase() above and the content is on
+        // the server — skip the flush + integrity sweep so we don't emit a false
+        // "missingFromIDB" report (DOM nodes vs an emptied DB) on every logout.
+        disableEditMode({ skipPersistence: true });
       }
 
       // Wait for any pending auth initialization to complete

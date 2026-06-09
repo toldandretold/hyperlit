@@ -39,6 +39,7 @@ body.theme-light {
   --hypercite-multi-opacity: 0.7;
   --hypercite-dimmed-single: 0.3;
   --hypercite-dimmed-multi: 0.5;
+  --highlight-resting-opacity: 0.35;
 
   /* Icon colors for light theme (auto-inherit from base colors) */
   --icon-fill-primary: var(--hyperlit-white);      /* Dark icons on light bg */

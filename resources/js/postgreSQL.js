@@ -362,7 +362,7 @@ syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
  *
  * Pipeline: footnote debounces → input debounce → SaveQueue → masterSync
  */
-async function flushAllPendingEdits() {
+export async function flushAllPendingEdits() {
   // Fast path: nothing to flush if not editing and no pending syncs
   try {
     const { pendingSyncs } = await import('./indexedDB/syncQueue/queue.js');

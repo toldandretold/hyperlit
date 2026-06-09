@@ -40,6 +40,10 @@
   --highlight-user: var(--hyperlit-aqua);
   --highlight-hover-multiplier: 1.4;
   --highlight-user-hover-multiplier: 2.2;
+  /* Resting opacity fallback when inline --highlight-intensity is absent
+     (e.g. stripped mid-edit before the next render reapplies it).
+     Matches a single highlight's intensity, min(1/5, 1) = 0.2. */
+  --highlight-resting-opacity: 0.2;
 
   /* Hypercite Underlines */
   --hypercite-single-opacity: 0.1;

@@ -10,7 +10,7 @@ import {
   refreshAuth,
   broadcastAuthChange,
 } from "../utilities/auth.js";
-import { syncBookDataFromDatabase } from "../postgreSQL.js";
+import { syncBookDataFromDatabase, flushAllPendingEdits } from "../postgreSQL.js";
 
 // Import extracted modules
 import {
@@ -532,6 +532,16 @@ export class UserContainerManager extends ContainerManager {
   }
 
   async handleLogout() {
+    // Flush any in-progress edits (typing → IndexedDB → server) BEFORE we end
+    // the session and wipe local data. Must run while still authenticated — the
+    // /logout POST below destroys the server session and clearCurrentUser()
+    // resets the token. Fast-path no-ops when there's nothing pending.
+    try {
+      await flushAllPendingEdits();
+    } catch (error) {
+      console.error("⚠️ Failed to flush pending edits before logout:", error);
+    }
+
     try {
       await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
