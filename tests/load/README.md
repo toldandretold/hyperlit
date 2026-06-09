@@ -61,21 +61,60 @@ the limiter working. Two consequences:
 
 ## Reproducing F12 (cache stampede → 500s)
 
-F12 (`docs/api-restructure-findings.md#f12`) needs a **cold** cache at the moment
-of the burst, so clear the synthetic rebuild rows on the server's DB first, then
-burst a modest concurrency (stays under the throttle):
+F12 (`docs/api-restructure-findings.md#f12`) needs the rebuild path to be **cold**
+at the moment of the burst. "Cold" means *both* the cache key gone *and* the
+synthetic node rows deleted — clearing only one short-circuits the rebuild you're
+trying to race. Clear via `tinker` (handles the cache key; and the node rows live
+behind RLS, so they must be cleared through the `pgsql_admin` BYPASSRLS
+connection — the default `pgsql` role can't see them):
+
+### Shelf render (canonical, unauthenticated)
+
+`publicRender` is gated only by `throttle:60,1`, so use `--ip-spread` to simulate
+distinct users past the per-IP limit. Its "already rendered?" guard is an
+`exists()` on the synthetic node rows, so deleting those rows alone makes it cold.
 
 ```bash
-# Public shelf render (unauthenticated). Default sort is 'recent'.
-psql "$DATABASE_URL" -c "DELETE FROM nodes WHERE book = 'shelf_<shelfId>_recent_pub';"
-php tests/load/loadprobe.php "http://hyperlit.test/api/public/shelves/<shelfId>/render" --levels 1,15
+# Find a PUBLIC shelf id — shelves are RLS-hidden from the default role, so query
+# through pgsql_admin (Shelf::count() under no auth context returns 0; not a bug):
+php artisan tinker --execute="DB::connection('pgsql_admin')->table('shelves')->where('visibility','public')->get(['id','default_sort'])->each(fn(\$s)=>print(\$s->id.'  '.(\$s->default_sort??'recent').PHP_EOL));"
 
-# Homepage (needs a token + clearing the 3 global synthetic books):
-psql "$DATABASE_URL" -c "DELETE FROM nodes WHERE book IN ('most-recent','most-connected','most-lit');"
-php tests/load/loadprobe.php http://hyperlit.test/api/homepage/books \
-    --header "Authorization: Bearer <token>" --levels 1,15
+# Synthetic book id = shelf_<id>_<sort>_pub. Cold it, then burst distinct users:
+SBID="shelf_<id>_recent_pub"
+php artisan tinker --execute="DB::connection('pgsql_admin')->table('nodes')->where('book','$SBID')->delete();"
+php tests/load/loadprobe.php "http://hyperlit.test/api/public/shelves/<id>/render" --levels 25 --per-level 25 --ip-spread
 ```
 
+### Homepage (richer surface — real library data)
+
+Two gotchas: (1) `/homepage/books` is behind the `author` middleware, which a
+**Bearer token does NOT satisfy** (`RequireAuthor` checks the session guard or an
+`anon_token` cookie, not Sanctum) — mint an anon session and replay its cookie;
+(2) it caches the payload under `homepage_books_data`, so you must `Cache::forget`
+it **and** delete the 3 global synthetic books, else the warm cache is served and
+nothing rebuilds.
+
+```bash
+# Mint an anon session the SPA way; capture the cookie (single IP — the session is
+# IP-bound, max 5 IP changes/day, so do NOT use --ip-spread on this path):
+curl -s -c /tmp/hl.txt -X POST http://hyperlit.test/api/anonymous-session >/dev/null
+ANON=$(grep anon_token /tmp/hl.txt | awk '{print $NF}')
+
+# Cold the rebuild (cache key + the 3 shared synthetic books), then burst:
+php artisan tinker --execute="Cache::forget('homepage_books_data'); DB::connection('pgsql_admin')->table('nodes')->whereIn('book',['most-recent','most-connected','most-lit'])->delete();"
+php tests/load/loadprobe.php http://hyperlit.test/api/homepage/books \
+    --header "Cookie: anon_token=$ANON" --levels 40 --per-level 40
+```
+
+### Reading the result
+
 A non-zero **5xx** column on the cold burst (and 0 at concurrency 1) confirms the
-unique-index collision under concurrent rebuild. The fix is a single-flight lock
-around the rebuild (same `Cache::lock` primitive as the F1/F2 fix).
+unique-index collision under concurrent rebuild. **Post-fix (verified 2026-06-09):
+all-2xx** up to 40 concurrent on the homepage and 25 distinct users on the shelf,
+with p50 ≈ one rebuild's duration at *every* concurrency level — the single-flight
+`Cache::lock` signature: one caller rebuilds, the rest block then read the warm
+result instead of colliding. Confirm no half-built state afterwards:
+
+```bash
+php artisan tinker --execute="echo DB::connection('pgsql_admin')->table('nodes')->where('book','$SBID')->select('node_id')->groupBy('node_id')->havingRaw('count(*)>1')->get()->count().' duplicate node_ids';"
+```
