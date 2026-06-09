@@ -340,11 +340,11 @@ export async function handleNovelVacuum(url, targetBookId, isSubBook) {
         glowCloudGreen();
         console.log(`[NovelVacuum] Synced ${allNodes.length} nodes to PostgreSQL`);
       } else {
-        glowCloudRed();
+        glowCloudRed({ status: response.status, savedLocally: false });
         console.error('[NovelVacuum] PostgreSQL sync failed');
       }
     } catch (err) {
-      glowCloudRed();
+      glowCloudRed({ error: err, savedLocally: false });
       console.error('[NovelVacuum] PostgreSQL sync error:', err);
     }
 

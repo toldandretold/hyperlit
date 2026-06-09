@@ -169,6 +169,47 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   _showModal(bookId, payload, selfHealed, suspiciousWipe);
 }
 
+/**
+ * Report a PERSISTENT server-side sync failure (a 5xx that kept failing).
+ *
+ * Reuses the integrity modal's blackBox download + bug report, but this is NOT a data-loss
+ * case: the edit is saved locally and the queue keeps retrying — the SERVER couldn't accept
+ * it. So the modal omits Emergency Rectify and the upfront premium grant (premium instead
+ * rides on sending the report). Called from syncQueue/master.js after consecutive 5xx on
+ * one book — see the tiered policy: first 5xx → toast, persistent → this modal.
+ *
+ * @param {Object} opts
+ * @param {string} opts.bookId
+ * @param {number} opts.status  - failing HTTP status (500/502/503/504…)
+ * @param {Error}  [opts.error] - the caught error
+ */
+export async function reportServerError({ bookId, status, error }) {
+  console.warn(`[integrity] Persistent server error (${status}) syncing ${bookId}`);
+
+  const payload = {
+    bookId,
+    trigger: 'sync-server-error',
+    serverError: { status: status ?? null, message: (error?.message || '').slice(0, 2000) },
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
+    recentLogs: getRecentLogs(),
+    context: {
+      sessionAgeSec: Math.round((Date.now() - _sessionStartTs) / 1000),
+      idbBroken: isIDBBroken(),
+    },
+  };
+
+  // Same one-per-60s cooldown + single-modal guard as integrity popups.
+  const now = Date.now();
+  if (now - _lastPopupTs < POPUP_COOLDOWN_MS) {
+    console.warn('[integrity] Server-error modal suppressed (cooldown)');
+    return;
+  }
+  _lastPopupTs = now;
+  _showModal(bookId, payload, false, false, { status });
+}
+
 // ================================================================
 // RETRY QUEUE — guarantees no report is silently dropped
 // ================================================================
@@ -291,7 +332,7 @@ async function _doSend(payload) {
  * @param {Object}  payload    - Diagnostic payload (sent only if user clicks Send Bug Report)
  * @param {boolean} selfHealed - Whether the issue was auto-fixed
  */
-function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false) {
+function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false, serverError = null) {
   if (_modalEl) return; // Already showing
 
   const backdrop = document.createElement('div');
@@ -322,7 +363,30 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false)
     </p>
   `;
 
-  if (suspiciousWipe) {
+  if (serverError) {
+    // Persistent server-side failure (5xx kept failing). Data is safe locally; the SERVER
+    // couldn't accept it. Offer the same blackBox backup + bug report as the data-loss modal,
+    // but NO Emergency Rectify (nothing to rectify — the local copy is fine) and NO upfront
+    // premium grant (it's not data loss; premium rides on sending the report below).
+    card.innerHTML = `
+      <h3>Server trouble</h3>
+      <p>Hyperlit keeps hitting a server error (<strong>${serverError.status}</strong>) while
+      saving. Your work is safe on this device, but it hasn't reached our servers yet — it'll
+      keep retrying.</p>
+      <p>We recommend <strong>downloading</strong> a backup of your text, and sending a
+      <strong>bug report</strong> (it includes the error code and recent logs) so we can fix it.</p>
+      <textarea id="integrity-comment" class="integrity-comment"
+        placeholder="Optional: describe what you were doing when this happened..."
+        rows="3"></textarea>
+      ${disclosureParagraph}
+      <div id="integrity-rectify-status" class="integrity-status"></div>
+      <div class="integrity-btn-group integrity-btn-group-sticky">
+        <button id="integrity-download-btn" class="integrity-btn-download">Download blackBox.md</button>
+        <button id="integrity-send-report-btn" class="integrity-btn integrity-btn-success">Send Bug Report</button>
+        <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
+      </div>
+    `;
+  } else if (suspiciousWipe) {
     card.innerHTML = `
       <h3>Okay, hacker 👀</h3>
       <p>Looks like someone's been in DevTools clearing out IndexedDB nodes...
@@ -411,8 +475,10 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false)
     }
   });
 
-  // Grant premium immediately (no report required — consent shouldn't be coerced)
-  _grantPremium();
+  // Grant premium immediately for data-loss cases (no report required — consent shouldn't be
+  // coerced). Server errors are NOT data loss, so they don't auto-grant; premium instead rides
+  // on sending the bug report (see the send handler below).
+  if (!serverError) _grantPremium();
 
   // Dismiss button
   card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => {
@@ -486,6 +552,9 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false)
     await _sendReport(payload);
 
     const loggedIn = await isLoggedIn();
+
+    // Server-error modal skipped the upfront grant — reward it now that they've reported.
+    if (serverError && loggedIn) await _grantPremium();
 
     if (loggedIn) {
       card.innerHTML = `

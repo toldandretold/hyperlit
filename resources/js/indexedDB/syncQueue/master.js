@@ -17,6 +17,12 @@ export { filterFreshNodesForBook };
 // Dependencies that will be injected
 let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave;
 
+// Per-book count of CONSECUTIVE 5xx sync failures. A single 5xx usually succeeds on retry
+// (→ transient toast), but a persistent run means the backend is genuinely down (→ the
+// serious blackBox/report modal). Reset on any success or non-5xx outcome.
+const _serverErrorStreak = new Map();
+const SERVER_ERROR_MODAL_THRESHOLD = 2;
+
 // Initialization function to inject dependencies
 export function initMasterSyncDependencies(deps) {
   book = deps.book;
@@ -151,10 +157,25 @@ export async function executeSyncPayload(payload) {
         console.error("📵 Stale data detected - your book is out of date");
         // Clear pending syncs so a manual refresh won't re-trigger the same stale sync
         pendingSyncs.clear();
-        alert('Your book is out of date. Please refresh to get the latest version.\n\nYour recent changes could not be saved because another device has made edits since you last loaded this page.');
-        // Throw a specific error so callers can identify stale data issues
+        // Hard-block via the same overlay used for cross-tab edits — this is the same
+        // "you're stale, reload" situation, just detected cross-device (BroadcastChannel
+        // can't see other devices, so the server's 409 is the only signal). Blocking is
+        // warranted because we have an unsynced edit that can't be reconciled automatically.
+        //
+        // NOTE (future): reloading DISCARDS the user's just-rejected edit. A smarter version
+        // could diff the local edit against the server's newer version and auto-merge when
+        // they don't overlap, only blocking on a true conflict — so we only throw work away
+        // when we absolutely have to. (Mirror of the note in BroadcastListener.showStaleTabOverlay.)
+        import('../../utilities/BroadcastListener.js')
+          .then(({ showStaleTabOverlay }) => showStaleTabOverlay(
+            "This book was edited elsewhere (another device or window). Refresh to load the latest version — your last change wasn't saved."
+          ))
+          .catch(() => { /* overlay module unavailable — the thrown error still glows red */ });
+        // Throw a specific error so callers can identify stale data issues. classifySyncError
+        // returns null for STALE_DATA, so glowCloudRed won't also show a toast over the overlay.
         const staleError = new Error(errorData.message || 'Book is out of date');
         staleError.code = 'STALE_DATA';
+        staleError.status = 409;
         staleError.serverTimestamp = errorData.server_timestamp;
         throw staleError;
       }
@@ -162,7 +183,10 @@ export async function executeSyncPayload(payload) {
 
     const txt = await res.text();
     console.error("❌ Unified sync error:", txt);
-    throw new Error(`Unified sync failed: ${txt}`);
+    // Attach the HTTP status so the save-error classifier can tell 5xx/4xx apart.
+    const syncError = new Error(`Unified sync failed: ${txt}`);
+    syncError.status = res.status;
+    throw syncError;
   }
 
   const result = await res.json();
@@ -402,6 +426,7 @@ async function syncItemsForBook(bookId, bookItems) {
     }
 
     await executeSyncPayload(syncPayload);
+    _serverErrorStreak.delete(bookId); // success → reset the 5xx streak for this book
     if (logEntry) {
       logEntry.status = "synced";
       await updateHistoryLog(logEntry);
@@ -430,7 +455,36 @@ async function syncItemsForBook(bookId, bookItems) {
     } else {
       console.error(`❌ Non-node sync failed:`, error.message);
     }
-    if (glowCloudRed) glowCloudRed(); // Glow cloud red on sync failure
+    // Tiered server-error handling. A 5xx means the SERVER failed (our fault), but the edit
+    // is saved locally and will retry:
+    //   - first 5xx        → transient toast naming the code (usually recovers on retry)
+    //   - persistent 5xx   → the serious blackBox/report modal (backend genuinely down)
+    // Non-5xx errors reset the streak and fall through to the normal classified toast.
+    const status = error.status;
+    const is5xx = typeof status === 'number' && status >= 500;
+
+    if (is5xx) {
+      const streak = (_serverErrorStreak.get(bookId) || 0) + 1;
+      _serverErrorStreak.set(bookId, streak);
+
+      if (streak >= SERVER_ERROR_MODAL_THRESHOLD) {
+        _serverErrorStreak.delete(bookId); // reset so it takes another run to re-fire
+        if (glowCloudRed) glowCloudRed();   // glow only — the modal carries the message
+        import('../../integrity/reporter.js')
+          .then(({ reportServerError }) => reportServerError({ bookId, status, error }))
+          .catch(() => { /* reporter unavailable — glow still conveys the error */ });
+        return;
+      }
+      // First failure of the run → transient toast naming the code.
+      if (glowCloudRed) glowCloudRed({ error, status, savedLocally: !!logEntry });
+      return;
+    }
+
+    // Non-5xx: reset any prior 5xx run, then glow + explain via the classifier.
+    _serverErrorStreak.delete(bookId);
+    if (glowCloudRed) {
+      glowCloudRed({ error, status, code: error.code, savedLocally: !!logEntry });
+    }
   }
 }
 

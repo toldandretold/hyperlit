@@ -50,9 +50,10 @@ export function reportIDBFailure(error, opts = {}) {
       idbBroken = true;
       console.error(`[HealthMonitor] IDB declared BROKEN after ${consecutiveFailures} consecutive failures`);
 
-      // Visual feedback — fire-and-forget dynamic import
+      // Visual feedback — fire-and-forget dynamic import. Pass 'idb-broken-handled' so the
+      // save-error toast stays silent: showIDBRecoveryToast() below already owns the message.
       import('../../components/editIndicator.js')
-        .then(({ glowCloudRed }) => glowCloudRed())
+        .then(({ glowCloudRed }) => glowCloudRed({ kind: 'idb-broken-handled' }))
         .catch(() => { /* editIndicator may not be loaded yet */ });
 
       showIDBRecoveryToast();

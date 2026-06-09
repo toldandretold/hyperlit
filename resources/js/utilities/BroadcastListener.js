@@ -154,10 +154,23 @@ export function registerBookOpen(bookId) {
 }
 
 /**
- * Show a blocking overlay when the book was edited in another tab.
+ * Show a blocking overlay when the book is out of date (edited elsewhere).
  * Cannot be dismissed — the only action is to reload the page.
+ *
+ * Two callers, same "you're stale, reload" situation detected differently:
+ *   - same-browser cross-tab edit (BroadcastChannel) — the default message
+ *   - cross-device 409 STALE_DATA on sync (UnifiedSyncController) — passes its own message
+ *
+ * @param {string} [message] Override body copy (the tab vs device wording differs).
+ *
+ * NOTE (future): this hard-blocks and forces a reload, which DISCARDS the user's
+ * unsynced edit. That's the safe-but-blunt option. A nicer future version could
+ * 3-way diff the local edit against the server's newer version and auto-merge when
+ * the changes don't overlap (only block when they genuinely conflict), so we only
+ * throw away work when we absolutely have to. See the 409 path in
+ * indexedDB/syncQueue/master.js (executeSyncPayload) for where the conflict is detected.
  */
-function showStaleTabOverlay() {
+export function showStaleTabOverlay(message) {
   if (document.getElementById('stale-tab-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -179,8 +192,8 @@ function showStaleTabOverlay() {
         <line x1="12" y1="9" x2="12" y2="13"></line>
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>
-      <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Edited in another tab</h2>
-      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">This book was modified in a different tab. Refresh to load the latest version.</p>
+      <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Book out of date</h2>
+      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'This book was modified in a different tab. Refresh to load the latest version.'}</p>
       <button id="stale-tab-refresh" style="
         background: #EF8D34;
         color: #fff;

@@ -34,6 +34,11 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',
+    // Slow each action down so a --headed run is watchable. Defaults to 0 (no delay),
+    // so normal/CI runs are unaffected. Usage: E2E_SLOWMO=800 npm run test:e2e:headed
+    launchOptions: {
+      slowMo: Number(process.env.E2E_SLOWMO) || 0,
+    },
   },
 
   projects: [

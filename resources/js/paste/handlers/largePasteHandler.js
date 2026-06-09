@@ -404,7 +404,7 @@ export async function undoLastLargePaste() {
       glowCloudGreen();
       console.log('✅ Paste undo synced to PostgreSQL');
     } else {
-      glowCloudRed();
+      glowCloudRed({ status: response.status, savedLocally: false });
       console.error('❌ Failed to sync paste undo to PostgreSQL');
     }
   } catch (error) {

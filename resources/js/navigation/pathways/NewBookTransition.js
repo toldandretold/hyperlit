@@ -478,8 +478,8 @@ export class NewBookTransition {
 
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
-          // Show error indicator
-          glowCloudRed();
+          // Retryable: the new book is saved locally and the sync retries later → transient toast.
+          glowCloudRed({ error, savedLocally: true });
         }
       }, 2000); // Wait 2 seconds after transition completes
       

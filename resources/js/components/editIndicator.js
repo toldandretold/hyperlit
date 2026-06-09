@@ -120,8 +120,13 @@ export function glowCloudGreen() {
   }, 1500)
 }
 
-/** Glow the cloudRef button red to indicate error, then fade back to grey after 3s */
-export function glowCloudRed() {
+/**
+ * Glow the cloudRef button red to indicate error, then fade back to grey after 3s.
+ * @param {Object} [errorInfo] Optional error descriptor — see saveErrorToast.classifySyncError.
+ *   When provided (and the error warrants it) an explanatory toast is shown. Omitting it
+ *   preserves the legacy glow-only behaviour, so un-enriched callers never surface a toast.
+ */
+export function glowCloudRed(errorInfo) {
   if (!isProcessing) return
   isComplete = true
 
@@ -130,6 +135,13 @@ export function glowCloudRed() {
     cloudSvgPath.style.fill = 'var(--status-error)'
   }
   console.log('CloudRef → red (sync error)')
+
+  // Explain WHAT went wrong (severity-tiered toast). Lazy import keeps editIndicator light.
+  if (errorInfo) {
+    import('./saveErrorToast.js')
+      .then(({ showSaveErrorToast }) => showSaveErrorToast(errorInfo))
+      .catch(() => { /* toast module unavailable — glow still conveys the error */ })
+  }
 
   // after a longer pause, restore to grey AND restore topRight visibility
   setTimeout(() => {

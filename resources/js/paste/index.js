@@ -144,8 +144,10 @@ async function syncPasteToPostgreSQL(bookId) {
         nodeCount: allNodes.length,
         lowestStartLine: minStartLine
       });
-      glowCloudRed();
-      throw new Error(`Full book sync aborted: IndexedDB appears incomplete (missing chunk 0). This may indicate IndexedDB was cleared mid-session.`);
+      // Glow + toast handled by the single catch below; tag the cause for the classifier.
+      const incompleteError = new Error(`Full book sync aborted: IndexedDB appears incomplete (missing chunk 0). This may indicate IndexedDB was cleared mid-session.`);
+      incompleteError.kind = 'incomplete';
+      throw incompleteError;
     }
 
     // Also warn if very few nodes (potential data loss)
@@ -168,10 +170,11 @@ async function syncPasteToPostgreSQL(bookId) {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Failed to sync full book to PostgreSQL:', error);
-      glowCloudRed();
-      throw new Error(`Full book sync failed: ${error}`);
+      const errorText = await response.text();
+      console.error('❌ Failed to sync full book to PostgreSQL:', errorText);
+      const syncError = new Error(`Full book sync failed: ${errorText}`);
+      syncError.status = response.status;
+      throw syncError;
     }
 
     const result = await response.json();
@@ -182,7 +185,9 @@ async function syncPasteToPostgreSQL(bookId) {
 
   } catch (error) {
     console.error('❌ Error syncing full book to PostgreSQL:', error);
-    glowCloudRed();
+    // Full-book sync is a full replace with no local-save fallback, so a failure is
+    // action-required (unless it's the explicit incomplete-data abort, tagged via .kind).
+    glowCloudRed({ error, status: error.status, kind: error.kind, savedLocally: false });
     throw error; // Re-throw for caller's catch block
   }
 }

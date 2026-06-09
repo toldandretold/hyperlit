@@ -305,8 +305,8 @@ async function renumberAllNodes() {
 
   } catch (error) {
     console.error('❌ RENUMBERING FAILED:', error);
-    // Show red error indicator
-    glowCloudRed();
+    // Show red error indicator + advise a refresh (renumber can leave IDs inconsistent).
+    glowCloudRed({ error, savedLocally: false });
     // Hide overlay on error
     await ProgressOverlayConductor.hide();
     // Re-enable mutation observer even on failure

@@ -66,6 +66,11 @@ class IntegrityReportController extends Controller
             'selfHealedNodeIds'  => 'nullable|array|max:100',
             'selfHealedNodeIds.*' => 'string|max:50',
             'comment'            => 'nullable|string|max:2000',
+            // Persistent server-error reports (trigger = 'sync-server-error') carry the
+            // failing HTTP status + message instead of DOM/IDB mismatch data.
+            'serverError'          => 'nullable|array',
+            'serverError.status'   => 'nullable|integer',
+            'serverError.message'  => 'nullable|string|max:2000',
         ]);
 
         $user = Auth::user();
