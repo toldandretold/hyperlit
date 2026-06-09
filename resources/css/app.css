@@ -164,7 +164,13 @@ u.single.hypercite-target {
 /* Base transitions for all hypercite types */
 u.single, u.couple, u.poly {
     cursor: pointer; /* was an inline style; lives in CSS so it survives edit-time style stripping */
-    transition: all 2000ms ease-in-out; /* Smooth transitions for all state changes */
+    /* Animate ONLY brightness/colour (the navigation target/dimmed states change
+       --hypercite-intensity). NOT background-position/size: those are constant, and
+       letting `all` animate them made a freshly-created couple/poly underline slide
+       down from the top of the line on first paint (background-position 0 0 → 0 1.04em). */
+    transition: background-image 2000ms ease-in-out,
+                text-decoration-color 2000ms ease-in-out,
+                color 2000ms ease-in-out; /* was: all 2000ms (caused the dropping-underline glitch) */
 }
 
 /* Arrow icon navigation target state */
