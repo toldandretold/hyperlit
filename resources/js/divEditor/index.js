@@ -77,6 +77,7 @@ import {
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
+import { listItemIsEmpty, placeCaretAtEndOfListItem } from '../utilities/listItemCaret.js';
 import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle.js';
 
 import {
@@ -827,6 +828,29 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
       if (event.key === 'Backspace' && range.collapsed) {
         const liElement = targetElement?.closest('li');
         if (liElement) {
+          // EMPTY bullet + Backspace: don't outdent to a paragraph. If there's a
+          // previous bullet, just remove this one and drop the caret at the end
+          // of that previous bullet — the caret stays in the list (intuitive
+          // backward-delete). Only an empty FIRST bullet (no previous sibling)
+          // falls through to the outdent-to-paragraph path below.
+          // NOTE: an empty bullet holds a zero-width-space caret anchor (see
+          // listItemCaret.js), so listItemIsEmpty — not a raw offset check — is
+          // what reliably detects "empty" here.
+          if (listItemIsEmpty(liElement)) {
+            const prevLi = liElement.previousElementSibling;
+            if (prevLi && prevLi.tagName === 'LI') {
+              event.preventDefault();
+              const parentList = liElement.closest('ul, ol');
+              if (parentList) {
+                ensureNodeHasValidId(parentList);
+                liElement.remove();
+                placeCaretAtEndOfListItem(prevLi);
+                queueNodeForSave(parentList.id, 'update');
+                return;
+              }
+            }
+          }
+
           // Check if cursor is at the very start of the LI
           let isAtStart = false;
           if (range.startContainer.nodeType === Node.TEXT_NODE) {
@@ -836,6 +860,13 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
                !liElement.textContent.substring(0, range.startContainer.textContent.length).trim());
           } else if (range.startContainer === liElement) {
             isAtStart = range.startOffset === 0;
+          }
+
+          // An empty FIRST bullet (no previous sibling, so not handled above)
+          // holds a zero-width-space anchor → caret at offset 1, not 0. Treat it
+          // as "at start" so a single Backspace still outdents it to a paragraph.
+          if (listItemIsEmpty(liElement)) {
+            isAtStart = true;
           }
 
           if (isAtStart) {
@@ -857,9 +888,11 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
             const itemsBefore = allItems.slice(0, itemIndex);
             const itemsAfter = allItems.slice(itemIndex + 1);
 
-            // Create paragraph with LI content
+            // Create paragraph with LI content. An empty bullet may hold a
+            // zero-width-space caret anchor — normalise that to a <br> so the
+            // new paragraph isn't seeded with a stray ZWSP.
             const newParagraph = document.createElement('p');
-            newParagraph.innerHTML = liElement.innerHTML || '<br>';
+            newParagraph.innerHTML = listItemIsEmpty(liElement) ? '<br>' : (liElement.innerHTML || '<br>');
 
             // Remove the LI
             liElement.remove();

@@ -766,7 +766,7 @@ body[data-page="home"] #topRightContainer::after {
 }
 
 .download-icon path {
-  fill: #CBCCCC !important;
+  fill: var(--icon-fill-primary) !important; /* themes: #CBCCCC dark, dark on sepia/light */
 }
 
 .icon-wrapper {

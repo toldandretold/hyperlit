@@ -13,6 +13,7 @@ import { book } from '../app.js';
 import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../utilities/IDfunctions.js";
 import { queueNodeForSave } from './index.js';
 import { verbose } from '../utilities/logger.js';
+import { placeCaretInEmptyListItem, listItemIsEmpty } from '../utilities/listItemCaret.js';
 
 /**
  * Helper: Check if element is in viewport
@@ -746,8 +747,11 @@ export class EnterKeyHandler {
           return;
         }
 
-        // Check if this is an empty LI (exit list behavior)
-        const isEmpty = blockElement.textContent.trim() === "" ||
+        // Check if this is an empty LI (exit list behavior).
+        // listItemIsEmpty also treats a lone <br> or a zero-width-space caret
+        // anchor (inserted by placeCaretInEmptyListItem) as empty, so a freshly
+        // created bullet still exits the list on a second Enter.
+        const isEmpty = listItemIsEmpty(blockElement) ||
                         blockElement.innerHTML === "<br>";
 
         if (isEmpty) {
@@ -834,9 +838,12 @@ export class EnterKeyHandler {
           }
 
           if (liIsAtEnd) {
-            // Cursor at end: new empty LI
-            newLI.innerHTML = '<br>';
+            // Cursor at end: new empty LI. Caret is placed via
+            // placeCaretInEmptyListItem below (ZWSP anchor) so it renders to the
+            // RIGHT of the marker — a caret at element-offset 0 of an empty <li>
+            // sits left of the bullet/number under list-style-position: inside.
             blockElement.after(newLI);
+            placeCaretInEmptyListItem(newLI);
           } else {
             // Cursor in middle: split content
             const rangeToEnd = document.createRange();
@@ -845,17 +852,25 @@ export class EnterKeyHandler {
             const extractedContent = rangeToEnd.extractContents();
 
             newLI.appendChild(extractedContent);
-            if (newLI.innerHTML.trim() === '' || newLI.textContent.trim() === '') {
-              newLI.innerHTML = '<br>';
-            }
             if (blockElement.innerHTML.trim() === '' || blockElement.textContent.trim() === '') {
               blockElement.innerHTML = '<br>';
             }
 
             blockElement.after(newLI);
+
+            if (newLI.textContent.trim() === '') {
+              // Split produced an empty item — anchor caret after the marker.
+              placeCaretInEmptyListItem(newLI);
+            } else {
+              // Anchor the caret in the first text node (NOT element-offset 0,
+              // which renders left of the marker under list-style-position: inside).
+              const walker = document.createTreeWalker(newLI, NodeFilter.SHOW_TEXT, null, false);
+              const firstText = walker.nextNode();
+              if (firstText) moveCaretTo(firstText, 0);
+              else placeCaretInEmptyListItem(newLI);
+            }
           }
 
-          moveCaretTo(newLI, 0);
           queueNodeForSave(parentList.id, 'update');
         }
 

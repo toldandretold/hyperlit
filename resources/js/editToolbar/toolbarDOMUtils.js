@@ -6,6 +6,7 @@
  */
 
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
+import { placeCaretInEmptyListItem } from '../utilities/listItemCaret.js';
 
 /**
  * Check if element or any of its parents has the specified tag
@@ -208,6 +209,12 @@ export function setCursorAtTextOffset(element, textOffset, selection = null) {
     if (lastTextNode) {
       targetNode = lastTextNode;
       targetOffset = lastTextNode.textContent.length;
+    } else if (element.tagName === "LI") {
+      // Empty list item: a caret at element-offset 0 renders to the LEFT of the
+      // bullet/number under `list-style-position: inside`. Anchor it after a
+      // zero-width space so it sits right of the marker. See listItemCaret.js.
+      placeCaretInEmptyListItem(element, sel);
+      return;
     } else {
       targetNode = element;
       targetOffset = 0;

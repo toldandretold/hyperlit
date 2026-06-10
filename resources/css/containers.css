@@ -176,8 +176,8 @@ black #221F20;
   width: 100%;
   padding: 8px 12px;
   font-size: 13px;
-  color: #888;
-  border: 1px solid rgba(136,136,136,0.3);
+  color: var(--color-label);
+  border: 1px solid var(--border-button);
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
@@ -189,9 +189,13 @@ black #221F20;
   transition: color 0.2s, border-color 0.2s;
 }
 
-#creator-tools-toggle:hover {
-  color: #CBCCCC;
-  border-color: rgba(203,204,204,0.4);
+/* Hover + active/open: invert — fill with text colour, flip label + SVGs
+   (currentColor) to the background colour. */
+#creator-tools-toggle:hover,
+#creator-tools-toggle.expanded {
+  background: var(--color-text);
+  color: var(--color-background);
+  border-color: var(--color-text);
 }
 
 #creator-tools-toggle .creator-tools-chevron {
@@ -2179,14 +2183,14 @@ body[data-page="timemachine"] #main-content {
   align-items: center;
   justify-content: space-between;
   padding: 6px 0;
-  color: #bbb;
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: color 0.15s;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border-faint);
 }
 
 .version-history-item:hover {
-  color: #4EACAE;
+  color: var(--color-accent);
 }
 
 .snapshot-time {
@@ -2204,17 +2208,17 @@ body[data-page="timemachine"] #main-content {
   margin-top: 6px;
   padding: 6px 0;
   background: none;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border-button);
   border-radius: 4px;
-  color: #888;
+  color: var(--color-label);
   font-size: 12px;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .version-history-show-more:hover {
-  color: #4EACAE;
-  border-color: rgba(78,172,174,0.3);
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .version-history-condensed .snapshot-detail {

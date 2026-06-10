@@ -41,6 +41,17 @@ body.theme-light {
   --hypercite-dimmed-multi: 0.5;
   --highlight-resting-opacity: 0.35;
 
+  /* Muted text tiers: on a LIGHT background, mixing toward bg makes text paler
+     (the opposite of dark mode), so the :root percentages read washed-out here.
+     Push chrome text close to full text colour (dark/readable) and keep the
+     divider lines light/subtle — text darker than the lines, not lighter. */
+  --color-label:          color-mix(in srgb, var(--color-text) 85%, var(--color-background));
+  --color-text-secondary: color-mix(in srgb, var(--color-text) 75%, var(--color-background));
+  --color-text-faint:     color-mix(in srgb, var(--color-text) 60%, var(--color-background));
+  --border-subtle: color-mix(in srgb, var(--color-text) 18%, var(--color-background));
+  --border-faint:  color-mix(in srgb, var(--color-text) 10%, var(--color-background));
+  --border-button: color-mix(in srgb, var(--color-text) 50%, var(--color-background));
+
   /* Icon colors for light theme (auto-inherit from base colors) */
   --icon-fill-primary: var(--hyperlit-white);      /* Dark icons on light bg */
   --icon-fill-accent: var(--hyperlit-pink);        /* Pink accent */
@@ -88,16 +99,10 @@ body.theme-light #source-container {
   background-color: var(--container-glass-bg) !important;
 }
 
-/* Fix gray text in source container to be darker */
-body.theme-light #source-container p[style*="color: #888"],
-body.theme-light #source-container a[style*="color: #888"] {
-  color: #3C3C3C !important;
-}
-
-/* Fix download icon SVGs to be darker */
-body.theme-light .download-icon path {
-  fill: #2C2C2C !important;
-}
+/* Source-container chrome (labels, hints, version history, toggles, dividers)
+   now reads from the auto-theming --color-label / --color-text-secondary /
+   --color-text-faint / --border-subtle tokens, so no per-shade overrides are
+   needed here. Download icons inherit currentColor → var(--color-text). */
 
 /* Fix source container form inputs for better contrast */
 body.theme-light #edit-source-form input[type="text"],

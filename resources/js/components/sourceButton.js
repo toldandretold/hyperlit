@@ -13,7 +13,7 @@ const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="2
   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
 </svg>`;
 
-const PRIVATE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+const PRIVATE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
 </svg>`;
@@ -157,8 +157,8 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
         stroke-linejoin="round"
         style="pointer-events: none;"
       >
-        <path d="M12 20h9" stroke="#CBCCCC" />
-        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#CBCCCC" />
+        <path d="M12 20h9" stroke="var(--icon-stroke-primary)" />
+        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="var(--icon-stroke-primary)" />
       </svg>
     </button>` : '';
 
@@ -189,12 +189,12 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   let licenseHtml = '';
 
   if (licenseInfo.url) {
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: #888; text-decoration: underline;">${licenseInfo.short}</a></p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: var(--color-label); text-decoration: underline;">${licenseInfo.short}</a></p>`;
   } else if (license === 'custom' && record?.custom_license_text) {
     const escapedText = record.custom_license_text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
   } else {
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: #888; margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
   }
 
   return `
@@ -203,7 +203,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     ${licenseHtml}
 
     <div style="margin-top: 15px; padding-top: 15px;">
-      <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Downloads</h3>
+      <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Downloads</h3>
 
     <button type="button" id="download-md" class="download-btn">
   <div class="icon-wrapper">
@@ -294,7 +294,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       style="width: 80%; height: 100%;"
     >
       <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" fill="currentColor"/>
-      <text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="var(--color-bg, #1a1a2e)" font-family="sans-serif">raw</text>
+      <text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="var(--color-background)" font-family="sans-serif">raw</text>
     </svg>
     </div>
   </button>` : ''}
@@ -308,33 +308,33 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       let btnHtml = '';
       if (!isLoggedIn) {
         btnHtml = `
-          <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: #888; border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
+          <button type="button" id="ai-review-btn" disabled style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--color-label); border: 1px solid rgba(136,136,136,0.4); background: transparent; border-radius: 4px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
             AI Citation Review
           </button>
-          <p style="font-size: 11px; color: #666; margin-top: 6px;">Must be logged in.</p>`;
+          <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">Must be logged in.</p>`;
       } else {
         btnHtml = `
-          <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
             AI Citation Review
           </button>
           <div id="ai-review-info" style="display: none; margin-top: 10px;">
-            <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0; line-height: 1.5;">AI Citation Review compares all citations in this text to open databases, pulling any available data. It then compares the truth claim of each citation to the source material. The review takes 10-15 minutes. You will be emailed on completion.</p>
-            <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0;">${isPremium
+            <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 10px 0; line-height: 1.5;">AI Citation Review compares all citations in this text to open databases, pulling any available data. It then compares the truth claim of each citation to the source material. The review takes 10-15 minutes. You will be emailed on completion.</p>
+            <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 10px 0;">${isPremium
               ? 'Cost: <strong>Included with Premium</strong>'
               : `Estimated cost: <strong>around $1.00</strong> <span style="opacity:0.7">(varies by book length)</span> <span class="ai-review-cost-info-toggle" tabindex="0" role="button" aria-label="Pricing info" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:4px;">?</span><span class="ai-review-cost-info-detail" style="display:none;"> AI Citation Review uses OCR and multiple LLMs to verify each citation. Cost depends on the number of citations and source length. For no markup, <a href="https://github.com/toldandretold/hyperlit" target="_blank" style="color:inherit;text-decoration:underline;">clone Hyperlit from GitHub</a> (it's free software) and use your own API keys.</span>`
             }</p>
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aaa; margin-bottom: 10px; cursor: pointer;">
-              <input type="checkbox" id="ai-review-force" style="accent-color: #EF8D34;" />
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px; cursor: pointer;">
+              <input type="checkbox" id="ai-review-force" style="accent-color: var(--hyperlit-orange);" />
               Rescan all sources from scratch
             </label>
-            <button type="button" id="ai-review-generate" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #221F20; background: #EF8D34; border: none; border-radius: 4px; cursor: pointer; font-family: inherit;">Generate Review</button>
+            <button type="button" id="ai-review-generate" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #221F20; background: var(--hyperlit-orange); border: none; border-radius: 4px; cursor: pointer; font-family: inherit;">Generate Review</button>
           </div>`;
       }
 
       return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; padding-top: 15px;">
-        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">AI Citation Review</h3>
+        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">AI Citation Review</h3>
         ${btnHtml}
       </div>`;
     })() : ''}
@@ -363,7 +363,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       <div class="scroller">
         <form id="edit-source-form">
           <div class="form-header">
-            <h2 style="color: #EF8D34;">Edit Library Card</h2>
+            <h2 style="color: var(--hyperlit-orange);">Edit Library Card</h2>
             <p class="form-subtitle">Update the citation details for this book</p>
           </div>
 
@@ -749,29 +749,29 @@ export class SourceContainerManager extends ContainerManager {
     // Build the HTML for version history, reconvert placeholder, reupload, and delete
     let html = `
       <div id="version-history-section" style="margin-top: 10px;">
-        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Version History</h3>
-        <div id="version-history-list" style="font-size: 13px; color: #aaa;">Loading...</div>
+        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Version History</h3>
+        <div id="version-history-list" style="font-size: 13px; color: var(--color-text-secondary);">Loading...</div>
       </div>
 
       <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px; display: none;"></div>
 
       <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
-        <h3 style="font-size: 13px; color: #888; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">Re-upload Source</h3>
+        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Re-upload Source</h3>
         <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-label)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
-          <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>
+          <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+          <p style="font-size: 11px; color: var(--color-text-faint); margin: 0;">md, doc, docx, epub, html, pdf</p>
         </div>
         <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.epub,.html,.pdf" style="display: none;">
-        <p id="reupload-status" style="font-size: 12px; color: #d73a49; margin-top: 6px; display: none;"></p>
+        <p id="reupload-status" style="font-size: 12px; color: var(--color-danger); margin-top: 6px; display: none;"></p>
       </div>
 
       <div id="delete-book-section" style="margin-top: 20px; padding-top: 15px;">
-        <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #d73a49; border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" id="delete-book-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--color-danger); border: 1px solid rgba(215,58,73,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -780,7 +780,7 @@ export class SourceContainerManager extends ContainerManager {
           </svg>
           Delete Book
         </button>
-        <p style="font-size: 11px; color: #666; margin-top: 6px;">Permanently delete this book and all associated data.</p>
+        <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">Permanently delete this book and all associated data.</p>
       </div>`;
 
     content.innerHTML = html;
@@ -806,7 +806,7 @@ export class SourceContainerManager extends ContainerManager {
       dropzone.addEventListener("click", () => fileInput.click());
       dropzone.addEventListener("dragover", (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#EF8D34';
+        dropzone.style.borderColor = 'var(--hyperlit-orange)';
       });
       dropzone.addEventListener("dragleave", () => {
         dropzone.style.borderColor = 'rgba(136,136,136,0.4)';
@@ -842,7 +842,7 @@ export class SourceContainerManager extends ContainerManager {
 
       section.style.display = '';
       section.innerHTML = `
-        <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #EF8D34; border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1 4 1 10 7 10"></polyline>
             <polyline points="23 20 23 14 17 14"></polyline>
@@ -850,7 +850,7 @@ export class SourceContainerManager extends ContainerManager {
           </svg>
           ${label}
         </button>
-        <p style="font-size: 11px; color: #666; margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>`;
+        <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>`;
 
       // Attach listener to the newly created button
       const btn = section.querySelector("#reconvert-btn");
@@ -1108,7 +1108,7 @@ export class SourceContainerManager extends ContainerManager {
     if (dropzone) {
       dropzone.style.pointerEvents = 'none';
       dropzone.style.opacity = '0.5';
-      dropzone.innerHTML = '<p style="font-size: 13px; color: #EF8D34; margin: 0;">Uploading &amp; converting...</p>';
+      dropzone.innerHTML = '<p style="font-size: 13px; color: var(--hyperlit-orange); margin: 0;">Uploading &amp; converting...</p>';
     }
 
     try {
@@ -1136,7 +1136,7 @@ export class SourceContainerManager extends ContainerManager {
         update(pct, msg) {
           if (dropzone) {
             const label = pct != null ? `${msg || 'Converting'}… ${Math.round(pct)}%` : (msg || 'Converting…');
-            dropzone.innerHTML = `<p style="font-size: 13px; color: #EF8D34; margin: 0;">${label}</p>`;
+            dropzone.innerHTML = `<p style="font-size: 13px; color: var(--hyperlit-orange); margin: 0;">${label}</p>`;
           }
         },
         showError() {},
@@ -1151,13 +1151,13 @@ export class SourceContainerManager extends ContainerManager {
         dropzone.style.pointerEvents = '';
         dropzone.style.opacity = '';
         dropzone.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-label)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
-          <p style="font-size: 11px; color: #666; margin: 0;">md, doc, docx, epub, html, pdf</p>`;
+          <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+          <p style="font-size: 11px; color: var(--color-text-faint); margin: 0;">md, doc, docx, epub, html, pdf</p>`;
       }
     }
   }
@@ -1280,10 +1280,10 @@ export class SourceContainerManager extends ContainerManager {
             if (!banner) {
               banner = document.createElement('p');
               banner.className = 'ai-review-balance-error';
-              banner.style.cssText = 'font-size: 12px; color: #EF8D34; margin: 0 0 10px 0; line-height: 1.5;';
+              banner.style.cssText = 'font-size: 12px; color: var(--hyperlit-orange); margin: 0 0 10px 0; line-height: 1.5;';
               infoPanel.insertBefore(banner, generateBtn);
             }
-            banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: #4EACAE; text-decoration: underline;">Top Up Balance</a>';
+            banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: var(--hyperlit-aqua); text-decoration: underline;">Top Up Balance</a>';
           }
           if (generateBtn) {
             generateBtn.disabled = false;
@@ -1368,8 +1368,8 @@ export class SourceContainerManager extends ContainerManager {
     if (state === 'reviewing') {
       const stepText = (currentStep && stepLabels[currentStep]) || 'Reviewing...';
       aiBtn.disabled = true;
-      aiBtn.style.color = '#4EACAE';
-      aiBtn.style.borderColor = 'rgba(78,172,174,0.4)';
+      aiBtn.style.color = 'var(--hyperlit-aqua)';
+      aiBtn.style.borderColor = 'color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent)';
       aiBtn.style.cursor = 'not-allowed';
       aiBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -1377,8 +1377,8 @@ export class SourceContainerManager extends ContainerManager {
       if (infoPanel) infoPanel.style.display = 'none';
     } else if (state === 'completed') {
       aiBtn.disabled = false;
-      aiBtn.style.color = '#4EACAE';
-      aiBtn.style.borderColor = 'rgba(78,172,174,0.4)';
+      aiBtn.style.color = 'var(--hyperlit-aqua)';
+      aiBtn.style.borderColor = 'color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent)';
       aiBtn.style.cursor = 'pointer';
       aiBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1401,7 +1401,7 @@ export class SourceContainerManager extends ContainerManager {
         regenLink.id = 'ai-review-regenerate';
         regenLink.href = '#';
         regenLink.textContent = 'Regenerate';
-        regenLink.style.cssText = 'display: block; font-size: 11px; color: #888; margin-top: 6px; text-decoration: underline; cursor: pointer;';
+        regenLink.style.cssText = 'display: block; font-size: 11px; color: var(--color-label); margin-top: 6px; text-decoration: underline; cursor: pointer;';
         regenLink.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1409,7 +1409,7 @@ export class SourceContainerManager extends ContainerManager {
           const btn = this.container.querySelector('#ai-review-btn');
           if (btn) {
             const freshBtn = btn.cloneNode(false);
-            freshBtn.style.color = '#EF8D34';
+            freshBtn.style.color = 'var(--hyperlit-orange)';
             freshBtn.style.borderColor = 'rgba(239,141,52,0.4)';
             freshBtn.style.cursor = 'pointer';
             freshBtn.disabled = false;
@@ -1469,7 +1469,7 @@ export class SourceContainerManager extends ContainerManager {
         const aiBtn = this.container.querySelector('#ai-review-btn');
         if (aiBtn) {
           aiBtn.disabled = false;
-          aiBtn.style.color = '#EF8D34';
+          aiBtn.style.color = 'var(--hyperlit-orange)';
           aiBtn.style.borderColor = 'rgba(239,141,52,0.4)';
           aiBtn.style.cursor = 'pointer';
           aiBtn.innerHTML = `
@@ -1953,7 +1953,7 @@ export class SourceContainerManager extends ContainerManager {
       // Drag-and-drop .bib file support
       bibtexField.addEventListener('dragover', (e) => {
         e.preventDefault();
-        bibtexField.style.borderColor = '#EF8D34';
+        bibtexField.style.borderColor = 'var(--hyperlit-orange)';
       });
 
       bibtexField.addEventListener('dragleave', () => {

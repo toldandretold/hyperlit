@@ -16,6 +16,11 @@
  */
 
 import { expect } from '@playwright/test';
+import {
+  probeBookActionsMenu,
+  probeResizeHandle,
+  probeDropListenerBalance,
+} from './elementProbes.js';
 
 /* ── synthetic file drop on window ────────────────────────────────────── */
 /**
@@ -129,6 +134,11 @@ export async function verifyHomePage(page, spa) {
   });
   expect(overlayStillHidden).toBe(true);
 
+  // Post-nav interactive probes: .book-actions menu still wired, and the
+  // window drop listeners are bound with exactly one overlay (no leak).
+  await probeBookActionsMenu(page, spa, { expectPage: 'home', clickPreview: false });
+  await probeDropListenerBalance(page);
+
   spa.assertHealthy(await spa.healthCheck(page));
   // Check only NEW console errors since this verifier was called — the
   // `consoleErrors` array on the fixture accumulates across the whole test,
@@ -186,6 +196,11 @@ export async function verifyUserPage(page, spa) {
   // Tabs (Library / Account) exist
   const tabCount = await page.locator('.arranger-button').count();
   expect(tabCount).toBeGreaterThanOrEqual(2);
+
+  // Post-nav interactive probes: .book-actions menu still wired (user-page
+  // handler this time), plus drop listener balance.
+  await probeBookActionsMenu(page, spa, { expectPage: 'user', clickPreview: false });
+  await probeDropListenerBalance(page);
 
   spa.assertHealthy(await spa.healthCheck(page));
   // Check only NEW console errors since this verifier was called — the
@@ -257,6 +272,12 @@ export async function verifyReaderPage(page, spa) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
   }
+
+  // Resize-handle probe. The anchor tour book is freshly-created and empty, so
+  // there's no footnote/hypercite to open a container — this skips gracefully
+  // there (require:false). The focused post-nav-buttons spec drives it against
+  // a content-rich book with require:true.
+  await probeResizeHandle(page, spa, { require: false });
 
   spa.assertHealthy(await spa.healthCheck(page));
   // Check only NEW console errors since this verifier was called — the

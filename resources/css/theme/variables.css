@@ -35,6 +35,24 @@
   --color-link-hover: var(--hyperlit-pink);
   --color-strong: var(--hyperlit-white);
 
+  /* Muted text tiers for UI chrome (section labels, hints, secondary copy).
+     Derived from the theme's own text + background colors via color-mix, so
+     they stay readable across dark / sepia / light WITHOUT per-theme overrides.
+     Higher % = closer to full text colour = more prominent. */
+  --color-label:          color-mix(in srgb, var(--color-text) 58%, var(--color-background)); /* ~#888 on dark — uppercase labels, toggles */
+  --color-text-secondary: color-mix(in srgb, var(--color-text) 72%, var(--color-background)); /* ~#aaa on dark — secondary body copy */
+  --color-text-faint:     color-mix(in srgb, var(--color-text) 45%, var(--color-background)); /* ~#666 on dark — hints / tertiary */
+
+  /* Subtle dividers / chrome borders (also auto-theme from text colour) */
+  --border-subtle: color-mix(in srgb, var(--color-text) 15%, var(--color-background));
+  --border-faint:  color-mix(in srgb, var(--color-text) 8%, var(--color-background));
+  /* Outlined-button border — more visible than a divider so the button reads
+     as clickable (themes override this stronger on light backgrounds). */
+  --border-button: color-mix(in srgb, var(--color-text) 30%, var(--color-background));
+
+  /* Destructive actions (delete, errors) */
+  --color-danger: #d73a49;
+
   /* Highlighting */
   --highlight-base: var(--hyperlit-pink);
   --highlight-user: var(--hyperlit-aqua);
