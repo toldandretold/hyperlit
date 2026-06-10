@@ -57,11 +57,17 @@ export function initializeShelfTabs() {
         try {
             const tabs = JSON.parse(saved);
             if (Array.isArray(tabs)) {
-                // Prefer history.state (per-entry restore) over localStorage cross-session value
-                const histShelfId = history.state?.userPageActiveTab?.filter === 'shelf'
-                    ? history.state.userPageActiveTab.shelfId
-                    : null;
-                const activeShelfId = histShelfId || localStorage.getItem(ACTIVE_SHELF_KEY);
+                // Decide which shelf (if any) to re-activate. The per-entry
+                // history state is AUTHORITATIVE: if this entry was on a
+                // non-shelf tab (library/account), we must NOT restore a shelf —
+                // otherwise the stale "last shelf" localStorage value overrides
+                // the tab the user actually left on (loads All, then jumps to a
+                // shelf). Only fall back to the cross-session last-active shelf
+                // when there is no per-entry state at all (fresh load).
+                const histTab = history.state?.userPageActiveTab || null;
+                const activeShelfId = histTab
+                    ? (histTab.filter === 'shelf' ? histTab.shelfId : null)
+                    : localStorage.getItem(ACTIVE_SHELF_KEY);
                 for (const tab of tabs) {
                     createTabButton(tab.shelfId, tab.shelfName, tab.sort, false);
                 }

@@ -301,6 +301,13 @@ export async function initializeHomepageButtons() {
 
       // Save active button to localStorage and history.state (per-entry restore)
       localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, this.dataset.content);
+      // Switching to a non-shelf tab (Library/Account) clears the remembered
+      // shelf, so a later FRESH load (no per-entry history state) doesn't restore
+      // a stale shelf over the tab the user actually left on. (The shelf path
+      // returns earlier, so reaching here means a non-shelf tab.)
+      if (filter !== 'shelf') {
+        localStorage.removeItem('homepage_active_shelf_id');
+      }
       persistActiveTabToHistory(filter, this.dataset.content, this.dataset.shelfId || null);
 
       await transitionToBookContent(targetId, true);
