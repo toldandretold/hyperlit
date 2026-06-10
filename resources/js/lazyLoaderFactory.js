@@ -1384,7 +1384,13 @@ export function applyHypercites(html, hypercites) {
   const segments = createHyperciteSegments(activeHypercites);
 
   const tempElement = document.createElement("div");
-  tempElement.innerHTML = html;
+  // 🔒 SECURITY: sanitize BEFORE assigning to innerHTML. Even though this div is
+  // detached, an `<img onerror>` / `<svg onload>` in raw node content fires here,
+  // BEFORE the final sanitizeHtml() in the lazy loader — a stored-XSS bypass.
+  // Sanitising at the sink protects every caller (lazy loader, broadcast,
+  // highlight deletion) and neutralises any unsanitised rows already in the DB.
+  // sanitizeHtml is a no-op on legitimate markup, so char positions are unchanged.
+  tempElement.innerHTML = sanitizeHtml(html);
 
   segments.sort((a, b) => b.charStart - a.charStart);
 
@@ -1522,7 +1528,10 @@ export function applyHighlights(html, highlights, bookId) {
   if (highlights.length === 0) return html;
 
   const tempElement = document.createElement("div");
-  tempElement.innerHTML = html;
+  // 🔒 SECURITY: sanitize BEFORE innerHTML — see the matching note in
+  // applyHypercites(). A detached `<img onerror>` still fires, ahead of the lazy
+  // loader's final sanitizeHtml(), so we must neutralise it right at the sink.
+  tempElement.innerHTML = sanitizeHtml(html);
 
   const segments = createHighlightSegments(highlights);
 

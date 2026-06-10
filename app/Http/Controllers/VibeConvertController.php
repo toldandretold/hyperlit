@@ -32,7 +32,7 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
         }
         $validated = $request->validate([
-            'bookId'       => 'required|string|max:255',
+            'bookId'       => 'required|string|max:255|regex:/^[A-Za-z0-9_\/-]+$/', // 🔒 block path traversal into resource_path("markdown/{bookId}")
             'note'         => 'nullable|string|max:2000',
             'issueTypes'   => 'nullable|array|max:8',
             'issueTypes.*' => 'string|in:citations_not_matched,citations_wrongly_matched,footnotes_not_matched,footnotes_wrongly_matched,headings_wrong',
@@ -157,7 +157,7 @@ class VibeConvertController extends Controller
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
         }
-        $validated = $request->validate(['bookId' => 'required|string|max:255']);
+        $validated = $request->validate(['bookId' => 'required|string|max:255|regex:/^[A-Za-z0-9_\/-]+$/']);
         $result = $applier->apply($validated['bookId']);
         $code = $result['success'] ? 200 : (($result['message'] ?? '') === 'No vibe patch to apply.' ? 404 : 500);
         return response()->json($result, $code);

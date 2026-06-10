@@ -14,8 +14,11 @@ run and what each test covers.
 | `paste/` | Vitest (via `tests/javascript`) | `npm test paste` | Paste-flow processors and normalizers (Cambridge journal format, HTML→markdown, etc.). Has its own README. |
 | `conversion/` | Plain Python | `python3 tests/conversion/run_regression.py` | Regression suite for the PDF/HTML→nodes conversion pipeline. Runs `mistral_ocr.py` + `process_document.py` against fixture OCR responses and asserts ref/def/footnote counts. |
 | `e2e/` | [Playwright](https://playwright.dev/) | `npm run test:e2e` | Browser-driven end-to-end tests against a real local dev server + Postgres. Has its own [README](e2e/README.md). |
+| `security-redteam/` | Plain PHP (curl) | `php tests/security-redteam/run.php --target=http://hyperlit.test` | **Offensive** black-box pen-test harness: registers throwaway accounts and actively attacks a *running* server (SQLi, IDOR, auth bypass, privesc, SSRF, DoS), writing a timestamped findings report. The "try to break in" counterpart to `Feature/Security/`. Has its own [README](security-redteam/README.md). |
 
 `Pest.php` and `TestCase.php` are the shared bootstrap files Pest uses.
+
+> **`Feature/Security/` vs `security-redteam/`:** the former is assertion-based, white-box, in-process, and CI-safe (proves a specific defense holds against a test DB). The latter is black-box over real HTTP against a live server and *reports* what it found. Run both; they catch different things.
 
 ## When to use which
 

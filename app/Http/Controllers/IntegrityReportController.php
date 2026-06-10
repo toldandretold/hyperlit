@@ -18,7 +18,7 @@ class IntegrityReportController extends Controller
     public function report(Request $request)
     {
         $data = $request->validate([
-            'bookId'         => 'required|string|max:500',
+            'bookId'         => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
             'mismatches'     => 'nullable|array|max:50',
             'mismatches.*.nodeId'    => 'nullable|string|max:500',
             'mismatches.*.startLine' => 'nullable|string|max:50',
@@ -99,7 +99,7 @@ class IntegrityReportController extends Controller
     public function pasteGlitchReport(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'required|string|max:500',
+            'bookId'              => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
             'conversionSummary'   => 'nullable|array',
             'recentLogs'          => 'nullable|array|max:50',
             'recentLogs.*.level'  => 'nullable|string|max:10',
@@ -152,7 +152,7 @@ class IntegrityReportController extends Controller
     public function conversionFeedback(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'required|string|max:500',
+            'bookId'              => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
             'rating'              => 'required|string|in:good,bad',
             'conversionStats'     => 'nullable|array',
             'footnoteAudit'       => 'nullable|array',
@@ -214,7 +214,7 @@ class IntegrityReportController extends Controller
     public function importFailureReport(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'nullable|string|max:500',
+            'bookId'              => 'nullable|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
             'errorMessage'        => 'nullable|string|max:5000',
             'status'              => 'nullable|string|max:50',
             'source'              => 'nullable|string|in:pre_conversion,poll_failure',

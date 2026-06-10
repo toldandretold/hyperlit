@@ -64,26 +64,62 @@ class EpubProcessor implements ProcessorInterface
         if ($zip->open($inputPath) === TRUE) {
             $numFiles = $zip->numFiles;
             $skippedFiles = 0;
+            $safeFiles = [];
 
-            // Pre-extraction validation
+            // Build an allow-list of safe entries. This filter is REAL: only the
+            // entries collected here are extracted (see the per-file extractTo
+            // below). Previously this loop merely LOGGED "suspicious" entries and
+            // then `extractTo($epubPath)` unpacked the ENTIRE archive regardless —
+            // security theatre that relied wholly on libzip sanitising paths. We
+            // now reject traversal ourselves and verify each file post-extraction,
+            // matching ZipProcessor.
             for ($i = 0; $i < $numFiles; $i++) {
                 $stat = $zip->statIndex($i);
                 if (!$stat) continue;
+                $name = $stat['name'];
+
+                // Directory entries are created implicitly when files are written.
+                if (substr($name, -1) === '/') continue;
 
                 if ($stat['size'] > 10 * 1024 * 1024) { // 10MB per file
-                    Log::warning('Skipping large file in EPUB', ['filename' => $stat['name'], 'size' => $stat['size']]);
+                    Log::warning('Skipping large file in EPUB', ['filename' => $name, 'size' => $stat['size']]);
                     $skippedFiles++;
                     continue;
                 }
-                if (strpos($stat['name'], '..') !== false || strpos($stat['name'], '/') === 0) {
-                    Log::warning('Skipping suspicious file path in EPUB', ['filename' => $stat['name']]);
+                // Reject path traversal / absolute / backslash / null-byte names —
+                // do NOT trust libzip to sanitise them.
+                if (strpos($name, '..') !== false
+                    || strpos($name, '/') === 0
+                    || strpos($name, '\\') !== false
+                    || strpos($name, "\0") !== false) {
+                    Log::warning('Blocking suspicious file path in EPUB', ['filename' => $name]);
                     $skippedFiles++;
                     continue;
                 }
+                $safeFiles[] = $name;
             }
 
-            $zip->extractTo($epubPath);
+            // Extract ONLY allow-listed entries, verifying each stays inside the dir.
+            foreach ($safeFiles as $safeFile) {
+                $zip->extractTo($epubPath, $safeFile);
+
+                $extractedPath = $epubPath . '/' . $safeFile;
+                if (file_exists($extractedPath)) {
+                    $realPath = realpath($extractedPath);
+                    $realDir  = realpath($epubPath);
+                    if (!$realPath || !$realDir || strpos($realPath, $realDir) !== 0) {
+                        Log::error('EPUB extraction path escape detected', [
+                            'file' => $safeFile, 'realpath' => $realPath, 'expected_base' => $realDir,
+                        ]);
+                        @unlink($extractedPath);
+                        throw new \RuntimeException('Security violation: EPUB entry escapes target directory');
+                    }
+                }
+            }
             $zip->close();
+
+            // Remove any symlinks the archive planted (could be written through later).
+            $this->removeSymlinks($epubPath);
 
             $this->helpers->setSecurePermissions($epubPath);
 
@@ -218,6 +254,28 @@ class EpubProcessor implements ProcessorInterface
                 'path' => basename($path)
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Recursively remove any symlinks from an extracted directory. A crafted EPUB
+     * can contain a symlink entry pointing outside the tree; left in place, a
+     * later write "through" it would escape. Mirrors ZipProcessor::validateNoSymlinks.
+     */
+    private function removeSymlinks(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $file) {
+            if (is_link($file->getPathname())) {
+                Log::warning('Removing symlink from extracted EPUB', ['symlink' => $file->getPathname()]);
+                @unlink($file->getPathname());
+            }
         }
     }
 }

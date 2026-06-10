@@ -100,7 +100,7 @@ class ConversionTestController extends Controller
     public function addFixture(Request $request)
     {
         $data = $request->validate([
-            'bookId'      => 'required|string|max:500',
+            'bookId'      => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/', // 🔒 bookId feeds resource_path() + a Python --source arg; block traversal
             'name'        => 'required|string|max:100|regex:/^[a-zA-Z0-9_-]+$/',
             'description' => 'required|string|max:500',
         ]);

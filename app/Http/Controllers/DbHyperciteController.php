@@ -7,6 +7,7 @@ use App\Models\PgNodeChunk;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Http\Responses\ApiResponse;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -172,7 +173,7 @@ class DbHyperciteController extends Controller
                     'node_id' => $item['node_id'] ?? null,
                     'charData' => $item['charData'] ?? null,
                     'hypercitedText' => $item['hypercitedText'] ?? null,
-                    'hypercitedHTML' => $item['hypercitedHTML'] ?? null,
+                    'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
                     'relationshipStatus' => $item['relationshipStatus'] ?? null,
                     'citedIN' => $item['citedIN'] ?? [],
                     'creator' => $creator,
@@ -315,7 +316,7 @@ class DbHyperciteController extends Controller
                             'node_id' => $item['node_id'] ?? null,
                             'charData' => $item['charData'] ?? null,
                             'hypercitedText' => $item['hypercitedText'] ?? null,
-                            'hypercitedHTML' => $item['hypercitedHTML'] ?? null,
+                            'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
                             'relationshipStatus' => $item['relationshipStatus'] ?? null,
                             'citedIN' => $item['citedIN'] ?? [],
                             'creator' => $creator,
@@ -421,6 +422,11 @@ class DbHyperciteController extends Controller
 
         // Remove any other problematic nested fields
         unset($cleanItem['full_library_array']);
+
+        // 🔒 raw_json is returned by the read API, so sanitise its HTML too.
+        if (isset($cleanItem['hypercitedHTML'])) {
+            $cleanItem['hypercitedHTML'] = NodeHtmlSanitizer::clean($cleanItem['hypercitedHTML']);
+        }
 
         return $cleanItem;
     }

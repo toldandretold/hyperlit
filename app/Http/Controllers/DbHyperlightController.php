@@ -9,6 +9,7 @@ use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Services\BookDeletionService;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -165,8 +166,8 @@ class DbHyperlightController extends Controller
                         'node_id' => $item['node_id'] ?? null,
                         'charData' => $item['charData'] ?? null,
                         'highlightedText' => $item['highlightedText'] ?? null,
-                        'highlightedHTML' => $item['highlightedHTML'] ?? null,
-                        'annotation' => $item['annotation'] ?? null,
+                        'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
+                        'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
                         'startLine' => $item['startLine'] ?? null,
                         'creator' => $creator,
                         'creator_token' => $creator_token,
@@ -305,8 +306,8 @@ class DbHyperlightController extends Controller
                             'node_id' => $item['node_id'] ?? null,
                             'charData' => $item['charData'] ?? [],
                             'highlightedText' => $item['highlightedText'] ?? null,
-                            'highlightedHTML' => $item['highlightedHTML'] ?? null,
-                            'annotation' => $item['annotation'] ?? null,
+                            'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
+                            'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
                             'preview_nodes' => $item['preview_nodes']
                                 ?? ($existingRecord ? $existingRecord->preview_nodes : null),
                             'startLine' => $item['startLine'] ?? null,
@@ -586,6 +587,13 @@ class DbHyperlightController extends Controller
         // Also remove any other potentially problematic nested fields
         if (isset($cleanItem['full_library_array'])) {
             unset($cleanItem['full_library_array']);
+        }
+
+        // 🔒 raw_json is returned by the read API, so sanitise its HTML fields too.
+        foreach (['highlightedHTML', 'annotation'] as $f) {
+            if (isset($cleanItem[$f])) {
+                $cleanItem[$f] = NodeHtmlSanitizer::clean($cleanItem[$f]);
+            }
         }
 
         return $cleanItem;

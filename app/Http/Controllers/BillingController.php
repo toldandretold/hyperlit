@@ -73,8 +73,12 @@ class BillingController extends Controller
             'description' => 'sometimes|string|max:255',
         ]);
 
+        // 🔒 Authorise via the is_admin column (the same check RequireAdmin uses),
+        // NOT a hard-coded username. The old `name === 'admin'` test was both broken
+        // (the real admin isn't named "admin") and trivially bypassable: anyone
+        // could register the unclaimed username "admin" and mint unlimited credits.
         $admin = Auth::user();
-        if ($admin->name !== 'admin') {
+        if (!$admin || !$admin->isAdmin()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

@@ -8,6 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\PgNodeChunk;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -197,7 +198,7 @@ class DbNodeChunkController extends Controller
                 $records = [];
 
                 foreach ($data['data'] as $item) {
-                    $content = $item['content'] ?? null;
+                    $content = NodeHtmlSanitizer::clean($item['content'] ?? null); // 🔒 strip stored XSS on write
                     $records[] = [
                         'book' => $item['book'] ?? null,
                         'chunk_id' => $item['chunk_id'] ?? 0,
@@ -294,7 +295,7 @@ class DbNodeChunkController extends Controller
 
                 $records = [];
                 foreach ($data['data'] as $item) {
-                    $content = $item['content'] ?? null;
+                    $content = NodeHtmlSanitizer::clean($item['content'] ?? null); // 🔒 strip stored XSS on write
                     $records[] = [
                         'book' => $item['book'] ?? $book,
                         'chunk_id' => $item['chunk_id'] ?? 0,
@@ -477,7 +478,7 @@ class DbNodeChunkController extends Controller
                     $updateData = [];
                     // For owners, prepare all possible updatable fields.
                     if ($hasPermission) {
-                        $updatedContent = $item['content'] ?? ($existingChunk ? $existingChunk->content : null);
+                        $updatedContent = NodeHtmlSanitizer::clean($item['content'] ?? null) ?? ($existingChunk ? $existingChunk->content : null);
                         $updateData = [
                             'chunk_id' => $item['chunk_id'] ?? ($existingChunk ? $existingChunk->chunk_id : 0),
                             'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
@@ -595,7 +596,7 @@ class DbNodeChunkController extends Controller
                                 'book' => $item['book'],
                                 'startLine' => $item['startLine'],
                                 'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
-                                'content' => $item['content'] ?? '',    // Required NOT NULL field
+                                'content' => NodeHtmlSanitizer::clean($item['content'] ?? '') ?? '',    // Required NOT NULL field
                                 'node_id' => $item['node_id'] ?? null,
                             ],
                             $updateData
@@ -700,6 +701,13 @@ class DbNodeChunkController extends Controller
         // Also remove any other potentially problematic nested fields
         if (isset($cleanItem['full_library_array'])) {
             unset($cleanItem['full_library_array']);
+        }
+
+        // 🔒 raw_json is a denormalised copy of the node returned by the read API,
+        // so its HTML must be sanitised too — otherwise an XSS payload survives in
+        // raw_json even though the `content` column is clean.
+        if (isset($cleanItem['content'])) {
+            $cleanItem['content'] = NodeHtmlSanitizer::clean($cleanItem['content']);
         }
 
         return $cleanItem;
@@ -1002,7 +1010,7 @@ class DbNodeChunkController extends Controller
             $bindings[] = $item['node_id'];
             $bindings[] = $item['startLine'] ?? null;
             $bindings[] = $item['chunk_id'] ?? 0;
-            $bindings[] = $item['content'] ?? null;
+            $bindings[] = NodeHtmlSanitizer::clean($item['content'] ?? null);
             $bindings[] = json_encode($item['footnotes'] ?? []);
             $bindings[] = $item['plainText'] ?? null;
             $bindings[] = $item['type'] ?? null;
@@ -1052,7 +1060,7 @@ class DbNodeChunkController extends Controller
             $bindings[] = $item['node_id'] ?? null;
             $bindings[] = $item['startLine'] ?? null;
             $bindings[] = $item['chunk_id'] ?? 0;
-            $bindings[] = $item['content'] ?? null;
+            $bindings[] = NodeHtmlSanitizer::clean($item['content'] ?? null);
             $bindings[] = json_encode($item['footnotes'] ?? []);
             $bindings[] = $item['plainText'] ?? null;
             $bindings[] = $item['type'] ?? null;

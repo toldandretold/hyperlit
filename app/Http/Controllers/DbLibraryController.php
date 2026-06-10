@@ -16,6 +16,7 @@ use App\Models\PgLibrary;
 use App\Models\PgHypercite;
 use App\Models\PgHyperlight;
 use App\Http\Responses\ApiResponse;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -181,7 +182,7 @@ public function upsert(Request $request)
     // The transaction is still a great idea to ensure the update is atomic.
     return DB::transaction(function () use ($request) {
         try {
-            $data = (array) $request->input('data');
+            $data = $this->sanitizeMetadata((array) $request->input('data'));
             $bookId = $data['book']; // validated as required above
 
             $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
@@ -343,8 +344,8 @@ public function bulkCreate(Request $request)
             
             if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
                 
-                $item = (array) $data['data'];
-                
+                $item = $this->sanitizeMetadata((array) $data['data']);
+
                 // Truncate title to approximately 15 words
                 $title = $item['title'] ?? null;
                 if ($title) {
@@ -774,6 +775,26 @@ public function bulkCreate(Request $request)
                 'message' => 'Validation check failed'
             ], 500);
         }
+    }
+
+    /**
+     * 🔒 Sanitise the free-text metadata fields the frontend renders as HTML.
+     * `library.title` is interpolated straight into innerHTML (e.g.
+     * hyperlitContainer/contentBuilders/displayCitations.js) and `bibtex` feeds
+     * bibtexProcessor.js, so a title/bibtex carrying `<img onerror>` is a stored
+     * XSS. The gated sanitiser instantly returns any value without a `<`, so plain
+     * metadata (titles, author names, years, urls) is never altered — only an
+     * injected vector is stripped. Run this BEFORE building columns + raw_json so
+     * both are covered.
+     */
+    private function sanitizeMetadata(array $data): array
+    {
+        foreach (['title', 'author', 'note', 'bibtex', 'publisher', 'journal', 'booktitle', 'editor', 'school', 'chapter', 'pages', 'volume', 'issue', 'year', 'type'] as $f) {
+            if (isset($data[$f]) && is_string($data[$f])) {
+                $data[$f] = NodeHtmlSanitizer::clean($data[$f]);
+            }
+        }
+        return $data;
     }
 
     /**

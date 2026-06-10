@@ -26,12 +26,21 @@ class StripeController extends Controller
     {
         $request->validate([
             'amount'     => 'required|numeric|min:5|max:500',
-            'return_url' => 'sometimes|string|max:2048',
+            // return_url must be a real URL on OUR domain. Without this an
+            // attacker can supply an off-site URL that becomes Stripe's
+            // post-payment redirect (open redirect / phishing primitive).
+            'return_url' => 'sometimes|url|max:2048|starts_with:' . config('app.url'),
         ]);
 
         $user = Auth::user();
         $amount = (float) $request->input('amount');
         $returnUrl = $request->input('return_url', config('app.url'));
+
+        // Defence in depth: even if the rule above is ever relaxed/bypassed,
+        // never let the redirect leave our origin — clamp to the app URL.
+        if (! str_starts_with($returnUrl, config('app.url'))) {
+            $returnUrl = config('app.url');
+        }
 
         $stripe = new StripeClient(config('services.stripe.secret'));
 
