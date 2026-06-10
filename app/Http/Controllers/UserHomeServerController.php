@@ -206,45 +206,59 @@ class UserHomeServerController extends Controller
         ]);
     }
 
+    /**
+     * Largest `timestamp` among the user's REAL library books (excludes the
+     * generated home/shelf books). Backs the cheap freshness guard below —
+     * no `raw_json`, no per-node decode.
+     */
+    private function maxRealBookTimestamp(string $username, array $visibilities): ?int
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+        $max = DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->whereNotIn('book', [
+                $sanitizedUsername,
+                $sanitizedUsername . 'Private',
+                $sanitizedUsername . 'All',
+                $sanitizedUsername . 'Account',
+            ])
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->whereIn('visibility', $visibilities)
+            ->max('timestamp');
+
+        return $max !== null ? (int) $max : null;
+    }
+
+    /**
+     * The home book is maintained INCREMENTALLY at every library mutation
+     * (addBookToUserPage / moveBookBetweenHomeBooks / updateBookOnUserPage, and
+     * BookDeletionService removes the card on delete) — all keyed by node_id, no
+     * raw_json. So on a normal visit there is nothing to do: serve as-is.
+     *
+     * This guard only (a) generates on the true first visit, and (b) as a cheap
+     * failsafe, regenerates once if a real library book is NEWER than the home
+     * book — i.e. an incremental update was somehow missed. It compares two
+     * indexed `timestamp` reads instead of json_decoding every node's raw_json
+     * on every visit (which is what used to stall the SPA's fetchHtml('/u/…')).
+     */
     private function generateUserHomeBookIfNeeded(string $username, bool $isOwner, string $visibility): void
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
-        if (!DB::table('library')->where('book', $bookName)->exists()) {
+        $home = DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->first();
+        if (!$home) {
             $this->generateUserHomeBook($username, $isOwner, $visibility);
             return;
         }
 
-        // Failsafe: regenerate if actual book IDs don't match
-        // Use admin connection to bypass RLS - trusted backend operation
-        $libraryBooks = DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $username)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'All')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->where('visibility', $visibility)
-            ->pluck('book')
-            ->sort()
-            ->values();
-
-        $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
-            ->where('book', $bookName)
-            ->where('startLine', '>', 0)
-            ->pluck('raw_json')
-            ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
-            ->filter()
-            ->sort()
-            ->values();
-
-        if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
-            Log::info('Regenerating ' . $visibility . ' home book due to book ID mismatch.', [
+        $newest = $this->maxRealBookTimestamp($username, [$visibility]);
+        if ($newest !== null && $newest > (int) ($home->timestamp ?? 0)) {
+            Log::info('Regenerating ' . $visibility . ' home book: a library book is newer than the home book.', [
                 'username' => $username,
-                'missing' => $libraryBooks->diff($nodeBooks)->values(),
-                'extra' => $nodeBooks->diff($libraryBooks)->values(),
+                'newest_book_ts' => $newest,
+                'home_book_ts' => $home->timestamp,
             ]);
             $this->generateUserHomeBook($username, $isOwner, $visibility);
         }
@@ -255,39 +269,18 @@ class UserHomeServerController extends Controller
         $sanitizedUsername = $this->sanitizeUsername($username);
         $bookName = $sanitizedUsername . 'All';
 
-        if (!DB::table('library')->where('book', $bookName)->exists()) {
+        $home = DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->first();
+        if (!$home) {
             $this->generateAllUserHomeBook($username);
             return;
         }
 
-        // Failsafe: regenerate if actual book IDs don't match
-        $libraryBooks = DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $username)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'All')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->whereIn('visibility', ['public', 'private'])
-            ->pluck('book')
-            ->sort()
-            ->values();
-
-        $nodeBooks = DB::connection('pgsql_admin')->table('nodes')
-            ->where('book', $bookName)
-            ->where('startLine', '>', 0)
-            ->pluck('raw_json')
-            ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
-            ->filter()
-            ->sort()
-            ->values();
-
-        if ($libraryBooks->toArray() !== $nodeBooks->toArray()) {
-            Log::info('Regenerating All home book due to book ID mismatch.', [
+        $newest = $this->maxRealBookTimestamp($username, ['public', 'private']);
+        if ($newest !== null && $newest > (int) ($home->timestamp ?? 0)) {
+            Log::info('Regenerating All home book: a library book is newer than the home book.', [
                 'username' => $username,
-                'missing' => $libraryBooks->diff($nodeBooks)->values(),
-                'extra' => $nodeBooks->diff($libraryBooks)->values(),
+                'newest_book_ts' => $newest,
+                'home_book_ts' => $home->timestamp,
             ]);
             $this->generateAllUserHomeBook($username);
         }
@@ -312,13 +305,18 @@ class UserHomeServerController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        // Home book timestamp must be >= the newest book it incorporates, so the
+        // freshness guard (maxRealBookTimestamp > home.timestamp) is self-stable
+        // even if a book carries a client-skewed `timestamp`.
+        $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, ['public', 'private']) ?? 0);
+
         DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $bookName],
             [
                 'author' => null, 'title' => $username . "'s library", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
                 'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => 'all']),
-                'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
+                'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
             ]
         );
 
@@ -383,26 +381,23 @@ class UserHomeServerController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        // Preserve existing highlights and cites
-        // Build lookup map by original_book from raw_json to handle new node_id pattern
-        $oldChunksRaw = DB::table('nodes')->where('book', $bookName)->get();
-        $oldChunks = [];
-        foreach ($oldChunksRaw as $chunk) {
-            $rawJson = json_decode($chunk->raw_json ?? '{}', true);
-            if (isset($rawJson['original_book'])) {
-                $oldChunks[$rawJson['original_book']] = $chunk;
-            }
-        }
+        // (Highlights/cites are now in normalized tables, not preserved from old
+        // card nodes — the old raw_json lookup map this built was unused, so it's
+        // gone. Regeneration no longer reads raw_json.)
 
         // User home pages use admin connection - trusted backend operation
         // Safe because: PHP controls book name, only affects user home pages, user verified above
+        // Home book timestamp must be >= the newest book it incorporates so the
+        // freshness guard is self-stable even under client-skewed timestamps.
+        $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, [$visibility]) ?? 0);
+
         DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $bookName],
             [
                 'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
                 'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
-                'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
+                'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
             ]
         );
 
@@ -468,7 +463,7 @@ class UserHomeServerController extends Controller
         } else {
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
             $admin->table('nodes')->insert($chunk);
-            $admin->table('library')->where('book', $bookName)->update(['timestamp' => $nowMs]);
+            $admin->table('library')->where('book', $bookName)->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
         }
 
         // 2. Insert into the All book (only if it already exists; otherwise next-visit regen handles it)
@@ -495,7 +490,7 @@ class UserHomeServerController extends Controller
                     $bookRecord, $allBookName, $allNewStartLine, $isOwner, false, -1, 'public', false, $isPrivate
                 );
                 $admin->table('nodes')->insert($allChunk);
-                $admin->table('library')->where('book', $allBookName)->update(['timestamp' => $nowMs]);
+                $admin->table('library')->where('book', $allBookName)->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
             }
         }
 
@@ -601,7 +596,7 @@ class UserHomeServerController extends Controller
         // 4. Bump library timestamps so client IndexedDB caches refetch
         $admin->table('library')
             ->whereIn('book', [$oldHome, $newHome, $allHome])
-            ->update(['timestamp' => $nowMs]);
+            ->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
 
         // 5. Invalidate sorted variants for both visibilities and 'all'
         foreach ([$oldVisibility, $newVisibility, 'all'] as $v) {
@@ -646,7 +641,7 @@ class UserHomeServerController extends Controller
 
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookName)
-                ->update(['timestamp' => round(microtime(true) * 1000)]);
+                ->update(['timestamp' => max((int) round(microtime(true) * 1000), (int) ($bookRecord->timestamp ?? 0))]);
         }
 
         // Also update the card in the "All" book if it exists
@@ -676,7 +671,7 @@ class UserHomeServerController extends Controller
 
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $allBookName)
-                ->update(['timestamp' => round(microtime(true) * 1000)]);
+                ->update(['timestamp' => max((int) round(microtime(true) * 1000), (int) ($bookRecord->timestamp ?? 0))]);
         }
 
         return ['success' => true];
