@@ -199,7 +199,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
   return `
     <div class="scroller" id="source-content">
-    <blockquote class="citation">${citation}</blockquote>
+    <p class="citation">${citation}</p>
     ${licenseHtml}
 
     <div style="margin-top: 15px; padding-top: 15px;">

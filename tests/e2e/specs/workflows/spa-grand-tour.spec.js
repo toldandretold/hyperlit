@@ -21,12 +21,20 @@ import {
   findParagraphByText,
   waitForCloudGreen,
 } from '../../helpers/pageVerifiers.js';
+import { probeResizeHandle } from '../../helpers/elementProbes.js';
 import {
   runTour,
   replayBackToStart,
   replayForwardToEnd,
   setupTourAnchor,
+  navigateBookToBook,
+  homeToHomeArranger,
+  navigateUserToUser,
+  getCoveredPathways,
+  ALL_SPA_PATHWAYS,
 } from '../../helpers/spaTour.js';
+
+const READER_BOOK = process.env.E2E_READER_BOOK;
 
 test.describe.serial('SPA Grand Tour', () => {
 
@@ -96,6 +104,83 @@ test.describe.serial('SPA Grand Tour', () => {
     const history = await runTour(page, spa, { loops: 1 });
     await replayBackToStart(page, spa, history);
     await replayForwardToEnd(page, spa, history);
+  });
+
+  /* ── Phase 5b: book-to-book (hypercite) pathway ─────────────────── */
+  /*
+   * reader→reader via a hypercite link — the BookToBookTransition pathway,
+   * which the goto-based / +-based reader entries never exercise. Needs a
+   * book whose reader contains a hypercite (E2E_READER_BOOK).
+   */
+  test('book-to-book via hypercite', async ({ page, spa }) => {
+    test.setTimeout(60_000);
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+    const navigated = await navigateBookToBook(page, spa, READER_BOOK);
+    test.skip(!navigated, `${READER_BOOK} has no hypercite to drive book-to-book`);
+  });
+
+  /* ── Phase 5b-ii: resize handle survives SPA nav ────────────────── */
+  /*
+   * One of the three reported "dead after SPA nav" elements. Drive the resize
+   * edge against a content-rich book, then SPA-navigate away (home) and back
+   * (card click — keeps the persistent containerDragger singleton alive) and
+   * drive it again. require:true → a non-engaging or stuck-`.resizing` resize
+   * is a hard failure here (controlled book, unlike the generic verifier).
+   */
+  test('resize handle survives SPA nav', async ({ page, spa }) => {
+    test.setTimeout(90_000);
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+
+    await page.goto(`/${READER_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+    const baseline = await probeResizeHandle(page, spa, { require: true });
+    expect(baseline.skipped, 'baseline resize should run (book needs a footnote/hypercite)').toBeFalsy();
+
+    // SPA away to home, then SPA back to the same book via its card.
+    await page.evaluate(() => document.getElementById('homeButtonNav')?.click());
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('home');
+    const card = page.locator(`.libraryCard a[href$="${READER_BOOK}"]`).first();
+    if (await card.count()) {
+      await card.click();
+      await spa.waitForTransition(page);
+      expect(await spa.getStructure(page)).toBe('reader');
+      const afterNav = await probeResizeHandle(page, spa, { require: true });
+      expect(afterNav.skipped).toBeFalsy();
+    }
+  });
+
+  /* ── Phase 5c: every SPA pathway is covered ─────────────────────── */
+  /*
+   * Guard against silent coverage gaps. Run a full lap + book-to-book +
+   * back/forward replay, then assert the union of pathways exercised equals
+   * the canonical ALL_SPA_PATHWAYS set. If a future refactor drops a pathway
+   * from the tour (or a new pathway is added), this fails loudly.
+   * (import-book is asserted by spa-pathways-heavy.spec.js.)
+   */
+  test('all SPA pathways covered', async ({ page, spa }) => {
+    test.setTimeout(300_000);
+    // A lap covers fresh-page-load, different-template, user-to-user,
+    // create-new-book; it ends on home.
+    await setupTourAnchor(page, spa);
+    const lapHistory = await runTour(page, spa, { loops: 1 });
+
+    // Replay back/forward FIRST (covers popstate) while the lap's history is
+    // still intact — book-to-book's goto below would otherwise wipe it.
+    await replayBackToStart(page, spa, lapHistory);
+    await replayForwardToEnd(page, spa, lapHistory); // ends on home
+
+    await homeToHomeArranger(page, spa);             // same-template (stays home)
+    await navigateUserToUser(page, spa);             // user-to-user
+    if (READER_BOOK) await navigateBookToBook(page, spa, READER_BOOK); // book-to-book
+
+    const covered = getCoveredPathways();
+    const expected = READER_BOOK
+      ? ALL_SPA_PATHWAYS
+      : ALL_SPA_PATHWAYS.filter((p) => p !== 'book-to-book');
+    const missing = expected.filter((p) => !covered.includes(p));
+    expect(missing, `uncovered SPA pathways: ${missing.join(', ')} (covered: ${covered.join(', ')})`).toEqual([]);
   });
 
   /* ── Phase 6: deep authoring inside tour ────────────────────────── */

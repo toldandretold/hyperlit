@@ -187,6 +187,10 @@ export class NewBookContainerManager extends ContainerManager {
       const SETUP_FORM_MAX_RETRIES = 200; // 10s @ 50ms/retry — generous; the
                                           // form normally appears on retry 1-3
       const setupForm = () => {
+        // If the container was closed while we were waiting (e.g. the user
+        // dismissed it, or a close interrupted the open animation), abort
+        // quietly — there's no form to wire up and it isn't an error.
+        if (!this.isOpen) return;
         const form = document.getElementById('cite-form');
         if (!form) {
           if (++retryCount > SETUP_FORM_MAX_RETRIES) {
@@ -654,6 +658,7 @@ export class NewBookContainerManager extends ContainerManager {
     }
 
     this.isAnimating = true;
+    this.animationType = "open";
 
     const isMobile = window.innerWidth <= 480;
     const rect = this.button.getBoundingClientRect();
@@ -858,15 +863,23 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
   closeContainer() {
-  // Safety check: if stuck in animating state without timeout, force reset
-  if (this.isAnimating && !this.animationTimeout) {
-    console.warn("⚠️ Stuck animation state in closeContainer, forcing reset");
+  // A close request must never be silently dropped. If an animation is in
+  // flight, decide by TYPE:
+  //   - an OPEN animation (or a stuck one with no pending timeout) is
+  //     interrupted so the close can take over — this is what makes a quick
+  //     overlay click reliably dismiss the form instead of no-opping during
+  //     the ~500ms open animation window;
+  //   - a CLOSE already running is left to finish (avoid restarting it).
+  if (this.isAnimating) {
+    if (this.animationType === "close" && this.animationTimeout) {
+      return; // already closing — let it complete
+    }
+    console.warn("⚠️ Interrupting in-flight open animation to close", { animationType: this.animationType });
     this.resetAnimationState();
-  } else if (this.isAnimating) {
-    return;
   }
 
   this.isAnimating = true;
+  this.animationType = "close";
 
   // 🔥 MOBILE DEBUG: Log when and why container is closing
   verbose.init('closeContainer called', 'newBookButton.js');

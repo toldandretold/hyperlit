@@ -18,7 +18,6 @@
 import { expect } from '@playwright/test';
 import {
   probeBookActionsMenu,
-  probeResizeHandle,
   probeDropListenerBalance,
 } from './elementProbes.js';
 
@@ -225,11 +224,23 @@ export async function verifyReaderPage(page, spa) {
   // No overlay element either
   expect(await page.evaluate(() => !!document.getElementById('page-drop-overlay'))).toBe(false);
 
-  // Edit mode toggles cleanly
-  await page.click('#editButton');
-  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 5000 });
-  await page.click('#editButton');
-  await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+  // Edit mode toggles cleanly — but ONLY on books this user can edit. The
+  // tour can legitimately land on a read-only / locked book (e.g. another
+  // user's book reached via a card or a book-to-book hypercite), where
+  // #editButton is hidden/locked. That's a valid reader state, so skip the
+  // toggle there rather than failing.
+  const editable = await page.evaluate(() => {
+    const b = document.getElementById('editButton');
+    if (!b) return false;
+    if (b.getAttribute('data-is-locked') === 'true' || b.classList.contains('locked-state')) return false;
+    return window.getComputedStyle(b).display !== 'none' && b.offsetParent !== null;
+  });
+  if (editable) {
+    await page.click('#editButton');
+    await page.waitForFunction(() => window.isEditing === true, null, { timeout: 5000 });
+    await page.click('#editButton');
+    await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
+  }
 
   // Logo nav menu exposes the new-book + button on reader pages.
   // The button is registered + present in the menu, hidden until the user
@@ -273,11 +284,12 @@ export async function verifyReaderPage(page, spa) {
     await page.waitForTimeout(150);
   }
 
-  // Resize-handle probe. The anchor tour book is freshly-created and empty, so
-  // there's no footnote/hypercite to open a container — this skips gracefully
-  // there (require:false). The focused post-nav-buttons spec drives it against
-  // a content-rich book with require:true.
-  await probeResizeHandle(page, spa, { require: false });
+  // NOTE: the resize-handle probe is intentionally NOT run here. It opens a
+  // hyperlit-container (footnote/hypercite), whose history/overlay residue
+  // varies per book and can wedge the next logo-nav click — too fragile for
+  // the generic tour, which lands on arbitrary books. Resize-after-SPA-nav is
+  // covered against the controlled E2E_READER_BOOK by the dedicated grand-tour
+  // phase ('resize handle survives SPA nav') and by post-nav-buttons.spec.js.
 
   spa.assertHealthy(await spa.healthCheck(page));
   // Check only NEW console errors since this verifier was called — the
