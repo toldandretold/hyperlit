@@ -48,6 +48,31 @@ class ShelfCacheInvalidator
     }
 
     /**
+     * Flush the render cache of every shelf that CONTAINS this book, without
+     * removing the book from any shelf. Use when a book's library metadata
+     * (title/author/visibility/…) changes: shelf synthetic books cache the
+     * rendered cards, so without this they keep showing stale metadata until the
+     * shelf is otherwise mutated. The cards regenerate (joining `library` afresh)
+     * on the next render.
+     *
+     * Returns the affected shelf IDs.
+     */
+    public function flushShelvesContaining(string $book): array
+    {
+        $shelfIds = DB::connection('pgsql_admin')->table('shelf_items')
+            ->where('book', $book)
+            ->distinct()
+            ->pluck('shelf_id')
+            ->toArray();
+
+        foreach ($shelfIds as $shelfId) {
+            $this->flush($shelfId);
+        }
+
+        return $shelfIds;
+    }
+
+    /**
      * Remove a book from all shelves it belongs to.
      * Returns the shelf IDs that were affected so callers can flush them.
      */

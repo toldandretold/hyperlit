@@ -293,6 +293,12 @@ public function upsert(Request $request)
                 } else {
                     app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
                 }
+
+                // Shelves cache rendered cards from `library`, so a metadata edit
+                // (title/author/visibility) would otherwise show stale data on any
+                // shelf containing this book. Flush those shelves so they rebuild
+                // with fresh data on next view. (Mirrors the home-book update above.)
+                (new ShelfCacheInvalidator())->flushShelvesContaining($libraryRecord->book);
             }
 
             Log::info('Library record updated successfully', [
