@@ -227,6 +227,24 @@ class ContentFetchService
             $lastFailure = $result['reason'];
         }
 
+        // Strategy 8: browser-fetch the article HTML PAGE → paste engine.
+        // The publisher's reading view often clears the bot wall its PDF
+        // endpoint doesn't (proven: direct.mit.edu HTML 200 vs PDF 403). The
+        // paste engine — purpose-built for journal HTML — converts it to
+        // app-native dynamic citations. Gated so a non-article page can't
+        // become a canonical version.
+        if ($doi || $oaUrl) {
+            $pageUrl = $doi ? ('https://doi.org/' . $doi) : $oaUrl;
+            $html = $this->fetchHtmlViaBrowser($pageUrl);
+            if ($html !== null) {
+                $result = $this->importViaPasteEngine($html, $bookId, $pageUrl);
+                if ($result['status'] !== 'failed') {
+                    return $result;
+                }
+                $lastFailure = $result['reason'];
+            }
+        }
+
         // All strategies exhausted
         if ($lastFailure) {
             $this->setPdfUrlStatus($bookId, $lastFailure);
@@ -345,6 +363,33 @@ class ContentFetchService
      * downloadPdf's success contract: original.pdf on disk +
      * pdf_url_status='downloaded'.
      */
+    /**
+     * Fetch a rendered article HTML page via scripts/fetch-html.mjs (Playwright,
+     * Cloudflare-aware). Returns the HTML string, or null on any failure (caller
+     * falls through). Acquisition only — conversion happens in the paste engine.
+     */
+    private function fetchHtmlViaBrowser(string $url): ?string
+    {
+        try {
+            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path());
+            $proc->setInput(json_encode(['url' => $url]));
+            $proc->setTimeout(30);
+            $proc->run();
+        } catch (\Throwable $e) {
+            Log::warning('Browser HTML fetch unavailable', ['url' => $url, 'error' => $e->getMessage()]);
+            return null;
+        }
+
+        $r = json_decode(trim($proc->getOutput()), true);
+        if (is_array($r) && ($r['ok'] ?? false) === true && !empty($r['html'])) {
+            return $r['html'];
+        }
+        Log::info('Browser HTML fetch did not yield a page', [
+            'url' => $url, 'reason' => is_array($r) ? ($r['reason'] ?? 'unknown') : 'no output',
+        ]);
+        return null;
+    }
+
     private function fetchPdfViaBrowser(string $url, string $landing, string $bookId): array
     {
         $path = resource_path("markdown/{$bookId}");
@@ -606,7 +651,7 @@ class ContentFetchService
     private function extractScholarlyMetaTags(string $html): array
     {
         $tags = [];
-        $metaNames = ['citation_pdf_url', 'citation_abstract', 'citation_title'];
+        $metaNames = ['citation_pdf_url', 'citation_abstract', 'citation_title', 'citation_doi'];
 
         foreach ($metaNames as $name) {
             // Match <meta name="citation_xxx" content="...">
@@ -971,6 +1016,185 @@ class ContentFetchService
                 'reason' => $shortReason,
             ];
         }
+    }
+
+    /**
+     * THE KEYSTONE — convert journal HTML to app-native dynamic citations via
+     * the shared paste engine (scripts/paste-convert.mjs = the same processors
+     * the front-end paste path uses), gate it, and persist nodes + bibliography
+     * + footnotes. Acquisition (Playwright/fetch) hands us the HTML; this turns
+     * it into the app's interactive format.
+     *
+     * @param string $html   rendered journal-article HTML
+     * @param string $bookId library stub id
+     * @param string $url    source URL (for logging)
+     */
+    private function importViaPasteEngine(string $html, string $bookId, string $url): array
+    {
+        // 1. Convert via the shared engine (Node + happy-dom).
+        try {
+            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/paste-convert.mjs')], base_path());
+            $proc->setInput(json_encode(['html' => $html]));
+            $proc->setTimeout(60);
+            $proc->run();
+        } catch (\Throwable $e) {
+            return ['status' => 'failed', 'reason' => 'paste engine unavailable: ' . Str::limit($e->getMessage(), 120)];
+        }
+
+        $engine = json_decode(trim($proc->getOutput()), true);
+        if (!is_array($engine) || ($engine['ok'] ?? false) !== true) {
+            $detail = is_array($engine) ? ($engine['reason'] ?? 'unknown') : 'no parseable output';
+            return ['status' => 'failed', 'reason' => "paste engine failed: {$detail}"];
+        }
+
+        // 2. Authenticity gate — is this actually THE article? (requirement 3)
+        $verdict = $this->assessArticleAuthenticity($html, $engine, $bookId);
+        if ($verdict === 'reject') {
+            $reason = 'Page identity does not match the cited source — not imported';
+            $this->setPdfUrlStatus($bookId, $reason);
+            return ['status' => 'failed', 'reason' => $reason];
+        }
+
+        // 3. Persist (same DB write paths the OCR/import flows use).
+        $path = resource_path("markdown/{$bookId}");
+        if (!File::exists($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+        foreach (['nodes.json', 'nodes.jsonl', 'footnotes.json', 'footnotes.jsonl'] as $stale) {
+            if (File::exists("{$path}/{$stale}")) File::delete("{$path}/{$stale}");
+        }
+
+        // 3a. Split the engine's linked HTML into block-level node rows.
+        $nodeCount = $this->writeNodesJsonlFromHtml($engine['html'] ?? '', $path);
+        if ($nodeCount === 0) {
+            return ['status' => 'failed', 'reason' => 'paste engine produced no content blocks'];
+        }
+        $this->saveNodeChunksToDatabase($path, $bookId);
+
+        // 3b. Footnotes → footnotes.jsonl → footnotes table.
+        $footnotes = array_values(array_filter(array_map(function ($f) {
+            $id = $f['footnoteId'] ?? $f['refId'] ?? null;
+            return ($id && !empty($f['content'])) ? ['footnoteId' => $id, 'content' => $f['content']] : null;
+        }, $engine['footnotes'] ?? [])));
+        if ($footnotes) {
+            File::put("{$path}/footnotes.jsonl", implode("\n", array_map('json_encode', $footnotes)));
+            $this->saveFootnotesToDatabase($path, $bookId);
+        }
+
+        // 3c. References → bibliography table (mirrors DbReferencesController columns).
+        $db = DB::connection('pgsql_admin');
+        $now = now();
+        foreach ($engine['references'] ?? [] as $ref) {
+            $refId = $ref['referenceId'] ?? null;
+            if (!$refId || empty($ref['content'])) continue;
+            $db->table('bibliography')->updateOrInsert(
+                ['book' => $bookId, 'referenceId' => $refId],
+                ['content' => $ref['content'], 'updated_at' => $now, 'created_at' => $now],
+            );
+        }
+
+        // 4. Provenance + canonical wiring. verified → eligible auto-version;
+        // unverified → imported but conversion_method NOT in
+        // AutoVersionResolver::SYSTEM_CONVERSION_METHODS, so it can never become
+        // a canonical version (requirement 3).
+        $conversionMethod = $verdict === 'verified' ? 'paste_engine_html' : 'html_scrape_unverified';
+        $db->table('library')->where('book', $bookId)->update([
+            'has_nodes'         => true,
+            'listed'            => false,
+            'pdf_url_status'    => 'imported',
+            'conversion_method' => $conversionMethod,
+            'updated_at'        => $now,
+        ]);
+        $this->syncCanonicalVersionPointers($bookId); // no-op when unverified
+
+        Log::info('Paste-engine HTML import complete', [
+            'book' => $bookId, 'url' => $url, 'format' => $engine['formatType'] ?? '?',
+            'verdict' => $verdict, 'nodes' => $nodeCount,
+            'refs' => count($engine['references'] ?? []), 'footnotes' => count($footnotes),
+        ]);
+
+        return [
+            'status' => 'imported',
+            'reason' => "Journal HTML imported via paste engine ({$verdict}: {$nodeCount} nodes, "
+                . count($engine['references'] ?? []) . ' refs, ' . count($footnotes) . ' footnotes)',
+            'node_count' => $nodeCount,
+        ];
+    }
+
+    /**
+     * Is the fetched page actually the cited article?
+     *   reject     — identity actively contradicts (DOI present and different,
+     *                or title strongly dissimilar). Do not import.
+     *   verified   — identity confirmed AND a real publisher processor matched
+     *                with references. Eligible to become a canonical version.
+     *   unverified — got usable content but identity weak or completeness thin.
+     *                Import, but never promote to canonical.
+     */
+    private function assessArticleAuthenticity(string $html, array $engine, string $bookId): string
+    {
+        $stub = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)->select('title', 'doi')->first();
+        $meta = $this->extractScholarlyMetaTags($html);
+
+        // Identity
+        $identity = 'unknown';
+        $pageDoi = $meta['citation_doi'] ?? null;
+        if ($pageDoi && !empty($stub->doi)) {
+            $norm = fn($d) => strtolower(trim(preg_replace('#^https?://doi.org/#i', '', $d)));
+            $identity = $norm($pageDoi) === $norm($stub->doi) ? 'confirmed' : 'contradicted';
+        }
+        if ($identity === 'unknown' && !empty($meta['citation_title']) && !empty($stub->title)) {
+            $sim = app(OpenAlexService::class)->titleSimilarity($stub->title, $meta['citation_title']);
+            $identity = $sim >= 0.7 ? 'confirmed' : ($sim < 0.3 ? 'contradicted' : 'weak');
+        }
+        if ($identity === 'contradicted') {
+            return 'reject';
+        }
+
+        // Completeness — a real publisher processor matched (not the general
+        // fallback) and produced references.
+        $formatType = $engine['formatType'] ?? 'general';
+        $refCount = count($engine['references'] ?? []);
+        $complete = $formatType !== 'general' && $refCount > 0;
+
+        return ($identity === 'confirmed' && $complete) ? 'verified' : 'unverified';
+    }
+
+    /**
+     * Split linked article HTML into block-level node rows (one JSON object per
+     * line) for saveNodeChunksToDatabase — mirrors how the front-end paste path
+     * stores each block as a node, WITHOUT routing through process_document
+     * (the engine already linked citations/footnotes; re-linking would clobber).
+     */
+    private function writeNodesJsonlFromHtml(string $html, string $path): int
+    {
+        if (trim($html) === '') return 0;
+
+        $doc = new \DOMDocument();
+        $prev = libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+
+        $root = $doc->getElementById('__root');
+        if (!$root) return 0;
+
+        $lines = [];
+        foreach ($root->childNodes as $child) {
+            if ($child->nodeType !== XML_ELEMENT_NODE) continue;
+            $content = $doc->saveHTML($child);
+            $plain = trim($child->textContent);
+            if ($plain === '' && stripos($content, '<img') === false) continue;
+            $lines[] = json_encode([
+                'content'   => $content,
+                'plainText' => $plain,
+                'type'      => strtolower($child->nodeName),
+            ]);
+        }
+
+        if (!$lines) return 0;
+        File::put("{$path}/nodes.jsonl", implode("\n", $lines));
+        return count($lines);
     }
 
     /**

@@ -21,25 +21,31 @@ Run tests in watch mode:
 npx vitest --watch
 ```
 
-### 2. Browser-Based Manual Testing
+### 2. Capturing a fixture from a real publisher page
 
-Open the test page in your browser:
+**The fixture generator is `resources/paste-capture.html`.** Open it as a
+local file — it is self-contained, do NOT use a `localhost`/`:5173` URL
+(`resources/` is not served over HTTP, you'll get a 404):
 
 ```bash
-# Start the dev server
-npm run dev
-
-# Navigate to:
-http://localhost:5173/resources/test-paste-refactor.html
+open resources/paste-capture.html
 ```
 
-The test page provides:
-- **Format Detection Test**: Paste HTML and see which format is detected
-- **Processor Test**: Run the full processing pipeline
-- **Utility Tests**: Test individual utility functions
-- **Integration Test**: End-to-end test with sample Cambridge content
+Click the drop zone, Cmd+V the copied article, sanity-check the stats, and
+**Download** — then move the file into `tests/paste/fixtures/clipboard/`.
+It captures the exact `text/html` clipboard payload production paste handlers
+see. Full instructions + naming convention: `fixtures/clipboard/README.md`.
 
-### 3. Console Testing
+### 3. Browser-Based Manual Testing (interactive playground)
+
+`resources/test-paste-refactor.html` is an interactive page to eyeball format
+detection + the processing pipeline. Same rule — open it as a file, not a URL:
+
+```bash
+open resources/test-paste-refactor.html
+```
+
+### 4. Console Testing
 
 You can also test in the browser console:
 
@@ -62,19 +68,31 @@ console.log(result);
 
 ```
 tests/paste/
-├── utils/                          # Utility function tests
+├── fixtures/clipboard/             # Real captured text/html payloads (+ its own README)
+├── utils/
 │   ├── normalizer.test.js
-│   ├── content-estimator.test.js
-│   └── dom-utils.test.js
-│
-├── format-processors/              # Processor tests
-│   ├── cambridge-processor.test.js
-│   ├── oup-processor.test.js
-│   └── general-processor.test.js
-│
-└── integration/                    # End-to-end tests
-    └── full-paste-flow.test.js
+│   └── content-estimator.test.js
+├── format-processors/
+│   └── cambridge-processor.test.js
+└── handlers/
+    ├── fixtures-smoke.test.js      # ← THE regression regime: per-publisher baselines
+    ├── backend-entry.test.js       # ← shared-engine guard (frontend == backend)
+    └── hypercite-whitespace.test.js
 ```
+
+### The two load-bearing tests
+
+- **`handlers/fixtures-smoke.test.js`** — for each real fixture, baselines the
+  detected format, footnote/reference counts, AND the app-native linked output
+  (`inTextCitations` = `<a class="in-text-citation">`, `footnoteMarkers` =
+  `<sup fn-count-id>`). This is what catches a processor regression. Entries
+  marked KNOWN BUG document current broken behaviour — fix the bug, bump the
+  number, both move together.
+- **`handlers/backend-entry.test.js`** — runs `scripts/paste-convert.mjs` (the
+  Node + happy-dom backend entry point the citation vacuum uses) as a
+  subprocess and asserts it produces the SAME output as the in-process
+  processors. This is what guarantees the engine is single-source: a paste fix
+  propagates to the backend, and the two can't silently drift.
 
 ## Writing New Tests
 
@@ -155,20 +173,29 @@ const output = normalizeQuotes(input);
 expect(output).toBe('"regular quotes"');
 ```
 
-## Testing Checklist
+## Adding a new publisher (e.g. MIT Press) — the whole loop
 
-When adding a new format processor:
+The engine is shared: front-end paste AND the backend citation vacuum both
+read `format-detection/format-registry.js`, so registering a processor once
+makes it work in both places. Steps:
 
-- [ ] Create `{format}-processor.test.js`
-- [ ] Test `extractFootnotes()` with valid input
-- [ ] Test `extractFootnotes()` with edge cases (no footnotes, malformed)
-- [ ] Test `extractReferences()` with valid input
-- [ ] Test `extractReferences()` with edge cases
-- [ ] Test `transformStructure()` modifications
-- [ ] Test full `process()` pipeline
-- [ ] Test DOM cleanup (footnote containers removed, etc.)
-- [ ] Add sample HTML to browser test page
-- [ ] Update format registry test data
+1. **Capture a fixture** — `open resources/paste-capture.html`, paste a real
+   MIT Press article, Download, move to `fixtures/clipboard/mit-press-*.html`.
+2. **Write the processor** — `format-processors/mit-press-processor.js`
+   extending `BaseFormatProcessor`.
+3. **Register it** — add one entry to `FORMAT_REGISTRY` in
+   `format-detection/format-registry.js` (selectors + priority). That's the
+   single registration point; nothing else needs touching.
+4. **Add a baseline row** to `handlers/fixtures-smoke.test.js` with the
+   observed counts (the test logs OBSERVED/LINKED counts you can copy in).
+5. **Run** `npx vitest run tests/paste` — `backend-entry.test.js` automatically
+   proves the backend reproduces your processor. Green = it works in the
+   citation vacuum too, no backend code change.
+
+Unit-level processor tests (optional but encouraged): create
+`{format}-processor.test.js` covering `extractFootnotes()` / `extractReferences()`
+valid + edge cases, `transformStructure()`, the full `process()` pipeline, and
+DOM cleanup.
 
 ## Debugging Tests
 

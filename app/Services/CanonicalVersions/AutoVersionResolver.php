@@ -26,13 +26,16 @@ class AutoVersionResolver extends BasePointerResolver
     public const CONVERSION_METHOD = 'pdf_ocr_auto_raw';
 
     /**
-     * conversion_methods that count as a system-generated genuine version.
-     * Both fetch the canonical's OWN content untampered: pdf_ocr_auto_raw is
-     * the vacuumed+OCR'd PDF; jats_fulltext is the publisher's structured
-     * full text (authoritative, body+refs schema-guaranteed — arguably the
-     * better of the two). Either qualifies for auto_version_book.
+     * conversion_methods that count as a system-generated genuine version —
+     * the system fetched the canonical's OWN content untampered:
+     *   pdf_ocr_auto_raw  — vacuumed + OCR'd PDF
+     *   jats_fulltext     — publisher's structured XML (body+refs schema-guaranteed)
+     *   paste_engine_html — journal HTML the gate VERIFIED is the article
+     *                       (identity + completeness), converted by the paste engine
+     * NOTE: 'html_scrape_unverified' is deliberately absent — HTML that did not
+     * pass the authenticity gate must never become a canonical version.
      */
-    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext'];
+    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html'];
 
     public function pointerColumn(): string
     {

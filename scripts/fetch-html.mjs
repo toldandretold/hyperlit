@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+// HTML article-page fetcher — Playwright sibling of fetch-pdf.mjs, spawned by
+// ContentFetchService for the citation vacuum when a journal's PDF is walled
+// but its HTML reading view is reachable (proven: direct.mit.edu serves HTML
+// 200 where the PDF 403s). Clears Cloudflare JS challenges, returns the
+// fully-rendered article DOM for the paste engine to convert.
+//
+// Stdin protocol (JSON):  { url }
+// Stdout protocol (JSON): { ok: true, html, finalUrl, title, httpStatus }
+//                      or { ok: false, reason, detail?, httpStatus?, finalUrl? }
+
+import { chromium } from 'playwright';
+
+const HARD_TIMEOUT_MS = 25_000;
+const NAV_TIMEOUT_MS = 18_000;
+
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+let finished = false;
+function output(payload, code) {
+    if (finished) return;
+    finished = true;
+    // Wait for the (potentially large) HTML payload to flush before exiting —
+    // process.exit() would otherwise truncate stdout mid-write.
+    process.stdout.write(JSON.stringify(payload), () => process.exit(code));
+}
+const succeed = (payload) => output({ ok: true, ...payload }, 0);
+const fail = (reason, extra = {}) => output({ ok: false, reason, ...extra }, 1);
+
+const hardTimeout = setTimeout(() => fail('network_timeout', { detail: 'hard timeout exceeded' }), HARD_TIMEOUT_MS);
+
+async function readStdin() {
+    let raw = '';
+    for await (const chunk of process.stdin) raw += chunk;
+    return raw;
+}
+
+// Cloudflare's "Just a moment..." interstitial sets a clearance cookie after
+// its JS challenge. Wait for it to redirect to real content before scraping.
+async function waitOutCloudflare(page, budgetMs = 8000) {
+    const start = Date.now();
+    while (Date.now() - start < budgetMs) {
+        const title = await page.title().catch(() => '');
+        if (!/just a moment|attention required|cloudflare|checking your browser/i.test(title)) return;
+        await page.waitForTimeout(400);
+    }
+}
+
+async function main() {
+    let raw;
+    try {
+        raw = await readStdin();
+    } catch (e) {
+        return fail('bad_input', { detail: 'stdin read failed: ' + e.message });
+    }
+    let input;
+    try {
+        input = JSON.parse(raw);
+    } catch (e) {
+        return fail('bad_input', { detail: 'stdin JSON parse: ' + e.message });
+    }
+    const { url } = input || {};
+    if (!url) return fail('bad_input', { detail: 'missing url' });
+
+    let browser;
+    try {
+        // Full Chromium (not headless-shell) — much harder for Cloudflare to
+        // fingerprint as a headless bot.
+        browser = await chromium.launch({
+            channel: 'chromium',
+            headless: true,
+            args: [
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ],
+        });
+    } catch (e) {
+        return fail('browser_launch_failed', { detail: e.message });
+    }
+
+    const context = await browser.newContext({
+        userAgent: UA,
+        viewport: { width: 1280, height: 800 },
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
+    });
+
+    // Minimal stealth — hide the obvious headless tells before CF's checks fire.
+    await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+        window.chrome = { runtime: {} };
+    });
+
+    const page = await context.newPage();
+
+    try {
+        let resp;
+        try {
+            resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+        } catch (e) {
+            return fail('navigation_failed', { detail: e.message });
+        }
+
+        const httpStatus = resp ? resp.status() : null;
+
+        await waitOutCloudflare(page);
+        // Small settle for late-rendered article bodies (SPA shells, lazy refs).
+        await page.waitForTimeout(1500);
+
+        const title = await page.title().catch(() => '');
+        if (/just a moment|attention required|cloudflare|checking your browser/i.test(title)) {
+            return fail('cloudflare_block', { detail: 'CF challenge not cleared', httpStatus, finalUrl: page.url() });
+        }
+        if (httpStatus && httpStatus >= 400) {
+            return fail(httpStatus === 403 || httpStatus === 401 ? 'cloudflare_block' : 'http_error', {
+                httpStatus, finalUrl: page.url(),
+            });
+        }
+
+        const html = await page.content();
+        if (!html || html.length < 500) {
+            return fail('empty_html', { detail: `only ${html?.length ?? 0} bytes`, finalUrl: page.url() });
+        }
+
+        clearTimeout(hardTimeout);
+        succeed({ html, finalUrl: page.url(), title, httpStatus });
+    } catch (e) {
+        return fail('browser_crash', { detail: e.message });
+    } finally {
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {});
+    }
+}
+
+main().catch((e) => fail('browser_crash', { detail: e?.message || String(e) }));
