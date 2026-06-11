@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CanonicalSource;
+use App\Services\CanonicalVersions\AutoVersionResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -11,9 +12,11 @@ use Illuminate\Support\Str;
 /**
  * For each canonical_source with a pdf_url and no auto_version_book yet: create a stub
  * library row, run citation:vacuum + citation:ocr against it, then wire the canonical's
- * auto_version_book to point at the resulting "auto-raw" version.
+ * auto_version_book via AutoVersionResolver (which requires has_nodes=true — a
+ * vacuumed-but-unOCR'd stub never gets the pointer, so --skip-ocr runs stay eligible
+ * for a later OCR pass).
  *
- * See docs/canonical-sources.md.
+ * See docs/canonical-sources.md and app/Services/CanonicalVersions/README.md.
  */
 class CreateAutoVersionsCommand extends Command
 {
@@ -26,9 +29,11 @@ class CreateAutoVersionsCommand extends Command
 
     protected $description = 'For each canonical_source with a pdf_url and no auto_version_book, create a system-generated version: vacuum the PDF, run Mistral OCR, link the new library row back as canonical.auto_version_book.';
 
-    public const CREATOR = 'canonicalizer_v1';
-    public const FOUNDATION_SOURCE = 'canonical_pdf_vacuum';
-    public const CONVERSION_METHOD = 'pdf_ocr_auto_raw';
+    // Provenance constants live on the resolver (the domain home); aliased
+    // here for readability.
+    public const CREATOR = AutoVersionResolver::CREATOR;
+    public const FOUNDATION_SOURCE = AutoVersionResolver::FOUNDATION_SOURCE;
+    public const CONVERSION_METHOD = AutoVersionResolver::CONVERSION_METHOD;
 
     public function handle(): int
     {
@@ -53,8 +58,9 @@ class CreateAutoVersionsCommand extends Command
 
         if ($limit > 0) $query->limit($limit);
 
-        $stats = ['created' => 0, 'vacuum_failed' => 0, 'ocr_failed' => 0, 'skipped' => 0, 'errors' => 0];
+        $stats = ['created' => 0, 'vacuum_failed' => 0, 'ocr_failed' => 0, 'deferred' => 0, 'skipped' => 0, 'errors' => 0];
         $errorSamples = [];
+        $resolver = new AutoVersionResolver();
 
         foreach ($query->cursor() as $canonical) {
             $this->line("→ {$canonical->id} | " . substr($canonical->title ?? '(untitled)', 0, 60));
@@ -67,20 +73,19 @@ class CreateAutoVersionsCommand extends Command
             }
 
             try {
+                // If an eligible (already-OCR'd) version exists from a previous
+                // run, the resolver wires the pointer without any fetching.
+                if ($resolver->assign($canonical)) {
+                    $stats['created']++;
+                    $this->line("   <fg=green>auto_version_book set (existing OCR'd stub)</>");
+                    if ($sleep > 0) sleep($sleep);
+                    continue;
+                }
+
                 $existingStub = $this->findExistingStub($canonical);
                 if ($existingStub) {
                     $newBookId = $existingStub->book;
                     $this->line("   reusing existing stub: {$newBookId}");
-
-                    // If the stub already has nodes, just wire the pointer and move on.
-                    if ($existingStub->has_nodes) {
-                        $canonical->auto_version_book = $newBookId;
-                        $canonical->save();
-                        $stats['created']++;
-                        $this->line("   <fg=green>auto_version_book set (existing OCR'd stub)</>");
-                        if ($sleep > 0) sleep($sleep);
-                        continue;
-                    }
                 } else {
                     $newBookId = $this->createStubLibraryRow($canonical);
                     $this->line("   created stub library row: {$newBookId}");
@@ -108,12 +113,18 @@ class CreateAutoVersionsCommand extends Command
                     $this->line("   ocr ok");
                 }
 
-                // Step 3: Wire the canonical to its new auto-version
-                $canonical->auto_version_book = $newBookId;
-                $canonical->save();
-
-                $stats['created']++;
-                $this->line("   <fg=green>auto_version_book set</>");
+                // Step 3: Wire the pointer via the resolver. It requires
+                // has_nodes=true, so with --skip-ocr the pointer stays NULL
+                // and the canonical remains eligible for a later OCR run
+                // (previously the pointer was set on a contentless stub,
+                // which silently excluded it from every future sweep).
+                if ($resolver->assign($canonical)) {
+                    $stats['created']++;
+                    $this->line("   <fg=green>auto_version_book set</>");
+                } else {
+                    $stats['deferred']++;
+                    $this->line("   <fg=yellow>pointer deferred — stub has no OCR'd content yet</>");
+                }
             } catch (\Throwable $e) {
                 $stats['errors']++;
                 if (count($errorSamples) < 5) {

@@ -11,6 +11,11 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!-- Canonical version-control system (canonical_source + version
+             authorities). Run alone with testsuite=Canonical. -->
+        <testsuite name="Canonical">
+            <directory>tests/Canonical</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

@@ -114,6 +114,8 @@ The canonical row holds four FK columns pointing at *which version is privileged
 
 Multiple may be set on the same canonical (an author's version AND a commons-endorsed user version can coexist). Each pointer is a quick-draw shortcut for downstream features (e.g. citation-checking should prefer `author_version_book` → `publisher_version_book` → `commons_version_book` → highest-credibility version).
 
+**The authority layer that owns these pointers** — one modular, testable resolver per pointer, the precedence registry, the best-version resolution service, and the prod runbook (commands, costs, verification queries, failure modes) — lives at `app/Services/CanonicalVersions/` (**see its README.md**). Dedicated test suite: `php artisan test --testsuite=Canonical`.
+
 ## The matching tool — `library:canonicalize`
 
 `App\Console\Commands\CanonicalizeLibraryCommand` (service: `App\Services\CanonicalSourceMatcher`).
@@ -153,6 +155,8 @@ For each canonical with `pdf_url IS NOT NULL AND auto_version_book IS NULL`:
 4. Only after OCR succeeds, set `canonical.auto_version_book = newBookId`.
 
 **Idempotent on retry.** If a stub already exists from a failed previous run, it's reused (no duplicate stubs). If the stub already has `has_nodes = true` (OCR completed elsewhere), the canonical pointer is wired and the command moves on.
+
+**Pointer-setting goes through `AutoVersionResolver` (2026-06-11).** The pointer is only ever set once the stub has real content (`has_nodes = true`) — `--skip-ocr` runs leave the pointer NULL (`deferred` in the summary) so the canonical stays eligible for a later OCR pass. Operational details, costs, and failure modes: `app/Services/CanonicalVersions/README.md`.
 
 Usage:
 ```

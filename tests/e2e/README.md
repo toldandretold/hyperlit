@@ -71,6 +71,14 @@ real books in the DB and assume serial ordering for some flows).
 | `specs/transitions/` | SPA navigation transitions (home↔reader, reader↔reader, back/forward, bfcache). |
 | `specs/workflows/` | Multi-phase user journeys (authoring, importing, etc.). These are the slow ones. |
 | `specs/divEditor/` | Editor-specific behaviors (mutations, selection, paste). |
+| `specs/stripe/` | **Billing/payments** — Stripe checkout → webhook → credits, spend gates, refund-on-failure, real test-card UI. Own config + README (see below). |
+| `specs/security/` | Security PoCs (e.g. the stored-XSS regression). Own config. |
+
+> **`specs/stripe/` and `specs/security/` use their own Playwright configs**, not the
+> default one — they self-provision accounts and target `hyperlit.test`, so run them
+> with `--config tests/e2e/playwright.stripe.config.js` (see `specs/stripe/README.md`)
+> or `--config tests/e2e/playwright.security.config.js`. They do NOT need the shared
+> auth fixture.
 
 ## What each spec actually does
 

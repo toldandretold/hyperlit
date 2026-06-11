@@ -9,6 +9,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\PgLibrary;
+use App\Services\CanonicalSourceMatcher;
 use App\Services\OpenAlexService;
 use App\Services\OpenLibraryService;
 use App\Services\LlmService;
@@ -32,6 +34,18 @@ class CitationScanBibliographyJob implements ShouldQueue
         'book', 'journal-article', 'book-chapter',
         'conference-paper', 'thesis', 'report',
         'web_page', 'chapter',
+    ];
+
+    /**
+     * Identifier-backed match methods → canonical foundation_source. Only these
+     * get canonical_source rows: web_fetch / brave_search stubs have no external
+     * identity, and a wrong canonical is worse than a missing one.
+     */
+    private const CANONICAL_FOUNDATION_BY_METHOD = [
+        'doi'              => 'openalex_ingest',
+        'openalex'         => 'openalex_ingest',
+        'open_library'     => 'open_library_ingest',
+        'semantic_scholar' => 'semantic_scholar_ingest',
     ];
 
     private string $sourceTable = 'bibliography';
@@ -417,7 +431,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 Log::info('Wave 2a: Local DOI lookup', ['count' => count($doisToLookup)]);
                 $localDoiMatches = $db->table('library')
                     ->whereIn('doi', array_values($doisToLookup))
-                    ->get(['book', 'title', 'doi', 'openalex_id', 'open_library_key'])
+                    ->get(['book', 'title', 'doi', 'openalex_id', 'open_library_key', 'canonical_source_id'])
                     ->keyBy('doi');
 
                 foreach ($doisToLookup as $refId => $doi) {
@@ -428,19 +442,22 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $updateData = $item['isLinked']
                             ? ['foundation_source' => $match->book]
                             : ['source_id' => $match->book, 'foundation_source' => $match->book];
+                        // Carry the matched row's existing canonical link through
+                        $updateData = array_merge($updateData, $this->canonicalColumnFor($match->canonical_source_id));
 
                         $this->updateSourceEntry($db, $refId, $updateData);
 
                         $results[] = [
-                            'referenceId'        => $refId,
-                            'status'             => $item['isLinked'] ? 'enriched' : 'newly_resolved',
-                            'match_method'       => 'local_doi',
-                            'searched_title'     => $item['searchedTitle'],
-                            'result_title'       => $match->title,
-                            'openalex_id'        => $match->openalex_id,
-                            'open_library_key'   => $match->open_library_key,
-                            'foundation_book_id' => $match->book,
-                            'llm_metadata'       => $item['llmMetadata'],
+                            'referenceId'         => $refId,
+                            'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
+                            'match_method'        => 'local_doi',
+                            'searched_title'      => $item['searchedTitle'],
+                            'result_title'        => $match->title,
+                            'openalex_id'         => $match->openalex_id,
+                            'open_library_key'    => $match->open_library_key,
+                            'foundation_book_id'  => $match->book,
+                            'canonical_source_id' => $match->canonical_source_id,
+                            'llm_metadata'        => $item['llmMetadata'],
                         ];
                         $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
                         $this->removeRelatedPoolEntries($pool, $refId, $db, $match->book);
@@ -491,20 +508,23 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $updateData = $item['isLinked']
                             ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
                             : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson];
+                        // Carry the matched row's existing canonical link through
+                        $updateData = array_merge($updateData, $this->canonicalColumnFor($localMatch['canonical_source_id'] ?? null));
 
                         $this->updateSourceEntry($db, $refId, $updateData);
 
                         $results[] = [
-                            'referenceId'        => $refId,
-                            'status'             => $item['isLinked'] ? 'enriched' : 'newly_resolved',
-                            'match_method'       => 'library',
-                            'searched_title'     => $item['searchedTitle'],
-                            'result_title'       => $localMatch['title'],
-                            'similarity_score'   => $localMatch['score'],
-                            'openalex_id'        => $localMatch['openalex_id'] ?? null,
-                            'open_library_key'   => $localMatch['open_library_key'] ?? null,
-                            'foundation_book_id' => $localMatch['book'],
-                            'llm_metadata'       => $item['llmMetadata'],
+                            'referenceId'         => $refId,
+                            'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
+                            'match_method'        => 'library',
+                            'searched_title'      => $item['searchedTitle'],
+                            'result_title'        => $localMatch['title'],
+                            'similarity_score'    => $localMatch['score'],
+                            'openalex_id'         => $localMatch['openalex_id'] ?? null,
+                            'open_library_key'    => $localMatch['open_library_key'] ?? null,
+                            'foundation_book_id'  => $localMatch['book'],
+                            'canonical_source_id' => $localMatch['canonical_source_id'] ?? null,
+                            'llm_metadata'        => $item['llmMetadata'],
                         ];
                         $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
                         $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
@@ -1341,56 +1361,115 @@ class CitationScanBibliographyJob implements ShouldQueue
             }
         }
 
+        // Register the stub as a version of its canonical work (identifier-backed
+        // sources only). Never fails the scan — a canonical link is a bonus.
+        $canonicalId = $this->linkStubToCanonical($stubBookId, $normalised, $matchMethod);
+
         if ($isLinked) {
             // Only set foundation_source — DO NOT modify source_id
-            $this->updateSourceEntry($db, $refId, [
+            $this->updateSourceEntry($db, $refId, array_merge([
                 'foundation_source'  => $stubBookId,
                 'match_method'       => $matchMethod,
                 'match_score'        => $score,
                 'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
-            ]);
+            ], $this->canonicalColumnFor($canonicalId)));
 
             return [
-                'referenceId'        => $refId,
-                'status'             => 'enriched',
-                'match_method'       => $matchMethod,
-                'searched_title'     => $poolItem['searchedTitle'],
-                'result_title'       => $normalised['title'],
-                'similarity_score'   => $score,
-                'openalex_id'        => $normalised['openalex_id'] ?? null,
-                'open_library_key'   => $normalised['open_library_key'] ?? null,
-                'foundation_book_id' => $stubBookId,
-                'is_oa'              => $normalised['is_oa'] ?? null,
-                'oa_url'             => $normalised['oa_url'] ?? null,
-                'pdf_url'            => $normalised['pdf_url'] ?? null,
-                'llm_metadata'       => $poolItem['llmMetadata'],
+                'referenceId'         => $refId,
+                'status'              => 'enriched',
+                'match_method'        => $matchMethod,
+                'searched_title'      => $poolItem['searchedTitle'],
+                'result_title'        => $normalised['title'],
+                'similarity_score'    => $score,
+                'openalex_id'         => $normalised['openalex_id'] ?? null,
+                'open_library_key'    => $normalised['open_library_key'] ?? null,
+                'foundation_book_id'  => $stubBookId,
+                'canonical_source_id' => $canonicalId,
+                'is_oa'               => $normalised['is_oa'] ?? null,
+                'oa_url'              => $normalised['oa_url'] ?? null,
+                'pdf_url'             => $normalised['pdf_url'] ?? null,
+                'llm_metadata'        => $poolItem['llmMetadata'],
             ];
         }
 
         // Unlinked: set both source_id and foundation_source
-        $this->updateSourceEntry($db, $refId, [
+        $this->updateSourceEntry($db, $refId, array_merge([
             'source_id'          => $stubBookId,
             'foundation_source'  => $stubBookId,
             'match_method'       => $matchMethod,
             'match_score'        => $score,
             'match_diagnostics'  => $matchDiagnostics ? json_encode($matchDiagnostics) : null,
-        ]);
+        ], $this->canonicalColumnFor($canonicalId)));
 
         return [
-            'referenceId'        => $refId,
-            'status'             => 'newly_resolved',
-            'match_method'       => $matchMethod,
-            'searched_title'     => $poolItem['searchedTitle'],
-            'result_title'       => $normalised['title'],
-            'similarity_score'   => $score,
-            'openalex_id'        => $normalised['openalex_id'] ?? null,
-            'open_library_key'   => $normalised['open_library_key'] ?? null,
-            'foundation_book_id' => $stubBookId,
-            'is_oa'              => $normalised['is_oa'] ?? null,
-            'oa_url'             => $normalised['oa_url'] ?? null,
-            'pdf_url'            => $normalised['pdf_url'] ?? null,
-            'llm_metadata'       => $poolItem['llmMetadata'],
+            'referenceId'         => $refId,
+            'status'              => 'newly_resolved',
+            'match_method'        => $matchMethod,
+            'searched_title'      => $poolItem['searchedTitle'],
+            'result_title'        => $normalised['title'],
+            'similarity_score'    => $score,
+            'openalex_id'         => $normalised['openalex_id'] ?? null,
+            'open_library_key'    => $normalised['open_library_key'] ?? null,
+            'foundation_book_id'  => $stubBookId,
+            'canonical_source_id' => $canonicalId,
+            'is_oa'               => $normalised['is_oa'] ?? null,
+            'oa_url'              => $normalised['oa_url'] ?? null,
+            'pdf_url'             => $normalised['pdf_url'] ?? null,
+            'llm_metadata'        => $poolItem['llmMetadata'],
         ];
+    }
+
+    /**
+     * Link a freshly resolved stub to its canonical work via the matcher's
+     * idempotent identifier-first upsert. Returns the canonical id, or null
+     * when the source isn't identifier-backed / linking fails. Never throws.
+     */
+    private function linkStubToCanonical(string $stubBookId, array $normalised, string $matchMethod): ?string
+    {
+        $foundationSource = self::CANONICAL_FOUNDATION_BY_METHOD[$matchMethod] ?? null;
+        if (!$foundationSource) {
+            return null;
+        }
+
+        try {
+            $library = PgLibrary::on('pgsql_admin')->where('book', $stubBookId)->first();
+            if (!$library) {
+                return null;
+            }
+
+            // Re-scan hitting an already-canonicalized stub: reuse the link.
+            if ($library->canonical_source_id) {
+                return $library->canonical_source_id;
+            }
+
+            $canonical = app(CanonicalSourceMatcher::class)->linkFromNormalisedWork(
+                $library,
+                $normalised,
+                $foundationSource,
+                'citation_scan_' . $matchMethod,
+            );
+
+            return $canonical->id;
+        } catch (\Throwable $e) {
+            Log::warning('Citation scan: canonical link failed (scan continues)', [
+                'scan_id' => $this->scanId,
+                'stub'    => $stubBookId,
+                'method'  => $matchMethod,
+                'error'   => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * bibliography carries canonical_source_id; footnotes does not — there the
+     * canonical is reachable via the foundation library row's link instead.
+     */
+    private function canonicalColumnFor(?string $canonicalId): array
+    {
+        return ($canonicalId && $this->sourceTable === 'bibliography')
+            ? ['canonical_source_id' => $canonicalId]
+            : [];
     }
 
     /**
@@ -1466,7 +1545,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                   ->orWhereNotNull('open_library_key');
             })
             ->limit(10)
-            ->get(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key']);
+            ->get(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'canonical_source_id']);
 
         if ($candidates->isEmpty()) {
             return null;
@@ -1497,12 +1576,13 @@ class CitationScanBibliographyJob implements ShouldQueue
 
         if ($bestMatch && $bestScore >= 0.5) {
             return [
-                'book'             => $bestMatch->book,
-                'title'            => $bestMatch->title,
-                'score'            => round($bestScore, 3),
-                'diagnostics'      => $bestDiagnostics,
-                'openalex_id'      => $bestMatch->openalex_id,
-                'open_library_key' => $bestMatch->open_library_key,
+                'book'                => $bestMatch->book,
+                'title'               => $bestMatch->title,
+                'score'               => round($bestScore, 3),
+                'diagnostics'         => $bestDiagnostics,
+                'openalex_id'         => $bestMatch->openalex_id,
+                'open_library_key'    => $bestMatch->open_library_key,
+                'canonical_source_id' => $bestMatch->canonical_source_id,
             ];
         }
 

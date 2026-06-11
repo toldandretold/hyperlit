@@ -653,11 +653,14 @@ class ContentFetchService
                 }
             }
 
-            // 2. Process via PdfProcessor (OCR → markdown → nodes.json)
+            // 2. Process via PdfProcessor (OCR → markdown → nodes.jsonl)
             $this->pdfProcessor->process($pdfPath, $path, $bookId);
 
-            // 3. Wait for nodes.json (OCR is slower, allow up to 60s)
-            $nodesPath = "{$path}/nodes.json";
+            // 3. Wait for nodes.jsonl — the pipeline's streamed output format.
+            // (nodes.json is a renumbered artifact WE produce during the DB
+            // save below; waiting on it here deadlocked every OCR run after
+            // the pipeline moved to jsonl.)
+            $nodesPath = "{$path}/nodes.jsonl";
             $attempts = 0;
             while (!File::exists($nodesPath) && $attempts < 30) {
                 sleep(2);
@@ -665,7 +668,7 @@ class ContentFetchService
             }
 
             if (!File::exists($nodesPath)) {
-                $reason = 'Timed out waiting for nodes.json after PdfProcessor';
+                $reason = 'Timed out waiting for nodes.jsonl after PdfProcessor';
                 $this->setPdfUrlStatus($bookId, $reason);
                 return ['status' => 'failed', 'reason' => $reason];
             }
@@ -676,19 +679,28 @@ class ContentFetchService
             // 5. Save footnotes to DB
             $this->saveFootnotesToDatabase($path, $bookId);
 
-            // 6. Update library record (don't touch creator — it's an auth field)
+            // 6. Update library record (don't touch creator — it's an auth field).
+            // conversion_method: this path always produces machine-OCR'd content,
+            // which is what makes the row eligible as a canonical auto-version.
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookId)
                 ->update([
-                    'has_nodes'      => true,
-                    'listed'         => false,
-                    'pdf_url_status' => 'imported',
-                    'updated_at'     => now(),
+                    'has_nodes'         => true,
+                    'listed'            => false,
+                    'pdf_url_status'    => 'imported',
+                    'conversion_method' => \App\Services\CanonicalVersions\AutoVersionResolver::CONVERSION_METHOD,
+                    'updated_at'        => now(),
                 ]);
 
-            // Count nodes for reporting
-            $nodesData = json_decode(File::get($nodesPath), true);
-            $nodeCount = is_array($nodesData) ? count($nodesData) : 0;
+            // 7. If this row is a version of a canonical work, let every version
+            // authority re-evaluate its pointer (today: auto_version_book gets
+            // wired once content exists). Never fails the import.
+            $this->syncCanonicalVersionPointers($bookId);
+
+            // Count nodes for reporting (one JSON object per jsonl line)
+            $nodeCount = count(array_filter(array_map('trim',
+                file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []
+            )));
 
             return [
                 'status' => 'imported',
@@ -773,18 +785,65 @@ class ContentFetchService
     }
 
     /**
-     * Save node chunks from JSON file to database.
-     * Replicates ImportController::saveNodeChunksToDatabase logic.
+     * After content lands on a canonical-linked library row, run every version
+     * authority over the canonical (VersionPointerRegistry::syncAll). This is
+     * the hook that turns "the pipeline vacuumed+OCR'd a citation's PDF" into
+     * "the canonical now has a genuine auto version". Best-effort by design.
+     */
+    private function syncCanonicalVersionPointers(string $bookId): void
+    {
+        try {
+            $canonicalId = DB::connection('pgsql_admin')
+                ->table('library')
+                ->where('book', $bookId)
+                ->value('canonical_source_id');
+
+            if (!$canonicalId) {
+                return;
+            }
+
+            $canonical = \App\Models\CanonicalSource::find($canonicalId);
+            if (!$canonical) {
+                return;
+            }
+
+            $assigned = \App\Services\CanonicalVersions\VersionPointerRegistry::syncAll($canonical);
+            if (!empty($assigned)) {
+                Log::info('Canonical version pointers synced after OCR', [
+                    'book'      => $bookId,
+                    'canonical' => $canonicalId,
+                    'assigned'  => $assigned,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Canonical pointer sync failed (import unaffected)', [
+                'book'  => $bookId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Save node chunks from the pipeline's nodes.jsonl to database.
+     * Replicates ProcessDocumentImportJob::saveNodeChunksToDatabase logic,
+     * including writing the renumbered nodes.json artifact (what the editor
+     * saver reads) as a by-product.
      */
     private function saveNodeChunksToDatabase(string $path, string $bookId): void
     {
-        $nodesPath = "{$path}/nodes.json";
+        $nodesPath = "{$path}/nodes.jsonl";
         if (!File::exists($nodesPath)) {
-            Log::warning('nodes.json not found for database save', ['book' => $bookId]);
+            Log::warning('nodes.jsonl not found for database save', ['book' => $bookId]);
             return;
         }
 
-        $nodesData = json_decode(File::get($nodesPath), true);
+        $nodesData = [];
+        foreach (file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode(trim($line), true);
+            if ($decoded !== null) {
+                $nodesData[] = $decoded;
+            }
+        }
 
         $db = DB::connection('pgsql_admin');
 
@@ -828,9 +887,10 @@ class ContentFetchService
             $db->table('nodes')->insert($batch);
         }
 
-        // Write renumbered JSON back
+        // Write the renumbered nodes.json artifact (kept alongside nodes.jsonl —
+        // the editor saver reads nodes.json)
         $renumberedJson = array_map(fn($r) => json_decode($r['raw_json'], true), $insertData);
-        File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::put("{$path}/nodes.json", json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         Log::info('ContentFetchService saved nodes to database', [
             'book' => $bookId,
@@ -844,12 +904,22 @@ class ContentFetchService
      */
     private function saveFootnotesToDatabase(string $path, string $bookId): void
     {
-        $footnotesPath = "{$path}/footnotes.json";
-        if (!File::exists($footnotesPath)) {
-            return;
+        // Pipeline emits footnotes.jsonl; accept legacy footnotes.json too.
+        $footnotesData = [];
+        $jsonlPath = "{$path}/footnotes.jsonl";
+        $jsonPath  = "{$path}/footnotes.json";
+
+        if (File::exists($jsonlPath)) {
+            foreach (file($jsonlPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                $decoded = json_decode(trim($line), true);
+                if ($decoded !== null) {
+                    $footnotesData[] = $decoded;
+                }
+            }
+        } elseif (File::exists($jsonPath)) {
+            $footnotesData = json_decode(File::get($jsonPath), true) ?: [];
         }
 
-        $footnotesData = json_decode(File::get($footnotesPath), true);
         if (empty($footnotesData)) {
             return;
         }
@@ -951,7 +1021,8 @@ class ContentFetchService
             ];
         }
 
-        File::put($footnotesPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        // Enriched footnotes.json artifact (preview_nodes included), like the import path
+        File::put($jsonPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         Log::info("ContentFetchService saved {$upsertedCount} footnotes", ['book' => $bookId]);
     }
 }

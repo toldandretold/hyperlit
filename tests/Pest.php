@@ -17,6 +17,11 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class)->in('Feature');
 
+// Canonical version-control suite (tests/Canonical): same Laravel TestCase
+// binding as Feature, kept as its own top-level testsuite so it can run alone
+// via `php artisan test --testsuite=Canonical`.
+uses(TestCase::class, RefreshDatabase::class)->in('Canonical');
+
 // API endpoint suite: bind the shared helper trait (loginUser/makeBook/anonSession/
 // assertApiError) to every test under tests/Feature/Api/. See InteractsWithApi.
 uses(InteractsWithApi::class)->in('Feature/Api');

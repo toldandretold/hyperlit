@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\CanonicalVersions\BestVersionService;
 use Illuminate\Support\Facades\DB;
 
 class SearchService
@@ -301,6 +302,10 @@ class SearchService
         // LEFT JOIN library-on-best-version in the canonical branch so we can
         // surface a private-lock badge when the version we'd resolve to is one
         // of the caller's private books (per the attribution-first contract).
+        // Pointer precedence comes from VersionPointerRegistry via this
+        // expression — never hard-code the version_book columns here.
+        $bestVersionSql = BestVersionService::sqlCoalesceExpression('c');
+
         $sql = "
             SELECT * FROM (
                 (
@@ -312,25 +317,15 @@ class SearchService
                         c.year::text AS year,
                         c.journal,
                         NULL::text AS bibtex,
-                        COALESCE(
-                            c.author_version_book,
-                            c.publisher_version_book,
-                            c.commons_version_book,
-                            c.auto_version_book
-                        ) AS best_version_book,
+                        {$bestVersionSql} AS best_version_book,
                         (
-                            COALESCE(c.author_version_book, c.publisher_version_book, c.commons_version_book, c.auto_version_book) IS NOT NULL
+                            {$bestVersionSql} IS NOT NULL
                             OR EXISTS (SELECT 1 FROM library WHERE canonical_source_id = c.id LIMIT 1)
                         ) AS has_version,
                         (lv.visibility = 'private') AS is_private,
                         ts_rank('{0.05, 0.1, 0.3, 1.0}', c.search_vector, to_tsquery('simple', ?)) AS relevance
                     FROM canonical_source c
-                    LEFT JOIN library lv ON lv.book = COALESCE(
-                        c.author_version_book,
-                        c.publisher_version_book,
-                        c.commons_version_book,
-                        c.auto_version_book
-                    )
+                    LEFT JOIN library lv ON lv.book = {$bestVersionSql}
                     WHERE c.search_vector @@ to_tsquery('simple', ?)
                       AND {$canonScopeSql}
                     ORDER BY relevance DESC
