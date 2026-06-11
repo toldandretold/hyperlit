@@ -11,8 +11,9 @@
 
 import { chromium } from 'playwright';
 
-const HARD_TIMEOUT_MS = 25_000;
-const NAV_TIMEOUT_MS = 18_000;
+const HARD_TIMEOUT_MS = 34_000;
+const NAV_TIMEOUT_MS = 13_000;
+const MAX_ATTEMPTS = 2; // Cloudflare 403s are intermittent — a fresh attempt often clears.
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
@@ -97,36 +98,51 @@ async function main() {
     const page = await context.newPage();
 
     try {
-        let resp;
-        try {
-            resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-        } catch (e) {
-            return fail('navigation_failed', { detail: e.message });
+        let lastBlock = null;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            if (attempt > 1) {
+                // Cloudflare's challenge is intermittent — pause and retry fresh.
+                await page.waitForTimeout(2500);
+            }
+
+            let resp;
+            try {
+                resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+            } catch (e) {
+                lastBlock = { reason: 'navigation_failed', detail: e.message };
+                continue;
+            }
+
+            const httpStatus = resp ? resp.status() : null;
+
+            await waitOutCloudflare(page);
+            // Small settle for late-rendered article bodies (SPA shells, lazy refs).
+            await page.waitForTimeout(1500);
+
+            const title = await page.title().catch(() => '');
+            const challenged = /just a moment|attention required|cloudflare|checking your browser/i.test(title);
+            const blocked = httpStatus === 403 || httpStatus === 401;
+
+            if (challenged || blocked) {
+                lastBlock = { reason: 'cloudflare_block', detail: challenged ? 'CF challenge not cleared' : 'HTTP ' + httpStatus, httpStatus, finalUrl: page.url() };
+                continue; // retry
+            }
+            if (httpStatus && httpStatus >= 400) {
+                return fail('http_error', { httpStatus, finalUrl: page.url() });
+            }
+
+            const html = await page.content();
+            if (!html || html.length < 500) {
+                lastBlock = { reason: 'empty_html', detail: `only ${html?.length ?? 0} bytes`, finalUrl: page.url() };
+                continue;
+            }
+
+            clearTimeout(hardTimeout);
+            return succeed({ html, finalUrl: page.url(), title, httpStatus });
         }
 
-        const httpStatus = resp ? resp.status() : null;
-
-        await waitOutCloudflare(page);
-        // Small settle for late-rendered article bodies (SPA shells, lazy refs).
-        await page.waitForTimeout(1500);
-
-        const title = await page.title().catch(() => '');
-        if (/just a moment|attention required|cloudflare|checking your browser/i.test(title)) {
-            return fail('cloudflare_block', { detail: 'CF challenge not cleared', httpStatus, finalUrl: page.url() });
-        }
-        if (httpStatus && httpStatus >= 400) {
-            return fail(httpStatus === 403 || httpStatus === 401 ? 'cloudflare_block' : 'http_error', {
-                httpStatus, finalUrl: page.url(),
-            });
-        }
-
-        const html = await page.content();
-        if (!html || html.length < 500) {
-            return fail('empty_html', { detail: `only ${html?.length ?? 0} bytes`, finalUrl: page.url() });
-        }
-
-        clearTimeout(hardTimeout);
-        succeed({ html, finalUrl: page.url(), title, httpStatus });
+        return fail(lastBlock?.reason ?? 'cloudflare_block', lastBlock ?? {});
     } catch (e) {
         return fail('browser_crash', { detail: e.message });
     } finally {
