@@ -58,6 +58,21 @@ test('ignores linked versions that are not auto-raw conversions', function () {
     expect($this->resolver->resolve(CanonicalSource::find($id)))->toBeNull();
 });
 
+test('a JATS full-text version also qualifies as a system auto-version', function () {
+    // jats_fulltext is system-fetched authoritative content — a genuine
+    // auto-version alongside pdf_ocr_auto_raw (AutoVersionResolver::SYSTEM_CONVERSION_METHODS).
+    $id = canonvSeedCanonical(['title' => 'CanonV JATS Version']);
+    $jats = canonvSeedLibrary([
+        'title'               => 'CanonV JATS Full Text',
+        'canonical_source_id' => $id,
+        'conversion_method'   => 'jats_fulltext',
+        'has_nodes'           => true,
+        'listed'              => false,
+    ]);
+
+    expect($this->resolver->resolve(CanonicalSource::find($id)))->toBe($jats);
+});
+
 test('ignores deleted auto stubs', function () {
     $id = canonvSeedCanonical(['title' => 'CanonV Deleted Stub']);
     canonvSeedAutoStub($id, ['visibility' => 'deleted']);

@@ -114,6 +114,20 @@ class ContentFetchService
 
         $lastFailure = null;
 
+        // Strategy 0: JATS / NLM full text (authoritative + structured +
+        // cheap, no OCR). The publisher's own marked-up text — body and
+        // references are schema-labelled, so "did we get the whole article?"
+        // is a fact, not a guess. PMC open-access subset only; restricted
+        // papers fall through to the PDF/browser ladder below.
+        if ($doi) {
+            $result = $this->fetchJatsFullText($doi, $bookId);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            // Soft miss (no OA JATS) — don't record as the failure reason,
+            // the cheaper-than-PDF probe just didn't apply.
+        }
+
         // Strategy 1: oa_url looks like a PDF → downloadPdf
         if ($oaUrl && $this->looksLikePdf($oaUrl)) {
             $result = $this->downloadPdf($oaUrl, $bookId, $doi);
@@ -223,6 +237,106 @@ class ContentFetchService
             'status' => 'skipped',
             'reason' => 'No fetchable URL (no oa_url, pdf_url, or doi)',
         ];
+    }
+
+    /**
+     * Fetch + import JATS full text for a DOI. Authoritative path: structured
+     * publisher XML → clean HTML → the shared HtmlProcessor → nodes. Tagged
+     * conversion_method='jats_fulltext' (distinct from OCR provenance, both
+     * count as system-generated auto-versions). Returns 'imported' on success
+     * (no separate OCR phase — content lands directly), 'failed' otherwise.
+     */
+    private function fetchJatsFullText(string $doi, string $bookId): array
+    {
+        try {
+            $jats = app(\App\Services\SourceImport\Content\JatsFullText::class);
+            $xml = $jats->fetchXmlByDoi($doi);
+            if (!$xml) {
+                return ['status' => 'failed', 'reason' => 'No OA JATS full text'];
+            }
+
+            $article = $jats->toArticle($xml);
+            if ($article['refCount'] === 0 && strlen(strip_tags($article['html'])) < 500) {
+                return ['status' => 'failed', 'reason' => 'JATS parsed but body/refs empty'];
+            }
+
+            // Complete article HTML: body + a references section (so the
+            // reference list survives into the rendered version).
+            $html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
+                . $article['html'];
+            if (!empty($article['references'])) {
+                $html .= "\n<h2>References</h2>\n<ol>";
+                foreach ($article['references'] as $ref) {
+                    $html .= '<li id="' . e($ref['key']) . '">' . e($ref['text']) . '</li>';
+                }
+                $html .= '</ol>';
+            }
+            $html .= '</body></html>';
+
+            $path = resource_path("markdown/{$bookId}");
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+            }
+            // Clean stale outputs (same files processLocalPdf clears)
+            foreach (['nodes.json', 'nodes.jsonl', 'footnotes.json', 'footnotes.jsonl', 'references.json', 'intermediate.html', 'main-text.md'] as $stale) {
+                if (File::exists("{$path}/{$stale}")) {
+                    File::delete("{$path}/{$stale}");
+                }
+            }
+
+            $htmlPath = "{$path}/original.html";
+            File::put($htmlPath, $html);
+
+            // Shared HtmlProcessor → process_document.py → nodes.jsonl
+            $this->htmlProcessor->process($htmlPath, $path, $bookId);
+
+            $nodesPath = "{$path}/nodes.jsonl";
+            $attempts = 0;
+            while (!File::exists($nodesPath) && $attempts < 30) {
+                sleep(2);
+                $attempts++;
+            }
+            if (!File::exists($nodesPath)) {
+                $reason = 'Timed out waiting for nodes.jsonl after JATS HtmlProcessor';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            $this->saveNodeChunksToDatabase($path, $bookId);
+            $this->saveFootnotesToDatabase($path, $bookId);
+
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $bookId)
+                ->update([
+                    'has_nodes'         => true,
+                    'listed'            => false,
+                    'pdf_url_status'    => 'imported',
+                    'conversion_method' => 'jats_fulltext',
+                    'updated_at'        => now(),
+                ]);
+
+            $this->syncCanonicalVersionPointers($bookId);
+
+            $nodeCount = count(array_filter(array_map('trim',
+                file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []
+            )));
+
+            Log::info('JATS full text imported', [
+                'book' => $bookId, 'doi' => $doi,
+                'nodes' => $nodeCount, 'refs' => $article['refCount'],
+            ]);
+
+            return [
+                'status' => 'imported',
+                'reason' => "JATS full text imported ({$nodeCount} nodes, {$article['refCount']} references)",
+                'node_count' => $nodeCount,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('JATS full-text import failed (continuing to other strategies)', [
+                'book' => $bookId, 'doi' => $doi, 'error' => $e->getMessage(),
+            ]);
+            return ['status' => 'failed', 'reason' => 'JATS import error: ' . Str::limit($e->getMessage(), 120)];
+        }
     }
 
     /**

@@ -25,6 +25,15 @@ class AutoVersionResolver extends BasePointerResolver
     public const FOUNDATION_SOURCE = 'canonical_pdf_vacuum';
     public const CONVERSION_METHOD = 'pdf_ocr_auto_raw';
 
+    /**
+     * conversion_methods that count as a system-generated genuine version.
+     * Both fetch the canonical's OWN content untampered: pdf_ocr_auto_raw is
+     * the vacuumed+OCR'd PDF; jats_fulltext is the publisher's structured
+     * full text (authoritative, body+refs schema-guaranteed — arguably the
+     * better of the two). Either qualifies for auto_version_book.
+     */
+    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext'];
+
     public function pointerColumn(): string
     {
         return 'auto_version_book';
@@ -44,7 +53,7 @@ class AutoVersionResolver extends BasePointerResolver
         return DB::connection('pgsql_admin')
             ->table('library')
             ->where('canonical_source_id', $canonical->id)
-            ->where('conversion_method', self::CONVERSION_METHOD)
+            ->whereIn('conversion_method', self::SYSTEM_CONVERSION_METHODS)
             ->where('has_nodes', true)
             ->where('visibility', '!=', 'deleted')
             ->orderBy('created_at')
