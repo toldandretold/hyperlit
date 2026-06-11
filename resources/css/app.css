@@ -682,10 +682,13 @@ mark.hl-rejected {
   background-color: rgba(231, 76, 60, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
 }
 
-/* Dark text for light verdict highlights at high intensity (3+ overlaps) */
+/* Dark text for light verdict highlights at high intensity (3+ overlaps).
+   LITERAL dark — themes remap --hyperlit-black (sepia: cream #E8D7B8), which
+   made this rule paint light text on saturated green in sepia/light. Dark
+   text on a bright green stack is correct in every theme. */
 mark.hl-likely:not([data-highlight-count="1"]):not([data-highlight-count="2"]),
 mark.hl-plausible:not([data-highlight-count="1"]):not([data-highlight-count="2"]) {
-  color: var(--hyperlit-black) !important;
+  color: #221F20 !important;
 }
 
 mark.hl-confirmed:hover { background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }

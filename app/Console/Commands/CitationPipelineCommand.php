@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\CitationPipeline\PipelineTelemetry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -22,6 +23,15 @@ class CitationPipelineCommand extends Command
     {
         $bookId = $this->argument('bookId');
         $db = DB::connection('pgsql_admin');
+
+        // Console command instances persist inside long-running queue workers
+        // (Laravel resolves them once per process) — reset per-run state or a
+        // retry/next pipeline inherits the previous run's current step and
+        // timings (symptom: a stray "<prev step>/completed" telemetry event at
+        // the start of a fresh run, and step re-entries logged as 'progress').
+        $this->currentTimingStep = null;
+        $this->stepTimings = [];
+        $this->telemetry = new PipelineTelemetry($this->option('pipeline-id') ?: null);
 
         // Step 1: Validate book exists
         $book = $db->table('library')->where('book', $bookId)->first();
@@ -63,8 +73,16 @@ class CitationPipelineCommand extends Command
             $exit = $this->call('citation:scan-bibliography', $bibArgs);
             if ($exit !== 0) {
                 $this->error('Bibliography scan failed. Aborting.');
+                $this->telemetry?->emit('bibliography', 'failed', 'Bibliography scan failed — pipeline aborted');
                 return 1;
             }
+            // Signal emit stays INSIDE the not-skipped branch: a resumed retry
+            // must not re-emit for a completed stage (its last event would flip
+            // from completed back to progress and the viz shows it running).
+            $this->telemetry?->emit('bibliography', 'progress', 'Bibliography scan finished', [
+                'entries'            => $db->table('bibliography')->where('book', $bookId)->count(),
+                'footnote_citations' => $db->table('footnotes')->where('book', $bookId)->where('is_citation', true)->count(),
+            ]);
         }
         $summary['bibliography'] = $db->table('bibliography')->where('book', $bookId)->count();
         $summary['footnote_citations'] = $db->table('footnotes')
@@ -74,6 +92,9 @@ class CitationPipelineCommand extends Command
         // If no bibliography entries and no citation footnotes, skip remaining steps
         if ($summary['bibliography'] === 0 && $summary['footnote_citations'] === 0) {
             $this->warn('No bibliography entries and no citation footnotes — skipping remaining steps.');
+            foreach (['content', 'vacuum', 'ocr', 'review'] as $skipped) {
+                $this->telemetry?->emit($skipped, 'skipped', 'No bibliography entries or citation footnotes');
+            }
             $this->newLine();
 
             // Finalize step timings
@@ -101,6 +122,7 @@ class CitationPipelineCommand extends Command
             $exit = $this->call('citation:scan-content', ['bookId' => $bookId]);
             if ($exit !== 0) {
                 $this->error('Content scan failed. Aborting.');
+                $this->telemetry?->emit('content', 'failed', 'Content scan failed — pipeline aborted');
                 return 1;
             }
         }
@@ -110,6 +132,8 @@ class CitationPipelineCommand extends Command
         if ($this->option('skip-fetch')) {
             $this->info('Step 3/5: Vacuum — skipped (--skip-fetch)');
             $this->info('Step 4/5: OCR — skipped (--skip-fetch)');
+            $this->telemetry?->emit('vacuum', 'skipped', 'Skipped (--skip-fetch)');
+            $this->telemetry?->emit('ocr', 'skipped', 'Skipped (--skip-fetch)');
             $this->newLine();
         } else {
             // Step 3: Vacuum
@@ -181,6 +205,7 @@ class CitationPipelineCommand extends Command
                         } else {
                             $vacuumFailed++;
                             $this->line("  <fg=yellow>Failed — continuing</>");
+                            $this->telemetry?->emit('vacuum', 'progress', "Fetch failed: {$title} (continuing)");
                         }
 
                         // Rate limit between sources
@@ -193,6 +218,7 @@ class CitationPipelineCommand extends Command
                 $sourceTotal = $summary['bibliography'] > 0 ? $summary['bibliography'] : $summary['footnote_citations'];
                 $vacuumSkipped = $sourceTotal - ($sources->count() ?? 0);
                 $summary['vacuum'] = ['fetched' => $vacuumFetched, 'failed' => $vacuumFailed, 'skipped' => max(0, $vacuumSkipped)];
+                $this->telemetry?->emit('vacuum', 'progress', 'Vacuum finished', $summary['vacuum']);
             }
             $this->newLine();
 
@@ -255,11 +281,13 @@ class CitationPipelineCommand extends Command
                         } else {
                             $ocrFailed++;
                             $this->line("  <fg=yellow>OCR failed — continuing</>");
+                            $this->telemetry?->emit('ocr', 'progress', "OCR failed: {$title} (continuing)");
                         }
                     }
                 }
 
                 $summary['ocr'] = ['processed' => $ocrProcessed, 'failed' => $ocrFailed];
+                $this->telemetry?->emit('ocr', 'progress', 'OCR finished', array_merge($summary['ocr'], ['pages' => $ocrTotalPages]));
 
                 // Store OCR page count in step timings
                 if ($ocrTotalPages > 0 && isset($this->stepTimings['ocr'])) {
@@ -272,6 +300,7 @@ class CitationPipelineCommand extends Command
         // Step 5: Review
         if ($this->option('skip-review')) {
             $this->info('Step 5/5: Review — skipped (--skip-review)');
+            $this->telemetry?->emit('review', 'skipped', 'Skipped (--skip-review)');
             $this->newLine();
         } elseif ($this->stepCompleted('review')) {
             $this->info('Step 5/5: Review — already completed, skipping');
@@ -289,6 +318,7 @@ class CitationPipelineCommand extends Command
             $exit = $this->call('citation:review', $reviewArgs);
             if ($exit !== 0) {
                 $this->error('Review step failed.');
+                $this->telemetry?->emit('review', 'failed', 'Review step failed');
                 return 1;
             }
             $this->newLine();
@@ -327,6 +357,7 @@ class CitationPipelineCommand extends Command
 
     private ?string $currentTimingStep = null;
     private array $stepTimings = [];
+    private ?PipelineTelemetry $telemetry = null;
 
     /**
      * Load existing step timings from the DB (for resume).
@@ -361,6 +392,22 @@ class CitationPipelineCommand extends Command
     {
         $now = now();
 
+        // Re-entry with the same step (per-source progress in vacuum/OCR loops):
+        // update the detail and emit progress WITHOUT resetting the step's
+        // started_at (it used to, which wrecked duration_seconds).
+        if ($step === $this->currentTimingStep) {
+            $this->telemetry?->emit($step, 'progress', $detail);
+
+            $pipelineId = $this->option('pipeline-id');
+            if ($pipelineId) {
+                DB::connection('pgsql_admin')
+                    ->table('citation_pipelines')
+                    ->where('id', $pipelineId)
+                    ->update(['step_detail' => $detail, 'updated_at' => $now]);
+            }
+            return;
+        }
+
         // Close previous step timing
         if ($this->currentTimingStep !== null && isset($this->stepTimings[$this->currentTimingStep])) {
             $prev = &$this->stepTimings[$this->currentTimingStep];
@@ -368,6 +415,7 @@ class CitationPipelineCommand extends Command
             $started = \Carbon\Carbon::parse($prev['started_at']);
             $prev['duration_seconds'] = $started->diffInSeconds($now);
             unset($prev);
+            $this->telemetry?->emit($this->currentTimingStep, 'completed');
         }
 
         // Open new step timing
@@ -377,6 +425,7 @@ class CitationPipelineCommand extends Command
             'completed_at'     => null,
             'duration_seconds' => null,
         ];
+        $this->telemetry?->emit($step, 'started', $detail);
 
         $pipelineId = $this->option('pipeline-id');
         if (!$pipelineId) return;
@@ -405,6 +454,7 @@ class CitationPipelineCommand extends Command
             $started = \Carbon\Carbon::parse($prev['started_at']);
             $prev['duration_seconds'] = $started->diffInSeconds($now);
             unset($prev);
+            $this->telemetry?->emit($this->currentTimingStep, 'completed');
         }
 
         $pipelineId = $this->option('pipeline-id');

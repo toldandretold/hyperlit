@@ -145,10 +145,68 @@ class ContentFetchService
             $this->setPdfUrlStatus($bookId, null);
         }
 
-        // Strategy 4: DOI resolution (last resort — even if oa_url existed but failed)
+        // Strategy 4: Semantic Scholar open-access PDF discovery by DOI.
+        // Catches legal repository copies (PubMed Central etc.) that
+        // OpenAlex's OA snapshot misses — those serve to a plain HTTP client,
+        // where publisher landing pages (strategy 5) sit behind bot walls.
+        if ($doi) {
+            $s2Pdf = app(SemanticScholarService::class)->openAccessPdfByDoi($doi);
+            if ($s2Pdf && $s2Pdf !== $pdfUrl && $s2Pdf !== $oaUrl) {
+                $result = $this->downloadPdf($s2Pdf, $bookId, $doi);
+                if ($result['status'] !== 'failed') {
+                    // Persist the discovered URL so retries/provenance see it
+                    DB::connection('pgsql_admin')->table('library')
+                        ->where('book', $bookId)
+                        ->update(['pdf_url' => $s2Pdf, 'updated_at' => now()]);
+                    return $result;
+                }
+                $lastFailure = $result['reason'];
+                $this->setPdfUrlStatus($bookId, null);
+            }
+        }
+
+        // Strategy 5: Crossref-deposited full-text links (publisher TDM /
+        // syndication deposits). Often CDN-hosted and fetchable even when the
+        // landing page is walled — though some publishers (MIT Press) wall
+        // these too; each is just one cheap attempt.
+        if ($doi) {
+            foreach ($this->crossrefPdfLinks($doi) as $crUrl) {
+                if ($crUrl === $pdfUrl || $crUrl === $oaUrl) {
+                    continue;
+                }
+                $result = $this->downloadPdf($crUrl, $bookId, $doi);
+                if ($result['status'] !== 'failed') {
+                    DB::connection('pgsql_admin')->table('library')
+                        ->where('book', $bookId)
+                        ->update(['pdf_url' => $crUrl, 'updated_at' => now()]);
+                    return $result;
+                }
+                $lastFailure = $result['reason'];
+                $this->setPdfUrlStatus($bookId, null);
+            }
+        }
+
+        // Strategy 6: DOI resolution as HTML
         if ($doi) {
             $doiUrl = 'https://doi.org/' . $doi;
             $result = $this->fetchHtml($doiUrl, $bookId);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $lastFailure = $result['reason'];
+        }
+
+        // Strategy 7: headless browser (Playwright) — the same machinery the
+        // URL-import pathway uses (scripts/fetch-pdf.mjs): clears JS
+        // challenges, scrapes citation_pdf_url from the landing page, carries
+        // session cookies. True last resort — a browser per source is the
+        // expensive path — but it's the only way into "CC-BY-but-walled"
+        // publishers (direct.mit.edu et al.) where every discovery service
+        // points at a bot-walled URL.
+        if ($doi || $pdfUrl || $oaUrl) {
+            $landing = $doi ? ('https://doi.org/' . $doi) : ($oaUrl ?: $pdfUrl);
+            $target  = $pdfUrl ?: $landing;
+            $result = $this->fetchPdfViaBrowser($target, $landing, $bookId);
             if ($result['status'] !== 'failed') {
                 return $result;
             }
@@ -165,6 +223,81 @@ class ContentFetchService
             'status' => 'skipped',
             'reason' => 'No fetchable URL (no oa_url, pdf_url, or doi)',
         ];
+    }
+
+    /**
+     * Headless-browser PDF fetch via scripts/fetch-pdf.mjs (Node + Playwright)
+     * — shared with SourceImport\Content\PlaywrightPdfFetcher. Mirrors
+     * downloadPdf's success contract: original.pdf on disk +
+     * pdf_url_status='downloaded'.
+     */
+    private function fetchPdfViaBrowser(string $url, string $landing, string $bookId): array
+    {
+        $path = resource_path("markdown/{$bookId}");
+        if (!File::exists($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+        $dest = "{$path}/original.pdf";
+
+        try {
+            $process = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-pdf.mjs')], base_path());
+            $process->setInput(json_encode(['url' => $url, 'dest' => $dest, 'landing' => $landing]));
+            $process->setTimeout(25); // script's own hard timeout ~20s + headroom
+            $process->run();
+        } catch (\Throwable $e) {
+            // Don't setPdfUrlStatus here — fetch()'s exhaustion path records it
+            return ['status' => 'failed', 'reason' => 'Browser fetch unavailable: ' . Str::limit($e->getMessage(), 120)];
+        }
+
+        $result = json_decode(trim($process->getOutput()), true);
+
+        $magicOk = File::exists($dest)
+            && @file_get_contents($dest, false, null, 0, 5) === '%PDF-';
+
+        if (is_array($result) && ($result['ok'] ?? false) === true && $magicOk) {
+            @chmod($dest, 0644);
+            $this->setPdfUrlStatus($bookId, 'downloaded');
+            $size = number_format(File::size($dest));
+            return [
+                'status' => 'downloaded',
+                'reason' => "PDF saved via headless browser ({$size} bytes) — ready for OCR",
+            ];
+        }
+
+        $detail = is_array($result) ? ($result['reason'] ?? 'unknown') : 'no parseable output';
+        return ['status' => 'failed', 'reason' => "Browser fetch failed: {$detail}"];
+    }
+
+    /**
+     * PDF links the publisher deposited with Crossref (TDM / syndication).
+     * Returns possibly-empty list of candidate URLs.
+     */
+    private function crossrefPdfLinks(string $doi): array
+    {
+        try {
+            $resp = Http::timeout(15)->get('https://api.crossref.org/works/' . rawurlencode($doi));
+            if (!$resp->successful()) {
+                return [];
+            }
+
+            $urls = [];
+            foreach ($resp->json('message.link') ?? [] as $link) {
+                $url = $link['URL'] ?? null;
+                if (!$url) {
+                    continue;
+                }
+                $isPdf = ($link['content-type'] ?? '') === 'application/pdf'
+                    || str_ends_with(strtolower(parse_url($url, PHP_URL_PATH) ?? ''), '.pdf');
+                if ($isPdf) {
+                    $urls[] = $url;
+                }
+            }
+
+            return array_values(array_unique($urls));
+        } catch (\Throwable $e) {
+            Log::warning('Crossref link lookup failed', ['doi' => $doi, 'error' => $e->getMessage()]);
+            return [];
+        }
     }
 
     /**

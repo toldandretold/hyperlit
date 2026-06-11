@@ -58,7 +58,7 @@ function buildBarChartSvg(data, colors) {
     countText.setAttribute('x', String(x + barWidth / 2));
     countText.setAttribute('y', String(y - 6));
     countText.setAttribute('text-anchor', 'middle');
-    countText.setAttribute('fill', '#e0e0e0');
+    countText.setAttribute('fill', 'var(--color-text, #e0e0e0)');
     countText.setAttribute('font-size', '13');
     countText.setAttribute('font-family', 'sans-serif');
     countText.textContent = String(item.count);
@@ -70,7 +70,7 @@ function buildBarChartSvg(data, colors) {
     labelText.setAttribute('x', String(x + barWidth / 2));
     labelText.setAttribute('y', String(barAreaBottom + 16));
     labelText.setAttribute('text-anchor', 'middle');
-    labelText.setAttribute('fill', '#e0e0e0');
+    labelText.setAttribute('fill', 'var(--color-text, #e0e0e0)');
     labelText.setAttribute('font-size', '11');
     labelText.setAttribute('font-family', 'sans-serif');
     labelText.textContent = label;
@@ -81,7 +81,9 @@ function buildBarChartSvg(data, colors) {
 }
 
 const DONUT_COLORS = {
-  'Source Found': '#27ae60',
+  'Canonical-verified': '#27ae60',
+  'Found (local match)': '#2a9d8f',
+  'Source Found': '#27ae60',          // legacy reports (pre canonical split)
   'Source Not Found': '#9b59b6',
 };
 
@@ -112,7 +114,7 @@ function buildDonutChartSvg(data, colors) {
     circle.setAttribute('cx', String(donutCx));
     circle.setAttribute('cy', String(donutCy));
     circle.setAttribute('r', String(outerR));
-    circle.setAttribute('fill', '#444');
+    circle.setAttribute('fill', 'var(--color-text-faint, #444)');
     svg.appendChild(circle);
     const inner = document.createElementNS(svgNS, 'circle');
     inner.setAttribute('cx', String(donutCx));
@@ -172,7 +174,7 @@ function buildDonutChartSvg(data, colors) {
   hole.setAttribute('cx', String(donutCx));
   hole.setAttribute('cy', String(donutCy));
   hole.setAttribute('r', String(innerR));
-  hole.setAttribute('fill', 'var(--bg-color, #1a1a2e)');
+  hole.setAttribute('fill', 'var(--color-background, #1a1a2e)');
   svg.appendChild(hole);
 
   // Centre text
@@ -180,11 +182,12 @@ function buildDonutChartSvg(data, colors) {
   centreText.setAttribute('x', String(donutCx));
   centreText.setAttribute('y', String(donutCy + 7));
   centreText.setAttribute('text-anchor', 'middle');
-  centreText.setAttribute('fill', '#e0e0e0');
+  centreText.setAttribute('fill', 'var(--color-text, #e0e0e0)');
   centreText.setAttribute('font-size', '22');
   centreText.setAttribute('font-family', 'sans-serif');
   centreText.setAttribute('font-weight', 'bold');
-  centreText.textContent = `${data[0]?.count ?? 0}/${total}`;
+  const notFound = data.find(d => /not found/i.test(d.label))?.count ?? 0;
+  centreText.textContent = `${total - notFound}/${total}`;
   svg.appendChild(centreText);
 
   // Legend below donut — stacked vertically
@@ -202,7 +205,7 @@ function buildDonutChartSvg(data, colors) {
     const label = document.createElementNS(svgNS, 'text');
     label.setAttribute('x', '32');
     label.setAttribute('y', String(rowY + 5));
-    label.setAttribute('fill', '#e0e0e0');
+    label.setAttribute('fill', 'var(--color-text, #e0e0e0)');
     label.setAttribute('font-size', '14');
     label.setAttribute('font-family', 'sans-serif');
     label.textContent = `${item.label} (${item.count})`;

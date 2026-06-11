@@ -38,8 +38,13 @@ return [
     'llm' => [
         'base_url'           => env('LLM_BASE_URL', 'https://api.fireworks.ai/inference/v1'),
         'api_key'            => env('LLM_API_KEY'),
-        'model'              => 'accounts/fireworks/models/qwen3-8b',
-        'extraction_model'   => 'accounts/fireworks/models/qwen3-8b',
+        // Role models. Availability verified live against /v1/models 2026-06-11
+        // (qwen3-8b was retired by Fireworks and silently 404'd — citation
+        // metadata + truth-claim extraction failed quietly until swapped).
+        // tests/Feature/CitationPipeline/LlmModelConfigTest.php fails if a
+        // role model lands in retired_models or loses its pricing entry.
+        'model'              => 'accounts/fireworks/models/gpt-oss-120b',
+        'extraction_model'   => 'accounts/fireworks/models/gpt-oss-120b',
         'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
         'pricing' => [
@@ -58,6 +63,17 @@ return [
             'nomic-ai/nomic-embed-text-v1.5'                   => ['input' => 0.008, 'output' => 0.0],
             // Mistral OCR — cost per 1K pages (USD)
             'mistral-ocr-latest' => ['per_1k_pages' => 1.00],
+        ],
+        // Models Fireworks no longer serves (404 on chat/completions). A model
+        // moves here when it leaves /v1/models; no configured role or fallback
+        // chain may reference one (drift-tested). Keep pricing entries above
+        // for historical ledger cost lookups.
+        'retired_models' => [
+            'accounts/fireworks/models/qwen3-8b',
+            'accounts/fireworks/models/deepseek-v3p2',
+            'accounts/fireworks/models/deepseek-v3p1',
+            'accounts/fireworks/models/llama-v3p3-70b-instruct',
+            'accounts/fireworks/models/minimax-m2p5',
         ],
     ],
 

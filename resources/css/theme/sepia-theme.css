@@ -166,3 +166,14 @@ body.theme-sepia #searchButton:hover svg path,
 body.theme-sepia #searchButton:hover svg line {
   stroke: #E8D7B8 !important;
 }
+
+/* AI-review verdict labels (Verdict/Claim/Source/Summary/Reasoning in
+   highlight sub-books) carry dark-mode colors baked INLINE into node content
+   by CitationReviewService — unreadable on sepia. Remap each baked hex to a
+   darker, hue-preserving shade so the color coding survives the theme. */
+body.theme-sepia strong[style*="#27ae60"] { color: #1e7d46 !important; } /* confirmed */
+body.theme-sepia strong[style*="#a3d977"] { color: #5b8c2a !important; } /* likely */
+body.theme-sepia strong[style*="#f1c40f"] { color: #9a7d0a !important; } /* plausible */
+body.theme-sepia strong[style*="#e67e22"] { color: #b35c0e !important; } /* unlikely */
+body.theme-sepia strong[style*="#e74c3c"] { color: #b03024 !important; } /* rejected */
+body.theme-sepia strong[style*="#9b59b6"] { color: #6f3a86 !important; } /* unverified */

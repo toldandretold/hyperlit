@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\BillingService;
+use App\Services\CitationPipeline\PipelineTelemetry;
 use App\Services\CitationReviewService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -54,8 +55,10 @@ class CitationReviewCommand extends Command
             }
             $this->info("Loaded " . count($claims) . " claims");
 
-            $onProgress = function (string $phase, string $message) {
+            $telemetry = new PipelineTelemetry($this->option('pipeline-id') ?: null);
+            $onProgress = function (string $phase, string $message) use ($telemetry) {
                 $this->line("  <fg=cyan>[{$phase}]</> {$message}");
+                $telemetry->emit('review', 'progress', $message, [], $phase);
             };
 
             $reportStats = [];
@@ -178,9 +181,12 @@ class CitationReviewCommand extends Command
             return 0;
         }
 
-        // Run pipeline with progress output
-        $onProgress = function (string $phase, string $message) {
+        // Run pipeline with progress output — each phase event also lands in
+        // the pipeline telemetry stream (review sub-stages in the live viz).
+        $telemetry = new PipelineTelemetry($this->option('pipeline-id') ?: null);
+        $onProgress = function (string $phase, string $message) use ($telemetry) {
             $this->line("  <fg=cyan>[{$phase}]</> {$message}");
+            $telemetry->emit('review', 'progress', $message, [], $phase);
         };
 
         // Reset LLM usage tracking before the review
@@ -244,7 +250,9 @@ class CitationReviewCommand extends Command
         Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $mdFilename = "citation-review_{$bookId}_{$timestamp}.md";
+        $onProgress('report', 'Building markdown report...');
         $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId, $stats);
+        $onProgress('report', 'Built markdown report (' . strlen($md) . ' bytes)');
         Storage::put($mdFilename, $md);
 
         $this->newLine();
@@ -253,7 +261,9 @@ class CitationReviewCommand extends Command
 
         // Import as sub-book
         $this->info('Importing report as sub-book...');
+        $onProgress('import', 'Publishing report sub-book...');
         $subBookId = $reviewService->importReportAsSubBook($md, $bookId, $book->title ?? $bookId);
+        $onProgress('import', "Report published at /{$bookId}/AIreview");
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 

@@ -1297,6 +1297,9 @@ export class SourceContainerManager extends ContainerManager {
       this._pipelineId = data.pipeline_id;
       this.setAiReviewState('reviewing');
       this.startAiReviewPolling();
+      // Show the live pipeline right away — the card explains the report is
+      // emailed on completion, so users know they can close it / leave.
+      this.openAiReviewVizOverlay();
     } catch (error) {
       console.error('AI Review trigger failed:', error);
       alert('Failed to start AI Citation Review: ' + error.message);
@@ -1375,7 +1378,9 @@ export class SourceContainerManager extends ContainerManager {
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         ${stepText}`;
       if (infoPanel) infoPanel.style.display = 'none';
+      this.ensureAiReviewLivePanel();
     } else if (state === 'completed') {
+      this.container.querySelector('#ai-review-live')?.remove();
       aiBtn.disabled = false;
       aiBtn.style.color = 'var(--hyperlit-aqua)';
       aiBtn.style.borderColor = 'color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent)';
@@ -1431,11 +1436,11 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
-  startAiReviewPolling() {
+  startAiReviewPolling(intervalMs = 30000) {
     this.stopAiReviewPolling(); // clear any existing interval
     this._aiReviewPollInterval = setInterval(() => {
       this.pollAiReviewStatus();
-    }, 30000);
+    }, intervalMs);
   }
 
   stopAiReviewPolling() {
@@ -1460,11 +1465,15 @@ export class SourceContainerManager extends ContainerManager {
       if (pipeline.status === 'completed') {
         this.stopAiReviewPolling();
         this.setAiReviewState('completed');
+        // If the live overlay is open, show the final all-green state
+        this.renderPipelineViz(pipeline);
 
         // Pull pipeline-created highlights into IndexedDB so they render immediately
         this.syncPipelineHighlights(pipeline.book);
       } else if (pipeline.status === 'failed') {
         this.stopAiReviewPolling();
+        // Show the failure in the live viz (if open) before resetting the button
+        this.renderPipelineViz(pipeline);
         // Reset button to idle state
         const aiBtn = this.container.querySelector('#ai-review-btn');
         if (aiBtn) {
@@ -1477,12 +1486,323 @@ export class SourceContainerManager extends ContainerManager {
             AI Citation Review`;
         }
       } else {
-        // Still running — update the step display
+        // Still running — update the step display + live viz
         this.setAiReviewState('reviewing', pipeline.current_step);
+        this.renderPipelineViz(pipeline);
       }
     } catch (err) {
       console.warn('AI review poll failed:', err);
     }
+  }
+
+  /**
+   * Below the "Reviewing..." button: the results-by-email note and the
+   * "See live processing pipeline" toggle. Idempotent — called on every
+   * poll-driven state refresh.
+   */
+  ensureAiReviewLivePanel() {
+    const aiBtn = this.container.querySelector('#ai-review-btn');
+    if (!aiBtn || this.container.querySelector('#ai-review-live')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'ai-review-live';
+    panel.style.cssText = 'margin-top: 8px;';
+    panel.innerHTML = `
+      <p style="font-size: 11px; color: var(--color-label); margin: 0 0 6px 0; line-height: 1.4;">
+        Results will be emailed to you when complete — you can safely leave this page.
+      </p>
+      <button type="button" id="ai-review-viz-toggle" style="background: none; border: none; padding: 0; font-size: 11px; color: var(--hyperlit-aqua); text-decoration: underline; cursor: pointer;">
+        See live processing pipeline ▸
+      </button>
+    `;
+    aiBtn.parentNode.insertBefore(panel, aiBtn.nextSibling);
+
+    panel.querySelector('#ai-review-viz-toggle').addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await this.openAiReviewVizOverlay();
+    });
+  }
+
+  /**
+   * Full-screen live-pipeline layer (same overlay idiom as the page alerts:
+   * fixed inset, dark backdrop, centred card). All stages visible at once;
+   * details for the active (or clicked) stage below the chain. Closing drops
+   * polling back to the slow cadence.
+   */
+  async openAiReviewVizOverlay() {
+    if (document.getElementById('ai-review-viz-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ai-review-viz-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    overlay.innerHTML = `
+      <style>
+        @keyframes aiPipePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+        /* The overlay sits inside the app DOM, whose theme styles p/strong/code
+           with its own palette — pin every text element explicitly. */
+        #ai-review-viz-card p      { color: #d8d8d8; margin: 0; font-family: inherit; }
+        #ai-review-viz-card strong { color: #ffffff; }
+        #ai-review-viz-card code   { color: #8fd0c6; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; }
+      </style>
+      <div id="ai-review-viz-card" style="background: #2a2a2a; color: #fff; padding: 28px 32px; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; overflow-y: auto;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">AI Citation Review — live pipeline</h3>
+          <button type="button" id="ai-review-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
+        </div>
+        <p style="font-size: 13px; color: #9fc7c0; margin: 0 0 20px 0; line-height: 1.5;">✉ The full report will be emailed to you when it completes — it's safe to close this window or leave the page.</p>
+        <div id="ai-review-viz">
+          <p style="font-size: 13px; color: #aaa; margin: 0;">Loading pipeline state…</p>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => this.closeAiReviewVizOverlay();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#ai-review-viz-close').addEventListener('click', close);
+
+    this._aiVizOpen = true;
+
+    // Re-render on resize so the chain flips horizontal ↔ vertical
+    this._aiVizResizeHandler = () => {
+      if (this._aiVizLastPipeline) this.renderPipelineViz(this._aiVizLastPipeline);
+    };
+    window.addEventListener('resize', this._aiVizResizeHandler);
+
+    if (!this._pipelineMap) await this.fetchPipelineMap();
+    // Poll fast while watching, and render immediately
+    this.startAiReviewPolling(5000);
+    this.pollAiReviewStatus();
+  }
+
+  closeAiReviewVizOverlay() {
+    document.getElementById('ai-review-viz-overlay')?.remove();
+    this._aiVizOpen = false;
+    this._aiVizStage = null;
+    if (this._aiVizResizeHandler) {
+      window.removeEventListener('resize', this._aiVizResizeHandler);
+      this._aiVizResizeHandler = null;
+    }
+    if (this._aiReviewPollInterval) this.startAiReviewPolling(30000);
+  }
+
+  async fetchPipelineMap() {
+    try {
+      const resp = await fetch('/api/citation-pipeline/map', { credentials: 'include' });
+      if (resp.ok) {
+        const data = await resp.json();
+        this._pipelineMap = data.stages || [];
+      }
+    } catch (err) {
+      console.warn('Failed to load pipeline map:', err);
+      this._pipelineMap = [];
+    }
+  }
+
+  /**
+   * Render the live pipeline into the full-screen overlay: one column per
+   * stage (all visible without scrolling), connected by progress lines.
+   * Done stages light up green; the running stage pulses orange; failures go
+   * red with the error below. The details panel under the chain auto-follows
+   * the active stage (click a stage to pin it instead) and carries the
+   * plain-language note, latest signals, review sub-stages, and the code ref
+   * (so a dev looking at a failure is one click from the responsible file).
+   */
+  renderPipelineViz(pipeline) {
+    const viz = document.getElementById('ai-review-viz');
+    if (!viz || !this._aiVizOpen || !this._pipelineMap) return;
+
+    const telemetry = pipeline.telemetry || [];
+
+    // Last event per stage / per review substage
+    const lastByStage = {};
+    const lastBySubstage = {};
+    for (const ev of telemetry) {
+      if (ev.stage) lastByStage[ev.stage] = ev;
+      if (ev.stage === 'review' && ev.substage) lastBySubstage[ev.substage] = ev;
+    }
+    // Latest signals snapshot per stage
+    const signalsByStage = {};
+    for (const ev of telemetry) {
+      if (ev.stage && ev.signals) signalsByStage[ev.stage] = ev.signals;
+    }
+
+    const statusOf = (stageId) => {
+      // Walk the stream with sticky terminal states: once a stage completed /
+      // failed / was skipped, only a fresh 'started' (a genuine re-run) may
+      // flip it back to running — a stray 'progress' event must not. (Guards
+      // against pre-fix streams where a resume re-emitted a progress signal
+      // for an already-completed stage.)
+      let st = null;
+      for (const ev of telemetry) {
+        if (ev.stage !== stageId) continue;
+        if (ev.status === 'started') {
+          st = 'running';
+        } else if (ev.status === 'progress') {
+          if (st === null || st === 'running') st = 'running';
+        } else if (ev.status === 'completed') {
+          st = 'done';
+        } else if (ev.status === 'failed') {
+          st = 'failed';
+        } else if (ev.status === 'skipped') {
+          st = 'skipped';
+        }
+      }
+      if (st) return st;
+
+      // No telemetry (older runs): infer from current_step ordering
+      const order = this._pipelineMap.map(s => s.id);
+      const cur = order.indexOf(pipeline.current_step);
+      const idx = order.indexOf(stageId);
+      if (cur === -1 || idx === -1) return 'pending';
+      if (idx < cur) return 'done';
+      if (idx === cur) return pipeline.status === 'failed' ? 'failed' : 'running';
+      return 'pending';
+    };
+
+    const palette = {
+      done:    { ring: '#27ae60', fill: '#27ae60', text: '#27ae60', icon: '✓', line: '#27ae60' },
+      running: { ring: '#EF8D34', fill: '#EF8D34', text: '#EF8D34', icon: '●', line: '#555'    },
+      failed:  { ring: '#e74c3c', fill: '#e74c3c', text: '#e74c3c', icon: '✗', line: '#555'    },
+      skipped: { ring: '#777',    fill: 'transparent', text: '#999', icon: '–', line: '#555'   },
+      pending: { ring: '#555',    fill: 'transparent', text: '#888', icon: '',  line: '#444'   },
+    };
+
+    // Remember the latest pipeline so resize re-renders don't need a new poll
+    this._aiVizLastPipeline = pipeline;
+
+    // Narrow viewport → vertical chain (top to bottom, details under the
+    // selected stage); wide → horizontal chain with details below.
+    const vertical = window.innerWidth < 760;
+
+    // Detail line: most recent telemetry detail, else step_detail
+    const lastEvent = telemetry.length ? telemetry[telemetry.length - 1] : null;
+    const detailText = (lastEvent && lastEvent.detail) || pipeline.step_detail || '';
+    const failedText = pipeline.status === 'failed' && pipeline.error
+      ? `<p style="font-size: 13px; color: #e74c3c; margin: 12px 0 0 0;">${pipeline.error}</p>` : '';
+
+    // Terminal DONE state: replace the live ticker with a completion banner
+    const done = pipeline.status === 'completed';
+    const doneBanner = done
+      ? `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+           <span style="font-size: 16px; color: #27ae60; font-weight: bold;">✓ Review complete</span>
+           <a href="/${encodeURIComponent(pipeline.book)}/AIreview" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">View the report →</a>
+           <span style="font-size: 13px; color: #888;">A summary has been emailed to you.</span>
+         </div>`
+      : '';
+
+    // Details panel: auto-follow the active stage (running/failed) unless the
+    // user has pinned one by clicking.
+    const selectedId = this._aiVizStage
+      || this._pipelineMap.find(s => ['running', 'failed'].includes(statusOf(s.id)))?.id
+      || this._pipelineMap[this._pipelineMap.length - 1].id;
+    const sel = this._pipelineMap.find(s => s.id === selectedId);
+
+    let expanded = '';
+    if (sel) {
+      const st = statusOf(sel.id);
+      const ev = lastByStage[sel.id];
+      const signals = signalsByStage[sel.id];
+      const signalsHtml = signals
+        ? `<p style="margin: 10px 0 0 0; font-size: 14px;">${Object.entries(signals).map(([k, v]) => `<span style="color:#999;">${k}:</span> <strong>${v}</strong>`).join(' &nbsp;&nbsp;·&nbsp;&nbsp; ')}</p>`
+        : '';
+
+      // Sub-stages: one per row — checkpoint mark, title, latest message.
+      let substagesHtml = '';
+      if (sel.substages) {
+        substagesHtml = '<div style="margin-top: 14px; border-top: 1px dashed #555; padding-top: 12px;">'
+          + sel.substages.map(sub => {
+              const subEv = lastBySubstage[sub.id];
+              // A finished stage can't have anything still "waiting" — events
+              // may simply be absent (e.g. runs from before a phase emitted).
+              const stageOver = st === 'done' || st === 'skipped';
+              const mark = subEv
+                ? '<span style="color:#27ae60; font-weight:bold;">✓</span>'
+                : (stageOver ? '<span style="color:#555;">–</span>' : '<span style="color:#666;">○</span>');
+              const msg = subEv?.detail
+                ? `<span style="color: #9a9a9a;">${subEv.detail}</span>`
+                : (stageOver ? '<span style="color: #555;">—</span>' : '<span style="color: #666;">waiting…</span>');
+              return `<p style="display: flex; gap: 10px; align-items: baseline; margin: 0 0 7px 0; font-size: ${vertical ? 13 : 14}px; line-height: 1.5; ${vertical ? 'flex-wrap: wrap;' : ''}">
+                  <span style="flex: 0 0 14px; text-align: center;">${mark}</span>
+                  <strong style="flex: 0 0 ${vertical ? 'auto' : '170px'};">${sub.title}</strong>
+                  <span style="flex: 1 1 auto;">${msg}</span>
+                </p>`;
+            }).join('')
+          + '</div>';
+      }
+
+      const stLabel = { done: 'completed', running: 'running', failed: 'failed', skipped: 'skipped', pending: 'pending' }[st];
+      expanded = `
+        <div style="${vertical ? 'margin: 8px 0 8px 0;' : 'margin-top: 22px;'} padding: ${vertical ? '14px 16px' : '18px 20px'}; font-size: 14px; line-height: 1.7; background: rgba(255,255,255,0.06); border-radius: 6px;">
+          <p style="font-size: 15px;"><strong>${sel.title}</strong> — <span style="color: ${palette[st].text}; font-weight: bold;">${stLabel}</span></p>
+          <p style="margin: 10px 0 0 0; color: #c4c4c4;">${sel.plain}</p>
+          ${signalsHtml}
+          ${substagesHtml}
+          <p style="margin: 14px 0 0 0; color: #888; font-size: 12px;">code: <code style="font-size: 12px;">${sel.code_ref}</code></p>
+        </div>`;
+    }
+
+    const circleFor = (st, p, size) => {
+      const pulse = st === 'running' ? 'animation: aiPipePulse 1.2s ease-in-out infinite;' : '';
+      return `<span style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: ${size}px; height: ${size}px; border-radius: 50%; border: 3px solid ${p.ring}; background: ${p.fill}; color: ${st === 'done' || st === 'running' || st === 'failed' ? '#fff' : p.text}; font-size: ${Math.round(size * 0.42)}px; font-weight: bold; ${pulse}">${p.icon}</span>`;
+    };
+
+    let body;
+    if (vertical) {
+      // Top-to-bottom chain; the selected stage's details slot in right below
+      // it (accordion — selecting another stage moves the panel there).
+      body = this._pipelineMap.map((stage, i) => {
+        const st = statusOf(stage.id);
+        const p = palette[st];
+        const isSel = stage.id === selectedId;
+        const connector = i < this._pipelineMap.length - 1
+          ? `<div style="width: 3px; height: 16px; margin: 4px 0 4px 18px; border-radius: 2px; background: ${st === 'done' ? p.line : '#444'};"></div>`
+          : '';
+        return `
+          <button type="button" class="ai-pipe-stage" data-stage="${stage.id}" style="display: flex; align-items: center; gap: 12px; background: none; border: none; padding: 2px 0; cursor: pointer; text-align: left; width: 100%;">
+            ${circleFor(st, p, 38)}
+            <span style="font-size: 14px; color: ${p.text}; ${isSel ? 'font-weight: bold;' : ''}">${stage.title}</span>
+          </button>
+          ${isSel ? expanded : ''}
+          ${connector}`;
+      }).join('');
+      body = `
+        ${done ? `<div style="margin: 0 0 16px 0;">${doneBanner}</div>` : (detailText ? `<p style="font-size: 13px; color: #b5b5b5; margin: 0 0 14px 0;">${detailText}</p>` : '')}
+        ${failedText}
+        <div>${body}</div>`;
+    } else {
+      // Horizontal chain — all stages on one line, details below.
+      const chain = this._pipelineMap.map((stage, i) => {
+        const st = statusOf(stage.id);
+        const p = palette[st];
+        const active = stage.id === selectedId;
+        const connector = i < this._pipelineMap.length - 1
+          ? `<div style="flex: 1 1 auto; height: 3px; margin: 21px 6px 0 6px; border-radius: 2px; background: ${st === 'done' ? p.line : '#444'};"></div>`
+          : '';
+        return `
+          <button type="button" class="ai-pipe-stage" data-stage="${stage.id}" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: none; padding: 0; cursor: pointer; width: 110px;">
+            <span style="display:flex; ${active ? 'box-shadow: 0 0 0 4px rgba(255,255,255,0.12); border-radius: 50%;' : ''}">${circleFor(st, p, 44)}</span>
+            <span style="font-size: 13px; line-height: 1.35; color: ${p.text}; text-align: center; ${active ? 'font-weight: bold;' : ''}">${stage.title}</span>
+          </button>${connector}`;
+      }).join('');
+      body = `
+        <div style="display: flex; align-items: flex-start; justify-content: space-between;">${chain}</div>
+        ${done ? `<div style="margin: 18px 0 0 0;">${doneBanner}</div>` : (detailText ? `<p style="font-size: 14px; color: #b5b5b5; margin: 18px 0 0 0;">${detailText}</p>` : '')}
+        ${failedText}
+        ${expanded}`;
+    }
+
+    viz.innerHTML = body;
+
+    viz.querySelectorAll('.ai-pipe-stage').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.dataset.stage;
+        this._aiVizStage = this._aiVizStage === id ? null : id; // click again to unpin (auto-follow)
+        this.renderPipelineViz(pipeline);
+      });
+    });
   }
 
   /**

@@ -483,6 +483,18 @@ class CitationReviewService
                     }
 
                     if (!$verbatimMatch) {
+                        // Whitespace-blind fallback: some stored plainText lost
+                        // spaces at inline-tag boundaries ("fromChakravorti et
+                        // al.(2025)are…"), which fails both checks above even
+                        // though the claim IS verbatim in the rendered text.
+                        // Squashing ALL non-alphanumerics keeps word order and
+                        // content exact, so the anti-hallucination property holds.
+                        $squash = fn(string $s) => preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower($s));
+                        $verbatimMatch = mb_strpos($squash($normMarked), $squash($normClaim)) !== false
+                                      || mb_strpos($squash($normPlain), $squash($normClaim)) !== false;
+                    }
+
+                    if (!$verbatimMatch) {
                         Log::warning("Truth claim not found verbatim in node {$node['node_id']}", [
                             'refId' => $refId,
                             'claim' => mb_substr($truthClaim, 0, 200),
@@ -1090,7 +1102,7 @@ class CitationReviewService
         $citationParts = [];
         $title = $bookMeta->title ?? $bookTitle;
         $externalUrl = $bookMeta->doi ? 'https://doi.org/' . $bookMeta->doi : ($bookMeta->oa_url ?? $bookMeta->url ?? null);
-        $citationParts[] = $externalUrl ? "[{$title}]({$externalUrl})" : "[{$title}](/{$bookId})";
+        $citationParts[] = $externalUrl ? "[{$title}](" . $this->mdSafeUrl($externalUrl) . ")" : "[{$title}](/" . $this->mdSafeUrl($bookId) . ")";
         if (!empty($bookMeta->author)) {
             $citationParts[] = $bookMeta->author;
         }
@@ -1099,19 +1111,47 @@ class CitationReviewService
         }
         $md .= "Text: " . implode(' — ', $citationParts) . "\n\n";
         $md .= "Date: " . now()->toDateTimeString() . "\n";
-        if (!empty($stats)) {
+        // --report-only passes a stats array holding only pipeline_id. The
+        // source-level counts are recoverable from the claims themselves —
+        // derive them so the header and the coverage donut survive a rebuild.
+        // (citation_occurrences / nodes_with_citations are NOT recoverable —
+        // they count all citations, not just ones that yielded claims — so
+        // that line stays guarded.)
+        if (!isset($stats['verified_sources'])) {
+            $refs = [];
+            foreach ($claims as $c) {
+                $refId = $c['referenceId'] ?? null;
+                if (!$refId) continue;
+                $refs[$refId]['verified']  = ($refs[$refId]['verified'] ?? false) || !empty($c['verified_source']);
+                $refs[$refId]['content']   = ($refs[$refId]['content'] ?? false) || !empty($c['has_source_content']);
+                $refs[$refId]['canonical'] = ($refs[$refId]['canonical'] ?? false) || (($c['verification_tier'] ?? null) === 'canonical');
+            }
+            $stats['unique_sources']       = count($refs);
+            $stats['verified_sources']     = count(array_filter($refs, fn($r) => $r['verified']));
+            $stats['canonical_sources']    = count(array_filter($refs, fn($r) => $r['canonical']));
+            $stats['sources_with_content'] = count(array_filter($refs, fn($r) => $r['content']));
+            $stats['total_bibliography']   = $db->table('bibliography')->where('book', $bookId)->count();
+        }
+
+        if (isset($stats['citation_occurrences'])) {
             $md .= "Citations in text: {$stats['citation_occurrences']} (across {$stats['nodes_with_citations']} paragraphs)\n";
+        }
+        if (isset($stats['unique_sources'])) {
             $canonicalNote = isset($stats['canonical_sources']) ? ", {$stats['canonical_sources']} canonical-verified" : '';
             $md .= "Unique sources cited: {$stats['unique_sources']} ({$stats['verified_sources']} verified{$canonicalNote}, {$stats['sources_with_content']} with full text)\n";
         }
         $md .= "## Known Unknown Citations \n\n";
 
-        // Source coverage pie chart
+        // Source coverage donut — canonical-verified broken out from plain
+        // local matches so the chart backs up the provenance note below it.
         $sourcesFound = $stats['verified_sources'] ?? 0;
-        $sourcesNotFound = ($stats['total_bibliography'] ?? $stats['unique_sources'] ?? 0) - $sourcesFound;
+        $sourcesNotFound = max(0, ($stats['total_bibliography'] ?? $stats['unique_sources'] ?? 0) - $sourcesFound);
+        $canonicalFound = min($stats['canonical_sources'] ?? 0, $sourcesFound);
+        $localFound = max(0, $sourcesFound - $canonicalFound);
 
         $md .= '<table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
-        $md .= '<tr><td>Source Found</td><td>' . $sourcesFound . '</td></tr>';
+        $md .= '<tr><td>Canonical-verified</td><td>' . $canonicalFound . '</td></tr>';
+        $md .= '<tr><td>Found (local match)</td><td>' . $localFound . '</td></tr>';
         $md .= '<tr><td>Source Not Found</td><td>' . $sourcesNotFound . '</td></tr>';
         $md .= "</tbody></table>\n\n";
 
@@ -1565,6 +1605,16 @@ class CitationReviewService
     }
 
     /**
+     * Make a URL safe for embedding in a markdown link destination: the md→HTML
+     * converter treats _x_ inside URLs as emphasis, mangling DOIs like
+     * 10.1162/qss_a_00195 into qss<em>a</em>00195. %5F resolves identically.
+     */
+    private function mdSafeUrl(string $url): string
+    {
+        return str_replace('_', '%5F', $url);
+    }
+
+    /**
      * Resolve the best external URL for a source (DOI > OA URL > URL).
      */
     private function resolveSourceUrl(array $claim): ?string
@@ -1652,7 +1702,7 @@ class CitationReviewService
 
         // Title as markdown link if URL exists
         if ($externalUrl && $title) {
-            $linkedTitle = "[{$title}]({$externalUrl})";
+            $linkedTitle = "[{$title}](" . $this->mdSafeUrl($externalUrl) . ")";
         } else {
             $linkedTitle = $title ?: implode(' — ', $sourceInfo);
         }
@@ -1665,7 +1715,7 @@ class CitationReviewService
 
         // Arrow link to source book if it has content
         if (!empty($claim['has_source_content']) && !empty($claim['source_book_id'])) {
-            $md .= ' [→](/' . $claim['source_book_id'] . ')';
+            $md .= ' [→](/' . $this->mdSafeUrl($claim['source_book_id']) . ')';
         }
 
         return "**Source:** {$md}\n";
@@ -2236,18 +2286,21 @@ class CitationReviewService
             }
         }
 
-        // Convert markdown → HTML → nodes.json
+        // Convert markdown → HTML → nodes
         $this->markdownProcessor->process("{$path}/original.md", $path, $subBookId);
 
-        // Wait for nodes.json (processor may be async)
-        $nodesPath = "{$path}/nodes.json";
+        // Wait for nodes.jsonl — the pipeline's streamed output format.
+        // (nodes.json is a renumbered artifact WE write during the save below;
+        // waiting on it here failed every report import after the pipeline
+        // moved to jsonl — same bug as ContentFetchService::processLocalPdf.)
+        $nodesPath = "{$path}/nodes.jsonl";
         $attempts = 0;
         while (!File::exists($nodesPath) && $attempts < 15) {
             sleep(2);
             $attempts++;
         }
         if (!File::exists($nodesPath)) {
-            throw new \RuntimeException("nodes.json was not generated at {$nodesPath}");
+            throw new \RuntimeException("nodes.jsonl was not generated at {$nodesPath}");
         }
 
         // Use admin connection to bypass RLS (CLI has no authenticated user session)
@@ -2282,8 +2335,15 @@ class CitationReviewService
             $db->table('library')->insert($libraryData);
         }
 
-        // Save nodes to database (same logic as ImportController::saveNodeChunksToDatabase)
-        $nodesData = json_decode(File::get($nodesPath), true);
+        // Save nodes to database (same logic as ProcessDocumentImportJob's saver):
+        // stream-read the jsonl, one JSON object per line.
+        $nodesData = [];
+        foreach (file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode(trim($line), true);
+            if ($decoded !== null) {
+                $nodesData[] = $decoded;
+            }
+        }
         $insertData = [];
         $now = now();
         $nodesPerChunk = 100;
@@ -2319,6 +2379,11 @@ class CitationReviewService
         foreach (array_chunk($insertData, 500) as $batch) {
             $db->table('nodes')->insert($batch);
         }
+
+        // Write the renumbered nodes.json artifact (kept alongside nodes.jsonl —
+        // the editor saver reads nodes.json)
+        $renumbered = array_map(fn($r) => json_decode($r['raw_json'], true), $insertData);
+        File::put("{$path}/nodes.json", json_encode($renumbered, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         Log::info("Imported AI review sub-book", [
             'subBookId' => $subBookId,

@@ -80,6 +80,39 @@ class SemanticScholarService
     }
 
     /**
+     * Look up a paper's legal open-access PDF by DOI. Semantic Scholar's
+     * openAccessPdf often knows repository copies (PubMed Central etc.) that
+     * OpenAlex's and Unpaywall's OA snapshots miss — live case: Baldwin 2015
+     * (10.1098/rsnr.2015.0029), "closed" per OpenAlex, full PDF on Europe PMC.
+     * Returns the PDF URL or null.
+     */
+    public function openAccessPdfByDoi(string $doi): ?string
+    {
+        try {
+            $this->rateGate();
+
+            $request = Http::timeout(15);
+            if ($this->apiKey) {
+                $request = $request->withHeaders(['x-api-key' => $this->apiKey]);
+            }
+
+            $response = $request->get(self::BASE_URL . '/paper/DOI:' . $doi, [
+                'fields' => 'openAccessPdf,isOpenAccess',
+            ]);
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $url = $response->json('openAccessPdf.url');
+            return is_string($url) && $url !== '' ? $url : null;
+        } catch (\Exception $e) {
+            Log::warning('Semantic Scholar openAccessPdf lookup failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Search Semantic Scholar for multiple queries, respecting 1 req/s rate limit.
      * Uses the existing rateGate() + retry logic from search() for each request sequentially.
      * Still faster than the old approach because these only run for entries that survived

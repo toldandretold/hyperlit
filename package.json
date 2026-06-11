@@ -4,7 +4,7 @@
     "scripts": {
         "php": "php artisan serve --host=127.0.0.1 --port=8000",
         "php:network": "php artisan serve --host=0.0.0.0 --port=8000",
-        "queue": "php artisan queue:work --queue=citation-pipeline,default --timeout=7200",
+        "queue": "php artisan work",
         "queue:vibe": "php artisan queue:work --queue=vibe --timeout=1800",
         "dev": "vite",
         "mail": "lsof -i :1025 -P -n -sTCP:LISTEN >/dev/null 2>&1 && echo 'Mailpit already running, skipping' && tail -f /dev/null || mailpit",
@@ -41,6 +41,7 @@
     "dependencies": {
         "dompurify": "^3.2.6",
         "katex": "^0.16.38",
-        "marked": "^15.0.12"
+        "marked": "^15.0.12",
+        "playwright": "^1.60.0"
     }
 }

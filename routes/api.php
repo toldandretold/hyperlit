@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/citation-pipeline/status/{pipelineId}', [CitationScannerController::class, 'pipelineStatus'])->whereUuid('pipelineId');
     Route::get('/citation-pipeline/running/{book}', [CitationScannerController::class, 'pipelineRunning']);
     Route::post('/citation-pipeline/resume/{pipelineId}', [CitationScannerController::class, 'resumePipeline'])->whereUuid('pipelineId');
+    Route::get('/citation-pipeline/map', [CitationScannerController::class, 'pipelineMap']);
 
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);

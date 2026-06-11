@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use App\Jobs\CitationScanBibliographyJob;
 use App\Jobs\CitationPipelineJob;
 use App\Services\BillingService;
+use App\Services\CitationPipeline\PipelineMap;
 use Illuminate\Support\Facades\Auth;
 
 class CitationScannerController extends Controller
@@ -270,10 +271,27 @@ class CitationScannerController extends Controller
                 'status'       => $pipeline->status,
                 'current_step' => $pipeline->current_step,
                 'step_detail'  => $pipeline->step_detail,
+                'step_timings' => json_decode($pipeline->step_timings ?? 'null', true),
+                'telemetry'    => json_decode($pipeline->telemetry ?? 'null', true) ?? [],
                 'error'        => $pipeline->error,
                 'created_at'   => $pipeline->created_at,
                 'updated_at'   => $pipeline->updated_at,
             ],
+        ]);
+    }
+
+    /**
+     * The static citation-pipeline map: stages, plain-language notes, code
+     * refs. Drives the live visualisation; single source of truth is
+     * App\Services\CitationPipeline\PipelineMap (drift-tested against the
+     * code that emits the stages).
+     * GET /api/citation-pipeline/map
+     */
+    public function pipelineMap(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'stages'  => PipelineMap::stages(),
         ]);
     }
 

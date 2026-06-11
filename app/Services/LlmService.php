@@ -64,6 +64,7 @@ class LlmService
                     ['role' => 'user',   'content' => $userMessage],
                 ],
             ];
+            $reasoningEffort = $this->normaliseReasoningEffort($reasoningEffort, $body['model']);
             if ($reasoningEffort !== null) {
                 $body['reasoning_effort'] = $reasoningEffort;
             }
@@ -207,6 +208,22 @@ class LlmService
      * Each request: [system, user, model?, temperature?, max_tokens?, reasoning_effort?]
      * Returns array keyed same as input with raw response strings (null for failures).
      */
+    /**
+     * gpt-oss models reject reasoning_effort 'none' (Fireworks 400: "Invalid
+     * reasoning effort: none" — verified live 2026-06-11); 'low' is the
+     * closest supported bound. Centralised here so call sites can keep
+     * requesting 'none' as the intent ("minimal thinking") regardless of
+     * which model the role config currently points at.
+     */
+    private function normaliseReasoningEffort(?string $effort, string $model): ?string
+    {
+        if ($effort === 'none' && str_contains($model, 'gpt-oss')) {
+            return 'low';
+        }
+
+        return $effort;
+    }
+
     public function chatBatch(array $requests, int $timeout = 30): array
     {
         if (!$this->apiKey || !$this->baseUrl) {
@@ -230,7 +247,10 @@ class LlmService
                         ],
                     ];
                     if (array_key_exists('reasoning_effort', $req)) {
-                        $body['reasoning_effort'] = $req['reasoning_effort'];
+                        $effort = $this->normaliseReasoningEffort($req['reasoning_effort'], $body['model']);
+                        if ($effort !== null) {
+                            $body['reasoning_effort'] = $effort;
+                        }
                     }
 
                     $pool->as((string) $key)
@@ -327,7 +347,7 @@ class LlmService
             $requests[$key] = [
                 'system'           => $systemPrompt,
                 'user'             => strip_tags($html),
-                'max_tokens'       => 250,
+                'max_tokens'       => 700, // gpt-oss 'low' reasoning shares this budget with the JSON
                 'temperature'      => 0.0,
                 'reasoning_effort' => 'none',
             ];
@@ -415,7 +435,7 @@ PROMPT;
             $requests[$key] = [
                 'system'           => $systemPrompt,
                 'user'             => strip_tags($html),
-                'max_tokens'       => 500,
+                'max_tokens'       => 1000, // gpt-oss 'low' reasoning shares this budget with the JSON array
                 'temperature'      => 0.0,
                 'reasoning_effort' => 'none',
             ];
@@ -745,7 +765,7 @@ PROMPT;
                 $requests[$key] = [
                     'system'           => $systemPrompt,
                     'user'             => "TITLE: {$title}\n\nTEXT:\n{$text}",
-                    'max_tokens'       => 50,
+                    'max_tokens'       => 300, // gpt-oss 'low' reasoning shares this budget with the short verdict
                     'temperature'      => 0.0,
                     'reasoning_effort' => 'none',
                 ];

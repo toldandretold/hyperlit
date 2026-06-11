@@ -166,3 +166,12 @@ body.theme-light #searchButton:hover svg path,
 body.theme-light #searchButton:hover svg line {
   stroke: #F4ECD8 !important;
 }
+
+/* AI-review verdict labels: same remap as sepia — the inline colors baked by
+   CitationReviewService are dark-mode shades, unreadable on a light page. */
+body.theme-light strong[style*="#27ae60"] { color: #1e7d46 !important; } /* confirmed */
+body.theme-light strong[style*="#a3d977"] { color: #5b8c2a !important; } /* likely */
+body.theme-light strong[style*="#f1c40f"] { color: #9a7d0a !important; } /* plausible */
+body.theme-light strong[style*="#e67e22"] { color: #b35c0e !important; } /* unlikely */
+body.theme-light strong[style*="#e74c3c"] { color: #b03024 !important; } /* rejected */
+body.theme-light strong[style*="#9b59b6"] { color: #6f3a86 !important; } /* unverified */

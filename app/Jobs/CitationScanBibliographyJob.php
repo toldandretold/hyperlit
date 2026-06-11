@@ -593,7 +593,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'searchedTitle' => $pool[$refId]['searchedTitle'],
                             ]);
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
                             if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
                                 Log::info('Wave 4: year mismatch rejection', [
                                     'refId'          => $refId,
@@ -687,7 +687,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestDiagnostics = $scoreResult;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
                             if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
                                 Log::info('Wave 5: year mismatch rejection', [
                                     'refId'          => $refId,
@@ -779,7 +779,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestDiagnostics = $scoreResult;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.3) {
+                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
                             if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
                                 Log::info('Wave 7: year mismatch rejection', [
                                     'refId'          => $refId,
@@ -885,7 +885,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         'semantic_scholar' => 'semantic_scholar',
                     ];
 
-                    if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($item['llmMetadata'], $bestMatch)) {
+                    if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($item['llmMetadata'], $bestMatch)) {
                         $matchMethod = $sourceToMethod[$bestSource] ?? $bestSource;
                         Log::info('Shortened-title re-score: matched from stored candidates', [
                             'refId'          => $refId,
@@ -961,7 +961,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestDiagnostics = $scoreResult;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 4b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $retryTitles[$refId],
@@ -1040,7 +1040,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestDiagnostics = $scoreResult;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 5b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $pool[$refId]['shortenedTitle'],
@@ -1117,7 +1117,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 $bestDiagnostics = $scoreResult;
                             }
                         }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
+                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
                             Log::info('Wave 7b: matched with shortened title', [
                                 'refId'          => $refId,
                                 'shortenedTitle' => $pool[$refId]['shortenedTitle'],
@@ -1574,7 +1574,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             }
         }
 
-        if ($bestMatch && $bestScore >= 0.5) {
+        if ($bestMatch && $bestScore >= 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
             return [
                 'book'                => $bestMatch->book,
                 'title'               => $bestMatch->title,
@@ -1618,6 +1618,24 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'results'           => json_encode($results),
                 'updated_at'        => now(),
             ]);
+    }
+
+    /**
+     * Title floor: a candidate whose TITLE component is weak must not be
+     * accepted no matter how high the composite score — author + journal
+     * fuzz can drag a same-author-different-work candidate over the
+     * composite threshold (live case: "Peer review" matched "Credibility,
+     * peer review, and Nature, 1945–1990", titleScore 0.24, composite 0.41,
+     * both by Melinda Baldwin). A wrong link is worse than no link.
+     *
+     * When the scorer ran title-only (no LLM metadata), the composite IS the
+     * title similarity, so the floor falls back to it.
+     */
+    private function hasTitleConfidence(?array $diagnostics, float $score): bool
+    {
+        $titleScore = $diagnostics['titleScore'] ?? $score;
+
+        return $titleScore >= 0.45;
     }
 
     /**

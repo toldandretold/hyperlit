@@ -5,7 +5,7 @@
 | Step | Service | Cost | Notes |
 |------|---------|------|-------|
 | DOI extraction | Regex (local) | $0 | No API call |
-| LLM metadata extraction | Fireworks (Qwen3-8b) | ~$0.00004 | ~210 tokens @ $0.20/1M |
+| LLM metadata extraction | Fireworks (gpt-oss-120b) | ~$0.00015 | ~360 in + ~160 out tokens @ $0.15/$0.60 per 1M (Qwen3-8b retired by Fireworks 2026-06; silently 404'd until swapped — see `tests/Feature/CitationPipeline/LlmModelConfigTest.php`) |
 | Library table search | PostgreSQL (local) | $0 | ILIKE query |
 | OpenAlex title search | OpenAlex API | $0 | Free, no key needed |
 | Open Library fallback | Open Library API | $0 | Free, no key needed |
@@ -23,11 +23,11 @@
 
 ## Token breakdown per LLM call
 
-- **Input tokens:** ~150 (system prompt ~80 + citation text ~70)
-- **Output tokens:** ~60 (JSON response with title, authors, year, journal, publisher)
-- **Total:** ~210 tokens per citation
-- **Model:** `accounts/fireworks/models/qwen3-8b`
-- **Pricing:** $0.20 per 1M input tokens, $0.20 per 1M output tokens
+- **Input tokens:** ~360 (system prompt + citation text)
+- **Output tokens:** ~160 (low-effort reasoning + JSON with title, authors, year, journal, publisher)
+- **Total:** ~520 tokens per citation
+- **Model:** `accounts/fireworks/models/gpt-oss-120b` (config `services.llm.model`; was qwen3-8b until Fireworks retired it)
+- **Pricing:** $0.15 per 1M input tokens, $0.60 per 1M output tokens
 
 ## API rate limits
 
