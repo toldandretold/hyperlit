@@ -111,6 +111,14 @@ const BASELINES = [
     inTextCitations: 171,
     footnoteMarkers: 1,
   },
+  {
+    file: 'MITpress.html',
+    format: 'mit-press',
+    footnotes: 11, // .fn[content-id^="fn"] definitions
+    references: 133, // [data-content-id^="bib"] entries
+    inTextCitations: 209, // a[data-modal-source-id^="bib"] → exact-id links
+    footnoteMarkers: 13, // some footnotes referenced more than once
+  },
 ];
 
 /** Count app-native interactive markers in produced HTML. */

@@ -13,6 +13,7 @@ import { ScienceDirectProcessor } from '../format-processors/science-direct-proc
 import { SpringerProcessor } from '../format-processors/springer-processor.js';
 import { SubstackProcessor } from '../format-processors/substack-processor.js';
 import { WileyProcessor } from '../format-processors/wiley-processor.js';
+import { MitPressProcessor } from '../format-processors/mit-press-processor.js';
 
 /**
  * Format registry structure:
@@ -39,6 +40,20 @@ export const FORMAT_REGISTRY = {
     processor: ScienceDirectProcessor,
     priority: 5,
     description: 'Science Direct content with XOCS data attributes'
+  },
+
+  // MIT Press (direct.mit.edu, Silverchair) - Priority 5
+  // Distinguished from OUP by data-content-id / data-modal-source-id (OUP uses
+  // bare content-id), so it must be checked before OUP.
+  'mit-press': {
+    selectors: [
+      'a[data-modal-source-id^="bib"]',
+      '[data-content-id^="bib"]',
+      '.fn[content-id^="fn"]'
+    ],
+    processor: MitPressProcessor,
+    priority: 5,
+    description: 'MIT Press (direct.mit.edu) Silverchair content with data-content-id attributes'
   },
 
   // OUP (Oxford University Press) - Priority 4

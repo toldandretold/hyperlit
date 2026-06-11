@@ -142,7 +142,10 @@ test('importViaPasteEngine persists nodes + bibliography + footnotes and gates a
         expect(pasteDb()->table('nodes')->where('book', $book)->count())->toBeGreaterThan(50);
         expect(pasteDb()->table('bibliography')->where('book', $book)->count())->toBeGreaterThan(50);
 
-        // No MIT processor yet → general fallback → gate withholds canonical status.
+        // Clipboard selection lacks the page <head> citation_* meta, so identity
+        // stays unknown → gate withholds canonical status even though the
+        // mit-press processor now matches. The live full-page fetch carries the
+        // meta and can reach 'verified'.
         $method = pasteDb()->table('library')->where('book', $book)->value('conversion_method');
         expect($method)->toBe('html_scrape_unverified');
         expect(in_array($method, AutoVersionResolver::SYSTEM_CONVERSION_METHODS, true))
