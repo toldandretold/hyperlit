@@ -81,6 +81,46 @@ library:create-auto-versions  →  for canonicals with a pdf_url and no
 GET /api/canonical/{id}/best-version  →  resolves to the best visible version
 ```
 
+## Source acquisition → app-native citations (ContentFetchService::fetch ladder)
+
+A citation source's content is acquired by the first strategy that succeeds,
+then converted to the app's native dynamic citations/footnotes. THREE
+conversion lanes converge on one persist (`persistArticle`):
+
+```
+Strategy 0  JATS XML by DOI ........ JatsFullText: PMC OA fullTextXML → exact
+                                     in-text-citation links + bib-entries + <fn>
+                                     footnotes (no fuzzy linking). → persistArticle
+                                     conversion_method=jats_fulltext
+Strategy 1-3 oa_url / pdf_url ....... direct PDF download → citation:ocr (OCR lane)
+Strategy 4  Semantic Scholar OA pdf  (repository copies OpenAlex/Unpaywall miss)
+Strategy 5  Crossref TDM pdf links
+Strategy 6  DOI landing as HTML
+Strategy 7  Playwright PDF (fetch-pdf.mjs) — walled-publisher PDFs
+Strategy 8  Playwright HTML page (fetch-html.mjs) → PASTE ENGINE
+                                     (scripts/paste-convert.mjs, the front-end
+                                     journal-HTML processors run on the backend)
+                                     → AUTHENTICITY GATE → persistArticle
+                                     conversion_method=paste_engine_html (verified)
+                                     or html_scrape_unverified (NOT canonical-eligible)
+```
+
+**The authenticity gate (`assessArticleAuthenticity`)** is what keeps junk out
+of canonical: identity (page citation_doi/citation_title vs the stub, title
+similarity ≥ 0.7) × completeness (a real publisher processor matched, refs > 0)
+→ `reject` (don't import) / `unverified` (import, never canonical) / `verified`
+(canonical-eligible). PDF-OCR, JATS, and verified paste-HTML are the three
+`AutoVersionResolver::SYSTEM_CONVERSION_METHODS`; `html_scrape_unverified` is
+deliberately excluded.
+
+Routing principle: **documents** (EPUB/PDF/uploads) → `process_document.py`;
+**journal HTML** (Strategy 8) → the shared paste JS engine; **JATS XML** →
+`JatsFullText` direct emission. All land app-native via `persistArticle`.
+
+Proven live: a Cloudflare-walled non-PMC MIT Press article (`citation:vacuum`
+fell through 0–7, Strategy 8 → 344 nodes / 133 refs / 11 footnotes, verified);
+a PMC OA article via JATS (40 nodes / 10 refs, in-text citations linked).
+
 ## Commands
 
 ### `library:canonicalize` — link library rows to canonicals
@@ -202,13 +242,29 @@ version). The fix is in `ContentFetchService::processLocalPdf` /
 Everything else (best-version endpoint, search SQL, syncAll sweeps) picks the
 new authority up from the registry.
 
+## Prod deploy note (Strategies 7–8 + paste engine)
+
+The Playwright lanes need their runtime installed on the server:
+
+```
+npm install                       # picks up the `playwright` dep (not just @playwright/test)
+npx playwright install chromium   # the browser binary fetch-pdf.mjs / fetch-html.mjs drive
+```
+
+The paste-engine lane (`scripts/paste-convert.mjs`) needs `happy-dom` (already
+a dep). If Playwright is absent, Strategies 7–8 fail gracefully (the cheaper
+strategies still run). Restart the queue worker after deploy so pipeline-driven
+vacuums pick up the new code.
+
 ## Tests
 
 Dedicated suite: `php artisan test --testsuite=Canonical` (`tests/Canonical/`).
 Covers: registry precedence + SQL anti-drift, AutoVersionResolver eligibility
 and assign semantics, BestVersionService visibility (incl. public-unlisted),
-the create-auto-versions no-network paths, and the OCR jsonl save contract.
-Endpoint-contract coverage additionally lives in
+the create-auto-versions no-network paths, the OCR jsonl save contract, and the
+paste-engine import gate + persist (`PasteEngineImportTest`). JATS parser:
+`tests/Unit/Services/JatsFullTextTest.php`. Paste engine backend parity:
+`tests/paste/handlers/backend-entry.test.js`. Endpoint contract:
 `tests/Feature/Citations/CanonicalBestVersionTest.php`.
 
 ## Roadmap (phases agreed June 2026)

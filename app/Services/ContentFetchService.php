@@ -259,10 +259,11 @@ class ContentFetchService
 
     /**
      * Fetch + import JATS full text for a DOI. Authoritative path: structured
-     * publisher XML → clean HTML → the shared HtmlProcessor → nodes. Tagged
-     * conversion_method='jats_fulltext' (distinct from OCR provenance, both
-     * count as system-generated auto-versions). Returns 'imported' on success
-     * (no separate OCR phase — content lands directly), 'failed' otherwise.
+     * publisher XML → app-native linked HTML (exact xref→ref links, no fuzzy
+     * detection — JATS declares every link) → the shared persistArticle. No
+     * gate needed: fetched BY DOI from PMC (identity certain) and schema-
+     * complete (body + ref-list labelled). Tagged conversion_method=
+     * 'jats_fulltext' (canonical-eligible). 'imported' on success.
      */
     private function fetchJatsFullText(string $doi, string $bookId): array
     {
@@ -278,77 +279,29 @@ class ContentFetchService
                 return ['status' => 'failed', 'reason' => 'JATS parsed but body/refs empty'];
             }
 
-            // Complete article HTML: body + a references section (so the
-            // reference list survives into the rendered version).
-            $html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
-                . $article['html'];
-            if (!empty($article['references'])) {
-                $html .= "\n<h2>References</h2>\n<ol>";
-                foreach ($article['references'] as $ref) {
-                    $html .= '<li id="' . e($ref['key']) . '">' . e($ref['text']) . '</li>';
-                }
-                $html .= '</ol>';
+            // toArticle already emits app-native HTML: in-text-citation anchors
+            // (exact), bib-entry reference paragraphs, footnote markers. Persist
+            // via the generic path — no process_document, no fuzzy linking.
+            $result = $this->persistArticle(
+                $article['html'],
+                $article['references'],          // [{referenceId, content}]
+                $article['footnotes'] ?? [],     // [{footnoteId, content}]
+                $bookId,
+                'jats_fulltext',
+            );
+            if ($result['status'] === 'failed') {
+                $this->setPdfUrlStatus($bookId, $result['reason']);
+                return $result;
             }
-            $html .= '</body></html>';
-
-            $path = resource_path("markdown/{$bookId}");
-            if (!File::exists($path)) {
-                File::makeDirectory($path, 0755, true);
-            }
-            // Clean stale outputs (same files processLocalPdf clears)
-            foreach (['nodes.json', 'nodes.jsonl', 'footnotes.json', 'footnotes.jsonl', 'references.json', 'intermediate.html', 'main-text.md'] as $stale) {
-                if (File::exists("{$path}/{$stale}")) {
-                    File::delete("{$path}/{$stale}");
-                }
-            }
-
-            $htmlPath = "{$path}/original.html";
-            File::put($htmlPath, $html);
-
-            // Shared HtmlProcessor → process_document.py → nodes.jsonl
-            $this->htmlProcessor->process($htmlPath, $path, $bookId);
-
-            $nodesPath = "{$path}/nodes.jsonl";
-            $attempts = 0;
-            while (!File::exists($nodesPath) && $attempts < 30) {
-                sleep(2);
-                $attempts++;
-            }
-            if (!File::exists($nodesPath)) {
-                $reason = 'Timed out waiting for nodes.jsonl after JATS HtmlProcessor';
-                $this->setPdfUrlStatus($bookId, $reason);
-                return ['status' => 'failed', 'reason' => $reason];
-            }
-
-            $this->saveNodeChunksToDatabase($path, $bookId);
-            $this->saveFootnotesToDatabase($path, $bookId);
-
-            DB::connection('pgsql_admin')->table('library')
-                ->where('book', $bookId)
-                ->update([
-                    'has_nodes'         => true,
-                    'listed'            => false,
-                    'pdf_url_status'    => 'imported',
-                    'conversion_method' => 'jats_fulltext',
-                    'updated_at'        => now(),
-                ]);
-
-            $this->syncCanonicalVersionPointers($bookId);
-
-            $nodeCount = count(array_filter(array_map('trim',
-                file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []
-            )));
 
             Log::info('JATS full text imported', [
                 'book' => $bookId, 'doi' => $doi,
-                'nodes' => $nodeCount, 'refs' => $article['refCount'],
+                'nodes' => $result['node_count'], 'refs' => $article['refCount'],
+                'footnotes' => count($article['footnotes'] ?? []),
             ]);
 
-            return [
-                'status' => 'imported',
-                'reason' => "JATS full text imported ({$nodeCount} nodes, {$article['refCount']} references)",
-                'node_count' => $nodeCount,
-            ];
+            $result['reason'] = "JATS full text imported ({$result['node_count']} nodes, {$article['refCount']} references)";
+            return $result;
         } catch (\Throwable $e) {
             Log::warning('JATS full-text import failed (continuing to other strategies)', [
                 'book' => $bookId, 'doi' => $doi, 'error' => $e->getMessage(),
@@ -1055,7 +1008,41 @@ class ContentFetchService
             return ['status' => 'failed', 'reason' => $reason];
         }
 
-        // 3. Persist (same DB write paths the OCR/import flows use).
+        // 3. Persist. verified → paste_engine_html (canonical-eligible);
+        // unverified → html_scrape_unverified, NOT in SYSTEM_CONVERSION_METHODS,
+        // so it can never become a canonical version (requirement 3).
+        $conversionMethod = $verdict === 'verified' ? 'paste_engine_html' : 'html_scrape_unverified';
+        $footnotes = array_values(array_filter(array_map(function ($f) {
+            $id = $f['footnoteId'] ?? $f['refId'] ?? null;
+            return ($id && !empty($f['content'])) ? ['footnoteId' => $id, 'content' => $f['content']] : null;
+        }, $engine['footnotes'] ?? [])));
+
+        $result = $this->persistArticle($engine['html'] ?? '', $engine['references'] ?? [], $footnotes, $bookId, $conversionMethod);
+        if ($result['status'] === 'failed') {
+            return $result;
+        }
+
+        Log::info('Paste-engine HTML import complete', [
+            'book' => $bookId, 'url' => $url, 'format' => $engine['formatType'] ?? '?',
+            'verdict' => $verdict, 'nodes' => $result['node_count'],
+            'refs' => count($engine['references'] ?? []), 'footnotes' => count($footnotes),
+        ]);
+
+        $result['reason'] = "Journal HTML imported via paste engine ({$verdict}: {$result['node_count']} nodes, "
+            . count($engine['references'] ?? []) . ' refs, ' . count($footnotes) . ' footnotes)';
+        return $result;
+    }
+
+    /**
+     * Generic article-result persistence — shared by the paste-engine HTML path
+     * and the JATS path. Takes app-native linked HTML + normalised references
+     * ([{referenceId, content}]) + footnotes ([{footnoteId, content}]), splits
+     * the HTML into nodes (NO process_document re-linking — the citations are
+     * already linked), and writes nodes + bibliography + footnotes, then wires
+     * canonical pointers. NOT paste-specific.
+     */
+    private function persistArticle(string $html, array $references, array $footnotes, string $bookId, string $conversionMethod): array
+    {
         $path = resource_path("markdown/{$bookId}");
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
@@ -1064,27 +1051,20 @@ class ContentFetchService
             if (File::exists("{$path}/{$stale}")) File::delete("{$path}/{$stale}");
         }
 
-        // 3a. Split the engine's linked HTML into block-level node rows.
-        $nodeCount = $this->writeNodesJsonlFromHtml($engine['html'] ?? '', $path);
+        $nodeCount = $this->writeNodesJsonlFromHtml($html, $path);
         if ($nodeCount === 0) {
-            return ['status' => 'failed', 'reason' => 'paste engine produced no content blocks'];
+            return ['status' => 'failed', 'reason' => 'no content blocks produced'];
         }
         $this->saveNodeChunksToDatabase($path, $bookId);
 
-        // 3b. Footnotes → footnotes.jsonl → footnotes table.
-        $footnotes = array_values(array_filter(array_map(function ($f) {
-            $id = $f['footnoteId'] ?? $f['refId'] ?? null;
-            return ($id && !empty($f['content'])) ? ['footnoteId' => $id, 'content' => $f['content']] : null;
-        }, $engine['footnotes'] ?? [])));
         if ($footnotes) {
             File::put("{$path}/footnotes.jsonl", implode("\n", array_map('json_encode', $footnotes)));
             $this->saveFootnotesToDatabase($path, $bookId);
         }
 
-        // 3c. References → bibliography table (mirrors DbReferencesController columns).
         $db = DB::connection('pgsql_admin');
         $now = now();
-        foreach ($engine['references'] ?? [] as $ref) {
+        foreach ($references as $ref) {
             $refId = $ref['referenceId'] ?? null;
             if (!$refId || empty($ref['content'])) continue;
             $db->table('bibliography')->updateOrInsert(
@@ -1093,11 +1073,6 @@ class ContentFetchService
             );
         }
 
-        // 4. Provenance + canonical wiring. verified → eligible auto-version;
-        // unverified → imported but conversion_method NOT in
-        // AutoVersionResolver::SYSTEM_CONVERSION_METHODS, so it can never become
-        // a canonical version (requirement 3).
-        $conversionMethod = $verdict === 'verified' ? 'paste_engine_html' : 'html_scrape_unverified';
         $db->table('library')->where('book', $bookId)->update([
             'has_nodes'         => true,
             'listed'            => false,
@@ -1105,20 +1080,9 @@ class ContentFetchService
             'conversion_method' => $conversionMethod,
             'updated_at'        => $now,
         ]);
-        $this->syncCanonicalVersionPointers($bookId); // no-op when unverified
+        $this->syncCanonicalVersionPointers($bookId);
 
-        Log::info('Paste-engine HTML import complete', [
-            'book' => $bookId, 'url' => $url, 'format' => $engine['formatType'] ?? '?',
-            'verdict' => $verdict, 'nodes' => $nodeCount,
-            'refs' => count($engine['references'] ?? []), 'footnotes' => count($footnotes),
-        ]);
-
-        return [
-            'status' => 'imported',
-            'reason' => "Journal HTML imported via paste engine ({$verdict}: {$nodeCount} nodes, "
-                . count($engine['references'] ?? []) . ' refs, ' . count($footnotes) . ' footnotes)',
-            'node_count' => $nodeCount,
-        ];
+        return ['status' => 'imported', 'reason' => 'imported', 'node_count' => $nodeCount];
     }
 
     /**

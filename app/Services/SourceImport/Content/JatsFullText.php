@@ -106,17 +106,48 @@ class JatsFullText
                 continue;
             }
             $references[] = [
-                'key'  => $ref->getAttribute('id') ?: ('ref' . (count($references) + 1)),
-                'text' => $text,
+                'referenceId' => $ref->getAttribute('id') ?: ('ref' . (count($references) + 1)),
+                'content'     => $text,
             ];
         }
 
+        // Footnotes: <fn id="..."> anywhere (author notes, table/fig notes).
+        // Skip the ones inside <ref-list> (those are reference annotations).
+        $footnotes = [];
+        foreach ($xpath->query('//fn[not(ancestor::ref-list)]') as $fn) {
+            /** @var \DOMElement $fn */
+            $id = $fn->getAttribute('id');
+            if (!$id) {
+                continue;
+            }
+            // Strip the leading label (<label>1</label>) from the body text.
+            $clone = $fn->cloneNode(true);
+            foreach (iterator_to_array($clone->getElementsByTagName('label')) as $label) {
+                $label->parentNode->removeChild($label);
+            }
+            $content = trim(preg_replace('/\s+/', ' ', $clone->textContent));
+            if ($content !== '') {
+                $footnotes[] = ['footnoteId' => $id, 'content' => $content];
+            }
+        }
+
+        // Build the complete app-native article HTML: title + body (with exact
+        // in-text-citation links already applied by jatsToHtml) + reference list
+        // as bib-entries so they render under the body.
         $html = $title !== null ? '<h1>' . htmlspecialchars($title) . "</h1>\n" : '';
         $html .= $bodyHtml;
+        if ($references) {
+            $html .= "\n<h2>References</h2>\n";
+            foreach ($references as $ref) {
+                $html .= '<p id="' . htmlspecialchars($ref['referenceId']) . '" class="bib-entry">'
+                    . htmlspecialchars($ref['content']) . "</p>\n";
+            }
+        }
 
         return [
             'html'       => $html,
             'references' => $references,
+            'footnotes'  => $footnotes,
             'refCount'   => count($references),
             'title'      => $title,
         ];
@@ -149,7 +180,10 @@ class JatsFullText
                 'sub'      => "<sub>{$inner}</sub>",
                 'list'     => "<ul>{$inner}</ul>",
                 'list-item' => "<li>{$inner}</li>",
-                'xref'     => '<a href="#' . htmlspecialchars($child->getAttribute('rid')) . '">' . $inner . '</a>',
+                // xref to a bibliographic ref → app-native in-text citation
+                // (exact link, JATS declares the target). xref to a footnote →
+                // app-native footnote marker. Other xref types → plain anchor.
+                'xref'     => $this->jatsXref($child, $inner),
                 'ext-link' => '<a href="' . htmlspecialchars($child->getAttribute('xlink:href') ?: $child->getAttribute('href')) . '">' . $inner . '</a>',
                 // Drop figures/tables/media wrappers' chrome but keep captions
                 'fig', 'table-wrap', 'graphic', 'media' => '',
@@ -157,6 +191,27 @@ class JatsFullText
             };
         }
         return $out;
+    }
+
+    /**
+     * Render a JATS <xref> as the app-native marker its ref-type implies:
+     *   ref-type="bibr" → <a class="in-text-citation" href="#rid">
+     *   ref-type="fn"   → <sup fn-count-id ...> footnote marker
+     *   else            → plain anchor
+     */
+    private function jatsXref(\DOMElement $xref, string $inner): string
+    {
+        $rid = htmlspecialchars($xref->getAttribute('rid'));
+        $type = $xref->getAttribute('ref-type');
+
+        if ($type === 'bibr' && $rid !== '') {
+            return '<a class="in-text-citation" href="#' . $rid . '">' . $inner . '</a>';
+        }
+        if ($type === 'fn' && $rid !== '') {
+            $label = trim(strip_tags($inner)) ?: '*';
+            return '<sup fn-count-id="' . htmlspecialchars($label) . '" id="' . $rid . '" class="footnote-ref">' . htmlspecialchars($label) . '</sup>';
+        }
+        return $rid !== '' ? '<a href="#' . $rid . '">' . $inner . '</a>' : $inner;
     }
 
     private function nodeText(?\DOMNode $node): ?string

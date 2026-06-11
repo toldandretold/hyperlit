@@ -193,6 +193,7 @@ class CitationPipelineCommand extends Command
                     $this->line("  {$sources->count()} source(s) to fetch.");
                     $this->newLine();
 
+                    $laneCounts = []; // which acquisition route each source came through
                     foreach ($sources as $i => $source) {
                         $title = $source->title ?: '(untitled)';
                         $this->updatePipelineStep('vacuum', 'Fetching source ' . ($i + 1) . '/' . $sources->count());
@@ -202,6 +203,12 @@ class CitationPipelineCommand extends Command
 
                         if ($exit === 0) {
                             $vacuumFetched++;
+                            // Read back how it was acquired so the viz reflects the real route.
+                            $row = $db->table('library')->where('book', $source->book)
+                                ->first(['conversion_method', 'pdf_url_status']);
+                            $lane = $this->acquisitionLane($row);
+                            $laneCounts[$lane] = ($laneCounts[$lane] ?? 0) + 1;
+                            $this->telemetry?->emit('vacuum', 'progress', 'Source ' . ($i + 1) . "/{$sources->count()}: {$lane} — {$title}");
                         } else {
                             $vacuumFailed++;
                             $this->line("  <fg=yellow>Failed — continuing</>");
@@ -218,7 +225,10 @@ class CitationPipelineCommand extends Command
                 $sourceTotal = $summary['bibliography'] > 0 ? $summary['bibliography'] : $summary['footnote_citations'];
                 $vacuumSkipped = $sourceTotal - ($sources->count() ?? 0);
                 $summary['vacuum'] = ['fetched' => $vacuumFetched, 'failed' => $vacuumFailed, 'skipped' => max(0, $vacuumSkipped)];
-                $this->telemetry?->emit('vacuum', 'progress', 'Vacuum finished', $summary['vacuum']);
+                // Emit the per-route breakdown as signals (e.g. JATS:4 · publisher HTML:3 · PDF:5)
+                // so the live viz shows HOW sources were acquired, not just "PDFs".
+                $vacuumSignals = array_merge($laneCounts ?? [], ['failed' => $vacuumFailed]);
+                $this->telemetry?->emit('vacuum', 'progress', 'Source texts fetched', $vacuumSignals);
             }
             $this->newLine();
 
@@ -358,6 +368,22 @@ class CitationPipelineCommand extends Command
     private ?string $currentTimingStep = null;
     private array $stepTimings = [];
     private ?PipelineTelemetry $telemetry = null;
+
+    /**
+     * Human label for which route a source's text was acquired through, read
+     * from the library row after a successful citation:vacuum. JATS/HTML land
+     * text directly (conversion_method set); PDFs are downloaded for OCR
+     * (pdf_url_status='downloaded', conversion_method set later by OCR).
+     */
+    private function acquisitionLane(?object $row): string
+    {
+        return match ($row->conversion_method ?? null) {
+            'jats_fulltext'          => 'JATS',
+            'paste_engine_html'      => 'publisher HTML',
+            'html_scrape_unverified' => 'publisher HTML (unverified)',
+            default => (($row->pdf_url_status ?? null) === 'downloaded') ? 'PDF' : 'other',
+        };
+    }
 
     /**
      * Load existing step timings from the DB (for resume).
