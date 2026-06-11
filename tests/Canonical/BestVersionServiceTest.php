@@ -125,6 +125,41 @@ test('returns null for a citation-only canonical (no versions at all)', function
     expect(canonvBest($id))->toBeNull();
 });
 
+test('bestPublicContentVersion prefers pointers with content, skips contentless and private ones', function () {
+    $id = canonvSeedCanonical(['title' => 'CanonV Content Resolution']);
+
+    $contentlessAuthor = canonvSeedLibrary(['title' => 'CanonV Author NoNodes', 'has_nodes' => false]);
+    $privateCommons    = canonvSeedLibrary(['title' => 'CanonV Commons Private', 'visibility' => 'private', 'has_nodes' => true]);
+    $publicAuto        = canonvSeedLibrary(['title' => 'CanonV Auto Content', 'has_nodes' => true, 'listed' => false]);
+
+    canonvDb()->table('canonical_source')->where('id', $id)->update([
+        'author_version_book'  => $contentlessAuthor,
+        'commons_version_book' => $privateCommons,
+        'auto_version_book'    => $publicAuto,
+    ]);
+
+    $best = app(BestVersionService::class)->bestPublicContentVersion(CanonicalSource::find($id));
+
+    expect($best['book'])->toBe($publicAuto);
+    expect($best['pointer'])->toBe('auto_version_book');
+});
+
+test('bestPublicContentVersion falls back to any public linked version, else null', function () {
+    $id = canonvSeedCanonical(['title' => 'CanonV Content Fallback']);
+    $linked = canonvSeedLibrary([
+        'title'               => 'CanonV Linked Content',
+        'canonical_source_id' => $id,
+        'has_nodes'           => true,
+    ]);
+
+    $best = app(BestVersionService::class)->bestPublicContentVersion(CanonicalSource::find($id));
+    expect($best['book'])->toBe($linked);
+    expect($best['pointer'])->toBeNull();
+
+    $empty = canonvSeedCanonical(['title' => 'CanonV Content None']);
+    expect(app(BestVersionService::class)->bestPublicContentVersion(CanonicalSource::find($empty)))->toBeNull();
+});
+
 test('never leaks another user\'s private fallback version', function () {
     $owner = canonvSeedUser('canonv_private_owner');
     $id = canonvSeedCanonical(['title' => 'CanonV Private Fallback']);

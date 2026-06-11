@@ -226,10 +226,20 @@ Endpoint-contract coverage additionally lives in
    a genuine auto version automatically. Backfill: `library:backfill-bib-canonicals`.
    Both hooks are best-effort — a canonical-layer failure never fails a scan or
    an import.
-3. **Citation review reads through the canonical layer**:
-   `CitationReviewService` resolves bibliography → canonical →
-   `BestVersionService` for source content + provenance tiers in the report
-   (canonical-verified / local-only / unverified).
+3. ✅ **Citation review reads through the canonical layer** (shipped 2026-06-11):
+   `CitationReviewService::enrichCitationMetadata` resolves each citation
+   bibliography → canonical (directly or via the foundation row) and classifies
+   it into a provenance tier — **canonical** (work identity confirmed by
+   external identifiers), **local** (library match, no canonical yet),
+   **unverified**. Passage search runs against the canonical's best PUBLIC
+   version with content (`BestVersionService::bestPublicContentVersion`,
+   pgsql_admin — queue workers have no RLS session), preferring the untampered
+   auto version over arbitrary user copies; falls back to the foundation row.
+   The AI review report shows per-claim provenance lines ("Canonical-verified
+   (OpenAlex, DOI) — content from the system-fetched auto version"), a
+   canonical-verified count in the header, and highlight sub-books carry a
+   ✓ canonical-verified marker. A canonical-linked citation with no library
+   copy now counts as verified (metadata served from the canonical).
 4. **Dormant authorities**: commoner score → `CommonsVersionResolver`; ORCID
    OAuth → `AuthorVersionResolver`; publisher verification →
    `PublisherVersionResolver`. Plus canonical dedup (UNIQUE constraints +

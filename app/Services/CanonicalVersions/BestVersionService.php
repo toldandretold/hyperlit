@@ -49,6 +49,48 @@ class BestVersionService
         return $this->anyVisibleLinkedVersion($canonical, $user, $anonymousToken);
     }
 
+    /**
+     * System-context resolution (no caller): the best PUBLIC version that
+     * actually has content, for machine consumers like the citation review's
+     * passage search. Walks the precedence pointers, then any linked version.
+     *
+     * Returns ['book' => ..., 'pointer' => 'auto_version_book'|null] or null.
+     * Reads via pgsql_admin — this runs in queue workers, where the RLS'd
+     * default connection has no HTTP session context.
+     */
+    public function bestPublicContentVersion(CanonicalSource $canonical): ?array
+    {
+        if (!$canonical->id) {
+            return null;
+        }
+
+        $db = DB::connection('pgsql_admin');
+
+        foreach (VersionPointerRegistry::precedenceColumns() as $column) {
+            $candidate = $canonical->{$column};
+            if (!$candidate) {
+                continue;
+            }
+            $eligible = $db->table('library')
+                ->where('book', $candidate)
+                ->where('visibility', 'public')
+                ->where('has_nodes', true)
+                ->exists();
+            if ($eligible) {
+                return ['book' => $candidate, 'pointer' => $column];
+            }
+        }
+
+        $book = $db->table('library')
+            ->where('canonical_source_id', $canonical->id)
+            ->where('visibility', 'public')
+            ->where('has_nodes', true)
+            ->orderBy('created_at')
+            ->value('book');
+
+        return $book ? ['book' => $book, 'pointer' => null] : null;
+    }
+
     private function anyVisibleLinkedVersion(CanonicalSource $canonical, ?object $user, ?string $anonymousToken): ?string
     {
         return DB::table('library')

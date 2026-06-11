@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Helpers\SubBookIdHelper;
+use App\Models\CanonicalSource;
+use App\Services\CanonicalVersions\BestVersionService;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\MarkdownProcessor;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +18,7 @@ class CitationReviewService
         private MarkdownProcessor $markdownProcessor,
         private FileHelpers $helpers,
         private BackendHighlightService $highlights,
+        private BestVersionService $bestVersions,
     ) {}
 
     public function getLlm(): LlmService
@@ -43,8 +46,9 @@ class CitationReviewService
         // Phase 2: Enrich
         $citationMeta = $this->enrichCitationMetadata($citationNodes, $bookId);
         $verified = count(array_filter($citationMeta, fn($m) => $m['verified']));
+        $canonicalVerified = count(array_filter($citationMeta, fn($m) => ($m['verification_tier'] ?? null) === 'canonical'));
         $withContent = count(array_filter($citationMeta, fn($m) => $m['has_source_content']));
-        $progress('enrich', "Resolved " . count($citationMeta) . " unique sources ({$verified} verified, {$withContent} with content)");
+        $progress('enrich', "Resolved " . count($citationMeta) . " unique sources ({$verified} verified, {$canonicalVerified} canonical-verified, {$withContent} with content)");
 
         // Phase 3: Extract truth claims
         $claims = $this->extractTruthClaims($citationNodes, $citationMeta, $progress);
@@ -74,6 +78,7 @@ class CitationReviewService
             'nodes_with_citations' => count($citationNodes),
             'unique_sources'       => count($citationMeta),
             'verified_sources'     => $verified,
+            'canonical_sources'    => $canonicalVerified,
             'sources_with_content' => $withContent,
             'total_bibliography'   => $totalBib,
         ];
@@ -279,17 +284,18 @@ class CitationReviewService
         $bibEntries = $db->table('bibliography')
             ->where('book', $bookId)
             ->whereIn('referenceId', $allRefIds)
-            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score'])
+            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'canonical_source_id'])
             ->get()
             ->keyBy('referenceId');
 
-        // Check footnotes for any IDs not found in bibliography
+        // Check footnotes for any IDs not found in bibliography. (footnotes has
+        // no canonical column — the canonical is reached via the foundation row.)
         $missingIds = array_diff($allRefIds, $bibEntries->keys()->toArray());
         if (!empty($missingIds)) {
             $fnEntries = $db->table('footnotes')
                 ->where('book', $bookId)
                 ->whereIn('footnoteId', $missingIds)
-                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score'])
+                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', $db->raw('NULL as canonical_source_id')])
                 ->get()
                 ->keyBy('referenceId');
             $bibEntries = $bibEntries->merge($fnEntries);
@@ -309,10 +315,27 @@ class CitationReviewService
         if (!empty($sourceBookIds)) {
             $libraryRecords = $db->table('library')
                 ->whereIn('book', array_keys($sourceBookIds))
-                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url'])
+                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id'])
                 ->get()
                 ->keyBy('book');
         }
+
+        // Batch query 3: canonical works — reachable via the bibliography entry
+        // OR via the foundation library row's link.
+        $canonicalIds = [];
+        foreach ($bibEntries as $entry) {
+            if (!empty($entry->canonical_source_id)) {
+                $canonicalIds[$entry->canonical_source_id] = true;
+            }
+        }
+        foreach ($libraryRecords as $lib) {
+            if (!empty($lib->canonical_source_id)) {
+                $canonicalIds[$lib->canonical_source_id] = true;
+            }
+        }
+        $canonicals = empty($canonicalIds)
+            ? collect()
+            : CanonicalSource::whereIn('id', array_keys($canonicalIds))->get()->keyBy('id');
 
         // Build lookup map
         $citationMeta = [];
@@ -323,22 +346,58 @@ class CitationReviewService
 
             $resolvedSource = ($source && $source !== 'unknown') ? $source : null;
 
+            $canonicalId = $bib->canonical_source_id ?? $lib->canonical_source_id ?? null;
+            $canonical = $canonicalId ? ($canonicals[$canonicalId] ?? null) : null;
+
+            // Provenance tier: canonical-verified beats a bare local match.
+            $hasFoundation = ($resolvedSource !== null && $lib !== null);
+            $tier = $canonical ? 'canonical' : ($hasFoundation ? 'local' : 'unverified');
+
+            // Which identity authorities recognise the work
+            $canonicalSignals = $canonical ? array_keys(array_filter([
+                'openalex'           => !empty($canonical->openalex_id),
+                'doi'                => !empty($canonical->doi),
+                'open_library'       => !empty($canonical->open_library_key),
+                'semantic_scholar'   => !empty($canonical->semantic_scholar_id),
+                'publisher_verified' => (bool) $canonical->verified_by_publisher,
+            ])) : [];
+
+            // Content resolution: prefer the canonical's best genuine version
+            // (auto version is untampered by construction); fall back to the
+            // foundation row — today's behavior — when no canonical version
+            // has content.
+            $contentBook = $resolvedSource;
+            $hasContent  = (bool) ($lib->has_nodes ?? false);
+            $provenance  = $hasContent ? 'foundation' : null;
+
+            if ($canonical && ($best = $this->bestVersions->bestPublicContentVersion($canonical))) {
+                $contentBook = $best['book'];
+                $hasContent  = true;
+                $provenance  = $best['pointer']
+                    ? str_replace('_book', '', $best['pointer'])   // e.g. auto_version
+                    : 'linked_version';
+            }
+
             $citationMeta[$refId] = [
-                'title'              => $lib->title ?? null,
-                'author'             => $lib->author ?? null,
-                'year'               => $lib->year ?? null,
-                'abstract'           => $lib->abstract ?? null,
-                'verified'           => ($source && $source !== 'unknown' && $lib !== null),
-                'source_book_id'     => $resolvedSource,
-                'has_source_content' => (bool) ($lib->has_nodes ?? false),
-                'bib_citation'       => $bib->content ?? null,
-                'source_type'        => $lib->type ?? null,
-                'url'                => $lib->url ?? null,
-                'doi'                => $lib->doi ?? null,
-                'oa_url'             => $lib->oa_url ?? null,
-                'llm_metadata'       => is_string($bib->llm_metadata ?? null) ? json_decode($bib->llm_metadata, true) : null,
-                'match_method'       => $bib->match_method ?? null,
-                'match_score'        => $bib->match_score ?? null,
+                'title'               => $lib->title ?? $canonical?->title,
+                'author'              => $lib->author ?? $canonical?->author,
+                'year'                => $lib->year ?? $canonical?->year,
+                'abstract'            => $lib->abstract ?? $canonical?->abstract,
+                'verified'            => $tier !== 'unverified',
+                'source_book_id'      => $contentBook,
+                'has_source_content'  => $hasContent,
+                'bib_citation'        => $bib->content ?? null,
+                'source_type'         => $lib->type ?? $canonical?->type,
+                'url'                 => $lib->url ?? null,
+                'doi'                 => $lib->doi ?? $canonical?->doi,
+                'oa_url'              => $lib->oa_url ?? $canonical?->oa_url,
+                'llm_metadata'        => is_string($bib->llm_metadata ?? null) ? json_decode($bib->llm_metadata, true) : null,
+                'match_method'        => $bib->match_method ?? null,
+                'match_score'         => $bib->match_score ?? null,
+                'canonical_source_id' => $canonicalId,
+                'canonical_signals'   => $canonicalSignals,
+                'verification_tier'   => $tier,
+                'content_provenance'  => $provenance,
             ];
         }
 
@@ -470,6 +529,10 @@ class CitationReviewService
                         'truth_claim'          => $truthClaim,
                         'contextualised_claim' => $claim['contextualised_claim'] ?? $truthClaim,
                         'verified_source'      => $meta['verified'] ?? false,
+                        'verification_tier'    => $meta['verification_tier'] ?? null,
+                        'canonical_source_id'  => $meta['canonical_source_id'] ?? null,
+                        'canonical_signals'    => $meta['canonical_signals'] ?? [],
+                        'content_provenance'   => $meta['content_provenance'] ?? null,
                         'source_book_id'       => $meta['source_book_id'] ?? null,
                         'source_title'         => $meta['title'] ?? null,
                         'source_author'        => $meta['author'] ?? null,
@@ -1038,7 +1101,8 @@ class CitationReviewService
         $md .= "Date: " . now()->toDateTimeString() . "\n";
         if (!empty($stats)) {
             $md .= "Citations in text: {$stats['citation_occurrences']} (across {$stats['nodes_with_citations']} paragraphs)\n";
-            $md .= "Unique sources cited: {$stats['unique_sources']} ({$stats['verified_sources']} verified, {$stats['sources_with_content']} with full text)\n";
+            $canonicalNote = isset($stats['canonical_sources']) ? ", {$stats['canonical_sources']} canonical-verified" : '';
+            $md .= "Unique sources cited: {$stats['unique_sources']} ({$stats['verified_sources']} verified{$canonicalNote}, {$stats['sources_with_content']} with full text)\n";
         }
         $md .= "## Known Unknown Citations \n\n";
 
@@ -1052,6 +1116,8 @@ class CitationReviewService
         $md .= "</tbody></table>\n\n";
 
         $md .= "> Citations are matched against: [OpenAlex](https://openalex.org), [Open Library](https://openlibrary.org), [Semantic Scholar](https://www.semanticscholar.org), and [Brave Search](https://search.brave.com). Unmatched citations may be legit sources, but are worth reviewing.\n\n";
+
+        $md .= "> **Canonical-verified** sources are matched to a canonical work identity (external identifiers like DOI / OpenAlex). Where a claim was checked against full text, the *content from* note says which version supplied it — an **auto version** is the work's own PDF fetched and OCR'd by the system, untampered by construction.\n\n";
 
         $md .= "## Results\n\n";
 
@@ -1557,6 +1623,11 @@ class CitationReviewService
 
         $plainText = 'Source: ' . implode(' — ', $sourceInfo);
 
+        if (($claim['verification_tier'] ?? null) === 'canonical') {
+            $parts .= ' <em>✓ canonical-verified</em>';
+            $plainText .= ' (canonical-verified)';
+        }
+
         return [
             'content'   => '<p><strong>Source:</strong> ' . $parts . '</p>',
             'plainText' => $plainText,
@@ -1598,6 +1669,55 @@ class CitationReviewService
         }
 
         return "**Source:** {$md}\n";
+    }
+
+    /**
+     * Build the provenance line: which verification tier the source sits in,
+     * which identity authorities recognise it, and where checked content came
+     * from. Empty string for unverified sources (the section headers and
+     * "Source Not Found" highlights already carry that story).
+     */
+    private function buildProvenanceMd(array $claim): string
+    {
+        $tier = $claim['verification_tier'] ?? null;
+
+        if ($tier === 'canonical') {
+            $signalLabels = [
+                'openalex'           => 'OpenAlex',
+                'doi'                => 'DOI',
+                'open_library'       => 'Open Library',
+                'semantic_scholar'   => 'Semantic Scholar',
+                'publisher_verified' => 'Publisher-verified',
+            ];
+            $signals = array_map(
+                fn($s) => $signalLabels[$s] ?? $s,
+                $claim['canonical_signals'] ?? [],
+            );
+
+            $line = '**Provenance:** Canonical-verified'
+                  . ($signals ? ' (' . implode(', ', $signals) . ')' : '');
+
+            $provenanceLabels = [
+                'author_version'    => "the verified author's version",
+                'publisher_version' => "the verified publisher's version",
+                'commons_version'   => 'the commons-endorsed version',
+                'auto_version'      => 'the system-fetched auto version (untampered)',
+                'linked_version'    => 'a linked version of the canonical work',
+                'foundation'        => 'the matched source copy',
+            ];
+            if (!empty($claim['has_source_content']) && !empty($claim['content_provenance'])) {
+                $line .= ' — content from '
+                      . ($provenanceLabels[$claim['content_provenance']] ?? $claim['content_provenance']);
+            }
+
+            return $line . "\n";
+        }
+
+        if ($tier === 'local') {
+            return "**Provenance:** Local library match — no canonical work identity yet\n";
+        }
+
+        return '';
     }
 
     /**
@@ -2028,6 +2148,12 @@ class CitationReviewService
         $sourceMdLine = $this->buildSourceMd($claim);
         if ($sourceMdLine) {
             $md .= $sourceMdLine;
+        }
+
+        // Provenance tier (canonical-verified / local-only)
+        $provenanceLine = $this->buildProvenanceMd($claim);
+        if ($provenanceLine) {
+            $md .= $provenanceLine;
         }
 
         // Match diagnostics (score, method, mismatch warnings)
