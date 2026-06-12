@@ -42,6 +42,10 @@ sudo supervisorctl update                  # starts hyperlit-citation, reloads w
 sudo supervisorctl status                  # confirm all programs RUNNING
 
 php artisan queue:restart                  # tell running workers to pick up new code
+
+php artisan citation:doctor                # preflight: node/playwright/chromium, python OCR
+                                           # deps, LIVE LLM role models, OCR/search APIs,
+                                           # and an end-to-end citation-queue probe
 ```
 
 Check the droplet's `.env` does NOT set `DB_QUEUE_RETRY_AFTER` (it would override
