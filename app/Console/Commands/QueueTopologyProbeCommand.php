@@ -135,7 +135,14 @@ class QueueTopologyProbeCommand extends Command
 
             if ($probeStarted !== null && $probeFinished !== null) {
                 $wait = $probeStarted - $probeDispatchedAt;
-                $blockerStillRunning = $wait + $probeSecs < $blockerSecs;
+                // Standby = the probe STARTED strictly while the default blocker was
+                // still sleeping. Compare against the blocker's actual finish
+                // timestamp (cache), not duration arithmetic — a probe that queues
+                // behind the blocker starts right AS it finishes, and duration math
+                // can pass that by a few hundred ms (false "standby confirmed").
+                $defaultBlockerFinished = Cache::get("queueprobe:{$blockers['default']}:finished");
+                $blockerStillRunning = $defaultBlockerFinished !== null
+                    && $probeStarted < ((float) $defaultBlockerFinished - 0.5);
                 if ($blockerStillRunning) {
                     $this->info('✓ Import (default) probe ran in '.round($wait, 1).'s while the first import worker AND every other queue were busy — standby import worker confirmed.');
                 } else {
