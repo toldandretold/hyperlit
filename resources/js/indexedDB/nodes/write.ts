@@ -176,45 +176,36 @@ export async function saveAllNodeChunksToIndexedDB(
  */
 export async function deleteNodeChunksAfter(book: BookId, afterNodeId: string | number): Promise<void> {
   const numericAfter = parseNodeId(afterNodeId);
-  const dbName = "MarkdownDB";
-  const storeName = "nodes";
 
-  return new Promise((resolve) => {
-    const openReq = indexedDB.open(dbName);
-    openReq.onerror = () => resolve();
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["nodes"], "readwrite");
+    const store = tx.objectStore("nodes");
 
-    openReq.onsuccess = (e) => {
-      const db = (e.target as IDBOpenDBRequest).result;
-      const tx = db.transaction([storeName], "readwrite");
-      const store = tx.objectStore(storeName);
+    // lower = [book, after], upper = [book, +∞]
+    const range = IDBKeyRange.bound(
+      [book, numericAfter],
+      [book, Number.MAX_SAFE_INTEGER],
+      /*lowerOpen=*/ true,  // EXCLUDE afterNodeId from deletion (only delete nodes AFTER it)
+      /*upperOpen=*/ false
+    );
 
-      // lower = [book, after], upper = [book, +∞]
-      const range = IDBKeyRange.bound(
-        [book, numericAfter],
-        [book, Number.MAX_SAFE_INTEGER],
-        /*lowerOpen=*/ true,  // EXCLUDE afterNodeId from deletion (only delete nodes AFTER it)
-        /*upperOpen=*/ false
-      );
-
-      const cursorReq = store.openCursor(range);
-      cursorReq.onsuccess = () => {
-        const cur = cursorReq.result;
-        if (cur) {
-          cur.delete();
-          cur.continue();
-        }
-      };
-
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve();
-      };
+    const cursorReq = store.openCursor(range);
+    cursorReq.onsuccess = () => {
+      const cur = cursorReq.result;
+      if (cur) {
+        cur.delete();
+        cur.continue();
+      }
     };
-  });
+
+    return await new Promise((resolve) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // Connection unavailable — silently skip, same as the raw-open era
+  }
 }
 
 /**
@@ -309,38 +300,27 @@ export async function writeNodeChunks(chunks: NodeRecord[]): Promise<void> {
     return;
   }
 
-  const dbName = "MarkdownDB";
-  const storeName = "nodes";
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["nodes"], "readwrite");
+    const store = tx.objectStore("nodes");
 
-  return new Promise((resolve) => {
-    const openReq = indexedDB.open(dbName);
+    for (const chunk of chunks) {
+      // chunk must have the composite key fields (book, startLine) already on it
+      store.put(chunk);
+    }
 
-    openReq.onerror = () => {
-      console.error('❌ Error opening database for writeNodeChunks');
-      resolve();
-    };
-
-    openReq.onsuccess = (e) => {
-      const db = (e.target as IDBOpenDBRequest).result;
-      const tx = db.transaction([storeName], "readwrite");
-      const store = tx.objectStore(storeName);
-
-      for (const chunk of chunks) {
-        // chunk must have the composite key fields (book, startLine) already on it
-        store.put(chunk);
-      }
-
+    return await new Promise((resolve) => {
       tx.oncomplete = () => {
         console.log(`✅ Wrote ${chunks.length} chunks to IndexedDB`);
-        db.close();
         resolve();
       };
-
       tx.onerror = () => {
         console.error('❌ Error in writeNodeChunks transaction');
-        db.close();
         resolve();
       };
-    };
-  });
+    });
+  } catch {
+    console.error('❌ Error opening database for writeNodeChunks');
+  }
 }

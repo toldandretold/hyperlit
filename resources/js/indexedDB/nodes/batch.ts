@@ -20,7 +20,7 @@ import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
 import { resolveBookIdForBatch } from './bookIdResolver';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
-import type { BookId, CitationRef, HyperciteRecord, HyperlightRecord, NodeRecord } from '../types';
+import type { BookId, HyperciteRecord, HyperlightRecord, NodeRecord } from '../types';
 
 export { resolveBookIdForBatch };
 
@@ -231,20 +231,17 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       }
 
       let toSave: NodeRecord;
-      let removedCitations: CitationRef[] = []; // Track citations removed from this node
       if (existing) {
         toSave = { ...existing };
         if (processedData) {
           toSave.content = processedData.content;
           // ✅ Update footnotes from extracted data (important for renumbering on delete)
           toSave.footnotes = processedData.footnotes || [];
-          // ✅ Update citations from extracted data
-          const oldCitations = existing.citations || [];
-          const newCitations = processedData.citations || [];
-          toSave.citations = newCitations;
-          // Detect removed citations (were in old, not in new)
-          const newCitationIds = new Set(newCitations.map(c => c.referenceId));
-          removedCitations = oldCitations.filter(c => !newCitationIds.has(c.referenceId));
+          // ✅ Update citations from extracted data.
+          // DELIBERATE: citations removed from the text are NOT cleaned out of the
+          // bibliography store/table — keeping the reference record means undo or
+          // re-pasting the citation works cleanly without a server round-trip.
+          toSave.citations = processedData.citations || [];
           // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
           // Keep existing arrays or initialize empty if missing
           if (!toSave.hyperlights) toSave.hyperlights = [];
@@ -698,18 +695,7 @@ export async function batchDeleteIndexedDBRecords(
             console.log(`🔄 NEW SYSTEM: Deleted data-node-ids:`, deletedDataNodeIDs);
 
             if (deletedDataNodeIDs.length > 0) {
-              // Get all nodes for this book to find remaining nodes
               const db = await openDatabase();
-              const nodeTx = db.transaction('nodes', 'readonly');
-              const nodeStore = nodeTx.objectStore('nodes');
-              const allNodes = await new Promise<NodeRecord[]>((resolve, reject) => {
-                const req = nodeStore.getAll();
-                req.onsuccess = () => resolve(req.result || []);
-                req.onerror = () => reject(req.error);
-              });
-
-              // Filter to nodes with data-node-ids (not deleted)
-              const remainingNodes = allNodes.filter(node => node.node_id && !deletedDataNodeIDs.includes(node.node_id));
 
               // Find nodes that might have been affected by the deleted nodes
               // (nodes that share highlights/hypercites with deleted nodes)

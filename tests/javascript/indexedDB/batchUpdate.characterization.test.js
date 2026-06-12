@@ -14,12 +14,6 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// batch.js imports `debounce` from divEditor/saveQueue.js, which transitively
-// imports app.js (full editor boot). Mock the seam, keep the real debounce.
-vi.mock('../../../resources/js/divEditor/saveQueue.js', async () => {
-  const { debounce } = await vi.importActual('../../../resources/js/utilities/debounce.js');
-  return { debounce };
-});
 // library.js → postgreSQL.js (legacy sync layer, heavy). Not under test here.
 vi.mock('../../../resources/js/postgreSQL.js', () => ({
   syncIndexedDBtoPostgreSQL: vi.fn(),

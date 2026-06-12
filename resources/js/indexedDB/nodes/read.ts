@@ -75,48 +75,30 @@ export async function getAllNodeChunksForBook(bookId: BookId): Promise<NodeRecor
 /**
  * Get a single node chunk by book and startLine
  *
- * TODO(connection-singleton): this and getNodeChunksAfter open their own raw
- * versionless connection (indexedDB.open + db.close per call) instead of the
- * shared singleton in core/connection — they skip its liveness check, Safari
- * self-healing, and retry logic. Unify onto openDatabase() as a deliberate
- * change; read.test.js pins current behavior so the swap is a visible diff.
- * Pinned: missing keys resolve to undefined (IDB get semantics), errors → null.
+ * Uses the shared connection singleton (unified 2026-06 from a raw per-call
+ * indexedDB.open — see read.test.js, which pins the observable behavior:
+ * missing keys resolve to undefined (IDB get semantics), errors → null).
  */
 export async function getNodeChunkFromIndexedDB(book: BookId, startLine: string | number): Promise<NodeRecord | null | undefined> {
-  return new Promise((resolve) => {
-    const dbName = "MarkdownDB";
-    const storeName = "nodes";
+  const numericStartLine = parseNodeId(startLine);
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["nodes"], "readonly");
+    const getRequest = tx.objectStore("nodes").get([book, numericStartLine]);
 
-    const numericStartLine = parseNodeId(startLine);
-    const request = indexedDB.open(dbName);
-
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      const transaction = db.transaction([storeName], "readonly");
-      const objectStore = transaction.objectStore(storeName);
-
-      const key = [book, numericStartLine];
-      const getRequest = objectStore.get(key);
-
+    return await new Promise((resolve) => {
       getRequest.onsuccess = () => {
         resolve(getRequest.result);
       };
-
       getRequest.onerror = () => {
         console.error('Error getting nodeChunk:', getRequest.error);
         resolve(null);
       };
-
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    };
-
-    request.onerror = () => {
-      console.error('IndexedDB error:', request.error);
-      resolve(null);
-    };
-  });
+    });
+  } catch (error) {
+    console.error('IndexedDB error:', error);
+    return null;
+  }
 }
 
 /**
@@ -125,41 +107,31 @@ export async function getNodeChunkFromIndexedDB(book: BookId, startLine: string 
  */
 export async function getNodeChunksAfter(book: BookId, afterNodeId: string | number): Promise<NodeRecord[]> {
   const numericAfter = parseNodeId(afterNodeId);
-  const dbName = "MarkdownDB";
-  const storeName = "nodes";
 
-  return new Promise((resolve) => {
-    const openReq = indexedDB.open(dbName);
-    openReq.onerror = () => resolve([]);
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["nodes"], "readonly");
+    const store = tx.objectStore("nodes");
 
-    openReq.onsuccess = (e) => {
-      const db = (e.target as IDBOpenDBRequest).result;
-      const tx = db.transaction([storeName], "readonly");
-      const store = tx.objectStore(storeName);
+    // lower bound is ["book", afterLine]
+    // upper bound is ["book", +∞] -- Number.MAX_SAFE_INTEGER is usually enough
+    const range = IDBKeyRange.bound([book, numericAfter], [book, Number.MAX_SAFE_INTEGER], /*lowerOpen=*/true, /*upperOpen=*/false);  // EXCLUDE afterNodeId (only get nodes AFTER it)
 
-      // lower bound is ["book", afterLine]
-      const lower = [book, numericAfter];
-      // upper bound is ["book", +∞] -- Number.MAX_SAFE_INTEGER is usually enough
-      const range = IDBKeyRange.bound(lower, [book, Number.MAX_SAFE_INTEGER], /*lowerOpen=*/true, /*upperOpen=*/false);  // EXCLUDE afterNodeId (only get nodes AFTER it)
+    const cursorReq = store.openCursor(range);
+    const results: NodeRecord[] = [];
 
-      const cursorReq = store.openCursor(range);
-      const results: NodeRecord[] = [];
-
-      cursorReq.onsuccess = (evt) => {
-        const cur = (evt.target as IDBRequest<IDBCursorWithValue | null>).result;
+    return await new Promise((resolve) => {
+      cursorReq.onsuccess = () => {
+        const cur = cursorReq.result;
         if (!cur) return;          // done
         results.push(cur.value);
         cur.continue();
       };
 
-      tx.oncomplete = () => {
-        db.close();
-        resolve(results);
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve(results);
-      };
-    };
-  });
+      tx.oncomplete = () => resolve(results);
+      tx.onerror = () => resolve(results);
+    });
+  } catch {
+    return [];
+  }
 }

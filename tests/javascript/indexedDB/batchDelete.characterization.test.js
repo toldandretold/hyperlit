@@ -8,10 +8,6 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../../../resources/js/divEditor/saveQueue.js', async () => {
-  const { debounce } = await vi.importActual('../../../resources/js/utilities/debounce.js');
-  return { debounce };
-});
 vi.mock('../../../resources/js/postgreSQL.js', () => ({
   syncIndexedDBtoPostgreSQL: vi.fn(),
 }));

@@ -3,6 +3,7 @@
  * Handles hypercite (two-way citation) operations in IndexedDB
  */
 
+import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
 import { resolveHypercite } from './helpers';
 import type { BookId, HyperciteRecord, NodeRecord, QueueForSyncFn, RelationshipStatus } from '../types';
@@ -30,51 +31,30 @@ export function initHypercitesDependencies(deps: HypercitesDeps): void {
 
 /**
  * Get a hypercite from IndexedDB
- * (raw versionless connection, like nodes/read — missing key → undefined, errors → null)
+ * (shared connection singleton — missing key → undefined, errors → null;
+ * pinned in hypercites.test.js)
  */
 export async function getHyperciteFromIndexedDB(book: BookId, hyperciteId: string): Promise<HyperciteRecord | null | undefined> {
-  return new Promise((resolve) => {
-    const dbName = "MarkdownDB";
-    const storeName = "hypercites";
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["hypercites"], "readonly");
 
-    const request = indexedDB.open(dbName);
+    // Get the record using the composite key [book, hyperciteId]
+    const getRequest = tx.objectStore("hypercites").get([book, hyperciteId]);
 
-    request.onerror = () => {
-      console.error(`IndexedDB error: ${request.error}`);
-      resolve(null);
-    };
-
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      try {
-        const transaction = db.transaction([storeName], "readonly");
-        const objectStore = transaction.objectStore(storeName);
-
-        // Create the composite key [book, hyperciteId]
-        const key = [book, hyperciteId];
-
-        // Get the record using the composite key
-        const getRequest = objectStore.get(key);
-
-        getRequest.onsuccess = () => {
-          resolve(getRequest.result);
-        };
-
-        getRequest.onerror = () => {
-          console.error(`Error getting hypercite record:`, getRequest.error);
-          resolve(null);
-        };
-
-        transaction.oncomplete = () => {
-          db.close();
-        };
-      } catch (error) {
-        console.error("Transaction error:", error);
+    return await new Promise((resolve) => {
+      getRequest.onsuccess = () => {
+        resolve(getRequest.result);
+      };
+      getRequest.onerror = () => {
+        console.error(`Error getting hypercite record:`, getRequest.error);
         resolve(null);
-      }
-    };
-  });
+      };
+    });
+  } catch (error) {
+    console.error("Transaction error:", error);
+    return null;
+  }
 }
 
 /**
@@ -89,81 +69,61 @@ export async function updateHyperciteInIndexedDB(
   updatedFields: Partial<HyperciteRecord>,
   skipQueue = false,
 ): Promise<boolean> {
-  return new Promise((resolve) => {
-    const dbName = "MarkdownDB";
-    const storeName = "hypercites";
+  console.log(`Updating in hypercites store, key: [${book}, ${hyperciteId}], skipQueue: ${skipQueue}`);
 
-    console.log(`Updating in hypercites store: ${dbName}, key: [${book}, ${hyperciteId}], skipQueue: ${skipQueue}`);
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["hypercites"], "readwrite");
+    const objectStore = tx.objectStore("hypercites");
 
-    const request = indexedDB.open(dbName);
+    // Get the record using the composite key [book, hyperciteId]
+    const getRequest = objectStore.get([book, hyperciteId]);
 
-    request.onerror = () => {
-      console.error(`IndexedDB error: ${request.error}`);
-      resolve(false);
-    };
+    return await new Promise((resolve) => {
+      getRequest.onsuccess = () => {
+        const existingRecord = getRequest.result as HyperciteRecord | undefined;
 
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
+        if (!existingRecord) {
+          console.error(`Hypercite record not found for key: [${book}, ${hyperciteId}]`);
+          resolve(false);
+          return;
+        }
 
-      try {
-        const transaction = db.transaction([storeName], "readwrite");
-        const objectStore = transaction.objectStore(storeName);
+        console.log("Found existing hypercite record:", existingRecord);
 
-        // Create the composite key [book, hyperciteId]
-        const key = [book, hyperciteId];
+        // Update the fields in the existing record
+        Object.assign(existingRecord, updatedFields);
 
-        // Get the record using the composite key
-        const getRequest = objectStore.get(key);
+        // Put the updated record back
+        const updateRequest = objectStore.put(existingRecord);
 
-        getRequest.onsuccess = () => {
-          const existingRecord = getRequest.result as HyperciteRecord | undefined;
-
-          if (!existingRecord) {
-            console.error(`Hypercite record not found for key: [${book}, ${hyperciteId}]`);
-            resolve(false);
-            return;
+        updateRequest.onsuccess = async () => {
+          console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
+          console.log(`🔍 Queuing hypercite with citedIN:`, existingRecord.citedIN, `status:`, existingRecord.relationshipStatus);
+          await updateBookTimestamp(book);
+          if (!skipQueue) {
+            queueForSync("hypercites", hyperciteId, "update", existingRecord);
+          } else {
+            console.log(`⏭️ Skipping queue for hypercite ${hyperciteId} (batched sync)`);
           }
-
-          console.log("Found existing hypercite record:", existingRecord);
-
-          // Update the fields in the existing record
-          Object.assign(existingRecord, updatedFields);
-
-          // Put the updated record back
-          const updateRequest = objectStore.put(existingRecord);
-
-          updateRequest.onsuccess = async () => {
-            console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
-            console.log(`🔍 Queuing hypercite with citedIN:`, existingRecord.citedIN, `status:`, existingRecord.relationshipStatus);
-            await updateBookTimestamp(book);
-            if (!skipQueue) {
-              queueForSync("hypercites", hyperciteId, "update", existingRecord);
-            } else {
-              console.log(`⏭️ Skipping queue for hypercite ${hyperciteId} (batched sync)`);
-            }
-            resolve(true);
-          };
-
-          updateRequest.onerror = () => {
-            console.error(`Error updating hypercite record:`, updateRequest.error);
-            resolve(false);
-          };
+          resolve(true);
         };
 
-        getRequest.onerror = () => {
-          console.error(`Error getting hypercite record:`, getRequest.error);
+        updateRequest.onerror = () => {
+          console.error(`Error updating hypercite record:`, updateRequest.error);
           resolve(false);
         };
+      };
 
-        transaction.oncomplete = () => {
-          db.close();
-        };
-      } catch (error) {
-        console.error("Transaction error:", error);
+      getRequest.onerror = () => {
+        console.error(`Error getting hypercite record:`, getRequest.error);
         resolve(false);
-      }
-    };
-  });
+      };
+    });
+  } catch (error) {
+    console.error("Transaction error:", error);
+    return false;
+  }
 }
 
 /**
@@ -177,27 +137,21 @@ export async function addCitationToHypercite(
   hyperciteId: string,
   newCitation: string,
 ): Promise<{ success: boolean; relationshipStatus?: RelationshipStatus }> {
-  return new Promise((resolve) => {
-    const dbName = "MarkdownDB";
-    const storeName = "nodes";
+  const numericStartLine = parseNodeId(startLine);
 
-    const numericStartLine = parseNodeId(startLine);
+  console.log(`Adding citation to hypercite in nodeChunk: book=${book}, startLine=${numericStartLine}, hyperciteId=${hyperciteId}, citation=${newCitation}`);
 
-    console.log(`Adding citation to hypercite in nodeChunk: book=${book}, startLine=${numericStartLine}, hyperciteId=${hyperciteId}, citation=${newCitation}`);
+  try {
+    const db = await openDatabase();
+    const transaction = db.transaction(["nodes"], "readwrite");
+    const objectStore = transaction.objectStore("nodes");
 
-    const request = indexedDB.open(dbName);
+    const key = [book, numericStartLine];
+    console.log("Using key for update:", key);
 
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
+    const getRequest = objectStore.get(key);
 
-      try {
-        const transaction = db.transaction([storeName], "readwrite");
-        const objectStore = transaction.objectStore(storeName);
-
-        const key = [book, numericStartLine];
-        console.log("Using key for update:", key);
-
-        const getRequest = objectStore.get(key);
+    return await new Promise((resolve) => {
 
         getRequest.onsuccess = () => {
           const record = getRequest.result as NodeRecord | undefined;
@@ -280,17 +234,11 @@ export async function addCitationToHypercite(
           console.error(`❌ Error getting nodeChunk record:`, getRequest.error);
           resolve({ success: false });
         };
-      } catch (error) {
-        console.error("❌ Transaction error:", error);
-        resolve({ success: false });
-      }
-    };
-
-    request.onerror = () => {
-      console.error(`❌ IndexedDB error: ${request.error}`);
-      resolve({ success: false });
-    };
-  });
+    });
+  } catch (error) {
+    console.error("❌ Transaction error:", error);
+    return { success: false };
+  }
 }
 
 /**

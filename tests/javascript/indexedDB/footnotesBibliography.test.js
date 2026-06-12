@@ -7,8 +7,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { installFreshIndexedDB, readAll } from './idbHarness.js';
 import {
-  getFootnotesFromIndexedDB,
-  saveFootnotesToIndexedDB,
   saveAllFootnotesToIndexedDB,
   initFootnotesDependencies,
 } from '../../../resources/js/indexedDB/footnotes/index';
@@ -61,15 +59,11 @@ describe('footnotes + bibliography domain (characterization)', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/api/db/references/upsert');
   });
 
-  it('LEGACY (pinned broken): the singular footnote functions are schema-orphaned since v21', async () => {
-    // get(bookId) uses a single-string key against the composite [book, footnoteId]
-    // store — it can never match, so this always resolves null.
-    await saveAllFootnotesToIndexedDB([{ footnoteId: 'Fn1', content: 'x' }], 'bookA');
-    expect(await getFootnotesFromIndexedDB('bookA')).toBeNull();
-
-    // put({book, data}) lacks the footnoteId key part → DataError → rejects.
-    // Live callers: NONE (initializePage imports it unused; convertMarkdown's
-    // import is commented out). TODO(legacy-footnote-singular): delete both.
-    await expect(saveFootnotesToIndexedDB({ some: 'data' }, 'bookA')).rejects.toBeTruthy();
+  it('LEGACY: the schema-orphaned singular footnote functions stay deleted', async () => {
+    // get/saveFootnotesToIndexedDB were broken since the v21 key change
+    // ([book, footnoteId] composite) and had zero live callers — deleted 2026-06.
+    const mod = await import('../../../resources/js/indexedDB/footnotes/index');
+    expect(mod.getFootnotesFromIndexedDB).toBeUndefined();
+    expect(mod.saveFootnotesToIndexedDB).toBeUndefined();
   });
 });
