@@ -18,7 +18,7 @@ import { setCurrentBook } from '../../app.js';
 import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePage.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index.js';
+import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index';
 import { showConversionFeedbackToast } from '../../conversion/feedbackToast.js';
 import { showImportFailureModal } from '../../conversion/bugReportModal.js';
 
@@ -923,7 +923,7 @@ export class ImportBookTransition {
   static async deleteImportedBook(bookId) {
     try {
       // Delete from IndexedDB
-      const { deleteBookFromIndexedDB } = await import('../../indexedDB/index.js');
+      const { deleteBookFromIndexedDB } = await import('../../indexedDB/index');
       await deleteBookFromIndexedDB(bookId);
 
       // Delete from server

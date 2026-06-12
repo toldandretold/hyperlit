@@ -12,7 +12,7 @@ import {
   deleteNodeChunksAfter,
   writeNodeChunks,
   getNodeChunksFromIndexedDB
-} from '../../indexedDB/index.js';
+} from '../../indexedDB/index';
 import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
@@ -114,7 +114,7 @@ export async function handleLargePaste(
     currentElement.remove();
 
     // Delete H1 from IndexedDB
-    const { deleteIndexedDBRecord } = await import('../../indexedDB/index.js');
+    const { deleteIndexedDBRecord } = await import('../../indexedDB/index');
     await deleteIndexedDBRecord(insertionPoint.book, h1Id);
 
     // Update insertion point to be after the element before the deleted H1
@@ -268,7 +268,7 @@ export async function handleLargePaste(
 
   // Save extracted footnotes and references to IndexedDB
   if (extractedFootnotes.length > 0 || extractedReferences.length > 0) {
-    const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('../../indexedDB/index.js');
+    const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('../../indexedDB/index');
 
     if (extractedFootnotes.length > 0) {
       // Generate preview_nodes + initial sub-book nodes so opening a footnote

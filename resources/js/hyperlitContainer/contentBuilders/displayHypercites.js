@@ -5,7 +5,7 @@
  */
 
 import { book } from '../../app.js';
-import { openDatabase } from '../../indexedDB/index.js';
+import { openDatabase } from '../../indexedDB/index';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../../utilities/auth.js";
 import DOMPurify from 'dompurify';
@@ -995,7 +995,7 @@ export async function handleHyperciteHealthCheck(event) {
  * @param {Array<{url: string, sourceHyperciteId: string}>} brokenCitations - Citations to remove
  */
 async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCitations) {
-  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('../../indexedDB/index.js');
+  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('../../indexedDB/index');
   const db = await openDatabase();
 
   const brokenUrls = brokenCitations.map(c => c.url);

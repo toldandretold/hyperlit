@@ -9,7 +9,7 @@ import { getActiveBook } from '../utilities/activeContext.js';
 import { book as globalBookId } from '../app.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
-import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
+import { getLocalStorageKey, openDatabase } from '../indexedDB/index';
 import { getHyperciteData, getHyperciteById } from './database.js';
 import { highlightTargetHypercite, revealGhostIfTombstone } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';

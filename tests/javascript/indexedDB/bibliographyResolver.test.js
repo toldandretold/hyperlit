@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resolveBibliographyTarget } from '../../../resources/js/indexedDB/bibliography/index.js';
+import { resolveBibliographyTarget } from '../../../resources/js/indexedDB/bibliography/index';
 
 describe('resolveBibliographyTarget', () => {
   beforeEach(() => {

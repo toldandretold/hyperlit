@@ -15,8 +15,8 @@ import {
   getNodeChunkFromIndexedDB,
   toPublicChunk,
   syncHyperciteWithNodeChunkImmediately
-} from '../../indexedDB/index.js';
-import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index.js';
+} from '../../indexedDB/index';
+import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';
 import { getEditToolbar } from '../../editToolbar/index.js';
 import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils.js';
 import { determineRelationshipStatus } from '../../hypercites/utils.js';
@@ -175,7 +175,7 @@ export async function handleHypercitePaste(event, targetBookId) {
 
           // 5. Rebuild arrays for old nodes (removes ghost from their embedded arrays)
           if (oldNodeIds.length > 0) {
-            const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
+            const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild');
             const nodes = await getNodesByDataNodeIDs(oldNodeIds);
             await rebuildNodeArrays(nodes.filter(n => n.book === booka));
           }
@@ -223,7 +223,7 @@ export async function handleHypercitePaste(event, targetBookId) {
         saveCurrentParagraph();
 
         // 8. Sync
-        const { debouncedMasterSync } = await import('../../indexedDB/index.js');
+        const { debouncedMasterSync } = await import('../../indexedDB/index');
         await debouncedMasterSync.flush();
 
       } finally {
@@ -483,7 +483,7 @@ export async function handleHypercitePaste(event, targetBookId) {
           }
           // Re-save target node to rebuild arrays, then flush
           queueNodeForSave(undoSnapshot.elementId, 'update');
-          const { debouncedMasterSync } = await import('../../indexedDB/index.js');
+          const { debouncedMasterSync } = await import('../../indexedDB/index');
           await debouncedMasterSync.flush();
           attachUnderlineClickListeners();
         },
@@ -526,7 +526,7 @@ export async function handleHypercitePaste(event, targetBookId) {
               console.log("✅ Hypercite + nodeChunk synced to server in one transaction.");
             } else if (hyperciteToSync) {
               console.log("⚠️ startLine null — syncing hypercite alone");
-              const { queueForSync, debouncedMasterSync } = await import('../../indexedDB/index.js');
+              const { queueForSync, debouncedMasterSync } = await import('../../indexedDB/index');
               queueForSync("hypercites", hyperciteIDa, "update", hyperciteToSync);
               await debouncedMasterSync.flush();
             } else {
@@ -644,7 +644,7 @@ export async function handleHypercitePaste(event, targetBookId) {
       // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
       if (affectedDataNodeIDs.size > 0) {
         try {
-          const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
+          const { getNodesByDataNodeIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild');
           const allNodes = await getNodesByDataNodeIDs(Array.from(affectedDataNodeIDs));
           // Filter to correct book(s) — getNodesByDataNodeIDs may return a parent book's
           // node when the same node_id exists in both parent and sub-book.

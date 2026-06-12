@@ -1,5 +1,5 @@
 import { batchDeleteIndexedDBRecords } from "../indexedDB/index.js";
-import { queueForSync } from '../indexedDB/syncQueue/queue.js';
+import { queueForSync } from '../indexedDB/syncQueue/queue';
 
 
 export class SelectionDeletionHandler {
@@ -194,7 +194,7 @@ export class SelectionDeletionHandler {
       const uncitedSources = [];
 
       if (sourceHypercites.length > 0) {
-        const { openDatabase } = await import('../indexedDB/index.js');
+        const { openDatabase } = await import('../indexedDB/index');
         const { getHyperciteById } = await import('../hypercites/database.js');
         const db = await openDatabase();
 
@@ -434,7 +434,7 @@ export class SelectionDeletionHandler {
         });
       } else {
         // Fallback to direct batch update
-        import('../indexedDB/index.js').then(module => {
+        import('../indexedDB/index').then(module => {
           if (module.batchUpdateIndexedDBRecords) {
             module.batchUpdateIndexedDBRecords(nodesToUpdate);
           } else {
@@ -459,7 +459,7 @@ export class SelectionDeletionHandler {
 
 batchDeleteFromIndexedDB(nodeIds) {
   // Import the function if not already imported
-  import('../indexedDB/index.js').then(module => {
+  import('../indexedDB/index').then(module => {
     const { batchDeleteIndexedDBRecords } = module;
     return batchDeleteIndexedDBRecords(nodeIds);
   }).catch(error => {

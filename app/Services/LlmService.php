@@ -419,13 +419,22 @@ class LlmService
 Extract structured metadata from this footnote. This is a footnote from an academic text. It may contain one or more citations separated by semicolons.
 
 Return a JSON array of citation objects — one per distinct cited work. Each object has these fields:
-{"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|commentary|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null"}
+{"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|commentary|short-form|ibid|pointer|legislation|case-law|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null", "surname": null, "short_title": null}
 
 IMPORTANT RULES:
 - For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year and "original_year" the original publication year. For non-reprints, "original_year" is null.
 - Use null for any field you cannot determine. The year must be an integer or null.
 - Authors must be an array of strings in "Lastname, Firstname" format.
-- For abbreviated references like "CJ, I, p. 919", "Ibid., p. 42", or archival codes, classify as type "archival-source".
+- SHORT-FORM REPEAT CITATIONS: scholarly footnotes give a work's full reference once, then cite it later in shortened form — e.g. "Hart, Justice, pp. 66–7" or "Millstone, Manuscript circulation, p. 313" (surname + truncated title + pages, with NO year, place, or publisher). For these return:
+  {"type": "short-form", "surname": "Hart", "short_title": "Justice", "title": null, "authors": [], "year": null, ...}
+  NEVER guess or complete the title, author initials/first names, or year of a short-form citation — the full reference lives in an EARLIER footnote of the same document, which you cannot see; it will be linked deterministically. A guessed completion silently links the WRONG work (e.g. "Hart, Justice" is NOT necessarily H. L. A. Hart).
+- "Ibid.", "Ibid., p. 42", "Idem" (referring to the immediately preceding footnote): return {"type": "ibid", "title": null, "authors": [], "year": null, ...all other fields null}.
+- AUTHOR-DATE POINTERS: a footnote that is just surname(s) + (year) + pages — "Chapman (2009), p. 6.", "Geiger and Jütte (2023), pp. 54–55." — points to the work's full reference in the document's BIBLIOGRAPHY. Return:
+  {"type": "pointer", "authors": ["Chapman"], "year": 2009, "title": null, ...}
+  (authors = the surnames as given). DO NOT invent a title or guess the full reference — it will be matched against the bibliography deterministically.
+- LEGISLATION: citations to statutes, codes, directives, regulations, treaties — "Art. 5(3)(a) ISD", "See Art. 25fa Dutch Copyright Act (Staatsblad 2015)", "§ 52a UrhG", "Art. 17 CDSM Directive". Return {"type": "legislation", "title": "<the instrument as cited, e.g. Art. 5(3)(a) ISD>", "authors": [], "year": null or the year if stated}. These ARE citations.
+- CASE LAW: court decisions — "CJEU judgment of 1 December 2011, Painer v. Standard, C-145/10, EU:C:2011:798". Return {"type": "case-law", "title": "<case name + number, e.g. Painer v. Standard, C-145/10>", "authors": [], "year": <decision year if stated>}. These ARE citations.
+- For abbreviated ARCHIVAL references like "CJ, I, p. 919", "TNA SP 16/...", or other archive/manuscript codes (initials + volume/page, no author surname), classify as type "archival-source".
 - If the footnote is not a citation (commentary, cross-reference, explanatory note), return [{"type": "commentary", "title": null, "authors": [], "year": null, "original_year": null, "journal": null, "publisher": null, "doi": null, "url": null}].
 - Always return a JSON array, even for single citations: [{"title": "...", ...}]
 PROMPT;
@@ -492,6 +501,8 @@ PROMPT;
                         'type'          => is_string($item['type'] ?? null) ? trim($item['type']) : null,
                         'doi'           => is_string($item['doi'] ?? null) ? trim($item['doi']) : null,
                         'url'           => is_string($item['url'] ?? null) ? trim($item['url']) : null,
+                        'surname'       => is_string($item['surname'] ?? null) ? trim($item['surname']) : null,
+                        'short_title'   => is_string($item['short_title'] ?? null) ? trim($item['short_title']) : null,
                     ];
                 }
 
@@ -526,17 +537,20 @@ PROMPT;
     private function extractClaimsSystemPrompt(): string
     {
         return <<<'PROMPT'
-You are an academic citation analyst. The text contains inline citations as [CITE:refId] markers.
+You are an academic citation analyst. The text contains citations as two kinds of markers, with DIFFERENT attachment directions:
 
-For each [CITE:refId], extract the sentence it appears in and identify what factual claim the citation supports.
+- [CITE:refId] — an inline author-date citation. It attaches to the sentence AROUND it.
+- [FNCITE:refId] — a FOOTNOTE marker. It attaches ONLY to the text immediately BEFORE it — the clause or sentence(s) preceding the marker, ending exactly AT the marker. Text after an [FNCITE] belongs to the NEXT citation, never to this one. Example: "Embargoes frustrate researchers,[FNCITE:a] because journal publication is critical.[FNCITE:b]" → claim for a = "Embargoes frustrate researchers,"; claim for b = "because journal publication is critical." — NOT the whole passage for either.
+
+For each marker, extract the claim text it supports.
 
 Return ONLY valid JSON: [{"referenceId": "refId", "truth_claim": "...", "contextualised_claim": "..."}]
 
 RULES:
-- Each citation includes the sentence it appears in (after "— appears in sentence:"). Use this to correctly identify which sentence to extract. The truth_claim should be this sentence.
-- If the sentence is an anaphoric reference (e.g. "The same argument is made by...", "This is also noted by..."), include the substantive preceding sentence(s) that contain the actual claim.
-- truth_claim: Copy the COMPLETE SENTENCE containing [CITE:refId] VERBATIM from the TEXT section. Do not include the [CITE:...] marker itself. Do not rephrase, summarise, or truncate.
-- If two citations appear in the same sentence, produce one entry per referenceId, both with the same truth_claim sentence.
+- Each citation includes its claim span (after "— appears in sentence:"). USE IT — it is computed with the correct attachment direction. The truth_claim should be this span.
+- If the span is an anaphoric reference (e.g. "The same argument is made by...", "This is also noted by..."), include the substantive preceding sentence(s) that contain the actual claim.
+- truth_claim: Copy the claim span VERBATIM from the TEXT section ([CITE]: the complete sentence containing the marker; [FNCITE]: the text preceding the marker, which may be a clause). Do not include the markers themselves. Do not rephrase, summarise, or truncate.
+- If two citations share the same span, produce one entry per referenceId with the same truth_claim.
 - contextualised_claim: Rewrite the truth_claim so the FACTUAL SUBSTANCE is fully self-contained and verifiable in isolation.
   Do NOT include author names or attribution phrases ("X argues", "attributed to Y", "according to Z").
   State ONLY the factual assertion itself — the verification step already knows which source is being checked.
@@ -574,7 +588,8 @@ PROMPT;
         $msg .= "TEXT:\n{$markedText}\n\nCITATION SOURCES:\n";
         foreach ($citationContext as $refId => $meta) {
             $title = $meta['title'] ?? 'Unknown';
-            $line = "- [CITE:{$refId}]: \"{$title}\"";
+            // Marker-kind agnostic: the marker in TEXT may be [CITE:x] or [FNCITE:x].
+            $line = "- {$refId}: \"{$title}\"";
             if (!empty($extractedSentences[$refId])) {
                 $line .= " — appears in sentence: \"{$extractedSentences[$refId]}\"";
             }
@@ -1146,6 +1161,52 @@ PROMPT;
      * Each item: [source_description, contextualised_claim]
      * Returns array of booleans (true = connected, false = unrelated) keyed same as input.
      */
+    /**
+     * Disambiguate short-form footnote citations with MULTIPLE plausible
+     * antecedents. The candidates are IN the prompt — the model chooses among
+     * known options, it never invents (context, not knowledge).
+     *
+     * @param array $items key => ['short' => footnote text, 'candidates' => [full citation strings]]
+     * @return array key => 1-based candidate index (0 = none of them)
+     */
+    public function disambiguateShortFormBatch(array $items): array
+    {
+        if (empty($items)) {
+            return [];
+        }
+
+        $systemPrompt = 'A scholarly footnote cites a work in SHORT FORM (surname + truncated title). '
+            . 'Earlier footnotes in the same document contain the candidate full references, listed below. '
+            . 'Answer with ONLY the number of the candidate the short form refers to, or 0 if none match. '
+            . 'Scholars\' short titles are the opening words of the full title.';
+
+        $requests = [];
+        foreach ($items as $key => $item) {
+            $lines = ["SHORT-FORM FOOTNOTE: {$item['short']}", '', 'CANDIDATES:'];
+            foreach (array_values($item['candidates']) as $i => $cand) {
+                $lines[] = ($i + 1) . '. ' . $cand;
+            }
+            $requests[$key] = [
+                'system'      => $systemPrompt,
+                'user'        => implode("\n", $lines),
+                'model'       => $this->extractionModel,
+                'max_tokens'  => 10,
+                'temperature' => 0.0,
+            ];
+        }
+
+        $rawResponses = $this->chatBatch($requests, 30);
+
+        $results = [];
+        foreach ($items as $key => $item) {
+            $raw = trim((string) ($rawResponses[$key] ?? ''));
+            $n = (int) preg_replace('/\D/', '', mb_substr($raw, 0, 4));
+            $results[$key] = ($n >= 1 && $n <= count($item['candidates'])) ? $n : 0;
+        }
+
+        return $results;
+    }
+
     public function reviewRejectionBatch(array $items): array
     {
         if (empty($items)) {

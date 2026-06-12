@@ -642,7 +642,7 @@ async function writeRecordsToIndexedDB(data) {
   const { nodes, library, hyperlight, hypercites } = data;
 
   try {
-    const { openDatabase } = await import('../indexedDB/index.js');
+    const { openDatabase } = await import('../indexedDB/index');
     const db = await openDatabase();
 
     // Write library record
@@ -742,7 +742,7 @@ async function writeRecordsToIndexedDB(data) {
  */
 async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes, rawJson = null) {
   try {
-    const { openDatabase } = await import('../indexedDB/index.js');
+    const { openDatabase } = await import('../indexedDB/index');
     const db = await openDatabase();
 
     const tx = db.transaction(['hyperlights'], 'readwrite');

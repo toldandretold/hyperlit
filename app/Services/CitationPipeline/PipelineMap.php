@@ -27,19 +27,11 @@ final class PipelineMap
         return [
             [
                 'id'       => 'bibliography',
-                'title'    => 'Scanning bibliography',
-                'plain'    => 'Reads every bibliography entry (or citation-classified footnote), extracts metadata with a small LLM, then resolves each source through waves: DOI, the local library, OpenAlex, Open Library, Semantic Scholar, web fetch, Brave Search. Identifier-backed matches are registered as canonical works.',
-                'dev'      => 'Wave architecture; identifier-backed stubs get canonical_source rows via linkStubToCanonical. Failure here aborts the pipeline.',
+                'title'    => 'Scanning footnotes and citations',
+                'plain'    => 'Reads every bibliography entry and citation-bearing footnote, extracts metadata with a small LLM, then resolves each source through waves: DOI, the local library, OpenAlex, Open Library, Semantic Scholar, web fetch, Brave Search. Identifier-backed matches are registered as canonical works. Finally locates where each source is actually cited in the text — inline links and footnote markers — so claims can be tied to exact positions.',
+                'dev'      => 'Wave architecture; identifier-backed stubs get canonical_source rows via linkStubToCanonical. Failure here aborts the pipeline. The in-text occurrence scan (citation:scan-content, formerly its own "content" stage) runs at the end of this stage — it is fast and informational, so it shares the tick.',
                 'code_ref' => 'app/Jobs/CitationScanBibliographyJob.php',
-                'signals'  => ['total entries', 'newly resolved', 'enriched', 'failed to resolve'],
-            ],
-            [
-                'id'       => 'content',
-                'title'    => 'Scanning in-text citations',
-                'plain'    => 'Finds where each source is actually cited in the text — inline links and footnote markers — so claims can be tied to exact positions.',
-                'dev'      => 'Informational scan; non-blocking for later stages.',
-                'code_ref' => 'app/Console/Commands/CitationScanContentCommand.php',
-                'signals'  => ['citation occurrences', 'nodes with citations'],
+                'signals'  => ['total entries', 'newly resolved', 'enriched', 'failed to resolve', 'citation occurrences'],
             ],
             [
                 'id'       => 'vacuum',

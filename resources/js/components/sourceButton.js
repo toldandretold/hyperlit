@@ -1065,7 +1065,7 @@ export class SourceContainerManager extends ContainerManager {
     }
 
     // Clear the now-stale IndexedDB content (keeps library record), then reload
-    const { clearBookContentFromIndexedDB } = await import('../indexedDB/index.js');
+    const { clearBookContentFromIndexedDB } = await import('../indexedDB/index');
     await clearBookContentFromIndexedDB(bookId);
     window.location.reload();
   }
@@ -1221,7 +1221,7 @@ export class SourceContainerManager extends ContainerManager {
       }
 
       // 3. Delete from IndexedDB only after server confirms
-      const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
+      const { deleteBookFromIndexedDB } = await import('../indexedDB/index');
       await deleteBookFromIndexedDB(book);
 
       console.log(`Book ${book} deleted successfully.`);
@@ -1550,7 +1550,7 @@ export class SourceContainerManager extends ContainerManager {
           <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">AI Citation Review — live pipeline</h3>
           <button type="button" id="ai-review-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
         </div>
-        <p style="font-size: 13px; color: #9fc7c0; margin: 0 0 20px 0; line-height: 1.5;">✉ The full report will be emailed to you when it completes — it's safe to close this window or leave the page.</p>
+        <p style="display: flex; align-items: center; gap: 9px; font-size: 13px; color: #9fc7c0; margin: 0 0 20px 0; line-height: 1.5;"><span style="font-size: 19px; line-height: 1; flex: 0 0 auto;">✉️</span><span>The full report will be emailed to you when it completes — it's safe to close this window or leave the page.</span></p>
         <div id="ai-review-viz">
           <p style="font-size: 13px; color: #aaa; margin: 0;">Loading pipeline state…</p>
         </div>
@@ -1813,7 +1813,7 @@ export class SourceContainerManager extends ContainerManager {
   async syncPipelineHighlights(bookId) {
     try {
       const { syncAnnotationsOnly } = await import('../postgreSQL.js');
-      const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library.js');
+      const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library');
 
       // Sync highlights + hypercites from server into IndexedDB
       await syncAnnotationsOnly(bookId);

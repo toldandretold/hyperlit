@@ -1,0 +1,3749 @@
+{
+    "source": "book_1777264888398 (early-modern history article; self-contained footnotes, full-then-short-form, archival sources)",
+    "captured": "2026-06-12 (post-link state: linked short forms carry their antecedent meta + short_form_of)",
+    "footnotes": [
+        {
+            "footnoteId": "Fn1777264889921_0i9b",
+            "marker": 13,
+            "text": "J. S. Hart, Justice upon petition: the House of Lords and the reformation of justice, 1621–1675 (London, 1991), pp. 64–5, 69.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1991,
+                "title": "Justice upon petition: the House of Lords and the reformation of justice",
+                "authors": [
+                    "Hart, J. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_14tz",
+            "marker": 30,
+            "text": "Hart, Justice, pp. 66–7.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1991,
+                "title": "Justice upon petition: the House of Lords and the reformation of justice",
+                "authors": [
+                    "Hart, J. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_0i9b"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_1cz2",
+            "marker": 10,
+            "text": "D. R. Como, Radical parliamentarians and the English Civil War (Oxford, 2018), p. 16. For developments in the 1620s, see C. R. Kyle, Theater of state: parliament and political culture in early Stuart England (Stanford, CA, 2012).",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2018,
+                "title": "Radical parliamentarians and the English Civil War",
+                "authors": [
+                    "Como, D. R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2012,
+                        "title": "Theater of state: parliament and political culture in early Stuart England",
+                        "authors": [
+                            "Kyle, C. R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_2nx0",
+            "marker": 16,
+            "text": "J. Peacey, The Madman and the Churchrobber: law and conflict in early modern England (Oxford, 2022), p. 158.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2022,
+                "title": "The Madman and the Churchrobber: law and conflict in early modern England",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_4ed1",
+            "marker": 17,
+            "text": "CJ, II, pp. 8, 10–11, 46–7.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "CJ, II, pp. 8, 10–11, 46–7",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_6mks",
+            "marker": 15,
+            "text": "R. Cust and A. Hughes, ‘Introduction: after revisionism’, in idem and idem, eds., Conflict in early Stuart England: studies in religion and politics(London, 1989), p. 10; A. Wood, ‘Beyond post-revisionism? The Civil War allegiances of the miners of the Derbyshire “Peak Country”’, Historical Journal,",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": 1989,
+                "title": "Introduction: after revisionism",
+                "authors": [
+                    "Cust, R.",
+                    "Hughes, A."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": 1997,
+                        "title": "Beyond post-revisionism? The Civil War allegiances of the miners of the Derbyshire “Peak Country”",
+                        "authors": [
+                            "Wood, A."
+                        ],
+                        "journal": "Historical Journal",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_7zw5",
+            "marker": 14,
+            "text": "B. Waddell and J. Peacey, ‘Introduction: power, processes and patterns in early modern petitioning’, in idem and idem, eds., The power of petitioning in early modern Britain (London, 2024), pp. 13–14; J. Peacey, ‘Parliament, printed petitions and the political imaginary in seventeenth-century Englan",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": 2024,
+                "title": "Introduction: power, processes and patterns in early modern petitioning",
+                "authors": [
+                    "Waddell, B.",
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": 2018,
+                        "title": "Parliament, printed petitions and the political imaginary in seventeenth-century England",
+                        "authors": [
+                            "Peacey, J."
+                        ],
+                        "journal": "Parliaments, Estates and Representation",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_8xly",
+            "marker": 9,
+            "text": "Millstone, Manuscript circulation, p. 313.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_afzp",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_afzp",
+            "marker": 6,
+            "text": "N. Millstone, Manuscript circulation and the invention of politics in early modern England (Cambridge, 2016), ch. 7; J. P. Sommerville, Royalists and patriots: politics and ideology in England, 1603–1640 (2nd edn, Abingdon, 2014), pp. 145–6; R. Ashton, The city and the court, 1603–1643(Cambridge, 19",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_auwx",
+            "marker": 8,
+            "text": "P. Seaward, ‘Institutional memory and contemporary history in the House of Commons, 1547–1640’, in P. Cavill and A. Gajda, eds., Writing the history of parliament in Tudor and early Stuart England (Manchester, 2018), p. 212.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": 2018,
+                "title": "Institutional memory and contemporary history in the House of Commons, 1547–1640",
+                "authors": [
+                    "Seaward, P."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Manchester",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_b9x3",
+            "marker": 11,
+            "text": "C. Russell, The fall of the British monarchies, 1637–1642 (Oxford, 1995), ch. 5; J. Peacey, Print and public politics in the English Revolution (Cambridge, 2013), ch. 8; A. Fletcher, The outbreak of the English Civil War (London, 1985), ch. 6; K. Lindley, Popular politics and religion in Civil War L",
+            "meta": null
+        },
+        {
+            "footnoteId": "Fn1777264889921_bchw",
+            "marker": 39,
+            "text": "PA, HL\/PO\/JO\/10\/4\/5, fo. 134; PA, HL\/PO\/JO\/10\/1\/49, fo. 9; PA, HL\/PO\/JO\/10\/1\/75, fos. 121–4; PA, HL\/PO\/JO\/10\/1\/69, fos. 145–6.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "PA, HL\/PO\/JO\/10\/4\/5, fo. 134",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "PA, HL\/PO\/JO\/10\/1\/49, fo. 9",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "PA, HL\/PO\/JO\/10\/1\/75, fos. 121–4",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "PA, HL\/PO\/JO\/10\/1\/69, fos. 145–6",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_c447",
+            "marker": 40,
+            "text": "CJ, II, pp. 24, 34.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_c8el",
+            "marker": 1,
+            "text": "British Library (BL), Harley MS 158, fo. 279r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_cfqm",
+            "marker": 21,
+            "text": "W. Notestein, ed., The journal of Sir Simonds D’Ewes: from the beginning of the Long Parliament to the opening of the trial of the earl of Strafford(Journal of D’Ewes) (New Haven, CT, 1923), p. 297.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1923,
+                "title": "The journal of Sir Simonds D’Ewes: from the beginning of the Long Parliament to the opening of the trial of the earl of Strafford (Journal of D’Ewes)",
+                "authors": [
+                    "Notestein, W."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "New Haven, CT",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ektf",
+            "marker": 32,
+            "text": "Journal of D’Ewes, p. 430.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "commentary",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ftto",
+            "marker": 29,
+            "text": "To the right honourable the lords; knights, citizens, and burgesses assembled in both houses of parliament. The humble petition of Richard Chambers merchant and alderman of the city of London (London, 1646).",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": 1646,
+                "title": "The humble petition of Richard Chambers merchant and alderman of the city of London",
+                "authors": [
+                    "Chambers, Richard"
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_fvwy",
+            "marker": 20,
+            "text": "Peters, ‘“Friction”’, pp. 169–70; A. Beeton, ‘Recording a revolution: the clerk of the parliaments and the Journals of the House of Lords, 1640–9’, Historical Research, 98 (2025), pp. 229–43; Kyle, Theater, pp. 66–7.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Peters",
+                "publisher": null,
+                "short_title": "“Friction”",
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": 2025,
+                        "title": "Recording a revolution: the clerk of the parliaments and the Journals of the House of Lords, 1640–9",
+                        "authors": [
+                            "Beeton, A."
+                        ],
+                        "journal": "Historical Research",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "short-form",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": "Kyle",
+                        "publisher": null,
+                        "short_title": "Theater",
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ggsi",
+            "marker": 2,
+            "text": "Journal of the House of Commons (CJ), II, p. 237. There were two Thomas Symonds in the Levant Company. It is likely that this is Thomas Symonds, ‘draper’ and merchant, brought before the council for stealing his currants from the customs house in January 1628, see The National Archives (TNA), SP 16\/",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Journal of the House of Commons (CJ), II, p. 237",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "The National Archives (TNA), SP 16\/132, fo. 25",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "The National Archives (TNA), SP 16\/133, fo. 40",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "The National Archives (TNA), SP 16\/135, fos. 84r–85v, 86r–87v",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_gstx",
+            "marker": 12,
+            "text": "D. Scott, ‘“Particular business” in the Long Parliament: the Hull letters 1644–1648’, Royal Historical Society Camden Fifth Series, 17 (2009), pp. 273–341. For later work on petitioning on ‘bread and butter’ issues, see D. Hirst, ‘Making contact: petitions and the English Republic’, Journal of Briti",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 2009,
+                "title": "“Particular business” in the Long Parliament: the Hull letters 1644–1648",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": "Royal Historical Society Camden Fifth Series",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": 2006,
+                        "title": "Making contact: petitions and the English Republic",
+                        "authors": [
+                            "Hirst, D."
+                        ],
+                        "journal": "Journal of British Studies",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book-chapter",
+                        "year": 2002,
+                        "title": "Public space, private affairs: committees, petitions and lobbies in the early modern English parliament",
+                        "authors": [
+                            "Dean, D."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ikf7",
+            "marker": 24,
+            "text": "Queene Elizabeths speech to her last parliament (London, 1642); H. Pierce, Unseemly pictures: graphic satire and politics in early modern England(New Haven, CT, and London, 2008), pp. 88–92.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": 1642,
+                "title": "Queene Elizabeths speech to her last parliament",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2008,
+                        "title": "Unseemly pictures: graphic satire and politics in early modern England",
+                        "authors": [
+                            "Pierce, H."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_im0u",
+            "marker": 33,
+            "text": "Journal of the House of Lords (LJ), IV, pp. 158, 260.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "Journal of the House of Lords",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_jubn",
+            "marker": 38,
+            "text": "C. Russell, Parliaments and English politics, 1621–1629 (Oxford, 1979), chs. 2–3; E. R. Foster, ‘The procedure of the House of Commons against patents and monopolies, 1621–1624’, in W. A. Aiken and B. D. Henning, eds., Conflict in Stuart England: essays in honour of Wallace Notestein(London, 1960), ",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1979,
+                "title": "Parliaments and English politics, 1621–1629",
+                "authors": [
+                    "Russell, C."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book-chapter",
+                        "year": 1960,
+                        "title": "The procedure of the House of Commons against patents and monopolies, 1621–1624",
+                        "authors": [
+                            "Foster, E. R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "London",
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_juqt",
+            "marker": 7,
+            "text": "Millstone, Manuscript circulation, pp. 94–5; N. Popper, The specter of the archive: political practice and the information state in early modern Britain(Chicago, IL, 2024), pp. 4–5; K. Peters, ‘“Friction in the archives”: access and the politics of record-keeping in revolutionary England’, in L. Cor",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_afzp",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_kjgx",
+            "marker": 36,
+            "text": "B. E. Supple, Commercial crisis and change in England, 1600–1642: a study in the instability of a mercantile economy (Cambridge, 1959), p. 125. Ben Coates argues that the crisis should not be exaggerated, B. Coates, The impact of the English Civil War on the economy of London, 1642–50(London, 2016),",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1959,
+                "title": "Commercial crisis and change in England, 1600–1642: a study in the instability of a mercantile economy",
+                "authors": [
+                    "Supple, B. E."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2016,
+                        "title": "The impact of the English Civil War on the economy of London, 1642–50",
+                        "authors": [
+                            "Coates, Ben"
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_m6v1",
+            "marker": 35,
+            "text": "Kyle, Theater, pp. 141–2; A. Thrush, ‘Legislation and petitions’, in A. Thrush and J. P. Ferris, eds., The House of Commons, 1604–1629 (6 vols., Cambridge, 2010), I, p. 332.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Kyle",
+                "publisher": null,
+                "short_title": "Theater",
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book-chapter",
+                        "year": 2010,
+                        "title": "Legislation and petitions",
+                        "authors": [
+                            "Thrush, A."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_m9ke",
+            "marker": 27,
+            "text": "Peacey, ‘Parliament’, p. 351; Peacey, Madman, pp. 160–3, 171–83.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Peacey",
+                "publisher": null,
+                "short_title": "Parliament",
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "short-form",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": "Peacey",
+                        "publisher": null,
+                        "short_title": "Madman",
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_man9",
+            "marker": 26,
+            "text": "Kyle, Theater, pp. 163–73.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Kyle",
+                "publisher": null,
+                "short_title": "Theater",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_nbue",
+            "marker": 25,
+            "text": "Journal of D’Ewes, pp. 299–300; T. E. Hartley, ed., Proceedings in the parliaments of Elizabeth I (3 vols., London and New York, NY, 1995), III, p. 376; Seaward, ‘Institutional memory’, p. 214.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "Journal of D’Ewes",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1995,
+                        "title": "Proceedings in the parliaments of Elizabeth I",
+                        "authors": [
+                            "Hartley, T. E."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book-chapter",
+                        "year": null,
+                        "title": "Institutional memory",
+                        "authors": [
+                            "Seaward"
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_nbwe",
+            "marker": 34,
+            "text": "London, Parliamentary Archives (PA), HL\/PO\/JO\/10\/4\/4, fo. 144.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ndzr",
+            "marker": 42,
+            "text": "For a petition penned upon the Commons’ order, see BL, Stowe MS 132, fos. 298r–299v; Appendix A, in Journal of D’Ewes, p. 523.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": null,
+                        "title": "Appendix A",
+                        "authors": [],
+                        "journal": "Journal of D’Ewes",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_obew",
+            "marker": 41,
+            "text": "Journal of D’Ewes, pp. 174, 312.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "Journal of D’Ewes",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_ozcr",
+            "marker": 22,
+            "text": "Millstone, Manuscript circulation, p. 98. For the costs of official and unofficial materials, see pp. 107, 111; Kyle, Theater, p. 107; Peacey, Public politics, p. 17.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_afzp",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_qdwz",
+            "marker": 19,
+            "text": "Popper, Specter, p. 4.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Popper",
+                "publisher": null,
+                "short_title": "Specter",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_r878",
+            "marker": 3,
+            "text": "BL, Harley MS 158, fo. 279r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_rgvd",
+            "marker": 18,
+            "text": "D. Scott, ‘A plea for the Lords: party, power and the Westminster peers, 1640–9’ (paper presented at the History of Parliament colloquium: Parliament and Revolutionary Britain, April 2024). I am grateful to David for discussions on the impact of faction on petitioners.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "conference-paper",
+                "year": 2024,
+                "title": "A plea for the Lords: party, power and the Westminster peers, 1640–9",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_s3rw",
+            "marker": 37,
+            "text": "Appendix A, in Journal of D’Ewes, pp. 525–7. For a large petition on the stannaries, see PA, HL\/PO\/JO\/10\/1\/66, fo. 181.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": "Appendix A",
+                "authors": [],
+                "journal": "Journal of D’Ewes",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_s3vp",
+            "marker": 31,
+            "text": "Little, ‘Business’, p. 239; CJ, II, pp. 49–50.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Little",
+                "publisher": null,
+                "short_title": "Business",
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_u1e9",
+            "marker": 23,
+            "text": "W. H. Coates, A. S. Young, and V. F. Snow, eds., The private journals of the Long Parliament (PJ) (3 vols., New Haven, CT, 1982–92), I, pp. 165–6.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1982,
+                "title": "The private journals of the Long Parliament (PJ)",
+                "authors": [
+                    "Coates, W. H.",
+                    "Young, A. S.",
+                    "Snow, V. F."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "New Haven, CT",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_vuga",
+            "marker": 28,
+            "text": "TNA, SP 105\/148, fo. 196r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "TNA, SP 105\/148, fo. 196r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_wrj9",
+            "marker": 4,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "ibid",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889921_wyvk",
+            "marker": 5,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "ibid",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_09kp",
+            "marker": 91,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "ibid",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_0fhb",
+            "marker": 69,
+            "text": "Ibid., pp. 364–6; Scott, ‘Plea’, p. 5.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_tkdt"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_0tq2",
+            "marker": 142,
+            "text": "Peacey, Madman, p. 158.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2022,
+                "title": "The Madman and the Churchrobber: law and conflict in early modern England",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_2nx0"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_13qw",
+            "marker": 95,
+            "text": "Whitelocke papers, VIII, no. 108, fo. 253v. This referenced parliaments in the first and nineteenth regnal years of James, but it is likely this reference to James’s first year was an error given condemnation of an earlier glass patent which occured in 1614. Earlier lobbying documents by glassmakers",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_17mg",
+            "marker": 56,
+            "text": "Journal of D’Ewes, p. 47.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1923,
+                "title": "The journal of Sir Simonds D’Ewes: from the beginning of the Long Parliament to the opening of the trial of the earl of Strafford (Journal of D’Ewes)",
+                "authors": [
+                    "Notestein, W."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "New Haven, CT",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_cfqm"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_1n2o",
+            "marker": 143,
+            "text": "I am grateful to David Scott for discussions on this point.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "commentary",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_20e8",
+            "marker": 105,
+            "text": "T. Leng, Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700 (Oxford, 2020), pp. 193, 196.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_2q26",
+            "marker": 110,
+            "text": "Brenner, Merchants, pp. 60, 85; Leng, Fellowship, pp. 230–1.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_tkdt"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_2vbq",
+            "marker": 131,
+            "text": "‘19 May’, PP 1624.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "news-article",
+                "year": null,
+                "title": "19 May",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_32y0",
+            "marker": 111,
+            "text": "Brenner, Merchants, p. 51.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_tkdt"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_3sjn",
+            "marker": 71,
+            "text": "For earlier activity, see I. W. Archer, ‘The London lobbies in the later sixteenth century’, Historical Journal, 31 (1988), pp. 17–44.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 1988,
+                "title": "The London lobbies in the later sixteenth century",
+                "authors": [
+                    "Archer, I. W."
+                ],
+                "journal": "Historical Journal",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_52of",
+            "marker": 79,
+            "text": "Godfrey, Glassmaking, p. 124.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1975,
+                "title": "The development of English glassmaking, 1560–1640",
+                "authors": [
+                    "Godfrey, E. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_zixj"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_5bqn",
+            "marker": 43,
+            "text": "Journal of D’Ewes, p. 93; CJ, I, p. 931.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "commentary",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_5q8v",
+            "marker": 94,
+            "text": "TNA, SP 16\/449, fo. 71r; Journal of D’Ewes, p. 495.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "TNA, SP 16\/449, fo. 71r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": "Journal of D’Ewes",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_5w57",
+            "marker": 140,
+            "text": "Brenner, Merchants, p. 347.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_tkdt"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_5ymk",
+            "marker": 58,
+            "text": "P. Little, ‘Clotworthy, Sir John (d. 1665)’, HoP 1640–1660, IV, p. 199.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": null,
+                "title": "Clotworthy, Sir John (d. 1665)",
+                "authors": [
+                    "Little, P."
+                ],
+                "journal": "History of Parliament, 1640–1660, IV",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_63pk",
+            "marker": 92,
+            "text": "Whitelocke papers, VIII, no. 108, fo. 257v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_68kp",
+            "marker": 78,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1975,
+                "title": "The development of English glassmaking, 1560–1640",
+                "authors": [
+                    "Godfrey, E. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_zixj"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_6b9s",
+            "marker": 46,
+            "text": "For the earlier use of this tactic by Benjamin Crokey, see Peacey, Madman, pp. 160–3, 193.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2022,
+                "title": "The Madman and the Churchrobber: law and conflict in early modern England",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_2nx0"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_78ko",
+            "marker": 84,
+            "text": "Whitelocke papers, VIII, no. 108, fo. 254r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 108, fo. 254r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_7b6w",
+            "marker": 125,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_7cmu",
+            "marker": 116,
+            "text": "Leng, Fellowship, pp. 240, 272–3; M. James, Social problems and policy during the Puritan revolution 1640–1660 (New York, NY, 1966), pp. 148–50. This included petitions from Worcester and Norfolk, Whitelocke papers, VIII, nos. 37–8; Appendix A, in Journal of D’Ewes, pp. 522, 526–7.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_7gc8",
+            "marker": 127,
+            "text": "TNA, SP 16\/277, fo. 226r. See also their account in TNA, SP 16\/277, fos. 224r–225v, which was censored in its description of their internal controversies.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_9553",
+            "marker": 101,
+            "text": "‘Glynne, John (1603–1666)’, HoP 1640–1660, V, pp. 258, 261.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": null,
+                "title": "Glynne, John (1603–1666)",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_9aei",
+            "marker": 87,
+            "text": "PA, HL\/PO\/JO\/10\/1\/118, fo. 80 (1).",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_9ylb",
+            "marker": 98,
+            "text": "Scott, ‘Plea’, pp. 3, 14. For a reported false printed speech by MPs on the bishops, see PJ, I, p. 326.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "conference-paper",
+                "year": 2024,
+                "title": "A plea for the Lords: party, power and the Westminster peers, 1640–9",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_rgvd"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_ac8d",
+            "marker": 52,
+            "text": "The London Archives, COL\/RMD\/PA\/01\/005, fo. 129r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "London Archives, COL\/RMD\/PA\/01\/005, fo. 129r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_agh0",
+            "marker": 106,
+            "text": "A. Friis, Alderman Cockayne’s project and the cloth trade: the commercial policy of England in its main aspects, 1603–1625 (Copenhagen and London, 1917).",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1917,
+                "title": "Alderman Cockayne’s project and the cloth trade: the commercial policy of England in its main aspects, 1603–1625",
+                "authors": [
+                    "Friis, A."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_bh5z",
+            "marker": 82,
+            "text": "PA, HL\/PO\/JO\/10\/1\/57, fo. 105.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "PA, HL\/PO\/JO\/10\/1\/57, fo. 105",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_brjb",
+            "marker": 124,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_c47z",
+            "marker": 102,
+            "text": "D. Scott, ‘Politics and party in the House of Commons’, HoP 1640–1660, I, p. 267.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": null,
+                "title": "Politics and party in the House of Commons",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_c9xa",
+            "marker": 120,
+            "text": "CJ, II, p. 210. The select committee was regularly revived, see CJ, II, pp. 296, 415, 480.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_ceze",
+            "marker": 104,
+            "text": "CJ, II, pp. 523, 529–30; Godfrey, Glassmaking, p. 133.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "short-form",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": "Godfrey",
+                        "publisher": null,
+                        "short_title": "Glassmaking",
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_ch72",
+            "marker": 45,
+            "text": "Ibid., p. 94.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "Journal of D’Ewes",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_obew"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_dfjf",
+            "marker": 51,
+            "text": "J. R. Dascent et al., eds., Acts of the Privy Council of England. New Series(APC) (46 vols., London, 1890–1964), XXXVIII, pp. 8, 17.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": null,
+                "title": "Acts of the Privy Council of England. New Series(APC)",
+                "authors": [
+                    "Dascent, J. R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_dt4q",
+            "marker": 103,
+            "text": "Whitelocke papers, VIII, no. 108, fo. 256.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 108, fo. 256",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_e6ms",
+            "marker": 63,
+            "text": "LJ, IV, p. 521.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "LJ",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_f207",
+            "marker": 121,
+            "text": "CJ, II, pp. 56, 214; Appendix A, in Journal of D’Ewes, p. 523; Whitelocke papers, VIII, no. 22, fos. 46v–49v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "CJ, II",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": null,
+                        "title": "Appendix A",
+                        "authors": [],
+                        "journal": "Journal of D’Ewes",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "Whitelocke papers",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_f8m0",
+            "marker": 67,
+            "text": "LJ, IV, p. 521. Some peers also voted against the Lords’ decision not to petition with the Commons on this in December, see Scott, ‘Plea’, p. 5.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "LJ",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "short-form",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": "Scott",
+                        "publisher": null,
+                        "short_title": "Plea",
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_fgtj",
+            "marker": 113,
+            "text": "TNA, SP 16\/277, fos. 226r–227v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "TNA, SP 16\/277, fos. 226r–227v",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_fi7w",
+            "marker": 85,
+            "text": "Scott, ‘Committees of the House’, HoP 1640–1660, I, p. 184.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Scott",
+                "publisher": null,
+                "short_title": "Committees of the House",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_fkop",
+            "marker": 122,
+            "text": "Whitelocke papers, VIII, no. 28, fos. 64v–73r. For a more readable copy, see no. 29, fos. 74v–77r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_fnvc",
+            "marker": 65,
+            "text": "Ibid., pp. 51, 56.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "LJ",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_e6ms"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_g79z",
+            "marker": 62,
+            "text": "PJ, I, p. 94.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "PJ, I, p. 94",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_gchb",
+            "marker": 134,
+            "text": "This had been investigated by the commission for trade. See M. Zell, ‘Walter Morrell and the new draperies project, c. 1603–1631’, Historical Journal, 44 (2001), pp. 651–75.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 2001,
+                "title": "Walter Morrell and the new draperies project, c. 1603–1631",
+                "authors": [
+                    "Zell, M."
+                ],
+                "journal": "Historical Journal",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_gmyo",
+            "marker": 88,
+            "text": "PA, HL\/PO\/JO\/10\/1\/120, fo. 88; Whitelocke papers, VIII, no. 108, fo. 255v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_gye5",
+            "marker": 93,
+            "text": "Hampshire Archives, political papers: Sir Thomas Jervoise, 44M69\/G2\/31. This focused on their quo warranto proceedings in 1626, but did mention parliamentary opposition; TNA, SP 14\/162, fos. 110r–111r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Hampshire Archives, political papers: Sir Thomas Jervoise, 44M69\/G2\/31",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "TNA, SP 14\/162, fos. 110r–111r",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_hh74",
+            "marker": 75,
+            "text": "For his petition for it, see TNA, SP 16\/282, fo. 189.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_hnpw",
+            "marker": 139,
+            "text": "Leng, Fellowship, p. 229. Brenner argues they were largely royalist, though some younger members moved to parliamentarianism, Merchants, pp. 382–3, 386–7. For negotiations for loans, see CJ, II, pp. 358, 363, 380, 557.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_hzv3",
+            "marker": 128,
+            "text": "Popper, Specter, p. 138.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Popper",
+                "publisher": null,
+                "short_title": "Specter",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_i6fc",
+            "marker": 132,
+            "text": "Whitelocke papers, VIII, no. 29, fo. 75r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 29, fo. 75r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_ia6m",
+            "marker": 83,
+            "text": "Ibid., fo. 106; PA, HL\/PO\/JO\/10\/1\/118, fo. 80; LJ, IV, p. 248.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2022,
+                "title": "The Madman and the Churchrobber: law and conflict in early modern England",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_2nx0"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_iic0",
+            "marker": 114,
+            "text": "J. F. Larkin, ed., Stuart royal proclamations, II: Royal proclamations of King Charles I, 1625–1646 (Oxford, 1983), pp. 443–4.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1983,
+                "title": "Stuart royal proclamations, II: Royal proclamations of King Charles I, 1625–1646",
+                "authors": [
+                    "Larkin, J. F."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_jdbj",
+            "marker": 123,
+            "text": "Whitelocke papers, VIII, no. 29, fo. 75r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 29, fo. 75r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_jeql",
+            "marker": 60,
+            "text": "Como, Radical parliamentarians, pp. 89, 107, 114–17.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2018,
+                "title": "Radical parliamentarians and the English Civil War",
+                "authors": [
+                    "Como, D. R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_1cz2",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2012,
+                        "title": "Theater of state: parliament and political culture in early Stuart England",
+                        "authors": [
+                            "Kyle, C. R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_jqq8",
+            "marker": 112,
+            "text": "Ibid., p. 92.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_tkdt"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_jyi4",
+            "marker": 138,
+            "text": "Millstone, Manuscript circulation, p. 95.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_afzp",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_k4a3",
+            "marker": 48,
+            "text": "R. Ashton, ‘Chambers, Richard (c. 1588–1658)’, ODNB; To the parliament of the common-wealth of England, Scotland, and Ireland. The brief remonstrance and humble petition of Richard Chambers merchant, late alderman and sheriffe of the city of London (London, 1654).",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "website",
+                "year": null,
+                "title": "Chambers, Richard (c. 1588–1658)",
+                "authors": [
+                    "Ashton, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1654,
+                        "title": "To the parliament of the common-wealth of England, Scotland, and Ireland. The brief remonstrance and humble petition of Richard Chambers merchant, late alderman and sheriffe of the city of London",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_kp1c",
+            "marker": 99,
+            "text": "Lindley, Popular politics, pp. 96, 102, 124; J. Walter, ‘“This infamous, scandalous, headless insurrection”: the attack on William Laud and Lambeth Palace, May 1640, revisited’, English Historical Review, 139 (2024), pp. 1059–87, at p. 1063.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": null,
+                "title": "Popular politics",
+                "authors": [
+                    "Lindley"
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "journal-article",
+                        "year": 2024,
+                        "title": "“This infamous, scandalous, headless insurrection”: the attack on William Laud and Lambeth Palace, May 1640, revisited",
+                        "authors": [
+                            "Walter, J."
+                        ],
+                        "journal": "English Historical Review",
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_kzy8",
+            "marker": 80,
+            "text": "APC, XXXVII, p. 343; APC, XXXVIII, p. 91.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "short-form",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_lkvd",
+            "marker": 54,
+            "text": "For this in the eighteenth century, see P. Loft, ‘Involving the public: parliament, petitioning, and the language of interest, 1688–1720’, Journal of British Studies, 55 (2016), pp. 1–23, at p. 11.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 2016,
+                "title": "Involving the public: parliament, petitioning, and the language of interest, 1688–1720",
+                "authors": [
+                    "Loft, P."
+                ],
+                "journal": "Journal of British Studies",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_lu0b",
+            "marker": 55,
+            "text": "C. A. Dennehy, The Irish parliament, 1613–89: the evolution of a colonial institution (Manchester, 2019), p. 41.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2019,
+                "title": "The Irish parliament, 1613–89: the evolution of a colonial institution",
+                "authors": [
+                    "Dennehy, C. A."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Manchester",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_lwbq",
+            "marker": 57,
+            "text": "Ibid., pp. 102–3. For the political nature of this committee, see D. Scott, ‘Committees of the House of Commons’, HoP 1640–1660, I, p. 171.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1923,
+                "title": "The journal of Sir Simonds D’Ewes: from the beginning of the Long Parliament to the opening of the trial of the earl of Strafford (Journal of D’Ewes)",
+                "authors": [
+                    "Notestein, W."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "New Haven, CT",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_cfqm"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_lze0",
+            "marker": 109,
+            "text": "Leng, Fellowship, p. 226.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_magt",
+            "marker": 47,
+            "text": "The humble petition of Richard Chambers.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "The humble petition of Richard Chambers.",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_mwny",
+            "marker": 146,
+            "text": "D. Scott, ‘Party politics in the Long Parliament, 1640–8’, in G. Southcombe and G. Tapsell, eds., Revolutionary England, c. 1630–c.1660: essays for Clive Holmes (London, 2017), p. 34.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": 2017,
+                "title": "Party politics in the Long Parliament, 1640–8",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_n6ww",
+            "marker": 50,
+            "text": "W. Notestein, F. H. Relf, and H. Simpson, eds., Commons debates, 1621(CD 1621) (7 vols., New Haven, CT, 1935), II, p. 373.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1935,
+                "title": "Commons debates, 1621(CD 1621)",
+                "authors": [
+                    "Notestein, W.",
+                    "Relf, F. H.",
+                    "Simpson, H."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "New Haven, CT",
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_nhob",
+            "marker": 137,
+            "text": "TNA, SP 16\/277, fo. 226v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "TNA, SP 16\/277, fo. 226v.",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_nqoc",
+            "marker": 126,
+            "text": "Ibid.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_nrre",
+            "marker": 49,
+            "text": "Peacey, Public politics, pp. 270–5.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Peacey",
+                "publisher": null,
+                "short_title": "Public politics",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_o9f8",
+            "marker": 90,
+            "text": "PA, HL\/PO\/JO\/10\/1\/122, fo. 80.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_obej",
+            "marker": 100,
+            "text": "‘Whitelocke, Bulstrode (1605–75)’, HoP 1640–1660, IX, p. 686.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": null,
+                "title": "Whitelocke, Bulstrode (1605–75)",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_oh6b",
+            "marker": 44,
+            "text": "Journal of D’Ewes, p. 93.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "commentary",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_ohxx",
+            "marker": 108,
+            "text": "Leng, Fellowship, p. 225. Previously, the role of the commission in this attack had been overlooked. See D. Pennington, ‘“Free passage” for the “king’s true liegemen”: the meaning of free trade in a corporate age, 1555–1624’, Journal of British Studies, 63 (2024), pp. 282–300.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2020,
+                "title": "Fellowship and freedom: the Merchant Adventurers and the restructuring of English commerce, 1582–1700",
+                "authors": [
+                    "Leng, T."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_20e8"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_opkr",
+            "marker": 73,
+            "text": "CD 1621, VII, pp. 539–49.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": 1621,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_otf2",
+            "marker": 59,
+            "text": "Ibid., p. 200. For a similar proposal to use county petitions to prove the need to put the realm in a posture of defence, see PJ, I, p. 163.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": null,
+                "title": "Clotworthy, Sir John (d. 1665)",
+                "authors": [
+                    "Little, P."
+                ],
+                "journal": "History of Parliament, 1640–1660, IV",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_5ymk"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_pq46",
+            "marker": 133,
+            "text": "APC, XXXIX, p. 268.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": null,
+                "title": "Acts of the Privy Council of England. New Series(APC)",
+                "authors": [
+                    "Dascent, J. R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_dfjf"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_pt03",
+            "marker": 76,
+            "text": "Godfrey, Glassmaking, pp. 132–3.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1975,
+                "title": "The development of English glassmaking, 1560–1640",
+                "authors": [
+                    "Godfrey, E. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_zixj"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_q0ws",
+            "marker": 89,
+            "text": "PA, HL\/PO\/JO\/10\/1\/120, fo. 88.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_q4uz",
+            "marker": 53,
+            "text": "Thrush, ‘Legislation and petitions’, p. 328.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "short-form",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": "Thrush",
+                "publisher": null,
+                "short_title": "Legislation and petitions",
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_qeq7",
+            "marker": 97,
+            "text": "Ibid., fo. 255.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "ibid",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_r3i0",
+            "marker": 117,
+            "text": "Whitelocke papers, VIII, no. 81, fos. 191v–199r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_rjyx",
+            "marker": 64,
+            "text": "PJ, I, p. 76.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_rylg",
+            "marker": 136,
+            "text": "Ibid., fo. 76v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 2001,
+                "title": "Walter Morrell and the new draperies project, c. 1603–1631",
+                "authors": [
+                    "Zell, M."
+                ],
+                "journal": "Historical Journal",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_gchb"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_skew",
+            "marker": 77,
+            "text": "These petitions, whilst not entered in the Journals, are described in Longleat House, Whitelocke papers, VIII, no. 108, fo. 253v (microfilm copies consulted at the Institute of Historical Research). All quotes are included by kind permission of the Marquess of Bath, Longleat.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Longleat House, Whitelocke papers, VIII, no. 108, fo. 253v",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_szf9",
+            "marker": 115,
+            "text": "Ibid., pp. 676–9.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1983,
+                "title": "Stuart royal proclamations, II: Royal proclamations of King Charles I, 1625–1646",
+                "authors": [
+                    "Larkin, J. F."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_iic0"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_t1nr",
+            "marker": 70,
+            "text": "See for example Pym’s favourable response to an anti-episcopacy petition by women, as recorded in its printed copy, A true copie of the petition of the gentlewomen and tradesmens-wives… (London, 1642), p. 6.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1642,
+                "title": "A true copie of the petition of the gentlewomen and tradesmens-wives…",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_tkdt",
+            "marker": 68,
+            "text": "R. Brenner, Merchants and revolution: commercial change, political conflict, and London’s overseas traders, 1550–1653 (London and New York, NY, 2003), pp. 317, 370.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2003,
+                "title": "Merchants and revolution: commercial change, political conflict, and London’s overseas traders",
+                "authors": [
+                    "Brenner, R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_tt2a",
+            "marker": 61,
+            "text": "Scott, ‘Plea’, pp. 2, 6.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "conference-paper",
+                "year": 2024,
+                "title": "A plea for the Lords: party, power and the Westminster peers, 1640–9",
+                "authors": [
+                    "Scott, D."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_rgvd"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_u59m",
+            "marker": 147,
+            "text": "Como, Radical parliamentarians, p. 16.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2018,
+                "title": "Radical parliamentarians and the English Civil War",
+                "authors": [
+                    "Como, D. R."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_1cz2",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2012,
+                        "title": "Theater of state: parliament and political culture in early Stuart England",
+                        "authors": [
+                            "Kyle, C. R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_vdx8",
+            "marker": 145,
+            "text": "Seaward, ‘Institutional memory’, p. 213.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book-chapter",
+                "year": 2018,
+                "title": "Institutional memory and contemporary history in the House of Commons, 1547–1640",
+                "authors": [
+                    "Seaward, P."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Manchester",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_auwx"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_w3i1",
+            "marker": 74,
+            "text": "‘1 May 1624’, in P. Baker, ed., Proceedings in parliament 1624: the House of Commons (2015–18) (PP 1624), accessed at http:\/\/www.british-history.ac.uk\/no-series\/proceedings-1624-parl (30 June 2025).",
+            "meta": {
+                "doi": null,
+                "url": "http:\/\/www.british-history.ac.uk\/no-series\/proceedings-1624-parl",
+                "type": "website",
+                "year": 2015,
+                "title": "Proceedings in parliament 1624: the House of Commons",
+                "authors": [
+                    "Baker, P."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_w8d5",
+            "marker": 118,
+            "text": "Whitelocke papers, VIII, no. 35, fo. 96, and no. 39, fo. 104. See also nos. 40–1, fos. 106–108r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_wcbk",
+            "marker": 135,
+            "text": "Whitelocke papers, VIII, no. 29, fos. 75r–76v.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_wrqt",
+            "marker": 130,
+            "text": "‘28 May’, PP 1624; ‘19 May’, PP 1624.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "28 May",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "19 May",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_x0ji",
+            "marker": 107,
+            "text": "D. C. Coleman, ‘An innovation and its diffusion: the “new draperies”', Economic History Review, 22 (1969), pp. 417–29.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 1969,
+                "title": "An innovation and its diffusion: the “new draperies”",
+                "authors": [
+                    "Coleman, D. C."
+                ],
+                "journal": "Economic History Review",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_x6kc",
+            "marker": 96,
+            "text": "Whitelocke papers, VIII, no. 108, fo. 254r.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 108, fo. 254r",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_xmim",
+            "marker": 141,
+            "text": "Millstone, Manuscript circulation, p. 276.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2016,
+                "title": "Manuscript circulation and the invention of politics in early modern England",
+                "authors": [
+                    "Millstone, N."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Cambridge",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_afzp",
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 2014,
+                        "title": "Royalists and patriots: politics and ideology in England, 1603–1640",
+                        "authors": [
+                            "Sommerville, J. P."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Abingdon",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "book",
+                        "year": 1979,
+                        "title": "The city and the court, 1603–1643",
+                        "authors": [
+                            "Ashton, R."
+                        ],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": "Cambridge",
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": "CJ, I",
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_y5os",
+            "marker": 144,
+            "text": "See J. Peacey, ‘Radical thought and political practice: officeholding and accountability in seventeenth-century Britain’, Journal of Social History, 58 (2024), pp. 100–23, at p. 102.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": 2024,
+                "title": "Radical thought and political practice: officeholding and accountability in seventeenth-century Britain",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": "Journal of Social History",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_yiww",
+            "marker": 129,
+            "text": "‘30 April’, PP 1624.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "news-article",
+                "year": null,
+                "title": "30 April",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_yrfj",
+            "marker": 81,
+            "text": "For Benjamin Crokey’s repeated default to the Lords, see Peacey, Madman, pp. 60–5.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 2022,
+                "title": "The Madman and the Churchrobber: law and conflict in early modern England",
+                "authors": [
+                    "Peacey, J."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": "Oxford",
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889921_2nx0"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_yzf8",
+            "marker": 119,
+            "text": "Whitelocke papers, VIII, no. 31, fo. 80r, and no. 35, fo. 96.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": "Whitelocke papers, VIII, no. 31, fo. 80r, and no. 35, fo. 96",
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_zixj",
+            "marker": 72,
+            "text": "E. S. Godfrey, The development of English glassmaking, 1560–1640(Oxford, 1975), ch. 2.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "book",
+                "year": 1975,
+                "title": "The development of English glassmaking, 1560–1640",
+                "authors": [
+                    "Godfrey, E. S."
+                ],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_zqzw",
+            "marker": 66,
+            "text": "Ibid., p. 95.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "journal-article",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": "LJ",
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "short_form_of": "Fn1777264889922_e6ms"
+            }
+        },
+        {
+            "footnoteId": "Fn1777264889922_zzcl",
+            "marker": 86,
+            "text": "PA, HL\/PO\/JO\/10\/1\/67, fo. 24r; PA, HL\/PO\/JO\/10\/1\/69, fo. 55; LJ, IV, pp. 322, 333, 335.",
+            "meta": {
+                "doi": null,
+                "url": null,
+                "type": "archival-source",
+                "year": null,
+                "title": null,
+                "authors": [],
+                "journal": null,
+                "surname": null,
+                "publisher": null,
+                "short_title": null,
+                "original_year": null,
+                "sub_citations": [
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    },
+                    {
+                        "doi": null,
+                        "url": null,
+                        "type": "archival-source",
+                        "year": null,
+                        "title": null,
+                        "authors": [],
+                        "journal": null,
+                        "surname": null,
+                        "publisher": null,
+                        "short_title": null,
+                        "original_year": null
+                    }
+                ]
+            }
+        }
+    ],
+    "bibliography": []
+}

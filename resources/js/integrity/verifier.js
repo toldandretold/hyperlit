@@ -9,7 +9,7 @@
  * always differ.
  */
 
-import { openDatabase } from '../indexedDB/core/connection.js';
+import { openDatabase } from '../indexedDB/core/connection';
 import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements.js';
 
 /**

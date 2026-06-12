@@ -1,4 +1,4 @@
-import { updateSingleIndexedDBRecord } from './indexedDB/index.js';
+import { updateSingleIndexedDBRecord } from './indexedDB/index';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
 import { verbose } from './utilities/logger.js';

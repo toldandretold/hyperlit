@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index.js';
+import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from "../utilities/auth.js";
 
 /**

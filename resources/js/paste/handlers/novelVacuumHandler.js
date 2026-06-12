@@ -326,7 +326,7 @@ export async function handleNovelVacuum(url, targetBookId, isSubBook) {
     glowCloudOrange();
 
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index.js');
+      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
       const allNodes = await getNodeChunksFromIndexedDB(pasteBook);
 
       const response = await fetch('/api/db/node-chunks/upsert', {

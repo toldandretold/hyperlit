@@ -1,4 +1,4 @@
-import { openDatabase } from './indexedDB/index.js';
+import { openDatabase } from './indexedDB/index';
 import {
     loadNodeChunksToIndexedDB,
     loadBibliographyToIndexedDB,

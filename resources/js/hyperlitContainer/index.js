@@ -80,7 +80,7 @@ export {
 
 import { book } from '../app.js';
 import { clearActiveBook } from '../utilities/activeContext.js';
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth.js";
 import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
@@ -846,13 +846,19 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
 
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
-    // Apply cascade-origin glow to the source mark element (persists while container is open)
+    // Apply cascade-origin glow to the source highlight (persists while container
+    // is open). A highlight renders as MULTIPLE sibling marks (split by overlaps
+    // and footnote sups) — glow the whole group sharing the clicked mark's HL_*
+    // classes, not just the clicked fragment, so the glow matches the actual
+    // highlighted text.
     if (element && element.tagName === 'MARK') {
+      const { getHighlightIdsFromMark, getMarkGroup } = await import('../hyperlights/markGroup.js');
       document.querySelectorAll('.cascade-origin').forEach(el => el.classList.remove('cascade-origin'));
-      element.classList.add('cascade-origin');
+      const groupMarks = getMarkGroup(element);
+      (groupMarks.length > 0 ? groupMarks : [element]).forEach(m => m.classList.add('cascade-origin'));
       // Fire-and-forget: persist cascade-origin ID for chunk re-renders
       // (dynamic import avoids circular dependency with scrolling.js)
-      const hlId = Array.from(element.classList).find(c => c.startsWith('HL_'));
+      const hlId = getHighlightIdsFromMark(element)[0];
       if (hlId) {
         import('../scrolling.js').then(({ setCascadeOriginId }) => setCascadeOriginId(hlId));
       }

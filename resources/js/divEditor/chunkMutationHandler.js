@@ -14,7 +14,7 @@ import { isNumericalId, ensureNodeHasValidId } from "../utilities/IDfunctions.js
 import { movedNodesByOverflow } from './index.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
-import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
+import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
 import { setChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
@@ -627,7 +627,7 @@ export class ChunkMutationHandler {
               target.textContent.trim() === '' &&
               document.contains(target)) {
             try {
-              const { openDatabase } = await import('../indexedDB/index.js');
+              const { openDatabase } = await import('../indexedDB/index');
               const { getHyperciteById } = await import('../hypercites/database.js');
               const db = await openDatabase();
               const hcRecord = await getHyperciteById(db, target.id);

@@ -5,7 +5,7 @@
  * or from the server, based on cache freshness and online status.
  */
 
-import { openDatabase } from '../indexedDB/core/connection.js';
+import { openDatabase } from '../indexedDB/core/connection';
 import { verbose } from '../utilities/logger.js';
 
 /**

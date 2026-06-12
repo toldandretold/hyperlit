@@ -5,7 +5,7 @@
  * Handles both single and overlapping hypercites with BibTeX citation formatting.
  */
 
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 import { fetchLibraryFromServer } from './database.js';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";

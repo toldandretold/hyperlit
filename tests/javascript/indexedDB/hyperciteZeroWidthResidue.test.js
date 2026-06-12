@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector.js';
+import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector';
 
 /** Build a <p> node from an HTML string, as it would exist in the editor at save time. */
 function makeNode(innerHTML) {

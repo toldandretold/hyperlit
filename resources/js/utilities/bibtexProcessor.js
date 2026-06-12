@@ -186,13 +186,13 @@ export async function prepareCitationShare(bookId) {
   let record = null;
 
   try {
-    const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+    const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library');
     record = await getLibraryObjectFromIndexedDB(bookId);
   } catch (_) {}
 
   if (!record) {
     try {
-      const { getLibraryRecordFromServer } = await import('../indexedDB/core/library.js');
+      const { getLibraryRecordFromServer } = await import('../indexedDB/core/library');
       record = await getLibraryRecordFromServer(bookId);
     } catch (_) {}
   }

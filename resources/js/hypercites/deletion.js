@@ -5,7 +5,7 @@
  * When a hypercite citation is deleted, it updates the source hypercite's citedIN array.
  */
 
-import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index.js';
+import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
 import { getHyperciteById } from './database.js';

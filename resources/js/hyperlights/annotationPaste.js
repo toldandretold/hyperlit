@@ -5,7 +5,7 @@
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
 import { extractQuotedText } from '../utilities/textExtraction.js';
-import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
+import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";
 import { saveHighlightAnnotation } from './annotations.js';

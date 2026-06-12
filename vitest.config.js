@@ -21,7 +21,8 @@ export default defineConfig({
       include: [
         'resources/js/editToolbar/**/*.js',
         'resources/js/divEditor/**/*.js',
-        'resources/js/paste/**/*.js'
+        'resources/js/paste/**/*.js',
+        'resources/js/indexedDB/**/*.js'
       ],
       exclude: [
         '**/*.test.js',

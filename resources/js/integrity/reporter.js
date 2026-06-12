@@ -10,7 +10,7 @@
  */
 
 import { getRecentLogs } from './logCapture.js';
-import { isIDBBroken } from '../indexedDB/core/healthMonitor.js';
+import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 import {
   buildBrowserMd,
   buildBrowserDatabaseMd,
@@ -81,7 +81,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   // Count IDB nodes for this book
   let totalIdbNodes = 0;
   try {
-    const { openDatabase } = await import('../indexedDB/core/connection.js');
+    const { openDatabase } = await import('../indexedDB/core/connection');
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
     const index = tx.objectStore('nodes').index('book');

@@ -61,12 +61,14 @@ class CitationPipelineCommand extends Command
 
         $summary = [];
 
-        // Step 1: Scan bibliography (includes web fetch for URL-bearing entries)
+        // Step 1: Scan bibliography + footnotes + in-text citation positions.
+        // (The in-text scan was its own pipeline stage; it is fast and
+        // informational, so it shares this stage's tick in the live viz.)
         if ($this->stepCompleted('bibliography')) {
-            $this->info('Step 1/5: Bibliography — already completed, skipping');
+            $this->info('Step 1/4: Citation scan — already completed, skipping');
         } else {
             $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
-            $this->info('Step 1/5: Scanning bibliography...');
+            $this->info('Step 1/4: Scanning bibliography + footnotes...');
             $bibArgs = ['target' => $bookId];
             if ($this->option('force')) {
                 $bibArgs['--force'] = true;
@@ -84,6 +86,16 @@ class CitationPipelineCommand extends Command
                 'entries'            => $db->table('bibliography')->where('book', $bookId)->count(),
                 'footnote_citations' => $db->table('footnotes')->where('book', $bookId)->where('is_citation', true)->count(),
             ]);
+
+            // In-text occurrence scan (same stage, progress-only update)
+            $this->updatePipelineStep('bibliography', 'Scanning in-text citations');
+            $this->info('Scanning in-text citations...');
+            $exit = $this->call('citation:scan-content', ['bookId' => $bookId]);
+            if ($exit !== 0) {
+                $this->error('Content scan failed. Aborting.');
+                $this->telemetry?->emit('bibliography', 'failed', 'In-text citation scan failed — pipeline aborted');
+                return 1;
+            }
         }
         $summary['bibliography'] = $db->table('bibliography')->where('book', $bookId)->count();
         $summary['footnote_citations'] = $db->table('footnotes')
@@ -93,7 +105,7 @@ class CitationPipelineCommand extends Command
         // If no bibliography entries and no citation footnotes, skip remaining steps
         if ($summary['bibliography'] === 0 && $summary['footnote_citations'] === 0) {
             $this->warn('No bibliography entries and no citation footnotes — skipping remaining steps.');
-            foreach (['content', 'vacuum', 'ocr', 'review'] as $skipped) {
+            foreach (['vacuum', 'ocr', 'review'] as $skipped) {
                 $this->telemetry?->emit($skipped, 'skipped', 'No bibliography entries or citation footnotes');
             }
             $this->newLine();
@@ -111,28 +123,15 @@ class CitationPipelineCommand extends Command
             $this->line("  Bibliography:  0 entries scanned");
             $this->line("  Footnote citations:  0");
 
+            $this->markPipelineCompleted();
+
             return 0;
         }
 
-        // Step 2: Scan content (informational — non-blocking)
-        if ($this->stepCompleted('content')) {
-            $this->info('Step 2/5: Content scan — already completed, skipping');
-        } else {
-            $this->updatePipelineStep('content', 'Scanning in-text citations');
-            $this->info('Step 2/5: Scanning in-text citations...');
-            $exit = $this->call('citation:scan-content', ['bookId' => $bookId]);
-            if ($exit !== 0) {
-                $this->error('Content scan failed. Aborting.');
-                $this->telemetry?->emit('content', 'failed', 'Content scan failed — pipeline aborted');
-                return 1;
-            }
-        }
-        $this->newLine();
-
-        // Steps 3-4: Targeted vacuum + OCR
+        // Steps 2-3: Targeted vacuum + OCR
         if ($this->option('skip-fetch')) {
-            $this->info('Step 3/5: Vacuum — skipped (--skip-fetch)');
-            $this->info('Step 4/5: OCR — skipped (--skip-fetch)');
+            $this->info('Step 2/4: Vacuum — skipped (--skip-fetch)');
+            $this->info('Step 3/4: OCR — skipped (--skip-fetch)');
             $this->telemetry?->emit('vacuum', 'skipped', 'Skipped (--skip-fetch)');
             $this->telemetry?->emit('ocr', 'skipped', 'Skipped (--skip-fetch)');
             $this->newLine();
@@ -143,10 +142,10 @@ class CitationPipelineCommand extends Command
             $vacuumFailed = 0;
 
             if ($this->stepCompleted('vacuum')) {
-                $this->info('Step 3/5: Vacuum — already completed, skipping');
+                $this->info('Step 2/4: Vacuum — already completed, skipping');
             } else {
                 $this->updatePipelineStep('vacuum', 'Fetching source content');
-                $this->info('Step 3/5: Fetching source content...');
+                $this->info('Step 2/4: Fetching source content...');
 
                 $sources = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
@@ -278,10 +277,10 @@ class CitationPipelineCommand extends Command
             $ocrTotalPages = 0;
 
             if ($this->stepCompleted('ocr')) {
-                $this->info('Step 4/5: OCR — already completed, skipping');
+                $this->info('Step 3/4: OCR — already completed, skipping');
             } else {
                 $this->updatePipelineStep('ocr', 'Running OCR on downloaded PDFs');
-                $this->info('Step 4/5: Running OCR on downloaded PDFs...');
+                $this->info('Step 3/4: Running OCR on downloaded PDFs...');
 
                 $downloaded = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
@@ -349,15 +348,15 @@ class CitationPipelineCommand extends Command
 
         // Step 5: Review
         if ($this->option('skip-review')) {
-            $this->info('Step 5/5: Review — skipped (--skip-review)');
+            $this->info('Step 4/4: Review — skipped (--skip-review)');
             $this->telemetry?->emit('review', 'skipped', 'Skipped (--skip-review)');
             $this->newLine();
         } elseif ($this->stepCompleted('review')) {
-            $this->info('Step 5/5: Review — already completed, skipping');
+            $this->info('Step 4/4: Review — already completed, skipping');
             $this->newLine();
         } else {
             $this->updatePipelineStep('review', 'Reviewing citations with LLM');
-            $this->info('Step 5/5: Reviewing citations...');
+            $this->info('Step 4/4: Reviewing citations...');
             $reviewArgs = ['bookId' => $bookId];
             if ($this->option('pipeline-id')) {
                 $reviewArgs['--pipeline-id'] = $this->option('pipeline-id');
@@ -401,6 +400,8 @@ class CitationPipelineCommand extends Command
             $o = $summary['ocr'];
             $this->line("  OCR:           {$o['processed']} PDFs processed" . ($o['failed'] ? " ({$o['failed']} failed)" : ''));
         }
+
+        $this->markPipelineCompleted();
 
         return 0;
     }
@@ -452,6 +453,24 @@ class CitationPipelineCommand extends Command
 
         return isset($this->stepTimings[$step]['completed_at'])
             && $this->stepTimings[$step]['completed_at'] !== null;
+    }
+
+    /**
+     * Mark the pipeline row completed on a successful run. The queue-job
+     * wrapper (CitationPipelineJob) also does this, but a DIRECT CLI run with
+     * --pipeline-id bypasses the wrapper — without this the row stays
+     * 'pending'/'running' forever and the UI shows "Reviewing citations"
+     * until the stale auto-fail kicks in. Idempotent with the wrapper.
+     */
+    private function markPipelineCompleted(): void
+    {
+        $pipelineId = $this->option('pipeline-id');
+        if (!$pipelineId) {
+            return;
+        }
+        DB::connection('pgsql_admin')->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->update(['status' => 'completed', 'updated_at' => now()]);
     }
 
     private function updatePipelineStep(string $step, ?string $detail = null): void

@@ -188,8 +188,8 @@ export async function reapplyAnnotationsWithGate(bookId) {
 
   if (visibleNodeIds.length === 0) return;
 
-  const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild.js');
-  const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+  const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild');
+  const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
 
   // Read freshly-synced nodes from IndexedDB
   const allNodes = await getNodeChunksFromIndexedDB(bookId);

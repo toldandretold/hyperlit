@@ -230,9 +230,9 @@ export class SettingsContainerManager extends ContainerManager {
 
         // 2. Update IndexedDB library record + queue for sync
         if (bookId) {
-          const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
-          const { openDatabase } = await import('../indexedDB/index.js');
-          const { queueForSync } = await import('../indexedDB/syncQueue/queue.js');
+          const { getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library');
+          const { openDatabase } = await import('../indexedDB/index');
+          const { queueForSync } = await import('../indexedDB/syncQueue/queue');
 
           const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
           if (libraryRecord) {

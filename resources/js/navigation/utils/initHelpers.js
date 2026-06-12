@@ -4,7 +4,7 @@
  */
 import { log } from '../../utilities/logger.js';
 import { setCurrentBook } from '../../app.js';
-import { updateDatabaseBookId } from '../../indexedDB/index.js';
+import { updateDatabaseBookId } from '../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';

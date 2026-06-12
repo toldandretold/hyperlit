@@ -6,7 +6,7 @@
 import { detectHypercites, detectHighlights } from './detection.js';
 import { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission } from './index.js';
 import { prepareHyperlitContainer, animateHyperlitContainerOpen, hyperlitManager, getHyperlitEditMode } from './core.js';
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 import { getCurrentContainer } from './stack.js';
 
 /**

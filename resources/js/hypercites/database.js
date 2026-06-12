@@ -5,7 +5,7 @@
  * Handles creation, retrieval, and updates of hypercite records.
  */
 
-import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByDataNodeIDs } from '../indexedDB/index.js';
+import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByDataNodeIDs } from '../indexedDB/index';
 import { findParentWithNumericalId } from './utils.js';
 
 /**

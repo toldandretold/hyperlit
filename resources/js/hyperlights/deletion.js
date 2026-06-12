@@ -2,13 +2,13 @@
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
 
-import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
+import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { attachMarkListeners } from './listeners.js';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
 import { getCascadeOriginId } from '../scrolling.js';
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
-import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup.js';
+import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
 
 /**
  * Unwrap a mark element, preserving its content
@@ -393,16 +393,16 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
 
       // ✅ Re-attach hypercite listeners to the new elements
       // innerHTML replacement destroys and recreates DOM elements, losing their event listeners
-      const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+      const { attachUnderlineClickListeners } = await import('../hypercites/index');
       attachUnderlineClickListeners();
 
       // Re-apply cascade-origin glow if the target mark was recreated
+      // (ALL segments — a highlight renders as multiple marks split by overlaps/sups)
       const cascadeId = getCascadeOriginId();
       if (cascadeId) {
-        const cascadeMark = document.querySelector(`mark.${CSS.escape(cascadeId)}`);
-        if (cascadeMark) {
+        document.querySelectorAll(`mark.${CSS.escape(cascadeId)}`).forEach((cascadeMark) => {
           cascadeMark.classList.add('cascade-origin');
-        }
+        });
       }
     } finally {
       requestAnimationFrame(() => {

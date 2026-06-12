@@ -1,6 +1,6 @@
 // cacheManager.js - Cache and storage management utilities
 
-import { clearDatabase } from '../../indexedDB/index.js';
+import { clearDatabase } from '../../indexedDB/index';
 
 /**
  * Clears all cached data - the "nuclear option" for auth changes

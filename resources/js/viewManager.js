@@ -82,8 +82,8 @@ window.addEventListener("pageshow", async (event) => {
 
     // Proactive IDB warm-up: iOS kills IDB connections during suspension.
     // Show a toast while we attempt to reconnect, with a refresh escape hatch.
-    const { openDatabase } = await import('./indexedDB/core/connection.js');
-    const { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } = await import('./indexedDB/core/recoveryToast.js');
+    const { openDatabase } = await import('./indexedDB/core/connection');
+    const { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } = await import('./indexedDB/core/recoveryToast');
 
     showIDBRecoveryToast();
     try {
@@ -144,8 +144,8 @@ document.addEventListener('visibilitychange', async () => {
   if (pageType !== 'reader') return;
 
   try {
-    const { openDatabase } = await import('./indexedDB/core/connection.js');
-    const { reportIDBSuccess, reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor.js');
+    const { openDatabase } = await import('./indexedDB/core/connection');
+    const { reportIDBSuccess, reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor');
 
     const db = await openDatabase();
 
@@ -168,7 +168,7 @@ document.addEventListener('visibilitychange', async () => {
   } catch (e) {
     console.warn('[viewManager] IDB health probe failed on visibility change:', e);
 
-    const { reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor.js');
+    const { reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor');
     // Report twice to immediately cross the failure threshold
     reportIDBFailure(e);
     reportIDBFailure(e);
@@ -224,7 +224,7 @@ export async function cleanupReaderView() {
   }
 
   try {
-    const { cleanupUnderlineClickListeners } = await import('./hypercites/index.js');
+    const { cleanupUnderlineClickListeners } = await import('./hypercites/index');
     cleanupUnderlineClickListeners();
   } catch (e) {
     // Module not loaded yet, nothing to cleanup
@@ -380,7 +380,7 @@ export async function universalPageInitializer(progressCallback = null) {
   attachMarkListeners();
 
   // ✅ Attach hypercite click listeners after content loads
-  const { attachUnderlineClickListeners } = await import('./hypercites/index.js');
+  const { attachUnderlineClickListeners } = await import('./hypercites/index');
   attachUnderlineClickListeners();
 
   // Note: LinkNavigationHandler.attachGlobalLinkClickHandler() now called earlier for all page types

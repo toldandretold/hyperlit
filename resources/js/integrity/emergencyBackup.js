@@ -6,7 +6,7 @@
  *  - components/sourceButton.js (blackBox folder in raw zip download)
  */
 
-import { isIDBBroken } from '../indexedDB/core/healthMonitor.js';
+import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 
 // ================================================================
 // HTML → Markdown converter
@@ -101,7 +101,7 @@ export async function buildBrowserDatabaseMd(bookId) {
   try {
     return await Promise.race([
       (async () => {
-        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/nodes/read.js');
+        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/nodes/read');
         const chunks = await getNodeChunksFromIndexedDB(bookId);
         chunks.sort((a, b) => a.chunk_id - b.chunk_id || a.startLine - b.startLine);
 

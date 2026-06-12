@@ -3,6 +3,7 @@
  */
 
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
+import { applyGroupHover, clearGroupHover } from './markGroup.js';
 import { verbose } from '../utilities/logger.js';
 
 // Per-element guard — prevents double-fires without blocking other buttons
@@ -74,12 +75,16 @@ export async function handleMarkClick(event) {
 }
 
 /**
- * Handle mouseover events on mark elements
+ * Handle mouseover events on mark elements.
+ * A highlight is rendered as multiple sibling marks (split by overlaps and
+ * footnote sups) — light up the WHOLE group sharing the hovered mark's HL_*
+ * classes, so what glows matches the actual highlighted text.
  * @param {Event} event - Mouseover event
  */
 export function handleMarkHover(event) {
-    const highlightId = event.target.id;
-    console.log(`Mark over: ${highlightId}`);
+    const mark = event.target.closest ? event.target.closest('mark') : null;
+    if (!mark) return;
+    applyGroupHover(mark);
 }
 
 /**
@@ -88,6 +93,7 @@ export function handleMarkHover(event) {
  */
 export function handleMarkHoverOut(event) {
     event.target.style.textDecoration = "none";
+    clearGroupHover();
 }
 
 /**

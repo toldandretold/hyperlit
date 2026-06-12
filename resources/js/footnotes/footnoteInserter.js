@@ -3,7 +3,7 @@
  * Handles insertion of new footnotes at cursor position
  */
 
-import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index.js';
+import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index';
 import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService.js';
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 

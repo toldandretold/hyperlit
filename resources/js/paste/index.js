@@ -115,7 +115,7 @@ async function syncPasteToPostgreSQL(bookId) {
 
   try {
     // Get ALL nodes for the book from IndexedDB
-    const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+    const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
     const allNodes = await getNodeChunksFromIndexedDB(bookId);
     console.log(`📊 Retrieved ${allNodes.length} total nodes from IndexedDB for full book sync`);
 

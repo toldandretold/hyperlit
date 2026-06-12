@@ -13,7 +13,6 @@ import {
   openDatabase,
   getNodeChunksFromIndexedDB,
   saveAllNodeChunksToIndexedDB,
-  saveFootnotesToIndexedDB,
   updateHistoryLog,
   executeSyncPayload,
   saveAllFootnotesToIndexedDB,
@@ -338,7 +337,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       //    (~100 nodes instead of potentially 26856)
       const firstChunkId = resolvedTargetChunkId !== null ? resolvedTargetChunkId : 0;
       const targetChunkNodes = cached.filter(n => n.chunk_id === firstChunkId);
-      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild');
       await rebuildNodeArrays(targetChunkNodes);
 
       // Set window.nodes (full set needed for lazy loader's chunk lookup)
@@ -1259,8 +1258,8 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
 
       if (visibleNodeIds.length > 0) {
         // 3. Rebuild node arrays from the new standalone tables
-        const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('./indexedDB/hydration/rebuild.js');
-        const { getNodeChunksFromIndexedDB } = await import('./indexedDB/index.js');
+        const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('./indexedDB/hydration/rebuild');
+        const { getNodeChunksFromIndexedDB } = await import('./indexedDB/index');
 
         // Get node chunks to find node_ids for visible startLines
         const allNodes = await getNodeChunksFromIndexedDB(bookId);

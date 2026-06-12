@@ -221,7 +221,7 @@ async function handleDeleteBook(bookId, target) {
     if (libraryCard) libraryCard.remove();
 
     // Delete from IndexedDB
-    const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
+    const { deleteBookFromIndexedDB } = await import('../indexedDB/index');
     await deleteBookFromIndexedDB(bookId);
 
     // Send delete request to server

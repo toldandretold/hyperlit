@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+        // Type-check only — Vite/esbuild does the transpiling.
+        "noEmit": true,
+
+        // Incremental migration: .js and .ts coexist; only .ts files are
+        // type-checked (checkJs off until the migration is further along).
+        "allowJs": true,
+        "checkJs": false,
+
+        // New .ts files are held to the strict standard from day one.
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+
+        "paths": {
+            "@/*": ["./resources/js/*"]
+        }
+    },
+    "include": ["resources/js/**/*"],
+    "exclude": ["node_modules", "public", "resources/js/archive/**"]
+}

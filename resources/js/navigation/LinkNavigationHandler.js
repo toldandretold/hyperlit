@@ -11,7 +11,7 @@ import { book, bookSlug as _bookSlug } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
 import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
-import { getLocalStorageKey } from '../indexedDB/index.js';
+import { getLocalStorageKey } from '../indexedDB/index';
 import { closeHyperlitContainer } from '../hyperlitContainer/index.js';
 
 export class LinkNavigationHandler {

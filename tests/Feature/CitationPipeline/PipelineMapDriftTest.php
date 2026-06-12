@@ -16,7 +16,9 @@ test('top-level stage ids match the steps CitationPipelineCommand emits, in orde
     preg_match_all("/updatePipelineStep\('([a-z_]+)'/", $source, $m);
     $emitted = array_values(array_unique($m[1]));
 
-    expect(PipelineMap::stageIds())->toBe(['bibliography', 'content', 'vacuum', 'ocr', 'review']);
+    // 'content' (in-text citation scan) merged into the bibliography stage —
+    // it is fast and informational, so it shares that stage's tick in the viz.
+    expect(PipelineMap::stageIds())->toBe(['bibliography', 'vacuum', 'ocr', 'review']);
     expect(array_diff($emitted, PipelineMap::stageIds()))->toBe([]);
     expect(array_diff(PipelineMap::stageIds(), $emitted))->toBe([]);
 });

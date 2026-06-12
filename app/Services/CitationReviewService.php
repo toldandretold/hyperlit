@@ -151,6 +151,16 @@ class CitationReviewService
                 'UTF-8'
             );
 
+            // Static footnote-definition / bibliography sections are NOT claim
+            // sources: a footnote's own text ("Asai (2021) p. 32.") is a
+            // citation, not an assertion — the claim lives at the BODY sentence
+            // carrying the footnote marker (handled via footnoteMap). Without
+            // this, every linked footnote definition becomes a junk claim
+            // ("the source is cited") that the verifier rightly rejects.
+            if (preg_match('/data-static-content="(?:footnotes|bibliography)"/i', $content)) {
+                continue;
+            }
+
             // Quick check: skip nodes with neither inline citations nor footnote refs
             $hasInlineLink = preg_match('/<a\s[^>]*href="#([^"]+)"[^>]*>/i', $content);
             $hasFootnote = !empty($footnoteMap) && preg_match('/<sup\b[^>]*\bfn-count-id="/i', $content);
@@ -177,8 +187,11 @@ class CitationReviewService
                         if (preg_match('/\bid="([^"]+)"/', $m[0], $idMatch)) {
                             $footnoteId = $idMatch[1];
                             if (isset($footnoteMap[$footnoteId])) {
+                                // FNCITE (not CITE): footnote markers attach to the
+                                // text BEFORE them — the claim-extraction prompt
+                                // treats the two marker kinds directionally.
                                 return implode('', array_map(
-                                    fn($refId) => '[CITE:' . $refId . ']',
+                                    fn($refId) => '[FNCITE:' . $refId . ']',
                                     $footnoteMap[$footnoteId]
                                 ));
                             }
@@ -192,7 +205,7 @@ class CitationReviewService
             $marked = strip_tags($marked);
 
             // Extract reference IDs
-            preg_match_all('/\[CITE:([^\]]+)\]/', $marked, $refMatches);
+            preg_match_all('/\[(?:FN)?CITE:([^\]]+)\]/', $marked, $refMatches);
             $referenceIds = array_unique($refMatches[1]);
 
             if (empty($referenceIds)) {
@@ -203,6 +216,7 @@ class CitationReviewService
             // Compute each citation's character position in plainText
             // First: inline <a> tags
             $citationPositions = [];
+            $footnoteDerived = [];
             if (preg_match_all('/<a\s[^>]*href="#([^"]+)"[^>]*>.*?<\/a>/is', $content, $tagMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
                 foreach ($tagMatches as $tagMatch) {
                     $matchedRefId = $tagMatch[1][0];
@@ -231,6 +245,7 @@ class CitationReviewService
                             foreach ($footnoteMap[$footnoteId] as $refId) {
                                 if (!isset($citationPositions[$refId])) {
                                     $citationPositions[$refId] = $charPos;
+                                    $footnoteDerived[$refId] = true;
                                 }
                             }
                         }
@@ -238,10 +253,18 @@ class CitationReviewService
                 }
             }
 
-            // Extract the sentence each citation appears in
+            // Extract the claim span for each citation. DIRECTIONAL:
+            //  - inline (Author 1999) anchors → the sentence AROUND the citation;
+            //  - footnote markers → the text BEFORE the marker, clamped at the
+            //    previous citation marker. A run like "…clause A,[103] clause B.[104]"
+            //    must give [103]=clause A and [104]=clause B — extending forward
+            //    (or back past another marker) attributes the wrong source.
+            $allPositions = array_values($citationPositions);
             $extractedSentences = [];
             foreach ($citationPositions as $refId => $charPos) {
-                $extractedSentences[$refId] = $this->extractSentenceAtPosition($currentPlain, $charPos);
+                $extractedSentences[$refId] = !empty($footnoteDerived[$refId])
+                    ? $this->extractPrecedingClauseSpan($currentPlain, $charPos, $allPositions)
+                    : $this->extractSentenceAtPosition($currentPlain, $charPos);
             }
 
             $result[] = [
@@ -485,7 +508,7 @@ class CitationReviewService
                         continue;
                     }
 
-                    $truthClaim = preg_replace('/\s*\[CITE:[^\]]*\]/', '', $truthClaim);
+                    $truthClaim = preg_replace('/\s*\[(?:FN)?CITE:[^\]]*\]/', '', $truthClaim);
                     $truthClaim = trim($truthClaim);
 
                     if (!$truthClaim) {
@@ -1680,9 +1703,14 @@ class CitationReviewService
             isset($claim['source_year']) ? "({$claim['source_year']})" : null,
         ]);
 
-        // Build HTML: title as link if URL exists, then author/year
-        if ($externalUrl && $title) {
-            $linkedTitle = '<a href="' . e($externalUrl) . '" target="_blank">' . e($title) . '</a>';
+        // The source line links IN-APP ONLY (the reviewed version carrying the
+        // highlights). No external link here — the bibliography citation line
+        // below already carries the URL/DOI.
+        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id']))
+            ? '/' . $claim['source_book_id'] : null;
+
+        if ($inAppUrl && $title) {
+            $linkedTitle = '<a href="' . e($inAppUrl) . '">' . e($title) . '</a>';
         } else {
             $linkedTitle = e($title ?: implode(' — ', $sourceInfo));
         }
@@ -1692,9 +1720,8 @@ class CitationReviewService
             $parts .= ' — ' . e(implode(' — ', $otherParts));
         }
 
-        // Arrow link to source book if it has content
-        if (!empty($claim['has_source_content']) && !empty($claim['source_book_id'])) {
-            $parts .= ' <a href="/' . e($claim['source_book_id']) . '">→</a>';
+        if ($inAppUrl && !$title) {
+            $parts .= ' <a href="' . e($inAppUrl) . '">→</a>';
         }
 
         $plainText = 'Source: ' . implode(' — ', $sourceInfo);
@@ -1724,11 +1751,14 @@ class CitationReviewService
             return null;
         }
 
-        $externalUrl = $this->resolveSourceUrl($claim);
+        // The source line links IN-APP ONLY (the reviewed version carrying the
+        // highlights). No external link here — the bibliography citation line
+        // below already carries the URL/DOI.
+        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id']))
+            ? '/' . $this->mdSafeUrl($claim['source_book_id']) : null;
 
-        // Title as markdown link if URL exists
-        if ($externalUrl && $title) {
-            $linkedTitle = "[{$title}](" . $this->mdSafeUrl($externalUrl) . ")";
+        if ($inAppUrl && $title) {
+            $linkedTitle = "[{$title}]({$inAppUrl})";
         } else {
             $linkedTitle = $title ?: implode(' — ', $sourceInfo);
         }
@@ -1739,9 +1769,8 @@ class CitationReviewService
             $md .= ' — ' . implode(' — ', $otherParts);
         }
 
-        // Arrow link to source book if it has content
-        if (!empty($claim['has_source_content']) && !empty($claim['source_book_id'])) {
-            $md .= ' [→](/' . $this->mdSafeUrl($claim['source_book_id']) . ')';
+        if ($inAppUrl && !$title) {
+            $md .= " [→]({$inAppUrl})";
         }
 
         return "**Source:** {$md}\n";
@@ -2185,6 +2214,32 @@ class CitationReviewService
      * Extract the sentence surrounding a character position in plain text.
      * Uses the same regex logic as the charStart/charEnd computation in extractTruthClaims().
      */
+    /**
+     * Claim span for a FOOTNOTE marker: the text immediately BEFORE the marker,
+     * starting at the sentence boundary or the previous citation marker —
+     * whichever is nearer. Footnote markers attach backwards; extending the
+     * span forward (or back across another marker) attributes a neighbouring
+     * clause's claim to the wrong source.
+     */
+    private function extractPrecedingClauseSpan(string $plainText, int $charPos, array $allMarkerPositions): string
+    {
+        $before = mb_substr($plainText, 0, $charPos);
+
+        // Sentence boundary going back
+        $start = 0;
+        if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
+            $start = mb_strlen($m[0]);
+        }
+        // Clamp at the closest preceding citation marker
+        foreach ($allMarkerPositions as $pos) {
+            if ($pos < $charPos && $pos > $start) {
+                $start = $pos;
+            }
+        }
+
+        return trim(mb_substr($plainText, $start, $charPos - $start));
+    }
+
     private function extractSentenceAtPosition(string $plainText, int $charPos): string
     {
         $before = mb_substr($plainText, 0, $charPos);

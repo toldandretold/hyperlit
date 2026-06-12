@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const putSpy = vi.fn();
 const queueSpy = vi.fn();
 
-vi.mock('../../../resources/js/indexedDB/index.js', () => ({
+vi.mock('../../../resources/js/indexedDB/index', () => ({
   openDatabase: vi.fn(async () => ({
     transaction: () => {
       const tx = { oncomplete: null, onerror: null };

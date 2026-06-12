@@ -324,8 +324,8 @@ function applyFootnoteMapToStoredHTML(html) {
  * converges on the same numbers.
  */
 async function reconcileStoredFootnoteContent(bookId, skipStartLines = new Set()) {
-  const { openDatabase } = await import('../indexedDB/core/connection.js');
-  const { queueForSync } = await import('../indexedDB/syncQueue/index.js');
+  const { openDatabase } = await import('../indexedDB/core/connection');
+  const { queueForSync } = await import('../indexedDB/syncQueue/index');
 
   let db;
   try {
@@ -493,7 +493,7 @@ async function persistRenumberedNodes(bookId, affectedStartLines) {
   if (affectedStartLines.size === 0) return;
 
   try {
-    const { batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch.js');
+    const { batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch');
 
     // Convert startLines to records format expected by batchUpdateIndexedDBRecords
     const recordsToUpdate = Array.from(affectedStartLines).map(startLine => ({
@@ -529,7 +529,7 @@ async function persistRenumberedNodes(bookId, affectedStartLines) {
 
     // [diagnostic] read back from IDB and report what actually got written
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
       const after = await getNodeChunksFromIndexedDB(bookId);
       const byId = new Map((after || []).map(n => [String(n.startLine), n.content || '']));
       for (const startLine of affectedStartLines) {

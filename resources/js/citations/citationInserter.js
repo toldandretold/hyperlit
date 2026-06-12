@@ -11,7 +11,7 @@
  * See tests/Feature/Citations/README.md for the full suite.
  */
 
-import { openDatabase, queueForSync } from '../indexedDB/index.js';
+import { openDatabase, queueForSync } from '../indexedDB/index';
 import { formatBibtexToCitation } from '../utilities/bibtexProcessor.js';
 
 /**

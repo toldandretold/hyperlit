@@ -3,7 +3,7 @@
  * Shows the content license for the current book
  */
 
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 import { book } from '../app.js';
 
 const LICENSE_INFO = {

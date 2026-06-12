@@ -1,5 +1,4 @@
 // import { processFootnotes} from './footnotes.js';
-// import { saveFootnotesToIndexedDB } from '../indexedDB/index.js';
 import { book } from '../app.js';
 
 /**
@@ -101,16 +100,6 @@ export function parseMarkdownIntoChunksInitial(markdown) {
       chunkId++;
     }
   });
-
-  // Prepare the footnotes data to be saved
-  // (for saving to IndexedDB elsewhere)
-  const footnotesToSave = footnoteData.pairs.map(pair => ({
-    id: pair.reference.id,
-    content: pair.definition.content
-  }));
-
-  // Save the footnotes to IndexedDB
-  saveFootnotesToIndexedDB(footnotesToSave, book);
 
   return nodes;
 }

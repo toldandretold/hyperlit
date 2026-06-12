@@ -365,7 +365,7 @@ syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
 export async function flushAllPendingEdits() {
   // Fast path: nothing to flush if not editing and no pending syncs
   try {
-    const { pendingSyncs } = await import('./indexedDB/syncQueue/queue.js');
+    const { pendingSyncs } = await import('./indexedDB/syncQueue/queue');
     if (!window.isEditing && pendingSyncs.size === 0) {
       return;
     }
@@ -401,7 +401,7 @@ export async function flushAllPendingEdits() {
 
   // 4. Flush masterSync → server (3s timer) with 5s timeout
   try {
-    const { debouncedMasterSync } = await import('./indexedDB/syncQueue/master.js');
+    const { debouncedMasterSync } = await import('./indexedDB/syncQueue/master');
     await Promise.race([
       debouncedMasterSync.flush(),
       new Promise(resolve => setTimeout(resolve, 5000)),

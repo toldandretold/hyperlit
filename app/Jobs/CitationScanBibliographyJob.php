@@ -38,6 +38,14 @@ class CitationScanBibliographyJob implements ShouldQueue
     ];
 
     /**
+     * Citation types that REFER rather than fully cite — each has dedicated
+     * routing instead of the external resolution waves: short-form/ibid →
+     * antecedent matcher; pointer → bibliography matcher; legislation/case-law
+     * → counted but never externally resolved (no scholarly-database identity).
+     */
+    private const REFERENCE_STYLE_TYPES = ['short-form', 'ibid', 'pointer', 'legislation', 'case-law'];
+
+    /**
      * Identifier-backed match methods → canonical foundation_source. Only these
      * get canonical_source rows: web_fetch / brave_search stubs have no external
      * identity, and a wrong canonical is worse than a missing one.
@@ -56,6 +64,7 @@ class CitationScanBibliographyJob implements ShouldQueue
         private string $bookId,
         private ?string $referenceId = null,
         private bool $force = false,
+        private ?string $sourceTableOverride = null, // 'footnotes' = scan footnotes even when a bibliography exists
     ) {
         $this->onQueue('citation-pipeline');
     }
@@ -70,12 +79,20 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ->where('id', $this->scanId)
                 ->update(['status' => 'running', 'updated_at' => now()]);
 
-            // Fetch bibliography entries (optionally filtered to a single referenceId)
-            $query = $db->table('bibliography')->where('book', $this->bookId);
-            if ($this->referenceId) {
-                $query->where('referenceId', $this->referenceId);
+            // Footnote pass requested explicitly (books with BOTH a bibliography
+            // and citation-bearing footnotes — e.g. footnotes that are author-date
+            // POINTERS into the bibliography). Without the override, footnotes are
+            // only scanned as a fallback when the bibliography is empty.
+            if ($this->sourceTableOverride === 'footnotes' && !$this->referenceId) {
+                $entries = collect();
+            } else {
+                // Fetch bibliography entries (optionally filtered to a single referenceId)
+                $query = $db->table('bibliography')->where('book', $this->bookId);
+                if ($this->referenceId) {
+                    $query->where('referenceId', $this->referenceId);
+                }
+                $entries = $query->get();
             }
-            $entries = $query->get();
 
             // Footnote-only: when bibliography is empty, use footnotes as citation sources
             if ($entries->isEmpty() && !$this->referenceId) {
@@ -100,6 +117,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             $failedToResolve = 0;
             $enrichedExisting = 0;
             $results         = [];
+            $shortFormMap    = []; // short-form footnoteId → antecedent footnoteId
 
             $db->table('citation_scans')
                 ->where('id', $this->scanId)
@@ -241,8 +259,15 @@ class CitationScanBibliographyJob implements ShouldQueue
                             }
                             continue;
                         }
-                        // A footnote is a citation if the primary OR any sub-citation has a citable type
-                        $isCitation = in_array($meta['type'] ?? null, self::CITABLE_TYPES, true);
+                        // A footnote is a citation if the primary OR any sub-citation has a citable type.
+                        // Reference-style types are citations too, each with its own routing:
+                        //   short-form/ibid → antecedent matcher (earlier footnote in this document)
+                        //   pointer         → bibliography matcher (surname+year → the book's own bibliography)
+                        //   legislation/case-law → counted as citations; NEVER resolved externally
+                        //                          (an instrument string like "Art. 5(3)(a) ISD" is not
+                        //                          an OpenAlex query — mis-match risk)
+                        $isCitation = in_array($meta['type'] ?? null, self::CITABLE_TYPES, true)
+                            || in_array($meta['type'] ?? null, self::REFERENCE_STYLE_TYPES, true);
                         if (!$isCitation && !empty($meta['sub_citations'])) {
                             foreach ($meta['sub_citations'] as $subCit) {
                                 if (in_array($subCit['type'] ?? null, self::CITABLE_TYPES, true)) {
@@ -263,6 +288,45 @@ class CitationScanBibliographyJob implements ShouldQueue
                         }
                     }
                     $needsResolution = array_values($needsResolution);
+
+                    // Link short-form / ibid footnotes to their antecedent full
+                    // citations (deterministic; LLM only to pick among multiple
+                    // known candidates). They are REMOVED from independent
+                    // resolution either way — resolving "Hart, Justice" alone
+                    // matches the wrong work.
+                    $shortFormMap = $this->matchShortFormAntecedents(
+                        $db,
+                        $needsResolution,
+                        fn(array $items) => $llm->disambiguateShortFormBatch($items),
+                    );
+
+                    // Author-date POINTER footnotes ("Chapman (2009), p. 6") resolve
+                    // against the book's OWN bibliography — the full reference lives
+                    // there (already externally resolved by the bibliography scan).
+                    // Resolving a title-less author-date externally would mis-match.
+                    $this->matchBibliographyPointers($db, $needsResolution);
+
+                    // Legislation / case-law citations are COUNTED (claims anchor on
+                    // their markers) but never sent to the external waves — an
+                    // instrument string is not a scholarly-database query.
+                    $legalCount = $this->excludeLegalFromResolution($db, $needsResolution);
+
+                    // Document-level footnote-style profile: the per-footnote type
+                    // distribution tells us HOW this text cites (author-date
+                    // pointers / self-contained / legal / archival) — logged and
+                    // emitted so the report and future routing can use it.
+                    $styleCounts = [];
+                    foreach ($llmMetadataMap as $meta) {
+                        if ($meta) {
+                            $t = $meta['type'] ?? 'unknown';
+                            $styleCounts[$t] = ($styleCounts[$t] ?? 0) + 1;
+                        }
+                    }
+                    arsort($styleCounts);
+                    Log::info('Footnote style profile', [
+                        'book' => $this->bookId, 'types' => $styleCounts,
+                        'legal_citations' => $legalCount,
+                    ]);
                     $citationCount = count(array_filter($llmMetadataMap, function ($m) {
                         if (!$m) return false;
                         if (in_array($m['type'] ?? null, self::CITABLE_TYPES, true)) return true;
@@ -1306,6 +1370,12 @@ class CitationScanBibliographyJob implements ShouldQueue
                 $failedToResolve++;
             }
 
+            // Short-form footnotes inherit their antecedent's resolution +
+            // canonical link (the antecedent resolved in the waves above).
+            if ($shortFormMap) {
+                $this->inheritShortFormResolutions($db, $shortFormMap);
+            }
+
             // Save final results
             $this->saveScanResults($db, $totalEntries, $alreadyLinked, $newlyResolved, $failedToResolve, $enrichedExisting, $results);
 
@@ -1495,6 +1565,360 @@ class CitationScanBibliographyJob implements ShouldQueue
     private function isValidTld(string $tld): bool
     {
         return \App\Support\UrlSanity::isValidTld($tld);
+    }
+
+    /**
+     * Link short-form / ibid footnote citations to their antecedent FULL
+     * citations earlier in the same document. Scholarly footnotes give the
+     * full reference once, then short forms ("Hart, Justice, pp. 66–7") —
+     * extracted in isolation an LLM confabulates the missing details (the
+     * H. L. A. Hart bug), so short forms are matched DETERMINISTICALLY here:
+     * surname + short-title prefix against earlier full citations, in marker
+     * (document) order; ibid → the immediately preceding citation footnote.
+     * The LLM is consulted ONLY when several distinct earlier works match —
+     * and then it picks among the known candidates given in the prompt.
+     *
+     * Matched or not, short forms are removed from $needsResolution: resolving
+     * a fragment independently is how the wrong work gets linked.
+     *
+     * @return array short footnoteId => antecedent footnoteId
+     */
+    private function matchShortFormAntecedents($db, array &$needsResolution, ?callable $disambiguator = null): array
+    {
+        if ($this->sourceTable !== 'footnotes') {
+            return [];
+        }
+
+        // Document order: nodes.footnotes carries [{id, marker}] per node.
+        $order = [];
+        $nodeFootnotes = $db->table('nodes')->where('book', $this->bookId)
+            ->whereNotNull('footnotes')->where('footnotes', '!=', '[]')
+            ->pluck('footnotes');
+        foreach ($nodeFootnotes as $json) {
+            foreach (json_decode($json, true) ?: [] as $fn) {
+                if (!empty($fn['id']) && isset($fn['marker']) && is_numeric($fn['marker'])) {
+                    $m = (int) $fn['marker'];
+                    $order[$fn['id']] = isset($order[$fn['id']]) ? min($order[$fn['id']], $m) : $m;
+                }
+            }
+        }
+        if (!$order) {
+            return [];
+        }
+
+        $rows = $db->table('footnotes')->where('book', $this->bookId)
+            ->where('is_citation', true)->whereNotNull('llm_metadata')
+            ->get(['footnoteId', 'content', 'llm_metadata']);
+
+        $entries = [];
+        foreach ($rows as $r) {
+            $meta = json_decode($r->llm_metadata, true);
+            if (!$meta || !isset($order[$r->footnoteId])) {
+                continue;
+            }
+            $entries[] = [
+                'id'     => $r->footnoteId,
+                'marker' => $order[$r->footnoteId],
+                'meta'   => $meta,
+                'text'   => trim(preg_replace('/\s+/', ' ', strip_tags($r->content))),
+            ];
+        }
+        usort($entries, fn($a, $b) => $a['marker'] <=> $b['marker']);
+
+        $norm = fn(?string $s) => trim(preg_replace('/[^\p{L}\p{N}\s]/u', '', mb_strtolower($s ?? '')));
+        $surnameOf = function (array $meta) use ($norm): ?string {
+            $first = $meta['authors'][0] ?? null;
+            if (!is_string($first) || $first === '') return null;
+            return $norm(explode(',', $first)[0]);
+        };
+
+        $fullForms = [];   // [{idx, id, meta, citation-string}]
+        $map = [];         // short id → antecedent id
+        $ambiguous = [];   // short id → ['entryIdx' =>, 'candidates' => [fullForm,...]]
+
+        foreach ($entries as $i => $e) {
+            $type = $e['meta']['type'] ?? null;
+
+            if ($type === 'ibid') {
+                // The immediately preceding citation footnote's EFFECTIVE work
+                // (a preceding short form has already been substituted in-place).
+                for ($j = $i - 1; $j >= 0; $j--) {
+                    $prevType = $entries[$j]['meta']['type'] ?? null;
+                    if (in_array($prevType, self::CITABLE_TYPES, true)) {
+                        $map[$e['id']] = $entries[$j]['meta']['short_form_of'] ?? $entries[$j]['id'];
+                        $entries[$i]['meta'] = array_merge($entries[$j]['meta'], ['short_form_of' => $map[$e['id']]]);
+                        break;
+                    }
+                    if (in_array($prevType, ['short-form', 'ibid'], true)) {
+                        // The preceding citation is itself UNLINKED (unknown work) —
+                        // this ibid refers to that unknown, not to anything earlier.
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            if ($type === 'short-form') {
+                $surname = $norm($e['meta']['surname'] ?? '');
+                $short = $norm($e['meta']['short_title'] ?? '');
+                $candidates = [];
+                $seenTitles = [];
+                // Walk full forms NEAREST-FIRST so candidate #1 is the closest antecedent.
+                foreach (array_reverse($fullForms) as $f) {
+                    if ($surname !== '' && $f['surname'] !== $surname) continue;
+                    $title = $norm($f['meta']['title'] ?? '');
+                    if ($short !== '' && $title !== '' && !str_starts_with($title, $short) && !str_contains($title, $short)) continue;
+                    if ($surname === '' && $short === '') continue;
+                    if (isset($seenTitles[$title])) continue; // same work cited fully twice
+                    $seenTitles[$title] = true;
+                    $candidates[] = $f;
+                }
+
+                if (count($candidates) === 1) {
+                    $map[$e['id']] = $candidates[0]['id'];
+                    $entries[$i]['meta'] = array_merge($candidates[0]['meta'], ['short_form_of' => $candidates[0]['id']]);
+                } elseif (count($candidates) > 1) {
+                    $ambiguous[$e['id']] = ['entryIdx' => $i, 'candidates' => $candidates];
+                }
+                // 0 candidates → stays unlinked (and out of resolution): honest unknown.
+                continue;
+            }
+
+            // A full citation — becomes an antecedent candidate.
+            if (in_array($type, self::CITABLE_TYPES, true) && !empty($e['meta']['title'])) {
+                $fullForms[] = [
+                    'id'      => $e['id'],
+                    'meta'    => $e['meta'],
+                    'surname' => $surnameOf($e['meta']) ?? '',
+                    'cite'    => implode(', ', array_filter([
+                        implode('; ', $e['meta']['authors'] ?? []),
+                        $e['meta']['title'] ?? null,
+                        $e['meta']['year'] ?? null,
+                    ])),
+                ];
+            }
+        }
+
+        // LLM picks among KNOWN candidates for the genuinely ambiguous ones.
+        if ($ambiguous && $disambiguator) {
+            $items = [];
+            foreach ($ambiguous as $shortId => $a) {
+                $items[$shortId] = [
+                    'short'      => $entries[$a['entryIdx']]['text'],
+                    'candidates' => array_map(fn($c) => $c['cite'], $a['candidates']),
+                ];
+            }
+            try {
+                $choices = $disambiguator($items);
+            } catch (\Throwable $ex) {
+                Log::warning('Short-form disambiguation failed', ['error' => $ex->getMessage()]);
+                $choices = [];
+            }
+            foreach ($ambiguous as $shortId => $a) {
+                $n = $choices[$shortId] ?? 0;
+                if ($n >= 1 && $n <= count($a['candidates'])) {
+                    $chosen = $a['candidates'][$n - 1];
+                    $map[$shortId] = $chosen['id'];
+                    $entries[$a['entryIdx']]['meta'] = array_merge($chosen['meta'], ['short_form_of' => $chosen['id']]);
+                }
+            }
+        }
+
+        // Persist linked metadata; drop ALL short-form/ibid footnotes from
+        // independent resolution.
+        $shortIds = [];
+        foreach ($entries as $e) {
+            // detect rows that were short-form/ibid in the stored metadata
+            $storedType = $e['meta']['type'] ?? null;
+            $isShortRow = isset($map[$e['id']]) || in_array($storedType, ['short-form', 'ibid'], true);
+            if (!$isShortRow) continue;
+            $shortIds[$e['id']] = true;
+            if (isset($map[$e['id']])) {
+                $db->table('footnotes')
+                    ->where('book', $this->bookId)->where('footnoteId', $e['id'])
+                    ->update([
+                        'llm_metadata' => json_encode($e['meta']),
+                        'match_method' => 'short_form_antecedent',
+                        'updated_at'   => now(),
+                    ]);
+            }
+        }
+        if ($shortIds) {
+            $needsResolution = array_values(array_filter(
+                $needsResolution,
+                fn($entry) => !isset($shortIds[$entry->referenceId ?? null]),
+            ));
+        }
+
+        if ($map || $shortIds) {
+            Log::info('Short-form footnote antecedents', [
+                'book' => $this->bookId, 'linked' => count($map),
+                'unlinked_short_forms' => count($shortIds) - count($map),
+                'ambiguous_sent_to_llm' => count($ambiguous),
+            ]);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Resolve author-date POINTER footnotes against the book's own bibliography.
+     * A third citation style (besides body author-date and self-contained
+     * citation footnotes): the footnote says "Chapman (2009), p. 6" and the
+     * full reference lives in the bibliography. The pointer inherits the
+     * bibliography entry's resolution (foundation_source / source_id) — it is
+     * NEVER resolved externally, because surname+year without a title is
+     * exactly the input that mis-matches to the wrong work.
+     *
+     * Only unambiguous surname+year matches link; ambiguous (e.g. two 2009
+     * works by the same surname) or unmatched pointers stay as they are.
+     */
+    private function matchBibliographyPointers($db, array &$needsResolution): void
+    {
+        if ($this->sourceTable !== 'footnotes' || empty($needsResolution)) {
+            return;
+        }
+
+        $bibRows = $db->table('bibliography')->where('book', $this->bookId)
+            ->whereNotNull('llm_metadata')
+            ->get(['referenceId', 'llm_metadata', 'foundation_source', 'source_id', 'match_score']);
+        if ($bibRows->isEmpty()) {
+            return;
+        }
+
+        $norm = fn(?string $s) => trim(preg_replace('/[^\p{L}\p{N}\s]/u', '', mb_strtolower($s ?? '')));
+        $surnameOf = function (array $meta) use ($norm): ?string {
+            $first = $meta['authors'][0] ?? null;
+            if (!is_string($first) || $first === '') return null;
+            return $norm(explode(',', $first)[0]);
+        };
+
+        // Index bibliography by surname|year
+        $index = [];
+        foreach ($bibRows as $r) {
+            $meta = json_decode($r->llm_metadata, true);
+            if (!$meta) continue;
+            $sur = $surnameOf($meta);
+            $yr = $meta['year'] ?? null;
+            if ($sur && $yr) {
+                $index["{$sur}|{$yr}"][] = $r;
+            }
+        }
+        if (!$index) {
+            return;
+        }
+
+        // Current footnote metadata (persisted during extraction)
+        $fnMeta = [];
+        foreach ($db->table('footnotes')->where('book', $this->bookId)
+            ->whereNotNull('llm_metadata')->get(['footnoteId', 'llm_metadata']) as $r) {
+            $fnMeta[$r->footnoteId] = json_decode($r->llm_metadata, true);
+        }
+
+        $linked = 0;
+        $linkedIds = [];
+        foreach ($needsResolution as $entry) {
+            $fnId = $entry->referenceId ?? null;
+            $meta = $fnMeta[$fnId] ?? null;
+            if (!$meta) continue;
+            // A pointer = author-date with no/short title; a footnote carrying a
+            // full reference (real title) should resolve through the normal waves.
+            $title = $meta['title'] ?? null;
+            if (is_string($title) && mb_strlen(trim($title)) > 25) continue;
+
+            $sur = $surnameOf($meta);
+            $yr = $meta['year'] ?? null;
+            if (!$sur || !$yr) continue;
+
+            $candidates = $index["{$sur}|{$yr}"] ?? [];
+            if (count($candidates) !== 1) continue; // ambiguous or absent — leave honest
+
+            $bib = $candidates[0];
+            $meta['bibliography_ref'] = $bib->referenceId;
+            $update = [
+                'llm_metadata' => json_encode($meta),
+                'match_method' => 'bibliography_pointer',
+                'match_score'  => $bib->match_score ?? 1.0,
+                'updated_at'   => now(),
+            ];
+            if (!empty($bib->foundation_source)) {
+                $update['foundation_source'] = $bib->foundation_source;
+                $update['source_id'] = $bib->source_id;
+            }
+            $db->table('footnotes')->where('book', $this->bookId)
+                ->where('footnoteId', $fnId)->update($update);
+
+            $linkedIds[$fnId] = true;
+            $linked++;
+        }
+
+        if ($linkedIds) {
+            // Linked pointers never go through external resolution.
+            $needsResolution = array_values(array_filter(
+                $needsResolution,
+                fn($e) => !isset($linkedIds[$e->referenceId ?? null]),
+            ));
+            Log::info('Bibliography-pointer footnotes linked', [
+                'book' => $this->bookId, 'linked' => $linked,
+            ]);
+        }
+    }
+
+    /**
+     * Remove legislation / case-law citations from external resolution. They
+     * COUNT as citations (claims anchor on their markers, the report lists
+     * them) but an instrument string ("Art. 5(3)(a) ISD") or a case number is
+     * not a scholarly-database query — sending it to the waves is mis-match
+     * risk for zero gain. Returns how many were excluded.
+     */
+    private function excludeLegalFromResolution($db, array &$needsResolution): int
+    {
+        if ($this->sourceTable !== 'footnotes' || empty($needsResolution)) {
+            return 0;
+        }
+        $legalIds = [];
+        foreach ($db->table('footnotes')->where('book', $this->bookId)
+            ->whereNotNull('llm_metadata')->get(['footnoteId', 'llm_metadata']) as $r) {
+            $meta = json_decode($r->llm_metadata, true);
+            if (in_array($meta['type'] ?? null, ['legislation', 'case-law'], true)) {
+                $legalIds[$r->footnoteId] = true;
+            }
+        }
+        if (!$legalIds) {
+            return 0;
+        }
+        $before = count($needsResolution);
+        $needsResolution = array_values(array_filter(
+            $needsResolution,
+            fn($e) => !isset($legalIds[$e->referenceId ?? null]),
+        ));
+        return $before - count($needsResolution);
+    }
+
+    /**
+     * After the resolution waves: each short-form footnote inherits its
+     * antecedent's resolution + canonical link, so six "Hart, Justice"
+     * footnotes share ONE resolved source instead of resolving (wrongly) alone.
+     */
+    private function inheritShortFormResolutions($db, array $shortFormMap): void
+    {
+        foreach ($shortFormMap as $shortId => $antecedentId) {
+            $ante = $db->table('footnotes')
+                ->where('book', $this->bookId)->where('footnoteId', $antecedentId)
+                ->first(['foundation_source', 'source_id', 'match_score']);
+            if (!$ante || empty($ante->foundation_source)) {
+                continue; // antecedent unresolved — short form stays unresolved too
+            }
+            $db->table('footnotes')
+                ->where('book', $this->bookId)->where('footnoteId', $shortId)
+                ->update([
+                    'foundation_source' => $ante->foundation_source,
+                    'source_id'         => $ante->source_id,
+                    'match_method'      => 'short_form_antecedent',
+                    'match_score'       => $ante->match_score ?? 1.0,
+                    'updated_at'        => now(),
+                ]);
+        }
     }
 
     private function resolveWithStub(array $poolItem, string $stubBookId, string $matchMethod, $db): array

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { resolveBookIdForBatch } from '../../../resources/js/indexedDB/nodes/bookIdResolver.js';
+import { resolveBookIdForBatch } from '../../../resources/js/indexedDB/nodes/bookIdResolver';
 
 describe('resolveBookIdForBatch', () => {
   beforeEach(() => {

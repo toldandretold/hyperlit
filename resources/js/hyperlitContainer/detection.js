@@ -4,7 +4,7 @@
  * Supports: footnotes, citations, hypercite-citations, highlights, hypercites
  */
 
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 
 /**
  * Detect all content types present on an element

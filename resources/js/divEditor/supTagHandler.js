@@ -8,7 +8,7 @@
  */
 
 import { queueNodeForSave, queueNodeForDeletion } from './index.js';
-import { queueForSync } from '../indexedDB/syncQueue/queue.js';
+import { queueForSync } from '../indexedDB/syncQueue/queue';
 
 export class SupTagHandler {
   constructor(editableDiv) {
@@ -309,7 +309,7 @@ export class SupTagHandler {
 
           (async () => {
             try {
-              const { openDatabase } = await import('../indexedDB/index.js');
+              const { openDatabase } = await import('../indexedDB/index');
               const { getHyperciteById } = await import('../hypercites/database.js');
               const db = await openDatabase();
               const hypercite = await getHyperciteById(db, hyperciteId);

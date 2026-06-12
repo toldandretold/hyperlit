@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs, updateBookTimestamp } from '../indexedDB/index.js';
+import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs, updateBookTimestamp } from '../indexedDB/index';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -375,7 +375,7 @@ async function openBrainFromSelection(event) {
 
   // Mark as brain query in IndexedDB (keep creator as the user's name for proper delete permissions)
   try {
-    const { openDatabase } = await import('../indexedDB/index.js');
+    const { openDatabase } = await import('../indexedDB/index');
     const db = await openDatabase();
     const tx = db.transaction('hyperlights', 'readwrite');
     const store = tx.objectStore('hyperlights');

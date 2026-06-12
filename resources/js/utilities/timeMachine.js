@@ -1,5 +1,5 @@
 import { book } from '../app.js';
-import { openDatabase } from '../indexedDB/index.js';
+import { openDatabase } from '../indexedDB/index';
 import {
   clearBookDataFromIndexedDB,
   loadNodeChunksToIndexedDB,

@@ -646,6 +646,25 @@ mark[data-highlight-count="9"]:hover {
     filter: brightness(0.75);
 }
 
+/* Group hover: a highlight renders as multiple sibling marks (split by
+   overlaps and footnote sups). JS (hyperlights/markGroup.js) stamps
+   .hl-group-hover on EVERY mark sharing the hovered mark's HL_* classes so
+   the whole highlight lights up — mirrors the :hover rules above. */
+mark.hl-group-hover {
+    filter: brightness(1.4);
+    transition: filter var(--transition-fast);
+}
+
+mark[data-highlight-count="3"].hl-group-hover,
+mark[data-highlight-count="4"].hl-group-hover,
+mark[data-highlight-count="5"].hl-group-hover,
+mark[data-highlight-count="6"].hl-group-hover,
+mark[data-highlight-count="7"].hl-group-hover,
+mark[data-highlight-count="8"].hl-group-hover,
+mark[data-highlight-count="9"].hl-group-hover {
+    filter: brightness(0.75);
+}
+
 
 /* User-specific overrides (more specific, comes after) */
 mark[data-highlight-count].user-highlight {

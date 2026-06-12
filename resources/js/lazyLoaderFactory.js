@@ -60,7 +60,7 @@ function _scheduleRenderHealFlush() {
 
     let batchUpdateIndexedDBRecords;
     try {
-      ({ batchUpdateIndexedDBRecords } = await import('./indexedDB/nodes/batch.js'));
+      ({ batchUpdateIndexedDBRecords } = await import('./indexedDB/nodes/batch'));
     } catch (e) {
       console.warn('[render-heal] failed to import batch module:', e);
       return;
@@ -285,7 +285,7 @@ async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook, isFully
   try {
     // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
     const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities.js');
-    const { updateSingleIndexedDBRecord } = await import('./indexedDB/index.js');
+    const { updateSingleIndexedDBRecord } = await import('./indexedDB/index');
 
     // Step 1: Check DOM for marker (O(1) - very fast)
     if (getNoDeleteNode()) {
@@ -454,7 +454,7 @@ export function createLazyLoader(config) {
 
         // Check if target book is private and if user has access
         try {
-          const { openDatabase } = await import('./indexedDB/index.js');
+          const { openDatabase } = await import('./indexedDB/index');
           const db = await openDatabase();
           const tx = db.transaction('library', 'readonly');
           const libraryStore = tx.objectStore('library');
@@ -1021,7 +1021,7 @@ export function createLazyLoader(config) {
       instance.nodes = await instance.getNodeChunks();
 
       // Hydrate with highlights from standalone stores
-      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild.js');
+      const { rebuildNodeArrays } = await import('./indexedDB/hydration/rebuild');
       await rebuildNodeArrays(instance.nodes);
 
       // Clear stale dirty flag — we just hydrated from source of truth
@@ -1525,6 +1525,16 @@ export function applyHighlights(html, highlights, bookId) {
 
   // Client-side gate filter — removes gated highlights before rendering
   highlights = applyGateFilter(highlights, 'hyperlight');
+
+  // Drop phantom "HL_overlap" records — residue of the pre-fix save bug
+  // (positionCollector keyed records by mark.id, and overlap segments render
+  // with the synthetic id "HL_overlap"). They are not real highlights;
+  // rendering them inflates data-highlight-count (triggering the dim-at-3+
+  // hover rule on only part of a highlight) and splits cohesive mark groups.
+  // hyperlights:purge-overlap-phantoms removes them server-side; this guard
+  // keeps stale IDB copies inert.
+  highlights = highlights.filter(h => (h.hyperlight_id || h.highlightID) !== 'HL_overlap');
+
   if (highlights.length === 0) return html;
 
   const tempElement = document.createElement("div");
@@ -2195,12 +2205,12 @@ async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   attachUnderlineClickListeners(chunkElement);
 
   // Re-apply cascade-origin glow if this chunk contains the target highlight
+  // (ALL segments — a highlight renders as multiple marks split by overlaps/sups)
   const cascadeId = getCascadeOriginId();
   if (cascadeId) {
-    const markEl = chunkElement.querySelector(`mark.${CSS.escape(cascadeId)}`);
-    if (markEl) {
+    chunkElement.querySelectorAll(`mark.${CSS.escape(cascadeId)}`).forEach((markEl) => {
       markEl.classList.add('cascade-origin');
-    }
+    });
   }
 
   if (chunkId === 0) {

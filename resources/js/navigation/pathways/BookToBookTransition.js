@@ -12,12 +12,12 @@ import { cleanupReaderView } from '../../viewManager.js';
 import { resetEditModeState, enforceEditableState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../app.js';
-import { updateDatabaseBookId } from '../../indexedDB/index.js';
+import { updateDatabaseBookId } from '../../indexedDB/index';
 import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
-import { navigateToHyperciteTarget } from '../../hypercites/index.js';
+import { navigateToHyperciteTarget } from '../../hypercites/index';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
 import { navigateToInternalId, resetUserScrollState } from '../../scrolling.js';
 

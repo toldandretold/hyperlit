@@ -6,9 +6,9 @@
 import { saveHighlightAnnotation } from '../hyperlights/annotations.js';
 import { saveFootnoteToIndexedDB } from '../footnotes/footnoteAnnotations.js';
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
-import { parseHyperciteHref, attachUnderlineClickListeners } from '../hypercites/index.js';
+import { parseHyperciteHref, attachUnderlineClickListeners } from '../hypercites/index';
 import { extractQuotedText } from '../utilities/textExtraction.js';
-import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
+import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from '../utilities/BroadcastListener.js';
 import { getCurrentContainer } from './stack.js';

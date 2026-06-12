@@ -4,10 +4,10 @@
  */
 
 import { book } from '../../app.js';
-import { openDatabase } from '../../indexedDB/index.js';
-import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index.js';
+import { openDatabase } from '../../indexedDB/index';
+import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
-import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index.js';
+import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index';
 
 /**
  * Build an ancestor chain for a sub-book ID (innermost parent first).

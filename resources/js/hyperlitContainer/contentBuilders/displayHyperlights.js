@@ -3,7 +3,7 @@
  * Constructs HTML content for displaying highlights in the hyperlit container
  */
 
-import { openDatabase } from '../../indexedDB/index.js';
+import { openDatabase } from '../../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from "../../utilities/auth.js";
 import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
 import DOMPurify from 'dompurify';

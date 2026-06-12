@@ -15,7 +15,7 @@
  * Returns { chunkId, resolved, reason, fallbackUsed }
  */
 
-import { openDatabase } from '../indexedDB/core/connection.js';
+import { openDatabase } from '../indexedDB/core/connection';
 
 import { verbose } from '../utilities/logger.js';
 
@@ -137,7 +137,7 @@ async function resolveHyperciteChunk(bookId, hyperciteId) {
     // Local-only lookup — no server fallback. If the hypercite isn't in
     // local IDB (e.g. citation arrows), the resolver's content-scan
     // fallback (step 6) will find it instead.
-    const { getHyperciteFromIndexedDB } = await import('../indexedDB/hypercites/index.js');
+    const { getHyperciteFromIndexedDB } = await import('../indexedDB/hypercites/index');
     const record = await getHyperciteFromIndexedDB(bookId, hyperciteId);
     if (record && Array.isArray(record.node_id) && record.node_id.length > 0) {
       return await nodeIdToChunkId(bookId, record.node_id[0]);

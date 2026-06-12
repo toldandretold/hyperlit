@@ -11,7 +11,7 @@ import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../components/editIndicator.js';
 import { waitForElementReady, waitForContentReady } from '../../domReadiness.js';
 import { log, verbose } from '../../utilities/logger.js';
-import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../indexedDB/index.js';
+import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../indexedDB/index';
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { destroyNewBookContainer } from '../../components/newBookButton.js';
 import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';

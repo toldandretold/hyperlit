@@ -12,7 +12,7 @@
  *
  * Usage:
  *   import { log } from './utilities/logger.js';
- *   log.init('Database initialized', '/indexedDB/index.js');
+ *   log.init('Database initialized', '/indexedDB/index');
  *   log.nav('Fresh page load pathway', '/navigation/NavigationManager.js');
  *   log.content('First chunk rendered (50 nodes)', 'lazyLoaderFactory.js');
  *   log.user('Text selected', '/hyperlights/selection.js');
@@ -210,7 +210,7 @@ export const logger = {
   import { log, verbose } from './utilities/logger.js';
 
   // Checkpoint logs (always shown):
-  log.init('Database initialized', '/indexedDB/index.js');
+  log.init('Database initialized', '/indexedDB/index');
   log.nav('Fresh page load', '/navigation/NavigationManager.js');
   log.content('First chunk rendered', 'lazyLoaderFactory.js');
   log.user('Text selected', '/hyperlights/selection.js');

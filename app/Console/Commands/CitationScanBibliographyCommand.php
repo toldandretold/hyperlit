@@ -96,6 +96,36 @@ class CitationScanBibliographyCommand extends Command
         $this->newLine();
         $this->printSummary($scan);
 
+        // SECOND PASS — footnotes, when the book has BOTH a bibliography and
+        // footnotes (the first pass only covers footnotes as a fallback when
+        // the bibliography is empty). Catches the pointer style: footnotes
+        // like "Chapman (2009), p. 6" referring into the bibliography, plus
+        // any self-contained citation footnotes alongside a bibliography.
+        if (!$referenceId && $db->table('bibliography')->where('book', $bookId)->count() > 0) {
+            $fnCount = $db->table('footnotes')->where('book', $bookId)->count();
+            if ($fnCount > 0) {
+                $this->newLine();
+                $this->info("Second pass: scanning {$fnCount} footnotes for citations...");
+                $fnScanId = (string) Str::uuid();
+                $db->table('citation_scans')->insert([
+                    'id'            => $fnScanId,
+                    'book'          => $bookId,
+                    'status'        => 'pending',
+                    'total_entries' => $fnCount,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
+                $fnJob = new CitationScanBibliographyJob($fnScanId, $bookId, null, $force, 'footnotes');
+                $fnJob->handle(app(OpenAlexService::class));
+                $fnScan = $db->table('citation_scans')->where('id', $fnScanId)->first();
+                if ($fnScan) {
+                    $this->printSummary($fnScan);
+                    $cited = $db->table('footnotes')->where('book', $bookId)->where('is_citation', true)->count();
+                    $this->line("  Citation footnotes: {$cited}");
+                }
+            }
+        }
+
         $results = json_decode($scan->results, true) ?? [];
 
         // Single citation: print inline. Full book: write to file.

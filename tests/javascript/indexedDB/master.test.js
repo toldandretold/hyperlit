@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterFreshNodesForBook } from '../../../resources/js/indexedDB/syncQueue/freshNodeFilter.js';
+import { filterFreshNodesForBook } from '../../../resources/js/indexedDB/syncQueue/freshNodeFilter';
 
 describe('filterFreshNodesForBook', () => {
   it('keeps only nodes whose book matches the target bookId', () => {

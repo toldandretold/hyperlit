@@ -68,7 +68,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
         if (window.testDelinkHypercite) {
           await window.testDelinkHypercite(deletedLinkId, href);
         } else {
-          const { delinkHypercite } = await import('../hypercites/index.js');
+          const { delinkHypercite } = await import('../hypercites/index');
           await delinkHypercite(deletedLinkId, href);
         }
       } catch (error) {
@@ -102,7 +102,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
     }
 
     try {
-      const { openDatabase } = await import('../indexedDB/index.js');
+      const { openDatabase } = await import('../indexedDB/index');
       const { getHyperciteById } = await import('../hypercites/database.js');
       const db = await openDatabase();
       const hypercite = await getHyperciteById(db, hyperciteId);
@@ -201,7 +201,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
             if (window.testDelinkHypercite) {
               await window.testDelinkHypercite(deletedLinkId, href);
             } else {
-              const { delinkHypercite } = await import('../hypercites/index.js');
+              const { delinkHypercite } = await import('../hypercites/index');
               await delinkHypercite(deletedLinkId, href);
             }
           } catch (error) {

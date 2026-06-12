@@ -6,7 +6,7 @@
 
 import { verbose } from '../utilities/logger.js';
 import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
-import { isIDBBroken } from '../indexedDB/core/healthMonitor.js';
+import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 
 export let isProcessing = false
 export let isComplete   = false

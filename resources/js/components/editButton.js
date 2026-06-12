@@ -7,7 +7,7 @@ import { book } from "../app.js";
 import { log, verbose } from "../utilities/logger.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
-import { getLibraryObjectFromIndexedDB } from '../indexedDB/index.js';
+import { getLibraryObjectFromIndexedDB } from '../indexedDB/index';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
 
@@ -410,7 +410,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     // edit-mode-exit (case a/b) vs the divergence pre-existing (case c).
     let __preFlushSnapshot = null;
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
       const preNodes = await getNodeChunksFromIndexedDB(book);
       __preFlushSnapshot = new Map(
         (preNodes || []).map(n => [String(n.startLine), n.content || ''])
@@ -425,7 +425,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     // [diagnostic] diff IDB content after flush
     if (__preFlushSnapshot) {
       try {
-        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
         const postNodes = await getNodeChunksFromIndexedDB(book);
         const changed = [];
         for (const n of postNodes || []) {

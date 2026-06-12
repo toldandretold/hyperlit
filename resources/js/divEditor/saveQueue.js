@@ -9,14 +9,14 @@ import {
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
-} from '../indexedDB/index.js';
+} from '../indexedDB/index';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
 import { clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 import { markCacheDirty } from '../utilities/cacheState.js';
 import { debounce } from '../utilities/debounce.js';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
-import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor.js';
+import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor';
 import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';

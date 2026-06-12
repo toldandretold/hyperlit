@@ -2,7 +2,7 @@ import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
 import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
 import { log, verbose } from './utilities/logger.js';
-import { getAllOfflineAvailableBooks } from './indexedDB/index.js';
+import { getAllOfflineAvailableBooks } from './indexedDB/index';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';

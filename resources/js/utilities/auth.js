@@ -1,4 +1,4 @@
-import { getLibraryObjectFromIndexedDB, clearDatabase } from '../indexedDB/index.js';
+import { getLibraryObjectFromIndexedDB, clearDatabase } from '../indexedDB/index';
 import { log, verbose } from './logger.js';
 
 // Internal state

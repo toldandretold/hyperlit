@@ -366,7 +366,7 @@ export async function prepareContainerClose() {
   // doesn't block the close indefinitely.
   console.log('[HyperlitContainer] Flushing master sync...');
   try {
-    const { debouncedMasterSync } = await import('../indexedDB/syncQueue/master.js');
+    const { debouncedMasterSync } = await import('../indexedDB/syncQueue/master');
     await Promise.race([
       debouncedMasterSync.flush(),
       new Promise(resolve => setTimeout(resolve, 5000)),
@@ -392,7 +392,7 @@ export async function savePreviewNodes() {
     // re-export — importing the entangled module mid-cycle can leave the binding in
     // the TDZ ("Cannot access 'subBookLoaders' before initialization").
     const { subBookLoaders } = await import('./subBookState.js');
-    const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index.js');
+    const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index');
 
     const { parseSubBookId } = await import('../utilities/subBookIdHelper.js');
 
@@ -650,11 +650,11 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     console.log('[closeHyperlitContainer] FINALLY — calling closeContainer()');
     document.body.classList.remove('hyperlit-container-open');
 
-    // Remove cascade-origin glow from base mark element
-    const cascadeOrigin = document.querySelector('.cascade-origin');
-    if (cascadeOrigin) {
-      cascadeOrigin.classList.remove('cascade-origin');
-    }
+    // Remove cascade-origin glow from ALL base mark segments (the glow is
+    // applied to every mark of the highlight's group, not just one element)
+    document.querySelectorAll('.cascade-origin').forEach((el) => {
+      el.classList.remove('cascade-origin');
+    });
     clearCascadeOriginId();
     if (hyperlitManager?.closeContainer) {
       hyperlitManager.closeContainer();

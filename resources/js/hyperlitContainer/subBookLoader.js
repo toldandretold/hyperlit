@@ -9,7 +9,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 // (inside async functions) to break a circular dependency chain:
 //   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader
 // Static imports here would leave subBookLoaders in the TDZ during module evaluation.
-import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index.js';
+import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
 import { lazyLoaders } from '../initializePage.js';
 import { generateNodeId } from '../utilities/IDfunctions.js';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
@@ -169,7 +169,7 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
  */
 async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   const { attachMarkListeners } = await import('../hyperlights/index.js');
-  const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+  const { attachUnderlineClickListeners } = await import('../hypercites/index');
   const container = subBookState.containerDiv;
 
   if (previewNodeIds.length === 0) {
@@ -186,7 +186,7 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   // hyperlights arrays (e.g. when getNodesByDataNodeIDs returned the parent's node
   // at highlight-creation time, leaving the sub-book's node un-updated).
   if (previewNodes.length > 0) {
-    const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild.js');
+    const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild');
     await rebuildNodeArrays(previewNodes);
     console.log(`✅ Rebuilt arrays for ${previewNodes.length} preview nodes before hydration`);
   }
@@ -255,7 +255,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
 
   try {
     // ── Timestamp guard (same pattern as checkAndUpdateIfNeeded in initializePage.js) ──
-    const { fetchLibraryRecordWithStatus, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library.js');
+    const { fetchLibraryRecordWithStatus, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library');
 
     const [serverResult, localRecord] = await Promise.all([
       fetchLibraryRecordWithStatus(subBookId),
@@ -313,7 +313,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
         console.log(`📝 Sub-book "${subBookId}": annotations changed. Syncing annotations only...`);
 
         const { syncAnnotationsOnly } = await import('../postgreSQL.js');
-        const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library.js');
+        const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library');
 
         await syncAnnotationsOnly(subBookId);
         await updateLocalAnnotationsTimestamp(subBookId, serverAnnotationsTs);
@@ -368,7 +368,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
         if (container && (!currentText || currentText.length === 0)) {
           console.log(`🔄 Container was empty — re-rendering "${subBookId}" with ${freshNodes.length} fresh nodes`);
           const { attachMarkListeners } = await import('../hyperlights/index.js');
-          const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+          const { attachUnderlineClickListeners } = await import('../hypercites/index');
           const previewSlice = freshNodes.slice(0, 5);
           const nodesByChunk = {};
           previewSlice.forEach(node => {
@@ -460,7 +460,7 @@ export async function loadSubBook(
 ) {
   // Dynamic imports to break circular dependency (see comment at top of file)
   const { attachMarkListeners } = await import('../hyperlights/index.js');
-  const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+  const { attachUnderlineClickListeners } = await import('../hypercites/index');
 
   // Clean up any prior instance
   try {
@@ -585,7 +585,7 @@ export async function loadSubBook(
   // Hydrate preview nodes with highlight marks from the normalized hyperlights store.
   // Preview nodes come from highlight.preview_nodes with empty hyperlights arrays —
   // rebuildNodeArrays queries the hyperlights store by node_id and populates them.
-  const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild.js');
+  const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild');
   await rebuildNodeArrays(firstFiveNodes, { skipWrite: true });
 
   // Create lazy loader with preview nodes only (not all nodes)

@@ -42,7 +42,7 @@ test('pipeline map endpoint returns the stage chain with notes and code refs', f
     $resp = $this->getJson('/api/citation-pipeline/map')->assertOk();
 
     $stages = $resp->json('stages');
-    expect(array_column($stages, 'id'))->toBe(['bibliography', 'content', 'vacuum', 'ocr', 'review']);
+    expect(array_column($stages, 'id'))->toBe(['bibliography', 'vacuum', 'ocr', 'review']);
     foreach ($stages as $stage) {
         expect($stage['plain'])->not->toBeEmpty();
         expect($stage['code_ref'])->not->toBeEmpty();
