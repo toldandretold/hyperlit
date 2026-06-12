@@ -118,6 +118,102 @@ test('foundation match without canonical is local tier with foundation content',
     expect($meta['content_provenance'])->toBe('foundation');
 });
 
+test('a web-verified source gets the web tier and the distinct Web-verified line', function () {
+    // A non-academic source confirmed by ContentFetchService::importWebSource
+    // (conversion_method=web_article_verified). No canonical — web tier.
+    $web = canonvSeedLibrary([
+        'title'             => 'CanonV Review News Story',
+        'type'              => 'web_source',
+        'url'               => 'https://example.news/story',
+        'conversion_method' => 'web_article_verified',
+        'has_nodes'         => true,
+    ]);
+    $book = canonvSeedLibrary(['title' => 'CanonV Review Citing Book Web']);
+    canonvSeedReviewBib($book, 'ref1', ['foundation_source' => $web]);
+
+    $svc = app(App\Services\CitationReviewService::class);
+    $meta = canonvEnrich($book, ['ref1'])['ref1'];
+    expect($meta['verification_tier'])->toBe('web');
+    expect($meta['verified'])->toBeTrue();
+    expect($meta['canonical_source_id'])->toBeNull();
+
+    // The review renders the distinct, honest Web-verified provenance line.
+    $m = new ReflectionMethod($svc, 'buildProvenanceMd');
+    $m->setAccessible(true);
+    $line = $m->invoke($svc, ['verification_tier' => 'web', 'source_url' => 'https://example.news/story']);
+    expect($line)->toContain('Web-verified');
+    expect($line)->toContain('URL-content match is the available verification');
+    expect($line)->not->toContain('Canonical');
+});
+
+test('a web source grouped under a WEB canonical stays web tier, NOT canonical-verified', function () {
+    // The version-grouping web canonical (type=web, no academic signals) must
+    // never be mistaken for an academically-verified work in the review.
+    $webCanonical = canonvSeedCanonical([
+        'title'             => 'CanonV Web Canonical',
+        'type'              => 'web',
+        'foundation_source' => 'web_verified',
+        'source_url'        => 'https://example.news/grouped',
+    ]);
+    $web = canonvSeedLibrary([
+        'title'               => 'CanonV Grouped Web Source',
+        'type'                => 'web_source',
+        'url'                 => 'https://example.news/grouped',
+        'conversion_method'   => 'web_article_verified',
+        'canonical_source_id' => $webCanonical,
+        'has_nodes'           => true,
+    ]);
+    $book = canonvSeedLibrary(['title' => 'CanonV Review Citing Book Web3']);
+    canonvSeedReviewBib($book, 'ref1', ['foundation_source' => $web, 'canonical_source_id' => $webCanonical]);
+
+    $meta = canonvEnrich($book, ['ref1'])['ref1'];
+    expect($meta['verification_tier'])->toBe('web');       // ← the guard
+    expect($meta['verification_tier'])->not->toBe('canonical');
+    expect($meta['canonical_signals'])->toBe([]);          // no academic signals
+});
+
+test('a web source that did NOT verify is not web tier (stays local content, not canonical)', function () {
+    $web = canonvSeedLibrary([
+        'type'              => 'web_source',
+        'conversion_method' => 'html_scrape_unverified',
+        'has_nodes'         => true,
+        'title'             => 'CanonV Review Unverified Web',
+    ]);
+    $book = canonvSeedLibrary(['title' => 'CanonV Review Citing Book Web2']);
+    canonvSeedReviewBib($book, 'ref1', ['foundation_source' => $web]);
+
+    $meta = canonvEnrich($book, ['ref1'])['ref1'];
+    expect($meta['verification_tier'])->not->toBe('web');
+    expect($meta['verification_tier'])->not->toBe('canonical');
+    expect($meta['web_status'])->toBe('unverified');
+});
+
+test('unverified and rejected web sources get honest web-specific provenance lines, not the academic local line', function () {
+    $svc = app(App\Services\CitationReviewService::class);
+    $m = new ReflectionMethod($svc, 'buildProvenanceMd');
+    $m->setAccessible(true);
+
+    $unverified = $m->invoke($svc, [
+        'verification_tier' => 'local',
+        'web_status'        => 'unverified',
+        'source_url'        => 'https://pib.gov.in/newsite/PrintRelease.aspx?relid=136737',
+    ]);
+    expect($unverified)->toContain('could not be confirmed as the cited article');
+    expect($unverified)->not->toContain('no canonical work identity yet');
+
+    $rejected = $m->invoke($svc, [
+        'verification_tier' => 'local',
+        'web_status'        => 'rejected',
+        'source_url'        => 'https://example.news/wrong-page',
+    ]);
+    expect($rejected)->toContain('DIFFERENT article');
+    expect($rejected)->toContain('untrusted');
+
+    // Non-web local matches keep the academic wording.
+    $local = $m->invoke($svc, ['verification_tier' => 'local', 'web_status' => null]);
+    expect($local)->toContain('no canonical work identity yet');
+});
+
 test('unresolved citation stays unverified', function () {
     $book = canonvSeedLibrary(['title' => 'CanonV Review Citing Book 4']);
     canonvSeedReviewBib($book, 'ref1', ['foundation_source' => 'unknown']);

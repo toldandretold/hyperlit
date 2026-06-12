@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
 use App\Services\CanonicalSourceMatcher;
+use App\Services\ContentFetchService;
 use App\Services\OpenAlexService;
 use App\Services\OpenLibraryService;
 use App\Services\LlmService;
@@ -292,15 +293,19 @@ class CitationScanBibliographyJob implements ShouldQueue
                     }
                 }
 
-                // Check for suspicious domain patterns (double TLDs like google.reports)
+                // Flag a genuinely-bogus TLD (e.g. an LLM-fabricated "google.reports").
+                // The TLD is the LAST segment — validate it against real TLDs, NOT a
+                // tiny allow-list. Country-code TLDs (.in/.cn/.de/.br …) and gov SLDs
+                // like gov.in are legitimate and must NOT be flagged. The DNS check
+                // below is the stronger fabrication signal; this only catches an
+                // outright invalid TLD string.
                 if (preg_match('#^https?://([^/]+)#i', $url, $dm) ||
                     preg_match('#^[a-z]+://([^/]+)#i', $url, $dm)) {
                     $host = $dm[1];
                     $parts = explode('.', $host);
-                    if (count($parts) >= 3) {
+                    if (count($parts) >= 2) {
                         $last = strtolower(end($parts));
-                        $knownTlds = ['com','org','net','edu','gov','io','co','uk','au','ca','de','fr','jp','us','info','biz','dev','app','me'];
-                        if (!in_array($last, $knownTlds)) {
+                        if (!$this->isValidTld($last)) {
                             $flags[] = 'suspicious_tld:' . $last;
                         }
                     }
@@ -1196,6 +1201,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $stubYear   = $item['llmMetadata']['year'] ?? null;
                         $url        = $urlItems[$refId]['url'];
 
+                        // NB: web-source browser-fetch + verification is NOT done here —
+                        // it's slow (a browser launch per source) and would stall the
+                        // bibliography scan. It runs in the VACUUM stage instead, where
+                        // slowness is expected and shown in the live viz. This wave just
+                        // creates the fast HTTP-scraped stub so the citation resolves.
                         $stubBookId = $webFetch->createWebStubWithNodes($db, $stubTitle, $stubAuthor, $stubYear, $text, $url);
                         if ($stubBookId) {
                             $result = $this->resolveWithStub($item, $stubBookId, 'web_fetch', $db);
@@ -1476,6 +1486,17 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Resolve a pool entry using an already-created stub book ID (web_fetch, brave_search).
      * Updates bibliography and returns result array.
      */
+    /**
+     * Is $tld a real top-level domain? Covers all ISO 3166-1 country-code TLDs
+     * plus the common generic TLDs — so legitimate non-US/UK domains (e.g. the
+     * Indian government's pib.gov.in) are NOT flagged as fabricated, while an
+     * outright-invalid TLD string (e.g. "google.reports") still is.
+     */
+    private function isValidTld(string $tld): bool
+    {
+        return \App\Support\UrlSanity::isValidTld($tld);
+    }
+
     private function resolveWithStub(array $poolItem, string $stubBookId, string $matchMethod, $db): array
     {
         $refId    = $poolItem['referenceId'];

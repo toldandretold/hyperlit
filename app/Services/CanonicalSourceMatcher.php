@@ -171,6 +171,39 @@ class CanonicalSourceMatcher
         return $canonical;
     }
 
+    /**
+     * Find-or-create a WEB canonical, identity-keyed on the URL, and link the
+     * library row to it. This is the version-grouping canonical for a
+     * non-academic source whose page content has been VERIFIED against the
+     * citation (caller's responsibility — never call this for an unverified or
+     * title-only match). It carries NO academic signals: type='web',
+     * foundation_source='web_verified', no DOI/openalex_id — the honest claim
+     * is "a URL that had this content", not "a legitimate authored work".
+     * Multiple library rows for the same URL group under one such canonical.
+     */
+    public function linkWebSourceToCanonical(
+        PgLibrary $library,
+        string $url,
+        ?string $title = null,
+        ?string $author = null,
+        ?int $year = null
+    ): CanonicalSource {
+        $canonical = CanonicalSource::where('source_url', $url)->first();
+        if (!$canonical) {
+            $canonical = CanonicalSource::create([
+                'source_url'        => $url,
+                'title'             => $title,
+                'author'            => $author,
+                'year'              => $year,
+                'type'              => 'web',           // NOT 'article' — honest marking
+                'foundation_source' => 'web_verified',
+            ]);
+        }
+        // match_score 1.0 = URL+content identity confirmed; method names the route.
+        $this->linkLibraryToCanonical($library, $canonical, 1.0, 'web_url_verified', false);
+        return $canonical;
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // Wave: external API attempts
     // ──────────────────────────────────────────────────────────────────

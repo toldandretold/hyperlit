@@ -848,14 +848,35 @@ IMPORTANT: The claim may reference multiple authors. You are verifying against O
 header). Only check whether THIS source supports the substance of the claim. Do not penalise because
 other authors mentioned in the claim are absent from this source.
 
+IMPORTANT — MULTI-SOURCE CITATIONS SHARE THE BURDEN: when the claim carries a citation listing several
+sources, e.g. (A, 2016; B, 2014; C, 2016), each source typically supplies ONE component, example, or
+instance of the claim — not the whole sentence. First ask: "which part of this claim could THIS source
+plausibly have been cited for?" A news article inside a composite claim may exist only to evidence one
+clause (one event, one quote, one rhetorical example). Judge the source on the component it supplies:
+clearly supplies it → "confirmed"/"likely"; could supply it → "plausible". It is WRONG to reject a
+source for not covering the claim's other components.
+
 Return ONLY valid JSON:
 {"support": "confirmed|likely|plausible|unlikely|rejected", "summary": "...", "reasoning": "...", "cited_passages": [1, 3]}
 
-- "confirmed": Evidence directly confirms or logically entails the claim. The claim does not need to appear verbatim — if the evidence implies it, that counts.
+- "confirmed": Evidence directly confirms or logically entails the claim (or, for a multi-source citation, the component this source supplies). The claim does not need to appear verbatim — if the evidence implies it, that counts.
 - "likely": Topic is clearly related and the claim is consistent with the evidence, but not directly confirmed. Use when: passages discuss the right topic convincingly, abstract is in the right field, or strong topical alignment.
 - "plausible": Some topical overlap; the claim could be in this source but evidence is thin, partial, or tangential. Use when: paywalled content, very short passages, or only loosely related material.
-- "unlikely": Weak connection; the evidence barely relates to the claim, or the claim seems like a stretch given what's available.
-- "rejected": The source is about a genuinely unrelated topic and there is zero chance it supports the claim — even accounting for the fact that you may not have the full text and that academic works often cover diverse topics. "Contradiction" is NOT grounds for rejection: a passage may present competing views, quote opponents, or describe positions later rebutted. If there is any plausible connection between the source's topic and the claim, do NOT reject.
+- "unlikely": Weak connection; the evidence barely relates to the claim, or the claim seems like a stretch given what's available. ALSO the floor verdict whenever the evidence you were given is DEFECTIVE (test 2 below) — missing evidence is not proof of irrelevance.
+- "rejected": A verdict of LAST RESORT. Before choosing it, ALL FOUR tests must pass:
+    (1) SAME-ENTITY TEST — the source is NOT by, about, or reporting on any person, organisation,
+        event, place, or political context that appears in the claim. A speech BY the person the
+        claim discusses, or an article ABOUT the event the claim mentions, FAILS this test:
+        rejection is forbidden; use "plausible" at minimum.
+    (2) EVIDENCE-QUALITY TEST — the evidence you were given is genuine article content. If the
+        passages are login pages, navigation menus, cookie banners, or boilerplate, or the abstract
+        is cut off mid-thought, you are missing the real text: the floor is "unlikely", never "rejected".
+    (3) COMPONENT TEST — for a multi-source citation, there is NO component, clause, example, or
+        instance within the claim that this source could plausibly be supplying.
+    (4) ZERO-CHANCE TEST — the source is about a genuinely unrelated topic and there is zero chance
+        it supports the claim, even accounting for the fact that you may not have the full text.
+  If ANY test fails, do not reject. "Contradiction" is NOT grounds for rejection: a passage may
+  present competing views, quote opponents, or describe positions later rebutted.
 
 - "cited_passages": Passage numbers that support the claim. Empty array [] if none.
 
@@ -1083,6 +1104,8 @@ You are reviewing a citation that was flagged as "rejected" — meaning a previo
 Answer ONLY with the single word CONNECTED or UNRELATED.
 
 CONNECTED means: the source and claim share a topical connection — same person, same event, same political context, same field, same country/region being discussed, or the source could plausibly be cited as evidence for this type of claim. Academic citations often use primary sources (speeches, legislation, news articles) as evidence of discourse patterns — the source does NOT need to state the academic's conclusion.
+
+CONNECTED also covers COMPONENT support: claims often cite several sources together, each supplying ONE clause, event, quote, or example within the claim. If this source could plausibly supply ANY component of the claim — it reports one of the events the claim mentions, or exemplifies the rhetoric the claim describes — answer CONNECTED, even though it says nothing about the claim's other components.
 
 UNRELATED means: the source and claim are about genuinely different topics with no plausible connection. Example: a marine biology paper cited for a claim about fiscal policy.
 

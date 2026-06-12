@@ -364,8 +364,16 @@ blockquote strong {
 }
 
 sup {
-    color: var(--color-primary);
     font-size: var(--font-size-sup);
+}
+
+/* Pink applies only to dynamic footnote superscripts, not plain <sup> text.
+   Old format: <sup class="footnote-ref" fn-count-id="N">N</sup>
+   New format: <sup fn-count-id="N"><a class="footnote-ref">N</a></sup>
+   (sup.note is the legacy footnote marker; .footnote-ref handled below.) */
+sup[fn-count-id],
+sup.note {
+    color: var(--color-primary);
 }
 
 

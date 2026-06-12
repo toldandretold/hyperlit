@@ -119,6 +119,14 @@ const BASELINES = [
     inTextCitations: 209, // a[data-modal-source-id^="bib"] → exact-id links
     footnoteMarkers: 13, // some footnotes referenced more than once
   },
+  {
+    file: 'substack.html',
+    format: 'substack',
+    footnotes: 35, // .footnote-content divs (bare footnote-anchor-N id format)
+    references: 0, // Substack posts use footnotes, not a bibliography
+    inTextCitations: 0,
+    footnoteMarkers: 35, // FootnoteAnchorToDOM → <sup fn-count-id>
+  },
 ];
 
 /** Count app-native interactive markers in produced HTML. */

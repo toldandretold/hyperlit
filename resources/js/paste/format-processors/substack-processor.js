@@ -71,7 +71,7 @@ export class SubstackProcessor extends BaseFormatProcessor {
       const backLink = container.querySelector('a[href*="#footnote-anchor-"]');
       if (backLink) {
         const href = backLink.getAttribute('href');
-        const match = href.match(/#footnote-anchor-(\d+)-/);
+        const match = href.match(/#footnote-anchor-(\d+)(?:-\d+)?/);
         if (match) {
           footnoteNum = match[1];
         }
@@ -83,7 +83,7 @@ export class SubstackProcessor extends BaseFormatProcessor {
         while (parent && !footnoteNum) {
           const parentId = parent.id;
           if (parentId) {
-            const idMatch = parentId.match(/footnote-(\d+)-/);
+            const idMatch = parentId.match(/footnote-(\d+)(?:-\d+)?/);
             if (idMatch) {
               footnoteNum = idMatch[1];
             }
@@ -98,7 +98,7 @@ export class SubstackProcessor extends BaseFormatProcessor {
                             container.parentElement?.querySelector('a[href*="#footnote-anchor-"]');
         if (anchorWithId) {
           const href = anchorWithId.getAttribute('href');
-          const match = href.match(/#footnote-anchor-(\d+)-/);
+          const match = href.match(/#footnote-anchor-(\d+)(?:-\d+)?/);
           if (match) {
             footnoteNum = match[1];
           }

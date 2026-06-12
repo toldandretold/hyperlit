@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\CitationPipeline\PipelineTelemetry;
+use App\Services\ContentFetchService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -187,13 +188,13 @@ class CitationPipelineCommand extends Command
                         ->get();
                 }
 
+                $laneCounts = []; // which acquisition route each source came through
                 if ($sources->isEmpty()) {
                     $this->line('  No sources need fetching.');
                 } else {
                     $this->line("  {$sources->count()} source(s) to fetch.");
                     $this->newLine();
 
-                    $laneCounts = []; // which acquisition route each source came through
                     foreach ($sources as $i => $source) {
                         $title = $source->title ?: '(untitled)';
                         $this->updatePipelineStep('vacuum', 'Fetching source ' . ($i + 1) . '/' . $sources->count());
@@ -217,6 +218,45 @@ class CitationPipelineCommand extends Command
 
                         // Rate limit between sources
                         if ($i < $sources->count() - 1) {
+                            sleep(1);
+                        }
+                    }
+                }
+
+                // Web sources (type=web_source) aren't in the academic fetch query
+                // (they already have HTTP-scraped nodes + only a url, no doi/oa_url).
+                // Verify them HERE — the slow browser-fetch belongs in this stage, not
+                // the bibliography scan. Only those not already verified.
+                $webSources = $db->table('bibliography as b')
+                    ->join('library as l', 'l.book', '=', 'b.foundation_source')
+                    ->where('b.book', $bookId)
+                    ->where('l.type', 'web_source')
+                    ->whereNull('l.conversion_method')
+                    ->whereNotNull('l.url')->where('l.url', '!=', '')
+                    ->select(['l.book', 'l.title', 'l.url'])
+                    ->distinct()
+                    ->get();
+
+                if ($webSources->isNotEmpty()) {
+                    $this->line("  {$webSources->count()} web source(s) to verify.");
+                    $fetch = app(ContentFetchService::class);
+                    foreach ($webSources as $i => $ws) {
+                        $this->updatePipelineStep('vacuum', 'Verifying web source ' . ($i + 1) . '/' . $webSources->count());
+                        try {
+                            $r = $fetch->importWebSource($ws->url, $ws->title ?? '', $ws->book);
+                            if (($r['status'] ?? null) === 'imported') {
+                                $lane = ($r['web_verdict']['verdict'] ?? '') === 'web_verified'
+                                    ? 'web (verified)' : 'web (unverified)';
+                                $laneCounts[$lane] = ($laneCounts[$lane] ?? 0) + 1;
+                                $this->telemetry?->emit('vacuum', 'progress', 'Web source ' . ($i + 1) . "/{$webSources->count()}: {$lane}");
+                            } else {
+                                $vacuumFailed++;
+                            }
+                        } catch (\Throwable $e) {
+                            $vacuumFailed++;
+                            $this->telemetry?->emit('vacuum', 'progress', "Web verify failed: " . ($ws->title ?: $ws->url));
+                        }
+                        if ($i < $webSources->count() - 1) {
                             sleep(1);
                         }
                     }

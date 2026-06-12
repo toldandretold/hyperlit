@@ -39,7 +39,11 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // MUST exceed the longest job timeout (CitationPipelineJob: 7200s).
+            // At the Laravel default (90s), any job running longer gets re-reserved
+            // by a parallel worker on the same queue and runs TWICE — the cause of
+            // historical MaxAttemptsExceededException failures on long imports.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 7500),
             'after_commit' => false,
         ],
 

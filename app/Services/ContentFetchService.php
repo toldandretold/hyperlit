@@ -1034,6 +1034,97 @@ class ContentFetchService
     }
 
     /**
+     * Acquire + verify + import a NON-ACADEMIC web source (news/gov/blog).
+     * Browser-fetches the full page, then runs BOTH:
+     *   - WebArticleVerifier (identity: does the page declare itself the cited
+     *     article? — JSON-LD/OpenGraph headline vs the citation title), and
+     *   - the paste engine (body + footnotes/citations, e.g. Substack footnotes).
+     *
+     * Persists via persistArticle with conversion_method carrying the verdict:
+     *   web_article_verified   — page IS the cited article (URL-content match)
+     *   web_article_unverified — got the page but couldn't confirm identity
+     * Neither is in AutoVersionResolver::SYSTEM_CONVERSION_METHODS — a web
+     * source has no academic identity and can never become a canonical version.
+     * A 'reject' verdict (page contradicts the citation) imports nothing.
+     */
+    public function importWebSource(string $url, string $citationTitle, string $bookId): array
+    {
+        $html = $this->fetchHtmlViaBrowser($url);
+        if ($html === null) {
+            return ['status' => 'failed', 'reason' => 'Could not fetch the web page'];
+        }
+
+        // Identity verdict (the honest URL-content match).
+        $verdict = app(\App\Services\SourceImport\Content\WebArticleVerifier::class)
+            ->assess($html, $citationTitle);
+        if ($verdict['verdict'] === \App\Services\SourceImport\Content\WebArticleVerifier::REJECT) {
+            $reason = "Page is not the cited article (page: \"" . Str::limit($verdict['page_title'] ?? '?', 80) . '")';
+            $this->setPdfUrlStatus($bookId, $reason);
+            // Mark it so the review can warn that the cited URL hosts a DIFFERENT
+            // article — the scan-time HTTP scrape of the same URL is the wrong page.
+            DB::connection('pgsql_admin')->table('library')->where('book', $bookId)
+                ->update(['conversion_method' => 'web_article_rejected', 'updated_at' => now()]);
+            return ['status' => 'failed', 'reason' => $reason, 'web_verdict' => $verdict];
+        }
+
+        // Convert body + footnotes via the shared paste engine.
+        try {
+            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/paste-convert.mjs')], base_path());
+            $proc->setInput(json_encode(['html' => $html]));
+            $proc->setTimeout(60);
+            $proc->run();
+        } catch (\Throwable $e) {
+            return ['status' => 'failed', 'reason' => 'paste engine unavailable: ' . Str::limit($e->getMessage(), 120)];
+        }
+        $engine = json_decode(trim($proc->getOutput()), true);
+        if (!is_array($engine) || ($engine['ok'] ?? false) !== true) {
+            return ['status' => 'failed', 'reason' => 'paste engine failed on web page'];
+        }
+
+        $footnotes = array_values(array_filter(array_map(function ($f) {
+            $id = $f['footnoteId'] ?? $f['refId'] ?? null;
+            return ($id && !empty($f['content'])) ? ['footnoteId' => $id, 'content' => $f['content']] : null;
+        }, $engine['footnotes'] ?? [])));
+
+        $conversionMethod = $verdict['verdict'] === \App\Services\SourceImport\Content\WebArticleVerifier::VERIFIED
+            ? 'web_article_verified'
+            : 'web_article_unverified';
+
+        $result = $this->persistArticle($engine['html'] ?? '', $engine['references'] ?? [], $footnotes, $bookId, $conversionMethod);
+        if ($result['status'] === 'failed') {
+            return $result;
+        }
+
+        // On a confirmed URL-content match, group this source under a WEB
+        // canonical keyed on the URL (version-grouping; NOT academic). Only on
+        // 'verified' — never the unverified path. type='web', no academic signals.
+        if ($verdict['verdict'] === \App\Services\SourceImport\Content\WebArticleVerifier::VERIFIED) {
+            try {
+                $library = \App\Models\PgLibrary::on('pgsql_admin')->where('book', $bookId)->first();
+                if ($library) {
+                    app(\App\Services\CanonicalSourceMatcher::class)->linkWebSourceToCanonical(
+                        $library, $url, $verdict['page_title'] ?? $citationTitle,
+                        $library->author, $library->year ? (int) $library->year : null,
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Web canonical link failed (import unaffected)', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+        }
+
+        Log::info('Web source imported + verified', [
+            'book' => $bookId, 'url' => $url, 'verdict' => $verdict['verdict'],
+            'matched_on' => $verdict['matched_on'], 'score' => $verdict['score'],
+            'nodes' => $result['node_count'], 'footnotes' => count($footnotes),
+        ]);
+
+        $result['reason'] = "Web source imported ({$verdict['verdict']} via {$verdict['matched_on']}, "
+            . "title match {$verdict['score']}: {$result['node_count']} nodes, " . count($footnotes) . ' footnotes)';
+        $result['web_verdict'] = $verdict;
+        return $result;
+    }
+
+    /**
      * Generic article-result persistence — shared by the paste-engine HTML path
      * and the JATS path. Takes app-native linked HTML + normalised references
      * ([{referenceId, content}]) + footnotes ([{footnoteId, content}]), splits
@@ -1067,6 +1158,9 @@ class ContentFetchService
         foreach ($references as $ref) {
             $refId = $ref['referenceId'] ?? null;
             if (!$refId || empty($ref['content'])) continue;
+            // Clamp to the column width — the general processor can generate a
+            // degenerate token-concatenation id from junk reference text.
+            $refId = mb_substr($refId, 0, 200);
             $db->table('bibliography')->updateOrInsert(
                 ['book' => $bookId, 'referenceId' => $refId],
                 ['content' => $ref['content'], 'updated_at' => $now, 'created_at' => $now],

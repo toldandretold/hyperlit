@@ -37,7 +37,8 @@ class BackfillFootnoteSubBooks extends Command
      * @var string
      */
     protected $signature = 'footnotes:backfill-sub-books
-                            {--dry-run : Preview what would be migrated without making changes}';
+                            {--dry-run : Preview what would be migrated without making changes}
+                            {--library-rows-only : Only create missing sub-book library rows (skip node materialisation)}';
 
     /**
      * The console command description.
@@ -59,6 +60,18 @@ class BackfillFootnoteSubBooks extends Command
 
         if ($dryRun) {
             $this->info('DRY RUN MODE — No changes will be made');
+        }
+
+        // Phase 0: set-based library-row backfill. Paste-imported footnotes HAVE
+        // preview_nodes (so the node-materialising loop below skips them) but were
+        // never registered as sub-books, and without a library row every node sync
+        // for the sub-book fails the nodes RLS insert policy with a 500 the client
+        // can never recover from. Sync now registers them (SubBookRegistrar); this
+        // heals the rows created before that fix.
+        $this->backfillMissingLibraryRows($dryRun);
+
+        if ($this->option('library-rows-only')) {
+            return 0;
         }
 
         // Read via admin so RLS does not hide any rows.
@@ -197,6 +210,49 @@ class BackfillFootnoteSubBooks extends Command
         $this->info("Created: {$created}, Refreshed: {$refreshed}, Skipped: {$skipped}, Errors: {$errors}");
 
         return $errors > 0 ? 1 : 0;
+    }
+
+    /**
+     * Create library rows (only) for footnote sub-books that lack one, inheriting
+     * creator/visibility from the parent book. Set-based: one INSERT...SELECT.
+     */
+    private function backfillMissingLibraryRows(bool $dryRun): void
+    {
+        $missing = $this->admin->selectOne('
+            SELECT count(DISTINCT f.sub_book_id) AS c
+            FROM footnotes f
+            JOIN library p ON p.book = f.book
+            LEFT JOIN library l ON l.book = f.sub_book_id
+            WHERE f.sub_book_id IS NOT NULL AND l.book IS NULL
+        ')->c;
+
+        if ($missing == 0) {
+            $this->info('No footnote sub-books missing library rows.');
+            return;
+        }
+
+        $this->info("{$missing} footnote sub-book(s) missing library rows.");
+
+        if ($dryRun) {
+            return;
+        }
+
+        $this->admin->statement('
+            INSERT INTO library
+                (book, creator, creator_token, visibility, listed, title, type,
+                 has_nodes, raw_json, "timestamp", created_at, updated_at)
+            SELECT DISTINCT ON (f.sub_book_id)
+                f.sub_book_id, p.creator, p.creator_token, p.visibility, false,
+                \'Annotation: \' || f."footnoteId", \'sub_book\',
+                true, \'[]\', 0, now(), now()
+            FROM footnotes f
+            JOIN library p ON p.book = f.book
+            LEFT JOIN library l ON l.book = f.sub_book_id
+            WHERE f.sub_book_id IS NOT NULL AND l.book IS NULL
+            ON CONFLICT (book) DO NOTHING
+        ');
+
+        $this->info("Created {$missing} library row(s).");
     }
 
     /**

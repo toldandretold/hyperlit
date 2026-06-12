@@ -40,6 +40,7 @@ class CanonicalSource extends Model
         'creator',
         'creator_token',
         'foundation_source',
+        'source_url',
         'verified_by_publisher',
         'commons_endorsements',
         'author_version_book',

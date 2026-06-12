@@ -3,6 +3,65 @@
 Standalone concurrency probes for answering *"what happens when many users hit
 this at once?"* — the empirical companion to the in-process API tests.
 
+There are TWO layers to probe, with different tools:
+
+| Layer | Tool | What it catches |
+|-------|------|-----------------|
+| HTTP (requests) | `loadprobe.php` (this dir) | rate limiters, cache stampedes (F12), 5xx under burst |
+| Queue (workers) | `php artisan queue:probe` | one job class head-of-line-blocking another; queues nobody serves; missing standby import workers |
+| RAM (job peaks) | `memprobe.sh` (this dir) | whether the box can AFFORD the parallelism the topology allows |
+
+## RAM probe (`memprobe.sh`)
+
+Samples the RSS of one or more process TREES (php + python/pandoc children) once
+per second until they exit; reports per-tree and combined peaks. Run the real
+heavy jobs concurrently and point it at their PIDs (`label:pid` pairs). To run a
+real import without Mistral API cost, copy an existing book dir's `original.pdf`
++ `ocr_response.json` (the OCR step reuses the cache) under a new bookId, insert
+a library row, then `ProcessDocumentImportJob::dispatchSync(...)` via tinker.
+
+Measured 2026-06-12 (Apple Silicon dev box, but RSS is data-driven and
+indicative for the droplet). Per-class peaks, real jobs:
+- import, 700-page handbook → 9.7k nodes: **212 MB**
+- citation pipeline, 230 refs, full review+verify: **200 MB**
+- vibe conversion (mock-diff = no LLM wait, full sandbox+reconvert+gate): **182 MB**
+- embeddings worker: **50 MB**
+
+ALL FOUR job classes genuinely simultaneous (vibe+import fired during citation's
+review phase): **521 MB combined peak**; worst-case arithmetic sum **~645 MB**.
+
+Tricks to make real runs free: imports reuse a copied `ocr_response.json` (OCR
+step skips the API); vibe takes `--mock-diff <patch.json>` (a verbatim no-op
+function replacement skips the LLM but still does sandbox copy + full
+re-conversion + gate — the memory-heavy parts).
+
+Caveat: image-heavy scanned PDFs are the unmeasured tail — the live OCR fetch
+holds the page JSON (with base64 images) in Python, which the cached run skips.
+
+## Queue topology probe (`php artisan queue:probe`)
+
+The Pest suite runs jobs synchronously and `loadprobe.php` never touches workers,
+so neither can see the failure mode where a 15-minute citation pipeline blocked
+every document import (both shared one serial worker, and citation OUTRANKED
+imports). `queue:probe` tests exactly that, empirically: it occupies EVERY queue
+at once with synthetic sleep jobs (no real imports/LLM calls) and verifies
+
+1. every queue has a worker (a queue nobody serves = jobs silently never run),
+2. all queues run in parallel (start-time spread < blocker duration),
+3. a fresh import still starts immediately while the first import worker AND
+   every other queue are busy (the standby worker).
+
+```bash
+php artisan queue:probe                 # hermetic: spawns the reference topology itself
+php artisan queue:probe --use-running   # test whatever workers are up right now (e.g. dev:all)
+```
+
+Exit 0 = topology OK, 1 = broken — CI-able. Verified both ways 2026-06-12:
+the per-queue topology passes; a single `php artisan work` worker fails it.
+Note `--use-running` results are only meaningful if you know what's running:
+extra stray workers (an old dev stack, a forgotten shell) will pick up probe
+jobs and muddy the verdict — the hermetic default has no such problem.
+
 **These are NOT Pest tests, on purpose.** The Pest suite binds `RefreshDatabase`
 to everything under `tests/Feature/`, and this project has no `.env.testing` +
 commented-out `DB_DATABASE` in `phpunit.xml` — so **`php artisan test` runs

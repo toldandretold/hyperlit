@@ -5,62 +5,105 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 processes; **a worker serves its `--queue` list serially, one job at a time.** Separate
 queues + separate programs = real parallelism between job classes.
 
+**Rule: every job class gets its own worker.** Document conversion must never wait
+behind any other job — a shared serial worker head-of-line-blocks, no matter how the
+priorities are ordered. We learned this twice: vibe (28-min Python runs) blocked
+imports until it got `hyperlit-vibe`; then citation pipelines (12–15 min of LLM calls,
+and they *outranked* `default`) did exactly the same until they got `hyperlit-citation`.
+
 ## The queues
 
-| Queue              | Jobs                                          | Worker                  | Why separate |
-|--------------------|-----------------------------------------------|-------------------------|--------------|
-| `default`          | `ProcessDocumentImportJob` (imports/reconverts) | `hyperlit-worker`       | the baseline |
-| `citation-pipeline`| Citation scan / canonicalize jobs             | `hyperlit-worker` (or `hyperlit-citation`) | heavy, decoupled from imports |
-| `embeddings`       | `GenerateNodeEmbedding`                        | (existing)              | "stop embeddings clogging the queue" |
-| **`vibe`**         | **`VibeConversionJob`**                        | **`hyperlit-vibe`** (NEW) | runs ~28 min — must never block imports |
+| Queue              | Jobs                                              | Worker               | Notes |
+|--------------------|---------------------------------------------------|----------------------|-------|
+| `default`          | `ProcessDocumentImportJob` (imports/reconverts)   | `hyperlit-worker`    | the user-facing baseline; `numprocs` is the concurrency lever (RAM-gated, see conf) |
+| `citation-pipeline`| `CitationPipelineJob`, `CitationScanBibliographyJob`, `CanonicalizeLibraryJob` | `hyperlit-citation`  | 12–15+ min LLM/web runs; used to share (and outrank!) default |
+| `vibe`             | `VibeConversionJob`                               | `hyperlit-vibe`      | up to ~28 min Python |
+| `embeddings`       | `GenerateNodeEmbedding`                           | (existing)           | high-volume, low-priority backlog |
 
-### Why `vibe` got its own worker (the fix in this change)
-
-A vibe conversion shells out to Python for up to ~28 min (`VibeConversionJob` Process
-timeout = 1700s). It was on `default`, served by the single serial `hyperlit-worker`,
-so **one vibe run head-of-line-blocked every user's import for up to half an hour** —
-worse with multiple users (one person's vibe stalls everyone's imports). `VibeConversionJob`
-now dispatches to `onQueue('vibe')` and `hyperlit-vibe.conf` gives it a dedicated parallel
-worker. This mirrors how embeddings and the citation pipeline were already split off.
-
-> ⚠️ The app change (`onQueue('vibe')`) and the worker MUST ship together. If nothing
-> listens on `vibe`, vibe conversions queue forever and silently never run.
+> ⚠️ Two invariants when touching this topology:
+> 1. **Nothing listens on a queue → its jobs silently never run.** An app change
+>    that adds/renames an `onQueue()` and the worker conf MUST ship together.
+> 2. **`retry_after` (config/queue.php, now 7500s) must exceed the longest job
+>    `$timeout` (CitationPipelineJob: 7200s).** At Laravel's 90s default, any job
+>    running longer is re-reserved by a parallel worker and runs twice
+>    (historical `MaxAttemptsExceededException` failures on imports were this).
 
 ## Install / update on the droplet
 
 ```bash
 ssh marx@170.64.145.89
-cd /var/www/hyperlit && git pull           # picks up onQueue('vibe') + these confs
+cd /var/www/hyperlit && git pull           # picks up confs + retry_after bump
 
-sudo cp deploy/supervisor/hyperlit-vibe.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-worker.conf   /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-citation.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-vibe.conf     /etc/supervisor/conf.d/
 sudo supervisorctl reread
-sudo supervisorctl update                  # starts hyperlit-vibe
-sudo supervisorctl status                  # confirm hyperlit-vibe RUNNING
+sudo supervisorctl update                  # starts hyperlit-citation, reloads worker
+sudo supervisorctl status                  # confirm all programs RUNNING
 
 php artisan queue:restart                  # tell running workers to pick up new code
 ```
 
-If you change `hyperlit-worker.conf` too, `sudo cp` it as well, then `reread && update`.
+Check the droplet's `.env` does NOT set `DB_QUEUE_RETRY_AFTER` (it would override
+the 7500s config default).
 
 ## Local dev
 
-`npm run dev:all` now starts a **VIBE** process (`npm run queue:vibe` =
-`queue:work --queue=vibe`) alongside the main **QUEUE** worker, so vibe conversions work
-locally. To run just the vibe worker: `npm run queue:vibe`.
+`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per
+queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import
+testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`),
+**EMBED** (`queue:embeddings`). `php artisan work` remains as a single catch-all
+for one-off manual shells only — it is serial and reintroduces the blocking.
 
-## Import concurrency (the second concern)
+## The RAM budget (measured) — and why more concurrency means more RAM
 
-Even with vibe gone, `default` is still **one serial worker** — two users importing at the
-same time serialize (the second waits). The lever is `numprocs=N` in `hyperlit-worker.conf`
-(N concurrent imports).
+Every Supervisor program is a real OS process holding real memory while its job
+runs. Concurrency is therefore bought with RAM: **each extra simultaneous job of
+class X costs that class's peak RSS, every time, on top of everything else.**
+The queue topology decides *what can overlap*; the RAM budget decides *what the
+box survives when it does*.
 
-**Don't raise it yet on this box.** ~1.9 GB RAM + 2 GB swap with OOM history; an import
-runs pandoc + Python (+ Mistral OCR) and spikes to hundreds of MB. Two concurrent imports
-+ the vibe worker + PHP-FPM can OOM (→ Cloudflare 502). Order of operations if concurrent
-imports become a real bottleneck:
+Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method
++ caveats in `tests/load/README.md`):
 
-1. Vertically scale the droplet RAM first.
-2. Then set `numprocs=2` on `hyperlit-worker`.
-3. `--max-jobs` (already set) recycles workers so leaked memory can't accumulate.
+| Job class | Peak RSS | What's in the tree |
+|---|---|---|
+| import (`default`) | **212 MB** | PHP worker + Python conversion (700-page handbook → 9.7k nodes) |
+| citation pipeline | **200 MB** | PHP doing batched LLM review + claim verify (230 refs) |
+| vibe conversion | **182 MB** | PHP worker + Python sandbox re-conversion + gate |
+| embeddings | **50 MB** | PHP worker, small HTTP calls |
+| **all four truly simultaneous** | **521 MB** observed / **~645 MB** worst-case sum | |
 
-The big win here is vibe no longer blocking imports — not more import workers.
+The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
+
+```
+baseline (nginx + PHP-FPM + Postgres + idle workers)   ~700–1000 MB  ← read it: ssh marx@… 'free -m'
+max overlap, current topology (numprocs=1 everywhere)   ~645 MB
+                                                        ─────────────
+                                                        ~1.35–1.65 GB of 1.9 GB
+```
+
+**Fits — that's why shipping one-worker-per-class is safe on current hardware.**
+
+Raising any `numprocs` re-runs this math. `numprocs=2` on imports adds another
+212 MB *at peak*, pushing worst case to the edge of physical RAM — and past it
+if the baseline sits at the high end. Falling into swap means every import
+crawls; OOM means the kernel kills PHP-FPM and *everyone* gets Cloudflare 502s.
+That's the whole "more concurrency requires more RAM" rule: the topology change
+was free because it only reorganised existing workers; **capacity** (N
+simultaneous users *per feature*) is the thing you buy with hardware.
+
+Order of operations when multi-user import demand is real:
+1. Resize the droplet (4 GB roughly doubles the job budget).
+2. THEN `numprocs=2` on `hyperlit-worker` (+212 MB worst case).
+3. Re-measure with `memprobe.sh` ON the box during real runs; raise further only
+   while peak usage stays comfortably inside physical RAM (swap is a crash pad,
+   not capacity).
+4. Unmeasured tail to test on a clone droplet before trusting big scanned PDFs:
+   a live Mistral OCR fetch (no cached `ocr_response.json`) holds base64 page
+   JSON in Python and can spike well past 212 MB.
+
+Empirical probes: `tests/load/loadprobe.php` (HTTP concurrency),
+`php artisan queue:probe` (worker topology), `tests/load/memprobe.sh` (RAM
+peaks). For queue-level spot checks: dispatch two imports and confirm both
+workers hold one — `SELECT queue, reserved_at FROM jobs` shows who's got what.

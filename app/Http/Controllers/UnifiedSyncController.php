@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PgLibrary;
+use App\Services\SubBookRegistrar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -131,6 +132,18 @@ class UnifiedSyncController extends Controller
 
                 // 1. Sync node chunks (if present)
                 if (! empty($data['nodes'])) {
+                    // Self-heal: the nodes RLS insert policy requires an owned library
+                    // row for nodes.book, but sub-book content seeded client-side
+                    // (paste import) may never have been registered on the backend —
+                    // without this, every sync for that sub-book 500s unrecoverably.
+                    $subBookIds = array_merge([$bookId], array_column($data['nodes'], 'book'));
+                    $user = $request->user();
+                    SubBookRegistrar::ensureLibraryRecords(
+                        $subBookIds,
+                        $user?->name,
+                        $user ? null : $request->cookie('anon_token')
+                    );
+
                     $nodeChunkController = new DbNodeChunkController;
                     $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodes']]);
                     $nodeChunkRequest->setUserResolver(function () use ($request) {

@@ -6,8 +6,10 @@ use App\Helpers\SubBookIdHelper;
 use App\Http\Responses\ApiResponse;
 use App\Models\PgFootnote;
 use App\Services\BookDeletionService;
+use App\Services\SubBookRegistrar;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -76,6 +78,7 @@ class DbFootnoteController extends Controller
             $book = $validated['book'];
             $footnotes = $validated['data'];
             $upsertedCount = 0;
+            $subBookIds = [];
 
             foreach ($footnotes as $item) {
                 $existing = PgFootnote::where('book', $book)
@@ -85,6 +88,7 @@ class DbFootnoteController extends Controller
                 $previewNodes = $item['preview_nodes'] ?? null;
 
                 $subBookId = SubBookIdHelper::build($book, $item['footnoteId']);
+                $subBookIds[] = $subBookId;
 
                 if ($existing) {
                     $updates = [
@@ -108,6 +112,18 @@ class DbFootnoteController extends Controller
                 }
                 $upsertedCount++;
             }
+
+            // Register sub-book library records for every synced footnote (idempotent).
+            // Paste import seeds footnote sub-book content client-side without going
+            // through SubBookController::create, so without this the sub-book never
+            // gets a library row and its node syncs fail the nodes RLS insert policy.
+            // (Mirrors the equivalent block in DbHyperlightController::upsert.)
+            $user = Auth::user();
+            SubBookRegistrar::ensureLibraryRecords(
+                $subBookIds,
+                $user?->name,
+                $user ? null : $request->cookie('anon_token')
+            );
 
             Log::info('Footnote upserted successfully', [
                 'book' => $book,

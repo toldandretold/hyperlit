@@ -315,7 +315,7 @@ class CitationReviewService
         if (!empty($sourceBookIds)) {
             $libraryRecords = $db->table('library')
                 ->whereIn('book', array_keys($sourceBookIds))
-                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id'])
+                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id', 'conversion_method'])
                 ->get()
                 ->keyBy('book');
         }
@@ -349,11 +349,8 @@ class CitationReviewService
             $canonicalId = $bib->canonical_source_id ?? $lib->canonical_source_id ?? null;
             $canonical = $canonicalId ? ($canonicals[$canonicalId] ?? null) : null;
 
-            // Provenance tier: canonical-verified beats a bare local match.
-            $hasFoundation = ($resolvedSource !== null && $lib !== null);
-            $tier = $canonical ? 'canonical' : ($hasFoundation ? 'local' : 'unverified');
-
-            // Which identity authorities recognise the work
+            // Which identity authorities recognise the work (empty for a WEB
+            // canonical — it groups versions by URL but has no academic identity).
             $canonicalSignals = $canonical ? array_keys(array_filter([
                 'openalex'           => !empty($canonical->openalex_id),
                 'doi'                => !empty($canonical->doi),
@@ -361,6 +358,33 @@ class CitationReviewService
                 'semantic_scholar'   => !empty($canonical->semantic_scholar_id),
                 'publisher_verified' => (bool) $canonical->verified_by_publisher,
             ])) : [];
+
+            // Provenance tier: canonical-verified > web-verified > local > unverified.
+            // CRITICAL: a WEB canonical (type='web', no academic signals) must NOT
+            // show as canonical-verified — it groups versions but makes no academic
+            // claim. Only an academically-signalled canonical earns the canonical tier.
+            $hasFoundation = ($resolvedSource !== null && $lib !== null);
+            $academicCanonical = $canonical && !empty($canonicalSignals);
+            // Web-source verification status — drives honest, web-specific messaging
+            // (distinct from the academic 'local' line). 'rejected' = the URL hosts
+            // a DIFFERENT article; 'unverified' = couldn't confirm; 'verified' = match.
+            $webStatus = match ($lib->conversion_method ?? null) {
+                'web_article_verified'   => 'verified',
+                'web_article_unverified' => 'unverified',
+                'web_article_rejected'   => 'rejected',
+                default => (($lib->type ?? null) === 'web_source') ? 'unverified' : null,
+            };
+            $webVerified = $webStatus === 'verified'
+                || ($canonical && ($canonical->type ?? null) === 'web');
+            if ($academicCanonical) {
+                $tier = 'canonical';
+            } elseif ($webVerified) {
+                $tier = 'web';
+            } elseif ($hasFoundation) {
+                $tier = 'local';
+            } else {
+                $tier = 'unverified';
+            }
 
             // Content resolution: prefer the canonical's best genuine version
             // (auto version is untampered by construction); fall back to the
@@ -397,6 +421,7 @@ class CitationReviewService
                 'canonical_source_id' => $canonicalId,
                 'canonical_signals'   => $canonicalSignals,
                 'verification_tier'   => $tier,
+                'web_status'          => $webStatus,
                 'content_provenance'  => $provenance,
             ];
         }
@@ -542,6 +567,7 @@ class CitationReviewService
                         'contextualised_claim' => $claim['contextualised_claim'] ?? $truthClaim,
                         'verified_source'      => $meta['verified'] ?? false,
                         'verification_tier'    => $meta['verification_tier'] ?? null,
+                        'web_status'           => $meta['web_status'] ?? null,
                         'canonical_source_id'  => $meta['canonical_source_id'] ?? null,
                         'canonical_signals'    => $meta['canonical_signals'] ?? [],
                         'content_provenance'   => $meta['content_provenance'] ?? null,
@@ -1763,6 +1789,34 @@ class CitationReviewService
             return $line . "\n";
         }
 
+        if ($tier === 'web') {
+            // Distinct from canonical: a web source has no academic identity, so
+            // the verification is "the cited metadata matches the live page".
+            $url = $this->resolveSourceUrl($claim);
+            $where = $url ? " at [{$url}]({$this->mdSafeUrl($url)})" : '';
+            return "**Provenance:** Web-verified — the cited title matches the live page{$where}. "
+                . "No academic database lists this work; URL-content match is the available verification.\n";
+        }
+
+        // Web sources that did NOT verify must not fall through to the academic
+        // 'local' wording ("no canonical work identity yet" implies a DOI might
+        // turn up). Say what actually happened, web-terms.
+        $webStatus = $claim['web_status'] ?? null;
+        if ($webStatus === 'rejected') {
+            $url = $this->resolveSourceUrl($claim);
+            $where = $url ? " [{$url}]({$this->mdSafeUrl($url)})" : '';
+            return "**Provenance:** ⚠️ Web source — the live page at the cited URL{$where} appears to be a "
+                . "DIFFERENT article (its declared title contradicts the citation). "
+                . "Treat content from this URL as untrusted.\n";
+        }
+        if ($webStatus === 'unverified') {
+            $url = $this->resolveSourceUrl($claim);
+            $where = $url ? " at [{$url}]({$this->mdSafeUrl($url)})" : '';
+            return "**Provenance:** Web source — content was retrieved{$where}, but the page could not "
+                . "be confirmed as the cited article (no machine-readable identity to match). "
+                . "URL-content match is the only verification available for web sources.\n";
+        }
+
         if ($tier === 'local') {
             return "**Provenance:** Local library match — no canonical work identity yet\n";
         }
@@ -1884,13 +1938,21 @@ class CitationReviewService
                 if (isset($flagLabels[$flag])) {
                     $descriptions[] = $flagLabels[$flag];
                 } elseif (str_starts_with($flag, 'suspicious_tld:')) {
-                    $descriptions[] = 'suspicious TLD ".' . substr($flag, 15) . '"';
+                    // Flags are CACHED at scan time — re-validate before rendering,
+                    // or a fixed heuristic keeps resurfacing stale false flags
+                    // (.in/.cn/etc were once wrongly flagged; pib.gov.in is real).
+                    $tld = substr($flag, 15);
+                    if (!\App\Support\UrlSanity::isValidTld($tld)) {
+                        $descriptions[] = 'suspicious TLD ".' . $tld . '"';
+                    }
                 } else {
                     $descriptions[] = $flag;
                 }
             }
-            $url = $llmMeta['url'] ?? 'unknown';
-            $lines[] = "\u{1F6A9} **Suspicious URL** (`{$url}`): " . implode(', ', $descriptions) . ' — possible LLM-fabricated citation';
+            if ($descriptions) {
+                $url = $llmMeta['url'] ?? 'unknown';
+                $lines[] = "\u{1F6A9} **Suspicious URL** (`{$url}`): " . implode(', ', $descriptions) . ' — possible LLM-fabricated citation';
+            }
         }
 
         return empty($lines) ? '' : implode("\n", $lines) . "\n";
