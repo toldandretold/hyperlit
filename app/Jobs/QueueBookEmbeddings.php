@@ -23,8 +23,14 @@ class QueueBookEmbeddings implements ShouldQueue
 
     public function handle(): void
     {
+        // pgsql_admin (BYPASSRLS) throughout: queue workers have no RLS session
+        // context, so on the default connection PRIVATE books' library/nodes rows
+        // are invisible — this job silently dispatched nothing for them (found
+        // 2026-06-12: 0 of 1.5M private-book nodes had embeddings).
+        $admin = DB::connection('pgsql_admin');
+
         // Skip sub-books (their content belongs to the parent)
-        $library = DB::table('library')
+        $library = $admin->table('library')
             ->where('book', $this->bookId)
             ->first();
 
@@ -33,7 +39,7 @@ class QueueBookEmbeddings implements ShouldQueue
         }
 
         // Find all nodes in this book that have plainText but no embedding
-        $nodeIds = DB::table('nodes')
+        $nodeIds = $admin->table('nodes')
             ->where('book', $this->bookId)
             ->whereNull('embedding')
             ->whereNotNull('plainText')

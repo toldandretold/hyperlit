@@ -18,7 +18,7 @@ and they *outranked* `default`) did exactly the same until they got `hyperlit-ci
 | `default`          | `ProcessDocumentImportJob` (imports/reconverts)   | `hyperlit-worker`    | the user-facing baseline; `numprocs` is the concurrency lever (RAM-gated, see conf) |
 | `citation-pipeline`| `CitationPipelineJob`, `CitationScanBibliographyJob`, `CanonicalizeLibraryJob` | `hyperlit-citation`  | 12–15+ min LLM/web runs; used to share (and outrank!) default |
 | `vibe`             | `VibeConversionJob`                               | `hyperlit-vibe`      | up to ~28 min Python |
-| `embeddings`       | `GenerateNodeEmbedding`                           | (existing)           | high-volume, low-priority backlog |
+| `embeddings`       | `GenerateNodeEmbedding`                           | `hyperlit-embeddings` | high-volume short jobs; used to ride on hyperlit-worker's queue list, halving import capacity during drains |
 
 > ⚠️ Two invariants when touching this topology:
 > 1. **Nothing listens on a queue → its jobs silently never run.** An app change
@@ -34,9 +34,10 @@ and they *outranked* `default`) did exactly the same until they got `hyperlit-ci
 ssh marx@170.64.145.89
 cd /var/www/hyperlit && git pull           # picks up confs + retry_after bump
 
-sudo cp deploy/supervisor/hyperlit-worker.conf   /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-citation.conf /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-vibe.conf     /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-worker.conf     /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-citation.conf   /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-vibe.conf       /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-embeddings.conf /etc/supervisor/conf.d/
 sudo supervisorctl reread
 sudo supervisorctl update                  # starts hyperlit-citation, reloads worker
 sudo supervisorctl status                  # confirm all programs RUNNING
@@ -77,6 +78,11 @@ Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method
 | vibe conversion | **182 MB** | PHP worker + Python sandbox re-conversion + gate |
 | embeddings | **50 MB** | PHP worker, small HTTP calls |
 | **all four truly simultaneous** | **521 MB** observed / **~645 MB** worst-case sum | |
+
+(Citation was measured with `--skip-fetch`. A live vacuum phase launches headless
+chromium per fetch — ~150–300 MB transient on top of the citation worker — so
+worst case during vacuum trends toward ~900 MB. Check `free -m` during the first
+real run after installing chromium.)
 
 The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
 

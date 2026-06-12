@@ -35,8 +35,12 @@ step skips the API); vibe takes `--mock-diff <patch.json>` (a verbatim no-op
 function replacement skips the LLM but still does sandbox copy + full
 re-conversion + gate — the memory-heavy parts).
 
-Caveat: image-heavy scanned PDFs are the unmeasured tail — the live OCR fetch
-holds the page JSON (with base64 images) in Python, which the cached run skips.
+Caveats — the two unmeasured tails:
+- the citation run used `--skip-fetch`: a live vacuum phase launches headless
+  chromium per fetch (~150–300 MB transient), so the citation tree can spike to
+  ~450 MB and the all-four worst case toward ~900 MB during vacuum;
+- image-heavy scanned PDFs: the live OCR fetch holds the page JSON (with base64
+  images) in Python, which the cached run skips.
 
 ## Queue topology probe (`php artisan queue:probe`)
 

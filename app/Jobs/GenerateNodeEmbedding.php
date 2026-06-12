@@ -31,7 +31,14 @@ class GenerateNodeEmbedding implements ShouldQueue
 
     public function handle(EmbeddingService $embeddingService): void
     {
-        $node = DB::table('nodes')->where('id', $this->nodeId)->first();
+        // pgsql_admin (BYPASSRLS) throughout: queue workers have no RLS session
+        // context, so on the default connection PRIVATE books' nodes/library rows
+        // are invisible — this job silently no-op'd for every private book (found
+        // 2026-06-12: 0 of 1.5M private-book nodes embedded vs 27k public). The
+        // UPDATE must be admin too, or the write itself is RLS-blocked.
+        $admin = DB::connection('pgsql_admin');
+
+        $node = $admin->table('nodes')->where('id', $this->nodeId)->first();
 
         if (!$node || empty($node->plainText)) {
             return;
@@ -43,7 +50,7 @@ class GenerateNodeEmbedding implements ShouldQueue
         }
 
         // Skip sub-books (their content belongs to the parent)
-        $library = DB::table('library')
+        $library = $admin->table('library')
             ->where('book', $node->book)
             ->first();
 
@@ -55,7 +62,7 @@ class GenerateNodeEmbedding implements ShouldQueue
 
         if ($embedding) {
             $vectorStr = '[' . implode(',', $embedding) . ']';
-            DB::table('nodes')
+            $admin->table('nodes')
                 ->where('id', $this->nodeId)
                 ->update(['embedding' => DB::raw("'{$vectorStr}'::vector")]);
         }
