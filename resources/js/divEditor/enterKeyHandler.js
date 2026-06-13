@@ -11,7 +11,7 @@
 import { chunkOverflowInProgress } from "../utilities/operationState.js";
 import { book } from '../app.js';
 import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../utilities/IDfunctions.js";
-import { queueNodeForSave } from './index.js';
+import { queueNodeForSave } from './editorState';
 import { verbose } from '../utilities/logger.js';
 import { placeCaretInEmptyListItem, listItemIsEmpty } from '../utilities/listItemCaret.js';
 

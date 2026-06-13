@@ -7,7 +7,7 @@
  * - Arrow key navigation to skip over hypercite anchors (hyperciteArrowHandler)
  */
 
-import { queueNodeForSave, queueNodeForDeletion } from './index.js';
+import { queueNodeForSave, queueNodeForDeletion } from './editorState';
 import { queueForSync } from '../indexedDB/syncQueue/queue';
 
 export class SupTagHandler {

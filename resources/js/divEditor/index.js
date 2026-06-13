@@ -29,6 +29,9 @@ import { SaveQueue } from './saveQueue';
 // through it for a top-level debounce() call hit a TDZ ("debounce is not a function")
 // when load order flipped. The SaveQueue class is only used at runtime, so it's safe.
 import { debounce } from '../utilities/debounce.js';
+// Shared editor state + enqueue API — extracted to a leaf to break the index↔handler cycle.
+import { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion, setActiveSaveQueue } from './editorState';
+export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
 import { EnterKeyHandler } from './enterKeyHandler.js';
 import { SupTagHandler } from './supTagHandler.js';
@@ -109,7 +112,7 @@ import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../co
 // - Tracking sets for node changes
 // - UI handler references for cleanup
 
-export let movedNodesByOverflow = new Set();
+// movedNodesByOverflow now lives in the editorState leaf (imported + re-exported above).
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
 const addedNodes = new Set(); // Track newly-added element nodes.
@@ -178,35 +181,10 @@ let enterKeyHandler = null;
 // Most functionality is delegated to specialized modules.
 // ================================================================
 
-export function queueNodeForSave(IDnumerical, action = 'update', bookId = null) {
-  verbose.content(`queueNodeForSave: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}`, 'divEditor/index.js');
-  // Only numeric (or decimal) startLine ids are real content nodes / DB rows.
-  // Inline markers — footnote-refs (`Fn…`), hypercites (`hypercite_…`) — live INSIDE
-  // their parent node's HTML and are persisted when that parent is saved; they must
-  // never be queued by their own id. If one slips through (e.g. an attribute mutation
-  // on a `<sup class="footnote-ref">` while typing), batch.ts rejects it as an invalid
-  // node id and escalates it to a scary `batch-invalid-id` integrity report — even
-  // though nothing is wrong. Drop it quietly here, at the single enqueue chokepoint.
-  if (!NUMERICAL_ID_PATTERN.test(String(IDnumerical))) {
-    verbose.content(`queueNodeForSave: ignoring non-numeric id '${IDnumerical}' (inline marker — saved with its parent)`, 'divEditor/index.js');
-    return;
-  }
-  if (!saveQueue) {
-    console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
-    return;
-  }
-  glowCloudOrange();
-  saveQueue.queueNode(IDnumerical, action, bookId);
-}
-
-export function queueNodeForDeletion(IDnumerical, nodeElement = null, bookId = null) {
-  if (!saveQueue) {
-    console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', IDnumerical);
-    return;
-  }
-  glowCloudOrange();
-  saveQueue.queueDeletion(IDnumerical, nodeElement, bookId);
-}
+// queueNodeForSave / queueNodeForDeletion now live in the editorState leaf (see the
+// import + re-export near the top of this file) so the handlers can import them
+// without the index↔handler cycle. They delegate to the SaveQueue instance that
+// index.js wires in via setActiveSaveQueue() in startObserving/stopObserving.
 
 
 // ================================================================
@@ -276,6 +254,7 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // 💾 Initialize SaveQueue (passes bookId for sub-book saves)
   saveQueue = new SaveQueue(bookId);
+  setActiveSaveQueue(saveQueue);   // wire the enqueue API in editorState to this instance
 
   // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
   // 🔧 FIX 7b: Remove old handler if it exists
@@ -700,6 +679,7 @@ export async function stopObserving() {
     await saveQueue.flush();
     saveQueue.destroy();
     saveQueue = null;
+    setActiveSaveQueue(null);   // clear the editorState reference too
     verbose.content("SaveQueue destroyed", 'divEditor/index.js');
   }
 
