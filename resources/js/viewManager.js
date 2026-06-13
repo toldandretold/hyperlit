@@ -13,7 +13,7 @@ import { registerAllComponents } from './components/registerComponents.js';
 registerAllComponents();
 
 // ✅ Lazy-loaded edit modules (only loaded when editing)
-// import { stopObserving } from "./divEditor/index.js";
+// import { stopObserving } from "./divEditor/index";
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index";
@@ -36,7 +36,7 @@ import {
   destroySelectionHandler,
 } from "./utilities/selectionHandler.js";
 import { SelectionDeletionHandler } from "./utilities/selectionDelete.js";
-import { queueNodeForDeletion, queueNodeForSave } from "./divEditor/index.js";
+import { queueNodeForDeletion, queueNodeForSave } from "./divEditor/index";
 import {
   loadHyperText,
   pendingFirstChunkLoadedPromise,
@@ -207,7 +207,7 @@ export async function cleanupReaderView() {
   }
 
   try {
-    const { stopObserving } = await import('./divEditor/index.js');
+    const { stopObserving } = await import('./divEditor/index');
     await stopObserving();
   } catch (e) {
     // Module not loaded yet, nothing to stop

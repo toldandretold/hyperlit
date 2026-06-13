@@ -24,7 +24,7 @@ import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {
   setHandleHypercitePaste
 } from '../../utilities/operationState.js';
-import { queueNodeForSave } from '../../divEditor/index.js';
+import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { extractQuotedText } from '../../utilities/textExtraction.js';
 import { ensureSpaceAfterAnchor } from '../utils/anchorSpacing.js';

@@ -409,7 +409,7 @@ export async function saveAndPopTopLayer() {
 
     try {
       // prepareContainerClose equivalent: flush + save preview_nodes
-      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
       flushInputDebounce();
       await flushAllPendingSaves();
 
@@ -463,7 +463,7 @@ async function _popTopLayerImpl() {
   // Flush pending saves BEFORE clearing selection.
   // The debounced input handler uses window.getSelection() to locate the
   // target node — clearing ranges first makes the flush silently skip the save.
-  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
   flushInputDebounce();
   await flushAllPendingSaves();
 

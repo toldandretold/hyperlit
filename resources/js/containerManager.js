@@ -139,7 +139,7 @@ export class ContainerManager {
             // (popstate handler will flush again as part of its teardown,
             // but flushing here too keeps autosave timing tight).
             try {
-              const { flushInputDebounce, flushAllPendingSaves } = await import('./divEditor/index.js');
+              const { flushInputDebounce, flushAllPendingSaves } = await import('./divEditor/index');
               flushInputDebounce();
               await flushAllPendingSaves();
             } catch (err) {

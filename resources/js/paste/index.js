@@ -203,7 +203,7 @@ function _schedulePasteVerification(bookId, pasteOpId) {
   setTimeout(async () => {
     try {
       // Flush all pending saves (cancels debounce timers, awaits in-flight writes)
-      const { flushAllPendingSaves, queueNodeForSave } = await import('../divEditor/index.js');
+      const { flushAllPendingSaves, queueNodeForSave } = await import('../divEditor/index');
       await flushAllPendingSaves();
 
       // Collect all rendered node IDs for this book

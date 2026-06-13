@@ -168,7 +168,7 @@ export function setupUnloadSync(): void {
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden) return;
     try {
-      const { flushInputDebounce, flushAllPendingSaves } = await import('../../divEditor/index.js');
+      const { flushInputDebounce, flushAllPendingSaves } = await import('../../divEditor/index');
       flushInputDebounce();
       await flushAllPendingSaves();
     } catch (e) {

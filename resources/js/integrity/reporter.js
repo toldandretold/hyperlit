@@ -650,7 +650,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
         }
 
         // Dynamic import to avoid circular dependency (reporter.js is imported by saveQueue.js)
-        const { queueNodeForSave, flushAllPendingSaves } = await import('../divEditor/index.js');
+        const { queueNodeForSave, flushAllPendingSaves } = await import('../divEditor/index');
 
         // Queue all nodes for re-save
         for (const id of nodeIds) {

@@ -6,7 +6,7 @@
  */
 
 import { setElementIds, compareDecimalStrings, isDuplicateId } from '../../utilities/IDfunctions.js';
-import { queueNodeForSave } from '../../divEditor/index.js';
+import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
 import { getEditToolbar } from '../../editToolbar/index.js';

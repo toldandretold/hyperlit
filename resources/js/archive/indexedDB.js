@@ -5,7 +5,7 @@ import { withPending, getInitialBookSyncPromise } from "./utilities/operationSta
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./utilities/auth.js";
 // ✅ Lazy-loaded: divEditor and editToolbar only used during editing
-// import { debounce } from "./divEditor/index.js";
+// import { debounce } from "./divEditor/index";
 // import { getEditToolbar } from "./editToolbar";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";

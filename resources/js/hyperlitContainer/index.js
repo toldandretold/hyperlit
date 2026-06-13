@@ -153,7 +153,7 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
   const { getActiveEditSession } = await import('../divEditor/editSessionManager');
   const activeSession = getActiveEditSession();
   if (activeSession && activeSession.containerId !== 'main-content') {
-    const { stopObserving } = await import('../divEditor/index.js');
+    const { stopObserving } = await import('../divEditor/index');
     await stopObserving();
   }
 
@@ -163,7 +163,7 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
 
   // Restore main editor if it was active before the sub-book editor took over
   if (mainEditorWasActive) {
-    const { startObserving } = await import('../divEditor/index.js');
+    const { startObserving } = await import('../divEditor/index');
     const mainContent = document.querySelector('.main-content');
     if (mainContent) {
       await startObserving(mainContent); // internally calls stopObserving() first
@@ -332,7 +332,7 @@ async function handleEditButtonClick() {
     const firstEditable = container.querySelector('.sub-book-content[data-user-can-edit="true"]');
     if (firstEditable) {
       const subBookId = firstEditable.getAttribute('data-book-id');
-      const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+      const { startObserving, isEditorObserving } = await import('../divEditor/index');
       if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
       if (!previousIsEditing) previousIsEditing = window.isEditing;
       if (!window.isEditing) window.isEditing = true;
@@ -369,7 +369,7 @@ async function handleEditButtonClick() {
       detachNoteListeners();
 
       // Tear down observer (already flushed by prepareContainerClose)
-      const { stopObserving } = await import('../divEditor/index.js');
+      const { stopObserving } = await import('../divEditor/index');
       await stopObserving();
 
       // Mirror editButton.js's exit-edit-mode integrity sweep for the
@@ -534,7 +534,7 @@ export async function applyCurrentEditModeToLayer() {
     const firstEditable = container.querySelector('.sub-book-content[data-user-can-edit="true"]');
     if (firstEditable) {
       const subBookId = firstEditable.getAttribute('data-book-id');
-      const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+      const { startObserving, isEditorObserving } = await import('../divEditor/index');
       if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
       firstEditable.contentEditable = 'true';
       await startObserving(firstEditable, subBookId);
@@ -602,7 +602,7 @@ function attachSubBookFocusSwitcher() {
     if (activeSession && activeSession.containerId === subBookId) return;
 
     // Switch observer to the newly focused sub-book
-    const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+    const { startObserving, isEditorObserving } = await import('../divEditor/index');
     if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
     if (!window.isEditing) window.isEditing = true;
 
@@ -867,7 +867,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // Capture main edit state BEFORE opening container.
     // Needed for ALL content types (including read-only citations)
     // so cleanupContainerListeners() correctly restores the toolbar.
-    const { isEditorObserving } = await import('../divEditor/index.js');
+    const { isEditorObserving } = await import('../divEditor/index');
     if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
     previousIsEditing = window.isEditing;
 
@@ -1314,7 +1314,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           // Attach editor observer only to the first user-owned sub-book
           if (needsEditor && loader) {
             if (subBookEl) {
-              const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+              const { startObserving, isEditorObserving } = await import('../divEditor/index');
               if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
               if (!previousIsEditing) previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
@@ -1430,7 +1430,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
           // Swap divEditor onto the sub-book when edit mode is active (only if no editor attached yet)
           if (editModeEnabled && !subBookEditorAttached && loader) {
             if (subBookEl) {
-              const { startObserving, isEditorObserving } = await import('../divEditor/index.js');
+              const { startObserving, isEditorObserving } = await import('../divEditor/index');
               if (!mainEditorWasActive) mainEditorWasActive = isEditorObserving();
               if (!previousIsEditing) previousIsEditing = window.isEditing;
               if (!window.isEditing) window.isEditing = true;
@@ -1581,14 +1581,14 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   const currentDepth = getDepth();
 
   // --- 1. Pause current layer: flush saves, stop editor, detach listeners ---
-  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
   flushInputDebounce();
   await flushAllPendingSaves();
 
   const { getActiveEditSession } = await import('../divEditor/editSessionManager');
   const activeSession = getActiveEditSession();
   if (activeSession && activeSession.containerId !== 'main-content') {
-    const { stopObserving } = await import('../divEditor/index.js');
+    const { stopObserving } = await import('../divEditor/index');
     await stopObserving();
   }
 
@@ -1661,7 +1661,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
     e.stopPropagation();
     e.preventDefault();
     try {
-      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
       flushInputDebounce();
       await flushAllPendingSaves();
     } catch (err) {

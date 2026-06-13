@@ -195,14 +195,14 @@ export async function restoreStackedLayer(containerState) {
     } = await import('./index.js');
 
     // --- 1. Pause current layer: flush saves, stop editor, detach listeners ---
-    const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+    const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
     flushInputDebounce();
     await flushAllPendingSaves();
 
     const { getActiveEditSession } = await import('../divEditor/editSessionManager');
     const activeSession = getActiveEditSession();
     if (activeSession && activeSession.containerId !== 'main-content') {
-      const { stopObserving } = await import('../divEditor/index.js');
+      const { stopObserving } = await import('../divEditor/index');
       await stopObserving();
     }
 
@@ -245,7 +245,7 @@ export async function restoreStackedLayer(containerState) {
       e.stopPropagation();
       e.preventDefault();
       try {
-        const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+        const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
         flushInputDebounce();
         await flushAllPendingSaves();
       } catch (err) {

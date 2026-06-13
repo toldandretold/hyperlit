@@ -385,7 +385,7 @@ export async function flushAllPendingEdits() {
 
   // 2. Flush input debounce (200ms timer)
   try {
-    const { flushInputDebounce } = await import('./divEditor/index.js');
+    const { flushInputDebounce } = await import('./divEditor/index');
     flushInputDebounce();
   } catch (e) {
     verbose.content(`Input debounce flush skipped: ${e.message}`, 'postgreSQL.js');
@@ -393,7 +393,7 @@ export async function flushAllPendingEdits() {
 
   // 3. Flush SaveQueue → IndexedDB (1.5s timer)
   try {
-    const { flushAllPendingSaves } = await import('./divEditor/index.js');
+    const { flushAllPendingSaves } = await import('./divEditor/index');
     await flushAllPendingSaves();
   } catch (e) {
     verbose.content(`SaveQueue flush skipped: ${e.message}`, 'postgreSQL.js');

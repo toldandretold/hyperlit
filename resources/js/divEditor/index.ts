@@ -118,7 +118,7 @@ const modifiedNodes = new Set(); // Track element IDs whose content was modified
 const addedNodes = new Set(); // Track newly-added element nodes.
 const removedNodeIds = new Set(); // Track IDs of removed nodes.
 
-let observer;
+let observer: any;
 let documentChanged = false;
 let debounceTimer = null;
 
@@ -128,8 +128,8 @@ let deletionHandler = null;
 let isObserverRestarting = false;
 
 // 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
-let inputEventHandler = null;
-let debouncedInputHandlerRef = null; // Reference to debounced handler for flushing on close
+let inputEventHandler: any = null;
+let debouncedInputHandlerRef: any = null; // Reference to debounced handler for flushing on close
 let isComposing = false; // Track mobile IME composition state
 
 // 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
@@ -137,7 +137,7 @@ const elementToNumericalParent = new WeakMap();
 
 // 🛡️ SAFETY NET: Track last input node ID so flush can save even when selection moves
 // (e.g., user clicks overlay to close within 200ms debounce window)
-let lastInputNodeId = null;
+let lastInputNodeId: any = null;
 
 // 🚀 PERFORMANCE: Helper to clear input handler cache during idle time
 function clearInputHandlerCache() {
@@ -157,22 +157,22 @@ function clearInputHandlerCache() {
 }
 
 // 🔧 FIX 7b: Track video delete handler for cleanup
-let videoDeleteHandler = null;
+let videoDeleteHandler: any = null;
 
 // 🎯 SUP TAG HANDLER: Handles typing, deleting, and navigation around sup elements
-let supTagHandler = null;
+let supTagHandler: any = null;
 
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
-let saveQueue = null;
+let saveQueue: any = null;
 
 // 📌 Store the currently-observed editable div so stopObserving removes listeners from the right element
-let observedEditableDiv = null;
+let observedEditableDiv: any = null;
 
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
-let mutationProcessor = null;
+let mutationProcessor: any = null;
 
 // ✅ EnterKeyHandler instance
-let enterKeyHandler = null;
+let enterKeyHandler: any = null;
 
 // ================================================================
 // PUBLIC API
@@ -238,7 +238,7 @@ export function isEditorObserving() {
   return observer !== null;
 }
 
-export async function startObserving(editableDiv, bookId = null) {
+export async function startObserving(editableDiv: any, bookId: any = null) {
 
   verbose.content("startObserving function called - multi-chunk mode", 'divEditor/index.js');
 
@@ -263,7 +263,7 @@ export async function startObserving(editableDiv, bookId = null) {
   }
 
   // Create named function so we can remove it later
-  videoDeleteHandler = (e) => {
+  videoDeleteHandler = (e: any) => {
     const deleteBtn = e.target.closest('[data-action="delete-video"], [data-action="delete-broken-image"]');
     if (!deleteBtn) return; // Early exit for performance
 
@@ -292,7 +292,7 @@ export async function startObserving(editableDiv, bookId = null) {
 
       if (nodeEl) {
         const range = document.createRange();
-        const selection = window.getSelection();
+        const selection: any = window.getSelection();
         range.selectNodeContents(nodeEl);
         range.collapse(false);
         selection.removeAllRanges();
@@ -328,7 +328,7 @@ export async function startObserving(editableDiv, bookId = null) {
           videoEmbed.remove();
 
           const range = document.createRange();
-          const selection = window.getSelection();
+          const selection: any = window.getSelection();
 
           // Find first text node or use element itself
           const textNode = focusTarget.firstChild;
@@ -357,7 +357,7 @@ export async function startObserving(editableDiv, bookId = null) {
 
           // Set cursor to new paragraph
           const range = document.createRange();
-          const selection = window.getSelection();
+          const selection: any = window.getSelection();
           range.setStart(replacementP, 0);
           range.collapse(true);
           selection.removeAllRanges();
@@ -380,15 +380,15 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
   // This dramatically reduces mutation events during typing
-  debouncedInputHandlerRef = debounce((e) => {
-    verbose.user(`INPUT EVENT: ${e.type} ${e.inputType}, isEditing: ${window.isEditing}, isComposing: ${isComposing}`, 'divEditor/index.js');
-    if (!window.isEditing || isComposing) {
+  debouncedInputHandlerRef = debounce((e: any) => {
+    verbose.user(`INPUT EVENT: ${e.type} ${e.inputType}, isEditing: ${(window as any).isEditing}, isComposing: ${isComposing}`, 'divEditor/index.js');
+    if (!(window as any).isEditing || isComposing) {
       verbose.user('INPUT HANDLER: Skipped (not editing or composing)', 'divEditor/index.js');
       return; // Skip during mobile IME composition
     }
 
     // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
-    const selection = window.getSelection();
+    const selection: any = window.getSelection();
     verbose.user(`SELECTION: ${selection ? 'exists' : 'null'}, rangeCount: ${selection?.rangeCount}`, 'divEditor/index.js');
     if (!selection || !selection.rangeCount) {
       // 🛡️ Selection gone (e.g., user clicked overlay during debounce) — use cached node ID
@@ -440,7 +440,7 @@ export async function startObserving(editableDiv, bookId = null) {
       // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner.
       // Preserve the *-intensity custom properties (hyperlight/hypercite opacity) so marks
       // don't go invisible mid-edit — same as batch.js, so DOM and IndexedDB stay in sync.
-      parentWithId.querySelectorAll('[style]').forEach(el => {
+      parentWithId.querySelectorAll('[style]').forEach((el: any) => {
         if (!el.matches(BLOCK_ELEMENT_SELECTOR + ', li')) {
           stripInlineStylePreservingIntensity(el);
         }
@@ -462,10 +462,10 @@ export async function startObserving(editableDiv, bookId = null) {
 
   // 🛡️ Wrap input event to eagerly capture node ID before debounce
   // Selection may move by the time the 200ms debounce fires (e.g., overlay click)
-  inputEventHandler = (e) => {
-    if (window.isEditing && !isComposing) {
+  inputEventHandler = (e: any) => {
+    if ((window as any).isEditing && !isComposing) {
       if (saveQueue) saveQueue.recordInputEvent();
-      const sel = window.getSelection();
+      const sel: any = window.getSelection();
       if (sel?.rangeCount) {
         let el = sel.getRangeAt(0).startContainer;
         if (el.nodeType === Node.TEXT_NODE) el = el.parentElement;
@@ -492,7 +492,7 @@ export async function startObserving(editableDiv, bookId = null) {
     verbose.content('IME composition started - pausing input processing', 'divEditor/index.js');
   });
 
-  editableDiv.addEventListener('compositionend', (e) => {
+  editableDiv.addEventListener('compositionend', (e: any) => {
     isComposing = false;
     verbose.content('IME composition ended - resuming input processing', 'divEditor/index.js');
     // Trigger input handler after composition completes
@@ -552,7 +552,7 @@ export async function startObserving(editableDiv, bookId = null) {
     if (isProgrammaticUpdateInProgress()) return;
 
     // 🛡️ Verify mutations are from the correct container
-    const validMutations = mutations.filter(mutation => {
+    const validMutations = mutations.filter((mutation: any) => {
       if (!verifyMutationSource(mutation)) {
         // Mutation is from wrong container - log and skip
         console.warn('[Observer] Skipping leaked mutation:', mutation.type, 'on', mutation.target?.id || mutation.target?.nodeName);
@@ -608,12 +608,12 @@ export async function startObserving(editableDiv, bookId = null) {
 }
 
 // Initialize tracking for all chunks currently in the DOM
-function initializeCurrentChunks(editableDiv) {
+function initializeCurrentChunks(editableDiv: any) {
   const chunks = editableDiv.querySelectorAll('.chunk');
 
   observedChunks.clear(); // Start fresh
   
-  chunks.forEach(chunk => {
+  chunks.forEach((chunk: any) => {
     const chunkId = chunk.getAttribute('data-chunk-id');
     if (chunkId) {
       observedChunks.set(chunkId, chunk);
@@ -745,7 +745,7 @@ export async function stopObserving() {
 // 🚀 PERFORMANCE: Use proper debounce for selectionchange instead of manual setTimeout
 const handleSelectionChange = debounce(() => {
   // The actual logic only runs after 150ms of no selection changes
-  if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
+  if (!(window as any).isEditing || chunkOverflowInProgress || isObserverRestarting) return;
 
   const toolbar = getEditToolbar();
   if (toolbar && toolbar.isFormatting) {
@@ -764,10 +764,10 @@ const handleSelectionChange = debounce(() => {
 
 document.addEventListener("selectionchange", () => {
   // Early return for performance - don't process if not editing
-  if (!window.isEditing) return;
+  if (!(window as any).isEditing) return;
 
   // 🛡️ VERIFY: Check if selection is in the active edit container
-  const selection = window.getSelection();
+  const selection: any = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
     let node = range.startContainer;
@@ -788,7 +788,7 @@ document.addEventListener("selectionchange", () => {
     if (isSentinel) {
       // Move cursor to nearest valid element immediately
       const editableDiv = document.getElementById(book);
-      const validElement = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])');
+      const validElement: any = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])');
 
       if (validElement) {
         validElement.focus();
@@ -806,11 +806,11 @@ document.addEventListener("selectionchange", () => {
 });
 
 document.addEventListener("keydown", function handleTypingActivity(event) {
-  if (!window.isEditing) return;
+  if (!(window as any).isEditing) return;
 
   // 🆕 O(1) CHECK: Use no-delete-id marker instead of expensive DOM queries
   if (['Backspace', 'Delete'].includes(event.key)) {
-    const selection = document.getSelection();
+    const selection: any = document.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
 

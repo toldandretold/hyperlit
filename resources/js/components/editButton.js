@@ -1,5 +1,5 @@
 // ✅ Lazy-loaded edit modules (only imported when entering edit mode)
-// import { startObserving, stopObserving } from "../divEditor/index.js";
+// import { startObserving, stopObserving } from "../divEditor/index";
 // import { addPasteListener } from '../paste';
 // import { initEditToolbar, getEditToolbar } from '../editToolbar';
 
@@ -270,7 +270,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
-          import("../divEditor/index.js").then(({ ensureMinimumDocumentStructure }) => {
+          import("../divEditor/index").then(({ ensureMinimumDocumentStructure }) => {
             ensureMinimumDocumentStructure();
           });
         }
@@ -341,7 +341,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         editableDiv.focus();
 
         // ✅ Dynamically import divEditor and paste modules
-        const { startObserving } = await import('../divEditor/index.js');
+        const { startObserving } = await import('../divEditor/index');
         const { addPasteListener } = await import('../paste/index.js');
 
         startObserving(editableDiv, book);
@@ -383,7 +383,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
   // ✅ Dynamically import edit modules (they should already be loaded if we were editing)
   Promise.all([
     import('../editToolbar/index.js'),
-    import('../divEditor/index.js')
+    import('../divEditor/index')
   ]).then(async ([editToolbar, divEditor]) => {
     const { getEditToolbar } = editToolbar;
     const { stopObserving, flushAllPendingSaves, flushInputDebounce } = divEditor;

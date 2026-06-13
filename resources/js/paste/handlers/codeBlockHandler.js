@@ -5,7 +5,7 @@
  * Prevents HTML from being rendered - inserts as plain text instead.
  */
 
-import { queueNodeForSave } from '../../divEditor/index.js';
+import { queueNodeForSave } from '../../divEditor/index';
 
 /**
  * Check if text appears to be complete HTML

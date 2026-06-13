@@ -350,7 +350,7 @@ export async function prepareContainerClose() {
   }
 
   // Import divEditor functions
-  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index.js');
+  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
 
   // 🔑 CRITICAL: First flush input debounce to capture any pending typing
   // This forces the 200ms debounced input handler to execute immediately
