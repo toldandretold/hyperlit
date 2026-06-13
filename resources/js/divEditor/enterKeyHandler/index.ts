@@ -8,14 +8,14 @@
  * - Shift+Enter for line breaks within paragraphs
  */
 
-import { chunkOverflowInProgress } from "../utilities/operationState.js";
-import { book } from '../app.js';
-import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../utilities/IDfunctions.js";
-import { queueNodeForSave } from './editorState';
-import { verbose } from '../utilities/logger.js';
-import { placeCaretInEmptyListItem, listItemIsEmpty } from '../utilities/listItemCaret.js';
+import { chunkOverflowInProgress } from "../../utilities/operationState.js";
+import { book } from '../../app.js';
+import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/IDfunctions.js";
+import { queueNodeForSave } from '../editorState';
+import { verbose } from '../../utilities/logger.js';
+import { placeCaretInEmptyListItem, listItemIsEmpty } from '../../utilities/listItemCaret.js';
 
-import { isElementInViewport, scrollCaretIntoView, moveCaretTo, createAndInsertParagraph } from './enterKeyHandler/caretHelpers';
+import { isElementInViewport, scrollCaretIntoView, moveCaretTo, createAndInsertParagraph } from './caretHelpers';
 
 /**
  * EnterKeyHandler class
@@ -23,6 +23,10 @@ import { isElementInViewport, scrollCaretIntoView, moveCaretTo, createAndInsertP
  * blockquotes, and pre elements
  */
 export class EnterKeyHandler {
+  lastKeyWasEnter: boolean;
+  enterCount: number;
+  lastEnterTime: number;
+
   constructor() {
     // State is now instance-specific, not global
     this.lastKeyWasEnter = false;
@@ -37,7 +41,7 @@ export class EnterKeyHandler {
     verbose.content("EnterKeyHandler initialized", 'divEditor/enterKeyHandler.js');
   }
 
-  handleKeyDown(event) {
+  handleKeyDown(event: KeyboardEvent) {
     if (event.key === "Enter" && chunkOverflowInProgress) {
       event.preventDefault();
       console.log("Enter key ignored during chunk overflow processing");
@@ -62,12 +66,12 @@ export class EnterKeyHandler {
 
     verbose.content(`Enter count: ${this.enterCount}`, 'divEditor/enterKeyHandler.js');
 
-    if (window.isEditing) {
+    if ((window as any).isEditing) {
       // Get the current selection
-      const selection = document.getSelection();
+      const selection: any = document.getSelection();
       if (selection.rangeCount === 0) return;
 
-      let range = selection.getRangeAt(0);
+      let range: any = selection.getRangeAt(0);
 
       // 🎯 SUP TAG ESCAPE: Prevent Enter inside any <sup> element
       // Sup tags contain generated content (footnote numbers, hypercite arrows) - never user-editable
@@ -202,7 +206,49 @@ export class EnterKeyHandler {
         isAtStart = range.startOffset === 0;
       }
 
+      const ctx = { event, selection, range, blockElement, chunkContainer, isHeading };
+
       if (isHeading && isAtStart) {
+        this._handleHeadingAtStart(ctx);
+        return;
+      }
+
+      // SECTION 1: Special handling for paragraph elements
+      if (blockElement.tagName === "P") {
+        this._handleParagraphEnter(ctx);
+        return;
+      }
+
+      // SECTION 2: Handle blockquote and pre (code blocks)
+      if (
+        blockElement.tagName === "BLOCKQUOTE" ||
+        blockElement.tagName === "PRE"
+      ) {
+        this._handleBlockquotePreEnter(ctx);
+        return;
+      }
+
+      // SECTION 2.5: Handle list items (LI)
+      if (blockElement.tagName === "LI") {
+        this._handleListItemEnter(ctx);
+        return;
+      }
+
+      // SECTION 2.6: Handle non-splittable block elements (IMG, FIGURE, TABLE, HR)
+      // These elements cannot be "split" — the only sensible Enter behavior
+      // is to create a new empty paragraph after them.
+      if (["IMG", "FIGURE", "TABLE", "HR"].includes(blockElement.tagName)) {
+        this._handleNonSplittableEnter(ctx);
+        return;
+      }
+
+      // SECTION 3: Handle all other elements (headings, etc.)
+      this._handleOtherEnter(ctx);
+    }
+  }
+
+  _handleHeadingAtStart(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
         event.preventDefault();
 
         // PROACTIVELY FIX THE HEADING'S ID
@@ -262,10 +308,10 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
-      }
+  }
 
-      // SECTION 1: Special handling for paragraph elements
-      if (blockElement.tagName === "P") {
+  _handleParagraphEnter(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
         event.preventDefault();
 
         // PATH A: User wants a line break (Shift+Enter)
@@ -276,7 +322,7 @@ export class EnterKeyHandler {
 
           // Force cursor after the br by inserting a zero-width space
           const zwsp = document.createTextNode("\u200B");
-          br.parentNode.insertBefore(zwsp, br.nextSibling);
+          br.parentNode!.insertBefore(zwsp, br.nextSibling);
 
           // Position cursor in the zero-width space
           const newRange = document.createRange();
@@ -353,13 +399,10 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
-      }
+  }
 
-      // SECTION 2: Handle blockquote and pre (code blocks)
-      if (
-        blockElement.tagName === "BLOCKQUOTE" ||
-        blockElement.tagName === "PRE"
-      ) {
+  _handleBlockquotePreEnter(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
         event.preventDefault();
 
         // Shift+Enter: always insert <br>, never exit the block
@@ -481,7 +524,7 @@ export class EnterKeyHandler {
               newSplitBlock.appendChild(newCode);
               targetForMovedContent = newCode;
             }
-            let sourceOfNodes = contentToMove;
+            let sourceOfNodes: any = contentToMove;
             const wrapperNode = contentToMove.querySelector("blockquote, pre");
             if (wrapperNode) {
               if (wrapperNode.tagName === "PRE") {
@@ -554,10 +597,10 @@ export class EnterKeyHandler {
         }
 
         return;
-      }
+  }
 
-      // SECTION 2.5: Handle list items (LI)
-      if (blockElement.tagName === "LI") {
+  _handleListItemEnter(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
         event.preventDefault();
 
         // Find the parent list (UL or OL)
@@ -691,7 +734,7 @@ export class EnterKeyHandler {
             } else {
               // Anchor the caret in the first text node (NOT element-offset 0,
               // which renders left of the marker under list-style-position: inside).
-              const walker = document.createTreeWalker(newLI, NodeFilter.SHOW_TEXT, null, false);
+              const walker = document.createTreeWalker(newLI, NodeFilter.SHOW_TEXT, null);
               const firstText = walker.nextNode();
               if (firstText) moveCaretTo(firstText, 0);
               else placeCaretInEmptyListItem(newLI);
@@ -703,12 +746,10 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
-      }
+  }
 
-      // SECTION 2.6: Handle non-splittable block elements (IMG, FIGURE, TABLE, HR)
-      // These elements cannot be "split" — the only sensible Enter behavior
-      // is to create a new empty paragraph after them.
-      if (["IMG", "FIGURE", "TABLE", "HR"].includes(blockElement.tagName)) {
+  _handleNonSplittableEnter(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
         event.preventDefault();
 
         ensureNodeHasValidId(blockElement);
@@ -726,9 +767,10 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
-      }
+  }
 
-      // SECTION 3: Handle all other elements (headings, etc.)
+  _handleOtherEnter(ctx: any): void {
+    const { event, selection, range, blockElement, chunkContainer, isHeading } = ctx;
       event.preventDefault();
 
       // Split the content at cursor position
@@ -785,7 +827,7 @@ export class EnterKeyHandler {
         nestedHeadings.forEach((h) => {
           // Replace heading with its children
           while (h.firstChild) {
-            h.parentNode.insertBefore(h.firstChild, h);
+            h.parentNode!.insertBefore(h.firstChild, h);
           }
           h.remove();
         });
@@ -806,7 +848,6 @@ export class EnterKeyHandler {
       );
 
       this.enterCount = 0;
-    }
   }
 
   // Cleanup method

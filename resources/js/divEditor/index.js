@@ -33,7 +33,7 @@ import { debounce } from '../utilities/debounce.js';
 import { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion, setActiveSaveQueue } from './editorState';
 export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
-import { EnterKeyHandler } from './enterKeyHandler.js';
+import { EnterKeyHandler } from './enterKeyHandler';
 import { SupTagHandler } from './supTagHandler';
 import { ChunkMutationHandler } from './chunkMutationHandler.js';
 import {
