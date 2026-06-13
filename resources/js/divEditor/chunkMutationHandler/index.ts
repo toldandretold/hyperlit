@@ -9,18 +9,18 @@
  * - Chunk overflow management
  */
 
-import { chunkOverflowInProgress, userDeletionInProgress } from "../utilities/operationState.js";
-import { isNumericalId, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
-import { movedNodesByOverflow } from './editorState';
-import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
-import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index';
-import { isPasteOperationActive } from '../paste';
-import { verbose } from '../utilities/logger.js';
-import { setChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
+import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState.js";
+import { isNumericalId, ensureNodeHasValidId } from "../../utilities/IDfunctions.js";
+import { movedNodesByOverflow } from '../editorState';
+import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../../chunkManager.js';
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/toc.js';
+import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
+import { isPasteOperationActive } from '../../paste';
+import { verbose } from '../../utilities/logger.js';
+import { setChunkLoadingInProgress } from '../../utilities/chunkLoadingState.js';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
-import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions.js';
+import { NUMERICAL_ID_PATTERN } from '../../utilities/IDfunctions.js';
 
 // 🆕 NO-DELETE-ID MARKER SYSTEM
 import {
@@ -28,49 +28,31 @@ import {
   setNoDeleteMarker,
   transferNoDeleteMarker,
   findNextNoDeleteNode
-} from './domUtilities';
+} from '../domUtilities';
 
-/**
- * Get the ID (startLine) of the first node in the book
- * Queries IndexedDB for all nodes and returns the one with lowest startLine
- * @returns {Promise<string|null>} - The startLine of the first node, or null
- */
-async function getFirstNodeIdForBook(bookId = null) {
-  try {
-    // Use provided bookId, or fall back to main content
-    if (!bookId) {
-      const mainContent = document.querySelector('.main-content');
-      bookId = mainContent?.id || 'latest';
-    }
-
-    // Get all nodes for this book from IndexedDB
-    const nodes = await getNodeChunksFromIndexedDB(bookId);
-
-    if (!nodes || nodes.length === 0) {
-      console.warn('⚠️ No nodes found in IndexedDB for book:', bookId);
-      return null;
-    }
-
-    // Find the node with the lowest startLine (first node in book)
-    const firstNode = nodes.reduce((min, node) => {
-      const minStart = parseFloat(min.startLine);
-      const nodeStart = parseFloat(node.startLine);
-      return nodeStart < minStart ? node : min;
-    });
-
-    return firstNode.startLine.toString();
-  } catch (error) {
-    console.error('❌ Error getting first node ID for book:', error);
-    return null;
-  }
-}
+// Extracted cohesive components
+import { getFirstNodeIdForBook } from './firstNode';
+import { destroySpan } from './spanDestroyer';
 
 /**
  * ChunkMutationHandler class
  * Processes DOM mutations within document chunks
  */
 export class ChunkMutationHandler {
-  constructor(options = {}) {
+  observedChunks: any;
+  saveQueue: any;
+  handleHyperciteRemoval: any;
+  ensureMinimumStructure: any;
+  queueNodeForSave: any;
+  removedNodeIds: any;
+  addedNodes: any;
+  modifiedNodes: any;
+  documentChanged: { value: boolean };
+  tocInvalidationQueue: any;
+  tocInvalidationTimer: any;
+  nodeToChunkCache: any;
+
+  constructor(options: any = {}) {
     // Dependencies
     this.observedChunks = options.observedChunks || new Map();
     this.saveQueue = options.saveQueue;
@@ -119,8 +101,8 @@ export class ChunkMutationHandler {
   /**
    * Filter mutations to only include those within .chunk elements
    */
-  filterChunkMutations(mutations) {
-    const filteredMutations = [];
+  filterChunkMutations(mutations: any[]) {
+    const filteredMutations: any[] = [];
 
     mutations.forEach(mutation => {
       // Check if mutation target is within a chunk
@@ -128,15 +110,15 @@ export class ChunkMutationHandler {
 
       if (chunk !== null) {
         if (mutation.type === 'childList') {
-          const isOnlyHighlightNodes = (nodeList) => {
+          const isOnlyHighlightNodes = (nodeList: any) => {
             if (nodeList.length === 0) return false;
             return Array.from(nodeList).every(
-              (node) => node.nodeName === 'MARK' || node.nodeType === Node.TEXT_NODE
+              (node: any) => node.nodeName === 'MARK' || node.nodeType === Node.TEXT_NODE
             );
           };
 
           // Never skip if removedNodes contains elements with numerical IDs (paragraph deletions)
-          const hasNumericalIdRemoval = Array.from(mutation.removedNodes).some(node =>
+          const hasNumericalIdRemoval = Array.from(mutation.removedNodes).some((node: any) =>
             node.nodeType === Node.ELEMENT_NODE && node.id && NUMERICAL_ID_PATTERN.test(node.id)
           );
 
@@ -153,7 +135,7 @@ export class ChunkMutationHandler {
 
       // Special case: Check for deletion of chunks
       if (mutation.type === 'childList' && mutation.removedNodes.length > 0) {
-        const chunkDeletions = Array.from(mutation.removedNodes).filter(node =>
+        const chunkDeletions = Array.from(mutation.removedNodes).filter((node: any) =>
           node.nodeType === Node.ELEMENT_NODE && node.classList?.contains('chunk')
         );
 
@@ -163,10 +145,10 @@ export class ChunkMutationHandler {
           } else if (!userDeletionInProgress) {
             console.log(`⚠️ Skipping chunk deletion handling - no active user deletion`);
           } else {
-            const chunkIds = chunkDeletions.map(c => c.getAttribute('data-chunk-id')).filter(Boolean);
+            const chunkIds = chunkDeletions.map((c: any) => c.getAttribute('data-chunk-id')).filter(Boolean);
             let totalNodes = 0;
 
-            chunkDeletions.forEach(deletedChunk => {
+            chunkDeletions.forEach((deletedChunk: any) => {
               // ✅ Block lazy loader from reloading this chunk until deletions complete
               const chunkId = deletedChunk.getAttribute('data-chunk-id');
               if (chunkId) {
@@ -214,7 +196,7 @@ export class ChunkMutationHandler {
           filteredMutations.push(mutation);
         } else {
           // Check for other numerical ID deletions
-          const hasNumericalIdDeletion = Array.from(mutation.removedNodes).some(node =>
+          const hasNumericalIdDeletion = Array.from(mutation.removedNodes).some((node: any) =>
             this.isNumericalIdDeletion(node, mutation.target)
           );
 
@@ -231,11 +213,11 @@ export class ChunkMutationHandler {
   /**
    * Check if mutations should be skipped (status icon mutations)
    */
-  shouldSkipMutation(mutations) {
+  shouldSkipMutation(mutations: any[]) {
     return mutations.some(mutation =>
       mutation.target.id === "status-icon" ||
       (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
-      mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node =>
+      mutation.addedNodes.length && Array.from(mutation.addedNodes).some((node: any) =>
         node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
       )
     );
@@ -244,7 +226,7 @@ export class ChunkMutationHandler {
   /**
    * Process mutations grouped by their containing chunk
    */
-  async processByChunk(mutations) {
+  async processByChunk(mutations: any[]) {
     const mutationsByChunk = new Map();
     const newChunksFound = new Set();
 
@@ -312,12 +294,12 @@ export class ChunkMutationHandler {
         // 🚀 PERFORMANCE: Process immediately within RAF callback
         // setTimeout(, 0) adds unnecessary latency
         await this.processChunkMutations(liveChunk, chunkMutations, bookId);
-      } else if (!window.isEditing) {
+      } else if (!(window as any).isEditing) {
         console.log(`🗑️ Chunk ${chunkId} actually removed from DOM`);
 
         setTimeout(() => {
           this.observedChunks.delete(chunkId);
-          delete chunkNodeCounts[chunkId];
+          delete (chunkNodeCounts as any)[chunkId];
           // 🚀 PERFORMANCE: Clear chunk cache when structure changes
           this.clearChunkCache();
           console.log(`✅ Chunk ${chunkId} cleanup completed`);
@@ -331,7 +313,7 @@ export class ChunkMutationHandler {
    * @param {HTMLElement} chunk - The chunk element
    * @param {HTMLElement} [container] - Optional: the sub-book container if in sub-book context
    */
-  handleNewChunk(chunk, container = null) {
+  handleNewChunk(chunk: any, container: any = null) {
     const chunkId = chunk.getAttribute('data-chunk-id');
 
     if (!chunkId) {
@@ -366,7 +348,7 @@ export class ChunkMutationHandler {
   /**
    * Process mutations for a specific chunk
    */
-  async processChunkMutations(chunk, mutations, bookId = null) {
+  async processChunkMutations(chunk: any, mutations: any[], bookId: any = null) {
     const chunkId = chunk.getAttribute('data-chunk-id');
     
     // ✅ FIX: Store bookId on chunk for access during deletions
@@ -377,7 +359,7 @@ export class ChunkMutationHandler {
     verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
 
     // Skip during renumbering
-    if (window.renumberingInProgress) {
+    if ((window as any).renumberingInProgress) {
       console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during renumbering`);
       return;
     }
@@ -395,7 +377,7 @@ export class ChunkMutationHandler {
     // Track node count changes
     trackChunkNodeCount(chunk, mutations);
 
-    const currentNodeCount = chunkNodeCounts[chunkId] || 0;
+    const currentNodeCount = (chunkNodeCounts as any)[chunkId] || 0;
 
     // Handle chunk overflow
     if (currentNodeCount > NODE_LIMIT &&
@@ -439,7 +421,7 @@ export class ChunkMutationHandler {
     // Track parent nodes that need updates
     const parentsToUpdate = new Set();
     let addedCount = 0;
-    const newNodes = [];
+    const newNodes: any[] = [];
     let pasteDetected = false;
 
     if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
@@ -485,7 +467,7 @@ export class ChunkMutationHandler {
 
                 // Find another node to transfer the marker to
                 const allNodes = chunk.querySelectorAll('[id]');
-                const otherNodes = Array.from(allNodes).filter(n =>
+                const otherNodes = Array.from(allNodes).filter((n: any) =>
                   n !== node &&
                   n.id &&
                   NUMERICAL_ID_PATTERN.test(n.id) &&
@@ -528,7 +510,7 @@ export class ChunkMutationHandler {
                   for (const otherChunk of allChunks) {
                     if (otherChunk === chunk) continue;
                     const nodesInOtherChunk = otherChunk.querySelectorAll('[id]');
-                    const validNodes = Array.from(nodesInOtherChunk).filter(n =>
+                    const validNodes = Array.from(nodesInOtherChunk).filter((n: any) =>
                       n.id &&
                       NUMERICAL_ID_PATTERN.test(n.id) &&
                       !n.id.includes('-sentinel')
@@ -627,8 +609,8 @@ export class ChunkMutationHandler {
               target.textContent.trim() === '' &&
               document.contains(target)) {
             try {
-              const { openDatabase } = await import('../indexedDB/index');
-              const { getHyperciteById } = await import('../hypercites/database.js');
+              const { openDatabase } = await import('../../indexedDB/index');
+              const { getHyperciteById } = await import('../../hypercites/database.js');
               const db = await openDatabase();
               const hcRecord = await getHyperciteById(db, target.id);
               const hasCitations = hcRecord && Array.isArray(hcRecord.citedIN) && hcRecord.citedIN.length > 0;
@@ -639,7 +621,7 @@ export class ChunkMutationHandler {
                 target.setAttribute('data-ghost', 'true');
                 target.removeAttribute('style');
                 target.removeAttribute('data-hypercite-listener');
-                const { markHyperciteAsGhost } = await import('../hypercites/deletion');
+                const { markHyperciteAsGhost } = await import('../../hypercites/deletion');
                 await markHyperciteAsGhost(target.id);
                 // Queue parent paragraph for save so batch.js updates node_id
                 let parentBlock = target.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id]');
@@ -661,7 +643,7 @@ export class ChunkMutationHandler {
         if (element.tagName === 'SPAN' && mutation.attributeName === 'style') {
           verbose.content(`DESTROYING SPAN that gained style attribute`, 'divEditor/chunkMutationHandler.js');
 
-          const { replacementNode, cursorInfo } = this.destroySpan(element);
+          const { replacementNode, cursorInfo } = destroySpan(element);
 
           continue;
         }
@@ -669,7 +651,7 @@ export class ChunkMutationHandler {
 
       // Skip icon-only mutations
       if (mutation.type === "childList") {
-        const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
+        const allAreIcons = Array.from(mutation.addedNodes).every((n: any) => {
           if (n.nodeType !== Node.ELEMENT_NODE) return false;
           const el = n;
           if (el.classList.contains("open-icon")) return true;
@@ -690,7 +672,7 @@ export class ChunkMutationHandler {
 
       // Process added nodes
       if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
+        mutation.addedNodes.forEach((node: any) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
 
             // Tag replacement detected (e.g. heading format change via formatBlock).
@@ -722,7 +704,7 @@ export class ChunkMutationHandler {
             // Destroy SPAN tags
             if (node.tagName === 'SPAN') {
               verbose.content(`DESTROYING SPAN tag - NO SPANS ALLOWED`, 'divEditor/chunkMutationHandler.js');
-              this.destroySpan(node);
+              destroySpan(node);
               return;
             }
 
@@ -738,7 +720,7 @@ export class ChunkMutationHandler {
 
                 const cleanElement = document.createElement(node.tagName.toLowerCase());
 
-                Array.from(node.attributes).forEach(attr => {
+                Array.from(node.attributes).forEach((attr: any) => {
                   if (attr.name !== 'style') {
                     cleanElement.setAttribute(attr.name, attr.value);
                   }
@@ -826,7 +808,7 @@ export class ChunkMutationHandler {
     }
 
     // Process parent updates
-    parentsToUpdate.forEach(parent => {
+    parentsToUpdate.forEach((parent: any) => {
       verbose.content(`Queueing parent node after child removal: ${parent.id}`, 'divEditor/chunkMutationHandler.js');
       if (this.queueNodeForSave) {
         this.queueNodeForSave(parent.id, 'update');
@@ -838,7 +820,7 @@ export class ChunkMutationHandler {
       const BULK_THRESHOLD = 20;
       if (addedCount < BULK_THRESHOLD) {
         verbose.content(`Queueing ${newNodes.length} new nodes individually`, 'divEditor/chunkMutationHandler.js');
-        newNodes.forEach(node => {
+        newNodes.forEach((node: any) => {
           if (node.id) {
             verbose.content(`Queueing new node: ${node.id}`, 'divEditor/chunkMutationHandler.js');
             if (this.queueNodeForSave) {
@@ -851,61 +833,10 @@ export class ChunkMutationHandler {
   }
 
   /**
-   * Helper: Destroy a SPAN element while preserving cursor position
-   */
-  destroySpan(element) {
-    const selection = window.getSelection();
-    let savedRange = null;
-    let cursorWasInSpan = false;
-    let cursorOffset = 0;
-
-    if (selection.rangeCount > 0) {
-      savedRange = selection.getRangeAt(0);
-      if (element.contains(savedRange.startContainer)) {
-        cursorWasInSpan = true;
-        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-        let textNode;
-        let offset = 0;
-        while (textNode = walker.nextNode()) {
-          if (textNode === savedRange.startContainer) {
-            cursorOffset = offset + savedRange.startOffset;
-            break;
-          }
-          offset += textNode.length;
-        }
-      }
-    }
-
-    let replacementTextNode = null;
-    if (element.textContent.trim()) {
-      replacementTextNode = document.createTextNode(element.textContent);
-      if (element.parentNode && document.contains(element.parentNode)) {
-        element.parentNode.insertBefore(replacementTextNode, element);
-      }
-    }
-
-    if (document.contains(element)) {
-      element.remove();
-    }
-
-    if (cursorWasInSpan && replacementTextNode) {
-      const newRange = document.createRange();
-      const safeOffset = Math.min(cursorOffset, replacementTextNode.length);
-      newRange.setStart(replacementTextNode, safeOffset);
-      newRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
-      verbose.content(`Cursor restored at offset ${safeOffset} after SPAN destruction`, 'divEditor/chunkMutationHandler.js');
-    }
-
-    return { replacementNode: replacementTextNode, cursorInfo: { cursorWasInSpan, cursorOffset } };
-  }
-
-  /**
    * 🚀 PERFORMANCE: Batch TOC invalidation using requestIdleCallback
    * Queues TOC updates and processes them during browser idle time
    */
-  queueTocInvalidation(nodeId, nodeElement) {
+  queueTocInvalidation(nodeId: any, nodeElement: any) {
     this.tocInvalidationQueue.add({ nodeId, nodeElement });
 
     // Clear existing timer/callback
@@ -921,7 +852,7 @@ export class ChunkMutationHandler {
     // Fall back to setTimeout for browsers that don't support it (Safari)
     const processInvalidations = () => {
       verbose.content(`Processing ${this.tocInvalidationQueue.size} batched TOC invalidations`, 'divEditor/chunkMutationHandler.js');
-      this.tocInvalidationQueue.forEach(({ nodeId, nodeElement }) => {
+      this.tocInvalidationQueue.forEach(({ nodeId, nodeElement }: any) => {
         checkAndInvalidateTocCache(nodeId, nodeElement);
       });
       this.tocInvalidationQueue.clear();
@@ -940,7 +871,7 @@ export class ChunkMutationHandler {
   /**
    * Helper: Check if removed node is a numerical ID deletion
    */
-  isNumericalIdDeletion(removedNode, mutationTarget) {
+  isNumericalIdDeletion(removedNode: any, mutationTarget: any) {
     if (removedNode.nodeType !== Node.ELEMENT_NODE) {
       return false;
     }
@@ -960,7 +891,7 @@ export class ChunkMutationHandler {
    * 🚀 PERFORMANCE: Cached chunk lookup (80-95% faster)
    * Helper: Find the .chunk element containing a node
    */
-  findContainingChunk(node) {
+  findContainingChunk(node: any) {
     if (!node) return null;
 
     if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -988,11 +919,11 @@ export class ChunkMutationHandler {
   /**
    * Helper: Find all numerical ID nodes within a chunk
    */
-  findNumericalIdNodesInChunk(chunkNode) {
-    const numericalIdNodes = [];
+  findNumericalIdNodesInChunk(chunkNode: any) {
+    const numericalIdNodes: any[] = [];
     const elementsWithIds = chunkNode.querySelectorAll('[id]');
 
-    elementsWithIds.forEach(element => {
+    elementsWithIds.forEach((element: any) => {
       if (isNumericalId(element.id)) {
         numericalIdNodes.push(element);
       }
@@ -1004,7 +935,7 @@ export class ChunkMutationHandler {
   /**
    * Helper: Check if node is within .main-content
    */
-  isNodeWithinMainContent(node) {
+  isNodeWithinMainContent(node: any) {
     if (!node) return false;
 
     if (node.nodeType !== Node.ELEMENT_NODE) {

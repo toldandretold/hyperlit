@@ -155,7 +155,7 @@ export default defineConfig({
                 'resources/js/divEditor/saveQueue.ts',
                 'resources/js/divEditor/mutationProcessor.ts',
                 'resources/js/divEditor/enterKeyHandler/index.ts',
-                'resources/js/divEditor/chunkMutationHandler.js',
+                'resources/js/divEditor/chunkMutationHandler/index.ts',
                 'resources/js/divEditor/domUtilities.ts',
 
                 // editToolbar modules

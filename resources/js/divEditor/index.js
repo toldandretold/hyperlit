@@ -35,7 +35,7 @@ export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
 import { EnterKeyHandler } from './enterKeyHandler';
 import { SupTagHandler } from './supTagHandler';
-import { ChunkMutationHandler } from './chunkMutationHandler.js';
+import { ChunkMutationHandler } from './chunkMutationHandler';
 import {
   registerEditSession,
   unregisterEditSession,
