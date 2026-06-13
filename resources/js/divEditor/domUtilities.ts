@@ -23,13 +23,14 @@ import { isPasteOperationActive } from '../paste';
 import { trackChunkNodeCount } from '../chunkManager.js';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
 
+type QueueNodeForSaveFn = (id: string, action?: string, bookId?: string | null) => void;
+
 /**
  * Check if a removed node is a hypercite element and handle delinking
- * @param {Node} removedNode - The node that was removed
  */
-export async function handleHyperciteRemoval(removedNode, mutationTarget = null) {
+export async function handleHyperciteRemoval(removedNode: any, mutationTarget: any = null): Promise<void> {
   // Helper function to verify removal with optional delay
-  const verifyRemoval = async (hyperciteId, delay = 0) => {
+  const verifyRemoval = async (hyperciteId: string, delay = 0) => {
     if (delay > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -65,8 +66,8 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
         // The delinkHypercite function needs just the ID, not the full URL
         const deletedLinkId = removedNode.id || targetHyperciteId;
 
-        if (window.testDelinkHypercite) {
-          await window.testDelinkHypercite(deletedLinkId, href);
+        if ((window as any).testDelinkHypercite) {
+          await (window as any).testDelinkHypercite(deletedLinkId, href);
         } else {
           const { delinkHypercite } = await import('../hypercites/index');
           await delinkHypercite(deletedLinkId, href);
@@ -198,8 +199,8 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
             // Extract just the hypercite ID from the removed link (if it has one)
             const deletedLinkId = link.id || targetHyperciteId;
 
-            if (window.testDelinkHypercite) {
-              await window.testDelinkHypercite(deletedLinkId, href);
+            if ((window as any).testDelinkHypercite) {
+              await (window as any).testDelinkHypercite(deletedLinkId, href);
             } else {
               const { delinkHypercite } = await import('../hypercites/index');
               await delinkHypercite(deletedLinkId, href);
@@ -214,7 +215,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
 
   // ✅ CHECK 4: Ghost tombstones within removed containers → relocate to surviving node
   if (removedNode.nodeType === Node.ELEMENT_NODE) {
-    const tombstonesToRelocate = [];
+    const tombstonesToRelocate: any[] = [];
 
     // Check if removedNode itself IS a tombstone
     if (removedNode.tagName === 'U' &&
@@ -239,7 +240,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
       // Find a surviving block element to relocate the tombstone into.
       // Priority: mutationTarget if it's a block node (partial cut → same paragraph),
       // then last block in the chunk (full node deletion → node above).
-      let targetNode = null;
+      let targetNode: any = null;
       const BLOCK_SELECTOR = BLOCK_ELEMENT_SELECTOR.split(', ').map(t => `${t}[id]`).join(', ');
       const NUMERICAL_ID = /^\d+(\.\d+)?$/;
 
@@ -265,7 +266,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
         if (mainContent) {
           const allBlocks = mainContent.querySelectorAll(BLOCK_SELECTOR);
           for (let i = allBlocks.length - 1; i >= 0; i--) {
-            if (NUMERICAL_ID.test(allBlocks[i].id)) { targetNode = allBlocks[i]; break; }
+            if (NUMERICAL_ID.test((allBlocks[i] as HTMLElement).id)) { targetNode = allBlocks[i]; break; }
           }
         }
       }
@@ -291,16 +292,14 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
 
 /**
  * Find all nodes with numerical IDs within a container (helper function)
- * @param {HTMLElement} container - The container element to search within
- * @returns {Array<HTMLElement>} - Array of elements with numerical IDs
  */
-export function findAllNumericalIdNodesInChunks(container) {
-  const numericalIdNodes = [];
+export function findAllNumericalIdNodesInChunks(container: HTMLElement): HTMLElement[] {
+  const numericalIdNodes: HTMLElement[] = [];
   const elementsWithIds = container.querySelectorAll('[id]');
 
   elementsWithIds.forEach(element => {
     if (isNumericalId(element.id)) {
-      numericalIdNodes.push(element);
+      numericalIdNodes.push(element as HTMLElement);
     }
   });
 
@@ -312,15 +311,8 @@ export function findAllNumericalIdNodesInChunks(container) {
  * - Top and bottom sentinels
  * - At least one chunk
  * - At least one content node (paragraph with ID "1")
- *
- * This function is called:
- * - When document becomes empty (last node deleted)
- * - When observer starts (to ensure initial structure)
- * - When paste operations might have cleared content
- *
- * @param {Function} queueNodeForSave - Function to queue nodes for saving to database
  */
-export function ensureMinimumDocumentStructure(queueNodeForSave) {
+export function ensureMinimumDocumentStructure(queueNodeForSave: QueueNodeForSaveFn): void {
   verbose.content('ensureMinimumDocumentStructure() called', 'domUtilities.js');
 
   const mainContent = document.querySelector('.main-content');
@@ -357,7 +349,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
   const chunks = mainContent.querySelectorAll('.chunk');
 
   // Check for numerical ID nodes
-  const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
+  const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent as HTMLElement);
   const nonSentinelNodes = numericalIdNodes.filter(node =>
     !node.id.includes('-sentinel')
   );
@@ -367,13 +359,13 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
   verbose.content(`Non-sentinel node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`, 'domUtilities.js');
 
   // 🆕 COLLECT ORPHANED CONTENT FIRST, before any structure changes
-  const orphanedContent = [];
+  const orphanedContent: any[] = [];
   Array.from(mainContent.childNodes).forEach(node => {
-    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+    if (node.nodeType === Node.TEXT_NODE && (node.textContent || '').trim()) {
       orphanedContent.push(node);
     } else if (node.nodeType === Node.ELEMENT_NODE &&
-               !node.classList.contains('chunk') &&
-               !node.classList.contains('sentinel')) {
+               !(node as HTMLElement).classList.contains('chunk') &&
+               !(node as HTMLElement).classList.contains('sentinel')) {
       orphanedContent.push(node);
     }
   });
@@ -485,7 +477,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     setNoDeleteMarker(p);
 
     // Initialize chunk tracking
-    if (window.trackChunkNodeCount) {
+    if ((window as any).trackChunkNodeCount) {
       trackChunkNodeCount(chunk);
     }
 
@@ -494,7 +486,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     // Position cursor in the new paragraph
     setTimeout(() => {
       const range = document.createRange();
-      const selection = window.getSelection();
+      const selection = window.getSelection()!;
       range.selectNodeContents(p);
       range.collapse(false); // Collapse to end
       selection.removeAllRanges();
@@ -508,7 +500,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
   if (chunks.length > 0 && nonSentinelNodes.length === 0) {
     verbose.content('CASE 3: Adding content to existing empty chunk', 'domUtilities.js');
 
-    const firstChunk = chunks[0];
+    const firstChunk = chunks[0]!;
     const p = document.createElement('p');
 
     // Use setElementIds to set both id and data-node-id
@@ -575,18 +567,8 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
 
 /**
  * @deprecated Use the no-delete-id marker system instead (O(1) vs O(n))
- * Check if the document is about to become empty (down to last node)
- *
- * This function is DEPRECATED. Instead of counting all nodes (expensive O(n) operation),
- * use the new marker system:
- * - Check if node has `no-delete-id="please"` attribute (O(1))
- * - Use getNoDeleteNode() to find the protected node
- *
- * Keeping this function for backward compatibility, but it now uses the marker system.
- *
- * @returns {boolean} - True if only the protected node remains
  */
-export function checkForImminentEmptyState() {
+export function checkForImminentEmptyState(): boolean {
   // 🚀 NEW O(1) IMPLEMENTATION: Just check if only the protected node exists
   const protectedNode = getNoDeleteNode();
 
@@ -606,7 +588,7 @@ export function checkForImminentEmptyState() {
   }
 
   // For single chunk case, check if there are other nodes besides the protected one
-  const allNodes = findAllNumericalIdNodesInChunks(mainContent);
+  const allNodes = findAllNumericalIdNodesInChunks(mainContent as HTMLElement);
   const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
 
   // If we only have 1 node (the protected one), we're about to be empty
@@ -619,17 +601,15 @@ export function checkForImminentEmptyState() {
 
 /**
  * Get the node that has the no-delete-id marker
- * @returns {HTMLElement|null} - The protected node, or null if not found
  */
-export function getNoDeleteNode() {
+export function getNoDeleteNode(): HTMLElement | null {
   return document.querySelector('[no-delete-id="please"]');
 }
 
 /**
  * Set the no-delete-id marker on a node
- * @param {HTMLElement} node - The node to protect
  */
-export function setNoDeleteMarker(node) {
+export function setNoDeleteMarker(node: HTMLElement | null): void {
   if (!node) return;
 
   // Remove marker from any existing node first
@@ -645,10 +625,8 @@ export function setNoDeleteMarker(node) {
 
 /**
  * Transfer the no-delete-id marker from one node to another
- * @param {HTMLElement} fromNode - The node to remove the marker from
- * @param {HTMLElement} toNode - The node to add the marker to
  */
-export function transferNoDeleteMarker(fromNode, toNode) {
+export function transferNoDeleteMarker(fromNode: HTMLElement | null, toNode: HTMLElement | null): void {
   if (!fromNode || !toNode) return;
 
   fromNode.removeAttribute('no-delete-id');
@@ -660,19 +638,17 @@ export function transferNoDeleteMarker(fromNode, toNode) {
 /**
  * Find a suitable node to receive the no-delete-id marker
  * Looks for the first numerical ID node in the chunk (or main-content if no chunk)
- * @param {HTMLElement} chunk - The chunk to search in (optional)
- * @returns {HTMLElement|null} - A suitable node, or null if none found
  */
-export function findNextNoDeleteNode(chunk = null) {
+export function findNextNoDeleteNode(chunk: HTMLElement | null = null): HTMLElement | null {
   const searchRoot = chunk || document.querySelector('.main-content');
   if (!searchRoot) return null;
 
   // Find all nodes with numerical IDs (excluding sentinels)
-  const allNodes = findAllNumericalIdNodesInChunks(searchRoot);
+  const allNodes = findAllNumericalIdNodesInChunks(searchRoot as HTMLElement);
   const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
 
   // Return the first one (if any)
-  return nonSentinelNodes.length > 0 ? nonSentinelNodes[0] : null;
+  return nonSentinelNodes.length > 0 ? nonSentinelNodes[0]! : null;
 }
 
 // ================================================================
@@ -682,10 +658,8 @@ export function findNextNoDeleteNode(chunk = null) {
 /**
  * Clean up styled spans from a container.
  * Called after specific operations (paste, import) rather than periodically.
- *
- * @param {HTMLElement} container - Container to clean (or null for entire document)
  */
-export function cleanupStyledSpans(container = null) {
+export function cleanupStyledSpans(container: HTMLElement | null = null): void {
   const searchRoot = container || document.querySelector('.main-content');
   if (!searchRoot) return;
 
@@ -696,8 +670,8 @@ export function cleanupStyledSpans(container = null) {
 
   spans.forEach(span => {
     // Preserve text content but remove the span wrapper
-    if (span.textContent.trim()) {
-      const textNode = document.createTextNode(span.textContent);
+    if ((span.textContent || '').trim()) {
+      const textNode = document.createTextNode(span.textContent || '');
       if (span.parentNode && document.contains(span.parentNode)) {
         span.parentNode.insertBefore(textNode, span);
       }
@@ -715,7 +689,7 @@ export function cleanupStyledSpans(container = null) {
  * Clean up styled spans after document import.
  * Should be called once after the entire import process completes.
  */
-export function cleanupAfterImport() {
+export function cleanupAfterImport(): void {
   console.log('🧹 Running post-import span cleanup...');
   cleanupStyledSpans();
 }
@@ -723,10 +697,8 @@ export function cleanupAfterImport() {
 /**
  * Clean up styled spans after paste operation.
  * Should be called after paste content is processed.
- *
- * @param {HTMLElement} pastedContainer - Container with pasted content
  */
-export function cleanupAfterPaste(pastedContainer) {
+export function cleanupAfterPaste(pastedContainer: HTMLElement): void {
   console.log('🧹 Running post-paste span cleanup...');
   cleanupStyledSpans(pastedContainer);
 }

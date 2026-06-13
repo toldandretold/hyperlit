@@ -28,7 +28,7 @@ import {
   setNoDeleteMarker,
   transferNoDeleteMarker,
   findNextNoDeleteNode
-} from './domUtilities.js';
+} from './domUtilities';
 
 /**
  * Get the ID (startLine) of the first node in the book

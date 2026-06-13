@@ -29,7 +29,7 @@ import { SaveQueue } from './saveQueue';
 // through it for a top-level debounce() call hit a TDZ ("debounce is not a function")
 // when load order flipped. The SaveQueue class is only used at runtime, so it's safe.
 import { debounce } from '../utilities/debounce.js';
-import { MutationProcessor } from './mutationProcessor.js';
+import { MutationProcessor } from './mutationProcessor';
 import { EnterKeyHandler } from './enterKeyHandler.js';
 import { SupTagHandler } from './supTagHandler.js';
 import { ChunkMutationHandler } from './chunkMutationHandler.js';
@@ -39,7 +39,7 @@ import {
   verifyMutationSource,
   isEventInActiveDiv,
   getActiveEditSession
-} from './editSessionManager.js';
+} from './editSessionManager';
 import {
   handleHyperciteRemoval,
   ensureMinimumDocumentStructure as ensureMinimumStructureImpl,
@@ -52,7 +52,7 @@ import {
   setNoDeleteMarker,
   findNextNoDeleteNode,
   transferNoDeleteMarker
-} from './domUtilities.js';
+} from './domUtilities';
 
 // Re-export for backward compatibility
 export {

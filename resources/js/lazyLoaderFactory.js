@@ -284,7 +284,7 @@ function throttle(fn, delay) {
 async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook, isFullyLoaded = true) {
   try {
     // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
-    const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities.js');
+    const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities');
     const { updateSingleIndexedDBRecord } = await import('./indexedDB/index');
 
     // Step 1: Check DOM for marker (O(1) - very fast)

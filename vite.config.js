@@ -153,10 +153,10 @@ export default defineConfig({
                 // divEditor modules
                 'resources/js/divEditor/index.js',
                 'resources/js/divEditor/saveQueue.ts',
-                'resources/js/divEditor/mutationProcessor.js',
+                'resources/js/divEditor/mutationProcessor.ts',
                 'resources/js/divEditor/enterKeyHandler.js',
                 'resources/js/divEditor/chunkMutationHandler.js',
-                'resources/js/divEditor/domUtilities.js',
+                'resources/js/divEditor/domUtilities.ts',
 
                 // editToolbar modules
                 'resources/js/editToolbar/toolbarDOMUtils.js',

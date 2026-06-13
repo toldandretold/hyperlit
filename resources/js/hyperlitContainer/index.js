@@ -150,7 +150,7 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
   focusSwitcherAttached = false;
 
   // Always stop sub-book observer if one is active (even if main editor wasn't active)
-  const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+  const { getActiveEditSession } = await import('../divEditor/editSessionManager');
   const activeSession = getActiveEditSession();
   if (activeSession && activeSession.containerId !== 'main-content') {
     const { stopObserving } = await import('../divEditor/index.js');
@@ -597,7 +597,7 @@ function attachSubBookFocusSwitcher() {
     if (!subBookId) return;
 
     // Skip if already observing this sub-book
-    const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+    const { getActiveEditSession } = await import('../divEditor/editSessionManager');
     const activeSession = getActiveEditSession();
     if (activeSession && activeSession.containerId === subBookId) return;
 
@@ -1585,7 +1585,7 @@ async function pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlU
   flushInputDebounce();
   await flushAllPendingSaves();
 
-  const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+  const { getActiveEditSession } = await import('../divEditor/editSessionManager');
   const activeSession = getActiveEditSession();
   if (activeSession && activeSession.containerId !== 'main-content') {
     const { stopObserving } = await import('../divEditor/index.js');

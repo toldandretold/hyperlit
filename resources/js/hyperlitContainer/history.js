@@ -199,7 +199,7 @@ export async function restoreStackedLayer(containerState) {
     flushInputDebounce();
     await flushAllPendingSaves();
 
-    const { getActiveEditSession } = await import('../divEditor/editSessionManager.js');
+    const { getActiveEditSession } = await import('../divEditor/editSessionManager');
     const activeSession = getActiveEditSession();
     if (activeSession && activeSession.containerId !== 'main-content') {
       const { stopObserving } = await import('../divEditor/index.js');

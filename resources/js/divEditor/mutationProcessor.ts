@@ -11,12 +11,24 @@ import { isChunkLoadingInProgress, getLoadingChunkId } from "../utilities/chunkL
 import { getEditToolbar } from '../editToolbar';
 import { verbose } from '../utilities/logger.js';
 
+interface MutationProcessorOptions {
+  filterMutations?: (mutations: any[]) => any[];
+  processMutations?: (mutations: any[]) => void | Promise<void>;
+  shouldSkipMutation?: (mutations: any[]) => boolean;
+}
+
 /**
  * MutationProcessor class
  * Manages a queue of mutations and processes them in batches using RAF
  */
 export class MutationProcessor {
-  constructor(options = {}) {
+  filterMutations: (mutations: any[]) => any[];
+  processMutations: (mutations: any[]) => void | Promise<void>;
+  shouldSkipMutation: (mutations: any[]) => boolean;
+  queue: any[];
+  rafId: number | null;
+
+  constructor(options: MutationProcessorOptions = {}) {
     // Options
     this.filterMutations = options.filterMutations || ((mutations) => mutations);
     this.processMutations = options.processMutations || (() => {});
@@ -33,7 +45,7 @@ export class MutationProcessor {
   /**
    * Add mutations to the processing queue
    */
-  enqueue(mutations) {
+  enqueue(mutations: any[]): void {
     this.queue.push(...mutations);
 
     // If not already scheduled, schedule for next animation frame
@@ -45,7 +57,7 @@ export class MutationProcessor {
   /**
    * Process all queued mutations
    */
-  async process() {
+  async process(): Promise<void> {
     if (this.queue.length === 0) return;
 
     // Get all queued mutations
@@ -79,7 +91,7 @@ export class MutationProcessor {
       return;
     }
 
-    const toolbar = getEditToolbar();
+    const toolbar = getEditToolbar() as any;
     if (toolbar && toolbar.isFormatting) {
       console.log("Skipping queued mutations during formatting");
       return;
@@ -107,7 +119,7 @@ export class MutationProcessor {
   /**
    * Force immediate processing of queued mutations
    */
-  flush() {
+  flush(): void {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -122,7 +134,7 @@ export class MutationProcessor {
   /**
    * Cancel pending mutation processing and clear queue
    */
-  cancel() {
+  cancel(): void {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -138,14 +150,14 @@ export class MutationProcessor {
   /**
    * Check if there are pending mutations
    */
-  get hasPending() {
+  get hasPending(): boolean {
     return this.queue.length > 0 || this.rafId !== null;
   }
 
   /**
    * Cleanup and destroy
    */
-  destroy() {
+  destroy(): void {
     this.cancel();
   }
 }
