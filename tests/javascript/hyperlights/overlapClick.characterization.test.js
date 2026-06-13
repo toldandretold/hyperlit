@@ -5,7 +5,7 @@
  *   1. RENDER  — applyHighlights (lazyLoaderFactory.js) segments overlapping
  *               highlights into disjoint <mark>s, each carrying ONLY the HL_*
  *               classes that cover that text span.
- *   2. CLICK   — handleMarkClick (hyperlights/listeners.js) reads the HL_*
+ *   2. CLICK   — handleMarkClick (hyperlights/listeners) reads the HL_*
  *               classes off the clicked <mark> and passes exactly those to
  *               handleUnifiedContentClick. The container then displays exactly
  *               those IDs (contentBuilders/displayHyperlights.js).
@@ -47,7 +47,7 @@ vi.mock('../../../resources/js/divEditor/index.js', () => ({
 }));
 
 import { handleUnifiedContentClick } from '../../../resources/js/hyperlitContainer/index.js';
-import { handleMarkClick } from '../../../resources/js/hyperlights/listeners.js';
+import { handleMarkClick } from '../../../resources/js/hyperlights/listeners';
 import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector';
 import { applyHighlights } from '../../../resources/js/lazyLoaderFactory.js';
 

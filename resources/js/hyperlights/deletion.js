@@ -3,8 +3,8 @@
  */
 
 import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index';
-import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
-import { attachMarkListeners } from './listeners.js';
+import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database';
+import { attachMarkListeners } from './listeners';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
 import { getCascadeOriginId } from '../scrolling.js';
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';

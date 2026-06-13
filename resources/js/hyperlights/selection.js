@@ -4,12 +4,12 @@
 
 import { book } from '../app.js';
 import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs, updateBookTimestamp } from '../indexedDB/index';
-import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
-import { modifyNewMarks } from './marks.js';
-import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
-import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database.js';
+import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations';
+import { modifyNewMarks } from './marks';
+import { attachMarkListeners, addTouchAndClickListener } from './listeners';
+import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database';
 import { reprocessHighlightsForNodes, unwrapMark, unwrapElement, isContentLink } from './deletion.js';
-import { generateHighlightID, openHighlightById } from './utils.js';
+import { generateHighlightID, openHighlightById } from './utils';
 import { queueNodeForSave } from '../divEditor/index.js';
 import { log, verbose } from '../utilities/logger.js';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';

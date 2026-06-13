@@ -639,7 +639,7 @@ export class ChunkMutationHandler {
                 target.setAttribute('data-ghost', 'true');
                 target.removeAttribute('style');
                 target.removeAttribute('data-hypercite-listener');
-                const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+                const { markHyperciteAsGhost } = await import('../hypercites/deletion');
                 await markHyperciteAsGhost(target.id);
                 // Queue parent paragraph for save so batch.js updates node_id
                 let parentBlock = target.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id]');

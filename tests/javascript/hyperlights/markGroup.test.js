@@ -1,5 +1,5 @@
 /**
- * Mark-group hover/click feedback (hyperlights/markGroup.js).
+ * Mark-group hover/click feedback (hyperlights/markGroup).
  *
  * A hyperlight renders as MULTIPLE sibling <mark> elements — applyHighlights
  * splits it at overlap boundaries and around protected elements (footnote
@@ -30,8 +30,8 @@ import {
   getMarkGroup,
   applyGroupHover,
   clearGroupHover,
-} from '../../../resources/js/hyperlights/markGroup.js';
-import { handleMarkHover, handleMarkHoverOut } from '../../../resources/js/hyperlights/listeners.js';
+} from '../../../resources/js/hyperlights/markGroup';
+import { handleMarkHover, handleMarkHoverOut } from '../../../resources/js/hyperlights/listeners';
 
 /**
  * Production DOM shape: one passage covered by two co-extensive highlights,

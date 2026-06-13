@@ -13,11 +13,11 @@
  */
 
 // Extracted modules - single source of truth
-export * from './utils.js';
-export * from './animations.js';
-export * from './deletion.js';
-export * from './database.js';
-export * from './containers.js';
+export * from './utils';
+export * from './animations';
+export * from './deletion';
+export * from './database';
+export * from './containers';
 export * from './navigation.js';
-export * from './copy.js';
+export * from './copy';
 export * from './listeners.js';

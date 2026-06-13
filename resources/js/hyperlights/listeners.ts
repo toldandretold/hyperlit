@@ -3,17 +3,16 @@
  */
 
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
-import { applyGroupHover, clearGroupHover } from './markGroup.js';
+import { applyGroupHover, clearGroupHover } from './markGroup';
 import { verbose } from '../utilities/logger.js';
 
 // Per-element guard — prevents double-fires without blocking other buttons
-const processingElements = new WeakSet();
+const processingElements = new WeakSet<object>();
 
 /**
  * Attach click and hover listeners to all mark elements
- * @param {HTMLElement} scope - Scope to search within (default: document)
  */
-export function attachMarkListeners(scope = document) {
+export function attachMarkListeners(scope: ParentNode = document): void {
     // Get all mark elements (both with ID and with just class)
     const markTags = scope.querySelectorAll("mark");
     verbose.user(`Attaching mark listeners (${markTags.length} elements)`, '/hyperlights/listeners.js');
@@ -29,19 +28,19 @@ export function attachMarkListeners(scope = document) {
         mark.addEventListener("mouseover", handleMarkHover);
         mark.addEventListener("mouseout", handleMarkHoverOut);
 
-        mark.dataset.listenerAttached = true;
+        (mark as HTMLElement).dataset.listenerAttached = "true";
     });
 }
 
 /**
  * Handle click events on mark elements
- * @param {Event} event - Click event
  */
-export async function handleMarkClick(event) {
+export async function handleMarkClick(event: Event): Promise<void> {
   event.preventDefault();
 
+  const target = event.target as HTMLElement;
   // Find the closest mark element (handles clicks on nested elements like spans)
-  const markElement = event.target.closest('mark');
+  const markElement = target.closest('mark');
   if (!markElement) {
     console.log(`🎯 Click not inside a mark element - ignoring`);
     return;
@@ -49,8 +48,8 @@ export async function handleMarkClick(event) {
 
   // Check if the actual target is a special element that should be handled differently
   // (like links, buttons, etc. that might need their own click behavior)
-  if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
-    console.log(`🎯 Click on ${event.target.tagName} inside mark - letting it handle its own behavior`);
+  if (target.tagName === 'A' || target.tagName === 'BUTTON') {
+    console.log(`🎯 Click on ${target.tagName} inside mark - letting it handle its own behavior`);
     return;
   }
 
@@ -79,36 +78,34 @@ export async function handleMarkClick(event) {
  * A highlight is rendered as multiple sibling marks (split by overlaps and
  * footnote sups) — light up the WHOLE group sharing the hovered mark's HL_*
  * classes, so what glows matches the actual highlighted text.
- * @param {Event} event - Mouseover event
  */
-export function handleMarkHover(event) {
-    const mark = event.target.closest ? event.target.closest('mark') : null;
+export function handleMarkHover(event: Event): void {
+    const target = event.target as HTMLElement;
+    const mark = target.closest ? target.closest('mark') : null;
     if (!mark) return;
     applyGroupHover(mark);
 }
 
 /**
  * Handle mouseout events on mark elements
- * @param {Event} event - Mouseout event
  */
-export function handleMarkHoverOut(event) {
-    event.target.style.textDecoration = "none";
+export function handleMarkHoverOut(event: Event): void {
+    (event.target as HTMLElement).style.textDecoration = "none";
     clearGroupHover();
 }
 
 /**
  * Bind both click and touchstart events to an element with debouncing
- * @param {HTMLElement} element - Element to attach listeners to
- * @param {Function} handler - Event handler function
  */
-export function addTouchAndClickListener(element, handler) {
+export function addTouchAndClickListener(element: HTMLElement, handler: (event: Event) => unknown): void {
+  const el = element as any;
   // Check if we've already attached listeners to prevent duplicates
-  if (element._listenersAttached) {
+  if (el._listenersAttached) {
     console.log("🚫 Listeners already attached to element, skipping");
     return;
   }
 
-  const wrappedHandler = async function(event) {
+  const wrappedHandler = async function(event: Event) {
     if (processingElements.has(element)) {
       console.log("🚫 Handler already processing for this element, ignoring duplicate event");
       return;
@@ -132,8 +129,8 @@ export function addTouchAndClickListener(element, handler) {
   element.addEventListener("touchstart", wrappedHandler);
 
   // Store handler ref so cleanup can remove listeners
-  element._wrappedHandler = wrappedHandler;
+  el._wrappedHandler = wrappedHandler;
 
   // Mark that we've attached listeners using a custom property
-  element._listenersAttached = true;
+  el._listenersAttached = true;
 }

@@ -4,33 +4,63 @@
 
 import { book } from '../app.js';
 import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
-import { getAuthContextSync, getAuthContext } from "../utilities/auth.js";
+import { getAuthContextSync, getAuthContext } from '../utilities/auth.js';
+import type { BookId } from '../indexedDB/types';
+
+interface AuthUser { name?: string; username?: string; email?: string }
+interface AuthContext { user: AuthUser | null; userId: string | null }
+
+interface CharRange { charStart: number; charEnd: number }
+
+/** Input passed to addToHighlightsTable by the selection/marking flow. */
+export interface HighlightInput {
+  highlightId: string;
+  charData?: Record<string, CharRange>;
+  text: string;
+  startLine: number;
+}
+
+/** The row written to the `hyperlights` store. */
+export interface HighlightEntry {
+  book: BookId;
+  hyperlight_id: string;
+  node_id: string[];
+  charData: Record<string, CharRange>;
+  highlightedText: string;
+  highlightedHTML: string;
+  annotation: string;
+  startLine: number;
+  creator: string | null;
+  creator_token: string | null;
+  time_since: number;
+  is_user_highlight: boolean;
+}
+
+/** Hyperlight as embedded on a node record. */
+interface NodeHyperlightEmbed { highlightID: string; charStart: number; charEnd: number; is_user_highlight: boolean }
 
 /**
  * Add a new highlight to the hyperlights table
- * @param {string} bookId - The book ID
- * @param {Object} highlightData - Highlight metadata
- * @returns {Promise<Object>} The created highlight entry
  */
-export async function addToHighlightsTable(bookId, highlightData) {
+export async function addToHighlightsTable(bookId: BookId, highlightData: HighlightInput): Promise<HighlightEntry> {
   const db = await openDatabase();
 
-  return new Promise(async (resolve, reject) => {
+  return new Promise<HighlightEntry>(async (resolve, reject) => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
 
     // ✅ PERF: Single sync auth lookup (no microtask hops)
-    const auth = getAuthContextSync() || await getAuthContext();
+    const auth: AuthContext = getAuthContextSync() || await getAuthContext();
     const { user, userId: currentUserId } = auth;
 
-    const creator = user ? (user.name || user.username || user.email) : null;
+    const creator = user ? (user.name || user.username || user.email || null) : null;
     const creator_token = user ? null : currentUserId; // For anon users, currentUserId IS the token
 
     console.log("💾 Saving to IndexedDB with auth:", { creator, creator_token, currentUserId });
 
     // Create a document fragment to hold the highlighted content
     const fragment = document.createDocumentFragment();
-    const selection = window.getSelection();
+    const selection = window.getSelection()!;
     const range = selection.getRangeAt(0);
 
     // Clone the range contents to preserve HTML structure
@@ -45,14 +75,14 @@ export async function addToHighlightsTable(bookId, highlightData) {
     const markTags = tempDiv.querySelectorAll('mark');
     markTags.forEach(mark => {
       // Create a text node with the mark's content
-      const textNode = document.createTextNode(mark.textContent);
+      const textNode = document.createTextNode(mark.textContent || '');
       // Replace the mark with its text content
-      mark.parentNode.replaceChild(textNode, mark);
+      mark.parentNode?.replaceChild(textNode, mark);
     });
 
     const highlightedHTML = tempDiv.innerHTML;
 
-    const highlightEntry = {
+    const highlightEntry: HighlightEntry = {
       book: bookId,
       hyperlight_id: highlightData.highlightId,
       node_id: Object.keys(highlightData.charData || {}),
@@ -72,7 +102,7 @@ export async function addToHighlightsTable(bookId, highlightData) {
     console.log(`   hyperlight_id: ${highlightData.highlightId}`);
     console.log(`   node_ids: ${JSON.stringify(highlightEntry.node_id)}`);
     console.log(`   startLine: ${highlightData.startLine}`);
-    console.log(`   text: "${highlightData.text?.substring(0,40)}..."`);
+    console.log(`   text: "${highlightData.text?.substring(0, 40)}..."`);
 
     const addRequest = store.put(highlightEntry);
 
@@ -81,8 +111,8 @@ export async function addToHighlightsTable(bookId, highlightData) {
     };
 
     addRequest.onerror = (event) => {
-      console.error("❌ Error adding highlight to hyperlights table:", event.target.error);
-      reject(event.target.error);
+      console.error("❌ Error adding highlight to hyperlights table:", (event.target as IDBRequest).error);
+      reject((event.target as IDBRequest).error);
     };
 
     // ✅ FIX: Wait for transaction to complete before resolving
@@ -93,28 +123,22 @@ export async function addToHighlightsTable(bookId, highlightData) {
     };
 
     tx.onerror = (event) => {
-      console.error("❌ Transaction error:", event.target.error);
-      reject(event.target.error);
+      console.error("❌ Transaction error:", (event.target as IDBTransaction).error);
+      reject((event.target as IDBTransaction).error);
     };
   });
 }
 
 /**
  * Update a node with a new highlight in the nodes table
- * @param {string} bookId - The book ID
- * @param {string} chunkId - The chunk ID (e.g., "1.1")
- * @param {number} highlightStartOffset - Start offset
- * @param {number} highlightEndOffset - End offset
- * @param {string} highlightId - The highlight ID
- * @returns {Promise<Object>} The updated node
  */
 export async function updateNodeHighlight(
-  bookId,
-  chunkId,
-  highlightStartOffset,
-  highlightEndOffset,
-  highlightId
-) {
+  bookId: BookId,
+  chunkId: string | number,
+  highlightStartOffset: number,
+  highlightEndOffset: number,
+  highlightId: string
+): Promise<any> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("nodes", "readwrite");
@@ -128,7 +152,7 @@ export async function updateNodeHighlight(
 
     getRequest.onsuccess = () => {
       const node = getRequest.result;
-      let updatedNode; // 👈 ADD: Variable to track the updated node
+      let updatedNode: any; // 👈 ADD: Variable to track the updated node
 
       if (!node) {
         console.warn(`No nodes record for key [${book}, ${chunkId}]`);
@@ -138,7 +162,7 @@ export async function updateNodeHighlight(
           book: book,
           startLine: parseNodeId(chunkId),  // Store as number
           chunk_id: parseNodeId(chunkId),
-          content: document.getElementById(chunkId)?.innerHTML || "",
+          content: document.getElementById(String(chunkId))?.innerHTML || "",
           hyperlights: [{
             highlightID: highlightId,
             charStart: highlightStartOffset,
@@ -152,13 +176,13 @@ export async function updateNodeHighlight(
           console.log(`Created new node for [${book}, ${chunkId}]`);
           resolve(updatedNode); // 👈 RETURN the new node
         };
-        putReq.onerror = e => reject(e.target.error);
+        putReq.onerror = e => reject((e.target as IDBRequest).error);
         return;
       }
 
       node.hyperlights = node.hyperlights || [];
       // Add your highlight if missing
-      if (!node.hyperlights.find(h => h.highlightID === highlightId)) {
+      if (!node.hyperlights.find((h: NodeHyperlightEmbed) => h.highlightID === highlightId)) {
         node.hyperlights.push({
           highlightID: highlightId,
           charStart: highlightStartOffset,
@@ -174,37 +198,34 @@ export async function updateNodeHighlight(
         console.log(`Updated node [${book}, ${chunkId}] with highlight`);
         resolve(updatedNode); // 👈 RETURN the updated node
       };
-      putReq.onerror = e => reject(e.target.error);
+      putReq.onerror = e => reject((e.target as IDBRequest).error);
     };
 
-    getRequest.onerror = e => reject(e.target.error);
+    getRequest.onerror = e => reject((e.target as IDBRequest).error);
   });
 }
 
 /**
  * Remove highlight from nodes table
- * @param {string} bookId - The book ID
- * @param {string} highlightId - The highlight ID to remove
- * @returns {Promise<Array>} Array of updated nodes
  */
-export async function removeHighlightFromNodeChunks(bookId, highlightId) {
+export async function removeHighlightFromNodeChunks(bookId: BookId, highlightId: string): Promise<any[]> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("nodes", "readwrite");
     const store = tx.objectStore("nodes");
-    const updatedNodes = [];
+    const updatedNodes: any[] = [];
     const request = store.openCursor();
 
     request.onsuccess = (event) => {
-      const cursor = event.target.result;
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
       if (cursor) {
         let node = cursor.value;
         if (node.book === bookId && node.hyperlights && Array.isArray(node.hyperlights)) {
           const originalCount = node.hyperlights.length;
           // Filter out any entry that has the highlightID we want to remove.
           node.hyperlights = node.hyperlights.filter(
-            (hl) => hl.highlightID !== highlightId
+            (hl: NodeHyperlightEmbed) => hl.highlightID !== highlightId
           );
           if (node.hyperlights.length !== originalCount) {
             // Update record in IndexedDB if a change was made.
@@ -238,29 +259,25 @@ export async function removeHighlightFromNodeChunks(bookId, highlightId) {
 
 /**
  * Remove highlight from nodes but add deletion instruction for backend sync
- * @param {string} bookId - The book ID
- * @param {string} highlightId - The highlight ID to remove
- * @param {Object} deletedHighlightData - The deleted highlight data
- * @returns {Promise<Array>} Array of updated nodes with deletion instructions
  */
-export async function removeHighlightFromNodeChunksWithDeletion(bookId, highlightId, deletedHighlightData) {
+export async function removeHighlightFromNodeChunksWithDeletion(bookId: BookId, highlightId: string, deletedHighlightData?: unknown): Promise<any[]> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("nodes", "readwrite");
     const store = tx.objectStore("nodes");
-    const updatedNodes = [];
+    const updatedNodes: any[] = [];
     const request = store.openCursor();
 
     request.onsuccess = (event) => {
-      const cursor = event.target.result;
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
       if (cursor) {
         let node = cursor.value;
         if (node.book === bookId && node.hyperlights && Array.isArray(node.hyperlights)) {
           const originalCount = node.hyperlights.length;
           // Filter out any entry that has the highlightID we want to remove.
           node.hyperlights = node.hyperlights.filter(
-            (hl) => hl.highlightID !== highlightId
+            (hl: NodeHyperlightEmbed) => hl.highlightID !== highlightId
           );
           if (node.hyperlights.length !== originalCount) {
             // Update record in IndexedDB if a change was made.
@@ -302,23 +319,21 @@ export async function removeHighlightFromNodeChunksWithDeletion(bookId, highligh
 
 /**
  * Remove highlight directly from the hyperlights table
- * @param {string} highlightId - The highlight ID to remove
- * @returns {Promise<Object|null>} The deleted highlight data or null
  */
-export async function removeHighlightFromHyperlights(highlightId) {
+export async function removeHighlightFromHyperlights(highlightId: string): Promise<any | null> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
-    let deletedHyperlight = null; // 👈 ADD: Track deleted hyperlight
+    let deletedHyperlight: any = null; // 👈 ADD: Track deleted hyperlight
 
     // Use the index to get the primary key from the hyperlight_id field.
     const index = store.index("hyperlight_id");
     const getKeyRequest = index.getKey(highlightId);
 
     getKeyRequest.onsuccess = (e) => {
-      const primaryKey = e.target.result;
+      const primaryKey = (e.target as IDBRequest).result;
       if (primaryKey === undefined) {
         console.warn(`No record found for highlight ${highlightId}`);
         resolve(null); // 👈 CHANGE: Return null instead of undefined
@@ -328,7 +343,7 @@ export async function removeHighlightFromHyperlights(highlightId) {
       // 👈 ADD: Get the full record before deleting it
       const getRecordRequest = store.get(primaryKey);
       getRecordRequest.onsuccess = (event) => {
-        deletedHyperlight = event.target.result;
+        deletedHyperlight = (event.target as IDBRequest).result;
 
         // Now delete the record using its primary key.
         const deleteRequest = store.delete(primaryKey);

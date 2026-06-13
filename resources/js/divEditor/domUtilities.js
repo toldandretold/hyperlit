@@ -122,7 +122,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
       // Guard: skip duplicate tombstone if one already exists (MutationObserver double-fire)
       if (document.getElementById(hyperciteId)) {
         console.log(`👻 Tombstone already exists for ${hyperciteId} — skipping duplicate`);
-        const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+        const { markHyperciteAsGhost } = await import('../hypercites/deletion');
         await markHyperciteAsGhost(hyperciteId);
         return;
       }
@@ -159,7 +159,7 @@ export async function handleHyperciteRemoval(removedNode, mutationTarget = null)
       }
 
       // Mark hypercite as ghost in IndexedDB and sync
-      const { markHyperciteAsGhost } = await import('../hypercites/deletion.js');
+      const { markHyperciteAsGhost } = await import('../hypercites/deletion');
       await markHyperciteAsGhost(hyperciteId);
 
       console.log(`✅ Tombstone system complete for ${hyperciteId} (${hypercite.citedIN.length} citation(s) preserved)`);

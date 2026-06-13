@@ -8,18 +8,18 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "..
 import { initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from '../hyperlitContainer/index.js';
 
 // Import for internal use
-import { attachMarkListeners as _attachMarkListeners } from './listeners.js';
+import { attachMarkListeners as _attachMarkListeners } from './listeners';
 
 // Re-export all modules for backward compatibility
-export { calculateCleanTextOffset, getRelativeOffsetTop, isNumericalId, findContainerWithNumericalId } from './calculations.js';
-export { modifyNewMarks, unwrapMark, formatRelativeTime } from './marks.js';
-export { attachMarkListeners, handleMarkClick, handleMarkHover, handleMarkHoverOut, addTouchAndClickListener } from './listeners.js';
+export { calculateCleanTextOffset, getRelativeOffsetTop, isNumericalId, findContainerWithNumericalId } from './calculations';
+export { modifyNewMarks, unwrapMark, formatRelativeTime } from './marks';
+export { attachMarkListeners, handleMarkClick, handleMarkHover, handleMarkHoverOut, addTouchAndClickListener } from './listeners';
 export { handleSelection, initializeHighlightingControls, cleanupHighlightingControls, createHighlightHandler, deleteHighlightHandler } from './selection.js';
-export { addToHighlightsTable, updateNodeHighlight, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion, removeHighlightFromHyperlights } from './database.js';
+export { addToHighlightsTable, updateNodeHighlight, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion, removeHighlightFromHyperlights } from './database';
 export { deleteHighlightById, hideHighlightById, reprocessHighlightsForNodes } from './deletion.js';
-export { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from './utils.js';
-export { handleHighlightContainerPaste, addHighlightContainerPasteListener } from './annotationPaste.js';
-export { getAnnotationHTML, saveAnnotationToIndexedDB, attachAnnotationListener, saveHighlightAnnotation } from './annotations.js';
+export { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from './utils';
+export { handleHighlightContainerPaste, addHighlightContainerPasteListener } from './annotationPaste';
+export { getAnnotationHTML, saveAnnotationToIndexedDB, attachAnnotationListener, saveHighlightAnnotation } from './annotations';
 
 // Legacy container functions - redirected to unified system
 export const initializeHighlightManager = initializeHyperlitManager;

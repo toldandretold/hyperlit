@@ -3,7 +3,7 @@
  * Handles input, paste, and placeholder behavior for both annotations and footnotes
  */
 
-import { saveHighlightAnnotation } from '../hyperlights/annotations.js';
+import { saveHighlightAnnotation } from '../hyperlights/annotations';
 import { saveFootnoteToIndexedDB } from '../footnotes/footnoteAnnotations.js';
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { parseHyperciteHref, attachUnderlineClickListeners } from '../hypercites/index';

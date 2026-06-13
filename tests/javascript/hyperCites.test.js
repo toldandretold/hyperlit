@@ -5,7 +5,7 @@ import {
   extractHyperciteIdFromHref,
   removeCitedINEntry,
   parseHyperciteHref,
-} from '../../resources/js/hypercites/utils.js';
+} from '../../resources/js/hypercites/utils';
 
 /**
  * Unit tests for hyperCites.js pure utility functions

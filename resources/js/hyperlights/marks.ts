@@ -4,21 +4,21 @@
 
 /**
  * Modify newly created marks with highlight ID and classes
- * @param {string} highlightId - The unique highlight ID
  */
-export function modifyNewMarks(highlightId) {
+export function modifyNewMarks(highlightId: string): void {
     const newMarks = document.querySelectorAll('mark.highlight');
     console.log(`🔧 modifyNewMarks called for ${highlightId}: found ${newMarks.length} marks with 'highlight' class`);
-    
-    newMarks.forEach((mark, index) => {
+
+    newMarks.forEach((markEl, index) => {
+        const mark = markEl as HTMLElement;
         const parent = mark.parentElement;
         const dataNodeId = parent?.getAttribute('data-node-id') || 'NO data-node-id';
         const parentId = parent?.id || 'NO id';
         const subBook = mark.closest('[data-book-id]');
         const subBookId = subBook?.getAttribute('data-book-id') || 'NO sub-book';
-        
-        console.log(`🔧 Modifying mark ${index}: text="${mark.textContent.substring(0,25)}..." | data-node-id="${dataNodeId}" | sub-book="${subBookId}"`);
-        
+
+        console.log(`🔧 Modifying mark ${index}: text="${mark.textContent?.substring(0, 25)}..." | data-node-id="${dataNodeId}" | sub-book="${subBookId}"`);
+
         if (index === 0) mark.setAttribute('id', highlightId);
 
         // Add classes separately - this is the fix!
@@ -31,20 +31,19 @@ export function modifyNewMarks(highlightId) {
 
         // Add data-highlight-count (default to 1 for new highlights)
         const highlightCount = 1;
-        mark.setAttribute('data-highlight-count', highlightCount);
+        mark.setAttribute('data-highlight-count', String(highlightCount));
 
         // Add highlight intensity (same calculation as in applyHighlights)
         const intensity = Math.min(highlightCount / 5, 1);
-        mark.style.setProperty('--highlight-intensity', intensity);
+        mark.style.setProperty('--highlight-intensity', String(intensity));
     });
     console.log(`✅ modifyNewMarks complete: processed ${newMarks.length} marks for ${highlightId}`);
 }
 
 /**
  * Unwrap a mark element, preserving its content
- * @param {HTMLElement} mark - The mark element to unwrap
  */
-export function unwrapMark(mark) {
+export function unwrapMark(mark: HTMLElement | null): void {
   if (!mark || !mark.parentNode) return;
   const parent = mark.parentNode;
   while (mark.firstChild) {
@@ -60,10 +59,8 @@ export function unwrapMark(mark) {
 
 /**
  * Format relative time from Unix timestamp
- * @param {number} timeSince - Unix timestamp in seconds
- * @returns {string} Formatted relative time (e.g., "5min", "2hr", "3d")
  */
-export function formatRelativeTime(timeSince) {
+export function formatRelativeTime(timeSince: number | null | undefined): string {
   if (!timeSince) return 'prehistoric'; // Changed from '' to 'prehistoric'
 
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp

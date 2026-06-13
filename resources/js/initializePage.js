@@ -985,7 +985,7 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null) {
       const target = container.querySelector(`#${CSS.escape(finalHash)}`);
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const { highlightTargetHypercite } = await import('./hypercites/animations.js');
+        const { highlightTargetHypercite } = await import('./hypercites/animations');
         highlightTargetHypercite(finalHash, 500);
       }
     }

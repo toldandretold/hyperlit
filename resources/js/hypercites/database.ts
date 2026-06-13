@@ -6,20 +6,33 @@
  */
 
 import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByDataNodeIDs } from '../indexedDB/index';
-import { findParentWithNumericalId } from './utils.js';
+import { findParentWithNumericalId } from './utils';
+import type { BookId } from '../indexedDB/types';
+
+// parseNodeId is referenced by the (commented-out) legacy node-embed path below.
+void parseNodeId;
+
+/** One element-span of a hypercite, produced by collectHyperciteData. */
+export interface HyperciteBlock {
+  startLine: string;
+  dataNodeId: string | null;
+  nodeBook: string | null;
+  charStart: number;
+  charEnd: number;
+  elementType: string;
+  hyperciteId: string;
+}
 
 /**
  * Fetch library record from server as fallback
- * @param {string} bookId - The book ID to fetch
- * @returns {Promise<Object|null>} - Library data with bibtex, or null if not found
  */
-export async function fetchLibraryFromServer(bookId) {
+export async function fetchLibraryFromServer(bookId: BookId): Promise<any | null> {
   try {
     const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')!.getAttribute('content') || '',
       },
       credentials: 'include'
     });
@@ -57,11 +70,8 @@ export async function fetchLibraryFromServer(bookId) {
 
 /**
  * Get hypercite by ID from IndexedDB
- * @param {IDBDatabase} db - The IndexedDB database
- * @param {string} hyperciteId - The hypercite ID to look up
- * @returns {Promise<Object|null>} - The hypercite object or null
  */
-export async function getHyperciteById(db, hyperciteId) {
+export async function getHyperciteById(db: IDBDatabase, hyperciteId: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hypercites", "readonly");
     const store = tx.objectStore("hypercites");
@@ -81,11 +91,8 @@ export async function getHyperciteById(db, hyperciteId) {
 /**
  * Get hypercite data from IndexedDB by book and startLine
  * Retrieves nodeChunk data containing hypercite information
- * @param {string} book - The book ID
- * @param {string|number} startLine - The startLine of the nodeChunk
- * @returns {Promise<Object|null>} - The nodeChunk data or null
  */
-export async function getHyperciteData(book, startLine) {
+export async function getHyperciteData(book: BookId, startLine: string | number): Promise<any> {
   try {
     const db = await openDatabase();
     const tx = db.transaction("nodes", "readonly");
@@ -116,11 +123,11 @@ export async function getHyperciteData(book, startLine) {
  * Recursively get all text nodes from an element
  * Same logic as rendering system in lazyLoaderFactory.js
  */
-function getTextNodes(element) {
-  let textNodes = [];
-  for (let node of element.childNodes) {
+function getTextNodes(element: Node): Text[] {
+  let textNodes: Text[] = [];
+  for (let node of Array.from(element.childNodes)) {
     if (node.nodeType === Node.TEXT_NODE) {
-      textNodes.push(node);
+      textNodes.push(node as Text);
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       textNodes.push(...getTextNodes(node));
     }
@@ -131,11 +138,8 @@ function getTextNodes(element) {
 /**
  * Collect hypercite data from DOM element
  * Extracts position and metadata from the wrapped hypercite element
- * @param {string} hyperciteId - The hypercite ID
- * @param {HTMLElement} wrapper - The <u> wrapper element
- * @returns {Array<Object>} - Array containing block data (startLine, charStart, charEnd, etc.)
  */
-export function collectHyperciteData(hyperciteId, wrapper) {
+export function collectHyperciteData(hyperciteId: string, wrapper: HTMLElement): HyperciteBlock[] {
   console.log("Wrapper outerHTML:", wrapper.outerHTML);
 
   // Find nearest parent with a numeric id.
@@ -159,7 +163,7 @@ export function collectHyperciteData(hyperciteId, wrapper) {
   let insideWrapper = false;
 
   for (const textNode of textNodes) {
-    const nodeLength = textNode.textContent.length;
+    const nodeLength = (textNode.textContent || '').length;
 
     // Check if this text node is inside our specific wrapper element
     const isInsideThisWrapper = wrapper.contains(textNode);
@@ -215,11 +219,8 @@ export function collectHyperciteData(hyperciteId, wrapper) {
 /**
  * Create new hypercite in IndexedDB and sync to PostgreSQL
  * Saves hypercite to both the main hypercites store and updates nodes
- * @param {string} book - The book ID
- * @param {string} hyperciteId - The hypercite ID
- * @param {Array<Object>} blocks - Array of block data from collectHyperciteData
  */
-export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
+export async function NewHyperciteIndexedDB(book: BookId, hyperciteId: string, blocks: HyperciteBlock[]): Promise<void> {
   // Open the IndexedDB database
   const db = await openDatabase();
 
@@ -247,20 +248,21 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     tempDiv.appendChild(clonedU);
     const uTags = tempDiv.querySelectorAll("u");
     uTags.forEach((uTag) => {
-      const textNode = document.createTextNode(uTag.textContent);
-      uTag.parentNode.replaceChild(textNode, uTag);
+      const textNode = document.createTextNode(uTag.textContent || '');
+      uTag.parentNode?.replaceChild(textNode, uTag);
     });
 
     // --- Define hypercitedHTML and hypercitedText AFTER extracting from DOM ---
     const hypercitedHTML = tempDiv.innerHTML;
     const hypercitedText = uElement.textContent;
-    const overallStartChar = blocks.length > 0 ? blocks[0].charStart : 0;
+    const overallStartChar = blocks.length > 0 ? blocks[0]!.charStart : 0;
     const overallEndChar =
-      blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
+      blocks.length > 0 ? blocks[blocks.length - 1]!.charEnd : 0;
+    void overallStartChar; void overallEndChar;
 
     // ✅ NEW: Collect node_id array and charData object (like hyperlights)
-    const nodeIdArray = [];
-    const charDataByNode = {};
+    const nodeIdArray: string[] = [];
+    const charDataByNode: Record<string, { charStart: number; charEnd: number }> = {};
 
     for (const block of blocks) {
       // Use dataNodeId directly from block — avoids getElementById collision across sub-books
@@ -287,7 +289,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       hypercitedText: hypercitedText,
       hypercitedHTML: hypercitedHTML,
       relationshipStatus: "single",
-      citedIN: [],
+      citedIN: [] as string[],
       time_since: Math.floor(Date.now() / 1000)
     };
 
@@ -297,7 +299,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     putRequestHypercites.onerror = (event) => {
       console.error(
         "❌ Error upserting hypercite record in main store:",
-        event.target.error,
+        (event.target as IDBRequest).error,
       );
     };
     putRequestHypercites.onsuccess = () => {
@@ -435,9 +437,9 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     }
     */
 
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = (e) => reject(e.target.error);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject((e.target as IDBTransaction).error);
     });
 
     console.log("✅ NEW SYSTEM: Hypercite saved to normalized table");
@@ -446,7 +448,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const allAffectedNodes = await getNodesByDataNodeIDs(nodeIdArray);
     // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
     // node when the same node_id exists in both parent and sub-book.
-    const affectedNodes = allAffectedNodes.filter(n => n.book === book);
+    const affectedNodes = allAffectedNodes.filter((n: any) => n.book === book);
     await rebuildNodeArrays(affectedNodes);
 
     console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);

@@ -5,7 +5,7 @@
  * Manages copy button listeners and click handlers for hypercite elements.
  */
 
-import { handleCopyEvent } from './copy.js';
+import { handleCopyEvent } from './copy';
 import { handleUnderlineClick } from './navigation.js';
 import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
 import { log, verbose } from '../utilities/logger.js';

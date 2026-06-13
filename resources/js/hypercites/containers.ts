@@ -6,7 +6,7 @@
  */
 
 import { openDatabase } from '../indexedDB/index';
-import { fetchLibraryFromServer } from './database.js';
+import { fetchLibraryFromServer } from './database';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../utilities/auth.js";
@@ -14,14 +14,13 @@ import { openHyperlitContainer } from '../hyperlitContainer/index.js';
 
 /**
  * Handle poly click - shows "cited by" container with all citations
- * @param {Event} event - The click event
  */
-export async function PolyClick(event) {
+export async function PolyClick(event: Event): Promise<void> {
   // Prevent default click action if needed
   event.preventDefault();
 
   // Get hyperciteId from the clicked element
-  const hyperciteId = event.target.id;
+  const hyperciteId = (event.target as HTMLElement).id;
 
   if (!hyperciteId) {
     console.error("❌ Could not determine hypercite ID.");
@@ -52,7 +51,7 @@ export async function PolyClick(event) {
       if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
         linksHTML = (
           await Promise.all(
-            hyperciteData.citedIN.map(async (citationID) => {
+            hyperciteData.citedIN.map(async (citationID: string) => {
               return await formatCitationLink(db, citationID, false);
             })
           )
@@ -91,7 +90,7 @@ export async function PolyClick(event) {
     };
 
     getRequest.onerror = (event) => {
-      console.error("❌ Error fetching hypercite data:", event.target.error);
+      console.error("❌ Error fetching hypercite data:", (event.target as IDBRequest).error);
     };
 
   } catch (error) {
@@ -101,10 +100,8 @@ export async function PolyClick(event) {
 
 /**
  * Create and open the poly container for overlapping hypercites
- * @param {Array} allCitedINLinks - All citedIN links from overlapping hypercites
- * @param {Array} validHypercites - All valid hypercite objects
  */
-export async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) {
+export async function createOverlappingPolyContainer(allCitedINLinks: string[], validHypercites: any[]): Promise<void> {
   const db = await openDatabase();
 
   // Remove duplicates from citedIN links
@@ -165,18 +162,12 @@ export async function createOverlappingPolyContainer(allCitedINLinks, validHyper
 
 /**
  * Format a single citation link as HTML
- * @param {IDBDatabase} db - The IndexedDB database
- * @param {string} citationID - The citation URL
- * @param {boolean} includeManagementButtons - Whether to include health check/delete buttons
- * @param {string} sourceBook - The source book (for management buttons)
- * @param {Array<string>} overlappingHyperciteIds - Array of overlapping IDs (for management buttons)
- * @returns {Promise<string>} - HTML string for the citation link
  */
-async function formatCitationLink(db, citationID, includeManagementButtons = false, sourceBook = null, overlappingHyperciteIds = []) {
+async function formatCitationLink(db: IDBDatabase, citationID: string, includeManagementButtons = false, sourceBook: string | null = null, overlappingHyperciteIds: string[] = []): Promise<string> {
   // Extract the book/citation ID from the URL with improved handling
-  let bookID;
+  let bookID: string | undefined;
   const citationParts = citationID.split("#");
-  const urlPart = citationParts[0];
+  const urlPart = citationParts[0]!;
 
   // Check if this is a hyperlight URL (contains /HL_)
   const isHyperlightURL = urlPart.includes("/HL_");
@@ -187,7 +178,7 @@ async function formatCitationLink(db, citationID, includeManagementButtons = fal
     const pathParts = urlPart.split("/");
     // Find the part before the HL_ segment
     for (let i = 0; i < pathParts.length; i++) {
-      if (pathParts[i].startsWith("HL_") && i > 0) {
+      if (pathParts[i]!.startsWith("HL_") && i > 0) {
         bookID = pathParts[i-1];
         break;
       }
@@ -252,7 +243,7 @@ async function formatCitationLink(db, citationID, includeManagementButtons = fal
   // Check if the book exists in the library object store
   const libraryTx = db.transaction("library", "readonly");
   const libraryStore = libraryTx.objectStore("library");
-  const libraryRequest = libraryStore.get(bookID);
+  const libraryRequest = libraryStore.get(bookID!);
 
   return new Promise((resolve) => {
     libraryRequest.onsuccess = async () => {
@@ -273,7 +264,7 @@ async function formatCitationLink(db, citationID, includeManagementButtons = fal
         );
       } else {
         // Fallback: try to fetch from server
-        fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+        fetchLibraryFromServer(bookID!).then(async (serverLibraryData) => {
           if (serverLibraryData && serverLibraryData.bibtex) {
             const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
             const citationText = isHyperlightURL
@@ -293,7 +284,7 @@ async function formatCitationLink(db, citationID, includeManagementButtons = fal
     libraryRequest.onerror = () => {
       console.error(`❌ Error fetching library data for book ID: ${bookID}`);
       // Fallback: try to fetch from server
-      fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+      fetchLibraryFromServer(bookID!).then(async (serverLibraryData) => {
         if (serverLibraryData && serverLibraryData.bibtex) {
           const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
           const citationText = isHyperlightURL

@@ -24,59 +24,45 @@ export const GROUP_HOVER_CLASS = 'hl-group-hover';
  * Excludes the literal "HL_overlap" — it's the renderer's synthetic id for
  * multi-coverage segments (and residue class in books corrupted before the
  * positionCollector fix), not a highlight identity.
- *
- * @param {HTMLElement} mark
- * @returns {string[]}
  */
-export function getHighlightIdsFromMark(mark) {
+export function getHighlightIdsFromMark(mark: Element | null): string[] {
   if (!mark || !mark.classList) return [];
   return Array.from(mark.classList).filter(
     (cls) => cls.startsWith('HL_') && cls !== 'HL_overlap'
   );
 }
 
-const escapeCss = (s) =>
+const escapeCss = (s: string): string =>
   (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s;
 
 /**
  * All marks (in DOM order, deduped) carrying any of the given highlight IDs.
- *
- * @param {string[]} highlightIds
- * @param {ParentNode} root - scope to search (default: document)
- * @returns {HTMLElement[]}
  */
-export function getMarksForHighlightIds(highlightIds, root = document) {
+export function getMarksForHighlightIds(highlightIds: string[], root: ParentNode = document): HTMLElement[] {
   if (!highlightIds || highlightIds.length === 0) return [];
   const selector = highlightIds.map((id) => `mark.${escapeCss(id)}`).join(', ');
-  return Array.from(root.querySelectorAll(selector));
+  return Array.from(root.querySelectorAll(selector)) as HTMLElement[];
 }
 
 /**
  * Resolve a mark element to its full visual group — every mark sharing at
  * least one HL_* class with it (including the mark itself).
- *
- * @param {HTMLElement} mark
- * @param {ParentNode} root - scope to search (default: document)
- * @returns {HTMLElement[]}
  */
-export function getMarkGroup(mark, root = document) {
+export function getMarkGroup(mark: Element | null, root: ParentNode = document): HTMLElement[] {
   return getMarksForHighlightIds(getHighlightIdsFromMark(mark), root);
 }
 
 /**
  * Apply the group-hover class to every mark in the hovered mark's group.
- * @param {HTMLElement} mark - the mark under the cursor
- * @param {ParentNode} root
  */
-export function applyGroupHover(mark, root = document) {
+export function applyGroupHover(mark: Element | null, root: ParentNode = document): void {
   getMarkGroup(mark, root).forEach((m) => m.classList.add(GROUP_HOVER_CLASS));
 }
 
 /**
  * Clear group-hover from all marks.
- * @param {ParentNode} root
  */
-export function clearGroupHover(root = document) {
+export function clearGroupHover(root: ParentNode = document): void {
   root.querySelectorAll(`mark.${GROUP_HOVER_CLASS}`).forEach((m) =>
     m.classList.remove(GROUP_HOVER_CLASS)
   );

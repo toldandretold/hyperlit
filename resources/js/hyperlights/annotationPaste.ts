@@ -8,22 +8,22 @@ import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";
-import { saveHighlightAnnotation } from './annotations.js';
+import { saveHighlightAnnotation } from './annotations';
 import { getCurrentContainer } from "../hyperlitContainer/stack.js";
 
 /**
  * This is the main paste handler for the annotation area.
  * It now correctly handles preventing the default browser action.
  */
-export async function handleHighlightContainerPaste(event, highlightId) {
+export async function handleHighlightContainerPaste(event: ClipboardEvent, highlightId: string): Promise<void> {
   // *** THE CRITICAL FIX IS HERE ***
   // We MUST prevent the default action IMMEDIATELY and SYNCHRONOUSLY.
   // This stops the browser from doing its own paste, which caused the "double paste" bug.
   event.preventDefault();
 
   // Now we can safely get the data and process it asynchronously.
-  const clipboardHtml = event.clipboardData.getData("text/html");
-  const plainText = event.clipboardData.getData('text/plain');
+  const clipboardHtml = event.clipboardData?.getData("text/html") || "";
+  const plainText = event.clipboardData?.getData('text/plain') || "";
 
   // Await the result of the hypercite processor.
   const wasHandledAsHypercite = await processPastedHyperciteInAnnotation(clipboardHtml, highlightId);
@@ -48,27 +48,27 @@ export async function handleHighlightContainerPaste(event, highlightId) {
  * This function contains YOUR ORIGINAL, WORKING LOGIC.
  * It is called by the main handler and does not need to worry about the event object.
  */
-async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
+async function processPastedHyperciteInAnnotation(clipboardHtml: string, highlightId: string): Promise<boolean> {
   if (!clipboardHtml) return false;
 
   const pasteWrapper = document.createElement("div");
   pasteWrapper.innerHTML = sanitizeHtml(clipboardHtml);
 
   // Detect hypercite link — new format: <a class="open-icon">, old format: <a><sup class="open-icon">
-  let citeLink = pasteWrapper.querySelector('a.open-icon[id^="hypercite_"]');
+  let citeLink: HTMLElement | null = pasteWrapper.querySelector('a.open-icon[id^="hypercite_"]');
   if (!citeLink) {
     const innerIcon = pasteWrapper.querySelector('a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon');
-    citeLink = innerIcon?.parentElement;
+    citeLink = innerIcon?.parentElement || null;
   }
 
-  if (!(citeLink && citeLink.innerText.replace(/[\u200B\s]/g, '') === "↗")) {
+  if (!(citeLink && citeLink.innerText.replace(/[​\s]/g, '') === "↗")) {
     return false;
   }
 
   console.log("Detected a hypercite in highlight container paste");
 
   const originalHref = citeLink.getAttribute("href");
-  const parsed = parseHyperciteHref(originalHref);
+  const parsed = parseHyperciteHref(originalHref!);
   if (!parsed) return false;
 
   const { booka, hyperciteIDa, citationIDa } = parsed;
@@ -79,16 +79,16 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   let quotedText = "";
   const quoteMatch = clipboardHtml.match(/'([^']*)'/);
   if (quoteMatch) {
-    quotedText = quoteMatch[1];
+    quotedText = quoteMatch[1] || '';
   }
   if (!quotedText) {
-    let textNode = citeLink.previousSibling;
+    let textNode: Node | null = citeLink.previousSibling;
     while (textNode) {
       if (textNode.nodeType === Node.TEXT_NODE) {
-        quotedText = textNode.textContent.trim() + quotedText;
+        quotedText = (textNode.textContent || '').trim() + quotedText;
         break;
       } else if (textNode.nodeType === Node.ELEMENT_NODE) {
-        const textContent = textNode.textContent.trim();
+        const textContent = (textNode.textContent || '').trim();
         if (textContent) {
           quotedText = textContent + quotedText;
           break;
@@ -101,9 +101,9 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
     quotedText = extractQuotedText(pasteWrapper);
   }
   // Strip word joiner characters (from previous pastes) then quotes
-  quotedText = quotedText.replace(/\u2060/g, '').replace(/^['"]|['"]$/g, '');
+  quotedText = quotedText.replace(/⁠/g, '').replace(/^['"]|['"]$/g, '');
 
-  const referenceHtml = `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}" class="open-icon">↗</a>`;
+  const referenceHtml = `'${quotedText}'⁠<a href="${originalHref}" id="${hyperciteIDb}" class="open-icon">↗</a>`;
 
   // Manually insert the clean HTML.
   document.execCommand("insertHTML", false, referenceHtml);
@@ -135,16 +135,16 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
 /**
  * This function attaches the paste listener. It is correct.
  */
-export function addHighlightContainerPasteListener(highlightId) {
+export function addHighlightContainerPasteListener(highlightId: string): void {
   const container = getCurrentContainer();
   if (!container) return;
 
   const annotationDiv = container.querySelector(
     `.annotation[data-highlight-id="${highlightId}"]`
-  );
+  ) as any;
   if (!annotationDiv) return;
 
   annotationDiv.removeEventListener("paste", annotationDiv._pasteHandler);
-  annotationDiv._pasteHandler = (event) => handleHighlightContainerPaste(event, highlightId);
+  annotationDiv._pasteHandler = (event: ClipboardEvent) => handleHighlightContainerPaste(event, highlightId);
   annotationDiv.addEventListener("paste", annotationDiv._pasteHandler);
 }

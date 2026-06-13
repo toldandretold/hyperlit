@@ -7,14 +7,12 @@
 import { showTargetNotFoundToast } from '../utilities/toast.js';
 
 // Module-level timeout reference for managing highlight animations
-let highlightTimeout = null;
+let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Highlight target hypercite and dim others when navigating to a specific hypercite
- * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
- * @param {number} delay - Delay in milliseconds before highlighting starts (default: 300ms)
  */
-export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
+export function highlightTargetHypercite(targetHyperciteId: string, delay = 300): void {
   console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
 
   // Clear any existing timeout from previous navigation to prevent race conditions
@@ -28,7 +26,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly, a[id^="hypercite_"]');
 
   // Find ALL segments for this hypercite (both individual and overlapping)
-  let targetElements = [];
+  let targetElements: Element[] = [];
 
   // 1. Check for direct element (individual segment)
   const directElement = document.getElementById(targetHyperciteId);
@@ -39,7 +37,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
 
   // 2. Check ALL overlapping elements for segments containing this hypercite
   const overlappingElements = document.querySelectorAll('u[data-overlapping]');
-  for (const element of overlappingElements) {
+  for (const element of Array.from(overlappingElements)) {
     const overlappingIds = element.getAttribute('data-overlapping');
     if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetHyperciteId)) {
       console.log(`🎯 Found target hypercite ${targetHyperciteId} in overlapping element:`, element);
@@ -69,7 +67,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
         element.classList.add('hypercite-target');
 
         // Listen for animation end and remove class
-        const handleAnimationEnd = (e) => {
+        const handleAnimationEnd = (e: Event) => {
           if (e.target === element) {
             element.classList.remove('hypercite-target');
             element.removeEventListener('animationend', handleAnimationEnd);
@@ -81,13 +79,13 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
         // 🎯 Highlight arrow icons and auto-remove when animation ends
         const arrowIcons = element.matches('.open-icon')
           ? [element]
-          : element.querySelectorAll('.open-icon');
+          : Array.from(element.querySelectorAll('.open-icon'));
         arrowIcons.forEach(arrow => {
           arrow.classList.add('arrow-target');
           console.log(`✨ Added arrow highlight to icon in ${targetHyperciteId}`);
 
           // Listen for animation end and remove class
-          const handleAnimationEnd = (e) => {
+          const handleAnimationEnd = (e: Event) => {
             if (e.target === arrow) {
               arrow.classList.remove('arrow-target');
               arrow.removeEventListener('animationend', handleAnimationEnd);
@@ -111,7 +109,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
         element.classList.add('hypercite-dimmed');
 
         // Listen for animation end and remove class
-        const handleAnimationEnd = (e) => {
+        const handleAnimationEnd = (e: Event) => {
           if (e.target === element) {
             element.classList.remove('hypercite-dimmed');
             element.removeEventListener('animationend', handleAnimationEnd);
@@ -138,7 +136,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
 /**
  * Restore normal hypercite display by removing all navigation classes
  */
-export function restoreNormalHyperciteDisplay() {
+export function restoreNormalHyperciteDisplay(): void {
   console.log(`🔄 Restoring normal hypercite display`);
 
   // Select both <a> and <u> tags with these classes (anchors in annotations, underlines in text)
@@ -159,10 +157,8 @@ export function restoreNormalHyperciteDisplay() {
 /**
  * Reveal a ghost tombstone as a floating translucent bubble that floats up and fades away.
  * Called when navigating to a tombstone via "See in source text".
- * @param {string} elementId - The ID of the tombstone element
- * @returns {boolean} - True if the element was a tombstone and was revealed
  */
-export function revealGhostIfTombstone(elementId) {
+export function revealGhostIfTombstone(elementId: string): boolean {
   const el = document.getElementById(elementId);
   if (!el || !el.classList.contains('hypercite-tombstone')) return false;
 
@@ -175,7 +171,7 @@ export function revealGhostIfTombstone(elementId) {
   const bubble = document.createElement('div');
   bubble.id = `ghost-bubble-${elementId}`;
   bubble.className = 'ghost-bubble';
-  bubble.textContent = '\uD83D\uDC7B';
+  bubble.textContent = '👻';
   bubble.style.left = `${rect.left}px`;
   bubble.style.top = `${rect.top}px`;
   document.body.appendChild(bubble);

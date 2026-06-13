@@ -7,17 +7,14 @@
 
 import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
 import { getActiveBook } from '../utilities/activeContext.js';
-import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
-import { getHyperciteById } from './database.js';
+import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils';
+import { getHyperciteById } from './database';
 
 /**
  * Delink a hypercite when it's deleted
  * Removes the citation from the source hypercite's citedIN array and updates relationship status
- *
- * @param {string} hyperciteElementId - The ID of the hypercite element being deleted (e.g., "hypercite_p0pdlbaj")
- * @param {string} hrefUrl - The href URL of the hypercite element
  */
-export async function delinkHypercite(hyperciteElementId, hrefUrl) {
+export async function delinkHypercite(hyperciteElementId: string, hrefUrl: string): Promise<void> {
   try {
     console.log("🔗 Starting delink process for:", hyperciteElementId);
     console.log("📍 Href URL:", hrefUrl);
@@ -76,7 +73,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     const bookIndex = nodesStore.index('book');
 
     // Get all nodes for this book
-    const allNodeChunks = await new Promise((resolve, reject) => {
+    const allNodeChunks: any[] = await new Promise((resolve, reject) => {
       const request = bookIndex.getAll(targetHypercite.book);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
@@ -85,12 +82,12 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${targetHyperciteId}`);
 
     // Find the nodeChunk that contains this hypercite
-    let foundNodeChunk = null;
+    let foundNodeChunk: any = null;
     let foundHyperciteIndex = -1;
 
     for (const nodeChunk of allNodeChunks) {
       if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
-        const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === targetHyperciteId);
+        const index = nodeChunk.hypercites.findIndex((hc: any) => hc.hyperciteId === targetHyperciteId);
         if (index !== -1) {
           foundNodeChunk = nodeChunk;
           foundHyperciteIndex = index;
@@ -110,7 +107,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
 
       // Update the nodeChunk in IndexedDB
       const updateRequest = nodesStore.put(foundNodeChunk);
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
       });
@@ -120,7 +117,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any nodeChunk`);
     }
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       nodesTx.oncomplete = () => resolve();
       nodesTx.onerror = () => reject(nodesTx.error);
     });
@@ -175,10 +172,8 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
 /**
  * Helper function to handle hypercite deletion from DOM
  * Call this when you detect a hypercite element is being deleted
- *
- * @param {HTMLElement} hyperciteElement - The hypercite element being deleted
  */
-export async function handleHyperciteDeletion(hyperciteElement) {
+export async function handleHyperciteDeletion(hyperciteElement: HTMLAnchorElement | null): Promise<void> {
   if (!hyperciteElement || !hyperciteElement.href || !hyperciteElement.id) {
     console.warn("⚠️ Invalid hypercite element for deletion");
     return;
@@ -196,11 +191,8 @@ export async function handleHyperciteDeletion(hyperciteElement) {
  * Mark a hypercite as a ghost (tombstone state)
  * Called when the source <u> tag is deleted but citedIN references still exist.
  * The hypercite record is kept with status 'ghost' so citing books can show ghost UX.
- *
- * @param {string} hyperciteId - The hypercite ID (e.g., "hypercite_p0pdlbaj")
- * @returns {Promise<boolean>} - True if successfully marked as ghost
  */
-export async function markHyperciteAsGhost(hyperciteId) {
+export async function markHyperciteAsGhost(hyperciteId: string): Promise<boolean> {
   try {
     console.log("👻 Marking hypercite as ghost:", hyperciteId);
 
@@ -216,7 +208,7 @@ export async function markHyperciteAsGhost(hyperciteId) {
     hypercite.relationshipStatus = 'ghost';
 
     // Write back to IndexedDB hypercites store
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction("hypercites", "readwrite");
       const store = tx.objectStore("hypercites");
       const request = store.put(hypercite);
@@ -230,7 +222,7 @@ export async function markHyperciteAsGhost(hyperciteId) {
     const affectedDataNodeIDs = hypercite.node_id || [];
     if (affectedDataNodeIDs.length > 0) {
       const allNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
-      const affectedNodes = allNodes.filter(n => n.book === hypercite.book);
+      const affectedNodes = allNodes.filter((n: any) => n.book === hypercite.book);
       await rebuildNodeArrays(affectedNodes);
       console.log(`✅ Rebuilt arrays for ${affectedNodes.length} affected nodes`);
     }
@@ -252,11 +244,8 @@ export async function markHyperciteAsGhost(hyperciteId) {
 
 /**
  * Update hypercite in IndexedDB
- * @param {IDBDatabase} db - The IndexedDB database
- * @param {Object} hyperciteData - The updated hypercite data
- * @returns {Promise<void>}
  */
-async function updateHyperciteInIndexedDB(db, hyperciteData) {
+async function updateHyperciteInIndexedDB(db: IDBDatabase, hyperciteData: any): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hypercites", "readwrite");
     const store = tx.objectStore("hypercites");
@@ -268,10 +257,8 @@ async function updateHyperciteInIndexedDB(db, hyperciteData) {
 
 /**
  * Update DOM element class based on relationship status
- * @param {string} hyperciteId - The hypercite ID
- * @param {string} relationshipStatus - The new relationship status
  */
-function updateDOMElementClass(hyperciteId, relationshipStatus) {
+function updateDOMElementClass(hyperciteId: string, relationshipStatus: string): void {
   const element = document.getElementById(hyperciteId);
   if (element && element.tagName.toLowerCase() === 'u') {
     // Remove existing relationship classes
@@ -282,62 +269,7 @@ function updateDOMElementClass(hyperciteId, relationshipStatus) {
   }
 }
 
-/**
- * Sync delink operation with PostgreSQL
- * @param {Object} updatedHypercite - The updated hypercite data
- */
-async function syncDelinkWithPostgreSQL(updatedHypercite) {
-  try {
-    console.log("🔄 Syncing delink with PostgreSQL...");
-
-    // Sync the hypercite update
-    const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document
-          .querySelector('meta[name="csrf-token"]')
-          ?.getAttribute("content"),
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        book: updatedHypercite.book,
-        data: [updatedHypercite]
-      }),
-    });
-
-    if (!hyperciteResponse.ok) {
-      throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
-    }
-
-    console.log("✅ Hypercite delink synced with PostgreSQL");
-
-    // Update library timestamp
-    const libraryObj = await getLibraryObjectFromIndexedDB(updatedHypercite.book);
-    if (libraryObj && libraryObj.timestamp) {
-      const timestampResponse = await fetch("/api/db/library/update-timestamp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: libraryObj.book,
-          timestamp: libraryObj.timestamp
-        }),
-      });
-
-      if (!timestampResponse.ok) {
-        throw new Error(`Library timestamp update failed: ${timestampResponse.statusText}`);
-      }
-
-      console.log("✅ Library timestamp updated for delink");
-    }
-
-  } catch (error) {
-    console.error("❌ Error syncing delink with PostgreSQL:", error);
-  }
-}
+// NOTE (TS migration 2026-06): removed the dead `syncDelinkWithPostgreSQL` helper.
+// It was never called AND referenced an unimported `getLibraryObjectFromIndexedDB`,
+// so it would have thrown a ReferenceError if it ever had been — delinkHypercite
+// uses syncHyperciteWithNodeChunkImmediately (step 8) instead.

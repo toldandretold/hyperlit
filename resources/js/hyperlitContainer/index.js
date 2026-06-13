@@ -852,7 +852,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     // classes, not just the clicked fragment, so the glow matches the actual
     // highlighted text.
     if (element && element.tagName === 'MARK') {
-      const { getHighlightIdsFromMark, getMarkGroup } = await import('../hyperlights/markGroup.js');
+      const { getHighlightIdsFromMark, getMarkGroup } = await import('../hyperlights/markGroup');
       document.querySelectorAll('.cascade-origin').forEach(el => el.classList.remove('cascade-origin'));
       const groupMarks = getMarkGroup(element);
       (groupMarks.length > 0 ? groupMarks : [element]).forEach(m => m.classList.add('cascade-origin'));

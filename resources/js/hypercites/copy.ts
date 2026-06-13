@@ -5,18 +5,16 @@
  * Uses multiple clipboard methods for cross-platform/browser compatibility.
  */
 
-import { generateHyperciteID, selectionSpansMultipleNodes, findParentWithNumericalId } from './utils.js';
-import { collectHyperciteData, NewHyperciteIndexedDB } from './database.js';
+import { generateHyperciteID, selectionSpansMultipleNodes, findParentWithNumericalId } from './utils';
+import { collectHyperciteData, NewHyperciteIndexedDB } from './database';
 
 // Module-level variable to prevent duplicate events
 let lastEventTime = 0;
 
 /**
  * Handle copy event for creating hypercites
- * @param {Event} event - The copy event
- * @param {string} bookId - The book ID
  */
-export function handleCopyEvent(event, bookId) {
+export function handleCopyEvent(event: Event, bookId: string): void {
   event.preventDefault();
   event.stopPropagation();
 
@@ -37,18 +35,18 @@ export function handleCopyEvent(event, bookId) {
 
   // Get clean text (your existing logic)
   const range = selection.getRangeAt(0);
-  let parent = range.commonAncestorContainer;
+  let parentNode: Node | null = range.commonAncestorContainer;
 
-  if (parent.nodeType === 3) {
-    parent = parent.parentElement;
+  if (parentNode.nodeType === 3) {
+    parentNode = parentNode.parentElement;
   }
 
-  parent = parent.closest("[id]");
+  const parent: Element | null = parentNode ? (parentNode as Element).closest("[id]") : null;
 
   let selectedText = "";
 
   if (parent) {
-    const parentText = parent.textContent;
+    const parentText = parent.textContent || '';
     const rangeText = range.toString();
 
     const startIndex = parentText.indexOf(rangeText);
@@ -67,7 +65,7 @@ export function handleCopyEvent(event, bookId) {
   const citationIdA = bookId;
   const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
 
-  const clipboardHtml = `'${selectedText}'\u2060<a href="${hrefA}" id="${hyperciteId}" class="open-icon">↗</a>`;
+  const clipboardHtml = `'${selectedText}'⁠<a href="${hrefA}" id="${hyperciteId}" class="open-icon">↗</a>`;
   const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
   console.log("Final clipboard HTML:", clipboardHtml);
@@ -81,7 +79,7 @@ export function handleCopyEvent(event, bookId) {
   // Method 1: HTML via contentEditable div (most reliable for HTML on mobile)
   try {
     const tempDiv = document.createElement('div');
-    tempDiv.contentEditable = true;
+    tempDiv.contentEditable = "true";
     tempDiv.innerHTML = clipboardHtml;
     tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;opacity:0;pointer-events:none;';
 
@@ -93,7 +91,7 @@ export function handleCopyEvent(event, bookId) {
     // Select all content in the div
     const range = document.createRange();
     range.selectNodeContents(tempDiv);
-    const sel = window.getSelection();
+    const sel = window.getSelection()!;
     sel.removeAllRanges();
     sel.addRange(range);
 
@@ -174,12 +172,10 @@ export function handleCopyEvent(event, bookId) {
 
 /**
  * Wrap selected text in DOM with hypercite element
- * @param {string} hyperciteId - The hypercite ID
- * @param {string} book - The book ID
  */
-export function wrapSelectedTextInDOM(hyperciteId, book) {
+export function wrapSelectedTextInDOM(hyperciteId: string, book: string): void {
   const selection = window.getSelection();
-  if (!selection.rangeCount) return console.error("No selection");
+  if (!selection || !selection.rangeCount) { console.error("No selection"); return; }
   const range = selection.getRangeAt(0);
 
   // Check if selection spans multiple nodes with IDs
@@ -191,10 +187,10 @@ export function wrapSelectedTextInDOM(hyperciteId, book) {
   }
 
   // Find the nearest ancestor that has any ID at all:
-  let parent = range.startContainer.nodeType === 3
+  let parentNode: Node | null = range.startContainer.nodeType === 3
     ? range.startContainer.parentElement
     : range.startContainer;
-  parent = parent.closest("[id]");
+  const parent: Element | null = parentNode ? (parentNode as Element).closest("[id]") : null;
   if (!parent) {
     console.error("No parent with an ID found for hypercite wrapping.");
     return;
@@ -220,7 +216,7 @@ export function wrapSelectedTextInDOM(hyperciteId, book) {
   // the real cite's range with a zero-width 679/679, making it vanish & unnavigable.
   // An empty hypercite <u> is always corrupt, so drop any we find, then normalise text nodes.
   parent.querySelectorAll('u[id^="hypercite_"]').forEach((u) => {
-    if (u.textContent.length === 0) {
+    if ((u.textContent || '').length === 0) {
       console.warn(`🧹 Removing empty hypercite residue left by wrap: ${u.id}`);
       u.remove();
     }
@@ -235,9 +231,8 @@ export function wrapSelectedTextInDOM(hyperciteId, book) {
 
 /**
  * Fallback copy function for plain text
- * @param {string} text - The text to copy
  */
-export function fallbackCopyText(text) {
+export function fallbackCopyText(text: string): void {
   const textArea = document.createElement("textarea");
   textArea.value = text;
   document.body.appendChild(textArea);
