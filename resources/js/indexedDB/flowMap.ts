@@ -31,6 +31,43 @@ export interface FlowStage {
   modules: FlowModule[];
 }
 
+/**
+ * A tier in the full data-flow stack, ordered BOTTOM → TOP
+ * (DOM at the bottom, PostgreSQL at the top — the viewer picks the axis).
+ * `mapped: false` tiers are placeholders: extension sockets for layers we
+ * haven't decomposed/typed yet. The 'api' tier self-populates with endpoint
+ * boxes extracted from the modules' real fetch()/sendBeacon calls.
+ */
+export interface ExternalTier {
+  id: string;
+  title: string;
+  plain: string;
+  mapped: false;
+}
+
+export const TIER_ORDER: string[] = ['dom', 'idb', 'api', 'postgres'];
+
+export const EXTERNAL_TIERS: ExternalTier[] = [
+  {
+    id: 'dom',
+    title: 'DOM / Editor',
+    plain: 'The live contenteditable book. User edits flow up from here (divEditor saveQueue → Capture); rendered content flows back down (Hydrate → lazyLoaderFactory). Not yet mapped — next territory after the IndexedDB layer.',
+    mapped: false,
+  },
+  {
+    id: 'api',
+    title: 'Laravel API',
+    plain: 'HTTP boundary. Endpoint boxes below are extracted from the actual fetch()/sendBeacon calls in the mapped modules — the controllers behind them are not yet mapped.',
+    mapped: false,
+  },
+  {
+    id: 'postgres',
+    title: 'PostgreSQL',
+    plain: 'Server-side source of truth (node_chunks, hypercites, hyperlights, footnotes, bibliography, library tables + RLS). Not yet mapped.',
+    mapped: false,
+  },
+];
+
 export const FLOW_STAGES: FlowStage[] = [
   {
     id: 'capture',
@@ -108,7 +145,8 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'utilities/index', plain: 'Barrel for utilities.' },
       { path: 'index', plain: 'Root barrel + dependency-injection bootstrap (initializeDatabaseModules / updateDatabaseBookId).' },
       { path: 'types', plain: 'Shared record/payload types — single source of truth, pinned by the characterization tests.' },
-      { path: 'flowMap', plain: 'This registry: stages + module placements feeding the generated visualisation and the drift test.' },
+      { path: 'flowMap', plain: 'This registry: stages + module placements + tier order feeding the generated visualisation and the drift test.' },
+      { path: 'gen/collect', plain: 'Visualisation generator: gathers flowMap + store schema + record interfaces + real import/fetch edges + test coverage into flowViz.generated.json, FLOWMAP.generated.md and docs/idb-flow.html.' },
     ],
   },
 ];

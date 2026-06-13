@@ -175,6 +175,17 @@ let enterKeyHandler = null;
 
 export function queueNodeForSave(IDnumerical, action = 'update', bookId = null) {
   verbose.content(`queueNodeForSave: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}`, 'divEditor/index.js');
+  // Only numeric (or decimal) startLine ids are real content nodes / DB rows.
+  // Inline markers — footnote-refs (`Fn…`), hypercites (`hypercite_…`) — live INSIDE
+  // their parent node's HTML and are persisted when that parent is saved; they must
+  // never be queued by their own id. If one slips through (e.g. an attribute mutation
+  // on a `<sup class="footnote-ref">` while typing), batch.ts rejects it as an invalid
+  // node id and escalates it to a scary `batch-invalid-id` integrity report — even
+  // though nothing is wrong. Drop it quietly here, at the single enqueue chokepoint.
+  if (!NUMERICAL_ID_PATTERN.test(String(IDnumerical))) {
+    verbose.content(`queueNodeForSave: ignoring non-numeric id '${IDnumerical}' (inline marker — saved with its parent)`, 'divEditor/index.js');
+    return;
+  }
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue node', IDnumerical);
     return;

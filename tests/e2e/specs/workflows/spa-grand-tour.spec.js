@@ -22,6 +22,7 @@ import {
   waitForCloudGreen,
 } from '../../helpers/pageVerifiers.js';
 import { probeResizeHandle } from '../../helpers/elementProbes.js';
+import { openToc } from '../../helpers/tocNav.js';
 import {
   runTour,
   replayBackToStart,
@@ -151,6 +152,113 @@ test.describe.serial('SPA Grand Tour', () => {
     }
   });
 
+  /* ── Phase 5b-iii: toc-container resize (full-height right edge) ──── */
+  /*
+   * The TOC is left-anchored and resizes from its RIGHT edge — same dragger,
+   * mirror geometry of hyperlit's left edge (was a cramped bottom-right corner
+   * handle; now a full-height strip). Open the TOC and drive a REAL drag on its
+   * `.resize-edge.resize-right` via the same generalised probe. require:true.
+   */
+  test('toc-container resize edge (real drag)', async ({ page, spa }) => {
+    test.setTimeout(90_000);
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+
+    await page.goto(`/${READER_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+
+    const res = await probeResizeHandle(page, spa, {
+      require: true,
+      openSel: '#toc-container.open',
+      edgeSel: '.resize-edge.resize-right',
+      openFn: openToc,
+    });
+    expect(res.skipped, 'toc resize should run (TOC always opens)').toBeFalsy();
+  });
+
+  /* ── Phase 5b-iv: source-container resize (full-height left edge) ── */
+  /*
+   * The source/citation panel (#source-container, opened by #cloudRef) is
+   * right-anchored like hyperlit, so it resizes from its LEFT edge. Its content
+   * (incl. the resize edge) is built by sourceButton.js at runtime, and drag.js
+   * had no source-container branch at all until now. Open it and drive a REAL
+   * drag on `.resize-edge.resize-left` via the same generalised probe.
+   */
+  test('source-container resize edge (real drag)', async ({ page, spa }) => {
+    test.setTimeout(90_000);
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+
+    await page.goto(`/${READER_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+
+    const res = await probeResizeHandle(page, spa, {
+      require: true,
+      openSel: '#source-container.open',
+      edgeSel: '.resize-edge.resize-left',
+      openFn: async (p) => {
+        await p.click('#cloudRef');
+        await p.waitForFunction(() => !!document.querySelector('#source-container.open'), null, { timeout: 8000 });
+      },
+    });
+    expect(res.skipped, 'source resize should run (#cloudRef opens the panel)').toBeFalsy();
+  });
+
+  /* ── Phase 5b-v: source-container CLOSES after a resize (real close) ── */
+  /*
+   * Regression for the exact "won't close after I drag it" bug. A resize drag
+   * sets inline transform/width !important on the panel; SourceManager.closeContainer
+   * must clear them, otherwise removing `.open` fires no transition → transitionend
+   * never lands → `.hidden` is never added and the panel is stuck open forever
+   * (isAnimating also sticks true, blocking every later close). Open, REAL-drag,
+   * then REAL-close (overlay click) and assert the panel actually leaves the screen.
+   * NB: the resize probe above force-closes via classList, which would mask this.
+   */
+  test('source-container closes after resize (real close)', async ({ page, spa }) => {
+    test.setTimeout(90_000);
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+
+    await page.goto(`/${READER_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+
+    // Open the source panel; wait for its left edge to settle on-screen.
+    await page.click('#cloudRef');
+    await page.waitForFunction(() => {
+      const e = document.querySelector('#source-container.open .resize-edge.resize-left');
+      if (!e) return false;
+      const r = e.getBoundingClientRect();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
+      const top = document.elementFromPoint(x, y);
+      return !!(top && top.closest('.resize-edge.resize-left'));
+    }, null, { timeout: 8000 });
+
+    // Real drag on the left edge to resize.
+    const g = await page.evaluate(() => {
+      const e = document.querySelector('#source-container .resize-edge.resize-left');
+      const r = e.getBoundingClientRect();
+      const c = document.getElementById('source-container').getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2, width: c.width };
+    });
+    await page.mouse.move(g.x, g.y);
+    await page.mouse.down();
+    await page.mouse.move(g.x - 80, g.y, { steps: 8 });
+    await page.mouse.up();
+    const widened = await page.evaluate(() => document.getElementById('source-container').getBoundingClientRect().width);
+    expect(Math.abs(widened - g.width), 'source resize drag had no effect').toBeGreaterThanOrEqual(6);
+
+    // REAL close via the overlay (the gesture that hung before the fix), then assert the
+    // panel is no longer .open AND has actually slid off-screen (inline transform cleared).
+    await page.evaluate(() => document.getElementById('source-overlay')?.click());
+    await page.waitForFunction(() => {
+      const c = document.getElementById('source-container');
+      if (!c || c.classList.contains('open')) return false;
+      const r = c.getBoundingClientRect();
+      return r.left >= window.innerWidth - 2 || r.right <= 2 || c.classList.contains('hidden');
+    }, null, { timeout: 6000 });
+  });
+
   /* ── Phase 5c: every SPA pathway is covered ─────────────────────── */
   /*
    * Guard against silent coverage gaps. Run a full lap + book-to-book +
@@ -241,6 +349,56 @@ test.describe.serial('SPA Grand Tour', () => {
     }, null, { timeout: 10000 });
     const markCount = await page.locator('.main-content mark.user-highlight, .main-content mark.highlight').count();
     expect(markCount).toBeGreaterThanOrEqual(1);
+
+    // ── Resize the just-opened container with a REAL drag ──
+    // The hyperlight above opened #hyperlit-container from content WE created — no
+    // dependence on READER_BOOK having a pre-existing footnote. This is the gesture
+    // that silently died after SPA nav when the dragger wasn't ButtonRegistry-managed.
+    // Real Playwright mouse only (a user can't dispatch synthetic events); assert the
+    // dragger exists, the edge is the topmost element, and the drag changes the width.
+    // Wait for the slide-in (translateX, 0.3s) to settle so the edge is on-screen and
+    // hit-testable — `.open` is set at animation START, so measuring immediately would
+    // catch the edge still partway off the right of the viewport.
+    await page.waitForFunction(() => {
+      const e = document.querySelector('#hyperlit-container.open .resize-edge.resize-left');
+      if (!e) return false;
+      const r = e.getBoundingClientRect();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
+      const top = document.elementFromPoint(x, y);
+      return !!(top && top.closest('.resize-edge.resize-left'));
+    }, null, { timeout: 4000 });
+    const rz = await page.evaluate(() => {
+      const c = document.getElementById('hyperlit-container');
+      const edge = c && c.querySelector('.resize-edge.resize-left'); // the full-height strip a user drags
+      if (!edge) return null;
+      const er = edge.getBoundingClientRect();
+      const top = document.elementFromPoint(er.x + er.width / 2, er.y + er.height / 2);
+      return {
+        width: c.getBoundingClientRect().width,
+        x: er.x + er.width / 2,
+        y: er.y + er.height / 2,
+        topIsEdge: !!(top && top.closest('.resize-edge.resize-left')),
+        hasDragger: !!window.containerDragger,
+      };
+    });
+    expect(rz, 'hyperlit-container opened but exposes no .resize-edge').not.toBeNull();
+    expect(rz.hasDragger, 'window.containerDragger missing → resize dragger not initialised by ButtonRegistry on this page').toBe(true);
+    expect(rz.topIsEdge, `resize edge is covered (not topmost at its centre) — a real drag would land elsewhere — ${JSON.stringify(rz)}`).toBe(true);
+    await page.mouse.move(rz.x, rz.y);
+    await page.mouse.down();
+    await page.mouse.move(rz.x - 80, rz.y, { steps: 8 });
+    const rzMid = await page.evaluate(() => !!document.querySelector('.resize-edge.resizing, .resize-handle.resizing'));
+    await page.mouse.up();
+    const rzAfter = await page.evaluate(() => {
+      const c = document.getElementById('hyperlit-container');
+      return c ? c.getBoundingClientRect().width : null;
+    });
+    expect(
+      rzMid && Math.abs((rzAfter ?? rz.width) - rz.width) >= 6,
+      `REAL drag on the resize edge did nothing (midResizing=${rzMid}, width ${rz.width}→${rzAfter}) — resize is dead on created content`,
+    ).toBe(true);
+
     await spa.closeHyperlitContainer(page);
 
     // ── Hypercite ──
@@ -437,19 +595,26 @@ test.describe.serial('SPA Grand Tour', () => {
     };
 
     for (let loop = 1; loop <= LOOPS; loop++) {
-      // Land on an existing reader
+      // Reach a reader page so the logo-nav new-book flow is in scope. The first
+      // global home card is the newest *listed* book and may be owned by anyone,
+      // so we do NOT assert editability on it — clicking it just gets us onto a
+      // reader. We then CREATE the origin book below, guaranteeing an owned,
+      // editable reader independent of shared DB state (whoever's import happens
+      // to top the home list). A freshly-created reader is still "an existing
+      // reader" for the purposes of entering the chain.
       await page.goto('/');
       await page.waitForLoadState('networkidle');
       await spa.clickFirstBookLink(page);
       await spa.waitForTransition(page);
       expect(await spa.getStructure(page)).toBe('reader');
 
-      // Sanity-check the origin reader's perimeter buttons
+      // Create the origin (owned) book and sanity-check its perimeter buttons.
+      const originId = await createOneNewBook();
       await verifyPerimeterButtonsWorking();
 
-      const chainIds = [await spa.getCurrentBookId(page)];
+      const chainIds = [originId];
 
-      // Chain N new books, verifying perimeter buttons after each
+      // Chain N more new books, verifying perimeter buttons after each
       for (let depth = 1; depth <= CHAIN_DEPTH; depth++) {
         const id = await createOneNewBook();
         chainIds.push(id);

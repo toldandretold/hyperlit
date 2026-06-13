@@ -74,8 +74,8 @@ class ContainerDragger {
   }
 
   startResize(event, resizeHandle) {
-    // Find the container (try both hyperlit-container, toc-container, and stacked containers)
-    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container, .hyperlit-container-stacked');
+    // Find the container (hyperlit, toc, source, and stacked containers)
+    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container, #source-container, .hyperlit-container-stacked');
     if (!this.currentContainer) return;
 
     this.isResizing = true;
@@ -85,7 +85,7 @@ class ContainerDragger {
     // Stacked containers behave like hyperlit-container (right edge fixed)
     this.containerType = this.currentContainer.classList.contains('hyperlit-container-stacked')
       ? 'hyperlit-container'
-      : this.currentContainer.id; // 'hyperlit-container' or 'toc-container'
+      : this.currentContainer.id; // 'hyperlit-container' | 'toc-container' | 'source-container'
 
     // Record starting positions
     this.startPos = {
@@ -103,8 +103,8 @@ class ContainerDragger {
     };
 
     // Store the fixed edge position based on container type
-    if (this.containerType === 'hyperlit-container') {
-      // Right edge stays fixed
+    if (this.containerType === 'hyperlit-container' || this.containerType === 'source-container') {
+      // Right-anchored containers: right edge stays fixed, left edge moves
       this.fixedRightEdge = rect.right;
     } else if (this.containerType === 'toc-container') {
       // Left edge stays fixed
@@ -232,6 +232,24 @@ class ContainerDragger {
       this.currentContainer.style.setProperty('left', `${leftOffset}px`, 'important');
       this.currentContainer.style.setProperty('right', 'auto', 'important');
       this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+
+    } else if (this.containerType === 'source-container') {
+      // SOURCE-CONTAINER: right edge fixed, left edge moves — same geometry as
+      // hyperlit-container, but standalone (no stack/layers), so resize THIS element.
+      const rightEdge = this.fixedRightEdge;
+      const rightOffset = viewportWidth - rightEdge;
+
+      let newWidth = rightEdge - (this.startContainerPos.x + deltaX);
+
+      if (newWidth < minWidth) newWidth = minWidth;
+      const maxWidth = rightEdge - rightOffset;
+      if (newWidth > maxWidth) newWidth = maxWidth;
+
+      this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
+      this.currentContainer.style.setProperty('max-width', 'none', 'important');
+      this.currentContainer.style.setProperty('right', `${rightOffset}px`, 'important');
+      this.currentContainer.style.setProperty('left', 'auto', 'important');
+      this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
     }
   }
 
@@ -283,6 +301,19 @@ class ContainerDragger {
         };
         window.containerCustomizer.updateContainer(this.currentContainer.id, customizations);
         console.log(`Saved new width for ${this.currentContainer.id}:`, customizations);
+      } else if (this.containerType === 'source-container') {
+        // Save right-based positioning for source (right-anchored, like hyperlit)
+        const rect = this.currentContainer.getBoundingClientRect();
+        const rightOffset = viewportWidth - rect.right;
+        const customizations = {
+          'width': `${rect.width}px`,
+          'max-width': 'none',
+          'right': `${rightOffset}px`,
+          'left': 'auto',
+          'transform': 'translateX(0)'
+        };
+        window.containerCustomizer.updateContainer('source-container', customizations);
+        console.log('Saved new width for source-container:', customizations);
       }
     }
 
@@ -296,5 +327,32 @@ class ContainerDragger {
   }
 }
 
-// Initialize the dragger — exposed globally so container lifecycle can reset it
-window.containerDragger = new ContainerDragger();
+// Lifecycle — managed by ButtonRegistry ('containerDragger', pages: ['reader']).
+//
+// This module used to self-instantiate on load and was wired ONLY into reader.blade.php's
+// @vite block. That block runs on a full reader page load but NOT on in-SPA book opens
+// (card-click / pushState never re-render the blade), so after an SPA navigation no dragger
+// existed and the resize edges were live-but-unwired — present, hit-testable, correct, but
+// with no document mousedown listener behind them. Registering with ButtonRegistry means the
+// dragger is (re)initialised on every reader entry, full-load and SPA alike, like every other
+// reader component (perimeterButtons, editButton, toc, ...).
+//
+// The dragger listens via delegation on `document`, which survives SPA navigation, so one
+// instance per page session is enough: create it once, and just clear any stale resize state
+// on re-entry. It stays exposed as window.containerDragger because container lifecycle code
+// (containerManager.js) calls reset() through that global.
+export function initContainerDragger() {
+  if (!window.containerDragger) {
+    window.containerDragger = new ContainerDragger();
+  } else {
+    window.containerDragger.reset();
+  }
+  return window.containerDragger;
+}
+
+export function destroyContainerDragger() {
+  // Keep the singleton and its document-level listeners alive across SPA nav (cheap and
+  // page-agnostic — it no-ops with no .resize-edge under the pointer); just clear any stuck
+  // resize state so the next reader entry starts clean.
+  if (window.containerDragger) window.containerDragger.reset();
+}

@@ -709,6 +709,16 @@ export class ChunkMutationHandler {
               return;
             }
 
+            // Footnote refs (<sup class="footnote-ref" id="Fn...">) are inline markers, not block
+            // nodes. They are persisted inside their parent node's HTML (see footnoteInserter.js),
+            // so queueing them standalone pushes a non-numeric footnote ID into the save queue —
+            // which batch.ts rejects as an invalid node ID and (mis)reports as a `batch-invalid-id`
+            // integrity mismatch. Ignore them here, exactly like hypercites above.
+            if (node.tagName === 'SUP' && node.classList && node.classList.contains('footnote-ref')) {
+              console.log(`✍️ Ignoring standalone footnote-ref mutation for ${node.id}. It will be saved with its parent.`);
+              return;
+            }
+
             // Destroy SPAN tags
             if (node.tagName === 'SPAN') {
               verbose.content(`DESTROYING SPAN tag - NO SPANS ALLOWED`, 'divEditor/chunkMutationHandler.js');

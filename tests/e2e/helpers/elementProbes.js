@@ -119,62 +119,100 @@ export async function probeBookActionsMenu(page, spa, { expectPage, clickPreview
   return { ...snap, skipped: false, menuOpened: true, previewOpened };
 }
 
-/* ── 2. hyperlit-container resize edge ─────────────────────────────────────── */
+/* ── 2. container resize edge (hyperlit left edge / toc right edge) ─────────── */
 /**
- * Open a hyperlit-container (via a footnote ref or hypercite) and drag its
- * `.resize-edge`, asserting the width actually changes and no `.resizing`
- * class is left stuck.
+ * Open a container and drag its full-height `.resize-edge`, asserting the width
+ * actually changes and no `.resizing` class is left stuck.
  *
- * Suspect: the persistent `window.containerDragger` singleton gets `isResizing`
- * stuck (a missed mouseup during a transition), so the next mousedown is
- * ignored — the leaked `resizing` class is the visible fingerprint.
+ * Defaults probe the hyperlit-container's left edge (opened via a footnote/
+ * hypercite trigger). Pass `openSel`/`edgeSel`/`openFn` to probe another
+ * container the same way — e.g. the left-anchored #toc-container's right edge.
+ * Both containers are driven by the SAME `window.containerDragger` singleton, so
+ * this is a faithful "does the real drag move it" check for either.
  *
- * The resize edge only exists while a container is open, and a freshly-created
- * empty book has no footnote/hypercite to open one. With `require:false`
- * (verifier default) such a page SKIPS; the focused spec runs against a
- * content-rich book with `require:true`.
+ * Suspect: the singleton gets `isResizing` stuck (a missed mouseup during a
+ * transition), so the next mousedown is ignored — the leaked `resizing` class is
+ * the visible fingerprint.
+ *
+ * The resize edge only exists while a container is open. With `require:false`
+ * (verifier default) a page with nothing to open SKIPS; focused specs that
+ * control the book pass `require:true`.
  */
-export async function probeResizeHandle(page, spa, { require = false } = {}) {
-  const OPEN_SEL = '#hyperlit-container.open, .hyperlit-container-stacked.open';
-  const TRIGGER_SEL = 'sup.footnote-ref, sup[fn-count-id], u.couple[id^="hypercite_"], a.open-icon[id^="hypercite_"]';
+export async function probeResizeHandle(page, spa, {
+  require = false,
+  openSel = '#hyperlit-container.open, .hyperlit-container-stacked.open',
+  edgeSel = '.resize-edge.resize-left',
+  triggerSel = 'sup.footnote-ref, sup[fn-count-id], u.couple[id^="hypercite_"], a.open-icon[id^="hypercite_"]',
+  openFn = null, // async (page) => void to open the container; falls back to clicking a trigger
+} = {}) {
+  const OPEN_SEL = openSel;
+  const TRIGGER_SEL = triggerSel;
+  // Drag the full-height edge strip a user grabs (title "Resize width"). Pin the exact
+  // edge — a bare `.resize-edge, .resize-handle` querySelector returns whichever is first
+  // in DOM and could grab an off-screen handle, making the probe test the wrong element.
+  const EDGE_SEL = edgeSel;
 
   const alreadyOpen = await page.evaluate((sel) => !!document.querySelector(sel), OPEN_SEL);
   if (!alreadyOpen) {
-    const trigger = page.locator(TRIGGER_SEL).first();
-    if (!(await trigger.count())) {
-      if (require) throw new Error('probeResizeHandle: no footnote/hypercite trigger on page to open a hyperlit-container');
-      return { skipped: true, reason: 'no container-open trigger on page' };
+    if (openFn) {
+      await openFn(page);
+    } else {
+      const trigger = page.locator(TRIGGER_SEL).first();
+      if (!(await trigger.count())) {
+        if (require) throw new Error('probeResizeHandle: no trigger on page to open the container');
+        return { skipped: true, reason: 'no container-open trigger on page' };
+      }
+      await trigger.click();
     }
-    await trigger.click();
   }
 
-  // Wait for an open container carrying a resize edge.
+  // Wait for an open container carrying the resize edge.
   try {
-    await page.waitForFunction((sel) => {
-      const c = document.querySelector(sel);
-      return !!(c && c.querySelector('.resize-edge, .resize-handle'));
-    }, OPEN_SEL, { timeout: 8000 });
+    await page.waitForFunction(({ open, edge }) => {
+      const c = document.querySelector(open);
+      return !!(c && c.querySelector(edge));
+    }, { open: OPEN_SEL, edge: EDGE_SEL }, { timeout: 8000 });
   } catch {
-    if (require) throw new Error('probeResizeHandle: container did not open with a resize edge after trigger click');
+    if (require) throw new Error(`probeResizeHandle: container did not open with a ${EDGE_SEL} after open`);
     return { skipped: true, reason: 'container failed to open with a resize edge' };
   }
 
   // Stuck-state check BEFORE we touch it — catches the exact reported symptom.
-  const preStuck = await page.evaluate((sel) => {
-    const edge = document.querySelector(sel)?.querySelector('.resize-edge, .resize-handle');
-    return edge ? edge.classList.contains('resizing') : null;
-  }, OPEN_SEL);
+  const preStuck = await page.evaluate(({ open, edge }) => {
+    const e = document.querySelector(open)?.querySelector(edge);
+    return e ? e.classList.contains('resizing') : null;
+  }, { open: OPEN_SEL, edge: EDGE_SEL });
   if (preStuck) {
     throw new Error('probeResizeHandle: .resize-edge already carries `.resizing` before any drag → containerDragger.reset() did not fire after the last nav');
   }
+
+  // Wait for the slide-in transition to SETTLE before measuring. #hyperlit-container
+  // starts off-screen-right (transform: translateX(100% + 2em)) and slides in over 0.3s;
+  // `.open` is set at animation START, so measuring immediately puts the left edge still
+  // partway off the right of the viewport → elementFromPoint(centre) === null. Wait until
+  // the edge's own centre actually resolves to the edge (hit-testable, animation done).
+  // If it never settles (genuinely covered/off-screen), fall through — the geometry below
+  // records topIsEdge:false and require:true fails with a full diag.
+  try {
+    await page.waitForFunction(({ open, edge }) => {
+      const c = document.querySelector(open);
+      const e = c && c.querySelector(edge);
+      if (!e) return false;
+      const r = e.getBoundingClientRect();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
+      const top = document.elementFromPoint(x, y);
+      return !!(top && top.closest(edge));
+    }, { open: OPEN_SEL, edge: EDGE_SEL }, { timeout: 4000 });
+  } catch { /* fall through to the diagnostic geometry capture */ }
 
   // Geometry + hit-test: is the resize edge actually the topmost element at its
   // own centre? If an overlay or a sibling (.scroller, .mask-*) covers it, a
   // real mousedown lands on that instead and drag.js's closest('.resize-edge')
   // resolves to null — the resize is dead even though the listener is fine.
-  const start = await page.evaluate((sel) => {
-    const c = document.querySelector(sel);
-    const edge = c.querySelector('.resize-edge, .resize-handle');
+  const start = await page.evaluate(({ open, edge: edgeSel }) => {
+    const c = document.querySelector(open);
+    const edge = c.querySelector(edgeSel);
     const er = edge.getBoundingClientRect();
     const x = er.x + er.width / 2;
     const y = er.y + er.height / 2;
@@ -184,9 +222,10 @@ export async function probeResizeHandle(page, spa, { require = false } = {}) {
       edgeW: er.width,
       x, y,
       topEl: top ? `${top.tagName.toLowerCase()}.${(top.className || '').toString().trim().split(/\s+/).join('.')}` : null,
-      topIsEdge: !!(top && top.closest('.resize-edge, .resize-handle')),
+      topIsEdge: !!(top && top.closest(edgeSel)),
+      hasDragger: !!window.containerDragger, // is the dragger even initialised on this page?
     };
-  }, OPEN_SEL);
+  }, { open: OPEN_SEL, edge: EDGE_SEL });
 
   // Attempt 1 — real Playwright mouse (faithful to a user gesture).
   await page.mouse.move(start.x, start.y);
@@ -195,66 +234,43 @@ export async function probeResizeHandle(page, spa, { require = false } = {}) {
   const midResizingReal = await page.evaluate(() => !!document.querySelector('.resize-edge.resizing, .resize-handle.resizing'));
   await page.mouse.up();
 
-  const readState = () => page.evaluate((sel) => {
-    const c = document.querySelector(sel);
-    const edge = c?.querySelector('.resize-edge, .resize-handle');
+  const readState = () => page.evaluate(({ open, edge: edgeSel }) => {
+    const c = document.querySelector(open);
+    const edge = c?.querySelector(edgeSel);
     return {
       width: c ? c.getBoundingClientRect().width : null,
       stuck: edge ? edge.classList.contains('resizing') : null,
     };
-  }, OPEN_SEL);
+  }, { open: OPEN_SEL, edge: EDGE_SEL });
 
-  let end = await readState();
-  let realWorked = end.width != null && Math.abs(end.width - start.width) >= 6;
-  let usedSynthetic = false;
-  let midResizingSynthetic = null;
-
-  // Attempt 2 — dispatch the events ON the edge element. drag.js delegates on
-  // document via closest(), so a bubbling mousedown whose target IS the edge is
-  // handled regardless of what sits on top visually. If THIS works but the real
-  // mouse didn't, the cause is hit-testing/overlay, not the listener or state.
-  if (!realWorked && !midResizingReal) {
-    usedSynthetic = true;
-    midResizingSynthetic = await page.evaluate((sel) => {
-      const c = document.querySelector(sel);
-      const edge = c.querySelector('.resize-edge, .resize-handle');
-      const er = edge.getBoundingClientRect();
-      const y = er.y + er.height / 2;
-      const x = er.x + er.width / 2;
-      const opts = (cx) => ({ bubbles: true, cancelable: true, clientX: cx, clientY: y, button: 0 });
-      edge.dispatchEvent(new MouseEvent('mousedown', opts(x)));
-      const mid = !!document.querySelector('.resize-edge.resizing, .resize-handle.resizing');
-      document.dispatchEvent(new MouseEvent('mousemove', opts(x - 80)));
-      document.dispatchEvent(new MouseEvent('mouseup', opts(x - 80)));
-      return mid;
-    }, OPEN_SEL);
-    end = await readState();
-  }
-
+  const end = await readState();
   const widthDelta = end.width != null ? Math.abs(end.width - start.width) : 0;
+  const realWorked = end.width != null && widthDelta >= 6;
 
   // Restore idempotency.
   await closeAnyContainer(page);
 
-  const diag = `geom={containerW:${start.width}, edgeW:${start.edgeW}, topAtEdge:${start.topEl}, topIsEdge:${start.topIsEdge}} ` +
-    `real={mid:${midResizingReal}} synthetic={used:${usedSynthetic}, mid:${midResizingSynthetic}} widthDelta=${widthDelta}`;
+  // REAL gesture ONLY — there is deliberately no synthetic `edge.dispatchEvent(...)`
+  // fallback. A user cannot dispatch events onto the element; a synthetic mousedown
+  // bypasses hit-testing and would report "works" even when the edge is covered or
+  // the document listener is missing. That fallback is exactly how this probe used to
+  // pass green on a resize feature that was dead after SPA nav.
+  const diag = `geom={containerW:${start.width}, edgeW:${start.edgeW}, edgeX:${Math.round(start.x)}, topAtEdge:${start.topEl}, topIsEdge:${start.topIsEdge}, hasDragger:${start.hasDragger}} ` +
+    `real={mid:${midResizingReal}} widthDelta=${widthDelta}`;
 
-  const engaged = midResizingReal || midResizingSynthetic;
-  if (!engaged && widthDelta < 6) {
-    // Could not engage the drag. In a content-rich book this can be benign
-    // (the edge opened off-screen / behind layout for THIS book — `topIsEdge`
-    // false / elementFromPoint null), which we can't faithfully drive. Only the
-    // focused spec (require:true), which controls the book, treats this as a
-    // hard failure; the generic tour soft-skips so it doesn't flake on
-    // per-book container geometry. The stuck-`.resizing` symptom (the actual
-    // reported bug) is still asserted below regardless.
+  const engaged = midResizingReal || realWorked;
+  if (!engaged) {
+    // The real drag did nothing — covered edge, lost listener, or stuck state.
+    // require:true (focused specs that control the book) → hard failure. The generic
+    // verifier soft-skips ONLY genuinely undrivable per-book geometry; the stuck-
+    // `.resizing` symptom is still asserted below regardless.
     if (require) {
       throw new Error(
-        `probeResizeHandle: drag on .resize-edge had no effect → mousedown never started a resize ` +
-        `(containerDragger isResizing stuck, listener lost, or the edge is covered). ${diag}`
+        `probeResizeHandle: REAL drag on .resize-edge had no effect → mousedown never started a resize ` +
+        `(containerDragger missing/stuck, document listener lost, or the edge is covered). ${diag}`
       );
     }
-    return { skipped: true, reason: 'could not engage resize drag (edge not drivable on this book)', diag };
+    return { skipped: true, reason: 'could not engage real resize drag (edge not drivable on this book)', diag };
   }
   if (end.stuck) {
     throw new Error(`probeResizeHandle: \`.resizing\` left on the edge after mouseup → the next resize will be dead. ${diag}`);
@@ -266,7 +282,6 @@ export async function probeResizeHandle(page, spa, { require = false } = {}) {
     widthAfter: end.width,
     widthDelta,
     realWorked,
-    usedSynthetic,
     topIsEdge: start.topIsEdge,
     topAtEdge: start.topEl,
   };
@@ -281,7 +296,7 @@ async function closeAnyContainer(page) {
   await page.evaluate(() => {
     // Force every container shut and clear every overlay/body state that could
     // keep intercepting pointer events (which would break the next navigation).
-    document.querySelectorAll('#hyperlit-container, #toc-container, .hyperlit-container-stacked')
+    document.querySelectorAll('#hyperlit-container, #toc-container, #source-container, .hyperlit-container-stacked')
       .forEach((c) => { c.classList.remove('open'); c.classList.add('hidden'); });
     document.querySelectorAll('#ref-overlay, #source-overlay, .navigation-overlay, [id$="-overlay"].active')
       .forEach((o) => o.classList.remove('active'));

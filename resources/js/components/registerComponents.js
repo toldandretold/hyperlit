@@ -91,6 +91,11 @@ import {
 
 import { initFootnoteTapExtender } from '../footnoteTapExtender.js';
 
+import {
+  initContainerDragger,
+  destroyContainerDragger
+} from '../utilities/drag.js';
+
 // ⚠️ DEPRECATED - Citation search is now integrated into edit toolbar
 // See: resources/js/editToolbar/citationMode.js
 // import {
@@ -226,6 +231,19 @@ export function registerAllComponents() {
     initFn: initializeFootnoteCitationListeners,
     destroyFn: destroyFootnoteCitationListeners,
     pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  // Resize/drag of hyperlit-container, toc-container and stacked containers.
+  // Delegated document listeners (page-agnostic), so a session singleton is enough —
+  // initContainerDragger() creates once and clears stale state on re-entry. Previously
+  // loaded only via reader.blade.php's @vite, so it was missing after in-SPA book opens.
+  buttonRegistry.register({
+    name: 'containerDragger',
+    initFn: initContainerDragger,
+    destroyFn: destroyContainerDragger,
+    pages: ['reader', 'home', 'user'], // containers can open anywhere; the dragger is inert without a .resize-edge under the pointer
     dependencies: [],
     required: false
   });

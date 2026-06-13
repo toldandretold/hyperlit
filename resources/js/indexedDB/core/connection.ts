@@ -27,14 +27,76 @@ export const DB_VERSION = 27;
 // Covers iOS bfcache recovery which can take 1-5 seconds.
 const RETRY_DELAYS = [200, 400, 800, 1500, 2500];
 
-type IndexConfig = string | { name: string; keyPath: string | string[]; unique?: boolean; multiEntry?: boolean };
+export type IndexConfig = string | { name: string; keyPath: string | string[]; unique?: boolean; multiEntry?: boolean };
 
-interface StoreConfig {
+export interface StoreConfig {
   name: string;
   keyPath: string | string[];
   autoIncrement?: boolean;
   indices?: IndexConfig[];
 }
+
+/**
+ * The FINAL desired schema — every object store, keyPath and index.
+ * Exported so generators/visualisations read the exact config the
+ * upgrade path runs (pinned by schema.characterization.test.js).
+ */
+export const STORE_CONFIGS: StoreConfig[] = [
+  {
+    name: "nodes",
+    keyPath: ["book", "startLine"],
+    indices: [
+      "chunk_id",
+      "book",
+      { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+      { name: "node_id", keyPath: "node_id", unique: false }
+    ],
+  },
+  {
+    name: "footnotes",
+    keyPath: ["book", "footnoteId"],
+    indices: ["book", "footnoteId"],
+  },
+  {
+    name: "bibliography",
+    keyPath: ["book", "referenceId"],
+    indices: ["book", "referenceId", "source_id"],
+  },
+  {
+    name: "markdownStore",
+    keyPath: ["url", "book"],
+  },
+  {
+    name: "hyperlights",
+    keyPath: ["book", "hyperlight_id"],
+    indices: [
+      "hyperlight_id",
+      "book",
+      { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+      { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
+    ],
+  },
+  {
+    name: "hypercites",
+    keyPath: ["book", "hyperciteId"],
+    indices: [
+      "hyperciteId",
+      "book",
+      { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+      { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
+    ],
+  },
+  {
+    name: "library",
+    keyPath: "book",
+  },
+  {
+    name: "historyLog",
+    keyPath: "id",
+    autoIncrement: true,
+    indices: ["status", "bookId"],
+  },
+];
 
 // ── Singleton state ─────────────────────────────────────────────────
 let cachedDb: IDBDatabase | null = null;
@@ -144,63 +206,7 @@ async function _openFresh(retryCount = 0): Promise<IDBDatabase> {
       const transaction = openRequest.transaction as IDBTransaction;
       const oldVersion = event.oldVersion;
 
-      // Define ALL store configurations for the FINAL desired schema
-      const ALL_STORE_CONFIGS: StoreConfig[] = [
-        {
-          name: "nodes",
-          keyPath: ["book", "startLine"],
-          indices: [
-            "chunk_id",
-            "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
-            { name: "node_id", keyPath: "node_id", unique: false }
-          ],
-        },
-        {
-          name: "footnotes",
-          keyPath: ["book", "footnoteId"],
-          indices: ["book", "footnoteId"],
-        },
-        {
-          name: "bibliography",
-          keyPath: ["book", "referenceId"],
-          indices: ["book", "referenceId", "source_id"],
-        },
-        {
-          name: "markdownStore",
-          keyPath: ["url", "book"],
-        },
-        {
-          name: "hyperlights",
-          keyPath: ["book", "hyperlight_id"],
-          indices: [
-            "hyperlight_id",
-            "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
-            { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
-          ],
-        },
-        {
-          name: "hypercites",
-          keyPath: ["book", "hyperciteId"],
-          indices: [
-            "hyperciteId",
-            "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
-            { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
-          ],
-        },
-        {
-          name: "library",
-          keyPath: "book",
-        },
-        {
-          name: "historyLog",
-          keyPath: "id",
-          autoIncrement: true,
-          indices: ["status", "bookId"],
-        },
-      ];
+      const ALL_STORE_CONFIGS = STORE_CONFIGS;
 
       // Migration logic for schema version 21
       if (oldVersion < 21) {

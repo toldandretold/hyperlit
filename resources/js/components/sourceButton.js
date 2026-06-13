@@ -198,6 +198,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   }
 
   return `
+    <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="scroller" id="source-content">
     <p class="citation">${citation}</p>
     ${licenseHtml}
@@ -895,6 +896,23 @@ export class SourceContainerManager extends ContainerManager {
     }
 
     this.isAnimating = true;
+
+    // Clear inline styles left behind by a resize drag (width/right/left/transform set
+    // with !important by ContainerDragger). This override removes `.open` then waits for
+    // `transitionend` to add `.hidden`; an inline `transform: translateX(0) !important`
+    // would pin the panel on-screen, so removing `.open` triggers NO transition →
+    // transitionend never fires → the panel is stuck open and isAnimating stays true,
+    // blocking every future close. Mirrors the base ContainerManager.closeContainer()
+    // inline-clear. The resized width is reapplied on reopen from the containerCustomizer
+    // stylesheet (scoped to `.open`), so nothing is lost.
+    const cs = this.container.style;
+    cs.transform = '';
+    cs.width = '';
+    cs.maxWidth = '';
+    cs.left = '';
+    cs.right = '';
+    cs.top = '';
+    cs.bottom = '';
 
     this.stopAiReviewPolling();
     this.isOpen = false;

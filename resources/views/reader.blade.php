@@ -181,9 +181,7 @@
     <div class="scroller"></div>
     <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
     <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 20px !important; pointer-events: none !important; z-index: 10 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
-    <div class="container-controls">
-      <div class="resize-handle resize-right" title="Resize width (drag left/right)"></div>
-    </div>
+    <div class="resize-edge resize-right" title="Resize width"></div>
   </div>
   <div id="hyperlit-container" class="container-panel hidden">
     <div class="scroller"></div>
@@ -419,7 +417,11 @@
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
-  @vite(['resources/js/containerCustomization.js', 'resources/js/utilities/drag.js', 'resources/js/readerDOMContentLoaded.js'])
+  {{-- drag.js is no longer a standalone @vite entry: it self-instantiated on full page
+       load only, so the resize dragger was missing after in-SPA book opens. It is now
+       imported via components/registerComponents.js and lifecycle-managed by ButtonRegistry
+       ('containerDragger', pages: ['reader']), so it (re)initialises on every reader entry. --}}
+  @vite(['resources/js/containerCustomization.js', 'resources/js/readerDOMContentLoaded.js'])
 @endsection
     
 

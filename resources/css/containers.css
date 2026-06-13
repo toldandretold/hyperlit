@@ -819,6 +819,31 @@ body[data-page="user"] #userLibraryContainer {
   background: linear-gradient(to right, var(--resize-edge-tint-active), transparent);
 }
 
+/* Right-edge resize strip — full-height invisible grab zone (mirror of resize-left).
+   Used by the left-anchored #toc-container, which resizes from its right edge. */
+.resize-edge.resize-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  cursor: ew-resize;
+  z-index: 16;
+  user-select: none;
+  touch-action: none;
+  border-radius: 0 1em 0 0;
+  transition: background 0.2s ease;
+}
+
+.resize-edge.resize-right:hover {
+  background: linear-gradient(to left, var(--resize-edge-tint), transparent);
+}
+
+.resize-edge.resize-right:active,
+.resize-edge.resize-right.resizing {
+  background: linear-gradient(to left, var(--resize-edge-tint-active), transparent);
+}
+
 /* Prevent text selection during drag/resize */
 .container-dragging,
 .container-resizing {
