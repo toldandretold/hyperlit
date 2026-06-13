@@ -152,7 +152,7 @@ export default defineConfig({
 
                 // divEditor modules
                 'resources/js/divEditor/index.js',
-                'resources/js/divEditor/saveQueue.js',
+                'resources/js/divEditor/saveQueue.ts',
                 'resources/js/divEditor/mutationProcessor.js',
                 'resources/js/divEditor/enterKeyHandler.js',
                 'resources/js/divEditor/chunkMutationHandler.js',

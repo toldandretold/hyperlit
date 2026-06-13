@@ -20,7 +20,10 @@ import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/co
 import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener.js';
 import { book as currentBook } from '../app.js';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';
-import { reportIntegrityFailure } from '../integrity/reporter.js';
+import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/reporter.js';
+// reporter.js is JS; its inferred param type is narrower than the (varied) shapes
+// we pass — widen to accept the optional selfHealed/duplicateIds/orphanedNodes fields.
+const reportIntegrityFailure: (arg: any) => void = _reportIntegrityFailure as any;
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
 import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
 import { INLINE_SKIP_TAGS } from '../utilities/blockElements.js';
@@ -42,12 +45,34 @@ const DEBOUNCE_DELAYS = {
   TITLE_SYNC: 500,
 };
 
+interface PendingNode { id: string; action: string; bookId: string | null; }
+interface DeletionData { dataNodeId: string | null; bookId: string; }
+interface PendingSaves {
+  nodes: Map<string, PendingNode>;
+  deletions: Set<string>;
+  deletionMap?: Map<string, DeletionData>;
+  lastActivity: number | null;
+}
+
 // ================================================================
 // SAVE QUEUE CLASS
 // ================================================================
 
 export class SaveQueue {
-  constructor(bookId = null) {
+  bookId: string | null;
+  _destroyed: boolean;
+  _fullVerifyTimer: ReturnType<typeof setTimeout> | null;
+  pendingSaves: PendingSaves;
+  currentSavePromise: Promise<void> | null;
+  _selfHealingInProgress: boolean;
+  _forceBypassPasteGuard: boolean;
+  _pasteGuardDeferrals: number;
+  _lastInputTimestamp: number;
+  debouncedSaveNode: any;
+  debouncedBatchDelete: any;
+  monitor: ReturnType<typeof setInterval> | null;
+
+  constructor(bookId: string | null = null) {
     this.bookId = bookId;
     this._destroyed = false;
     this._fullVerifyTimer = null;
@@ -84,7 +109,7 @@ export class SaveQueue {
   /**
    * Add node to pending saves queue
    */
-  queueNode(IDnumerical, action = 'update', bookId = null) {
+  queueNode(IDnumerical: string, action: string = 'update', bookId: string | null = null): void {
     verbose.content(`SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, pending: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue.js');
     this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
@@ -104,30 +129,27 @@ export class SaveQueue {
     this.debouncedSaveNode();
   }
 
-  recordInputEvent() {
+  recordInputEvent(): void {
     this._lastInputTimestamp = Date.now();
   }
 
   /**
    * Add node to pending deletions queue
    * Captures data-node-id and bookId from DOM before element is removed
-   * @param {string} IDnumerical - The numeric DOM id="" value
-   * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
-   * @param {string} [explicitBookId] - Optional: explicit bookId (for sub-books where element is detached from DOM)
    */
-   queueDeletion(IDnumerical, nodeElement = null, explicitBookId = null) {
+   queueDeletion(IDnumerical: string, nodeElement: HTMLElement | null = null, explicitBookId: string | null = null): void {
     // ✅ FIX: Capture data-node-id - prefer passed element, fallback to DOM lookup
     const element = nodeElement || document.getElementById(IDnumerical);
-    const dataNodeID = element?.getAttribute('data-node-id');
+    const dataNodeID = element?.getAttribute('data-node-id') || null;
 
     // ✅ FIX: Determine bookId - use explicit if provided, else find from context
     let finalBookId = explicitBookId;
     if (!finalBookId) {
       if (element) {
         // Check element's closest sub-book container
-        const subBookEl = element.closest('[data-book-id]');
+        const subBookEl = element.closest('[data-book-id]') as HTMLElement | null;
         if (subBookEl) {
-          finalBookId = subBookEl.dataset.bookId;
+          finalBookId = subBookEl.dataset.bookId || null;
         }
       }
       // Fallback to main content if not found
@@ -163,7 +185,7 @@ export class SaveQueue {
   /**
    * Save queued nodes to database
    */
-  async saveNodeToDatabase() {
+  async saveNodeToDatabase(): Promise<void> {
     if (this._destroyed) return;
     verbose.content(`saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue.js');
     if (this.pendingSaves.nodes.size === 0) {
@@ -205,12 +227,12 @@ export class SaveQueue {
     this.currentSavePromise = (async () => {
       try {
         const recordsToUpdate = [...updates, ...additions].filter(node => {
-          let element;
+          let element: HTMLElement | null = null;
           const effectiveBookId = node.bookId || this.bookId;
           if (effectiveBookId) {
             const container = document.querySelector(`[data-book-id="${effectiveBookId}"]`)
               || document.getElementById(effectiveBookId);
-            element = container?.querySelector(`[id="${node.id}"]`);
+            element = container?.querySelector(`[id="${node.id}"]`) as HTMLElement | null;
           }
           if (!element) {
             element = document.getElementById(node.id);
@@ -226,17 +248,17 @@ export class SaveQueue {
           verbose.content(`saveNodeToDatabase: saving ${recordsToUpdate.length} records to IndexedDB`, 'divEditor/saveQueue.js');
 
           // Group records by bookId for correct sub-book saves
-          const recordsByBookId = new Map();
+          const recordsByBookId = new Map<string | null, PendingNode[]>();
           for (const record of recordsToUpdate) {
             const effectiveBookId = record.bookId || this.bookId || null;
             if (!recordsByBookId.has(effectiveBookId)) {
               recordsByBookId.set(effectiveBookId, []);
             }
-            recordsByBookId.get(effectiveBookId).push(record);
+            recordsByBookId.get(effectiveBookId)!.push(record);
           }
 
           for (const [bookId, records] of recordsByBookId) {
-            await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
+            await batchUpdateIndexedDBRecords(records as any, bookId ? { bookId } : {});
           }
 
           verbose.content('saveNodeToDatabase: IndexedDB save complete', 'divEditor/saveQueue.js');
@@ -247,7 +269,7 @@ export class SaveQueue {
           invalidateSearchIndex();
           // ✅ Notify other tabs that this book was edited
           {
-            const editedBooks = new Set();
+            const editedBooks = new Set<string | null>();
             for (const [bk] of recordsByBookId) {
               editedBooks.add(bk || currentBook);
             }
@@ -296,7 +318,7 @@ export class SaveQueue {
         this.currentSavePromise = null;
       }
     })();
-    
+
     // Wait for this save to complete
     await this.currentSavePromise;
   }
@@ -304,7 +326,7 @@ export class SaveQueue {
   /**
    * Process batch deletions from queue
    */
-  async processBatchDeletions() {
+  async processBatchDeletions(): Promise<void> {
     if (this.pendingSaves.deletions.size === 0) return;
 
     // Circuit-breaker: if IDB is broken, leave items queued for retry after recovery
@@ -325,22 +347,22 @@ export class SaveQueue {
     }
 
     // ✅ FIX: Get deletion data map with data-node-id and bookId for deleted nodes
-    const deletionDataMap = this.pendingSaves.deletionMap || new Map();
+    const deletionDataMap = this.pendingSaves.deletionMap || new Map<string, DeletionData>();
 
     // ✅ FIX: Group node IDs by bookId for correct deletion
-    const nodesByBookId = new Map();
+    const nodesByBookId = new Map<string, string[]>();
     nodeIdsToDelete.forEach(nodeId => {
       const deletionData = deletionDataMap.get(nodeId);
       const bookId = deletionData?.bookId || this.bookId || 'latest';
       if (!nodesByBookId.has(bookId)) {
         nodesByBookId.set(bookId, []);
       }
-      nodesByBookId.get(bookId).push(nodeId);
+      nodesByBookId.get(bookId)!.push(nodeId);
     });
 
     // ✅ FIX: Create deletionMap for each book group (containing only data-node-ids)
-    const buildDeletionMapForBook = (nodeIds, bookId) => {
-      const map = new Map();
+    const buildDeletionMapForBook = (nodeIds: string[], bookId: string) => {
+      const map = new Map<string, string | null>();
       nodeIds.forEach(nodeId => {
         const data = deletionDataMap.get(nodeId);
         map.set(nodeId, data?.dataNodeId || null);
@@ -362,14 +384,14 @@ export class SaveQueue {
       // ✅ FIX: Process deletions grouped by bookId
       for (const [bookId, nodeIds] of nodesByBookId) {
         const bookDeletionMap = buildDeletionMapForBook(nodeIds, bookId);
-        await batchDeleteIndexedDBRecords(nodeIds, bookDeletionMap, bookId);
+        await batchDeleteIndexedDBRecords(nodeIds as any, bookDeletionMap as any, bookId);
         verbose.content(`Batch deleted ${nodeIds.length} nodes from book ${bookId}`, 'divEditor/saveQueue.js');
       }
 
       reportIDBSuccess();
       // ✅ Notify other tabs that this book was edited (deletions)
       {
-        const editedBooks = new Set();
+        const editedBooks = new Set<string | null>();
         for (const [bk] of nodesByBookId) {
           editedBooks.add(bk || currentBook);
         }
@@ -424,7 +446,7 @@ export class SaveQueue {
    * Non-blocking post-save integrity verification.
    * Runs in requestIdleCallback so it never blocks typing.
    */
-  _verifyAfterSave(recordsByBookId) {
+  _verifyAfterSave(recordsByBookId: Map<string | null, PendingNode[]>): void {
     // Delay 500ms so the 200ms input debounce can re-queue any active node.
     // Without this, requestIdleCallback fires between keystrokes before the
     // node enters pendingSaves, causing false integrity mismatches.
@@ -435,8 +457,8 @@ export class SaveQueue {
       if (this.pendingSaves.nodes.size > 0) return;
 
       const schedule = typeof requestIdleCallback === 'function'
-        ? (fn) => requestIdleCallback(fn, { timeout: 3000 })
-        : (fn) => setTimeout(fn, 100);
+        ? (fn: any) => requestIdleCallback(fn, { timeout: 3000 })
+        : (fn: any) => setTimeout(fn, 100);
 
       schedule(async () => {
       try {
@@ -464,8 +486,8 @@ export class SaveQueue {
           }
 
           const failedIds = [
-            ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
-            ...result.mismatches.map(m => m.startLine || m.nodeId),
+            ...result.missingFromIDB.map((m: any) => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
+            ...result.mismatches.map((m: any) => m.startLine || m.nodeId),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -474,8 +496,8 @@ export class SaveQueue {
             this._selfHealingInProgress = true;
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
-              const safeToHeal = failedIds.filter(id => {
-                const m = result.mismatches.find(m => (m.startLine || m.nodeId) === id);
+              const safeToHeal = failedIds.filter((id: any) => {
+                const m = result.mismatches.find((m: any) => (m.startLine || m.nodeId) === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -563,11 +585,11 @@ export class SaveQueue {
    * collection in `_scheduleFullVerification`. Used after a self-heal step
    * that may have removed DOM elements.
    */
-  _collectNodeIds(bookId) {
+  _collectNodeIds(bookId: string): string[] {
     const container = document.querySelector(`[data-book-id="${bookId}"]`)
       || document.getElementById(bookId);
     if (!container) return [];
-    const ids = [];
+    const ids: string[] = [];
     container.querySelectorAll('[id]').forEach(el => {
       if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) ids.push(el.id);
     });
@@ -578,13 +600,13 @@ export class SaveQueue {
    * Schedule a full-book verification that scans ALL visible nodes against IDB.
    * Debounced at 10s after the last save settles, runs in requestIdleCallback.
    */
-  _scheduleFullVerification(bookId) {
+  _scheduleFullVerification(bookId: string): void {
     if (this._fullVerifyTimer) clearTimeout(this._fullVerifyTimer);
     this._fullVerifyTimer = setTimeout(() => {
       this._fullVerifyTimer = null;
       const schedule = typeof requestIdleCallback === 'function'
-        ? (fn) => requestIdleCallback(fn, { timeout: 5000 })
-        : (fn) => setTimeout(fn, 200);
+        ? (fn: any) => requestIdleCallback(fn, { timeout: 5000 })
+        : (fn: any) => setTimeout(fn, 200);
 
       schedule(async () => {
         // Guard: bail if new saves were queued — next save will reschedule
@@ -600,7 +622,7 @@ export class SaveQueue {
         if (!container) return;
 
         const nodeEls = container.querySelectorAll('[id]');
-        const nodeIds = [];
+        const nodeIds: string[] = [];
         nodeEls.forEach(el => {
           if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) nodeIds.push(el.id);
         });
@@ -620,8 +642,8 @@ export class SaveQueue {
           }
 
           const failedIds = [
-            ...result.missingFromIDB.map(m => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
-            ...result.mismatches.map(m => m.startLine || m.nodeId),
+            ...result.missingFromIDB.map((m: any) => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
+            ...result.mismatches.map((m: any) => m.startLine || m.nodeId),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -629,8 +651,8 @@ export class SaveQueue {
             this._selfHealingInProgress = true;
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
-              const safeToHeal = failedIds.filter(id => {
-                const m = result.mismatches.find(m => (m.startLine || m.nodeId) === id);
+              const safeToHeal = failedIds.filter((id: any) => {
+                const m = result.mismatches.find((m: any) => (m.startLine || m.nodeId) === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -711,7 +733,7 @@ export class SaveQueue {
             console.warn(`[integrity] Full-scan orphan check: found ${orphans.length} orphaned node(s)`);
             const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions.js');
 
-            const orphanedNodes = [];
+            const orphanedNodes: any[] = [];
             for (const orphan of orphans) {
               try {
                 const beforeId = findPreviousElementId(orphan.element);
@@ -724,7 +746,7 @@ export class SaveQueue {
                   textSnippet: orphan.textSnippet,
                   assignedId: orphan.element.id,
                 });
-              } catch (err) {
+              } catch (err: any) {
                 console.error(`[integrity] Failed to heal orphaned <${orphan.tag}>:`, err);
                 orphanedNodes.push({
                   tag: orphan.tag,
@@ -757,7 +779,7 @@ export class SaveQueue {
   /**
    * Force save all pending changes immediately
    */
-  async flush() {
+  async flush(): Promise<void> {
     verbose.content('Flushing all pending saves...', 'divEditor/saveQueue.js');
 
     // Clear debounce timers and execute immediately
@@ -799,14 +821,14 @@ export class SaveQueue {
   /**
    * Check if there are pending operations
    */
-  get hasPending() {
+  get hasPending(): boolean {
     return this.pendingSaves.nodes.size > 0 || this.pendingSaves.deletions.size > 0;
   }
 
   /**
    * Start monitoring pending saves (for debugging)
    */
-  startMonitoring() {
+  startMonitoring(): void {
     if (this.monitor) {
       clearInterval(this.monitor);
     }
@@ -826,7 +848,7 @@ export class SaveQueue {
   /**
    * Stop monitoring
    */
-  stopMonitoring() {
+  stopMonitoring(): void {
     if (this.monitor) {
       clearInterval(this.monitor);
       this.monitor = null;
@@ -837,7 +859,7 @@ export class SaveQueue {
   /**
    * Cleanup and cancel all pending operations
    */
-  destroy() {
+  destroy(): void {
     this._destroyed = true;
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();

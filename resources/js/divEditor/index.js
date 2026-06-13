@@ -23,7 +23,12 @@ import {
   isPasteInProgress
 } from '../utilities/operationState.js';
 
-import { SaveQueue, debounce } from './saveQueue.js';
+import { SaveQueue } from './saveQueue';
+// `debounce` lives in a zero-import leaf — import it directly rather than bouncing
+// through saveQueue. index↔saveQueue is a circular import (via ../paste); reaching
+// through it for a top-level debounce() call hit a TDZ ("debounce is not a function")
+// when load order flipped. The SaveQueue class is only used at runtime, so it's safe.
+import { debounce } from '../utilities/debounce.js';
 import { MutationProcessor } from './mutationProcessor.js';
 import { EnterKeyHandler } from './enterKeyHandler.js';
 import { SupTagHandler } from './supTagHandler.js';
