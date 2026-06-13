@@ -226,9 +226,6 @@ export function createStackedContainerDOM(depth) {
     <div class="scroller"></div>
     <div class="mask-bottom"></div>
     <div class="resize-edge resize-left" title="Resize width"></div>
-    <div class="container-controls">
-      <div class="drag-handle"></div>
-    </div>
   `;
 
   const scroller = container.querySelector('.scroller');

@@ -188,9 +188,6 @@
     <div class="mask-top"></div>
     <div class="mask-bottom"></div>
     <div class="resize-edge resize-left" title="Resize width"></div>
-    <div class="container-controls">
-      <div class="drag-handle" title="Drag to move container"></div>
-    </div>
   </div>
  
   <div id="source-container" class="hidden"></div>
