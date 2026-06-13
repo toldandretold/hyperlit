@@ -18,7 +18,7 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index';
-import { navigateToFootnoteTarget } from '../../hypercites/navigation.js';
+import { navigateToFootnoteTarget } from '../../hypercites/navigation';
 import { navigateToInternalId, resetUserScrollState } from '../../scrolling.js';
 
 export class BookToBookTransition {

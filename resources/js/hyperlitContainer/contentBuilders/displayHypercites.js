@@ -1150,7 +1150,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
 
   // Re-render affected nodes so <u> tags reflect updated relationship status
   if (updatedNodeChunks.length > 0) {
-    const { reprocessHighlightsForNodes } = await import('../../hyperlights/index.js');
+    const { reprocessHighlightsForNodes } = await import('../../hyperlights/index');
     const affectedStartLines = updatedNodeChunks.map(chunk => chunk.startLine);
     await reprocessHighlightsForNodes(sourceBook, affectedStartLines);
   }

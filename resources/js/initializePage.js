@@ -22,7 +22,7 @@ import {
 
 import {
   attachMarkListeners,
-} from "./hyperlights/index.js";
+} from "./hyperlights/index";
 
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
@@ -1281,7 +1281,7 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
 
         // 4. Reprocess highlights on visible nodes WITHOUT destroying DOM
         console.log(`🔄 Reprocessing highlights on visible nodes...`);
-        const { reprocessHighlightsForNodes } = await import('./hyperlights/deletion.js');
+        const { reprocessHighlightsForNodes } = await import('./hyperlights/deletion');
         await reprocessHighlightsForNodes(bookId, visibleNodeIds);
       }
     } else {

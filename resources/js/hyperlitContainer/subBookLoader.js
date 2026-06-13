@@ -168,7 +168,7 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
  * @param {Array} freshNodes - Fresh node data from IndexedDB (includes hyperlights/hypercites)
  */
 async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
-  const { attachMarkListeners } = await import('../hyperlights/index.js');
+  const { attachMarkListeners } = await import('../hyperlights/index');
   const { attachUnderlineClickListeners } = await import('../hypercites/index');
   const container = subBookState.containerDiv;
 
@@ -367,7 +367,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
         const currentText = container?.textContent?.trim();
         if (container && (!currentText || currentText.length === 0)) {
           console.log(`🔄 Container was empty — re-rendering "${subBookId}" with ${freshNodes.length} fresh nodes`);
-          const { attachMarkListeners } = await import('../hyperlights/index.js');
+          const { attachMarkListeners } = await import('../hyperlights/index');
           const { attachUnderlineClickListeners } = await import('../hypercites/index');
           const previewSlice = freshNodes.slice(0, 5);
           const nodesByChunk = {};
@@ -459,7 +459,7 @@ export async function loadSubBook(
   { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null } = {}
 ) {
   // Dynamic imports to break circular dependency (see comment at top of file)
-  const { attachMarkListeners } = await import('../hyperlights/index.js');
+  const { attachMarkListeners } = await import('../hyperlights/index');
   const { attachUnderlineClickListeners } = await import('../hypercites/index');
 
   // Clean up any prior instance

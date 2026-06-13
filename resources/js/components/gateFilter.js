@@ -207,7 +207,7 @@ export async function reapplyAnnotationsWithGate(bookId) {
   // Re-read nodes after rebuild so reprocessHighlightsForNodes uses the freshest data
   const freshNodes = await getNodeChunksFromIndexedDB(bookId);
 
-  const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion.js');
+  const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion');
   await reprocessHighlightsForNodes(bookId, visibleNodeIds, freshNodes);
 }
 

@@ -2,7 +2,7 @@ import katex from 'katex';
 import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { sanitizeHtml } from './utilities/sanitizeConfig.js';
-import { attachMarkListeners } from "./hyperlights/index.js";
+import { attachMarkListeners } from "./hyperlights/index";
 import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 import {
   //saveNodeChunksToIndexedDB,
@@ -10,7 +10,7 @@ import {
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "./indexedDB/index.js";
-import { attachUnderlineClickListeners } from "./hypercites/index.js";
+import { attachUnderlineClickListeners } from "./hypercites/index";
 import { applyGateFilter } from "./components/gateFilter.js";
 import {
   setChunkLoadingInProgress,

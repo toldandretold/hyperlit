@@ -6,32 +6,38 @@
  */
 
 import { handleCopyEvent } from './copy';
-import { handleUnderlineClick } from './navigation.js';
+import { handleUnderlineClick } from './navigation';
 import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
 import { log, verbose } from '../utilities/logger.js';
 import { getActiveBook } from '../utilities/activeContext.js';
 
+interface HyperciteListenerSet {
+  mousedown: (e: Event) => void;
+  click: (e: Event) => void;
+  touchend: (e: Event) => void;
+}
+
 // Module-level variable to track active listeners
-let activeHyperciteListeners = null;
+let activeHyperciteListeners: HyperciteListenerSet | null = null;
 
 // ✅ WeakMaps to track listener references for proper cleanup
-const underlineListeners = new WeakMap();
-const hyperciteLinkListeners = new WeakMap();
+const underlineListeners = new WeakMap<Element, (event: Event) => void>();
+const hyperciteLinkListeners = new WeakMap<Element, (event: Event) => void>();
 
 /**
  * Attach click listeners to underlined citations
- * @param {HTMLElement|Document} scope - The scope to search for elements (default: document)
  */
-export function attachUnderlineClickListeners(scope = document) {
+export function attachUnderlineClickListeners(scope: ParentNode = document): void {
   // Select all underlined elements that don't have a listener attached yet
   const uElements = scope.querySelectorAll("u.couple:not([data-hypercite-listener]), u.poly:not([data-hypercite-listener])");
 
   if (uElements.length > 0) {
     verbose.user(`Attaching underline click listeners (${uElements.length} elements)`, '/hypercites/listeners.js');
 
-    uElements.forEach((uElement) => {
+    uElements.forEach((uEl) => {
+      const uElement = uEl as HTMLElement;
       // ✅ Create handler and store reference
-      const clickHandler = async (event) => {
+      const clickHandler = async (event: Event) => {
         await handleUnderlineClick(uElement, event);
       };
 
@@ -53,7 +59,7 @@ export function attachUnderlineClickListeners(scope = document) {
 /**
  * Attach click listeners to hypercite links in contenteditable areas
  */
-function attachHyperciteLinkListeners() {
+function attachHyperciteLinkListeners(): void {
   // Select all hypercite anchor links within hyperlit-container
   // New format: <a class="open-icon" id="hypercite_...">, old format: <a id="hypercite_..."> with child sup/span
   const hyperciteLinks = document.querySelectorAll('#hyperlit-container a.open-icon[id^="hypercite_"], #hyperlit-container a[id^="hypercite_"] span.open-icon');
@@ -62,9 +68,10 @@ function attachHyperciteLinkListeners() {
 
   console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container to process.`);
 
-  hyperciteLinks.forEach((linkElement) => {
+  hyperciteLinks.forEach((linkEl) => {
+    const linkElement = linkEl as HTMLElement;
     // For new format, the link IS the anchor; for old format (span child), get parent
-    const anchorElement = linkElement.tagName === 'A' ? linkElement : linkElement.parentElement;
+    const anchorElement = (linkElement.tagName === 'A' ? linkElement : linkElement.parentElement) as HTMLElement | null;
     if (!anchorElement || anchorElement.tagName !== 'A') return;
 
     // Prevent attaching duplicate listeners
@@ -77,7 +84,7 @@ function attachHyperciteLinkListeners() {
     linkElement.style.cursor = "pointer";
 
     // ✅ Create handler and store reference
-    const clickHandler = (event) => {
+    const clickHandler = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
 
@@ -96,9 +103,8 @@ function attachHyperciteLinkListeners() {
 
 /**
  * Initialize hyperciting controls (copy button)
- * @param {string} currentBookId - The current book ID
  */
-export function initializeHypercitingControls(currentBookId) {
+export function initializeHypercitingControls(currentBookId: string): void {
   log.init(`Hyperciting controls initialized for ${currentBookId}`, '/hypercites/listeners.js');
 
   const copyButton = document.getElementById("copy-hypercite");
@@ -125,13 +131,13 @@ export function initializeHypercitingControls(currentBookId) {
   }
 
   // 2. Define the new set of listeners
-  const mousedownListener = (e) => {
+  const mousedownListener = (e: Event) => {
     // This is ESSENTIAL to prevent the button from stealing focus and
     // clearing the user's text selection.
     e.preventDefault();
   };
 
-  const eventHandler = (event) => {
+  const eventHandler = (event: Event) => {
     handleCopyEvent(event, getActiveBook());
   };
 
@@ -164,7 +170,7 @@ export function initializeHypercitingControls(currentBookId) {
 /**
  * Cleanup function to remove hypercite copy button listeners
  */
-export function cleanupHypercitingControls() {
+export function cleanupHypercitingControls(): void {
   // Clean up copy button listeners
   const copyButton = document.getElementById("copy-hypercite");
   if (copyButton && activeHyperciteListeners) {
@@ -179,7 +185,7 @@ export function cleanupHypercitingControls() {
  * ✅ Cleanup function to remove underline click listeners
  * Properly removes actual event listeners using stored handler references
  */
-export function cleanupUnderlineClickListeners() {
+export function cleanupUnderlineClickListeners(): void {
   verbose.user('Cleaning up underline click listeners', '/hypercites/listeners.js');
 
   // Clean up <u> element click listeners

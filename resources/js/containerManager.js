@@ -1,5 +1,5 @@
 
-import { saveAnnotationToIndexedDB } from "./hyperlights/index.js";
+import { saveAnnotationToIndexedDB } from "./hyperlights/index";
 import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { isProcessing, isComplete } from './components/editIndicator.js'

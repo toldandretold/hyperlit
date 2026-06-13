@@ -1348,7 +1348,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
       // Attach delete/hide button listeners using event delegation on container
       // This prevents listener accumulation - one listener handles all buttons
       setTimeout(async () => {
-        const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
+        const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index');
         const container = getCurrentContainer();
         if (container) {
           const handler = async (e) => {

@@ -10,11 +10,17 @@ import { getCascadeOriginId } from '../scrolling.js';
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
 
+interface HighlightActionResult {
+  success: boolean;
+  affectedNodes: string[];
+  deletedHighlight?: any;
+  hiddenHighlight?: any;
+}
+
 /**
  * Unwrap a mark element, preserving its content
- * @param {HTMLElement} mark - The mark element to unwrap
  */
-export function unwrapMark(mark) {
+export function unwrapMark(mark: Element | null): void {
   if (!mark || !mark.parentNode) return;
   const parent = mark.parentNode;
   while (mark.firstChild) {
@@ -31,19 +37,16 @@ export function unwrapMark(mark) {
 /**
  * Unwrap any element (e.g. <a>), preserving its content.
  * Semantic alias for unwrapMark — works on any element, not just marks.
- * @param {HTMLElement} element - The element to unwrap
  */
-export function unwrapElement(element) {
+export function unwrapElement(element: Element | null): void {
   unwrapMark(element);
 }
 
 /**
  * Check whether an anchor is a user-created content link (e.g. pasted URL)
  * as opposed to a system link (footnote ref, citation, hypercite).
- * @param {HTMLAnchorElement} anchor
- * @returns {boolean}
  */
-export function isContentLink(anchor) {
+export function isContentLink(anchor: Element | null): boolean {
   if (!anchor || anchor.tagName !== 'A') return false;
 
   const href = anchor.getAttribute('href');
@@ -66,10 +69,8 @@ export function isContentLink(anchor) {
 
 /**
  * Delete a highlight by ID
- * @param {string} highlightId - The highlight ID to delete
- * @returns {Promise<Object>} Deletion result with affected nodes
  */
-export async function deleteHighlightById(highlightId) {
+export async function deleteHighlightById(highlightId: string): Promise<HighlightActionResult> {
   try {
     console.log(`🗑️ Deleting highlight by ID: ${highlightId}`);
 
@@ -80,7 +81,7 @@ export async function deleteHighlightById(highlightId) {
     const idx = store.index("hyperlight_id");
 
     const getRequest = idx.get(highlightId);
-    const highlightData = await new Promise((resolve, reject) => {
+    const highlightData: any = await new Promise((resolve, reject) => {
       getRequest.onsuccess = () => resolve(getRequest.result);
       getRequest.onerror = () => reject(getRequest.error);
     });
@@ -94,11 +95,12 @@ export async function deleteHighlightById(highlightId) {
 
     // Remove the highlight class from DOM marks, but preserve other classes
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
-    const affectedIDnumericals = new Set();
+    const affectedIDnumericals = new Set<string>();
 
     setProgrammaticUpdateInProgress(true);
     try {
-      markElements.forEach(mark => {
+      markElements.forEach(markEl => {
+        const mark = markEl as HTMLElement;
         // Remove just this highlight's class
         mark.classList.remove(highlightId);
 
@@ -117,9 +119,9 @@ export async function deleteHighlightById(highlightId) {
           console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
           // Update highlight count and intensity if needed
           const highlightCount = remainingHighlights.length;
-          mark.setAttribute('data-highlight-count', highlightCount);
+          mark.setAttribute('data-highlight-count', String(highlightCount));
           const intensity = Math.min(highlightCount / 5, 1);
-          mark.style.setProperty('--highlight-intensity', intensity);
+          mark.style.setProperty('--highlight-intensity', String(intensity));
         }
 
         // Track which nodes were affected for re-applying highlights
@@ -135,6 +137,7 @@ export async function deleteHighlightById(highlightId) {
     // Remove from IndexedDB
     const deletedHyperlight = await removeHighlightFromHyperlights(highlightId);
     const affectedNodes = await removeHighlightFromNodeChunksWithDeletion(bookId, highlightId, deletedHyperlight);
+    void affectedNodes;
 
     // Update book timestamp + annotations timestamp
     await updateBookTimestamp(bookId);
@@ -180,10 +183,8 @@ export async function deleteHighlightById(highlightId) {
 
 /**
  * Hide a highlight by ID - removes from IndexedDB and DOM but sets hidden=true in database
- * @param {string} highlightId - The highlight ID to hide
- * @returns {Promise<Object>} Hide result with affected nodes
  */
-export async function hideHighlightById(highlightId) {
+export async function hideHighlightById(highlightId: string): Promise<HighlightActionResult> {
   console.log(`🙈 Hiding highlight by ID: ${highlightId}`);
 
   try {
@@ -194,9 +195,9 @@ export async function hideHighlightById(highlightId) {
     const idx = store.index("hyperlight_id");
 
     const getRequest = idx.get(highlightId);
-    let highlightData = null;
+    let highlightData: any = null;
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       getRequest.onsuccess = () => {
         highlightData = getRequest.result;
         resolve();
@@ -213,11 +214,12 @@ export async function hideHighlightById(highlightId) {
 
     // Remove the highlight class from DOM marks, but preserve other classes (same as delete)
     const markElements = document.querySelectorAll(`mark.${highlightId}`);
-    const affectedIDnumericals = new Set();
+    const affectedIDnumericals = new Set<string>();
 
     setProgrammaticUpdateInProgress(true);
     try {
-      markElements.forEach(mark => {
+      markElements.forEach(markEl => {
+        const mark = markEl as HTMLElement;
         // Remove just this highlight's class
         mark.classList.remove(highlightId);
 
@@ -238,9 +240,9 @@ export async function hideHighlightById(highlightId) {
           console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
           // Update highlight count and intensity if needed
           const highlightCount = remainingHighlights.length;
-          mark.setAttribute('data-highlight-count', highlightCount);
+          mark.setAttribute('data-highlight-count', String(highlightCount));
           const intensity = Math.min(highlightCount / 5, 1);
-          mark.style.setProperty('--highlight-intensity', intensity);
+          mark.style.setProperty('--highlight-intensity', String(intensity));
         }
 
         // Track which nodes were affected for re-applying highlights
@@ -290,11 +292,8 @@ export async function hideHighlightById(highlightId) {
 /**
  * Re-process highlights for specific affected nodes after highlight deletion
  * This ensures overlapping highlights are correctly recalculated and displayed
- * @param {string} bookId - The book ID
- * @param {Array<string>} affectedNodeIds - Array of node IDs to reprocess
- * @param {Array|null} preloadedNodes - Optional pre-fetched nodes to avoid reading all book nodes
  */
-export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, preloadedNodes = null) {
+export async function reprocessHighlightsForNodes(bookId: string, affectedIDnumericals: string[], preloadedNodes: any[] | null = null): Promise<void> {
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
 
   try {
@@ -322,7 +321,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
         }
 
         // Find the node data with its current highlights
-        const nodeData = nodes.find(chunk => chunk.startLine == IDnumerical);
+        const nodeData = nodes.find((chunk: any) => chunk.startLine == IDnumerical);
         if (!nodeData) {
           console.warn(`Node data not found for ${IDnumerical}`);
           continue;
@@ -336,8 +335,8 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
           const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
           if (existingMarks.length > 0) {
             existingMarks.forEach(mark => {
-              const parent = mark.parentNode;
-              parent.replaceChild(document.createTextNode(mark.textContent), mark);
+              const parent = mark.parentNode!;
+              parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
               parent.normalize();
             });
           }
@@ -348,6 +347,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
 
         // Get the plain text content by removing existing marks
         let plainText = nodeElement.textContent || '';
+        void plainText;
 
         // Remove all existing marks from this node
         const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
@@ -365,7 +365,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedIDnumericals, 
 
         // Get the clean HTML and re-apply highlights with correct segmentation
         const cleanHtml = nodeElement.innerHTML;
-        console.log(`Applying highlights to clean HTML for node ${IDnumerical}:`, nodeHighlights.map(h => h.highlightID));
+        console.log(`Applying highlights to clean HTML for node ${IDnumerical}:`, nodeHighlights.map((h: any) => h.highlightID));
         let newHtml = applyHighlights(cleanHtml, nodeHighlights, bookId);
 
         // ✅ CRITICAL: Also re-apply hypercites (same order as lazy loader)

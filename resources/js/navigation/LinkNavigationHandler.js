@@ -9,7 +9,7 @@ import { log, verbose } from '../utilities/logger.js';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling.js';
 import { book, bookSlug as _bookSlug } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
-import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation.js';
+import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation';
 import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
 import { getLocalStorageKey } from '../indexedDB/index';
 import { closeHyperlitContainer } from '../hyperlitContainer/index.js';

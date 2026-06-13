@@ -14,9 +14,11 @@ import { attachMarkListeners as _attachMarkListeners } from './listeners';
 export { calculateCleanTextOffset, getRelativeOffsetTop, isNumericalId, findContainerWithNumericalId } from './calculations';
 export { modifyNewMarks, unwrapMark, formatRelativeTime } from './marks';
 export { attachMarkListeners, handleMarkClick, handleMarkHover, handleMarkHoverOut, addTouchAndClickListener } from './listeners';
-export { handleSelection, initializeHighlightingControls, cleanupHighlightingControls, createHighlightHandler, deleteHighlightHandler } from './selection.js';
+export { handleSelection, initializeHighlightingControls, cleanupHighlightingControls } from './selectionToolbar';
+export { createHighlightHandler, openBrainFromSelection } from './createHighlight';
+export { deleteHighlightHandler } from './deleteHighlight';
 export { addToHighlightsTable, updateNodeHighlight, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion, removeHighlightFromHyperlights } from './database';
-export { deleteHighlightById, hideHighlightById, reprocessHighlightsForNodes } from './deletion.js';
+export { deleteHighlightById, hideHighlightById, reprocessHighlightsForNodes } from './deletion';
 export { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from './utils';
 export { handleHighlightContainerPaste, addHighlightContainerPasteListener } from './annotationPaste';
 export { getAnnotationHTML, saveAnnotationToIndexedDB, attachAnnotationListener, saveHighlightAnnotation } from './annotations';
@@ -27,15 +29,14 @@ export const openHighlightContainer = openHyperlitContainer;
 export const closeHighlightContainer = closeHyperlitContainer;
 
 // Lazy loader state
-let highlightId;
-let highlightLazyLoader;
+let highlightId: any;
+let highlightLazyLoader: any;
+void highlightId;
 
 /**
  * Initialize or update the highlight lazy loader
- * @param {Array} chunks - Node chunks to load
- * @returns {Object} Lazy loader instance
  */
-export function initOrUpdateHighlightLazyLoader(chunks) {
+export function initOrUpdateHighlightLazyLoader(chunks: any[]): any {
   if (highlightLazyLoader) {
     // Update the nodes if the lazy loader already exists.
     highlightLazyLoader.nodes = chunks;
@@ -54,6 +55,6 @@ export function initOrUpdateHighlightLazyLoader(chunks) {
 }
 
 // Export lazy loader getter for compatibility
-export function getHighlightLazyLoader() {
+export function getHighlightLazyLoader(): any {
   return highlightLazyLoader;
 }

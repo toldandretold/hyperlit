@@ -32,7 +32,7 @@ export async function cleanupPendingBrainHighlight() {
     const id = pendingBrainHighlightId;
     pendingBrainHighlightId = null;
     try {
-        const { deleteHighlightById } = await import('../hyperlights/deletion.js');
+        const { deleteHighlightById } = await import('../hyperlights/deletion');
         await deleteHighlightById(id);
     } catch (e) {
         console.warn('BrainQuery: cleanup of pending highlight failed:', e);

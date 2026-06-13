@@ -16,9 +16,9 @@ registerAllComponents();
 // import { stopObserving } from "./divEditor/index.js";
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
-import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index.js";
-import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selection.js";
-import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index.js";
+import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index";
+import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selectionToolbar";
+import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index";
 import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
 import { setupUnloadSync } from "./indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
@@ -217,7 +217,7 @@ export async function cleanupReaderView() {
 
   // ✅ Clean up content-specific listeners (hyperlights, hypercites)
   try {
-    const { cleanupHighlightingControls } = await import('./hyperlights/selection.js');
+    const { cleanupHighlightingControls } = await import('./hyperlights/selectionToolbar');
     cleanupHighlightingControls();
   } catch (e) {
     // Module not loaded yet, nothing to cleanup

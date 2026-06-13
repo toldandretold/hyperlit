@@ -2,7 +2,7 @@
 
 # IndexedDB layer — data-flow graph
 
-**MarkdownDB** schema v27 · 95 functions in 32 modules · 8 object stores · 6 PG tables · 254 edges
+**MarkdownDB** schema v27 · 176 functions in 53 modules · 8 object stores · 6 PG tables · 431 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `docs/idb-flow.html`.
 
@@ -10,101 +10,182 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 | Function | Module | Reads (store) | Writes (store) | DOM | Postgres |
 |----------|--------|---------------|----------------|-----|----------|
-| `initReferencesDependencies` | `bibliography/index` | — | — | — | — |
-| `resolveBibliographyTarget` | `bibliography/index` | — | — | — | — |
-| `saveAllReferencesToIndexedDB` | `bibliography/index` | — | `bibliography` | — | — |
-| `syncReferencesToPostgreSQL` | `bibliography/syncReferencesToPostgreSQL` | — | — | read | `↑bibliography` |
-| `closeDatabase` | `core/connection` | — | — | — | — |
-| `getConnection` | `core/connection` | — | — | — | — |
-| `openDatabase` | `core/connection` | `bibliography` `hypercites` `hyperlights` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | — | — |
-| `withWriteLock` | `core/connection` | — | — | — | — |
-| `attemptRecovery` | `core/healthMonitor` | `nodes` | — | — | — |
-| `isIDBBroken` | `core/healthMonitor` | — | — | — | — |
-| `reportIDBFailure` | `core/healthMonitor` | — | — | — | — |
-| `reportIDBSuccess` | `core/healthMonitor` | — | — | — | — |
-| `cleanLibraryItemForStorage` | `core/library` | — | — | — | — |
-| `fetchLibraryRecordWithStatus` | `core/library` | — | — | — | — |
-| `getAllOfflineAvailableBooks` | `core/library` | `library` `nodes` | — | — | — |
-| `getLibraryObjectFromIndexedDB` | `core/library` | `library` | `library` | — | — |
-| `getLibraryRecordFromServer` | `core/library` | — | — | — | — |
-| `initLibraryDependencies` | `core/library` | — | — | — | — |
-| `prepareLibraryForIndexedDB` | `core/library` | — | — | — | — |
-| `syncFirstNodeToTitle` | `core/library` | `library` | `library` | write | — |
-| `updateAnnotationsTimestamp` | `core/library` | `library` | `library` | — | — |
-| `updateBookTimestamp` | `core/library` | `library` | `library` | — | — |
-| `updateLocalAnnotationsTimestamp` | `core/library` | `library` | `library` | — | — |
-| `hideIDBRecoveryToast` | `core/recoveryToast` | — | — | read/write | — |
-| `showIDBRecoveryToast` | `core/recoveryToast` | — | — | read/write | — |
-| `updateIDBRecoveryToast` | `core/recoveryToast` | — | — | read/write | — |
-| `createNodeChunksKey` | `core/utilities` | — | — | — | — |
-| `getLocalStorageKey` | `core/utilities` | — | — | — | — |
-| `parseNodeId` | `core/utilities` | — | — | — | — |
-| `toPublicChunk` | `core/utilities` | — | — | — | — |
-| `initFootnotesDependencies` | `footnotes/index` | — | — | — | — |
-| `saveAllFootnotesToIndexedDB` | `footnotes/index` | — | `footnotes` | — | — |
-| `syncFootnotesToPostgreSQL` | `footnotes/syncFootnotesToPostgreSQL` | — | — | read | `↑footnotes` |
-| `collect` | `gen/collect` | — | — | — | — |
-| `renderAll` | `gen/collect` | — | — | — | — |
-| `renderHtml` | `gen/collect` | — | — | — | — |
-| `renderMarkdown` | `gen/collect` | — | — | — | — |
-| `writeArtifacts` | `gen/collect` | — | — | — | — |
-| `syncHyperlightDeletionsToPostgreSQL` | `highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑hyperlights` |
-| `syncHyperlightToPostgreSQL` | `highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑hyperlights` |
-| `getNodesByDataNodeIDs` | `hydration/rebuild` | `nodes` | — | — | — |
-| `rebuildNodeArrays` | `hydration/rebuild` | `hypercites` `hyperlights` | `nodes` | — | — |
-| `resolveHypercite` | `hypercites/helpers` | — | `hypercites` `nodes` | read | — |
-| `addCitationToHypercite` | `hypercites/index` | `nodes` | `nodes` | — | — |
-| `getHyperciteFromIndexedDB` | `hypercites/index` | `hypercites` | `hypercites` | — | — |
-| `initHypercitesDependencies` | `hypercites/index` | — | — | — | — |
-| `updateCitationForExistingHypercite` | `hypercites/index` | — | — | — | — |
-| `updateHyperciteInIndexedDB` | `hypercites/index` | `hypercites` | `hypercites` | — | — |
-| `syncHyperciteToPostgreSQL` | `hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
-| `syncHyperciteUpdateImmediately` | `hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
-| `syncHyperciteWithNodeChunkImmediately` | `hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
-| `initializeDatabaseModules` | `index` | — | — | — | — |
-| `updateDatabaseBookId` | `index` | — | — | — | — |
-| `updateHyperciteRecords` | `nodes/annotationUpserts` | — | — | read | — |
-| `updateHyperlightRecords` | `nodes/annotationUpserts` | — | — | read | — |
-| `batchDeleteIndexedDBRecords` | `nodes/batch` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
-| `batchUpdateIndexedDBRecords` | `nodes/batch` | `nodes` | `bibliography` `hypercites` `hyperlights` `nodes` | read | — |
-| `initNodeBatchDependencies` | `nodes/batch` | — | — | — | — |
-| `updateSingleIndexedDBRecord` | `nodes/batch` | — | — | — | — |
-| `resolveBookIdForBatch` | `nodes/bookIdResolver` | — | — | read | — |
-| `determineChunkIdFromDOM` | `nodes/contentProcessor` | — | — | read | — |
-| `processNodeContentHighlightsAndCites` | `nodes/contentProcessor` | — | — | read/write | — |
-| `deleteIndexedDBRecord` | `nodes/delete` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
-| `initNodeDeleteDependencies` | `nodes/delete` | — | — | — | — |
-| `initNodeNormalizeDependencies` | `nodes/normalize` | — | — | — | — |
-| `updateIndexedDBRecordForNormalization` | `nodes/normalize` | `nodes` | `nodes` | read | — |
-| `collectMarkAndCitePositions` | `nodes/positionCollector` | — | — | read | — |
-| `findElementPosition` | `nodes/positionCollector` | — | — | — | — |
-| `getAllNodeChunksForBook` | `nodes/read` | `nodes` | — | — | — |
-| `getNodeChunkFromIndexedDB` | `nodes/read` | `nodes` | `nodes` | — | — |
-| `getNodeChunksAfter` | `nodes/read` | `nodes` | `nodes` | — | — |
-| `getNodeChunksFromIndexedDB` | `nodes/read` | `nodes` | — | — | — |
-| `syncNodeChunksToPostgreSQL` | `nodes/syncNodesToPostgreSQL` | — | — | read | `↑nodes` |
-| `addNewBookToIndexedDB` | `nodes/write` | — | — | — | — |
-| `addNodeChunkToIndexedDB` | `nodes/write` | — | `nodes` | read/write | — |
-| `deleteNodeChunksAfter` | `nodes/write` | `nodes` | `nodes` | — | — |
-| `initNodeWriteDependencies` | `nodes/write` | — | — | — | — |
-| `renumberNodeChunksInIndexedDB` | `nodes/write` | — | `nodes` | — | — |
-| `saveAllNodeChunksToIndexedDB` | `nodes/write` | — | `nodes` | — | — |
-| `writeNodeChunks` | `nodes/write` | — | `nodes` | — | — |
-| `filterFreshNodesForBook` | `syncQueue/freshNodeFilter` | — | — | — | — |
-| `executeSyncPayload` | `syncQueue/master` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
-| `initMasterSyncDependencies` | `syncQueue/master` | — | — | — | — |
-| `syncIndexedDBtoPostgreSQLBlocking` | `syncQueue/master` | `nodes` | — | — | — |
-| `updateHistoryLog` | `syncQueue/master` | — | `historyLog` | — | — |
-| `clearPendingSyncsForBook` | `syncQueue/queue` | — | — | — | — |
-| `initSyncQueueDependencies` | `syncQueue/queue` | — | — | — | — |
-| `queueForSync` | `syncQueue/queue` | — | — | — | — |
-| `initUnloadSyncDependencies` | `syncQueue/unload` | — | — | — | — |
-| `setupUnloadSync` | `syncQueue/unload` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
-| `clearBookContentFromIndexedDB` | `utilities/cleanup` | `library` | `bibliography` `footnotes` `library` `nodes` | — | — |
-| `clearDatabase` | `utilities/cleanup` | — | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | — | — |
-| `deleteBookFromIndexedDB` | `utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
-| `deleteIndexedDBRecordWithRetry` | `utilities/retry` | — | — | — | — |
-| `retryOperation` | `utilities/retry` | — | — | — | — |
+| `highlightTargetHypercite` | `hypercites/animations` | — | — | read/write | — |
+| `restoreNormalHyperciteDisplay` | `hypercites/animations` | — | — | read/write | — |
+| `revealGhostIfTombstone` | `hypercites/animations` | — | — | read/write | — |
+| `createOverlappingPolyContainer` | `hypercites/containers` | `library` | — | read | — |
+| `PolyClick` | `hypercites/containers` | `hypercites` `library` | — | read | — |
+| `fallbackCopyText` | `hypercites/copy` | — | — | write | — |
+| `handleCopyEvent` | `hypercites/copy` | — | — | read/write | — |
+| `wrapSelectedTextInDOM` | `hypercites/copy` | — | — | read/write | — |
+| `collectHyperciteData` | `hypercites/database` | — | — | read | — |
+| `fetchLibraryFromServer` | `hypercites/database` | — | — | read | — |
+| `getHyperciteById` | `hypercites/database` | `hypercites` | — | — | — |
+| `getHyperciteData` | `hypercites/database` | `nodes` | — | — | — |
+| `NewHyperciteIndexedDB` | `hypercites/database` | — | `hypercites` `nodes` | read/write | — |
+| `delinkHypercite` | `hypercites/deletion` | `nodes` | `hypercites` `nodes` | read/write | — |
+| `handleHyperciteDeletion` | `hypercites/deletion` | — | — | — | — |
+| `markHyperciteAsGhost` | `hypercites/deletion` | — | `hypercites` | — | — |
+| `attachUnderlineClickListeners` | `hypercites/listeners` | — | — | read/write | — |
+| `cleanupHypercitingControls` | `hypercites/listeners` | — | — | read | — |
+| `cleanupUnderlineClickListeners` | `hypercites/listeners` | — | — | read/write | — |
+| `initializeHypercitingControls` | `hypercites/listeners` | — | — | read | — |
+| `CoupleClick` | `hypercites/navigation` | — | — | — | — |
+| `handleOverlappingCouple` | `hypercites/navigation` | — | — | — | — |
+| `handleOverlappingHyperciteClick` | `hypercites/navigation` | — | — | read | — |
+| `handleOverlappingPoly` | `hypercites/navigation` | — | — | — | — |
+| `handleUnderlineClick` | `hypercites/navigation` | — | — | — | — |
+| `navigateToFootnoteTarget` | `hypercites/navigation` | — | — | read/write | — |
+| `navigateToHyperciteLink` | `hypercites/navigation` | — | — | — | — |
+| `navigateToHyperciteTarget` | `hypercites/navigation` | — | — | read | — |
+| `determineRelationshipStatus` | `hypercites/utils` | — | — | — | — |
+| `extractHyperciteIdFromHref` | `hypercites/utils` | — | — | — | — |
+| `findParentWithNumericalId` | `hypercites/utils` | — | — | read | — |
+| `generateHyperciteID` | `hypercites/utils` | — | — | — | — |
+| `parseHyperciteHref` | `hypercites/utils` | — | — | — | — |
+| `removeCitedINEntry` | `hypercites/utils` | — | — | — | — |
+| `selectionSpansMultipleNodes` | `hypercites/utils` | — | — | — | — |
+| `addHighlightContainerPasteListener` | `hyperlights/annotationPaste` | — | — | read | — |
+| `handleHighlightContainerPaste` | `hyperlights/annotationPaste` | — | — | read/write | — |
+| `attachAnnotationListener` | `hyperlights/annotations` | `hyperlights` | `hyperlights` | read | — |
+| `getAnnotationHTML` | `hyperlights/annotations` | — | — | read | — |
+| `saveAnnotationToIndexedDB` | `hyperlights/annotations` | `hyperlights` | `hyperlights` | — | — |
+| `saveHighlightAnnotation` | `hyperlights/annotations` | `hyperlights` | `hyperlights` | — | — |
+| `calculateCleanTextOffset` | `hyperlights/calculations` | — | — | read/write | — |
+| `findContainerWithNumericalId` | `hyperlights/calculations` | — | — | read | — |
+| `getRelativeOffsetTop` | `hyperlights/calculations` | — | — | — | — |
+| `isNumericalId` | `hyperlights/calculations` | — | — | — | — |
+| `createHighlightHandler` | `hyperlights/createHighlight` | — | — | read/write | — |
+| `fixInvalidMarks` | `hyperlights/createHighlight` | — | — | read/write | — |
+| `openBrainFromSelection` | `hyperlights/createHighlight` | `hyperlights` | `hyperlights` | read | — |
+| `addToHighlightsTable` | `hyperlights/database` | — | `hyperlights` | read/write | — |
+| `removeHighlightFromHyperlights` | `hyperlights/database` | `hyperlights` | `hyperlights` | — | — |
+| `removeHighlightFromNodeChunks` | `hyperlights/database` | `nodes` | `nodes` | — | — |
+| `removeHighlightFromNodeChunksWithDeletion` | `hyperlights/database` | `nodes` | `nodes` | — | — |
+| `updateNodeHighlight` | `hyperlights/database` | `nodes` | `nodes` | read | — |
+| `deleteHighlightHandler` | `hyperlights/deleteHighlight` | — | — | read/write | — |
+| `deleteHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
+| `hideHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
+| `isContentLink` | `hyperlights/deletion` | — | — | read | — |
+| `reprocessHighlightsForNodes` | `hyperlights/deletion` | — | — | read/write | — |
+| `unwrapElement` | `hyperlights/deletion` | — | — | — | — |
+| `unwrapMark` | `hyperlights/deletion` | — | — | write | — |
+| `getHighlightLazyLoader` | `hyperlights/index` | — | — | — | — |
+| `initOrUpdateHighlightLazyLoader` | `hyperlights/index` | — | — | read | — |
+| `addTouchAndClickListener` | `hyperlights/listeners` | — | — | — | — |
+| `attachMarkListeners` | `hyperlights/listeners` | — | — | read/write | — |
+| `handleMarkClick` | `hyperlights/listeners` | — | — | read | — |
+| `handleMarkHover` | `hyperlights/listeners` | — | — | read | — |
+| `handleMarkHoverOut` | `hyperlights/listeners` | — | — | — | — |
+| `applyGroupHover` | `hyperlights/markGroup` | — | — | write | — |
+| `clearGroupHover` | `hyperlights/markGroup` | — | — | read/write | — |
+| `getHighlightIdsFromMark` | `hyperlights/markGroup` | — | — | — | — |
+| `getMarkGroup` | `hyperlights/markGroup` | — | — | — | — |
+| `getMarksForHighlightIds` | `hyperlights/markGroup` | — | — | read | — |
+| `formatRelativeTime` | `hyperlights/marks` | — | — | — | — |
+| `modifyNewMarks` | `hyperlights/marks` | — | — | read/write | — |
+| `unwrapMark` | `hyperlights/marks` | — | — | write | — |
+| `cleanupHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
+| `handleSelection` | `hyperlights/selectionToolbar` | — | — | read/write | — |
+| `initializeHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
+| `attachPlaceholderBehavior` | `hyperlights/utils` | — | — | read/write | — |
+| `generateHighlightID` | `hyperlights/utils` | — | — | — | — |
+| `openHighlightById` | `hyperlights/utils` | — | — | read | — |
+| `initReferencesDependencies` | `indexedDB/bibliography/index` | — | — | — | — |
+| `resolveBibliographyTarget` | `indexedDB/bibliography/index` | — | — | — | — |
+| `saveAllReferencesToIndexedDB` | `indexedDB/bibliography/index` | — | `bibliography` | — | — |
+| `syncReferencesToPostgreSQL` | `indexedDB/bibliography/syncReferencesToPostgreSQL` | — | — | read | `↑bibliography` |
+| `closeDatabase` | `indexedDB/core/connection` | — | — | — | — |
+| `getConnection` | `indexedDB/core/connection` | — | — | — | — |
+| `openDatabase` | `indexedDB/core/connection` | `bibliography` `hypercites` `hyperlights` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | — | — |
+| `withWriteLock` | `indexedDB/core/connection` | — | — | — | — |
+| `attemptRecovery` | `indexedDB/core/healthMonitor` | `nodes` | — | — | — |
+| `isIDBBroken` | `indexedDB/core/healthMonitor` | — | — | — | — |
+| `reportIDBFailure` | `indexedDB/core/healthMonitor` | — | — | — | — |
+| `reportIDBSuccess` | `indexedDB/core/healthMonitor` | — | — | — | — |
+| `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
+| `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | — | — | — | — |
+| `getAllOfflineAvailableBooks` | `indexedDB/core/library` | `library` `nodes` | — | — | — |
+| `getLibraryObjectFromIndexedDB` | `indexedDB/core/library` | `library` | `library` | — | — |
+| `getLibraryRecordFromServer` | `indexedDB/core/library` | — | — | — | — |
+| `initLibraryDependencies` | `indexedDB/core/library` | — | — | — | — |
+| `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
+| `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | write | — |
+| `updateAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
+| `updateBookTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
+| `updateLocalAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
+| `hideIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
+| `showIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
+| `updateIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
+| `createNodeChunksKey` | `indexedDB/core/utilities` | — | — | — | — |
+| `getLocalStorageKey` | `indexedDB/core/utilities` | — | — | — | — |
+| `parseNodeId` | `indexedDB/core/utilities` | — | — | — | — |
+| `toPublicChunk` | `indexedDB/core/utilities` | — | — | — | — |
+| `initFootnotesDependencies` | `indexedDB/footnotes/index` | — | — | — | — |
+| `saveAllFootnotesToIndexedDB` | `indexedDB/footnotes/index` | — | `footnotes` | — | — |
+| `syncFootnotesToPostgreSQL` | `indexedDB/footnotes/syncFootnotesToPostgreSQL` | — | — | read | `↑footnotes` |
+| `collect` | `indexedDB/gen/collect` | — | — | — | — |
+| `renderAll` | `indexedDB/gen/collect` | — | — | — | — |
+| `renderHtml` | `indexedDB/gen/collect` | — | — | — | — |
+| `renderMarkdown` | `indexedDB/gen/collect` | — | — | — | — |
+| `writeArtifacts` | `indexedDB/gen/collect` | — | — | — | — |
+| `syncHyperlightDeletionsToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑hyperlights` |
+| `syncHyperlightToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑hyperlights` |
+| `getNodesByDataNodeIDs` | `indexedDB/hydration/rebuild` | `nodes` | — | — | — |
+| `rebuildNodeArrays` | `indexedDB/hydration/rebuild` | `hypercites` `hyperlights` | `nodes` | — | — |
+| `resolveHypercite` | `indexedDB/hypercites/helpers` | — | `hypercites` `nodes` | read | — |
+| `addCitationToHypercite` | `indexedDB/hypercites/index` | `nodes` | `nodes` | — | — |
+| `getHyperciteFromIndexedDB` | `indexedDB/hypercites/index` | `hypercites` | `hypercites` | — | — |
+| `initHypercitesDependencies` | `indexedDB/hypercites/index` | — | — | — | — |
+| `updateCitationForExistingHypercite` | `indexedDB/hypercites/index` | — | — | — | — |
+| `updateHyperciteInIndexedDB` | `indexedDB/hypercites/index` | `hypercites` | `hypercites` | — | — |
+| `syncHyperciteToPostgreSQL` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
+| `syncHyperciteUpdateImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
+| `syncHyperciteWithNodeChunkImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
+| `initializeDatabaseModules` | `indexedDB/index` | — | — | — | — |
+| `updateDatabaseBookId` | `indexedDB/index` | — | — | — | — |
+| `updateHyperciteRecords` | `indexedDB/nodes/annotationUpserts` | — | — | read | — |
+| `updateHyperlightRecords` | `indexedDB/nodes/annotationUpserts` | — | — | read | — |
+| `batchDeleteIndexedDBRecords` | `indexedDB/nodes/batch` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
+| `batchUpdateIndexedDBRecords` | `indexedDB/nodes/batch` | `nodes` | `bibliography` `hypercites` `hyperlights` `nodes` | read | — |
+| `initNodeBatchDependencies` | `indexedDB/nodes/batch` | — | — | — | — |
+| `updateSingleIndexedDBRecord` | `indexedDB/nodes/batch` | — | — | — | — |
+| `resolveBookIdForBatch` | `indexedDB/nodes/bookIdResolver` | — | — | read | — |
+| `determineChunkIdFromDOM` | `indexedDB/nodes/contentProcessor` | — | — | read | — |
+| `processNodeContentHighlightsAndCites` | `indexedDB/nodes/contentProcessor` | — | — | read/write | — |
+| `deleteIndexedDBRecord` | `indexedDB/nodes/delete` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
+| `initNodeDeleteDependencies` | `indexedDB/nodes/delete` | — | — | — | — |
+| `initNodeNormalizeDependencies` | `indexedDB/nodes/normalize` | — | — | — | — |
+| `updateIndexedDBRecordForNormalization` | `indexedDB/nodes/normalize` | `nodes` | `nodes` | read | — |
+| `collectMarkAndCitePositions` | `indexedDB/nodes/positionCollector` | — | — | read | — |
+| `findElementPosition` | `indexedDB/nodes/positionCollector` | — | — | — | — |
+| `getAllNodeChunksForBook` | `indexedDB/nodes/read` | `nodes` | — | — | — |
+| `getNodeChunkFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
+| `getNodeChunksAfter` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
+| `getNodeChunksFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | — | — | — |
+| `syncNodeChunksToPostgreSQL` | `indexedDB/nodes/syncNodesToPostgreSQL` | — | — | read | `↑nodes` |
+| `addNewBookToIndexedDB` | `indexedDB/nodes/write` | — | — | — | — |
+| `addNodeChunkToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | read/write | — |
+| `deleteNodeChunksAfter` | `indexedDB/nodes/write` | `nodes` | `nodes` | — | — |
+| `initNodeWriteDependencies` | `indexedDB/nodes/write` | — | — | — | — |
+| `renumberNodeChunksInIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `saveAllNodeChunksToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `writeNodeChunks` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
+| `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
+| `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
+| `syncIndexedDBtoPostgreSQLBlocking` | `indexedDB/syncQueue/master` | `nodes` | — | — | — |
+| `updateHistoryLog` | `indexedDB/syncQueue/master` | — | `historyLog` | — | — |
+| `clearPendingSyncsForBook` | `indexedDB/syncQueue/queue` | — | — | — | — |
+| `initSyncQueueDependencies` | `indexedDB/syncQueue/queue` | — | — | — | — |
+| `queueForSync` | `indexedDB/syncQueue/queue` | — | — | — | — |
+| `initUnloadSyncDependencies` | `indexedDB/syncQueue/unload` | — | — | — | — |
+| `setupUnloadSync` | `indexedDB/syncQueue/unload` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
+| `clearBookContentFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `library` `nodes` | — | — |
+| `clearDatabase` | `indexedDB/utilities/cleanup` | — | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | — | — |
+| `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `deleteIndexedDBRecordWithRetry` | `indexedDB/utilities/retry` | — | — | — | — |
+| `retryOperation` | `indexedDB/utilities/retry` | — | — | — | — |
 
 ## Legend
 

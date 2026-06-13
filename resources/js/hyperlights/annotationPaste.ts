@@ -3,7 +3,7 @@
  */
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
-import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
+import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index";
 import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';

@@ -138,7 +138,7 @@ export default defineConfig({
                 'resources/js/editToolbar/index.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
-                'resources/js/hyperlights/index.js',
+                'resources/js/hyperlights/index.ts',
                 'resources/js/initializePage.js',
                 'resources/js/lazyLoaderFactory.js',
                 'resources/js/components/newBookForm.js',

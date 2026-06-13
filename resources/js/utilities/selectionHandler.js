@@ -1,6 +1,6 @@
 // resources/js/selectionHandler.js
 
-import { isContentLink } from '../hyperlights/deletion.js';
+import { isContentLink } from '../hyperlights/deletion';
 
 let hyperlightButtons = null;
 let originalParent = null;

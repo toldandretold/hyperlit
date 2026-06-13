@@ -92,7 +92,7 @@ import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkL
 import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
 import { initializeMainLazyLoader } from '../initializePage.js';
 import { getEditToolbar } from '../editToolbar';
-import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index.js";
+import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
 
 // ================================================================

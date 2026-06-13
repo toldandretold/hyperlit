@@ -1854,7 +1854,7 @@ export class SourceContainerManager extends ContainerManager {
       ).filter(el => /^\d+$/.test(el.id)).map(el => el.id);
 
       if (visibleNodeIds.length > 0) {
-        const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion.js');
+        const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion');
         await reprocessHighlightsForNodes(bookId, visibleNodeIds);
       }
 

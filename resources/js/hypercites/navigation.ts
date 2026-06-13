@@ -20,9 +20,8 @@ import { showTargetNotFoundToast } from '../utilities/toast.js';
 
 /**
  * Handle couple click - navigates directly to the single citation
- * @param {HTMLElement} uElement - The couple element that was clicked
  */
-export async function CoupleClick(uElement) {
+export async function CoupleClick(uElement: HTMLElement): Promise<void> {
   console.log("u.couple element clicked:", uElement);
 
   const parent = uElement.parentElement;
@@ -46,11 +45,11 @@ export async function CoupleClick(uElement) {
     console.log("Retrieved nodeChunk:", nodeChunk);
 
     const clickedHyperciteId = uElement.id;
-    let link = null;
+    let link: string | null = null;
 
     if (nodeChunk.hypercites && nodeChunk.hypercites.length > 0) {
       const matchingHypercite = nodeChunk.hypercites.find(
-        (hyper) => hyper.hyperciteId === clickedHyperciteId
+        (hyper: any) => hyper.hyperciteId === clickedHyperciteId
       );
 
       if (
@@ -78,10 +77,8 @@ export async function CoupleClick(uElement) {
 
 /**
  * Handle underline clicks - delegates to unified container system
- * @param {HTMLElement} uElement - The underlined element that was clicked
- * @param {Event} event - The click event
  */
-export async function handleUnderlineClick(uElement, event) {
+export async function handleUnderlineClick(uElement: HTMLElement, event?: Event): Promise<void> {
   console.log("🔥 handleUnderlineClick called with element:", uElement.id || uElement.tagName);
 
   // Use unified container system for all hypercite clicks
@@ -91,10 +88,8 @@ export async function handleUnderlineClick(uElement, event) {
 
 /**
  * Handle overlapping hypercite clicks
- * @param {HTMLElement} uElement - The overlapping hypercite element
- * @param {Event} event - The click event
  */
-export async function handleOverlappingHyperciteClick(uElement, event) {
+export async function handleOverlappingHyperciteClick(uElement: HTMLElement, event?: Event): Promise<void> {
   console.log("Overlapping hypercite clicked:", uElement);
 
   // Update URL for back button support - use the first hypercite ID
@@ -109,7 +104,7 @@ export async function handleOverlappingHyperciteClick(uElement, event) {
 
   // Add URL update for back button functionality
   if (hyperciteIds.length > 0) {
-    const firstHyperciteId = hyperciteIds[0].replace('hypercite_', '');
+    const firstHyperciteId = hyperciteIds[0]!.replace('hypercite_', '');
     const newUrl = `${window.location.pathname}${window.location.search}#hypercite_${firstHyperciteId}`;
     console.log(`📍 Updating URL for overlapping hypercite navigation: ${newUrl}`);
 
@@ -136,7 +131,7 @@ export async function handleOverlappingHyperciteClick(uElement, event) {
 
     // Filter out null results and collect all citedIN links
     const validHypercites = hypercites.filter(hc => hc !== null);
-    const allCitedINLinks = [];
+    const allCitedINLinks: string[] = [];
 
     validHypercites.forEach(hypercite => {
       if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
@@ -161,9 +156,8 @@ export async function handleOverlappingHyperciteClick(uElement, event) {
 
 /**
  * Handle overlapping hypercites with couple class
- * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
  */
-export async function handleOverlappingCouple(hyperciteIds) {
+export async function handleOverlappingCouple(hyperciteIds: string[]): Promise<void> {
   try {
     const db = await openDatabase();
 
@@ -198,10 +192,8 @@ export async function handleOverlappingCouple(hyperciteIds) {
 
 /**
  * Handle overlapping hypercites with poly class
- * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
- * @param {Event} event - The click event
  */
-export async function handleOverlappingPoly(hyperciteIds, event) {
+export async function handleOverlappingPoly(hyperciteIds: string[], event?: Event): Promise<void> {
   try {
     const db = await openDatabase();
 
@@ -211,7 +203,7 @@ export async function handleOverlappingPoly(hyperciteIds, event) {
 
     // Filter out null results and collect all citedIN links
     const validHypercites = hypercites.filter(hc => hc !== null);
-    const allCitedINLinks = [];
+    const allCitedINLinks: string[] = [];
 
     validHypercites.forEach(hypercite => {
       if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
@@ -236,12 +228,8 @@ export async function handleOverlappingPoly(hyperciteIds, event) {
 
 /**
  * Navigate to hypercite targets with proper sequencing and DOM readiness
- * @param {string} highlightId - The highlight ID to navigate to first
- * @param {string} internalId - Optional internal ID to navigate to after highlight
- * @param {Object} lazyLoader - The lazy loader instance
- * @param {boolean} showOverlay - Whether to show loading overlay
  */
-export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader, showOverlay = false) {
+export async function navigateToHyperciteTarget(highlightId: string, internalId: string | null, lazyLoader: any, showOverlay = false): Promise<void> {
   try {
     console.log(`🎯 Starting hypercite navigation to highlight: ${highlightId}, internal: ${internalId}`);
 
@@ -274,7 +262,7 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
       if (hyperciteInContainer) {
         console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
         // Scroll within the hyperlit container
-        const scroller = currentContainer.querySelector('.scroller');
+        const scroller = currentContainer!.querySelector('.scroller');
         if (scroller) {
           hyperciteInContainer.scrollIntoView({
             behavior: 'smooth',
@@ -313,11 +301,8 @@ export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoa
 
 /**
  * Navigate to footnote targets and open in hyperlit container
- * @param {string} footnoteId - The footnote ID to navigate to (e.g., "bookId_Fn1234")
- * @param {string} internalId - Optional internal hypercite ID to scroll to after opening
- * @param {Object} lazyLoader - The lazy loader instance
  */
-export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoader) {
+export async function navigateToFootnoteTarget(footnoteId: string, internalId: string | null, lazyLoader: any): Promise<void> {
   try {
     console.log(`🎯 Starting footnote navigation to: ${footnoteId}, internal: ${internalId}`);
 
@@ -353,10 +338,10 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
 
     // Play arrow-pulse animation on footnote for navigation emphasis
     footnoteElement.classList.add('arrow-target');
-    const handleEnd = (e) => {
+    const handleEnd = (e: Event) => {
       if (e.target === footnoteElement) {
-        footnoteElement.classList.remove('arrow-target');
-        footnoteElement.removeEventListener('animationend', handleEnd);
+        footnoteElement!.classList.remove('arrow-target');
+        footnoteElement!.removeEventListener('animationend', handleEnd);
       }
     };
     footnoteElement.addEventListener('animationend', handleEnd);
@@ -409,10 +394,8 @@ export async function navigateToFootnoteTarget(footnoteId, internalId, lazyLoade
 
 /**
  * Navigate to a hypercite link
- * @param {string} link - The link to navigate to
- * @param {string} clickedHyperciteId - The ID of the clicked hypercite (for loading overlay)
  */
-export async function navigateToHyperciteLink(link, clickedHyperciteId = "hypercite_link") {
+export async function navigateToHyperciteLink(link: string, clickedHyperciteId = "hypercite_link"): Promise<void> {
   // If the link is relative, prepend the base URL
   if (link.startsWith("/")) {
     link = window.location.origin + link;
@@ -444,7 +427,7 @@ export async function navigateToHyperciteLink(link, clickedHyperciteId = "hyperc
       const { openContainerChain, buildChainFromUrl } = await import('../initializePage.js');
       const chain = await buildChainFromUrl(bookSegment, allSegments);
       if (chain.length > 0) {
-        await openContainerChain(chain, currentLazyLoader, internalId || null);
+        await openContainerChain(chain, currentLazyLoader, (internalId || null) as any);
         return; // Don't do normal navigation
       }
     }

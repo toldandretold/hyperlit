@@ -134,7 +134,7 @@ import { NavigationCompletionBarrier, NavigationProcess } from './navigation/Nav
  */
 
 import { book, OpenHyperlightID, OpenFootnoteID } from "./app.js";
-import { openHighlightById } from './hyperlights/index.js';
+import { openHighlightById } from './hyperlights/index';
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
@@ -147,7 +147,7 @@ import {
   waitForElementReady,
   waitForChunkLoadingComplete
 } from "./domReadiness.js";
-import { highlightTargetHypercite } from "./hypercites/index.js";
+import { highlightTargetHypercite } from "./hypercites/index";
 import { revealGhostIfTombstone } from "./hypercites/animations.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
 import { ProgressOverlayConductor } from './navigation/ProgressOverlayConductor.js';
