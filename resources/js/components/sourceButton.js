@@ -865,6 +865,46 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+  /**
+   * Resolve an open/close animation: clear `isAnimating` (and run `onSettle`) on
+   * EITHER the container's own `transitionend` OR a duration fallback, and cancel
+   * any settle still pending from a previous (interrupted) animation so its
+   * callback can't later flip `isAnimating` / add `.hidden` under a newer one.
+   *
+   * Two ways the bare `{once:true}` transitionend listener used to fail:
+   *  - A close that arrives DURING the open animation (the e2e real-drag is near
+   *    instant, so open→resize→overlay-click completes in ~150ms, well inside the
+   *    0.3s slide-in): the open's transitionend hasn't fired, so `isAnimating` is
+   *    still true. closeContainer no longer early-returns on that (see its guard);
+   *    arming a new settle here cancels the open's pending one.
+   *  - A resize drag writes `transform: translateX(0) !important` inline, snapping
+   *    the transform mid-animation and cancelling the transition (fires
+   *    `transitioncancel`, not `transitionend`) — the duration fallback covers it.
+   * The `e.target` guard ignores `transitionend` bubbling up from child elements.
+   */
+  _settleAnimation(onSettle) {
+    if (this._cancelSettle) this._cancelSettle();
+
+    let done = false;
+    const teardown = () => {
+      this.container.removeEventListener("transitionend", onEnd);
+      clearTimeout(timer);
+      this._cancelSettle = null;
+    };
+    const settle = () => {
+      if (done) return;
+      done = true;
+      teardown();
+      if (onSettle) onSettle();
+      this.isAnimating = false;
+    };
+    const onEnd = (e) => { if (e.target === this.container) settle(); };
+    this.container.addEventListener("transitionend", onEnd);
+    // > the 0.3s `transition: transform` in containers.css.
+    const timer = setTimeout(settle, 400);
+    this._cancelSettle = () => { done = true; teardown(); };
+  }
+
   async openContainer() {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
@@ -882,13 +922,15 @@ export class SourceContainerManager extends ContainerManager {
     window.activeContainer = this.container.id;
     this.updateState(); // Adds .open class via parent's updateState()
 
-    this.container.addEventListener("transitionend", () => {
-      this.isAnimating = false;
-    }, { once: true });
+    this._settleAnimation();
   }
 
   async closeContainer() {
-    if (this.isAnimating || !this.container) return;
+    // Honour a close even while the open animation is still in flight: gate on
+    // isOpen (set synchronously by open/close) rather than isAnimating, otherwise
+    // an overlay click landing inside the 0.3s slide-in is silently dropped and
+    // the panel stays open. `_settleAnimation` cancels the open's pending settle.
+    if (!this.container || !this.isOpen) return;
 
     if (this.isInEditMode) {
       await this.saveEditForm();
@@ -919,10 +961,7 @@ export class SourceContainerManager extends ContainerManager {
     window.activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()
 
-    this.container.addEventListener("transitionend", () => {
-      this.container.classList.add("hidden");
-      this.isAnimating = false;
-    }, { once: true });
+    this._settleAnimation(() => this.container.classList.add("hidden"));
   }
 
   async handleEditClick() {
