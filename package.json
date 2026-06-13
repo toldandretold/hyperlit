@@ -15,6 +15,7 @@
         "dev:network": "export APP_URL=http://$(node show-ip.js --ip-only):8000 && node show-ip.js --network && concurrently -r -n PHP,IMP1,IMP2,CITE,VIBE,EMBED,DEV,MAIL -c \"cyan,magenta,magenta,red,blue,gray,green,yellow\" --kill-others-on-fail --restart-tries 3 --restart-after 1000 \"npm:php:network\" \"npm:queue:import\" \"npm:queue:import\" \"npm:queue:citation\" \"npm:queue:vibe\" \"npm:queue:embeddings\" \"npm:dev\" \"npm:mail\"",
         "build": "vite build",
         "typecheck": "tsc --noEmit",
+        "viz:idb": "WRITE_FLOWVIZ=1 vitest run tests/javascript/indexedDB/flowViz.generate.test.js",
         "test": "vitest",
         "test:ui": "vitest --ui",
         "test:run": "vitest run",
