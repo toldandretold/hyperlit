@@ -243,6 +243,23 @@ Hypercites and Hyperlights are stored in hyperlights and hypercites data tables 
 2. we don't want users editing the nodes data table of another user's book. (hyperlights and hypercites are treated as the sovereign data of their users, and not tied to the sovereign data of other users, except via the relation of node_id)
 3. this also enables us to have a ghost hypercite system, which [is done](https://hyperlit.io/book_1776498326506).
 
+### Codebase map (visualisation)
+
+The codebase is **visualised**. [`/visualisation`](visualisation/README.md) generates an
+interactive data-flow map of how data moves through the app — **straight from the source code**,
+so it can't quietly go out of date (CI byte-checks it). Open **`visualisation/generated/full-stack-data-map.html`** in a browser.
+
+```bash
+npm run viz:idb     # regenerate the map from the current code
+```
+
+It currently maps the **front end** end-to-end — the reader page (`reader.blade.php`), the
+DOM-manipulation modules (`hyperlights` / `hypercites` / `divEditor`), the IndexedDB layer, and
+the API seam (which Postgres table each endpoint hits) — laid out as a **folder × role** grid
+with two lenses (data flow, and code coupling). The **PHP tier** (routes → controllers →
+Eloquent → tables) is the planned next extension, joined onto the JS side at the shared
+endpoint URL. Full detail and how to extend it: [`visualisation/README.md`](visualisation/README.md).
+
 ## Tests
 
 ### Regression Tests

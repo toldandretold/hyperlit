@@ -332,9 +332,16 @@ Run your application and verify:
 
 ## 📚 Further Reading
 
+- **Data-flow visualization** — `gen/README.md` documents the interactive code map
+  (`visualisation/generated/full-stack-data-map.html`) of this whole layer: how to read it (folder × role grid, the
+  flow/coupling lenses), how it's generated from the source (`gen/collect.ts`), and how to
+  regenerate it (`npm run viz:idb`).
 - See `CLAUDE.md` in project root for overall architecture
 - See individual module files for detailed documentation
-- See `indexedDB-compat.js` for the backward compatibility facade
+
+> ⚠️ Parts of this README predate the JS→TS migration (it references `.js` files, schema
+> v21, `nodeChunks`/`redoLog` stores, and the deleted `indexedDB-compat.js`). For the
+> current, code-derived picture of every module and store, see the generated map above.
 
 ## ✅ Refactoring Status
 

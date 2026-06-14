@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
-import { collect, renderAll, writeArtifacts, ARTIFACTS } from '../../../resources/js/indexedDB/gen/collect';
+import { collect, renderAll, writeArtifacts, ARTIFACTS } from '../../../visualisation/js/collect';
 
 if (process.env.WRITE_FLOWVIZ) {
   const viz = writeArtifacts();

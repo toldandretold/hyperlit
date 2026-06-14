@@ -1,5 +1,7 @@
 /**
- * Data-flow graph generator for the IndexedDB layer.
+ * Data-flow graph generator for the front-end data layer (the JS lives in
+ * /visualisation — see visualisation/README.md). Today it maps DOM ↔ IndexedDB ↔
+ * the API seam; the PHP/controller tier is the planned next extension.
  *
  * Models DATA MOVEMENT across the stack the user cares about —
  *   DOM  →  (JS) IndexedDB object stores  →  (PHP) PostgreSQL tables
@@ -19,9 +21,9 @@
  * touches the DOM. Non-exported helpers fold into the exported caller(s).
  *
  * Output (regenerate with `npm run viz:idb`):
- *   - flowViz.generated.json ... the {nodes, modules, edges} graph
- *   - FLOWMAP.generated.md ..... per-function data-flow listing
- *   - docs/idb-flow.html ....... interactive cytoscape diagram (collapse/expand)
+ *   - visualisation/generated/flowViz.generated.json ... the {nodes, modules, edges} graph
+ *   - visualisation/generated/FLOWMAP.generated.md ..... per-function data-flow listing
+ *   - visualisation/generated/full-stack-data-map.html . interactive cytoscape diagram
  *
  * PURE on import; only writeArtifacts() touches disk. Deterministic (no
  * Date/random) so the no-drift gate can byte-compare.
@@ -32,25 +34,35 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-import { FLOW_STAGES } from '../flowMap';
-import { STORE_CONFIGS, DB_VERSION } from '../core/connection';
-import { DB_NAME, STORE_NAMES } from '../types';
+// This generator visualises the front-end data layer, so it reads that layer's own
+// metadata (stage registry, store schema, record shapes) from resources/js/indexedDB.
+import { FLOW_STAGES } from '../../resources/js/indexedDB/flowMap';
+import { STORE_CONFIGS, DB_VERSION } from '../../resources/js/indexedDB/core/connection';
+import { DB_NAME, STORE_NAMES } from '../../resources/js/indexedDB/types';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const IDB_ROOT = path.resolve(HERE, '..');
-const RES_ROOT = path.resolve(IDB_ROOT, '..');          // resources/js — all module keys are relative to here
-const REPO_ROOT = path.resolve(IDB_ROOT, '../../..');
+const HERE = path.dirname(fileURLToPath(import.meta.url)); // visualisation/js
+const VIS_ROOT = path.resolve(HERE, '..');                 // visualisation
+const REPO_ROOT = path.resolve(VIS_ROOT, '..');            // repo root
+const RES_ROOT = path.join(REPO_ROOT, 'resources', 'js');  // resources/js — module keys are relative to here
+const IDB_ROOT = path.join(RES_ROOT, 'indexedDB');         // the front-end data layer scanned for the graph
 
 /**
  * Extra source folders analyzed alongside the IndexedDB layer: the DOM↔IndexedDB
  * mediators that read the DOM and write the stores even in read mode
- * (highlight-on-select, copy-as-hypercite). They form the JS tier between the
- * DOM node and the object stores.
+ * (highlight-on-select, copy-as-hypercite) plus the editor itself (divEditor —
+ * the heaviest DOM writer, mutation-observer-driven). They form the JS tier
+ * between the reader page and the object stores.
  */
-const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites')];
+const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor')];
 
-// keep STORE_CONFIGS referenced so the schema source stays pinned to this file
-void STORE_CONFIGS;
+/** Per-store key + index names — what each object store holds — straight from the schema. */
+const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Object.fromEntries(
+  STORE_CONFIGS.map(cfg => {
+    const kp = Array.isArray(cfg.keyPath) ? cfg.keyPath.join(' + ') : String(cfg.keyPath);
+    const indices = (cfg.indices ?? []).map(i => (typeof i === 'string' ? i : i.name));
+    return [cfg.name, { keyPath: cfg.autoIncrement ? `${kp} (auto)` : kp, indices }];
+  }),
+);
 
 const STORE_SET = new Set<string>(STORE_NAMES);
 
@@ -146,6 +158,8 @@ export interface FlowViz {
   /** stage ids in write→read order — used to lay functions out in columns. */
   stageOrder: string[];
   legend: { rel: string; from: string; to: string; desc: string }[];
+  /** per-store key + index names (what each object store holds), from STORE_CONFIGS. */
+  storeSchema: Record<string, { keyPath: string; indices: string[] }>;
   nodes: GraphNode[];
   modules: GraphModule[];
   edges: GraphEdge[];
@@ -357,11 +371,12 @@ export function collect(): FlowViz {
     stageOf.get(key)?.id
     ?? (key.startsWith('hyperlights/') ? 'hyperlights'
       : key.startsWith('hypercites/') ? 'hypercites'
+      : key.startsWith('divEditor/') ? 'divEditor'
       : 'infra');
 
   /** A module is analyzed if it's a flow-map indexedDB module or lives in a mediator folder. */
   const isAnalyzed = (key: string): boolean =>
-    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/');
+    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/') || key.startsWith('divEditor/');
 
   const allFiles: string[] = [];
   const rec = (dir: string) => {
@@ -463,7 +478,7 @@ export function collect(): FlowViz {
   for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store' });
   const tables = [...tablesSeen].sort();
   for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table' });
-  nodes.push({ id: 'dom', label: 'DOM / editor', kind: 'dom' });
+  nodes.push({ id: 'dom', label: 'reader.blade.php', kind: 'dom' });
 
   // Per-module data-movement role, aggregated from its functions' (folded) edges.
   const agg = new Map<string, { pg: boolean; dom: boolean; store: boolean }>();
@@ -498,10 +513,10 @@ export function collect(): FlowViz {
       dbName: DB_NAME, dbVersion: DB_VERSION,
       fnCount: fnViews.length, moduleCount: modules.length, storeCount: STORE_NAMES.length, tableCount: tables.length,
       edgeCount: edges.length,
-      sources: ['exported functions (TS AST)', 'indexedDB layer + hyperlights/hypercites (DOM↔IDB mediators)', 'core/connection STORE_CONFIGS', 'real fetch/sendBeacon → PG tables (Eloquent $table names)', 'flowMap.ts (stage clustering)'],
-      note: 'GENERATED by resources/js/indexedDB/gen/collect.ts — do not edit. Run `npm run viz:idb`.',
+      sources: ['exported functions (TS AST)', 'indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)', 'core/connection STORE_CONFIGS', 'real fetch/sendBeacon → PG tables (Eloquent $table names)', 'flowMap.ts (stage clustering)'],
+      note: 'GENERATED by visualisation/js/collect.ts — do not edit. Run `npm run viz:idb`.',
     },
-    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites'],
+    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites', 'divEditor'],
     legend: [
       { rel: 'read', from: 'store', to: 'fn', desc: 'function reads an IndexedDB object store' },
       { rel: 'write', from: 'fn', to: 'store', desc: 'function writes an IndexedDB object store' },
@@ -511,6 +526,7 @@ export function collect(): FlowViz {
       { rel: 'domwrite', from: 'fn', to: 'dom', desc: 'function writes the DOM' },
       { rel: 'call', from: 'fn', to: 'fn', desc: 'function calls another (data handoff)' },
     ],
+    storeSchema: STORE_SCHEMA,
     nodes, modules, edges,
   };
 }
@@ -532,15 +548,15 @@ export function renderMarkdown(viz: FlowViz): string {
   }
 
   const L: string[] = [];
-  L.push('<!-- GENERATED by resources/js/indexedDB/gen/collect.ts — do not edit. Run `npm run viz:idb`. -->');
+  L.push('<!-- GENERATED by visualisation/js/collect.ts — do not edit. Run `npm run viz:idb`. -->');
   L.push('');
-  L.push('# IndexedDB layer — data-flow graph');
+  L.push('# Full-stack data map — Hyperlit');
   L.push('');
   L.push(`**${viz.meta.dbName}** schema v${viz.meta.dbVersion} · ` +
     `${viz.meta.fnCount} functions in ${viz.meta.moduleCount} modules · ` +
     `${viz.meta.storeCount} object stores · ${viz.meta.tableCount} PG tables · ${viz.meta.edgeCount} edges`);
   L.push('');
-  L.push('Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `docs/idb-flow.html`.');
+  L.push('Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.');
   L.push('');
   L.push('## Functions — what data each moves');
   L.push('');
@@ -568,12 +584,12 @@ export function renderMarkdown(viz: FlowViz): string {
 export function renderHtml(viz: FlowViz): string {
   const data = JSON.stringify(viz);
   return `<!doctype html>
-<!-- GENERATED by resources/js/indexedDB/gen/collect.ts — do not edit. Run \`npm run viz:idb\`. -->
+<!-- GENERATED by visualisation/js/collect.ts — do not edit. Run \`npm run viz:idb\`. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IndexedDB layer — data-flow graph</title>
+<title>Full-stack data map — Hyperlit</title>
 <script src="vendor/cytoscape.min.js"></script>
 <style>
   :root{--bg:#0f1117;--panel:#171a23;--line:#2a3040;--text:#e6e9ef;--dim:#8b93a7;}
@@ -596,20 +612,21 @@ export function renderHtml(viz: FlowViz): string {
 </head>
 <body>
 <div id="top">
-  <h1>IndexedDB data-flow</h1>
+  <h1>Full-stack data map</h1>
   <span class="meta" id="meta"></span>
   <span class="spacer"></span>
   <label class="meta">focus <select id="focus"></select></label>
   <button id="expandAll">expand all</button>
   <button id="collapseAll">collapse all</button>
-  <button id="toggleCalls">hide call edges</button>
+  <button id="toggleCalls" title="show which functions call which — the code's internal wiring (coupling/modularity), a different lens from data flow">show code coupling</button>
   <button id="fit">fit</button>
 </div>
 <div id="cy"></div>
 <div id="side">
+  <p id="modehint" style="margin:0 0 12px;padding:7px 9px;background:#1e2230;border:1px solid var(--line);border-radius:6px;font-weight:600;">DATA FLOW — lines = data moving (page ↔ IndexedDB ↔ server).</p>
   <h2>Legend</h2>
   <div class="legend" id="legend"></div>
-  <p id="hint">Layers = the 3 data stores (<b>DOM</b> ▸ <b>IndexedDB</b> ▸ <b>PostgreSQL</b>); code sits in the gap it bridges, by <b>role</b> (from its edges, not its folder): <b style="color:#3fb6b6">teal</b> = DOM↔IndexedDB (captures gestures, writes stores), <b style="color:#caa14b">amber</b> = IndexedDB→Postgres (syncs to Laravel). Click a module to expand its functions; click a function/store/table to trace its data. Call edges hidden by default.</p>
+  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click anything</b> to trace its connections in the current lens — the rest dims but stays visible so you keep your place. <b>Double-click a module box</b> to drill into its files (and again to collapse).<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: instead of data flow, lines become <i>which function calls which</i> (the code's internal wiring). Orange lines there = a call crossing folders — modules reaching into each other, i.e. tight coupling worth untangling.</p>
   <div id="detail"></div>
 </div>
 <script>
@@ -619,37 +636,64 @@ var nodeById = {}; VIZ.nodes.forEach(function(n){ nodeById[n.id]=n; });
 var fnModule = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="fn") fnModule[n.id]=n.module; });
 var dataIds = {}; VIZ.nodes.forEach(function(n){ if(n.kind!=="fn") dataIds[n.id]=true; });
 var expanded = {};
-var callsHidden = true;   // intra-JS call edges are noise by default; toggle on demand
+// Two lenses over the SAME boxes. "flow" = data movement (read/write/push/pull/dom);
+// "coupling" = which function calls which (the code's internal wiring / modularity).
+// The toggle swaps which edge set is live AND what a click follows, so the two
+// questions never muddy each other.
+var mode = "flow";
+function applyMode(){
+  var couple = mode==="coupling";
+  cy.edges('[rel = "call"]').style("display", couple?"element":"none");
+  cy.edges('[rel != "call"]').style("display", couple?"none":"element");
+}
 
 function rep(id){ if(dataIds[id]) return id; var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod); }
 
 function rebuild(){
-  // Layers = the 3 data stores (DOM ▸ IndexedDB ▸ Postgres). Code sits in the GAP
-  // it bridges, by ROLE (from its edges, NOT its folder):
-  //   capture = touches DOM (DOM↔IndexedDB) · sync = pushes/pulls PG (IndexedDB↔Postgres) · store = IDB-internal.
-  // Top→bottom: PG tables / sync code / store code / object stores / capture code / DOM.
-  var COLW=240, ROWH=44, MODH=34, STARTX=215, NCOLS=7;
-  var TABLEY=70, GAP=90;
+  // TWO axes, both meaningful:
+  //   VERTICAL = role (from edges): PG tables / sync code / stores / capture code / DOM.
+  //   HORIZONTAL = top-level source folder under resources/js (indexedDB, hyperlights,
+  //   hypercites, divEditor). Each folder owns a contiguous zone; a box's column tells
+  //   you its folder, its row tells you what it does → folder×role at a glance.
+  var COLW=240, ROWH=44, MODH=34, STARTX=215;
+  var TABLEY=70, GAP=90, TARGET_ROWS=8;
   var els=[];
 
   var byBand={capture:[],store:[],sync:[]};
   VIZ.modules.forEach(function(m){ (byBand[m.band]||byBand.store).push(m); });
-  Object.keys(byBand).forEach(function(b){ byBand[b].sort(function(a,c){return a.id<c.id?-1:(a.id>c.id?1:0);}); });
 
-  // round-robin modules into NCOLS columns; each column stacks with cumulative Y (handles expansion)
+  // folder zones across the X axis. Known folders in a fixed order, extras appended.
+  var FOLDER_ORDER=["indexedDB","hyperlights","hypercites","divEditor"];
+  var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6"};
+  var folders=[]; VIZ.modules.forEach(function(m){ var f=m.id.split("/")[0]; if(folders.indexOf(f)<0) folders.push(f); });
+  folders.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a),ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib||(a<b?-1:1); });
+  // a folder gets >1 sub-column only when one band would otherwise stack too tall
+  var subCols={}, startCol={}, totalCols=0;
+  folders.forEach(function(f){
+    var maxIn=1;
+    ["sync","store","capture"].forEach(function(b){ var c=byBand[b].filter(function(m){return m.id.split("/")[0]===f;}).length; if(c>maxIn)maxIn=c; });
+    subCols[f]=Math.max(1,Math.ceil(maxIn/TARGET_ROWS)); startCol[f]=totalCols; totalCols+=subCols[f];
+  });
+  var NCOLS=Math.max(1,totalCols);
+
+  // place each band's modules into their folder's sub-column(s); cumulative Y per column
   function layoutBand(mods, topY){
     var colY=[]; for(var c=0;c<NCOLS;c++) colY[c]=topY;
-    mods.forEach(function(m,i){
-      var c=i%NCOLS, colX=STARTX+c*COLW;
-      if(expanded[m.id]){
-        els.push({data:{id:"mod:"+m.id,label:m.label,kind:"module",expanded:1,band:m.band}});
-        var sy=colY[c]+30;
-        m.fnIds.forEach(function(fid,j){ var n=nodeById[fid]; els.push({data:{id:fid,label:n.label,kind:"fn",parent:"mod:"+m.id,stage:n.stage,band:m.band,leaf:n.leaf?1:0},position:{x:colX,y:sy+j*ROWH}}); });
-        colY[c]=sy+m.fnIds.length*ROWH+30;
-      } else {
-        els.push({data:{id:"mod:"+m.id,label:m.label+"  ("+m.fnIds.length+")",kind:"module",expanded:0,band:m.band},position:{x:colX,y:colY[c]}});
-        colY[c]+=MODH+14;
-      }
+    var byFolder={}; mods.forEach(function(m){ var f=m.id.split("/")[0]; (byFolder[f]=byFolder[f]||[]).push(m); });
+    folders.forEach(function(f){
+      var list=(byFolder[f]||[]).sort(function(a,c){return a.id<c.id?-1:(a.id>c.id?1:0);});
+      list.forEach(function(m,i){
+        var c=startCol[f]+(i%subCols[f]), colX=STARTX+c*COLW;
+        if(expanded[m.id]){
+          els.push({data:{id:"mod:"+m.id,label:m.label,kind:"module",expanded:1,band:m.band,folder:f}});
+          var sy=colY[c]+30;
+          m.fnIds.forEach(function(fid,j){ var n=nodeById[fid]; els.push({data:{id:fid,label:n.label,kind:"fn",parent:"mod:"+m.id,stage:n.stage,band:m.band,folder:f,leaf:n.leaf?1:0},position:{x:colX,y:sy+j*ROWH}}); });
+          colY[c]=sy+m.fnIds.length*ROWH+30;
+        } else {
+          els.push({data:{id:"mod:"+m.id,label:m.label+"  ("+m.fnIds.length+")",kind:"module",expanded:0,band:m.band,folder:f},position:{x:colX,y:colY[c]}});
+          colY[c]+=MODH+14;
+        }
+      });
     });
     return Math.max.apply(null,colY);
   }
@@ -669,27 +713,37 @@ function rebuild(){
   stores.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"store"},position:{x:spread(stores.length,i),y:STOREY}}); });
   var tables=VIZ.nodes.filter(function(n){return n.kind==="table";});
   tables.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"table"},position:{x:spread(tables.length,i),y:TABLEY}}); });
-  els.push({data:{id:"dom",label:"DOM / editor",kind:"dom"},position:{x:fullW/2,y:DOMY}});
+  els.push({data:{id:"dom",label:"reader.blade.php",kind:"dom"},position:{x:fullW/2,y:DOMY}});
+
+  // folder column headers across the top (the HORIZONTAL legend)
+  folders.forEach(function(f){
+    var cx=STARTX+(startCol[f]+(subCols[f]-1)/2)*COLW;
+    els.push({data:{id:"colh:"+f,label:f,kind:"colheader",hcolor:FCOLOR[f]||"#9aa6bd"},position:{x:cx,y:TABLEY-60}});
+  });
 
   // left-margin labels: 3 big DATA levels + 2 role labels for the code GAPS
   var labelX = STARTX - 195;
   els.push({data:{id:"tier:postgres",label:"POSTGRESQL",kind:"tier"},position:{x:labelX,y:TABLEY}});
-  els.push({data:{id:"band:sync",label:"code:\\nIDB → Postgres",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
-  els.push({data:{id:"tier:idb",label:"INDEXEDDB",kind:"tier"},position:{x:labelX,y:(STORECODE_TOP+STOREY)/2}});
-  els.push({data:{id:"band:capture",label:"code:\\nDOM ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
-  els.push({data:{id:"tier:dom",label:"DOM",kind:"tier"},position:{x:labelX,y:DOMY}});
+  els.push({data:{id:"band:sync",label:"code:\\nIndexedDB ↔ server",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
+  els.push({data:{id:"tier:idb",label:"INDEXEDDB\\n(object stores)",kind:"tier"},position:{x:labelX,y:(STORECODE_TOP+STOREY)/2}});
+  els.push({data:{id:"band:capture",label:"code:\\npage ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
+  els.push({data:{id:"tier:dom",label:"DOM\\n(reader.blade.php)",kind:"tier"},position:{x:labelX,y:DOMY}});
 
+  // folder of an endpoint id ("mod:hyperlights/x" / "hyperlights/x:fn" → "hyperlights")
+  function folderOf(id){ if(id.indexOf("mod:")===0) id=id.slice(4); return id.split("/")[0]; }
   var seen={};
   VIZ.edges.forEach(function(e){
     var s=rep(e.source), t=rep(e.target);
     if(!s||!t||s===t) return;
     var k=s+"|"+t+"|"+e.rel;
     if(seen[k]) return; seen[k]=true;
-    els.push({data:{id:k,source:s,target:t,rel:e.rel,label:e.label||""}});
+    // a call edge that crosses folders = coupling between modules (the modularity smell)
+    var cross=(e.rel==="call" && folderOf(s)!==folderOf(t))?1:0;
+    els.push({data:{id:k,source:s,target:t,rel:e.rel,cross:cross,label:e.label||""}});
   });
   cy.json({elements:els});
   cy.style().update();
-  if(callsHidden) cy.edges("[rel = 'call']").style("display","none");
+  applyMode();
   cy.layout({name:"preset"}).run();
 }
 
@@ -706,10 +760,13 @@ var cy = cytoscape({
     {selector:"node[kind = 'store']",style:{"background-color":"#1f4a3c","border-color":"#54c98a","shape":"barrel","padding":"10px","font-weight":"bold"}},
     {selector:"node[kind = 'table']",style:{"background-color":"#3d2350","border-color":"#b07ad6","shape":"cutrectangle","padding":"10px","font-weight":"bold"}},
     {selector:"node[kind = 'dom']",style:{"background-color":"#2a3a5c","border-color":"#6f8bd6","shape":"ellipse","padding":"14px","font-weight":"bold"}},
-    {selector:"node[band = 'capture']",style:{"background-color":"#143a40","border-color":"#3fb6b6","color":"#cfeaea"}},
-    {selector:"node[band = 'sync']",style:{"background-color":"#3a3320","border-color":"#caa14b","color":"#f0e2c2"}},
+    {selector:"node[folder = 'hyperlights']",style:{"background-color":"#143a40","border-color":"#3fb6b6","color":"#cfeaea"}},
+    {selector:"node[folder = 'hypercites']",style:{"background-color":"#3a3320","border-color":"#caa14b","color":"#f0e2c2"}},
+    {selector:"node[folder = 'divEditor']",style:{"background-color":"#16294a","border-color":"#5e8fd6","color":"#d4e2f5"}},
+    {selector:"node[folder = 'indexedDB']",style:{"background-color":"#222b3a","border-color":"#4a5670","color":"#c8d0e0"}},
     {selector:"node[kind = 'tier']",style:{"label":"data(label)","color":"#5a6788","font-size":"28px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","text-wrap":"wrap","width":"label","height":"label","events":"no"}},
     {selector:"node[kind = 'codeband']",style:{"label":"data(label)","color":"#566688","font-size":"13px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","text-wrap":"wrap","width":"label","height":"label","events":"no"}},
+    {selector:"node[kind = 'colheader']",style:{"label":"data(label)","color":"data(hcolor)","font-size":"20px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","width":"label","height":"label","events":"no"}},
     {selector:"edge",style:{"width":1.4,"curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":0.8,"line-color":"#4a5169","target-arrow-color":"#4a5169","opacity":0.75}},
     {selector:"edge[rel = 'read']",style:{"line-color":REL_COLOR.read,"target-arrow-color":REL_COLOR.read}},
     {selector:"edge[rel = 'write']",style:{"line-color":REL_COLOR.write,"target-arrow-color":REL_COLOR.write}},
@@ -718,7 +775,9 @@ var cy = cytoscape({
     {selector:"edge[rel = 'domread']",style:{"line-color":REL_COLOR.domread,"target-arrow-color":REL_COLOR.domread}},
     {selector:"edge[rel = 'domwrite']",style:{"line-color":REL_COLOR.domwrite,"target-arrow-color":REL_COLOR.domwrite}},
     {selector:"edge[rel = 'call']",style:{"line-color":REL_COLOR.call,"target-arrow-color":REL_COLOR.call,"line-style":"dashed","opacity":0.4,"arrow-scale":0.6}},
-    {selector:".faded",style:{"opacity":0.07}},
+    {selector:"edge[rel = 'call'][?cross]",style:{"line-color":"#e0683c","target-arrow-color":"#e0683c","opacity":0.85,"width":2}},
+    {selector:"node.faded",style:{"opacity":0.32}},
+    {selector:"edge.faded",style:{"opacity":0.06}},
     {selector:"node.hl",style:{"border-width":2.5,"border-color":"#fff","opacity":1}},
     {selector:"edge.hl",style:{"opacity":1,"width":2.6}}
   ],
@@ -727,7 +786,13 @@ var cy = cytoscape({
 
 function relabel(id){ return id.replace(/^store:|^pg:|^mod:/,""); }
 function clearHL(){ cy.elements().removeClass("faded hl"); }
-function highlight(n){ cy.elements().addClass("faded").removeClass("hl"); var nb=n.closedNeighborhood(); nb.removeClass("faded").addClass("hl"); }
+function highlight(n){
+  cy.elements().addClass("faded").removeClass("hl");
+  // Follow the ACTIVE lens's edges only: data-flow edges in "flow" mode, fn-call edges
+  // in "coupling" mode. A glow then always has a visible connector and one clear meaning.
+  var de=n.connectedEdges(mode==="coupling" ? '[rel = "call"]' : '[rel != "call"]');
+  n.union(de).union(de.connectedNodes()).removeClass("faded").addClass("hl");
+}
 
 function groupsFor(ids){
   var set={}; ids.forEach(function(i){set[i]=true;});
@@ -753,7 +818,9 @@ function showDetail(n){
   var d=document.getElementById("detail"); var id=n.id(); var kind=n.data("kind");
   if(kind==="store"||kind==="table"||kind==="dom"){
     var movers=[]; VIZ.edges.forEach(function(e){ if(e.source===id) movers.push(relabel(e.target)+"  ("+e.rel+")"); if(e.target===id) movers.push(relabel(e.source)+"  ("+e.rel+")"); });
-    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"DOM")+"</div><h3>connected functions</h3>"+ul(movers);
+    var schemaHtml="";
+    if(kind==="store"){ var sc=VIZ.storeSchema[n.data("label")]; if(sc){ schemaHtml="<h3>key</h3><ul><li>"+sc.keyPath+"</li></ul><h3>indexes</h3>"+ul(sc.indices); } }
+    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+"<h3>connected functions</h3>"+ul(movers);
     return;
   }
   var ids, title, sub;
@@ -768,10 +835,19 @@ function showDetail(n){
     (kind==="module"?"":"<h3>calls</h3>"+ul(g.call));
 }
 
+// ONE consistent rule: single click = trace data flow + detail (anything, modules too).
+// Double click a MODULE = drill into / collapse its files (the only thing that re-lays-out).
+var lastTap={id:null,t:0};
 cy.on("tap","node",function(ev){
-  var n=ev.target, id=n.id();
-  if(n.data("kind")==="tier" || n.data("kind")==="codeband") return;
-  if(n.data("kind")==="module"){ var mid=id.slice(4); if(expanded[mid]) delete expanded[mid]; else expanded[mid]=true; rebuild(); clearHL(); showDetail(n.data("expanded")?cy.getElementById("mod:"+mid):n); return; }
+  var n=ev.target, id=n.id(), kind=n.data("kind");
+  if(kind==="tier" || kind==="codeband" || kind==="colheader") return;
+  var now=Date.now(), isDouble=(lastTap.id===id && now-lastTap.t<350); lastTap={id:id,t:now};
+  if(isDouble && kind==="module"){
+    var mid=id.slice(4); if(expanded[mid]) delete expanded[mid]; else expanded[mid]=true;
+    rebuild(); clearHL();
+    var mod=cy.getElementById("mod:"+mid); if(mod&&mod.length) showDetail(mod);
+    return;
+  }
   highlight(n); showDetail(n);
 });
 cy.on("tap",function(ev){ if(ev.target===cy) clearHL(); });
@@ -783,8 +859,15 @@ VIZ.nodes.filter(function(n){return n.kind!=="fn";}).forEach(function(n){ var o=
 sel.onchange=function(){ clearHL(); if(!sel.value) return; var n=cy.getElementById(sel.value); if(!n||!n.length) return; cy.elements().addClass("faded"); n.closedNeighborhood().removeClass("faded").addClass("hl"); cy.animate({fit:{eles:n.closedNeighborhood(),padding:60}},{duration:300}); };
 document.getElementById("expandAll").onclick=function(){ VIZ.modules.forEach(function(m){expanded[m.id]=true;}); rebuild(); clearHL(); };
 document.getElementById("collapseAll").onclick=function(){ expanded={}; rebuild(); clearHL(); };
-document.getElementById("toggleCalls").onclick=function(){ callsHidden=!callsHidden; cy.edges("[rel = 'call']").style("display",callsHidden?"none":"element"); this.textContent=callsHidden?"show call edges":"hide call edges"; };
-document.getElementById("toggleCalls").textContent="show call edges";  // call edges hidden by default
+document.getElementById("toggleCalls").onclick=function(){
+  mode = mode==="coupling" ? "flow" : "coupling";
+  applyMode(); clearHL();
+  this.textContent = mode==="coupling" ? "show data flow" : "show code coupling";
+  document.getElementById("modehint").textContent = mode==="coupling"
+    ? "CODE COUPLING — lines = function calls; orange = a call crossing folders (modules reaching into each other)."
+    : "DATA FLOW — lines = data moving (page ↔ IndexedDB ↔ server).";
+};
+document.getElementById("toggleCalls").textContent="show code coupling";  // default lens = data flow
 
 rebuild();
 cy.fit(undefined,40);
@@ -798,9 +881,9 @@ document.getElementById("fit").onclick=function(){ cy.animate({fit:{padding:40}}
 // ── filesystem entry point ──────────────────────────────────────────
 
 export const ARTIFACTS = {
-  json: path.join(IDB_ROOT, 'flowViz.generated.json'),
-  md: path.join(IDB_ROOT, 'FLOWMAP.generated.md'),
-  html: path.join(REPO_ROOT, 'docs/idb-flow.html'),
+  json: path.join(VIS_ROOT, 'generated', 'flowViz.generated.json'),
+  md: path.join(VIS_ROOT, 'generated', 'FLOWMAP.generated.md'),
+  html: path.join(VIS_ROOT, 'generated', 'full-stack-data-map.html'),
 };
 
 export function renderAll(viz: FlowViz = collect()) {
@@ -814,6 +897,7 @@ export function renderAll(viz: FlowViz = collect()) {
 export function writeArtifacts(): FlowViz {
   const viz = collect();
   const out = renderAll(viz);
+  fs.mkdirSync(path.dirname(ARTIFACTS.json), { recursive: true });
   fs.writeFileSync(ARTIFACTS.json, out.json);
   fs.writeFileSync(ARTIFACTS.md, out.md);
   fs.mkdirSync(path.dirname(ARTIFACTS.html), { recursive: true });

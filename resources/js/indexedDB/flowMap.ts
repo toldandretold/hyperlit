@@ -145,8 +145,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'utilities/index', plain: 'Barrel for utilities.' },
       { path: 'index', plain: 'Root barrel + dependency-injection bootstrap (initializeDatabaseModules / updateDatabaseBookId).' },
       { path: 'types', plain: 'Shared record/payload types — single source of truth, pinned by the characterization tests.' },
-      { path: 'flowMap', plain: 'This registry: stages + module placements + tier order feeding the generated visualisation and the drift test.' },
-      { path: 'gen/collect', plain: 'Visualisation generator: gathers flowMap + store schema + record interfaces + real import/fetch edges + test coverage into flowViz.generated.json, FLOWMAP.generated.md and docs/idb-flow.html.' },
+      { path: 'flowMap', plain: 'This registry: stages + module placements + tier order feeding the generated visualisation and the drift test. (The generator itself now lives in /visualisation — visualisation/js/collect.ts.)' },
     ],
   },
 ];

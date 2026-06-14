@@ -26,6 +26,6 @@
             "@/*": ["./resources/js/*"]
         }
     },
-    "include": ["resources/js/**/*"],
+    "include": ["resources/js/**/*", "visualisation/**/*.ts"],
     "exclude": ["node_modules", "public", "resources/js/archive/**"]
 }
