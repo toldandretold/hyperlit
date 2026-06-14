@@ -144,6 +144,9 @@ export interface GraphEdge {
   /** read | write | push | pull | domread | domwrite | call */
   rel: string;
   label?: string;
+  /** call edges only: true when the callee is on a path to a store/Postgres sink — i.e. this
+   *  call hands a payload toward saved data, so the flow lens shows it as a data hand-off. */
+  dataPath?: boolean;
 }
 
 export interface FlowViz {
@@ -510,11 +513,11 @@ export function collect(): FlowViz {
   const edges: GraphEdge[] = [];
   const tablesSeen = new Set<string>();
   const edgeKey = new Set<string>();
-  const pushEdge = (source: string, target: string, rel: string, label?: string) => {
+  const pushEdge = (source: string, target: string, rel: string, label?: string, dataPath?: boolean) => {
     const id = `${source}__${rel}__${target}`;
     if (edgeKey.has(id)) return;
     edgeKey.add(id);
-    edges.push({ id, source, target, rel, ...(label ? { label } : {}) });
+    edges.push({ id, source, target, rel, ...(label ? { label } : {}), ...(dataPath ? { dataPath: true } : {}) });
   };
 
   const exportedFns = [...fnReg.values()].filter(f => f.exported).sort((a, b) => a.id.localeCompare(b.id));
@@ -524,6 +527,23 @@ export function collect(): FlowViz {
     const hasData = folded.reads.size > 0 || folded.writes.size > 0 || folded.endpoints.size > 0 || folded.domRead || folded.domWrite;
     return { fn, folded, hasData };
   });
+
+  // Stage 1 data-flow: does this fn (transitively, via calls) reach a STORE or Postgres endpoint?
+  // A call edge to such a fn is a "data hand-off" — a hop on the path to saved data.
+  const foldedById = new Map<string, Folded>(fnViews.map(v => [v.fn.id, v.folded]));
+  const sinkMemo = new Map<string, boolean>();
+  const reachesSink = (id: string, stack: Set<string> = new Set()): boolean => {
+    const cached = sinkMemo.get(id);
+    if (cached !== undefined) return cached;
+    if (stack.has(id)) return false;            // cycle back-edge: don't loop (don't memoize)
+    stack.add(id);
+    const f = foldedById.get(id);
+    let r = !!f && (f.reads.size > 0 || f.writes.size > 0 || f.endpoints.size > 0);
+    if (!r && f) for (const c of f.exportedCalls) { if (reachesSink(c, stack)) { r = true; break; } }
+    stack.delete(id);
+    sinkMemo.set(id, r);
+    return r;
+  };
 
   for (const { fn, folded } of fnViews) {
     folded.reads.forEach(s => pushEdge(`store:${s}`, fn.id, 'read'));
@@ -540,7 +560,7 @@ export function collect(): FlowViz {
         else pushEdge(`pg:${t}`, fn.id, 'pull', ep);
       }
     }
-    for (const c of folded.exportedCalls) pushEdge(fn.id, c, 'call');
+    for (const c of folded.exportedCalls) pushEdge(fn.id, c, 'call', undefined, reachesSink(c));
   }
 
   for (const { fn, hasData } of fnViews) {
@@ -595,7 +615,8 @@ export function collect(): FlowViz {
       { rel: 'pull', from: 'table', to: 'fn', desc: 'function pulls from Postgres (GET, via PHP)' },
       { rel: 'domread', from: 'dom', to: 'fn', desc: 'function reads the DOM' },
       { rel: 'domwrite', from: 'fn', to: 'dom', desc: 'function writes the DOM' },
-      { rel: 'call', from: 'fn', to: 'fn', desc: 'function calls another (data handoff)' },
+      { rel: 'call', from: 'fn', to: 'fn', desc: 'function calls another (coupling lens)' },
+      { rel: 'handoff', from: 'fn', to: 'fn', desc: 'call that carries data toward a store/server (shown in the flow lens)' },
     ],
     storeSchema: STORE_SCHEMA,
     nodes, modules, edges,
@@ -690,19 +711,21 @@ export function renderHtml(viz: FlowViz): string {
   <button id="expandAll">expand all</button>
   <button id="collapseAll">collapse all</button>
   <button id="toggleCalls" title="show which functions call which — the code's internal wiring (coupling/modularity), a different lens from data flow">show code coupling</button>
+  <button id="findCycles" title="find every circular dependency (feedback loop) in the call graph and highlight them red">find circular deps</button>
+  <button id="traceDirBtn" title="flow lens: which direction a click traces. Nothing selected = the whole save/load pipeline.">trace: where it goes ▸</button>
   <button id="fit">fit</button>
 </div>
 <div id="cy"></div>
 <div id="side">
-  <p id="modehint" style="margin:0 0 12px;padding:7px 9px;background:#1e2230;border:1px solid var(--line);border-radius:6px;font-weight:600;">DATA FLOW — lines = data moving (page ↔ IndexedDB ↔ server).</p>
+  <p id="modehint" style="margin:0 0 12px;padding:7px 9px;background:#1e2230;border:1px solid var(--line);border-radius:6px;font-weight:600;">DATA FLOW — lines = data moving: store reads/writes, server push/pull, DOM, + <span style="color:#5fb3a3">teal call-hops</span> that carry data toward a store/server.</p>
   <h2>Legend</h2>
   <div class="legend" id="legend"></div>
-  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click anything</b> to trace its connections in the current lens — the rest dims but stays visible so you keep your place. <b>Double-click a module box</b> to drill into its files (and again to collapse).<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: instead of data flow, lines become <i>which function calls which</i> (the code's internal wiring). Orange lines there = a call crossing folders — modules reaching into each other, i.e. tight coupling worth untangling.</p>
+  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other). The <b>find circular deps</b> button scans the entire call graph and lights <b style="color:#ff4d4f">every circular dependency</b> red at once — feedback loops to break.</p>
   <div id="detail"></div>
 </div>
 <script>
 var VIZ = ${data};
-var REL_COLOR = {read:"#5eb0ef",write:"#54c98a",push:"#e0a44b",pull:"#b07ad6",domread:"#3fb6b6",domwrite:"#e06a9a",call:"#4a5169"};
+var REL_COLOR = {read:"#5eb0ef",write:"#54c98a",push:"#e0a44b",pull:"#b07ad6",domread:"#3fb6b6",domwrite:"#e06a9a",call:"#4a5169",handoff:"#5fb3a3"};
 var nodeById = {}; VIZ.nodes.forEach(function(n){ nodeById[n.id]=n; });
 var fnModule = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="fn") fnModule[n.id]=n.module; });
 var dataIds = {}; VIZ.nodes.forEach(function(n){ if(n.kind!=="fn") dataIds[n.id]=true; });
@@ -712,10 +735,15 @@ var expanded = {};
 // The toggle swaps which edge set is live AND what a click follows, so the two
 // questions never muddy each other.
 var mode = "flow";
+var selId = null;        // currently traced node id (null = nothing selected)
+var traceDir = "goes";   // "goes" (downstream/outputs) | "comesFrom" (upstream/inputs) | "both"
 function applyMode(){
   var couple = mode==="coupling";
   cy.edges('[rel = "call"]').style("display", couple?"element":"none");
   cy.edges('[rel != "call"]').style("display", couple?"none":"element");
+  // FLOW lens also shows data-carrying call hops (calls on a path to a store/server) — the
+  // genuine, hop-by-hop data path. Pure-control calls stay coupling-only.
+  if(!couple) cy.edges('[rel = "call"][?dataPath]').style("display","element");
 }
 
 function rep(id){ if(dataIds[id]) return id; var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod); }
@@ -810,7 +838,7 @@ function rebuild(){
     if(seen[k]) return; seen[k]=true;
     // a call edge that crosses folders = coupling between modules (the modularity smell)
     var cross=(e.rel==="call" && folderOf(s)!==folderOf(t))?1:0;
-    els.push({data:{id:k,source:s,target:t,rel:e.rel,cross:cross,label:e.label||""}});
+    els.push({data:{id:k,source:s,target:t,rel:e.rel,cross:cross,dataPath:e.dataPath?1:0,label:e.label||""}});
   });
   cy.json({elements:els});
   cy.style().update();
@@ -821,6 +849,7 @@ function rebuild(){
 var cy = cytoscape({
   container: document.getElementById("cy"),
   elements: [],
+  autoungrabify: true,        // nodes are NOT draggable (don't move when you pan/scroll)
   wheelSensitivity: 0.2,
   style: [
     {selector:"node",style:{"label":"data(label)","color":"#e6e9ef","font-size":"11px","text-valign":"center","text-halign":"center","width":"label","height":"24px","padding":"7px","shape":"roundrectangle","background-color":"#1e2230","border-width":1,"border-color":"#3a4150","text-wrap":"none"}},
@@ -847,22 +876,108 @@ var cy = cytoscape({
     {selector:"edge[rel = 'domwrite']",style:{"line-color":REL_COLOR.domwrite,"target-arrow-color":REL_COLOR.domwrite}},
     {selector:"edge[rel = 'call']",style:{"line-color":REL_COLOR.call,"target-arrow-color":REL_COLOR.call,"line-style":"dashed","opacity":0.4,"arrow-scale":0.6}},
     {selector:"edge[rel = 'call'][?cross]",style:{"line-color":"#e0683c","target-arrow-color":"#e0683c","opacity":0.85,"width":2}},
+    {selector:"edge[rel = 'call'][?dataPath]",style:{"line-style":"solid","line-color":REL_COLOR.handoff,"target-arrow-color":REL_COLOR.handoff,"opacity":0.9,"width":2}},
     {selector:"node.faded",style:{"opacity":0.32}},
     {selector:"edge.faded",style:{"opacity":0.06}},
     {selector:"node.hl",style:{"border-width":2.5,"border-color":"#fff","opacity":1}},
-    {selector:"edge.hl",style:{"opacity":1,"width":2.6}}
+    {selector:"edge.hl",style:{"opacity":1,"width":2.6}},
+    {selector:"edge.cycle",style:{"line-color":"#ff4d4f","target-arrow-color":"#ff4d4f","line-style":"solid","opacity":1,"width":3.2,"z-index":99}}
   ],
   layout:{name:"preset"}
 });
 
 function relabel(id){ return id.replace(/^store:|^pg:|^mod:/,""); }
-function clearHL(){ cy.elements().removeClass("faded hl"); }
-function highlight(n){
-  cy.elements().addClass("faded").removeClass("hl");
-  // Follow the ACTIVE lens's edges only: data-flow edges in "flow" mode, fn-call edges
-  // in "coupling" mode. A glow then always has a visible connector and one clear meaning.
-  var de=n.connectedEdges(mode==="coupling" ? '[rel = "call"]' : '[rel != "call"]');
-  n.union(de).union(de.connectedNodes()).removeClass("faded").addClass("hl");
+function clearHL(){ cy.elements().removeClass("faded hl cycle"); }
+
+// Edges that belong to the active lens: data-flow edges in "flow", fn-call edges in "coupling".
+function lensEdgeSel(){ return mode==="coupling" ? 'edge[rel = "call"]' : 'edge[rel != "call"], edge[rel = "call"][?dataPath]'; }
+// adjacency (out / incoming) over the current lens's edges, respecting collapse state
+function buildAdj(){
+  var out={}, inc={};
+  cy.edges(lensEdgeSel()).forEach(function(e){
+    var s=e.source().id(), t=e.target().id();
+    (out[s]=out[s]||[]).push(t); (inc[t]=inc[t]||[]).push(s);
+  });
+  return {out:out, inc:inc};
+}
+function reachSet(start, adj){ var seen={}; var q=[start]; while(q.length){ var c=q.shift(); (adj[c]||[]).forEach(function(nx){ if(!seen[nx]){ seen[nx]=1; q.push(nx); } }); } return seen; }
+
+function isDataNode(id){ return id==="dom" || id.indexOf("store:")===0 || id.indexOf("pg:")===0; }
+// FLOW trace: follow data DOWNSTREAM (the way the arrows point) from the clicked node, and STOP
+// at any store/table/DOM — data that lands there has arrived; nothing past it is a continuation
+// of this same hand-off. Bounded "where does this code's data end up". (Precise per-OBJECT
+// tracing through shared functions needs the type layer — that's Stage 2.)
+// Directed reach over the flow edges from a set of start nodes. useOut = follow arrows forward
+// (downstream / where data goes); useIn = backward (upstream / where it comes from). When
+// stopAtData, terminate AT a store/table/DOM (data has landed) — but never at the START node,
+// so selecting a store itself still shows what reads/writes it.
+function flowReach(startIds, useOut, useIn, stopAtData){
+  var out={}, inc={};
+  cy.edges('edge[rel != "call"], edge[rel = "call"][?dataPath]').forEach(function(e){
+    var s=e.source().id(), t=e.target().id();
+    (out[s]=out[s]||[]).push({n:t,e:e}); (inc[t]=inc[t]||[]).push({n:s,e:e});
+  });
+  var startSet={}; startIds.forEach(function(s){startSet[s]=1;});
+  var nodes={}, edges={}, q=[];
+  startIds.forEach(function(s){ if(!nodes[s]){nodes[s]=1;q.push(s);} });
+  while(q.length){
+    var cur=q.shift();
+    if(stopAtData && !startSet[cur] && isDataNode(cur)) continue;
+    if(useOut) (out[cur]||[]).forEach(function(x){ edges[x.e.id()]=1; if(!nodes[x.n]){nodes[x.n]=1;q.push(x.n);} });
+    if(useIn) (inc[cur]||[]).forEach(function(x){ edges[x.e.id()]=1; if(!nodes[x.n]){nodes[x.n]=1;q.push(x.n);} });
+  }
+  return {nodes:nodes, edges:edges};
+}
+function paintTrace(r){
+  Object.keys(r.nodes).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
+  Object.keys(r.edges).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
+}
+// Re-apply the current selection + direction. FLOW lens honours traceDir (goes/comesFrom/both);
+// COUPLING lens always shows full transitive reach + red feedback-loop cycles.
+function applyTrace(){
+  cy.elements().addClass("faded").removeClass("hl cycle");
+  if(mode==="coupling"){
+    if(!selId){ clearHL(); return; }
+    var adj=buildAdj();
+    var down=reachSet(selId, adj.out), up=reachSet(selId, adj.inc);
+    var inTrace={}; inTrace[selId]=1;
+    Object.keys(down).forEach(function(k){inTrace[k]=1;}); Object.keys(up).forEach(function(k){inTrace[k]=1;});
+    var cyc={}; cyc[selId]=1; Object.keys(down).forEach(function(k){ if(up[k]) cyc[k]=1; });
+    Object.keys(inTrace).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
+    cy.edges(lensEdgeSel()).forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(inTrace[s]&&inTrace[t]){ e.removeClass("faded").addClass("hl"); if(cyc[s]&&cyc[t]) e.addClass("cycle"); } });
+    return;
+  }
+  var useOut = traceDir!=="comesFrom", useIn = traceDir!=="goes";
+  if(selId){
+    paintTrace(flowReach([selId], useOut, useIn, true));         // node: stop where data lands
+  } else {
+    // nothing selected → the macro pipeline(s), full chain (no stop)
+    var dom=["dom"], pg=cy.nodes('[kind = "table"]').map(function(x){return x.id();});
+    if(traceDir==="goes") paintTrace(flowReach(dom, true, false, false));          // SAVE: DOM → … → Postgres
+    else if(traceDir==="comesFrom") paintTrace(flowReach(pg, true, false, false));  // LOAD: Postgres → … → DOM
+    else { var a=flowReach(dom,true,false,false), b=flowReach(pg,true,false,false);
+      paintTrace({nodes:Object.assign({},a.nodes,b.nodes), edges:Object.assign({},a.edges,b.edges)}); }
+  }
+}
+function highlight(n){ selId=n.id(); applyTrace(); }
+
+// Global circular-dependency scan: Tarjan SCCs over ALL call edges; an edge inside a
+// strongly-connected component of size >= 2 is part of a cycle (a circular dependency).
+function findCyclicCallEdges(){
+  var adj={}, nodeset={};
+  cy.edges('edge[rel = "call"]').forEach(function(e){ var s=e.source().id(), t=e.target().id(); (adj[s]=adj[s]||[]).push(t); nodeset[s]=1; nodeset[t]=1; });
+  var index=0, stack=[], onstack={}, idx={}, low={}, sccOf={}, sccN=0;
+  function sc(v){
+    idx[v]=low[v]=index++; stack.push(v); onstack[v]=1;
+    (adj[v]||[]).forEach(function(w){
+      if(idx[w]===undefined){ sc(w); low[v]=Math.min(low[v],low[w]); }
+      else if(onstack[w]){ low[v]=Math.min(low[v],idx[w]); }
+    });
+    if(low[v]===idx[v]){ var w; do{ w=stack.pop(); onstack[w]=0; sccOf[w]=sccN; }while(w!==v); sccN++; }
+  }
+  Object.keys(nodeset).forEach(function(v){ if(idx[v]===undefined) sc(v); });
+  var size={}; Object.keys(sccOf).forEach(function(v){ size[sccOf[v]]=(size[sccOf[v]]||0)+1; });
+  return cy.edges('edge[rel = "call"]').filter(function(e){ var s=e.source().id(), t=e.target().id(); return sccOf[s]!==undefined && sccOf[s]===sccOf[t] && size[sccOf[s]]>=2; });
 }
 
 function groupsFor(ids){
@@ -915,13 +1030,13 @@ cy.on("tap","node",function(ev){
   var now=Date.now(), isDouble=(lastTap.id===id && now-lastTap.t<350); lastTap={id:id,t:now};
   if(isDouble && kind==="module"){
     var mid=id.slice(4); if(expanded[mid]) delete expanded[mid]; else expanded[mid]=true;
-    rebuild(); clearHL();
+    selId=null; rebuild(); clearHL();
     var mod=cy.getElementById("mod:"+mid); if(mod&&mod.length) showDetail(mod);
     return;
   }
   highlight(n); showDetail(n);
 });
-cy.on("tap",function(ev){ if(ev.target===cy) clearHL(); });
+cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.isEdge())){ selId=null; clearHL(); } });
 
 document.getElementById("meta").textContent=VIZ.meta.dbName+" v"+VIZ.meta.dbVersion+" · "+VIZ.meta.fnCount+" fns / "+VIZ.meta.moduleCount+" modules · "+VIZ.meta.storeCount+" stores · "+VIZ.meta.tableCount+" tables";
 var leg=document.getElementById("legend"); VIZ.legend.forEach(function(l){ var row=document.createElement("div"); row.innerHTML="<span class='sw' style='border-top-color:"+REL_COLOR[l.rel]+"'></span><b>"+l.rel+"</b> &nbsp;"+l.from+"→"+l.to; leg.appendChild(row); });
@@ -932,13 +1047,42 @@ document.getElementById("expandAll").onclick=function(){ VIZ.modules.forEach(fun
 document.getElementById("collapseAll").onclick=function(){ expanded={}; rebuild(); clearHL(); };
 document.getElementById("toggleCalls").onclick=function(){
   mode = mode==="coupling" ? "flow" : "coupling";
-  applyMode(); clearHL();
+  selId=null; applyMode(); clearHL();
   this.textContent = mode==="coupling" ? "show data flow" : "show code coupling";
+  document.getElementById("traceDirBtn").style.display = mode==="coupling" ? "none" : "";  // direction is a flow concept
   document.getElementById("modehint").textContent = mode==="coupling"
     ? "CODE COUPLING — lines = function calls; orange = a call crossing folders (modules reaching into each other)."
-    : "DATA FLOW — lines = data moving (page ↔ IndexedDB ↔ server).";
+    : "DATA FLOW — lines = data moving: store reads/writes, server push/pull, DOM, + teal call-hops that carry data toward a store/server.";
 };
 document.getElementById("toggleCalls").textContent="show code coupling";  // default lens = data flow
+
+// Direction toggle (flow lens): cycle goes ▸ comesFrom ▸ both, re-applying to the current selection
+// (or, with nothing selected, the whole save/load pipeline).
+var TRACE_LABEL={goes:"trace: where it goes ▸", comesFrom:"trace: where it comes from ▸", both:"trace: both ways ▸"};
+document.getElementById("traceDirBtn").onclick=function(){
+  traceDir = traceDir==="goes" ? "comesFrom" : (traceDir==="comesFrom" ? "both" : "goes");
+  this.textContent = TRACE_LABEL[traceDir];
+  applyTrace();
+};
+
+function setCouplingLens(){
+  if(mode!=="coupling"){
+    mode="coupling"; applyMode();
+    document.getElementById("toggleCalls").textContent="show data flow";
+  }
+}
+document.getElementById("findCycles").onclick=function(){
+  setCouplingLens();                       // circular deps are a call-graph property — show calls
+  document.getElementById("traceDirBtn").style.display="none";
+  selId=null; clearHL();
+  var cyc=findCyclicCallEdges();
+  var hint=document.getElementById("modehint");
+  if(cyc.length===0){ hint.textContent="CIRCULAR DEPENDENCIES — none found ✓"; return; }
+  cy.elements().addClass("faded");
+  cyc.removeClass("faded").addClass("cycle");
+  cyc.connectedNodes().removeClass("faded").addClass("hl");
+  hint.textContent="CIRCULAR DEPENDENCIES — "+cyc.length+" cyclic call edge(s) in red (feedback loops to break). Click empty space to clear.";
+};
 
 rebuild();
 cy.fit(undefined,40);

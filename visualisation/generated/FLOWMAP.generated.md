@@ -434,5 +434,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 - **pull** (table → fn): function pulls from Postgres (GET, via PHP)
 - **domread** (dom → fn): function reads the DOM
 - **domwrite** (fn → dom): function writes the DOM
-- **call** (fn → fn): function calls another (data handoff)
+- **call** (fn → fn): function calls another (coupling lens)
+- **handoff** (fn → fn): call that carries data toward a store/server (shown in the flow lens)
 

@@ -69,7 +69,13 @@
       "rel": "call",
       "from": "fn",
       "to": "fn",
-      "desc": "function calls another (data handoff)"
+      "desc": "function calls another (coupling lens)"
+    },
+    {
+      "rel": "handoff",
+      "from": "fn",
+      "to": "fn",
+      "desc": "call that carries data toward a store/server (shown in the flow lens)"
     }
   ],
   "storeSchema": {
@@ -4606,13 +4612,15 @@
       "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
@@ -4630,31 +4638,36 @@
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__hypercites/database:getHyperciteById",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__hypercites/deletion:markHyperciteAsGhost",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "hypercites/deletion:markHyperciteAsGhost",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/core/connection:openDatabase",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__domwrite__dom",
@@ -4738,25 +4751,29 @@
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/database:getHyperciteById",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/deletion:delinkHypercite",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
       "target": "hypercites/deletion:delinkHypercite",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/deletion:markHyperciteAsGhost",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
       "target": "hypercites/deletion:markHyperciteAsGhost",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__indexedDB/core/connection:openDatabase",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__domwrite__dom",
@@ -4990,7 +5007,8 @@
       "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBFailure",
       "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
       "target": "indexedDB/core/healthMonitor:reportIDBFailure",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBSuccess",
@@ -5002,7 +5020,8 @@
       "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
       "target": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
@@ -5014,7 +5033,8 @@
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBFailure",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:reportIDBFailure",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBSuccess",
@@ -5026,13 +5046,15 @@
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__divEditor/editorState:queueNodeForDeletion",
@@ -5050,13 +5072,15 @@
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__hypercites/database:getHyperciteById",
       "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__indexedDB/core/connection:openDatabase",
       "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__indexedDB/syncQueue/queue:queueForSync",
@@ -6160,7 +6184,8 @@
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "source": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
@@ -6214,7 +6239,8 @@
       "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__domwrite__dom",
@@ -6490,7 +6516,8 @@
       "id": "editToolbar/index:EditToolbar.deleteFromIndexedDB__call__indexedDB/nodes/delete:deleteIndexedDBRecord",
       "source": "editToolbar/index:EditToolbar.deleteFromIndexedDB",
       "target": "indexedDB/nodes/delete:deleteIndexedDBRecord",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "editToolbar/index:EditToolbar.hide__domwrite__dom",
@@ -6538,7 +6565,8 @@
       "id": "editToolbar/index:EditToolbar.saveToIndexedDB__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
       "source": "editToolbar/index:EditToolbar.saveToIndexedDB",
       "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "editToolbar/index:EditToolbar.show__domwrite__dom",
@@ -6826,7 +6854,8 @@
       "id": "hypercites/containers:createOverlappingPolyContainer__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/containers:createOverlappingPolyContainer",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/containers:PolyClick__call__hypercites/database:fetchLibraryFromServer",
@@ -6838,7 +6867,8 @@
       "id": "hypercites/containers:PolyClick__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/containers:PolyClick",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/copy:fallbackCopyText__domwrite__dom",
@@ -6850,7 +6880,8 @@
       "id": "hypercites/copy:handleCopyEvent__call__hypercites/copy:wrapSelectedTextInDOM",
       "source": "hypercites/copy:handleCopyEvent",
       "target": "hypercites/copy:wrapSelectedTextInDOM",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/copy:handleCopyEvent__call__hypercites/utils:generateHyperciteID",
@@ -6874,7 +6905,8 @@
       "id": "hypercites/copy:wrapSelectedTextInDOM__call__hypercites/database:NewHyperciteIndexedDB",
       "source": "hypercites/copy:wrapSelectedTextInDOM",
       "target": "hypercites/database:NewHyperciteIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/copy:wrapSelectedTextInDOM__call__hypercites/utils:selectionSpansMultipleNodes",
@@ -6898,7 +6930,8 @@
       "id": "hypercites/database:getHyperciteData__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/database:getHyperciteData",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/database:getHyperciteData__call__indexedDB/core/utilities:createNodeChunksKey",
@@ -6910,25 +6943,29 @@
       "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/database:NewHyperciteIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hypercites/database:NewHyperciteIndexedDB",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "hypercites/database:NewHyperciteIndexedDB",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "hypercites/database:NewHyperciteIndexedDB",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/syncQueue/queue:queueForSync",
@@ -6958,7 +6995,8 @@
       "id": "hypercites/deletion:delinkHypercite__call__hypercites/database:getHyperciteById",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:delinkHypercite__call__hypercites/utils:determineRelationshipStatus",
@@ -6982,25 +7020,29 @@
       "id": "hypercites/deletion:delinkHypercite__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:delinkHypercite__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/index:getHyperciteFromIndexedDB",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "indexedDB/hypercites/index:getHyperciteFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:delinkHypercite__domwrite__dom",
@@ -7024,37 +7066,43 @@
       "id": "hypercites/deletion:handleHyperciteDeletion__call__hypercites/deletion:delinkHypercite",
       "source": "hypercites/deletion:handleHyperciteDeletion",
       "target": "hypercites/deletion:delinkHypercite",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__hypercites/database:getHyperciteById",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7090,13 +7138,15 @@
       "id": "hypercites/listeners:initializeHypercitingControls__call__hypercites/copy:handleCopyEvent",
       "source": "hypercites/listeners:initializeHypercitingControls",
       "target": "hypercites/copy:handleCopyEvent",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:CoupleClick__call__hypercites/database:getHyperciteData",
       "source": "hypercites/navigation:CoupleClick",
       "target": "hypercites/database:getHyperciteData",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:CoupleClick__call__hypercites/navigation:navigateToHyperciteLink",
@@ -7108,7 +7158,8 @@
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/database:getHyperciteById",
       "source": "hypercites/navigation:handleOverlappingCouple",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/navigation:navigateToHyperciteLink",
@@ -7120,43 +7171,50 @@
       "id": "hypercites/navigation:handleOverlappingCouple__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/navigation:handleOverlappingCouple",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__hypercites/containers:createOverlappingPolyContainer",
       "source": "hypercites/navigation:handleOverlappingHyperciteClick",
       "target": "hypercites/containers:createOverlappingPolyContainer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__hypercites/database:getHyperciteById",
       "source": "hypercites/navigation:handleOverlappingHyperciteClick",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/navigation:handleOverlappingHyperciteClick",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingPoly__call__hypercites/containers:createOverlappingPolyContainer",
       "source": "hypercites/navigation:handleOverlappingPoly",
       "target": "hypercites/containers:createOverlappingPolyContainer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingPoly__call__hypercites/database:getHyperciteById",
       "source": "hypercites/navigation:handleOverlappingPoly",
       "target": "hypercites/database:getHyperciteById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingPoly__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/navigation:handleOverlappingPoly",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:navigateToFootnoteTarget__call__hypercites/animations:highlightTargetHypercite",
@@ -7222,7 +7280,8 @@
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener__call__hyperlights/annotationPaste:handleHighlightContainerPaste",
       "source": "hyperlights/annotationPaste:addHighlightContainerPasteListener",
       "target": "hyperlights/annotationPaste:handleHighlightContainerPaste",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__hypercites/listeners:attachUnderlineClickListeners",
@@ -7240,13 +7299,15 @@
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__hyperlights/annotations:saveHighlightAnnotation",
       "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
       "target": "hyperlights/annotations:saveHighlightAnnotation",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
       "target": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__domwrite__dom",
@@ -7258,13 +7319,15 @@
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/annotations:attachAnnotationListener",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/annotations:attachAnnotationListener",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7282,7 +7345,8 @@
       "id": "hyperlights/annotations:saveAnnotationToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/annotations:saveAnnotationToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotations:saveAnnotationToIndexedDB__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7300,13 +7364,15 @@
       "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/annotations:saveHighlightAnnotation",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/annotations:saveHighlightAnnotation",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7354,13 +7420,15 @@
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/database:addToHighlightsTable",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/database:addToHighlightsTable",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/deletion:reprocessHighlightsForNodes",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/deletion:reprocessHighlightsForNodes",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/listeners:attachMarkListeners",
@@ -7390,19 +7458,22 @@
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7426,13 +7497,15 @@
       "id": "hyperlights/createHighlight:openBrainFromSelection__call__hyperlights/createHighlight:createHighlightHandler",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "hyperlights/createHighlight:createHighlightHandler",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:openBrainFromSelection__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:openBrainFromSelection__write__store:hyperlights",
@@ -7444,7 +7517,8 @@
       "id": "hyperlights/database:addToHighlightsTable__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:addToHighlightsTable",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/database:addToHighlightsTable__domwrite__dom",
@@ -7462,7 +7536,8 @@
       "id": "hyperlights/database:removeHighlightFromHyperlights__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:removeHighlightFromHyperlights",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/database:removeHighlightFromHyperlights__write__store:hyperlights",
@@ -7474,7 +7549,8 @@
       "id": "hyperlights/database:removeHighlightFromNodeChunks__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:removeHighlightFromNodeChunks",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/database:removeHighlightFromNodeChunks__write__store:nodes",
@@ -7486,7 +7562,8 @@
       "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__write__store:nodes",
@@ -7498,7 +7575,8 @@
       "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:updateNodeHighlight",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/utilities:createNodeChunksKey",
@@ -7522,13 +7600,15 @@
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromHyperlights",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "hyperlights/database:removeHighlightFromHyperlights",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/deletion:isContentLink",
@@ -7540,7 +7620,8 @@
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/deletion:reprocessHighlightsForNodes",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "hyperlights/deletion:reprocessHighlightsForNodes",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/deletion:unwrapElement",
@@ -7558,7 +7639,8 @@
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7576,13 +7658,15 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/database:removeHighlightFromHyperlights",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "hyperlights/database:removeHighlightFromHyperlights",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/deletion:unwrapMark",
@@ -7594,19 +7678,22 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7618,7 +7705,8 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__domwrite__dom",
@@ -7630,13 +7718,15 @@
       "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/database:removeHighlightFromHyperlights",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "hyperlights/database:removeHighlightFromHyperlights",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/database:removeHighlightFromNodeChunks",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "hyperlights/database:removeHighlightFromNodeChunks",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/deletion:unwrapMark",
@@ -7648,19 +7738,22 @@
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateBookTimestamp",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/syncQueue/queue:queueForSync",
@@ -7702,7 +7795,8 @@
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__domwrite__dom",
@@ -7798,19 +7892,22 @@
       "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlights/createHighlight:createHighlightHandler",
       "source": "hyperlights/selectionToolbar:initializeHighlightingControls",
       "target": "hyperlights/createHighlight:createHighlightHandler",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlights/createHighlight:openBrainFromSelection",
       "source": "hyperlights/selectionToolbar:initializeHighlightingControls",
       "target": "hyperlights/createHighlight:openBrainFromSelection",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlights/deleteHighlight:deleteHighlightHandler",
       "source": "hyperlights/selectionToolbar:initializeHighlightingControls",
       "target": "hyperlights/deleteHighlight:deleteHighlightHandler",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlights/listeners:addTouchAndClickListener",
@@ -7828,13 +7925,15 @@
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB__call__indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
       "source": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
       "target": "indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB__write__store:bibliography",
@@ -7853,7 +7952,8 @@
       "id": "indexedDB/core/connection:getConnection__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/connection:getConnection",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/connection:openDatabase__write__store:bibliography",
@@ -7907,7 +8007,8 @@
       "id": "indexedDB/core/connection:withWriteLock__call__indexedDB/core/connection:getConnection",
       "source": "indexedDB/core/connection:withWriteLock",
       "target": "indexedDB/core/connection:getConnection",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/healthMonitor:attemptRecovery__call__indexedDB/core/connection:closeDatabase",
@@ -7919,7 +8020,8 @@
       "id": "indexedDB/core/healthMonitor:attemptRecovery__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/healthMonitor:attemptRecovery",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/healthMonitor:attemptRecovery__call__indexedDB/core/recoveryToast:hideIDBRecoveryToast",
@@ -7937,7 +8039,8 @@
       "id": "indexedDB/core/healthMonitor:reportIDBFailure__call__indexedDB/core/healthMonitor:attemptRecovery",
       "source": "indexedDB/core/healthMonitor:reportIDBFailure",
       "target": "indexedDB/core/healthMonitor:attemptRecovery",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/healthMonitor:reportIDBFailure__call__indexedDB/core/recoveryToast:showIDBRecoveryToast",
@@ -7955,13 +8058,15 @@
       "id": "indexedDB/core/library:getAllOfflineAvailableBooks__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:getAllOfflineAvailableBooks",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:getLibraryObjectFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:getLibraryObjectFromIndexedDB__write__store:library",
@@ -7979,7 +8084,8 @@
       "id": "indexedDB/core/library:syncFirstNodeToTitle__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:syncFirstNodeToTitle",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:syncFirstNodeToTitle__call__indexedDB/syncQueue/queue:queueForSync",
@@ -8003,7 +8109,8 @@
       "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:updateAnnotationsTimestamp",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/syncQueue/queue:queueForSync",
@@ -8021,19 +8128,22 @@
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:updateBookTimestamp",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "indexedDB/core/library:updateBookTimestamp",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/library:updateBookTimestamp",
       "source": "indexedDB/core/library:updateBookTimestamp",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/syncQueue/queue:queueForSync",
@@ -8051,7 +8161,8 @@
       "id": "indexedDB/core/library:updateLocalAnnotationsTimestamp__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/core/library:updateLocalAnnotationsTimestamp__write__store:library",
@@ -8087,13 +8198,15 @@
       "id": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB__call__indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL",
       "source": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
       "target": "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB__write__store:footnotes",
@@ -8126,13 +8239,15 @@
       "id": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hydration/rebuild:rebuildNodeArrays__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hydration/rebuild:rebuildNodeArrays",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hydration/rebuild:rebuildNodeArrays__write__store:nodes",
@@ -8144,19 +8259,22 @@
       "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hypercites/helpers:resolveHypercite",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/hypercites/index:getHyperciteFromIndexedDB",
       "source": "indexedDB/hypercites/helpers:resolveHypercite",
       "target": "indexedDB/hypercites/index:getHyperciteFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "indexedDB/hypercites/helpers:resolveHypercite",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/helpers:resolveHypercite__write__store:hypercites",
@@ -8174,7 +8292,8 @@
       "id": "indexedDB/hypercites/index:addCitationToHypercite__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hypercites/index:addCitationToHypercite",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:addCitationToHypercite__call__indexedDB/core/utilities:parseNodeId",
@@ -8192,7 +8311,8 @@
       "id": "indexedDB/hypercites/index:getHyperciteFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hypercites/index:getHyperciteFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:getHyperciteFromIndexedDB__write__store:hypercites",
@@ -8204,37 +8324,43 @@
       "id": "indexedDB/hypercites/index:updateCitationForExistingHypercite__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateCitationForExistingHypercite__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateCitationForExistingHypercite__call__indexedDB/hypercites/helpers:resolveHypercite",
       "source": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "target": "indexedDB/hypercites/helpers:resolveHypercite",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateCitationForExistingHypercite__call__indexedDB/hypercites/index:getHyperciteFromIndexedDB",
       "source": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "target": "indexedDB/hypercites/index:getHyperciteFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateCitationForExistingHypercite__call__indexedDB/hypercites/index:updateHyperciteInIndexedDB",
       "source": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
       "target": "indexedDB/hypercites/index:updateHyperciteInIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateHyperciteInIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hypercites/index:updateHyperciteInIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/hypercites/index:updateHyperciteInIndexedDB__write__store:hypercites",
@@ -8410,13 +8536,15 @@
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/core/library:updateBookTimestamp",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/core/utilities:parseNodeId",
@@ -8428,13 +8556,15 @@
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/syncQueue/queue:queueForSync",
@@ -8464,13 +8594,15 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/core/library:updateBookTimestamp",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/core/library:updateBookTimestamp",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/core/utilities:parseNodeId",
@@ -8482,13 +8614,15 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/annotationUpserts:updateHyperciteRecords",
@@ -8524,7 +8658,8 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/syncQueue/queue:queueForSync",
@@ -8560,7 +8695,8 @@
       "id": "indexedDB/nodes/batch:updateSingleIndexedDBRecord__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "source": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites__call__indexedDB/nodes/positionCollector:collectMarkAndCitePositions",
@@ -8584,7 +8720,8 @@
       "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/delete:deleteIndexedDBRecord",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__indexedDB/core/utilities:parseNodeId",
@@ -8614,7 +8751,8 @@
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/core/utilities:parseNodeId",
@@ -8626,7 +8764,8 @@
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/nodes/read:getNodeChunkFromIndexedDB",
       "source": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization",
       "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__write__store:nodes",
@@ -8644,13 +8783,15 @@
       "id": "indexedDB/nodes/read:getAllNodeChunksForBook__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/read:getAllNodeChunksForBook",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB__call__indexedDB/core/utilities:parseNodeId",
@@ -8668,7 +8809,8 @@
       "id": "indexedDB/nodes/read:getNodeChunksAfter__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/read:getNodeChunksAfter",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunksAfter__call__indexedDB/core/utilities:parseNodeId",
@@ -8686,7 +8828,8 @@
       "id": "indexedDB/nodes/read:getNodeChunksFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL__push__pg:nodes",
@@ -8699,13 +8842,15 @@
       "id": "indexedDB/nodes/write:addNewBookToIndexedDB__call__indexedDB/nodes/write:addNodeChunkToIndexedDB",
       "source": "indexedDB/nodes/write:addNewBookToIndexedDB",
       "target": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
@@ -8729,7 +8874,8 @@
       "id": "indexedDB/nodes/write:deleteNodeChunksAfter__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/write:deleteNodeChunksAfter",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:deleteNodeChunksAfter__call__indexedDB/core/utilities:parseNodeId",
@@ -8747,7 +8893,8 @@
       "id": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB__write__store:nodes",
@@ -8759,7 +8906,8 @@
       "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
@@ -8777,7 +8925,8 @@
       "id": "indexedDB/nodes/write:writeNodeChunks__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/write:writeNodeChunks",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/nodes/write:writeNodeChunks__write__store:nodes",
@@ -8831,19 +8980,22 @@
       "id": "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking__call__indexedDB/syncQueue/master:executeSyncPayload",
       "source": "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",
       "target": "indexedDB/syncQueue/master:executeSyncPayload",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/syncQueue/master:updateHistoryLog__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/syncQueue/master:updateHistoryLog",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/syncQueue/master:updateHistoryLog__write__store:historyLog",
@@ -8909,7 +9061,8 @@
       "id": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB__write__store:bibliography",
@@ -8939,7 +9092,8 @@
       "id": "indexedDB/utilities/cleanup:clearDatabase__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/utilities/cleanup:clearDatabase",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/utilities/cleanup:clearDatabase__write__store:bibliography",
@@ -8993,7 +9147,8 @@
       "id": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB__write__store:bibliography",
@@ -9035,7 +9190,8 @@
       "id": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry__call__indexedDB/nodes/delete:deleteIndexedDBRecord",
       "source": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
       "target": "indexedDB/nodes/delete:deleteIndexedDBRecord",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry__call__indexedDB/utilities/retry:retryOperation",
