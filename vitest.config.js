@@ -19,10 +19,10 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: [
-        'resources/js/editToolbar/**/*.js',
-        'resources/js/divEditor/**/*.js',
-        'resources/js/paste/**/*.js',
-        'resources/js/indexedDB/**/*.js'
+        'resources/js/editToolbar/**/*.{js,ts}',
+        'resources/js/divEditor/**/*.{js,ts}',
+        'resources/js/paste/**/*.{js,ts}',
+        'resources/js/indexedDB/**/*.{js,ts}'
       ],
       exclude: [
         '**/*.test.js',

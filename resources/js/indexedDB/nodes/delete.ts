@@ -237,7 +237,7 @@ export async function deleteIndexedDBRecord(id: string | number): Promise<boolea
 
         // ✅ Dynamically import toolbar (only exists when editing)
         try {
-          const { getEditToolbar } = await import('../../editToolbar/index.js');
+          const { getEditToolbar } = await import('../../editToolbar/index');
           const toolbar = getEditToolbar();
           if (toolbar) {
               await toolbar.updateHistoryButtonStates();

@@ -262,7 +262,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         editableDiv.contentEditable = "true";
 
         // ✅ Dynamically import edit toolbar
-        const { getEditToolbar } = await import('../editToolbar/index.js');
+        const { getEditToolbar } = await import('../editToolbar/index');
         const toolbar = getEditToolbar();
         if (toolbar) {
           toolbar.setEditMode(true);
@@ -382,7 +382,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
 
   // ✅ Dynamically import edit modules (they should already be loaded if we were editing)
   Promise.all([
-    import('../editToolbar/index.js'),
+    import('../editToolbar/index'),
     import('../divEditor/index')
   ]).then(async ([editToolbar, divEditor]) => {
     const { getEditToolbar } = editToolbar;

@@ -10,11 +10,8 @@ import { placeCaretInEmptyListItem } from '../utilities/listItemCaret.js';
 
 /**
  * Check if element or any of its parents has the specified tag
- * @param {Element} element - The element to check
- * @param {string} tagName - The tag name to search for (e.g., "STRONG", "H1")
- * @returns {boolean}
  */
-export function hasParentWithTag(element, tagName) {
+export function hasParentWithTag(element: Element | null, tagName: string): boolean {
   if (!element) return false;
 
   if (element.tagName === tagName) {
@@ -22,17 +19,14 @@ export function hasParentWithTag(element, tagName) {
   }
 
   return element.parentNode && element.parentNode.nodeType === 1
-    ? hasParentWithTag(element.parentNode, tagName)
+    ? hasParentWithTag(element.parentNode as Element, tagName)
     : false;
 }
 
 /**
  * Find parent element with the specified tag
- * @param {Element} element - The element to start from
- * @param {string} tagName - The tag name to find
- * @returns {Element|null}
  */
-export function findParentWithTag(element, tagName) {
+export function findParentWithTag(element: Element | null, tagName: string): Element | null {
   if (!element) return null;
 
   if (element.tagName === tagName) {
@@ -40,35 +34,31 @@ export function findParentWithTag(element, tagName) {
   }
 
   return element.parentNode && element.parentNode.nodeType === 1
-    ? findParentWithTag(element.parentNode, tagName)
+    ? findParentWithTag(element.parentNode as Element, tagName)
     : null;
 }
 
 /**
  * Check if an element is a block-level element
- * @param {Element} element - The element to check
- * @returns {boolean}
  */
-export function isBlockElement(element) {
+export function isBlockElement(element: Node | null): boolean {
   if (!element || element.nodeType !== Node.ELEMENT_NODE) {
     return false;
   }
 
-  return STRUCTURAL_BLOCK_TAGS.has(element.tagName);
+  return STRUCTURAL_BLOCK_TAGS.has((element as Element).tagName);
 }
 
 /**
  * Get all block elements that intersect with a range
- * @param {Range} range - The range to check
- * @returns {Array<Element>}
  */
-export function getBlockElementsInRange(range) {
-  const blockElements = [];
+export function getBlockElementsInRange(range: Range): Element[] {
+  const blockElements: Element[] = [];
   const walker = document.createTreeWalker(
     range.commonAncestorContainer,
     NodeFilter.SHOW_ELEMENT,
     {
-      acceptNode: (node) => {
+      acceptNode: (node: Node) => {
         if (isBlockElement(node) && range.intersectsNode(node)) {
           return NodeFilter.FILTER_ACCEPT;
         }
@@ -77,9 +67,9 @@ export function getBlockElementsInRange(range) {
     }
   );
 
-  let node;
+  let node: Node | null;
   while ((node = walker.nextNode())) {
-    blockElements.push(node);
+    blockElements.push(node as Element);
   }
 
   return blockElements;
@@ -87,33 +77,30 @@ export function getBlockElementsInRange(range) {
 
 /**
  * Select across multiple elements
- * @param {Array<{element: Element}>} elements - Array of element objects
  */
-export function selectAcrossElements(elements) {
+export function selectAcrossElements(elements: Array<{ element: Element }>): void {
   if (elements.length === 0) return;
 
   const range = document.createRange();
-  range.setStartBefore(elements[0].element);
-  range.setEndAfter(elements[elements.length - 1].element);
+  range.setStartBefore(elements[0]!.element);
+  range.setEndAfter(elements[elements.length - 1]!.element);
 
   const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 /**
  * Get all elements with IDs in a selection range
- * @param {Range} range - The range to search
- * @returns {Array<Element>}
  */
-export function getElementsInSelectionRange(range) {
-  const elements = [];
+export function getElementsInSelectionRange(range: Range): Element[] {
+  const elements: Element[] = [];
   const iterator = document.createNodeIterator(
     range.commonAncestorContainer,
     NodeFilter.SHOW_ELEMENT,
     {
-      acceptNode: (node) => {
-        if (node.id && range.intersectsNode(node)) {
+      acceptNode: (node: Node) => {
+        if ((node as Element).id && range.intersectsNode(node)) {
           return NodeFilter.FILTER_ACCEPT;
         }
         return NodeFilter.FILTER_SKIP;
@@ -121,44 +108,38 @@ export function getElementsInSelectionRange(range) {
     }
   );
 
-  let node;
+  let node: Node | null;
   while ((node = iterator.nextNode())) {
-    elements.push(node);
+    elements.push(node as Element);
   }
   return elements;
 }
 
 /**
  * Find the closest block-level parent element
- * @param {Element} element - The element to start from
- * @returns {Element|null}
  */
-export function findClosestBlockParent(element) {
+export function findClosestBlockParent(element: Element | null): Element | null {
   if (!element) return null;
 
   if (STRUCTURAL_BLOCK_TAGS.has(element.tagName)) {
     // Skip chunk divs - they're containers, not content blocks that should be formatted/replaced
     if (element.tagName === "DIV" && element.classList?.contains('chunk')) {
       return element.parentNode && element.parentNode.nodeType === 1
-        ? findClosestBlockParent(element.parentNode)
+        ? findClosestBlockParent(element.parentNode as Element)
         : null;
     }
     return element;
   }
 
   return element.parentNode && element.parentNode.nodeType === 1
-    ? findClosestBlockParent(element.parentNode)
+    ? findClosestBlockParent(element.parentNode as Element)
     : null;
 }
 
 /**
  * Get the text offset of the cursor within an element
- * @param {Element} element - The containing element
- * @param {Node} container - The node containing the cursor
- * @param {number} offset - The offset within the container
- * @returns {number}
  */
-export function getTextOffsetInElement(element, container, offset) {
+export function getTextOffsetInElement(element: Node | null, container: Node | null, offset: number): number {
   if (!element || !container) return 0;
 
   const range = document.createRange();
@@ -171,29 +152,26 @@ export function getTextOffsetInElement(element, container, offset) {
 
 /**
  * Set cursor to a specific text offset within an element
- * @param {Element} element - The element to set cursor in
- * @param {number} textOffset - The text offset position
- * @param {Selection} [selection] - Optional selection object (defaults to window.getSelection())
  */
-export function setCursorAtTextOffset(element, textOffset, selection = null) {
+export function setCursorAtTextOffset(element: Element | null, textOffset: number, selection: Selection | null = null): void {
   if (!element) return;
 
   const sel = selection || window.getSelection();
+  if (!sel) return;
 
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
-    null,
-    false
+    null
   );
 
   let currentOffset = 0;
-  let targetNode = null;
+  let targetNode: Node | null = null;
   let targetOffset = 0;
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode;
-    const textLength = textNode.textContent.length;
+    const textLength = textNode.textContent?.length ?? 0;
 
     if (currentOffset + textLength >= textOffset) {
       targetNode = textNode;
@@ -208,12 +186,12 @@ export function setCursorAtTextOffset(element, textOffset, selection = null) {
     const lastTextNode = getLastTextNode(element);
     if (lastTextNode) {
       targetNode = lastTextNode;
-      targetOffset = lastTextNode.textContent.length;
+      targetOffset = lastTextNode.textContent?.length ?? 0;
     } else if (element.tagName === "LI") {
       // Empty list item: a caret at element-offset 0 renders to the LEFT of the
       // bullet/number under `list-style-position: inside`. Anchor it after a
       // zero-width space so it sits right of the marker. See listItemCaret.js.
-      placeCaretInEmptyListItem(element, sel);
+      placeCaretInEmptyListItem(element as HTMLElement, sel);
       return;
     } else {
       targetNode = element;
@@ -235,18 +213,15 @@ export function setCursorAtTextOffset(element, textOffset, selection = null) {
 
 /**
  * Get the last text node in an element
- * @param {Element} element - The element to search
- * @returns {Node|null}
  */
-export function getLastTextNode(element) {
+export function getLastTextNode(element: Node): Node | null {
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
-    null,
-    false
+    null
   );
 
-  let lastTextNode = null;
+  let lastTextNode: Node | null = null;
   while (walker.nextNode()) {
     lastTextNode = walker.currentNode;
   }
@@ -256,15 +231,12 @@ export function getLastTextNode(element) {
 
 /**
  * Get the first text node in an element
- * @param {Element} element - The element to search
- * @returns {Node|null}
  */
-export function getFirstTextNode(element) {
+export function getFirstTextNode(element: Node): Node | null {
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
-    null,
-    false
+    null
   );
 
   return walker.nextNode();
@@ -273,12 +245,10 @@ export function getFirstTextNode(element) {
 /**
  * Replace a DOM element using execCommand('insertHTML') so the change
  * participates in the browser's native undo stack (Cmd+Z / Ctrl+Z).
- *
- * @param {Element} oldElement - The existing DOM element to replace
- * @param {string} newOuterHTML - The outerHTML string of the replacement
  */
-export function replaceBlockUndoable(oldElement, newOuterHTML) {
+export function replaceBlockUndoable(oldElement: Element, newOuterHTML: string): void {
   const sel = window.getSelection();
+  if (!sel) return;
   const range = document.createRange();
   range.selectNode(oldElement);
   sel.removeAllRanges();
@@ -288,10 +258,8 @@ export function replaceBlockUndoable(oldElement, newOuterHTML) {
 
 /**
  * Find the closest list item parent
- * @param {Element} element - The element to start from
- * @returns {Element|null}
  */
-export function findClosestListItem(element) {
+export function findClosestListItem(element: Element | null): Element | null {
   if (!element) return null;
 
   while (element && element !== document.body) {

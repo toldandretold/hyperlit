@@ -7,12 +7,28 @@
 
 import { verbose } from '../utilities/logger.js';
 
+interface SelectionManagerOptions {
+  editableSelector?: string;
+  isMobile?: boolean;
+  isVisible?: boolean;
+}
+
 /**
  * SelectionManager class
  * Tracks and manages text selections within editable content
  */
 export class SelectionManager {
-  constructor(options = {}) {
+  editableSelector: string;
+  isMobile: boolean;
+  isVisible: boolean;
+  currentSelection: Selection | null;
+  lastValidRange: Range | null;
+  // Mobile-specific backup — only assigned when isMobile (left undefined otherwise)
+  mobileBackupRange?: Range | null;
+  mobileBackupText?: string;
+  mobileBackupContainer?: Node | null;
+
+  constructor(options: SelectionManagerOptions = {}) {
     this.editableSelector = options.editableSelector || ".main-content[contenteditable='true']";
     this.isMobile = options.isMobile || false;
     this.isVisible = options.isVisible || false;
@@ -35,9 +51,8 @@ export class SelectionManager {
   /**
    * Handle selection changes within the document (only for button states and positioning)
    * This is called by the document's selectionchange event
-   * @param {Function} updateButtonStatesCallback - Callback to update button states
    */
-  handleSelectionChange(updateButtonStatesCallback) {
+  handleSelectionChange(updateButtonStatesCallback?: () => void): void {
     const selection = window.getSelection();
     verbose.content(`Selection change detected: hasSelection=${!!selection}, rangeCount=${selection?.rangeCount}, isCollapsed=${selection?.isCollapsed}, toolbarVisible=${this.isVisible}`, 'editToolbar/selectionManager.js');
 
@@ -50,17 +65,17 @@ export class SelectionManager {
         const range = selection.getRangeAt(0);
         const container = range.commonAncestorContainer;
 
-        verbose.content(`Selection container: id=${container.id || container.parentElement?.id}, isInEditable=${editableContent.contains(container)}`, 'editToolbar/selectionManager.js');
+        verbose.content(`Selection container: id=${(container as Element).id || container.parentElement?.id}, isInEditable=${editableContent.contains(container)}`, 'editToolbar/selectionManager.js');
 
         // Check if selection is coming from toolbar button click
-        const isFromToolbar = container.closest && container.closest('#edit-toolbar');
+        const isFromToolbar = (container as Element).closest && (container as Element).closest('#edit-toolbar');
         if (isFromToolbar) {
           verbose.content("Selection change from toolbar button - ignoring to preserve selection", 'editToolbar/selectionManager.js');
           return; // Don't update anything if selection changed due to toolbar button click
         }
 
         // Store selection if it's within the main editable content OR a sub-book element
-        const containerEl = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+        const containerEl = container.nodeType === Node.TEXT_NODE ? container.parentElement : (container as Element);
         const inSubBook = !!containerEl?.closest('[data-book-id][contenteditable="true"]');
         if (editableContent.contains(container) || inSubBook) {
           // STORE THE VALID SELECTION
@@ -86,12 +101,11 @@ export class SelectionManager {
 
   /**
    * Get the parent element of the current selection
-   * @returns {Element|null}
    */
-  getSelectionParentElement() {
+  getSelectionParentElement(): Element | null {
     if (!this.currentSelection) return null;
 
-    let parent = null;
+    let parent: Node | null = null;
     if (this.currentSelection.rangeCount > 0) {
       parent = this.currentSelection.getRangeAt(0).commonAncestorContainer;
 
@@ -101,27 +115,28 @@ export class SelectionManager {
       }
     }
 
-    return parent;
+    return parent as Element | null;
   }
 
   /**
    * Restore the last valid selection
    * Used before formatting operations to ensure we have a valid selection
-   * @returns {boolean} - True if selection was restored successfully
+   * @returns True if selection was restored successfully
    */
-  restoreSelection() {
+  restoreSelection(): boolean {
     const editableContent = document.querySelector(this.editableSelector);
     if (!editableContent) return false;
 
     const rangeContainer = this.lastValidRange?.commonAncestorContainer;
-    const rangeContainerEl = rangeContainer?.nodeType === Node.TEXT_NODE ? rangeContainer.parentElement : rangeContainer;
+    const rangeContainerEl = rangeContainer?.nodeType === Node.TEXT_NODE ? rangeContainer.parentElement : (rangeContainer as Element | undefined);
     const rangeInSubBook = !!rangeContainerEl?.closest('[data-book-id][contenteditable="true"]');
     if (
       this.lastValidRange &&
-      (editableContent?.contains(rangeContainer) || rangeInSubBook)
+      (editableContent?.contains(rangeContainer ?? null) || rangeInSubBook)
     ) {
       try {
         const selection = window.getSelection();
+        if (!selection) return false;
         selection.removeAllRanges();
         selection.addRange(this.lastValidRange.cloneRange());
         this.currentSelection = selection;
@@ -139,9 +154,8 @@ export class SelectionManager {
   /**
    * Store the current selection for later restoration
    * Called during touchstart on mobile to preserve selection before button click
-   * @param {string} buttonName - Name of button for logging
    */
-  storeSelectionForTouch(buttonName) {
+  storeSelectionForTouch(buttonName: string): void {
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       this.lastValidRange = selection.getRangeAt(0).cloneRange();
@@ -151,16 +165,15 @@ export class SelectionManager {
 
   /**
    * Get the current selection or restore if needed
-   * @returns {{selection: Selection|null, range: Range|null}}
    */
-  getWorkingSelection() {
-    let workingSelection = this.currentSelection;
-    let workingRange = null;
+  getWorkingSelection(): { selection: Selection | null; range: Range | null } {
+    let workingSelection: Selection | null = this.currentSelection;
+    let workingRange: Range | null = null;
 
     // Try to restore from lastValidRange
     if (this.restoreSelection()) {
       workingSelection = this.currentSelection;
-      workingRange = this.lastValidRange.cloneRange();
+      workingRange = this.lastValidRange?.cloneRange() ?? null;
     }
 
     // Fallback to current window selection
@@ -176,17 +189,15 @@ export class SelectionManager {
 
   /**
    * Set visibility state (affects whether selection changes are processed)
-   * @param {boolean} isVisible - Whether the toolbar is visible
    */
-  setVisible(isVisible) {
+  setVisible(isVisible: boolean): void {
     this.isVisible = isVisible;
   }
 
   /**
    * Attach the selection change listener
-   * @param {Function} updateButtonStatesCallback - Callback to update button states
    */
-  attachListener(updateButtonStatesCallback) {
+  attachListener(updateButtonStatesCallback?: () => void): void {
     document.addEventListener("selectionchange", () =>
       this.handleSelectionChange(updateButtonStatesCallback)
     );
@@ -195,7 +206,7 @@ export class SelectionManager {
   /**
    * Remove the selection change listener
    */
-  detachListener() {
-    document.removeEventListener("selectionchange", this.handleSelectionChange);
+  detachListener(): void {
+    document.removeEventListener("selectionchange", this.handleSelectionChange as unknown as EventListener);
   }
 }

@@ -16,11 +16,72 @@
 import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
 import DOMPurify from "dompurify";
 
+declare global {
+  interface Window {
+    activeKeyboardManager?: any;
+  }
+}
+
 const SCOPE_STORAGE_KEY = 'hyperlit:citation:scope';
 const SHELF_STORAGE_KEY = 'hyperlit:citation:shelfId';
 const VALID_SCOPES = ['public', 'mine', 'shelf'];
 
+interface CitationModeOptions {
+  toolbar?: any;
+  citationButton?: any;
+  citationContainer?: any;
+  citationInput?: any;
+  citationResults?: any;
+  allButtons?: any;
+  closeHeadingSubmenuCallback?: () => void;
+}
+
 export class CitationMode {
+  // DOM refs / handlers kept loosely typed (surgical migration; `any`-tighten is a follow-up).
+  toolbar: any;
+  citationButton: any;
+  citationContainer: any;
+  citationInput: any;
+  citationResults: any;
+  allButtons: any;
+  closeButton: any;
+  closeHeadingSubmenuCallback: (() => void) | undefined;
+  scopeBar: any;
+  scopeButtons: any;
+  shelfPicker: any;
+  shelfSelect: any;
+  shelvesLoaded: boolean = false;
+  boundScopeClickHandlers: any[] = [];
+  boundShelfChangeHandler: any;
+  currentScope: string = 'public';
+  currentShelfId: string = '';
+  isOpen: boolean = false;
+  pendingContext: any;
+  debounceTimer: any;
+  abortController: AbortController | null = null;
+  currentQuery: string = '';
+  currentOffset: number = 0;
+  hasMore: boolean = false;
+  touchStartX: number | null = null;
+  touchStartY: number | null = null;
+  boundDocumentClickHandler: any;
+  boundDocumentKeyDownHandler: any;
+  boundDocumentTouchStartHandler: any;
+  boundDocumentTouchEndHandler: any;
+  boundInputHandler: any;
+  boundResultsScrollHandler: any;
+  boundCloseButtonHandler: any;
+  justOpened: boolean = false;
+  lockedScrollPosition: number | null = 0;
+  boundScrollLockHandler: any;
+  _shelfInteractionAt: number = 0;
+  resultsItems: any;
+  shelfTrigger: any;
+  shelfCurrent: any;
+  shelfOptions: any;
+  boundShelfTriggerHandlers: any;
+  boundInputTouchHandler: any;
+
   constructor({
     toolbar,
     citationButton,
@@ -29,7 +90,7 @@ export class CitationMode {
     citationResults,
     allButtons,
     closeHeadingSubmenuCallback
-  }) {
+  }: CitationModeOptions = {}) {
     this.toolbar = toolbar;
     this.citationButton = citationButton;
     this.citationContainer = citationContainer;
@@ -54,7 +115,7 @@ export class CitationMode {
     let savedShelfId = '';
     try {
       const s = localStorage.getItem(SCOPE_STORAGE_KEY);
-      if (VALID_SCOPES.includes(s)) savedScope = s;
+      if (s && VALID_SCOPES.includes(s)) savedScope = s;
       savedShelfId = localStorage.getItem(SHELF_STORAGE_KEY) || '';
     } catch {}
     this.currentScope = savedScope;
@@ -83,7 +144,7 @@ export class CitationMode {
     this.boundCloseButtonHandler = null;
   }
 
-  open(context) {
+  open(context: any) {
     if (this.isOpen) return;
 
     // Close heading submenu if it's open (prevents visual overlap)
@@ -124,7 +185,7 @@ export class CitationMode {
       this.boundScrollLockHandler = () => {
         if (window.scrollY !== this.lockedScrollPosition) {
           console.log(`🔒 Scroll changed to ${window.scrollY}px, forcing back to ${this.lockedScrollPosition}px`);
-          window.scrollTo(0, this.lockedScrollPosition);
+          window.scrollTo(0, this.lockedScrollPosition ?? 0);
         }
       };
       window.addEventListener('scroll', this.boundScrollLockHandler, { passive: false });
@@ -141,14 +202,15 @@ export class CitationMode {
     }
 
     // Update positioning if keyboard is open
-    if (window.activeKeyboardManager && window.activeKeyboardManager.isKeyboardOpen) {
+    const keyboardManager = (window as any).activeKeyboardManager;
+    if (keyboardManager && keyboardManager.isKeyboardOpen) {
       const editToolbar = document.getElementById('edit-toolbar');
       const searchToolbar = document.getElementById('search-toolbar');
       const citationToolbar = document.getElementById('citation-toolbar');
       const bottomRightButtons = document.getElementById('bottom-right-buttons');
       const mainContent = document.querySelector('.main-content');
 
-      window.activeKeyboardManager.moveToolbarAboveKeyboard(
+      keyboardManager.moveToolbarAboveKeyboard(
         editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent
       );
     }
@@ -234,7 +296,7 @@ export class CitationMode {
     this.shelfSelect = this.shelfTrigger; // alias used by older test code paths
 
     // Reflect saved scope in the chip UI
-    this.scopeButtons.forEach(btn => {
+    this.scopeButtons.forEach((btn: any) => {
       const isActive = btn.dataset.scope === this.currentScope;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -246,14 +308,14 @@ export class CitationMode {
     this._togglePickerVisibility();
 
     // Click handlers — tracked for detach
-    this.scopeButtons.forEach(btn => {
+    this.scopeButtons.forEach((btn: any) => {
       const handler = () => this._handleScopeChange(btn.dataset.scope);
       // mousedown / pointerdown preventDefault keeps focus on the search input
       // when the user taps a chip — otherwise the chip steals focus, the input
       // blurs, and the mobile keyboard dismisses on every scope change. The
       // click event still fires normally (preventDefault on these only blocks
       // the focus-transfer side effect, not the click synthesis).
-      const focusKeeper = (e) => e.preventDefault();
+      const focusKeeper = (e: any) => e.preventDefault();
       btn.addEventListener('mousedown', focusKeeper);
       btn.addEventListener('pointerdown', focusKeeper);
       btn.addEventListener('click', handler);
@@ -264,8 +326,8 @@ export class CitationMode {
       // Trigger button toggles the popup. mousedown/pointerdown preventDefault
       // keeps focus on the search input (same trick as scope chips), so the
       // mobile keyboard stays up while the user picks a shelf.
-      const triggerFocusKeeper = (e) => e.preventDefault();
-      const triggerClickHandler = (e) => {
+      const triggerFocusKeeper = (e: any) => e.preventDefault();
+      const triggerClickHandler = (e: any) => {
         e.preventDefault();
         e.stopPropagation();
         const expanded = this.shelfTrigger.getAttribute('aria-expanded') === 'true';
@@ -334,7 +396,7 @@ export class CitationMode {
     this.repositionContainer();
   }
 
-  _pickShelf(id, label) {
+  _pickShelf(id: any, label: any) {
     this.currentShelfId = id || '';
     try { localStorage.setItem(SHELF_STORAGE_KEY, this.currentShelfId); } catch {}
     if (this.shelfCurrent) {
@@ -351,7 +413,7 @@ export class CitationMode {
     }
   }
 
-  _handleScopeChange(newScope) {
+  _handleScopeChange(newScope: any) {
     if (!VALID_SCOPES.includes(newScope) || newScope === this.currentScope) {
       // Still allow shelf re-click to surface the picker
       if (newScope === 'shelf') this._ensureShelvesLoaded();
@@ -360,7 +422,7 @@ export class CitationMode {
     this.currentScope = newScope;
     try { localStorage.setItem(SCOPE_STORAGE_KEY, newScope); } catch {}
 
-    this.scopeButtons.forEach(btn => {
+    this.scopeButtons.forEach((btn: any) => {
       const isActive = btn.dataset.scope === newScope;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -414,7 +476,7 @@ export class CitationMode {
 
       // Restore last-used shelf label if it still exists
       if (this.currentShelfId) {
-        const match = shelves.find(s => (s.id || s.shelf_id) === this.currentShelfId);
+        const match = shelves.find((s: any) => (s.id || s.shelf_id) === this.currentShelfId);
         if (match && this.shelfCurrent) {
           const count = Number(match.item_count ?? 0);
           const name = match.name || match.title || 'Untitled';
@@ -428,10 +490,10 @@ export class CitationMode {
     }
   }
 
-  _renderShelfOptions(shelves) {
+  _renderShelfOptions(shelves: any) {
     if (!this.shelfOptions) return;
-    const escape = (s) => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-    this.shelfOptions.innerHTML = shelves.map(s => {
+    const escape = (s: any) => String(s).replace(/[<>&"]/g, (c: string) => (({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'} as Record<string, string>)[c] || c));
+    this.shelfOptions.innerHTML = shelves.map((s: any) => {
       const id = s.id || s.shelf_id;
       const count = Number(s.item_count ?? 0);
       const name = escape(s.name || s.title || 'Untitled');
@@ -443,9 +505,9 @@ export class CitationMode {
     // Per-option focus-keeper + pick handler. Same mousedown/pointerdown
     // preventDefault trick the chip buttons use, so tapping an option doesn't
     // shift focus away from the input (keyboard stays up).
-    this.shelfOptions.querySelectorAll('li.citation-shelf-option').forEach(li => {
-      const focusKeeper = (e) => e.preventDefault();
-      const pickHandler = (e) => {
+    this.shelfOptions.querySelectorAll('li.citation-shelf-option').forEach((li: any) => {
+      const focusKeeper = (e: any) => e.preventDefault();
+      const pickHandler = (e: any) => {
         e.preventDefault();
         e.stopPropagation();
         this._pickShelf(li.dataset.shelfId, li.dataset.shelfLabel);
@@ -460,7 +522,7 @@ export class CitationMode {
   // blurred results panel itself, so its visibility tracks the panel's
   // data-state via CSS rather than a per-state JS toggle. Callers can keep
   // invoking this safely.
-  _updateScopeBarVisibility(_state) {
+  _updateScopeBarVisibility(_state: any) {
     // intentional no-op
   }
 
@@ -481,7 +543,7 @@ export class CitationMode {
     // MOBILE FIX: Intercept touch on citation input to prevent iOS scroll-to-focus
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      this.boundInputTouchHandler = (e) => {
+      this.boundInputTouchHandler = (e: any) => {
         console.log('📱 Citation input touch - preventing default and manually focusing');
         e.preventDefault(); // Prevent iOS scroll-to-focus behavior
         e.stopPropagation();
@@ -544,7 +606,7 @@ export class CitationMode {
     }
   }
 
-  handleSearchInput(event) {
+  handleSearchInput(event: any) {
     const query = event.target.value.trim();
 
     // Drive chip-bar visibility off raw input length — hide chips as soon as
@@ -588,7 +650,7 @@ export class CitationMode {
     }, 300);
   }
 
-  async performSearch(query, offset = 0) {
+  async performSearch(query: any, offset = 0) {
     // Guard: shelf scope needs a shelfId — otherwise we'd fire the request just to
     // get a 422 back. Surface a friendlier message in the results pane AND keep
     // the scope bar visible so the user can actually use the picker (hiding it
@@ -623,7 +685,7 @@ export class CitationMode {
       const url = `/api/search/combined?${params.toString()}`;
       const response = await fetch(url, {
         headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+          'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '',
         },
         signal: this.abortController.signal
       });
@@ -633,7 +695,7 @@ export class CitationMode {
       const data = await response.json();
       await this.renderResults(data.results || [], offset, data.has_more ?? false);
 
-    } catch (error) {
+    } catch (error: any) {
       if (error.name !== 'AbortError') {
         this._items().innerHTML = '<div class="citation-search-empty">Search failed. Please try again.</div>';
         this.citationResults.dataset.state = 'empty';
@@ -662,7 +724,7 @@ export class CitationMode {
     }
   }
 
-  async renderResults(results, offset = 0, hasMore = false) {
+  async renderResults(results: any, offset = 0, hasMore = false) {
     console.log('🔍 renderResults called with', results.length, 'results, offset:', offset, 'hasMore:', hasMore);
     console.log('🔍 citationResults element:', this.citationResults);
     console.log('🔍 citationResults parent:', this.citationResults?.parentElement);
@@ -687,7 +749,7 @@ export class CitationMode {
 
     console.log('🔍 Creating buttons for results...');
     // Use Promise.all to await all formatting promises
-    const buttons = await Promise.all(results.map(async result => {
+    const buttons = await Promise.all(results.map(async (result: any) => {
       let sanitized;
 
       if (result.bibtex) {
@@ -754,7 +816,7 @@ export class CitationMode {
       loadMore.className = 'citation-load-more citation-result-item';
       loadMore.textContent = 'Load more results';
 
-      const triggerLoadMore = (e) => {
+      const triggerLoadMore = (e: any) => {
         e.preventDefault();
         e.stopPropagation();
         if (loadMore.disabled) return;
@@ -774,7 +836,7 @@ export class CitationMode {
     this.repositionContainer();
   }
 
-  handleDocumentClick(event) {
+  handleDocumentClick(event: any) {
     // Ignore close attempts immediately after opening (prevents synthetic click from closing)
     if (this.justOpened) {
       console.log('🚫 Citation mode: Ignoring close attempt (just opened)');
@@ -832,7 +894,7 @@ export class CitationMode {
     }
   }
 
-  handleKeyDown(event) {
+  handleKeyDown(event: any) {
     if (event.key === 'Escape' && this.isOpen) {
       // If the shelf dropdown is open, ESC closes just it (preserves modal).
       if (this.shelfOptions && !this.shelfOptions.hidden) {
@@ -843,12 +905,12 @@ export class CitationMode {
     }
   }
 
-  handleTouchStart(event) {
+  handleTouchStart(event: any) {
     this.touchStartX = event.touches[0].clientX;
     this.touchStartY = event.touches[0].clientY;
   }
 
-  handleTouchEnd(event) {
+  handleTouchEnd(event: any) {
     if (!this.isOpen) return;
 
     // Ignore close attempts immediately after opening (prevents synthetic touch from closing)
@@ -860,8 +922,8 @@ export class CitationMode {
     const touchEndX = event.changedTouches[0].clientX;
     const touchEndY = event.changedTouches[0].clientY;
 
-    const deltaX = Math.abs(touchEndX - this.touchStartX);
-    const deltaY = Math.abs(touchEndY - this.touchStartY);
+    const deltaX = Math.abs(touchEndX - (this.touchStartX ?? 0));
+    const deltaY = Math.abs(touchEndY - (this.touchStartY ?? 0));
 
     // Ignore if this was a scroll (threshold 10px)
     if (deltaX > 10 || deltaY > 10) {
@@ -881,7 +943,7 @@ export class CitationMode {
     }
   }
 
-  handleResultsScroll(event) {
+  handleResultsScroll(event: any) {
     // Was: preventDefault() on touchstart when the panel wasn't overflowing,
     // intended to stop scroll-chaining to the page beneath. But preventDefault
     // on touchstart ALSO cancels the synthesized click event — so on mobile
@@ -902,7 +964,7 @@ export class CitationMode {
     event.preventDefault();
   }
 
-  async handleCitationSelection(button) {
+  async handleCitationSelection(button: any) {
     if (!this.pendingContext) {
       console.warn('No pending context for citation insertion');
       return;

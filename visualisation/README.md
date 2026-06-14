@@ -100,9 +100,12 @@ double-click a module box drills into its functions; expand/collapse all + fit; 
 
 Pure on import (only `writeArtifacts()` touches disk) and deterministic (no `Date`/`Math.random`)
 so the no-drift gate can byte-compare. It walks `resources/js/indexedDB/` plus the DOM-facing
-`EXTRA_ROOTS` (`hyperlights`, `hypercites`, `divEditor`) and, per **exported function**, uses
-the **TypeScript compiler API** (AST, not regex) to detect: stores read/written, API endpoints
-(`fetch`/`sendBeacon` → Postgres tables via `ENDPOINT_TABLES`), DOM touch, and calls. It reads
+`EXTRA_ROOTS` (`hyperlights`, `hypercites`, `divEditor`, `editToolbar`) and, per **top-level
+exported function AND class method** (`ClassName.method` — so class-per-file code like
+editToolbar is represented, not just function-first modules), uses the **TypeScript compiler
+API** (AST, not regex) to detect: stores read/written, API endpoints
+(`fetch`/`sendBeacon` → Postgres tables via `ENDPOINT_TABLES`), DOM touch (incl.
+selection/range/treewalker/execCommand APIs), and calls. It reads
 the front-end layer's own metadata (`flowMap.ts`, `core/connection.ts` `STORE_CONFIGS`,
 `types.ts`) from `resources/js/indexedDB`. Emits nodes (`fn`/`store`/`table`/`dom`), modules
 (with a role `band`), and edges (`read`/`write`/`push`/`pull`/`domread`/`domwrite`/`call`).

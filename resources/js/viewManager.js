@@ -200,7 +200,7 @@ export async function cleanupReaderView() {
 
   // ✅ Dynamically import edit modules only if they were loaded
   try {
-    const { destroyEditToolbar } = await import('./editToolbar/index.js');
+    const { destroyEditToolbar } = await import('./editToolbar/index');
     destroyEditToolbar();
   } catch (e) {
     // Module not loaded yet, nothing to destroy
@@ -361,7 +361,7 @@ export async function universalPageInitializer(progressCallback = null) {
     }
     
     // ✅ Dynamically import edit toolbar only when needed
-    const { initEditToolbar } = await import('./editToolbar/index.js');
+    const { initEditToolbar } = await import('./editToolbar/index');
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",

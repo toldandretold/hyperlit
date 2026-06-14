@@ -135,7 +135,7 @@ export default defineConfig({
                 'resources/js/utilities/convertMarkdown.js',
                 // drag.js is imported via components/registerComponents.js (ButtonRegistry-managed),
                 // no longer a standalone entry — see reader.blade.php note.
-                'resources/js/editToolbar/index.js',
+                'resources/js/editToolbar/index.ts',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.ts',
@@ -159,13 +159,13 @@ export default defineConfig({
                 'resources/js/divEditor/domUtilities.ts',
 
                 // editToolbar modules
-                'resources/js/editToolbar/toolbarDOMUtils.js',
-                'resources/js/editToolbar/selectionManager.js',
-                'resources/js/editToolbar/buttonStateManager.js',
-                'resources/js/editToolbar/headingSubmenu.js',
-                'resources/js/editToolbar/textFormatter.js',
-                'resources/js/editToolbar/listConverter.js',
-                'resources/js/editToolbar/blockFormatter.js',
+                'resources/js/editToolbar/toolbarDOMUtils.ts',
+                'resources/js/editToolbar/selectionManager.ts',
+                'resources/js/editToolbar/buttonStateManager.ts',
+                'resources/js/editToolbar/headingSubmenu.ts',
+                'resources/js/editToolbar/textFormatter.ts',
+                'resources/js/editToolbar/listConverter.ts',
+                'resources/js/editToolbar/blockFormatter.ts',
 
                 // Quantizer view
                 'resources/css/quantizer.css',

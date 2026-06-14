@@ -11,14 +11,21 @@
 import {
   hasParentWithTag,
   findClosestBlockParent,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 
 /**
  * BlockSubmenu class
  * Handles all block format submenu interactions
  */
 export class BlockSubmenu {
-  constructor(options = {}) {
+  blockSubmenu: any;
+  blockquoteButton: any;
+  selectionManager: any;
+  buttonStateManager: any;
+  formatBlockCallback: any;
+  submenuButtonJustClicked: boolean = false;
+
+  constructor(options: any = {}) {
     this.blockSubmenu = options.blockSubmenu || null;
     this.blockquoteButton = options.blockquoteButton || null;
     this.selectionManager = options.selectionManager || null;
@@ -92,24 +99,24 @@ export class BlockSubmenu {
 
     // Remove old event listeners before adding new ones
     const typeButtons = this.blockSubmenu.querySelectorAll("[data-block-type]");
-    typeButtons.forEach(btn => {
+    typeButtons.forEach((btn: any) => {
       // Clone and replace to remove all old listeners
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
-      newBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
+      newBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });
 
       // Add click listener
       newBtn.addEventListener("click", this.handleBlockTypeSelection);
 
       // Mobile touch handlers
-      newBtn.addEventListener("touchstart", (e) => {
+      newBtn.addEventListener("touchstart", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      newBtn.addEventListener("touchend", (e) => {
+      newBtn.addEventListener("touchend", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -133,17 +140,17 @@ export class BlockSubmenu {
       removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
-      newRemoveBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
+      newRemoveBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });
 
       newRemoveBtn.addEventListener("click", this.handleRemoveBlock);
 
       // Mobile touch handlers for X button
-      newRemoveBtn.addEventListener("touchstart", (e) => {
+      newRemoveBtn.addEventListener("touchstart", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      newRemoveBtn.addEventListener("touchend", (e) => {
+      newRemoveBtn.addEventListener("touchend", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -174,7 +181,7 @@ export class BlockSubmenu {
   /**
    * Handle clicks outside the submenu to close it
    */
-  handleClickOutsideSubmenu(e) {
+  handleClickOutsideSubmenu(e: any) {
     const submenu = this.blockSubmenu;
     const triggerBtn = this.blockquoteButton;
 
@@ -189,7 +196,7 @@ export class BlockSubmenu {
   /**
    * Handle selection of a block type
    */
-  handleBlockTypeSelection(e) {
+  handleBlockTypeSelection(e: any) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -202,7 +209,7 @@ export class BlockSubmenu {
   /**
    * Handle removing block formatting (convert back to paragraphs)
    */
-  handleRemoveBlock(e) {
+  handleRemoveBlock(e: any) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -214,7 +221,7 @@ export class BlockSubmenu {
   /**
    * Execute the appropriate format action for a block type
    */
-  _executeBlockType(blockType) {
+  _executeBlockType(blockType: any) {
     if (!this.formatBlockCallback) return;
 
     if (blockType === "ul" || blockType === "ol") {

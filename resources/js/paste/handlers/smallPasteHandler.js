@@ -9,8 +9,8 @@ import { setElementIds, compareDecimalStrings, isDuplicateId } from '../../utili
 import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
-import { getEditToolbar } from '../../editToolbar/index.js';
-import { getTextOffsetInElement, setCursorAtTextOffset } from '../../editToolbar/toolbarDOMUtils.js';
+import { getEditToolbar } from '../../editToolbar/index';
+import { getTextOffsetInElement, setCursorAtTextOffset } from '../../editToolbar/toolbarDOMUtils';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements.js';
 
 const SMALL_NODE_LIMIT = 10;

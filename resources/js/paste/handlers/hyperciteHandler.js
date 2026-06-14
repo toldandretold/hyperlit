@@ -17,8 +17,8 @@ import {
   syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index';
 import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';
-import { getEditToolbar } from '../../editToolbar/index.js';
-import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils.js';
+import { getEditToolbar } from '../../editToolbar/index';
+import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils';
 import { determineRelationshipStatus } from '../../hypercites/utils.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {

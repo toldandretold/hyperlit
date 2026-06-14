@@ -14,16 +14,25 @@ import {
   getTextOffsetInElement,
   setCursorAtTextOffset,
   findClosestBlockParent,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 import {
   setProgrammaticUpdateInProgress,
 } from "../utilities/operationState.js";
+
+// ⚠️ LEGACY-ENTANGLEMENT FLAG (do not deep-clean here):
+// This file is believed to contain traces of an OLDER undo implementation mixed with
+// the one actually in use. This migration is a SURGICAL .js→.ts conversion ONLY — types
+// added, behaviour unchanged, structure untouched. Untangling legacy-vs-live undo paths
+// and any restructuring (e.g. moving to an editor-level history/ module) is a SEPARATE,
+// deferred gate. See the "Deferred gates" note + the `legacy-undo-entanglement` memory.
+// As you read this file, paths a realistic undo/redo flow never reaches are cleanup
+// candidates — flag them inline with `// LEGACY?:` rather than removing them now.
 
 /**
  * Resolve bookId from a DOM target element.
  * Walks up to find [data-book-id], falls back to .main-content id.
  */
-function resolveBookId(target) {
+function resolveBookId(target: any) {
   const el = target?.nodeType === Node.TEXT_NODE ? target.parentElement : target;
   if (!el) return null;
   const bookEl = el.closest('[data-book-id]');
@@ -33,7 +42,7 @@ function resolveBookId(target) {
 /**
  * Find the closest block element from a target node.
  */
-function findBlockFromTarget(target) {
+function findBlockFromTarget(target: any) {
   const el = target?.nodeType === Node.TEXT_NODE ? target.parentElement : target;
   if (!el) return null;
   let block = findClosestBlockParent(el);
@@ -48,6 +57,11 @@ function findBlockFromTarget(target) {
 }
 
 export class UndoManager {
+  stacks: Map<any, any>;
+  _currentGroup: any;
+  _groupTimer: any;
+  _structuralSnapshot: any;
+
   constructor() {
     // Map<bookId, { undoStack: [], redoStack: [] }>
     this.stacks = new Map();
@@ -62,7 +76,7 @@ export class UndoManager {
 
   // ─── Stack access ──────────────────────────────────────────
 
-  _getStacks(bookId) {
+  _getStacks(bookId: any) {
     if (!bookId) return { undoStack: [], redoStack: [] };
     if (!this.stacks.has(bookId)) {
       this.stacks.set(bookId, { undoStack: [], redoStack: [] });
@@ -70,7 +84,7 @@ export class UndoManager {
     return this.stacks.get(bookId);
   }
 
-  _pushUndo(bookId, entry) {
+  _pushUndo(bookId: any, entry: any) {
     const s = this._getStacks(bookId);
     s.undoStack.push(entry);
     // Any new action clears the redo stack
@@ -83,7 +97,7 @@ export class UndoManager {
    * Categorize inputType for grouping purposes.
    * Typing and deletion are different categories — switching seals the group.
    */
-  _inputCategory(inputType) {
+  _inputCategory(inputType: any) {
     if (!inputType) return 'unknown';
     if (inputType.startsWith('delete')) return 'deletion';
     if (inputType.startsWith('insert') || inputType === 'formatBold' || inputType === 'formatItalic') return 'insertion';
@@ -94,7 +108,7 @@ export class UndoManager {
    * Called on `beforeinput` for typing-class events.
    * Snapshots the element's HTML if no group is open for it.
    */
-  startCapture(blockElement, bookId) {
+  startCapture(blockElement: any, bookId: any) {
     if (!blockElement || !bookId) return;
 
     const elementId = blockElement.id;
@@ -137,7 +151,7 @@ export class UndoManager {
    * Called on `input` for typing-class events.
    * Updates the group's newHTML and resets the seal timer.
    */
-  finalizeCapture(blockElement, bookId, inputType) {
+  finalizeCapture(blockElement: any, bookId: any, inputType: any) {
     if (!blockElement || !blockElement.id) return;
     if (!this._currentGroup || this._currentGroup.elementId !== blockElement.id) return;
 
@@ -225,7 +239,7 @@ export class UndoManager {
    * @param {string} bookId
    * @param {number} [cursorOffset] - cursor text offset captured BEFORE replaceChild
    */
-  recordFormat(elementId, undoFn, redoFn, bookId, cursorOffset) {
+  recordFormat(elementId: any, undoFn: any, redoFn: any, bookId: any, cursorOffset: any) {
     this.sealGroup();
 
     // If caller didn't pass an offset, try to read it now (may fail after replaceChild)
@@ -258,7 +272,7 @@ export class UndoManager {
    * Snapshot elements before a structural change (Enter/split, Backspace/merge).
    * Called from beforeinput when inputType is insertParagraph or deleteContentBackward at boundary.
    */
-  snapshotForStructural(bookId, blockElement) {
+  snapshotForStructural(bookId: any, blockElement: any) {
     this.sealGroup();
 
     if (!blockElement || !bookId) return;
@@ -267,7 +281,7 @@ export class UndoManager {
     if (!editable) return;
 
     // Snapshot all direct child block elements with their IDs and HTML
-    const children = Array.from(editable.children).filter(el => el.id);
+    const children = (Array.from(editable.children) as any[]).filter(el => el.id);
     const snapshot = children.map(el => ({
       id: el.id,
       html: el.innerHTML,
@@ -277,7 +291,7 @@ export class UndoManager {
 
     // Capture cursor position
     const sel = window.getSelection();
-    let cursorBefore = { elementId: null, offset: 0 };
+    let cursorBefore: any = { elementId: null, offset: 0 };
     if (sel && sel.rangeCount > 0 && blockElement.id) {
       try {
         cursorBefore = {
@@ -305,7 +319,7 @@ export class UndoManager {
    * Finalize a structural change by comparing before/after state.
    * Called from the input handler after insertParagraph or deleteContentBackward.
    */
-  finalizeStructural(bookId) {
+  finalizeStructural(bookId: any) {
     const snap = this._structuralSnapshot;
     if (!snap || snap.bookId !== bookId) {
       this._structuralSnapshot = null;
@@ -318,7 +332,7 @@ export class UndoManager {
       : (snap.editableId ? document.getElementById(snap.editableId) : null);
     if (!editable) return null;
 
-    const afterChildren = Array.from(editable.children).filter(el => el.id);
+    const afterChildren = (Array.from(editable.children) as any[]).filter(el => el.id);
     const afterIds = new Set(afterChildren.map(el => el.id));
 
     // Determine added elements (in after but not in before)
@@ -354,9 +368,9 @@ export class UndoManager {
 
     // Determine modified elements (same ID but different innerHTML)
     const modified = [];
-    const snapMap = new Map(snap.children.map(c => [c.id, c]));
+    const snapMap = new Map(snap.children.map((c: any) => [c.id, c]));
     for (const el of afterChildren) {
-      const before = snapMap.get(el.id);
+      const before: any = snapMap.get(el.id);
       if (before && before.html !== el.innerHTML) {
         modified.push({
           id: el.id,
@@ -375,12 +389,12 @@ export class UndoManager {
 
     // Capture cursor after
     const sel = window.getSelection();
-    let cursorAfter = { elementId: null, offset: 0 };
+    let cursorAfter: any = { elementId: null, offset: 0 };
     if (sel && sel.rangeCount > 0) {
       const focusEl = sel.focusNode?.nodeType === Node.TEXT_NODE
         ? sel.focusNode.parentElement
         : sel.focusNode;
-      const block = focusEl ? findClosestBlockParent(focusEl) : null;
+      const block = focusEl ? findClosestBlockParent(focusEl as Element | null) : null;
       if (block && block.id) {
         try {
           cursorAfter = {
@@ -416,7 +430,7 @@ export class UndoManager {
    * @param {Function} saveCallback - (id, html, opts) => Promise
    * @param {Function} setFormattingFlag - (boolean) => void
    */
-  undo(bookId, saveCallback, setFormattingFlag) {
+  undo(bookId: any, saveCallback: any, setFormattingFlag: any) {
     this.sealGroup();
 
     const s = this._getStacks(bookId);
@@ -452,7 +466,7 @@ export class UndoManager {
         setProgrammaticUpdateInProgress(false);
         setFormattingFlag(false);
         if (entry.onUndo) {
-          entry.onUndo().catch(err =>
+          entry.onUndo().catch((err: any) =>
             console.error('[UndoManager] onUndo callback error:', err)
           );
         }
@@ -463,7 +477,7 @@ export class UndoManager {
   /**
    * Redo the most recent undone action for the given bookId.
    */
-  redo(bookId, saveCallback, setFormattingFlag) {
+  redo(bookId: any, saveCallback: any, setFormattingFlag: any) {
     this.sealGroup();
 
     const s = this._getStacks(bookId);
@@ -492,7 +506,7 @@ export class UndoManager {
         setProgrammaticUpdateInProgress(false);
         setFormattingFlag(false);
         if (entry.onRedo) {
-          entry.onRedo().catch(err =>
+          entry.onRedo().catch((err: any) =>
             console.error('[UndoManager] onRedo callback error:', err)
           );
         }
@@ -502,7 +516,7 @@ export class UndoManager {
 
   // ─── Input undo/redo ───────────────────────────────────────
 
-  _undoInput(entry, saveCallback) {
+  _undoInput(entry: any, saveCallback: any) {
     const el = document.getElementById(entry.elementId);
     if (!el) {
       console.warn(`[UndoManager] _undoInput: element #${entry.elementId} not found in DOM`);
@@ -514,7 +528,7 @@ export class UndoManager {
 
     // Ensure the contenteditable ancestor is focused before setting cursor
     const editable = el.closest('[contenteditable="true"]');
-    if (editable && document.activeElement !== editable) editable.focus();
+    if (editable && document.activeElement !== editable) (editable as HTMLElement).focus();
 
     setCursorAtTextOffset(el, entry.cursorBefore);
 
@@ -523,14 +537,14 @@ export class UndoManager {
     }
   }
 
-  _redoInput(entry, saveCallback) {
+  _redoInput(entry: any, saveCallback: any) {
     const el = document.getElementById(entry.elementId);
     if (!el) return;
 
     el.innerHTML = entry.newHTML;
 
     const editable = el.closest('[contenteditable="true"]');
-    if (editable && document.activeElement !== editable) editable.focus();
+    if (editable && document.activeElement !== editable) (editable as HTMLElement).focus();
 
     setCursorAtTextOffset(el, entry.cursorAfter);
 
@@ -541,7 +555,7 @@ export class UndoManager {
 
   // ─── Format undo/redo ─────────────────────────────────────
 
-  _undoFormat(entry, saveCallback) {
+  _undoFormat(entry: any, saveCallback: any) {
     const current = document.getElementById(entry.elementId);
     if (!current) return;
 
@@ -551,7 +565,7 @@ export class UndoManager {
 
       // Restore cursor into the new element after replaceChild
       const editable = newEl.closest('[contenteditable="true"]');
-      if (editable && document.activeElement !== editable) editable.focus();
+      if (editable && document.activeElement !== editable) (editable as HTMLElement).focus();
       setCursorAtTextOffset(newEl, entry.cursorOffset || 0);
 
       if (saveCallback) {
@@ -560,7 +574,7 @@ export class UndoManager {
     }
   }
 
-  _redoFormat(entry, saveCallback) {
+  _redoFormat(entry: any, saveCallback: any) {
     const current = document.getElementById(entry.elementId);
     if (!current) return;
 
@@ -569,7 +583,7 @@ export class UndoManager {
       entry.elementId = newEl.id;
 
       const editable = newEl.closest('[contenteditable="true"]');
-      if (editable && document.activeElement !== editable) editable.focus();
+      if (editable && document.activeElement !== editable) (editable as HTMLElement).focus();
       setCursorAtTextOffset(newEl, entry.cursorOffset || 0);
 
       if (saveCallback) {
@@ -580,7 +594,7 @@ export class UndoManager {
 
   // ─── Structural undo/redo ─────────────────────────────────
 
-  _undoStructural(entry, saveCallback) {
+  _undoStructural(entry: any, saveCallback: any) {
     const editable = document.querySelector(entry.editableSelector);
     if (!editable) return;
 
@@ -600,7 +614,7 @@ export class UndoManager {
       if (r.afterId) {
         const afterEl = document.getElementById(r.afterId);
         if (afterEl) {
-          const parent = afterEl.parentNode;
+          const parent = afterEl.parentNode!;
           if (afterEl.nextSibling) {
             parent.insertBefore(newEl, afterEl.nextSibling);
           } else {
@@ -631,7 +645,7 @@ export class UndoManager {
         if (el.hasAttribute('data-node-id')) {
           newEl.setAttribute('data-node-id', el.getAttribute('data-node-id'));
         }
-        el.parentNode.replaceChild(newEl, el);
+        el.parentNode!.replaceChild(newEl, el);
         if (saveCallback) {
           saveCallback(m.id, newEl.outerHTML, { bookId: entry.bookId });
         }
@@ -648,13 +662,13 @@ export class UndoManager {
       const cursorEl = document.getElementById(entry.cursorBefore.elementId);
       if (cursorEl) {
         const editable2 = cursorEl.closest('[contenteditable="true"]');
-        if (editable2 && document.activeElement !== editable2) editable2.focus();
+        if (editable2 && document.activeElement !== editable2) (editable2 as HTMLElement).focus();
         setCursorAtTextOffset(cursorEl, entry.cursorBefore.offset);
       }
     }
   }
 
-  _redoStructural(entry, saveCallback) {
+  _redoStructural(entry: any, saveCallback: any) {
     const editable = document.querySelector(entry.editableSelector);
     if (!editable) return;
 
@@ -674,7 +688,7 @@ export class UndoManager {
       if (a.afterId) {
         const afterEl = document.getElementById(a.afterId);
         if (afterEl) {
-          const parent = afterEl.parentNode;
+          const parent = afterEl.parentNode!;
           if (afterEl.nextSibling) {
             parent.insertBefore(newEl, afterEl.nextSibling);
           } else {
@@ -704,7 +718,7 @@ export class UndoManager {
         if (el.hasAttribute('data-node-id')) {
           newEl.setAttribute('data-node-id', el.getAttribute('data-node-id'));
         }
-        el.parentNode.replaceChild(newEl, el);
+        el.parentNode!.replaceChild(newEl, el);
         if (saveCallback) {
           saveCallback(m.id, newEl.outerHTML, { bookId: entry.bookId });
         }
@@ -721,7 +735,7 @@ export class UndoManager {
       const cursorEl = document.getElementById(entry.cursorAfter.elementId);
       if (cursorEl) {
         const editable2 = cursorEl.closest('[contenteditable="true"]');
-        if (editable2 && document.activeElement !== editable2) editable2.focus();
+        if (editable2 && document.activeElement !== editable2) (editable2 as HTMLElement).focus();
         setCursorAtTextOffset(cursorEl, entry.cursorAfter.offset);
       }
     }
@@ -729,13 +743,13 @@ export class UndoManager {
 
   // ─── Queries ──────────────────────────────────────────────
 
-  hasUndo(bookId) {
+  hasUndo(bookId: any) {
     if (!bookId) return false;
     const s = this.stacks.get(bookId);
     return s ? s.undoStack.length > 0 : false;
   }
 
-  hasRedo(bookId) {
+  hasRedo(bookId: any) {
     if (!bookId) return false;
     const s = this.stacks.get(bookId);
     return s ? s.redoStack.length > 0 : false;
@@ -760,7 +774,7 @@ export class UndoManager {
     return false;
   }
 
-  clearBook(bookId) {
+  clearBook(bookId: any) {
     this.stacks.delete(bookId);
   }
 }

@@ -53,7 +53,7 @@ const IDB_ROOT = path.join(RES_ROOT, 'indexedDB');         // the front-end data
  * the heaviest DOM writer, mutation-observer-driven). They form the JS tier
  * between the reader page and the object stores.
  */
-const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor')];
+const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar')];
 
 /** Per-store key + index names — what each object store holds — straight from the schema. */
 const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Object.fromEntries(
@@ -72,11 +72,14 @@ const READ_OPS = new Set(['get', 'getAll', 'getAllKeys', 'getKey', 'count', 'ope
 const DOM_READ_METHODS = new Set([
   'querySelector', 'querySelectorAll', 'getElementById', 'closest', 'getAttribute',
   'matches', 'getElementsByClassName', 'getElementsByTagName', 'cloneNode',
+  // selection / range / traversal APIs — DOM-walking utilities interact with the live document
+  'getSelection', 'getRangeAt', 'createRange', 'createTreeWalker', 'createNodeIterator',
+  'elementFromPoint', 'getBoundingClientRect',
 ]);
 const DOM_WRITE_METHODS = new Set([
   'appendChild', 'removeChild', 'replaceChild', 'insertBefore', 'setAttribute',
   'removeAttribute', 'remove', 'append', 'prepend', 'before', 'after',
-  'insertAdjacentHTML', 'replaceWith',
+  'insertAdjacentHTML', 'replaceWith', 'execCommand',
 ]);
 const DOM_WRITE_PROPS = new Set(['innerHTML', 'textContent', 'innerText', 'outerHTML']);
 
@@ -301,7 +304,9 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
 
 // ── module parsing: functions + import map ──────────────────────────
 
-interface ModuleParse { functions: FnRaw[]; importMap: Map<string, string>; }
+/** Re-exports a barrel performs: `export { X as Y } from './m'` (named) + `export * from './m'` (stars). */
+interface Reexports { named: Map<string, string>; stars: string[]; }
+interface ModuleParse { functions: FnRaw[]; importMap: Map<string, string>; reexports: Reexports; }
 
 function moduleKeyOf(abs: string): string {
   return path.relative(RES_ROOT, abs).replace(/\.(js|ts)$/, '').split(path.sep).join('/');
@@ -309,7 +314,10 @@ function moduleKeyOf(abs: string): string {
 
 function resolveSpecToModule(fromAbs: string, spec: string, known: Set<string>): string | null {
   if (!spec.startsWith('.')) return null;
-  const key = path.relative(RES_ROOT, path.resolve(path.dirname(fromAbs), spec)).split(path.sep).join('/');
+  // strip an explicit .js/.ts extension — module keys are extensionless, but specifiers may
+  // carry `.js` (e.g. `../indexedDB/index.js`), which must still match `indexedDB/index`.
+  const key = path.relative(RES_ROOT, path.resolve(path.dirname(fromAbs), spec))
+    .split(path.sep).join('/').replace(/\.(js|ts)$/, '');
   return known.has(key) ? key : null;
 }
 
@@ -334,6 +342,30 @@ function buildImportMap(sf: ts.SourceFile, fromAbs: string, known: Set<string>):
   return map;
 }
 
+/**
+ * Extract a module's re-export declarations so barrels (e.g. `indexedDB/index`) can be
+ * followed to the real definition: `export { updateSingleIndexedDBRecord } from './nodes/batch'`
+ * maps `indexedDB/index:updateSingleIndexedDBRecord` → `indexedDB/nodes/batch:updateSingleIndexedDBRecord`.
+ */
+function buildReexports(sf: ts.SourceFile, fromAbs: string, known: Set<string>): Reexports {
+  const named = new Map<string, string>();
+  const stars: string[] = [];
+  walk(sf, n => {
+    if (ts.isExportDeclaration(n) && n.moduleSpecifier) {
+      const spec = stringLiteralValue(n.moduleSpecifier);
+      const target = spec ? resolveSpecToModule(fromAbs, spec, known) : null;
+      if (!target) return;
+      if (!n.exportClause) { stars.push(target); }                       // export * from './m'
+      else if (ts.isNamedExports(n.exportClause)) {                       // export { A, B as C } from './m'
+        for (const el of n.exportClause.elements) {
+          named.set(el.name.text, `${target}:${(el.propertyName ?? el.name).text}`);
+        }
+      }
+    }
+  });
+  return { named, stars };
+}
+
 function parseModule(abs: string, known: Set<string>): ModuleParse {
   const src = fs.readFileSync(abs, 'utf8');
   const sf = ts.createSourceFile(abs, src, ts.ScriptTarget.ES2022, true);
@@ -353,9 +385,26 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
           record(decl.name.text, exported, decl.initializer.body);
         }
       }
+    } else if (ts.isClassDeclaration(stmt) && stmt.name) {
+      // Class-per-file modules (e.g. editToolbar): treat each method/constructor and each
+      // arrow-property handler as a function node `ClassName.method`, so OO code's data flow
+      // (store writes, DOM, fetch) is visible — not just top-level `export function`s.
+      // A class's methods are its public data-flow surface — record them as nodes even if the
+      // class itself isn't `export`ed (e.g. EditToolbar, exposed only via factory functions).
+      const cls = stmt.name.text;
+      for (const member of stmt.members) {
+        if (ts.isMethodDeclaration(member) && member.body && member.name && ts.isIdentifier(member.name)) {
+          record(`${cls}.${member.name.text}`, true, member.body);
+        } else if (ts.isConstructorDeclaration(member) && member.body) {
+          record(`${cls}.constructor`, true, member.body);
+        } else if (ts.isPropertyDeclaration(member) && member.initializer && member.name && ts.isIdentifier(member.name)
+            && (ts.isArrowFunction(member.initializer) || ts.isFunctionExpression(member.initializer))) {
+          record(`${cls}.${member.name.text}`, true, member.initializer.body);
+        }
+      }
     }
   }
-  return { functions, importMap };
+  return { functions, importMap, reexports: buildReexports(sf, abs, known) };
 }
 
 // ── the collector ───────────────────────────────────────────────────
@@ -372,11 +421,12 @@ export function collect(): FlowViz {
     ?? (key.startsWith('hyperlights/') ? 'hyperlights'
       : key.startsWith('hypercites/') ? 'hypercites'
       : key.startsWith('divEditor/') ? 'divEditor'
+      : key.startsWith('editToolbar/') ? 'editToolbar'
       : 'infra');
 
   /** A module is analyzed if it's a flow-map indexedDB module or lives in a mediator folder. */
   const isAnalyzed = (key: string): boolean =>
-    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/') || key.startsWith('divEditor/');
+    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/') || key.startsWith('divEditor/') || key.startsWith('editToolbar/');
 
   const allFiles: string[] = [];
   const rec = (dir: string) => {
@@ -392,20 +442,41 @@ export function collect(): FlowViz {
 
   const fnReg = new Map<string, FnRaw>();
   const importMaps = new Map<string, Map<string, string>>();
+  const reexportsByModule = new Map<string, Reexports>();
   for (const abs of allFiles) {
     const key = moduleKeyOf(abs);
     if (!isAnalyzed(key)) continue;
     const parsed = parseModule(abs, known);
     importMaps.set(key, parsed.importMap);
+    reexportsByModule.set(key, parsed.reexports);
     for (const fn of parsed.functions) fnReg.set(fn.id, fn);
   }
+
+  // Resolve a `module:name` to the real fn definition, FOLLOWING barrel re-exports
+  // (`export { X } from './m'` / `export * from './m'`). This is what connects DOM-layer
+  // code (editToolbar, etc.) to the indexedDB functions it calls through `indexedDB/index`.
+  const resolveExport = (fnId: string, seen = new Set<string>()): string | null => {
+    if (fnReg.has(fnId)) return fnId;
+    if (seen.has(fnId)) return null;
+    seen.add(fnId);
+    const ci = fnId.indexOf(':');
+    if (ci < 0) return null;
+    const mod = fnId.slice(0, ci), name = fnId.slice(ci + 1);
+    const rx = reexportsByModule.get(mod);
+    if (!rx) return null;
+    const named = rx.named.get(name);
+    if (named) { const r = resolveExport(named, seen); if (r) return r; }
+    for (const star of rx.stars) { const r = resolveExport(`${star}:${name}`, seen); if (r) return r; }
+    return null;
+  };
 
   for (const fn of fnReg.values()) {
     const imap = importMaps.get(fn.module);
     const resolved = new Set<string>();
     for (const name of fn.calls) {
       const viaImport = imap?.get(name);
-      if (viaImport && fnReg.has(viaImport)) resolved.add(viaImport);
+      const r = viaImport ? resolveExport(viaImport) : null;
+      if (r) resolved.add(r);
       else if (fnReg.has(`${fn.module}:${name}`)) resolved.add(`${fn.module}:${name}`);
     }
     fn.calls = resolved;
@@ -516,7 +587,7 @@ export function collect(): FlowViz {
       sources: ['exported functions (TS AST)', 'indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)', 'core/connection STORE_CONFIGS', 'real fetch/sendBeacon → PG tables (Eloquent $table names)', 'flowMap.ts (stage clustering)'],
       note: 'GENERATED by visualisation/js/collect.ts — do not edit. Run `npm run viz:idb`.',
     },
-    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites', 'divEditor'],
+    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites', 'divEditor', 'editToolbar'],
     legend: [
       { rel: 'read', from: 'store', to: 'fn', desc: 'function reads an IndexedDB object store' },
       { rel: 'write', from: 'fn', to: 'store', desc: 'function writes an IndexedDB object store' },
@@ -663,8 +734,8 @@ function rebuild(){
   VIZ.modules.forEach(function(m){ (byBand[m.band]||byBand.store).push(m); });
 
   // folder zones across the X axis. Known folders in a fixed order, extras appended.
-  var FOLDER_ORDER=["indexedDB","hyperlights","hypercites","divEditor"];
-  var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6"};
+  var FOLDER_ORDER=["indexedDB","hyperlights","hypercites","divEditor","editToolbar"];
+  var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6",editToolbar:"#d18ad0"};
   var folders=[]; VIZ.modules.forEach(function(m){ var f=m.id.split("/")[0]; if(folders.indexOf(f)<0) folders.push(f); });
   folders.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a),ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib||(a<b?-1:1); });
   // a folder gets >1 sub-column only when one band would otherwise stack too tall

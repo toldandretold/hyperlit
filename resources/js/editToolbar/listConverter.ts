@@ -10,7 +10,7 @@
 import {
   findClosestListItem,
   setCursorAtTextOffset,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 import {
   setElementIds,
   findPreviousElementId,
@@ -22,7 +22,10 @@ import {
  * Handles list item to block element conversions
  */
 export class ListConverter {
-  constructor(options = {}) {
+  currentBookId: any;
+  saveToIndexedDBCallback: any;
+
+  constructor(options: any = {}) {
     this.currentBookId = options.currentBookId || null;
     this.saveToIndexedDBCallback = options.saveToIndexedDBCallback || null;
   }
@@ -33,7 +36,7 @@ export class ListConverter {
    * @param {string} blockType - "blockquote" or "code"
    * @returns {HTMLElement|null} The new block element or null
    */
-  async convertListItemToBlock(listItem, blockType) {
+  async convertListItemToBlock(listItem: any, blockType: any) {
     const immediateParentList = listItem.parentElement;
 
     if (
@@ -107,10 +110,10 @@ export class ListConverter {
    * @param {HTMLElement} rootListWithId - The root list with an ID
    */
   async splitListAndInsertBlock(
-    parentList,
-    targetItem,
-    newBlock,
-    rootListWithId
+    parentList: any,
+    targetItem: any,
+    newBlock: any,
+    rootListWithId: any
   ) {
     const allItems = Array.from(parentList.children);
     const targetIndex = allItems.indexOf(targetItem);
@@ -162,7 +165,7 @@ export class ListConverter {
       const topLevelIndex = rootItems.indexOf(topLevelItem);
 
       if (topLevelIndex !== -1) {
-        const insertAfter = rootItems[topLevelIndex];
+        const insertAfter: any = rootItems[topLevelIndex];
         rootListWithId.parentNode.insertBefore(
           newBlock,
           insertAfter.nextSibling
@@ -194,15 +197,14 @@ export class ListConverter {
    * Clean up empty lists and list items after splitting
    * @param {HTMLElement} rootList - The root list to clean up
    */
-  async cleanupAfterSplit(rootList) {
+  async cleanupAfterSplit(rootList: any) {
     const emptyLists = rootList.querySelectorAll("ul:empty, ol:empty");
-    emptyLists.forEach((list) => list.remove());
+    emptyLists.forEach((list: any) => list.remove());
 
     const listItems = rootList.querySelectorAll("li");
-    listItems.forEach((li) => {
+    listItems.forEach((li: any) => {
       const hasContent = li.textContent.trim() !== "";
-      const hasNonEmptyChildren = Array.from(li.children).some(
-        (child) =>
+      const hasNonEmptyChildren = Array.from(li.children).some((child: any) =>
           child.textContent.trim() !== "" || child.children.length > 0
       );
 
@@ -220,7 +222,7 @@ export class ListConverter {
   /**
    * Update the currentBookId (called when book changes)
    */
-  setBookId(bookId) {
+  setBookId(bookId: any) {
     this.currentBookId = bookId;
   }
 }

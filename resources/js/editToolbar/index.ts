@@ -6,27 +6,40 @@ import {
   updateSingleIndexedDBRecord,
   deleteIndexedDBRecord,
 } from "../indexedDB/index.js";
-import { SelectionManager } from "./selectionManager.js";
-import { ButtonStateManager } from "./buttonStateManager.js";
-import { HeadingSubmenu } from "./headingSubmenu.js";
-import { BlockSubmenu } from "./blockSubmenu.js";
-import { CitationMode } from "./citationMode.js";
-import { TextFormatter } from "./textFormatter.js";
-import { ListConverter } from "./listConverter.js";
-import { BlockFormatter } from "./blockFormatter.js";
-import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager.js";
-import { getTextOffsetInElement } from "./toolbarDOMUtils.js";
-import { initTapAreaExtender } from "./tapAreaExtender.js";
+import { SelectionManager } from "./selectionManager";
+import { ButtonStateManager } from "./buttonStateManager";
+import { HeadingSubmenu } from "./headingSubmenu";
+import { BlockSubmenu } from "./blockSubmenu";
+import { CitationMode } from "./citationMode";
+import { TextFormatter } from "./textFormatter";
+import { ListConverter } from "./listConverter";
+import { BlockFormatter } from "./blockFormatter";
+import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager";
+import { getTextOffsetInElement } from "./toolbarDOMUtils";
+import { initTapAreaExtender } from "./tapAreaExtender";
 
 // Private module-level variable to hold the toolbar instance
-let editToolbarInstance = null;
+let editToolbarInstance: any = null;
 
 /**
  * EditToolbar class for handling formatting controls in editable content
  * Acts as the main orchestrator, delegating to specialized module managers
  */
 class EditToolbar {
-  constructor(options = {}) {
+  // Surgical migration: orchestrator state kept loosely typed (`any`-tighten is a follow-up).
+  toolbarId: any; editableSelector: any; currentBookId: any;
+  isMobile: any; isVisible: any; isDisabled: any;
+  toolbar: any; boldButton: any; italicButton: any; headingButton: any;
+  blockquoteButton: any; codeButton: any; citationButton: any; footnoteButton: any;
+  undoButton: any; redoButton: any; allFormattingButtons: any; dataset: any;
+  headingSubmenu: any; blockquoteSubmenu: any;
+  selectionManager: any; buttonStateManager: any; textFormatter: any;
+  listConverter: any; blockFormatter: any; citationMode: any; undoManager: any;
+  headingSubmenu_handler: any; blockSubmenu_handler: any; tapExtender: any;
+  handleClickOutsideSubmenu: any; handleResize: any;
+  _beforeInputHandler: any; _inputHandler: any; _undoKeydownHandler: any;
+
+  constructor(options: any = {}) {
     this.toolbarId = options.toolbarId || "edit-toolbar";
     this.editableSelector =
       options.editableSelector || ".main-content[contenteditable='true']";
@@ -83,8 +96,8 @@ class EditToolbar {
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
       currentBookId: this.currentBookId,
-      formatBlockCallback: (type, level) => this.formatBlock(type, level),
-      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
+      formatBlockCallback: (type: any, level: any) => this.formatBlock(type, level),
+      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html),
       undoManager: this.undoManager,
       onUndoStackChanged: () => this._updateUndoRedoButtons(this.currentBookId)
     });
@@ -95,7 +108,7 @@ class EditToolbar {
       blockquoteButton: this.blockquoteButton,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      formatBlockCallback: (type, listType) => this.formatBlock(type, listType),
+      formatBlockCallback: (type: any, listType: any) => this.formatBlock(type, listType),
     });
 
     // Get all buttons except citation button for hiding during citation mode
@@ -126,13 +139,13 @@ class EditToolbar {
       editableSelector: this.editableSelector,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html)
+      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html)
     });
 
     // Initialize ListConverter
     this.listConverter = new ListConverter({
       currentBookId: this.currentBookId,
-      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html)
+      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html)
     });
 
     // Initialize BlockFormatter
@@ -141,9 +154,9 @@ class EditToolbar {
       currentBookId: this.currentBookId,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      saveToIndexedDBCallback: (id, html) => this.saveToIndexedDB(id, html),
-      deleteFromIndexedDBCallback: (id) => this.deleteFromIndexedDB(id),
-      convertListItemToBlockCallback: (listItem, type) => this.convertListItemToBlock(listItem, type),
+      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html),
+      deleteFromIndexedDBCallback: (id: any) => this.deleteFromIndexedDB(id),
+      convertListItemToBlockCallback: (listItem: any, type: any) => this.convertListItemToBlock(listItem, type),
       undoManager: this.undoManager,
     });
 
@@ -172,7 +185,7 @@ class EditToolbar {
     // NUCLEAR OPTION: Prevent ALL touches below a certain Y threshold when keyboard is open
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      const globalTouchHandler = (e) => {
+      const globalTouchHandler = (e: any) => {
         // Only intercept when keyboard is open
         const keyboardManager = window.activeKeyboardManager;
         if (!keyboardManager || !keyboardManager.isKeyboardOpen) {
@@ -214,19 +227,19 @@ class EditToolbar {
       // Also prevent touches on keyboard gap blocker
       const gapBlocker = document.getElementById('keyboard-gap-blocker');
       if (gapBlocker) {
-        gapBlocker.addEventListener('touchstart', (e) => {
+        gapBlocker.addEventListener('touchstart', (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
 
-        gapBlocker.addEventListener('touchend', (e) => {
+        gapBlocker.addEventListener('touchend', (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
 
-        gapBlocker.addEventListener('click', (e) => {
+        gapBlocker.addEventListener('click', (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
@@ -269,7 +282,7 @@ class EditToolbar {
 
     // ── beforeinput listener (capture phase) ──
     // Intercepts native undo/redo and captures state for our custom system
-    this._beforeInputHandler = (e) => {
+    this._beforeInputHandler = (e: any) => {
       const target = e.target;
       if (!target?.closest?.('[contenteditable="true"]')) return;
 
@@ -285,14 +298,14 @@ class EditToolbar {
         if (inputType === 'historyUndo') {
           this.undoManager.undo(
             bookId,
-            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-            (flag) => { this.blockFormatter.isFormatting = flag; }
+            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
         } else {
           this.undoManager.redo(
             bookId,
-            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-            (flag) => { this.blockFormatter.isFormatting = flag; }
+            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
         }
         this._updateUndoRedoButtons(bookId);
@@ -320,7 +333,7 @@ class EditToolbar {
 
     // ── input listener (capture phase) ──
     // Finalizes captures after the browser has modified the DOM
-    this._inputHandler = (e) => {
+    this._inputHandler = (e: any) => {
       const target = e.target;
       if (!target?.closest?.('[contenteditable="true"]')) return;
 
@@ -348,7 +361,7 @@ class EditToolbar {
     // Catches Cmd/Ctrl+Z in edge cases where beforeinput doesn't fire.
     // Also the primary handler since keydown fires BEFORE beforeinput —
     // when we preventDefault here, beforeinput for historyUndo won't fire.
-    this._undoKeydownHandler = (e) => {
+    this._undoKeydownHandler = (e: any) => {
       const active = document.activeElement;
       if (!active || !active.closest('[contenteditable="true"]')) return;
 
@@ -365,8 +378,8 @@ class EditToolbar {
           console.log(`[UndoManager] Cmd+Shift+Z → redo, bookId=${bookId}`);
           this.undoManager.redo(
             bookId,
-            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-            (flag) => { this.blockFormatter.isFormatting = flag; }
+            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
           this._updateUndoRedoButtons(bookId);
         }
@@ -377,8 +390,8 @@ class EditToolbar {
           console.log(`[UndoManager] Cmd+Z → undo, bookId=${bookId}, stackSize=${this.undoManager._getStacks(bookId).undoStack.length}, hasGroup=${!!this.undoManager._currentGroup}`);
           this.undoManager.undo(
             bookId,
-            (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-            (flag) => { this.blockFormatter.isFormatting = flag; }
+            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
           this._updateUndoRedoButtons(bookId);
         }
@@ -394,7 +407,7 @@ class EditToolbar {
    * Call this when your main application loads a new book.
    * @param {string} bookId The ID of the currently loaded book.
    */
-  setBookId(bookId) {
+  setBookId(bookId: any) {
     if (this.isDisabled) return;
     this.currentBookId = bookId;
     this._updateUndoRedoButtons(bookId); // Refresh button states
@@ -470,13 +483,13 @@ class EditToolbar {
     // Count found buttons for single log
     const foundButtons = buttons.filter(({ element }) => element);
 
-    buttons.forEach(({ element, name, action }) => {
+    buttons.forEach(({ element, name, action }: any) => {
       if (element) {
 
         // Prevent default behavior that clears selection
         element.addEventListener(
           "touchstart",
-          (e) => {
+          (e: any) => {
             e.preventDefault();
             e.stopPropagation();
 
@@ -490,7 +503,7 @@ class EditToolbar {
 
         element.addEventListener(
           "touchend",
-          (e) => {
+          (e: any) => {
             e.preventDefault();
             e.stopPropagation();
 
@@ -521,12 +534,12 @@ class EditToolbar {
         );
 
         // Desktop: prevent focus moving to button on mousedown (preserves selection)
-        element.addEventListener("mousedown", (e) => {
+        element.addEventListener("mousedown", (e: any) => {
           e.preventDefault();
         });
 
         // Keep desktop click handler
-        element.addEventListener("click", (e) => {
+        element.addEventListener("click", (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           action();
@@ -546,8 +559,8 @@ class EditToolbar {
     if (!bookId) return;
     this.undoManager.undo(
       bookId,
-      (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-      (flag) => { this.blockFormatter.isFormatting = flag; }
+      (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+      (flag: any) => { this.blockFormatter.isFormatting = flag; }
     );
     this._updateUndoRedoButtons(bookId);
   }
@@ -560,8 +573,8 @@ class EditToolbar {
     if (!bookId) return;
     this.undoManager.redo(
       bookId,
-      (id, html, opts) => this.saveToIndexedDB(id, html, opts),
-      (flag) => { this.blockFormatter.isFormatting = flag; }
+      (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+      (flag: any) => { this.blockFormatter.isFormatting = flag; }
     );
     this._updateUndoRedoButtons(bookId);
   }
@@ -570,7 +583,7 @@ class EditToolbar {
    * Synchronously toggle disabled state on undo/redo buttons
    * based on current UndoManager stack state.
    */
-  _updateUndoRedoButtons(bookId) {
+  _updateUndoRedoButtons(bookId: any) {
     if (this.undoButton) {
       const can = this.undoManager.hasUndo(bookId) || this.undoManager.hasAnyUndo();
       this.undoButton.classList.toggle('disabled', !can);
@@ -606,7 +619,7 @@ class EditToolbar {
    * Set edit mode and control toolbar visibility
    * @param {boolean} isEditMode - Whether edit mode is active
    */
-  setEditMode(isEditMode) {
+  setEditMode(isEditMode: any) {
     if (isEditMode) {
       this.show();
       this.tapExtender?.enable();
@@ -644,7 +657,7 @@ class EditToolbar {
    * Format the selected text with the specified style
    * Delegated to TextFormatter
    */
-  async formatText(type) {
+  async formatText(type: any) {
     return this.textFormatter.formatText(type);
   }
 
@@ -652,7 +665,7 @@ class EditToolbar {
    * Format a block element (heading, blockquote, or code)
    * Delegated to BlockFormatter
    */
-  async formatBlock(type, headingLevel = "h2") {
+  async formatBlock(type: any, headingLevel = "h2") {
     await this.blockFormatter.formatBlock(type, headingLevel);
     this._updateUndoRedoButtons(this.currentBookId);
   }
@@ -675,7 +688,7 @@ class EditToolbar {
     const rangeEl = range?.commonAncestorContainer;
     const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
     const subBookEl = containerEl?.closest('[data-book-id]');
-    const bookId = subBookEl?.dataset?.bookId
+    const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId
       || this.currentBookId
       || document.querySelector('.main-content')?.id;
 
@@ -705,7 +718,7 @@ class EditToolbar {
     this.citationMode.open({
       bookId,
       range: range.cloneRange(),
-      saveCallback: (id, html, options) => this.saveToIndexedDB(id, html, options),
+      saveCallback: (id: any, html: any, options: any) => this.saveToIndexedDB(id, html, options),
       undoSnapshot,
       undoManager: this.undoManager,
     });
@@ -723,7 +736,7 @@ class EditToolbar {
       ? selection.anchorNode.parentElement
       : selection?.anchorNode;
     const subBookEl = anchorEl?.closest('[data-book-id][contenteditable="true"]');
-    const bookId = subBookEl?.dataset?.bookId
+    const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId
       || document.querySelector('.main-content')?.id
       || this.currentBookId;
 
@@ -759,7 +772,7 @@ class EditToolbar {
       const { footnoteId, supElement } = await insertFootnoteAtCursor(
         range,
         bookId,
-        (id, html, options) => this.saveToIndexedDB(id, html, options)
+        (id: any, html: any, options: any) => this.saveToIndexedDB(id, html, options)
       );
 
       console.log(`Footnote inserted: ${footnoteId}`);
@@ -804,7 +817,7 @@ class EditToolbar {
    * This now calls updateSingleIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
-  async saveToIndexedDB(id, html, options = {}) {
+  async saveToIndexedDB(id: any, html: any, options = {}) {
     // `id` here is the string ID from the DOM
     console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
 
@@ -814,7 +827,7 @@ class EditToolbar {
     // to the main book if setBookId(subBookId) hasn't been called yet).
     const element = document.getElementById(id);
     const subBookEl = element?.closest('[data-book-id][contenteditable="true"]');
-    const bookId = subBookEl?.dataset?.bookId || this.currentBookId;
+    const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId || this.currentBookId;
 
     if (!bookId) {
       console.warn("EditToolbar: Cannot save to IndexedDB: book ID not found.");
@@ -828,7 +841,7 @@ class EditToolbar {
       html: html,
       action: "update", // This action type is used internally by updateSingleIndexedDBRecord
       book: bookId,
-    }, options);
+    } as any, options);
 
     console.log(
       `EditToolbar: Queued update for ID: ${id}. History handled by debounced sync.`
@@ -840,7 +853,7 @@ class EditToolbar {
    * This now calls deleteIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
-  async deleteFromIndexedDB(id) {
+  async deleteFromIndexedDB(id: any) {
     console.log(`EditToolbar: deleteFromIndexedDB called for ID: ${id}`);
     if (!this.currentBookId) {
       console.warn(
@@ -932,7 +945,7 @@ class EditToolbar {
    * Convert a list item to a block element (blockquote or code)
    * Delegated to ListConverter
    */
-  async convertListItemToBlock(listItem, blockType) {
+  async convertListItemToBlock(listItem: any, blockType: any) {
     return this.listConverter.convertListItemToBlock(listItem, blockType);
   }
 }
@@ -941,7 +954,7 @@ class EditToolbar {
  * Initialize the edit toolbar if it doesn't exist yet
  * @param {object} options - Options for the toolbar, including currentBookId
  */
-export function initEditToolbar(options = {}) {
+export function initEditToolbar(options: any = {}) {
   if (!editToolbarInstance) {
     editToolbarInstance = new EditToolbar(options);
     editToolbarInstance.init();

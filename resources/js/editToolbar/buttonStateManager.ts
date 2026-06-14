@@ -9,14 +9,25 @@ import {
   hasParentWithTag,
   findClosestBlockParent,
   getBlockElementsInRange,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 
 /**
  * ButtonStateManager class
  * Handles updating button states based on selection context
  */
 export class ButtonStateManager {
-  constructor(options = {}) {
+  boldButton: any;
+  italicButton: any;
+  headingButton: any;
+  blockquoteButton: any;
+  codeButton: any;
+  citationButton: any;
+  footnoteButton: any;
+  headingSubmenu: any;
+  selectionManager: any;
+  storedHeadingElement: any = null;
+
+  constructor(options: any = {}) {
     // Button references
     this.boldButton = options.boldButton || null;
     this.italicButton = options.italicButton || null;
@@ -104,7 +115,7 @@ export class ButtonStateManager {
 
       // Update submenu button states
       if (this.headingSubmenu) {
-        this.headingSubmenu.querySelectorAll("[data-heading]").forEach(btn => {
+        this.headingSubmenu.querySelectorAll("[data-heading]").forEach((btn: any) => {
           btn.classList.toggle("active", btn.dataset.heading === activeLevel);
         });
       }
@@ -175,7 +186,7 @@ export class ButtonStateManager {
    * Set the stored heading element (used by heading submenu)
    * @param {Element|null} element
    */
-  setStoredHeadingElement(element) {
+  setStoredHeadingElement(element: any) {
     this.storedHeadingElement = element;
   }
 }

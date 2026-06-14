@@ -1,7 +1,12 @@
 // Extends tap areas for toolbar buttons on mobile
 // Captures taps in the gap below/around buttons and triggers them
 
-export function initTapAreaExtender(toolbar) {
+interface TapAreaExtender {
+  enable: () => void;
+  disable: () => void;
+}
+
+export function initTapAreaExtender(toolbar: HTMLElement | null): TapAreaExtender {
   if (!toolbar) return { enable: () => {}, disable: () => {} };
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -10,25 +15,25 @@ export function initTapAreaExtender(toolbar) {
   console.log('🎯 Tap area extender initialized on mobile');
 
   let enabled = false;
-  let matchedButton = null;
-  let touchStartY = null;
+  let matchedButton: HTMLButtonElement | null = null;
+  let touchStartY: number | null = null;
 
   // TOUCHSTART: Prevent default early to stop focus changes
   document.addEventListener('touchstart', (e) => {
     if (!enabled) return;
 
     // If the touch already hit a button directly, let it through
-    if (e.target.closest('button')) {
+    if ((e.target as Element | null)?.closest('button')) {
       matchedButton = null;
       return;
     }
 
     // Get touch coordinates
-    const touch = e.touches[0];
+    const touch = e.touches[0]!;
     const touchX = touch.clientX;
     const touchY = touch.clientY;
 
-    const buttons = Array.from(toolbar.querySelectorAll('button:not(.citation-close-btn)'));
+    const buttons = Array.from(toolbar.querySelectorAll<HTMLButtonElement>('button:not(.citation-close-btn)'));
 
     // Find button whose extended zone contains the touch
     matchedButton = buttons.find(btn => {
@@ -68,7 +73,7 @@ export function initTapAreaExtender(toolbar) {
   document.addEventListener('touchend', (e) => {
     if (!enabled || !matchedButton) return;
 
-    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartY);
+    const deltaY = Math.abs(e.changedTouches[0]!.clientY - (touchStartY ?? 0));
     if (deltaY > 5) {
       console.log(`🎯 Touchend: cancelled (scrolled ${deltaY.toFixed(0)}px)`);
       matchedButton = null;

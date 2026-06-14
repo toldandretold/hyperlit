@@ -16,14 +16,20 @@ import {
   setCursorAtTextOffset,
   getElementsInSelectionRange,
   replaceBlockUndoable,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 
 /**
  * TextFormatter class
  * Handles inline text formatting operations
  */
 export class TextFormatter {
-  constructor(options = {}) {
+  editableSelector: string;
+  selectionManager: any;
+  buttonStateManager: any;
+  saveToIndexedDBCallback: any;
+  isFormatting: boolean = false;
+
+  constructor(options: any = {}) {
     this.editableSelector = options.editableSelector || ".main-content[contenteditable='true']";
     this.selectionManager = options.selectionManager || null;
     this.buttonStateManager = options.buttonStateManager || null;
@@ -36,7 +42,7 @@ export class TextFormatter {
    * Format the selected text with the specified style (bold or italic)
    * @param {string} type - "bold" or "italic"
    */
-  async formatText(type) {
+  async formatText(type: any) {
     console.log("🔧 Format text called:", {
       type: type,
       hasCurrentSelection: !!this.selectionManager.currentSelection,
@@ -105,7 +111,7 @@ export class TextFormatter {
         if (modifiedElementId && document.getElementById(modifiedElementId)) {
           affectedElementsAfter.push({
             id: modifiedElementId,
-            html: document.getElementById(modifiedElementId).outerHTML,
+            html: document.getElementById(modifiedElementId)!.outerHTML,
           });
         } else if (modifiedElementId && newElement) {
           affectedElementsAfter.push({
@@ -137,7 +143,7 @@ export class TextFormatter {
   /**
    * Handle bold formatting for both selected text and cursor-only cases
    */
-  async handleBoldFormatting(isTextSelected, parentElement) {
+  async handleBoldFormatting(isTextSelected: any, parentElement: any) {
     let modifiedElementId = null;
     let newElement = null;
 
@@ -159,7 +165,7 @@ export class TextFormatter {
         newElement = blockParent;
       } else {
         // Use native execCommand for paragraphs/blockquotes
-        document.execCommand("bold", false, null);
+        document.execCommand("bold", false);
         const parentAfterBold = this.selectionManager.getSelectionParentElement();
         const blockParentAfter = findClosestBlockParent(parentAfterBold);
         if (blockParentAfter && blockParentAfter.id) {
@@ -187,7 +193,7 @@ export class TextFormatter {
           findParentWithTag(parentElement, "STRONG") ||
           findParentWithTag(parentElement, "B");
         if (boldElement) {
-          const parentNode = boldElement.parentNode;
+          const parentNode = boldElement.parentNode as Element | null;
           replaceBlockUndoable(boldElement, boldElement.innerHTML);
           setCursorAtTextOffset(parentNode, currentOffset);
           const blockParentAfter = findClosestBlockParent(parentNode);
@@ -225,7 +231,7 @@ export class TextFormatter {
             range.selectNodeContents(node);
             this.selectionManager.currentSelection.removeAllRanges();
             this.selectionManager.currentSelection.addRange(range);
-            document.execCommand("bold", false, null);
+            document.execCommand("bold", false);
             const newBoldNode =
               findParentWithTag(node.parentNode, "STRONG") ||
               findParentWithTag(node.parentNode, "B");
@@ -248,12 +254,12 @@ export class TextFormatter {
   /**
    * Handle italic formatting for both selected text and cursor-only cases
    */
-  async handleItalicFormatting(isTextSelected, parentElement) {
+  async handleItalicFormatting(isTextSelected: any, parentElement: any) {
     let modifiedElementId = null;
     let newElement = null;
 
     if (isTextSelected) {
-      document.execCommand("italic", false, null);
+      document.execCommand("italic", false);
       const parentAfterItalic = this.selectionManager.getSelectionParentElement();
       const blockParent = findClosestBlockParent(parentAfterItalic);
       if (blockParent && blockParent.id) {
@@ -277,7 +283,7 @@ export class TextFormatter {
           findParentWithTag(parentElement, "EM") ||
           findParentWithTag(parentElement, "I");
         if (italicElement) {
-          const parentNode = italicElement.parentNode;
+          const parentNode = italicElement.parentNode as Element | null;
           replaceBlockUndoable(italicElement, italicElement.innerHTML);
           setCursorAtTextOffset(parentNode, currentOffset);
           const blockParent = findClosestBlockParent(parentNode);
@@ -299,7 +305,7 @@ export class TextFormatter {
           range.selectNodeContents(node);
           this.selectionManager.currentSelection.removeAllRanges();
           this.selectionManager.currentSelection.addRange(range);
-          document.execCommand("italic", false, null);
+          document.execCommand("italic", false);
           const newItalicNode =
             findParentWithTag(node.parentNode, "EM") ||
             findParentWithTag(node.parentNode, "I");

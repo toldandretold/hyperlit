@@ -258,7 +258,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   // Show the edit toolbar for the brain annotation field
   try {
-    const { getEditToolbar } = await import('../editToolbar/index.js');
+    const { getEditToolbar } = await import('../editToolbar/index');
     const toolbar = getEditToolbar();
     if (toolbar) {
       toolbar.setEditMode(true);
@@ -470,7 +470,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       }
 
       // Success — turn off edit mode (this is AI-generated content, not user-editable)
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
       const tb = getToolbar();
       if (tb) {
         tb.setEditMode(false);

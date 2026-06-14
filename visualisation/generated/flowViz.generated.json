@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 209,
-    "moduleCount": 62,
+    "fnCount": 415,
+    "moduleCount": 82,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 482,
+    "edgeCount": 786,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -25,7 +25,8 @@
     "infra",
     "hyperlights",
     "hypercites",
-    "divEditor"
+    "divEditor",
+    "editToolbar"
   ],
   "legend": [
     {
@@ -138,6 +139,102 @@
       "stage": "divEditor",
       "module": "divEditor/chunkMutationHandler/firstNode",
       "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.clearChunkCache",
+      "label": "ChunkMutationHandler.clearChunkCache",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.constructor",
+      "label": "ChunkMutationHandler.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
+      "label": "ChunkMutationHandler.filterChunkMutations",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findContainingChunk",
+      "label": "ChunkMutationHandler.findContainingChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
+      "label": "ChunkMutationHandler.findNumericalIdNodesInChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+      "label": "ChunkMutationHandler.handleNewChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNodeWithinMainContent",
+      "label": "ChunkMutationHandler.isNodeWithinMainContent",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNumericalIdDeletion",
+      "label": "ChunkMutationHandler.isNumericalIdDeletion",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
+      "label": "ChunkMutationHandler.processByChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "label": "ChunkMutationHandler.processChunkMutations",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation",
+      "label": "ChunkMutationHandler.queueTocInvalidation",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation",
+      "label": "ChunkMutationHandler.shouldSkipMutation",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
     },
     {
       "id": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
@@ -353,7 +450,7 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/enterKeyHandler/caretHelpers",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
@@ -361,7 +458,7 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/enterKeyHandler/caretHelpers",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "divEditor/enterKeyHandler/caretHelpers:scrollCaretIntoView",
@@ -369,6 +466,78 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/enterKeyHandler/caretHelpers",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "label": "EnterKeyHandler._handleBlockquotePreEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart",
+      "label": "EnterKeyHandler._handleHeadingAtStart",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "label": "EnterKeyHandler._handleListItemEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleNonSplittableEnter",
+      "label": "EnterKeyHandler._handleNonSplittableEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+      "label": "EnterKeyHandler._handleOtherEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "label": "EnterKeyHandler._handleParagraphEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.constructor",
+      "label": "EnterKeyHandler.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.destroy",
+      "label": "EnterKeyHandler.destroy",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
+      "label": "EnterKeyHandler.handleKeyDown",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
       "leaf": false
     },
     {
@@ -412,6 +581,158 @@
       "leaf": false
     },
     {
+      "id": "divEditor/mutationProcessor:MutationProcessor.cancel",
+      "label": "MutationProcessor.cancel",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.constructor",
+      "label": "MutationProcessor.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.destroy",
+      "label": "MutationProcessor.destroy",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.enqueue",
+      "label": "MutationProcessor.enqueue",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.flush",
+      "label": "MutationProcessor.flush",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.process",
+      "label": "MutationProcessor.process",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/mutationProcessor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue._collectNodeIds",
+      "label": "SaveQueue._collectNodeIds",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+      "label": "SaveQueue._scheduleFullVerification",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue._verifyAfterSave",
+      "label": "SaveQueue._verifyAfterSave",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.constructor",
+      "label": "SaveQueue.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.destroy",
+      "label": "SaveQueue.destroy",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.flush",
+      "label": "SaveQueue.flush",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "label": "SaveQueue.processBatchDeletions",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.queueDeletion",
+      "label": "SaveQueue.queueDeletion",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.queueNode",
+      "label": "SaveQueue.queueNode",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.recordInputEvent",
+      "label": "SaveQueue.recordInputEvent",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "label": "SaveQueue.saveNodeToDatabase",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.startMonitoring",
+      "label": "SaveQueue.startMonitoring",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.stopMonitoring",
+      "label": "SaveQueue.stopMonitoring",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue",
+      "leaf": true
+    },
+    {
       "id": "divEditor/supTagHandler/arrowHandler:hyperciteArrowHandler",
       "label": "hyperciteArrowHandler",
       "kind": "fn",
@@ -436,9 +757,1337 @@
       "leaf": false
     },
     {
+      "id": "divEditor/supTagHandler/index:SupTagHandler._attachArrowHandler",
+      "label": "SupTagHandler._attachArrowHandler",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/supTagHandler/index:SupTagHandler._attachDeleteHandler",
+      "label": "SupTagHandler._attachDeleteHandler",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/supTagHandler/index:SupTagHandler._attachEscapeHandler",
+      "label": "SupTagHandler._attachEscapeHandler",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/supTagHandler/index:SupTagHandler.constructor",
+      "label": "SupTagHandler.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/supTagHandler/index:SupTagHandler.startListening",
+      "label": "SupTagHandler.startListening",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/supTagHandler/index:SupTagHandler.stopListening",
+      "label": "SupTagHandler.stopListening",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/supTagHandler/index",
+      "leaf": true
+    },
+    {
       "id": "dom",
       "label": "reader.blade.php",
       "kind": "dom"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
+      "label": "_contentPreservingUnwrap",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
+      "label": "_contentPreservingWrap",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "label": "_mergeBlocksIntoBlockquote",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "label": "handleBlockquoteCodeFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
+      "label": "unwrapBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock",
+      "label": "wrapBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "label": "handleHeadingFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/headingFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "label": "unwrapSelectedTextFromHeading",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/headingFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+      "label": "_mergeBlocksIntoList",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/listFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "label": "handleListFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/listFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListToBlock",
+      "label": "handleListToBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/listFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "label": "handleRemoveList",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/listFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter._contentPreservingUnwrap",
+      "label": "BlockFormatter._contentPreservingUnwrap",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter._contentPreservingWrap",
+      "label": "BlockFormatter._contentPreservingWrap",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter._mergeBlocksIntoBlockquote",
+      "label": "BlockFormatter._mergeBlocksIntoBlockquote",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter._mergeBlocksIntoList",
+      "label": "BlockFormatter._mergeBlocksIntoList",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.constructor",
+      "label": "BlockFormatter.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.formatBlock",
+      "label": "BlockFormatter.formatBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.handleBlockquoteCodeFormat",
+      "label": "BlockFormatter.handleBlockquoteCodeFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.handleHeadingFormat",
+      "label": "BlockFormatter.handleHeadingFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.handleListFormat",
+      "label": "BlockFormatter.handleListFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.handleListToBlock",
+      "label": "BlockFormatter.handleListToBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.handleRemoveList",
+      "label": "BlockFormatter.handleRemoveList",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.isCurrentlyFormatting",
+      "label": "BlockFormatter.isCurrentlyFormatting",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.setBookId",
+      "label": "BlockFormatter.setBookId",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.unwrapBlock",
+      "label": "BlockFormatter.unwrapBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.unwrapSelectedTextFromHeading",
+      "label": "BlockFormatter.unwrapSelectedTextFromHeading",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.wrapBlock",
+      "label": "BlockFormatter.wrapBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeBlockType",
+      "label": "BlockSubmenu._executeBlockType",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
+      "label": "BlockSubmenu._executeRemove",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu",
+      "label": "BlockSubmenu.closeBlockSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.constructor",
+      "label": "BlockSubmenu.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.handleBlockTypeSelection",
+      "label": "BlockSubmenu.handleBlockTypeSelection",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.handleClickOutsideSubmenu",
+      "label": "BlockSubmenu.handleClickOutsideSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.handleRemoveBlock",
+      "label": "BlockSubmenu.handleRemoveBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+      "label": "BlockSubmenu.openBlockSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.toggleBlockSubmenu",
+      "label": "BlockSubmenu.toggleBlockSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.wasSubmenuButtonJustClicked",
+      "label": "BlockSubmenu.wasSubmenuButtonJustClicked",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.constructor",
+      "label": "ButtonStateManager.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/buttonStateManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.getStoredHeadingElement",
+      "label": "ButtonStateManager.getStoredHeadingElement",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/buttonStateManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.setStoredHeadingElement",
+      "label": "ButtonStateManager.setStoredHeadingElement",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/buttonStateManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "label": "ButtonStateManager.updateButtonStates",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/buttonStateManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._closeShelfDropdown",
+      "label": "CitationMode._closeShelfDropdown",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._destroyScopeChips",
+      "label": "CitationMode._destroyScopeChips",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "label": "CitationMode._ensureShelvesLoaded",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "label": "CitationMode._handleScopeChange",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "label": "CitationMode._initScopeChips",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._items",
+      "label": "CitationMode._items",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._openShelfDropdown",
+      "label": "CitationMode._openShelfDropdown",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._pickShelf",
+      "label": "CitationMode._pickShelf",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "label": "CitationMode._renderShelfOptions",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._togglePickerVisibility",
+      "label": "CitationMode._togglePickerVisibility",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._updateScopeBarVisibility",
+      "label": "CitationMode._updateScopeBarVisibility",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.attachEventHandlers",
+      "label": "CitationMode.attachEventHandlers",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.close",
+      "label": "CitationMode.close",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.constructor",
+      "label": "CitationMode.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.detachEventHandlers",
+      "label": "CitationMode.detachEventHandlers",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "label": "CitationMode.handleCitationSelection",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "label": "CitationMode.handleDocumentClick",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleKeyDown",
+      "label": "CitationMode.handleKeyDown",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "label": "CitationMode.handleResultsScroll",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleSearchInput",
+      "label": "CitationMode.handleSearchInput",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "label": "CitationMode.handleTouchEnd",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleTouchStart",
+      "label": "CitationMode.handleTouchStart",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.open",
+      "label": "CitationMode.open",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.performSearch",
+      "label": "CitationMode.performSearch",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.renderResults",
+      "label": "CitationMode.renderResults",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.repositionContainer",
+      "label": "CitationMode.repositionContainer",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.closeHeadingSubmenu",
+      "label": "HeadingSubmenu.closeHeadingSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.constructor",
+      "label": "HeadingSubmenu.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+      "label": "HeadingSubmenu.convertHeadingToParagraph",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.handleClickOutsideSubmenu",
+      "label": "HeadingSubmenu.handleClickOutsideSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.handleHeadingSelection",
+      "label": "HeadingSubmenu.handleHeadingSelection",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.handleRemoveHeading",
+      "label": "HeadingSubmenu.handleRemoveHeading",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "label": "HeadingSubmenu.openHeadingSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.setBookId",
+      "label": "HeadingSubmenu.setBookId",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.toggleHeadingSubmenu",
+      "label": "HeadingSubmenu.toggleHeadingSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.wasSubmenuButtonJustClicked",
+      "label": "HeadingSubmenu.wasSubmenuButtonJustClicked",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/headingSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:destroyEditToolbar",
+      "label": "destroyEditToolbar",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._handleRedoButton",
+      "label": "EditToolbar._handleRedoButton",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._handleUndoButton",
+      "label": "EditToolbar._handleUndoButton",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._updateUndoRedoButtons",
+      "label": "EditToolbar._updateUndoRedoButtons",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.attachButtonHandlers",
+      "label": "EditToolbar.attachButtonHandlers",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.closeHeadingSubmenu",
+      "label": "EditToolbar.closeHeadingSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.constructor",
+      "label": "EditToolbar.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.convertListItemToBlock",
+      "label": "EditToolbar.convertListItemToBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.deleteFromIndexedDB",
+      "label": "EditToolbar.deleteFromIndexedDB",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.destroy",
+      "label": "EditToolbar.destroy",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.formatBlock",
+      "label": "EditToolbar.formatBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.formatText",
+      "label": "EditToolbar.formatText",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.handleSelectionChange",
+      "label": "EditToolbar.handleSelectionChange",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.hide",
+      "label": "EditToolbar.hide",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.init",
+      "label": "EditToolbar.init",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.insertFootnote",
+      "label": "EditToolbar.insertFootnote",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.openCitationSearch",
+      "label": "EditToolbar.openCitationSearch",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.saveToIndexedDB",
+      "label": "EditToolbar.saveToIndexedDB",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.setBookId",
+      "label": "EditToolbar.setBookId",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.setEditMode",
+      "label": "EditToolbar.setEditMode",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.show",
+      "label": "EditToolbar.show",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.unwrapSelectedTextFromHeading",
+      "label": "EditToolbar.unwrapSelectedTextFromHeading",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.updateButtonStates",
+      "label": "EditToolbar.updateButtonStates",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:getEditToolbar",
+      "label": "getEditToolbar",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/index:initEditToolbar",
+      "label": "initEditToolbar",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.cleanupAfterSplit",
+      "label": "ListConverter.cleanupAfterSplit",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/listConverter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.constructor",
+      "label": "ListConverter.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/listConverter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+      "label": "ListConverter.convertListItemToBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/listConverter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.setBookId",
+      "label": "ListConverter.setBookId",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/listConverter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.splitListAndInsertBlock",
+      "label": "ListConverter.splitListAndInsertBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/listConverter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.attachListener",
+      "label": "SelectionManager.attachListener",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.constructor",
+      "label": "SelectionManager.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.detachListener",
+      "label": "SelectionManager.detachListener",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.getSelectionParentElement",
+      "label": "SelectionManager.getSelectionParentElement",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.getWorkingSelection",
+      "label": "SelectionManager.getWorkingSelection",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.handleSelectionChange",
+      "label": "SelectionManager.handleSelectionChange",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.restoreSelection",
+      "label": "SelectionManager.restoreSelection",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.setVisible",
+      "label": "SelectionManager.setVisible",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/selectionManager:SelectionManager.storeSelectionForTouch",
+      "label": "SelectionManager.storeSelectionForTouch",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/selectionManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/tapAreaExtender:initTapAreaExtender",
+      "label": "initTapAreaExtender",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/tapAreaExtender",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.constructor",
+      "label": "TextFormatter.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/textFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.formatText",
+      "label": "TextFormatter.formatText",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/textFormatter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "label": "TextFormatter.handleBoldFormatting",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/textFormatter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "label": "TextFormatter.handleItalicFormatting",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/textFormatter",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.isCurrentlyFormatting",
+      "label": "TextFormatter.isCurrentlyFormatting",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/textFormatter",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "label": "findClosestBlockParent",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:findClosestListItem",
+      "label": "findClosestListItem",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:findParentWithTag",
+      "label": "findParentWithTag",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "label": "getBlockElementsInRange",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+      "label": "getElementsInSelectionRange",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getFirstTextNode",
+      "label": "getFirstTextNode",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getLastTextNode",
+      "label": "getLastTextNode",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "label": "getTextOffsetInElement",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "label": "hasParentWithTag",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:isBlockElement",
+      "label": "isBlockElement",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "label": "replaceBlockUndoable",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:selectAcrossElements",
+      "label": "selectAcrossElements",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "label": "setCursorAtTextOffset",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/toolbarDOMUtils",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._getStacks",
+      "label": "UndoManager._getStacks",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._inputCategory",
+      "label": "UndoManager._inputCategory",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._pushUndo",
+      "label": "UndoManager._pushUndo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoFormat",
+      "label": "UndoManager._redoFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoInput",
+      "label": "UndoManager._redoInput",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoStructural",
+      "label": "UndoManager._redoStructural",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._resetSealTimer",
+      "label": "UndoManager._resetSealTimer",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoFormat",
+      "label": "UndoManager._undoFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoInput",
+      "label": "UndoManager._undoInput",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoStructural",
+      "label": "UndoManager._undoStructural",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.clearBook",
+      "label": "UndoManager.clearBook",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.constructor",
+      "label": "UndoManager.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.finalizeCapture",
+      "label": "UndoManager.finalizeCapture",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.finalizeStructural",
+      "label": "UndoManager.finalizeStructural",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.hasAnyRedo",
+      "label": "UndoManager.hasAnyRedo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.hasAnyUndo",
+      "label": "UndoManager.hasAnyUndo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.hasRedo",
+      "label": "UndoManager.hasRedo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.hasUndo",
+      "label": "UndoManager.hasUndo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.recordFormat",
+      "label": "UndoManager.recordFormat",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.redo",
+      "label": "UndoManager.redo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.sealGroup",
+      "label": "UndoManager.sealGroup",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.snapshotForStructural",
+      "label": "UndoManager.snapshotForStructural",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.startCapture",
+      "label": "UndoManager.startCapture",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.undo",
+      "label": "UndoManager.undo",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/undoManager",
+      "leaf": true
     },
     {
       "id": "hypercites/animations:highlightTargetHypercite",
@@ -718,7 +2367,7 @@
       "kind": "fn",
       "stage": "hypercites",
       "module": "hypercites/utils",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener",
@@ -1590,7 +3239,7 @@
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/positionCollector",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/nodes/read:getAllNodeChunksForBook",
@@ -1890,6 +3539,26 @@
       ]
     },
     {
+      "id": "divEditor/chunkMutationHandler/index",
+      "label": "divEditor/chunkMutationHandler/index",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.clearChunkCache",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.constructor",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findContainingChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNodeWithinMainContent",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNumericalIdDeletion",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation"
+      ]
+    },
+    {
       "id": "divEditor/chunkMutationHandler/spanDestroyer",
       "label": "divEditor/chunkMutationHandler/spanDestroyer",
       "stage": "divEditor",
@@ -1959,6 +3628,23 @@
       ]
     },
     {
+      "id": "divEditor/enterKeyHandler/index",
+      "label": "divEditor/enterKeyHandler/index",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleNonSplittableEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler.constructor",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler.destroy",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown"
+      ]
+    },
+    {
       "id": "divEditor/index",
       "label": "divEditor/index",
       "stage": "divEditor",
@@ -1969,6 +3655,41 @@
         "divEditor/index:isEditorObserving",
         "divEditor/index:startObserving",
         "divEditor/index:stopObserving"
+      ]
+    },
+    {
+      "id": "divEditor/mutationProcessor",
+      "label": "divEditor/mutationProcessor",
+      "stage": "divEditor",
+      "band": "store",
+      "fnIds": [
+        "divEditor/mutationProcessor:MutationProcessor.cancel",
+        "divEditor/mutationProcessor:MutationProcessor.constructor",
+        "divEditor/mutationProcessor:MutationProcessor.destroy",
+        "divEditor/mutationProcessor:MutationProcessor.enqueue",
+        "divEditor/mutationProcessor:MutationProcessor.flush",
+        "divEditor/mutationProcessor:MutationProcessor.process"
+      ]
+    },
+    {
+      "id": "divEditor/saveQueue",
+      "label": "divEditor/saveQueue",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/saveQueue:SaveQueue._collectNodeIds",
+        "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+        "divEditor/saveQueue:SaveQueue._verifyAfterSave",
+        "divEditor/saveQueue:SaveQueue.constructor",
+        "divEditor/saveQueue:SaveQueue.destroy",
+        "divEditor/saveQueue:SaveQueue.flush",
+        "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+        "divEditor/saveQueue:SaveQueue.queueDeletion",
+        "divEditor/saveQueue:SaveQueue.queueNode",
+        "divEditor/saveQueue:SaveQueue.recordInputEvent",
+        "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+        "divEditor/saveQueue:SaveQueue.startMonitoring",
+        "divEditor/saveQueue:SaveQueue.stopMonitoring"
       ]
     },
     {
@@ -1996,6 +3717,300 @@
       "band": "capture",
       "fnIds": [
         "divEditor/supTagHandler/escapeHandler:supEscapeHandler"
+      ]
+    },
+    {
+      "id": "divEditor/supTagHandler/index",
+      "label": "divEditor/supTagHandler/index",
+      "stage": "divEditor",
+      "band": "store",
+      "fnIds": [
+        "divEditor/supTagHandler/index:SupTagHandler._attachArrowHandler",
+        "divEditor/supTagHandler/index:SupTagHandler._attachDeleteHandler",
+        "divEditor/supTagHandler/index:SupTagHandler._attachEscapeHandler",
+        "divEditor/supTagHandler/index:SupTagHandler.constructor",
+        "divEditor/supTagHandler/index:SupTagHandler.startListening",
+        "divEditor/supTagHandler/index:SupTagHandler.stopListening"
+      ]
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "label": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
+        "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
+        "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+        "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+        "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
+        "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock"
+      ]
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat",
+      "label": "editToolbar/blockFormat/headingFormat",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+        "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading"
+      ]
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat",
+      "label": "editToolbar/blockFormat/listFormat",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+        "editToolbar/blockFormat/listFormat:handleListFormat",
+        "editToolbar/blockFormat/listFormat:handleListToBlock",
+        "editToolbar/blockFormat/listFormat:handleRemoveList"
+      ]
+    },
+    {
+      "id": "editToolbar/blockFormatter",
+      "label": "editToolbar/blockFormatter",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockFormatter:BlockFormatter._contentPreservingUnwrap",
+        "editToolbar/blockFormatter:BlockFormatter._contentPreservingWrap",
+        "editToolbar/blockFormatter:BlockFormatter._mergeBlocksIntoBlockquote",
+        "editToolbar/blockFormatter:BlockFormatter._mergeBlocksIntoList",
+        "editToolbar/blockFormatter:BlockFormatter.constructor",
+        "editToolbar/blockFormatter:BlockFormatter.formatBlock",
+        "editToolbar/blockFormatter:BlockFormatter.handleBlockquoteCodeFormat",
+        "editToolbar/blockFormatter:BlockFormatter.handleHeadingFormat",
+        "editToolbar/blockFormatter:BlockFormatter.handleListFormat",
+        "editToolbar/blockFormatter:BlockFormatter.handleListToBlock",
+        "editToolbar/blockFormatter:BlockFormatter.handleRemoveList",
+        "editToolbar/blockFormatter:BlockFormatter.isCurrentlyFormatting",
+        "editToolbar/blockFormatter:BlockFormatter.setBookId",
+        "editToolbar/blockFormatter:BlockFormatter.unwrapBlock",
+        "editToolbar/blockFormatter:BlockFormatter.unwrapSelectedTextFromHeading",
+        "editToolbar/blockFormatter:BlockFormatter.wrapBlock"
+      ]
+    },
+    {
+      "id": "editToolbar/blockSubmenu",
+      "label": "editToolbar/blockSubmenu",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockSubmenu:BlockSubmenu._executeBlockType",
+        "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
+        "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu",
+        "editToolbar/blockSubmenu:BlockSubmenu.constructor",
+        "editToolbar/blockSubmenu:BlockSubmenu.handleBlockTypeSelection",
+        "editToolbar/blockSubmenu:BlockSubmenu.handleClickOutsideSubmenu",
+        "editToolbar/blockSubmenu:BlockSubmenu.handleRemoveBlock",
+        "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+        "editToolbar/blockSubmenu:BlockSubmenu.toggleBlockSubmenu",
+        "editToolbar/blockSubmenu:BlockSubmenu.wasSubmenuButtonJustClicked"
+      ]
+    },
+    {
+      "id": "editToolbar/buttonStateManager",
+      "label": "editToolbar/buttonStateManager",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/buttonStateManager:ButtonStateManager.constructor",
+        "editToolbar/buttonStateManager:ButtonStateManager.getStoredHeadingElement",
+        "editToolbar/buttonStateManager:ButtonStateManager.setStoredHeadingElement",
+        "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates"
+      ]
+    },
+    {
+      "id": "editToolbar/citationMode",
+      "label": "editToolbar/citationMode",
+      "stage": "editToolbar",
+      "band": "sync",
+      "fnIds": [
+        "editToolbar/citationMode:CitationMode._closeShelfDropdown",
+        "editToolbar/citationMode:CitationMode._destroyScopeChips",
+        "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+        "editToolbar/citationMode:CitationMode._handleScopeChange",
+        "editToolbar/citationMode:CitationMode._initScopeChips",
+        "editToolbar/citationMode:CitationMode._items",
+        "editToolbar/citationMode:CitationMode._openShelfDropdown",
+        "editToolbar/citationMode:CitationMode._pickShelf",
+        "editToolbar/citationMode:CitationMode._renderShelfOptions",
+        "editToolbar/citationMode:CitationMode._togglePickerVisibility",
+        "editToolbar/citationMode:CitationMode._updateScopeBarVisibility",
+        "editToolbar/citationMode:CitationMode.attachEventHandlers",
+        "editToolbar/citationMode:CitationMode.close",
+        "editToolbar/citationMode:CitationMode.constructor",
+        "editToolbar/citationMode:CitationMode.detachEventHandlers",
+        "editToolbar/citationMode:CitationMode.handleCitationSelection",
+        "editToolbar/citationMode:CitationMode.handleDocumentClick",
+        "editToolbar/citationMode:CitationMode.handleKeyDown",
+        "editToolbar/citationMode:CitationMode.handleResultsScroll",
+        "editToolbar/citationMode:CitationMode.handleSearchInput",
+        "editToolbar/citationMode:CitationMode.handleTouchEnd",
+        "editToolbar/citationMode:CitationMode.handleTouchStart",
+        "editToolbar/citationMode:CitationMode.open",
+        "editToolbar/citationMode:CitationMode.performSearch",
+        "editToolbar/citationMode:CitationMode.renderResults",
+        "editToolbar/citationMode:CitationMode.repositionContainer"
+      ]
+    },
+    {
+      "id": "editToolbar/headingSubmenu",
+      "label": "editToolbar/headingSubmenu",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/headingSubmenu:HeadingSubmenu.closeHeadingSubmenu",
+        "editToolbar/headingSubmenu:HeadingSubmenu.constructor",
+        "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+        "editToolbar/headingSubmenu:HeadingSubmenu.handleClickOutsideSubmenu",
+        "editToolbar/headingSubmenu:HeadingSubmenu.handleHeadingSelection",
+        "editToolbar/headingSubmenu:HeadingSubmenu.handleRemoveHeading",
+        "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+        "editToolbar/headingSubmenu:HeadingSubmenu.setBookId",
+        "editToolbar/headingSubmenu:HeadingSubmenu.toggleHeadingSubmenu",
+        "editToolbar/headingSubmenu:HeadingSubmenu.wasSubmenuButtonJustClicked"
+      ]
+    },
+    {
+      "id": "editToolbar/index",
+      "label": "editToolbar/index",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/index:EditToolbar._handleRedoButton",
+        "editToolbar/index:EditToolbar._handleUndoButton",
+        "editToolbar/index:EditToolbar._updateUndoRedoButtons",
+        "editToolbar/index:EditToolbar.attachButtonHandlers",
+        "editToolbar/index:EditToolbar.closeHeadingSubmenu",
+        "editToolbar/index:EditToolbar.constructor",
+        "editToolbar/index:EditToolbar.convertListItemToBlock",
+        "editToolbar/index:EditToolbar.deleteFromIndexedDB",
+        "editToolbar/index:EditToolbar.destroy",
+        "editToolbar/index:EditToolbar.formatBlock",
+        "editToolbar/index:EditToolbar.formatText",
+        "editToolbar/index:EditToolbar.handleSelectionChange",
+        "editToolbar/index:EditToolbar.hide",
+        "editToolbar/index:EditToolbar.init",
+        "editToolbar/index:EditToolbar.insertFootnote",
+        "editToolbar/index:EditToolbar.openCitationSearch",
+        "editToolbar/index:EditToolbar.saveToIndexedDB",
+        "editToolbar/index:EditToolbar.setBookId",
+        "editToolbar/index:EditToolbar.setEditMode",
+        "editToolbar/index:EditToolbar.show",
+        "editToolbar/index:EditToolbar.unwrapSelectedTextFromHeading",
+        "editToolbar/index:EditToolbar.updateButtonStates",
+        "editToolbar/index:destroyEditToolbar",
+        "editToolbar/index:getEditToolbar",
+        "editToolbar/index:initEditToolbar"
+      ]
+    },
+    {
+      "id": "editToolbar/listConverter",
+      "label": "editToolbar/listConverter",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/listConverter:ListConverter.cleanupAfterSplit",
+        "editToolbar/listConverter:ListConverter.constructor",
+        "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+        "editToolbar/listConverter:ListConverter.setBookId",
+        "editToolbar/listConverter:ListConverter.splitListAndInsertBlock"
+      ]
+    },
+    {
+      "id": "editToolbar/selectionManager",
+      "label": "editToolbar/selectionManager",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/selectionManager:SelectionManager.attachListener",
+        "editToolbar/selectionManager:SelectionManager.constructor",
+        "editToolbar/selectionManager:SelectionManager.detachListener",
+        "editToolbar/selectionManager:SelectionManager.getSelectionParentElement",
+        "editToolbar/selectionManager:SelectionManager.getWorkingSelection",
+        "editToolbar/selectionManager:SelectionManager.handleSelectionChange",
+        "editToolbar/selectionManager:SelectionManager.restoreSelection",
+        "editToolbar/selectionManager:SelectionManager.setVisible",
+        "editToolbar/selectionManager:SelectionManager.storeSelectionForTouch"
+      ]
+    },
+    {
+      "id": "editToolbar/tapAreaExtender",
+      "label": "editToolbar/tapAreaExtender",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/tapAreaExtender:initTapAreaExtender"
+      ]
+    },
+    {
+      "id": "editToolbar/textFormatter",
+      "label": "editToolbar/textFormatter",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/textFormatter:TextFormatter.constructor",
+        "editToolbar/textFormatter:TextFormatter.formatText",
+        "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+        "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+        "editToolbar/textFormatter:TextFormatter.isCurrentlyFormatting"
+      ]
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils",
+      "label": "editToolbar/toolbarDOMUtils",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+        "editToolbar/toolbarDOMUtils:findClosestListItem",
+        "editToolbar/toolbarDOMUtils:findParentWithTag",
+        "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+        "editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+        "editToolbar/toolbarDOMUtils:getFirstTextNode",
+        "editToolbar/toolbarDOMUtils:getLastTextNode",
+        "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+        "editToolbar/toolbarDOMUtils:hasParentWithTag",
+        "editToolbar/toolbarDOMUtils:isBlockElement",
+        "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+        "editToolbar/toolbarDOMUtils:selectAcrossElements",
+        "editToolbar/toolbarDOMUtils:setCursorAtTextOffset"
+      ]
+    },
+    {
+      "id": "editToolbar/undoManager",
+      "label": "editToolbar/undoManager",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/undoManager:UndoManager._getStacks",
+        "editToolbar/undoManager:UndoManager._inputCategory",
+        "editToolbar/undoManager:UndoManager._pushUndo",
+        "editToolbar/undoManager:UndoManager._redoFormat",
+        "editToolbar/undoManager:UndoManager._redoInput",
+        "editToolbar/undoManager:UndoManager._redoStructural",
+        "editToolbar/undoManager:UndoManager._resetSealTimer",
+        "editToolbar/undoManager:UndoManager._undoFormat",
+        "editToolbar/undoManager:UndoManager._undoInput",
+        "editToolbar/undoManager:UndoManager._undoStructural",
+        "editToolbar/undoManager:UndoManager.clearBook",
+        "editToolbar/undoManager:UndoManager.constructor",
+        "editToolbar/undoManager:UndoManager.finalizeCapture",
+        "editToolbar/undoManager:UndoManager.finalizeStructural",
+        "editToolbar/undoManager:UndoManager.hasAnyRedo",
+        "editToolbar/undoManager:UndoManager.hasAnyUndo",
+        "editToolbar/undoManager:UndoManager.hasRedo",
+        "editToolbar/undoManager:UndoManager.hasUndo",
+        "editToolbar/undoManager:UndoManager.recordFormat",
+        "editToolbar/undoManager:UndoManager.redo",
+        "editToolbar/undoManager:UndoManager.sealGroup",
+        "editToolbar/undoManager:UndoManager.snapshotForStructural",
+        "editToolbar/undoManager:UndoManager.startCapture",
+        "editToolbar/undoManager:UndoManager.undo"
       ]
     },
     {
@@ -2588,6 +4603,66 @@
   ],
   "edges": [
     {
+      "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/domUtilities:transferNoDeleteMarker",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "divEditor/domUtilities:transferNoDeleteMarker",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__hypercites/database:getHyperciteById",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "hypercites/database:getHyperciteById",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__hypercites/deletion:markHyperciteAsGhost",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "hypercites/deletion:markHyperciteAsGhost",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/core/connection:openDatabase",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__domwrite__dom",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan__domwrite__dom",
       "source": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
       "target": "dom",
@@ -2660,9 +4735,27 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/database:getHyperciteById",
+      "source": "divEditor/domUtilities:handleHyperciteRemoval",
+      "target": "hypercites/database:getHyperciteById",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/deletion:delinkHypercite",
+      "source": "divEditor/domUtilities:handleHyperciteRemoval",
+      "target": "hypercites/deletion:delinkHypercite",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/deletion:markHyperciteAsGhost",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
       "target": "hypercites/deletion:markHyperciteAsGhost",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/domUtilities:handleHyperciteRemoval__call__indexedDB/core/connection:openDatabase",
+      "source": "divEditor/domUtilities:handleHyperciteRemoval",
+      "target": "indexedDB/core/connection:openDatabase",
       "rel": "call"
     },
     {
@@ -2696,6 +4789,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/editSessionManager:registerEditSession__call__divEditor/index:stopObserving",
+      "source": "divEditor/editSessionManager:registerEditSession",
+      "target": "divEditor/index:stopObserving",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
       "target": "divEditor/editorState:queueNodeForSave",
@@ -2710,6 +4809,108 @@
     {
       "id": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph__domwrite__dom",
       "source": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter__call__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter__call__divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart__call__divEditor/enterKeyHandler/caretHelpers:isElementInViewport",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart",
+      "target": "divEditor/enterKeyHandler/caretHelpers:isElementInViewport",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleHeadingAtStart",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter__call__divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleNonSplittableEnter__call__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleNonSplittableEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter__call__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter__call__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown__call__divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
+      "target": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -2780,6 +4981,60 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:isIDBBroken",
+      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "target": "indexedDB/core/healthMonitor:isIDBBroken",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBFailure",
+      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "target": "indexedDB/core/healthMonitor:reportIDBFailure",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBSuccess",
+      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "target": "indexedDB/core/healthMonitor:reportIDBSuccess",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "target": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "indexedDB/core/healthMonitor:isIDBBroken",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBFailure",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "indexedDB/core/healthMonitor:reportIDBFailure",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBSuccess",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "indexedDB/core/healthMonitor:reportIDBSuccess",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__divEditor/editorState:queueNodeForDeletion",
       "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
       "target": "divEditor/editorState:queueNodeForDeletion",
@@ -2789,6 +5044,18 @@
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
       "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__hypercites/database:getHyperciteById",
+      "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
+      "target": "hypercites/database:getHyperciteById",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__indexedDB/core/connection:openDatabase",
+      "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
+      "target": "indexedDB/core/connection:openDatabase",
       "rel": "call"
     },
     {
@@ -2813,6 +5080,42 @@
       "id": "dom__domread__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
       "source": "dom",
       "target": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
       "rel": "domread"
     },
     {
@@ -2870,9 +5173,51 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/enterKeyHandler/caretHelpers:isElementInViewport",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/caretHelpers:isElementInViewport",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/enterKeyHandler/caretHelpers:scrollCaretIntoView",
       "source": "dom",
       "target": "divEditor/enterKeyHandler/caretHelpers:scrollCaretIntoView",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleBlockquotePreEnter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleListItemEnter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
       "rel": "domread"
     },
     {
@@ -2885,6 +5230,30 @@
       "id": "dom__domread__divEditor/index:stopObserving",
       "source": "dom",
       "target": "divEditor/index:stopObserving",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/saveQueue:SaveQueue._collectNodeIds",
+      "source": "dom",
+      "target": "divEditor/saveQueue:SaveQueue._collectNodeIds",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+      "source": "dom",
+      "target": "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/saveQueue:SaveQueue.queueDeletion",
+      "source": "dom",
+      "target": "divEditor/saveQueue:SaveQueue.queueDeletion",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "source": "dom",
+      "target": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "rel": "domread"
     },
     {
@@ -2903,6 +5272,390 @@
       "id": "dom__domread__divEditor/supTagHandler/escapeHandler:supEscapeHandler",
       "source": "dom",
       "target": "divEditor/supTagHandler/escapeHandler:supEscapeHandler",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/listFormat:handleListFormat",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/listFormat:handleListToBlock",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/listFormat:handleListToBlock",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/listFormat:handleRemoveList",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormatter:BlockFormatter.formatBlock",
+      "source": "dom",
+      "target": "editToolbar/blockFormatter:BlockFormatter.formatBlock",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+      "source": "dom",
+      "target": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "source": "dom",
+      "target": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode._initScopeChips",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode._items",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode._items",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.close",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.close",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.constructor",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.open",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.open",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.performSearch",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.performSearch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.renderResults",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.renderResults",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/citationMode:CitationMode.repositionContainer",
+      "source": "dom",
+      "target": "editToolbar/citationMode:CitationMode.repositionContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+      "source": "dom",
+      "target": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "source": "dom",
+      "target": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar._handleRedoButton",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar._handleRedoButton",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar._handleUndoButton",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar._handleUndoButton",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar.constructor",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar.init",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.init",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar.insertFootnote",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.insertFootnote",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar.openCitationSearch",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.openCitationSearch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar.saveToIndexedDB",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.saveToIndexedDB",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/listConverter:ListConverter.cleanupAfterSplit",
+      "source": "dom",
+      "target": "editToolbar/listConverter:ListConverter.cleanupAfterSplit",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/selectionManager:SelectionManager.getSelectionParentElement",
+      "source": "dom",
+      "target": "editToolbar/selectionManager:SelectionManager.getSelectionParentElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/selectionManager:SelectionManager.getWorkingSelection",
+      "source": "dom",
+      "target": "editToolbar/selectionManager:SelectionManager.getWorkingSelection",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/selectionManager:SelectionManager.handleSelectionChange",
+      "source": "dom",
+      "target": "editToolbar/selectionManager:SelectionManager.handleSelectionChange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/selectionManager:SelectionManager.restoreSelection",
+      "source": "dom",
+      "target": "editToolbar/selectionManager:SelectionManager.restoreSelection",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/selectionManager:SelectionManager.storeSelectionForTouch",
+      "source": "dom",
+      "target": "editToolbar/selectionManager:SelectionManager.storeSelectionForTouch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/tapAreaExtender:initTapAreaExtender",
+      "source": "dom",
+      "target": "editToolbar/tapAreaExtender:initTapAreaExtender",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/textFormatter:TextFormatter.formatText",
+      "source": "dom",
+      "target": "editToolbar/textFormatter:TextFormatter.formatText",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "source": "dom",
+      "target": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "source": "dom",
+      "target": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:getFirstTextNode",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:getFirstTextNode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:getLastTextNode",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:getLastTextNode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:selectAcrossElements",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:selectAcrossElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "dom",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._redoFormat",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._redoFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._redoInput",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._redoInput",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._redoStructural",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._redoStructural",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._undoFormat",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._undoFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._undoInput",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._undoInput",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager._undoStructural",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager._undoStructural",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager.finalizeCapture",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager.finalizeCapture",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager.finalizeStructural",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager.finalizeStructural",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager.recordFormat",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager.recordFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager.snapshotForStructural",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager.snapshotForStructural",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/undoManager:UndoManager.startCapture",
+      "source": "dom",
+      "target": "editToolbar/undoManager:UndoManager.startCapture",
       "rel": "domread"
     },
     {
@@ -3017,6 +5770,12 @@
       "id": "dom__domread__hypercites/utils:findParentWithNumericalId",
       "source": "dom",
       "target": "hypercites/utils:findParentWithNumericalId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hypercites/utils:selectionSpansMultipleNodes",
+      "source": "dom",
+      "target": "hypercites/utils:selectionSpansMultipleNodes",
       "rel": "domread"
     },
     {
@@ -3314,6 +6073,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__indexedDB/nodes/positionCollector:findElementPosition",
+      "source": "dom",
+      "target": "indexedDB/nodes/positionCollector:findElementPosition",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
       "source": "dom",
       "target": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
@@ -3336,6 +6101,696 @@
       "source": "dom",
       "target": "indexedDB/syncQueue/unload:setupUnloadSync",
       "rel": "domread"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
+      "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:isBlockElement",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:isBlockElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:selectAcrossElements",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:selectAcrossElements",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__domwrite__dom",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading__domwrite__dom",
+      "source": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList__domwrite__dom",
+      "source": "editToolbar/blockFormat/listFormat:_mergeBlocksIntoList",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__call__editToolbar/toolbarDOMUtils:findClosestListItem",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "editToolbar/toolbarDOMUtils:findClosestListItem",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__call__editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListFormat__domwrite__dom",
+      "source": "editToolbar/blockFormat/listFormat:handleListFormat",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListToBlock__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/listFormat:handleListToBlock",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListToBlock__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/listFormat:handleListToBlock",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleListToBlock__domwrite__dom",
+      "source": "editToolbar/blockFormat/listFormat:handleListToBlock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleRemoveList__call__editToolbar/toolbarDOMUtils:findClosestListItem",
+      "source": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "target": "editToolbar/toolbarDOMUtils:findClosestListItem",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleRemoveList__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleRemoveList__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/listFormat:handleRemoveList__domwrite__dom",
+      "source": "editToolbar/blockFormat/listFormat:handleRemoveList",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormatter:BlockFormatter.formatBlock__call__editToolbar/toolbarDOMUtils:findClosestListItem",
+      "source": "editToolbar/blockFormatter:BlockFormatter.formatBlock",
+      "target": "editToolbar/toolbarDOMUtils:findClosestListItem",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu__domwrite__dom",
+      "source": "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu__domwrite__dom",
+      "source": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates__call__editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "source": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "target": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates__domwrite__dom",
+      "source": "editToolbar/buttonStateManager:ButtonStateManager.updateButtonStates",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._closeShelfDropdown__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._closeShelfDropdown",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._handleScopeChange__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._initScopeChips__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._openShelfDropdown__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._openShelfDropdown",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._pickShelf__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._pickShelf",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._renderShelfOptions__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.close__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode.close",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.handleSearchInput__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode.handleSearchInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.open__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode.open",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.performSearch__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode.performSearch",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode.renderResults__domwrite__dom",
+      "source": "editToolbar/citationMode:CitationMode.renderResults",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.closeHeadingSubmenu__domwrite__dom",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.closeHeadingSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph__domwrite__dom",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.convertHeadingToParagraph",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu__domwrite__dom",
+      "source": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._updateUndoRedoButtons__domwrite__dom",
+      "source": "editToolbar/index:EditToolbar._updateUndoRedoButtons",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.deleteFromIndexedDB__call__indexedDB/nodes/delete:deleteIndexedDBRecord",
+      "source": "editToolbar/index:EditToolbar.deleteFromIndexedDB",
+      "target": "indexedDB/nodes/delete:deleteIndexedDBRecord",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.hide__domwrite__dom",
+      "source": "editToolbar/index:EditToolbar.hide",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.init__call__editToolbar/tapAreaExtender:initTapAreaExtender",
+      "source": "editToolbar/index:EditToolbar.init",
+      "target": "editToolbar/tapAreaExtender:initTapAreaExtender",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.init__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/index:EditToolbar.init",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.insertFootnote__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/index:EditToolbar.insertFootnote",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.insertFootnote__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/index:EditToolbar.insertFootnote",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.openCitationSearch__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/index:EditToolbar.openCitationSearch",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.openCitationSearch__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/index:EditToolbar.openCitationSearch",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.saveToIndexedDB__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "source": "editToolbar/index:EditToolbar.saveToIndexedDB",
+      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.show__domwrite__dom",
+      "source": "editToolbar/index:EditToolbar.show",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.cleanupAfterSplit__domwrite__dom",
+      "source": "editToolbar/listConverter:ListConverter.cleanupAfterSplit",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock__domwrite__dom",
+      "source": "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.splitListAndInsertBlock__domwrite__dom",
+      "source": "editToolbar/listConverter:ListConverter.splitListAndInsertBlock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.formatText__call__editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+      "source": "editToolbar/textFormatter:TextFormatter.formatText",
+      "target": "editToolbar/toolbarDOMUtils:getElementsInSelectionRange",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:findParentWithTag",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:findParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting__domwrite__dom",
+      "source": "editToolbar/textFormatter:TextFormatter.handleBoldFormatting",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:findParentWithTag",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:findParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting__domwrite__dom",
+      "source": "editToolbar/textFormatter:TextFormatter.handleItalicFormatting",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:findClosestBlockParent__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:findParentWithTag__call__editToolbar/toolbarDOMUtils:findParentWithTag",
+      "source": "editToolbar/toolbarDOMUtils:findParentWithTag",
+      "target": "editToolbar/toolbarDOMUtils:findParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:getBlockElementsInRange__call__editToolbar/toolbarDOMUtils:isBlockElement",
+      "source": "editToolbar/toolbarDOMUtils:getBlockElementsInRange",
+      "target": "editToolbar/toolbarDOMUtils:isBlockElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:hasParentWithTag__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:replaceBlockUndoable__domwrite__dom",
+      "source": "editToolbar/toolbarDOMUtils:replaceBlockUndoable",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset__call__editToolbar/toolbarDOMUtils:getLastTextNode",
+      "source": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "target": "editToolbar/toolbarDOMUtils:getLastTextNode",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoFormat__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._redoFormat",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoInput__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._redoInput",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoInput__domwrite__dom",
+      "source": "editToolbar/undoManager:UndoManager._redoInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoStructural__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._redoStructural",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._redoStructural__domwrite__dom",
+      "source": "editToolbar/undoManager:UndoManager._redoStructural",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoFormat__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._undoFormat",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoInput__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._undoInput",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoInput__domwrite__dom",
+      "source": "editToolbar/undoManager:UndoManager._undoInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoStructural__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/undoManager:UndoManager._undoStructural",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager._undoStructural__domwrite__dom",
+      "source": "editToolbar/undoManager:UndoManager._undoStructural",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.finalizeCapture__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/undoManager:UndoManager.finalizeCapture",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.finalizeStructural__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/undoManager:UndoManager.finalizeStructural",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.finalizeStructural__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/undoManager:UndoManager.finalizeStructural",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.recordFormat__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/undoManager:UndoManager.recordFormat",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.snapshotForStructural__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/undoManager:UndoManager.snapshotForStructural",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/undoManager:UndoManager.startCapture__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/undoManager:UndoManager.startCapture",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
     },
     {
       "id": "hypercites/animations:highlightTargetHypercite__call__hypercites/animations:restoreNormalHyperciteDisplay",
@@ -3368,9 +6823,21 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/containers:createOverlappingPolyContainer__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/containers:createOverlappingPolyContainer",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/containers:PolyClick__call__hypercites/database:fetchLibraryFromServer",
       "source": "hypercites/containers:PolyClick",
       "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/containers:PolyClick__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/containers:PolyClick",
+      "target": "indexedDB/core/connection:openDatabase",
       "rel": "call"
     },
     {
@@ -3428,6 +6895,48 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/database:getHyperciteData__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/database:getHyperciteData",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:getHyperciteData__call__indexedDB/core/utilities:createNodeChunksKey",
+      "source": "hypercites/database:getHyperciteData",
+      "target": "indexedDB/core/utilities:createNodeChunksKey",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/database:NewHyperciteIndexedDB",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hypercites/database:NewHyperciteIndexedDB",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hypercites/database:NewHyperciteIndexedDB",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "hypercites/database:NewHyperciteIndexedDB",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/database:NewHyperciteIndexedDB__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hypercites/database:NewHyperciteIndexedDB",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/database:NewHyperciteIndexedDB__domwrite__dom",
       "source": "hypercites/database:NewHyperciteIndexedDB",
       "target": "dom",
@@ -3470,6 +6979,30 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/deletion:delinkHypercite",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hypercites/deletion:delinkHypercite",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/index:getHyperciteFromIndexedDB",
+      "source": "hypercites/deletion:delinkHypercite",
+      "target": "indexedDB/hypercites/index:getHyperciteFromIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "source": "hypercites/deletion:delinkHypercite",
+      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/deletion:delinkHypercite__domwrite__dom",
       "source": "hypercites/deletion:delinkHypercite",
       "target": "dom",
@@ -3497,6 +7030,36 @@
       "id": "hypercites/deletion:markHyperciteAsGhost__call__hypercites/database:getHyperciteById",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "hypercites/database:getHyperciteById",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/deletion:markHyperciteAsGhost",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hypercites/deletion:markHyperciteAsGhost",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hypercites/deletion:markHyperciteAsGhost",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "hypercites/deletion:markHyperciteAsGhost",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/deletion:markHyperciteAsGhost__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hypercites/deletion:markHyperciteAsGhost",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
       "rel": "call"
     },
     {
@@ -3554,6 +7117,12 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/navigation:handleOverlappingCouple__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/navigation:handleOverlappingCouple",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__hypercites/containers:createOverlappingPolyContainer",
       "source": "hypercites/navigation:handleOverlappingHyperciteClick",
       "target": "hypercites/containers:createOverlappingPolyContainer",
@@ -3563,6 +7132,12 @@
       "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__hypercites/database:getHyperciteById",
       "source": "hypercites/navigation:handleOverlappingHyperciteClick",
       "target": "hypercites/database:getHyperciteById",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/navigation:handleOverlappingHyperciteClick__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/navigation:handleOverlappingHyperciteClick",
+      "target": "indexedDB/core/connection:openDatabase",
       "rel": "call"
     },
     {
@@ -3578,6 +7153,12 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/navigation:handleOverlappingPoly__call__indexedDB/core/connection:openDatabase",
+      "source": "hypercites/navigation:handleOverlappingPoly",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/navigation:navigateToFootnoteTarget__call__hypercites/animations:highlightTargetHypercite",
       "source": "hypercites/navigation:navigateToFootnoteTarget",
       "target": "hypercites/animations:highlightTargetHypercite",
@@ -3587,6 +7168,12 @@
       "id": "hypercites/navigation:navigateToFootnoteTarget__call__hypercites/animations:revealGhostIfTombstone",
       "source": "hypercites/navigation:navigateToFootnoteTarget",
       "target": "hypercites/animations:revealGhostIfTombstone",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/navigation:navigateToFootnoteTarget__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "hypercites/navigation:navigateToFootnoteTarget",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
       "rel": "call"
     },
     {
@@ -3626,9 +7213,27 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/navigation:navigateToHyperciteTarget__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "hypercites/navigation:navigateToHyperciteTarget",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener__call__hyperlights/annotationPaste:handleHighlightContainerPaste",
       "source": "hyperlights/annotationPaste:addHighlightContainerPasteListener",
       "target": "hyperlights/annotationPaste:handleHighlightContainerPaste",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__hypercites/utils:parseHyperciteHref",
+      "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
+      "target": "hypercites/utils:parseHyperciteHref",
       "rel": "call"
     },
     {
@@ -3638,10 +7243,34 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__indexedDB/hypercites/index:updateCitationForExistingHypercite",
+      "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
+      "target": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__domwrite__dom",
       "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/annotations:attachAnnotationListener",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/annotations:attachAnnotationListener",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/annotations:attachAnnotationListener",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
     },
     {
       "id": "hyperlights/annotations:attachAnnotationListener__write__store:hyperlights",
@@ -3650,10 +7279,40 @@
       "rel": "write"
     },
     {
+      "id": "hyperlights/annotations:saveAnnotationToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/annotations:saveAnnotationToIndexedDB",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotations:saveAnnotationToIndexedDB__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/annotations:saveAnnotationToIndexedDB",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/annotations:saveAnnotationToIndexedDB__write__store:hyperlights",
       "source": "hyperlights/annotations:saveAnnotationToIndexedDB",
       "target": "store:hyperlights",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/annotations:saveHighlightAnnotation",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/annotations:saveHighlightAnnotation",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/annotations:saveHighlightAnnotation",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
     },
     {
       "id": "hyperlights/annotations:saveHighlightAnnotation__write__store:hyperlights",
@@ -3728,6 +7387,30 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/createHighlight:createHighlightHandler__domwrite__dom",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "dom",
@@ -3746,10 +7429,22 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/createHighlight:openBrainFromSelection__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/createHighlight:openBrainFromSelection",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/createHighlight:openBrainFromSelection__write__store:hyperlights",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "store:hyperlights",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/database:addToHighlightsTable__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:addToHighlightsTable",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
     },
     {
       "id": "hyperlights/database:addToHighlightsTable__domwrite__dom",
@@ -3764,10 +7459,22 @@
       "rel": "write"
     },
     {
+      "id": "hyperlights/database:removeHighlightFromHyperlights__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:removeHighlightFromHyperlights",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/database:removeHighlightFromHyperlights__write__store:hyperlights",
       "source": "hyperlights/database:removeHighlightFromHyperlights",
       "target": "store:hyperlights",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/database:removeHighlightFromNodeChunks__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:removeHighlightFromNodeChunks",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
     },
     {
       "id": "hyperlights/database:removeHighlightFromNodeChunks__write__store:nodes",
@@ -3776,10 +7483,34 @@
       "rel": "write"
     },
     {
+      "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__write__store:nodes",
       "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "target": "store:nodes",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:updateNodeHighlight",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/utilities:createNodeChunksKey",
+      "source": "hyperlights/database:updateNodeHighlight",
+      "target": "indexedDB/core/utilities:createNodeChunksKey",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/utilities:parseNodeId",
+      "source": "hyperlights/database:updateNodeHighlight",
+      "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
     },
     {
       "id": "hyperlights/database:updateNodeHighlight__write__store:nodes",
@@ -3824,6 +7555,18 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__domwrite__dom",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "dom",
@@ -3845,6 +7588,30 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/deletion:unwrapMark",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "hyperlights/deletion:unwrapMark",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
       "rel": "call"
     },
     {
@@ -3878,10 +7645,40 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/deletion:hideHighlightById",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/deletion:hideHighlightById",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hyperlights/deletion:hideHighlightById",
+      "target": "indexedDB/core/library:updateBookTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/deletion:hideHighlightById",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/deletion:hideHighlightById__domwrite__dom",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
     },
     {
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__hyperlights/deletion:unwrapElement",
@@ -3899,6 +7696,12 @@
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__hyperlights/listeners:attachMarkListeners",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
       "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call"
     },
     {
@@ -4622,6 +8425,18 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/syncQueue/queue:queueForSync",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/syncQueue/queue:queueForSync",
@@ -4664,6 +8479,18 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/annotationUpserts:updateHyperciteRecords",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/nodes/annotationUpserts:updateHyperciteRecords",
@@ -4691,6 +8518,12 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call"
     },
     {
@@ -4740,6 +8573,12 @@
       "source": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__editToolbar/index:getEditToolbar",
+      "source": "indexedDB/nodes/delete:deleteIndexedDBRecord",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
     },
     {
       "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__indexedDB/core/connection:openDatabase",

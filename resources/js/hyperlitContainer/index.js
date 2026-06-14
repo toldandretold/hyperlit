@@ -178,7 +178,7 @@ export async function cleanupContainerListeners({ stackPop = false } = {}) {
 
   // Clear sub-book context and restore the toolbar to the main book
   clearActiveBook();
-  const { getEditToolbar } = await import('../editToolbar/index.js');
+  const { getEditToolbar } = await import('../editToolbar/index');
   getEditToolbar()?.setBookId(book);
 
   // Hide toolbar if main book was in read mode (we showed it for hyperlit edit)
@@ -343,7 +343,7 @@ async function handleEditButtonClick() {
         addPasteListener(firstEditable);
         firstEditable.dataset.pasteAttached = 'true';
       }
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
       getToolbar()?.setBookId(subBookId);
       getToolbar()?.setEditMode(true);
     }
@@ -396,7 +396,7 @@ async function handleEditButtonClick() {
 
       // Hide toolbar if main book was in read mode
       if (!previousIsEditing) {
-        const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+        const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
         getToolbar()?.setEditMode(false);
       }
 
@@ -543,7 +543,7 @@ export async function applyCurrentEditModeToLayer() {
         addPasteListener(firstEditable);
         firstEditable.dataset.pasteAttached = 'true';
       }
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
       getToolbar()?.setBookId(subBookId);
       getToolbar()?.setEditMode(true);
     }
@@ -552,7 +552,7 @@ export async function applyCurrentEditModeToLayer() {
     window.isEditing = previousIsEditing;
 
     if (!previousIsEditing) {
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+      const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
       getToolbar()?.setEditMode(false);
     }
   }
@@ -615,7 +615,7 @@ function attachSubBookFocusSwitcher() {
       subBookEl.dataset.pasteAttached = 'true';
     }
 
-    const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+    const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
     getToolbar()?.setBookId(subBookId);
 
     console.log(`✏️ Focus switched to sub-book: ${subBookId}`);
@@ -1252,7 +1252,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
             // Brain results are AI-generated, always read-only
             const { setHyperlitEditMode: setEditOff } = await import('./core.js');
             setEditOff(false);
-            const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+            const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
             getToolbar()?.setEditMode(false);
 
             const { injectBrainPolling } = await import('./brainQuery.js');
@@ -1326,7 +1326,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               }
               subBookEditorAttached = true;
               console.log(`✏️ Sub-book editor activated for highlight: ${subBookId}`);
-              const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+              const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
               getToolbar()?.setBookId(subBookId);
               getToolbar()?.setEditMode(true);
 
@@ -1442,7 +1442,7 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = [], 
               }
               subBookEditorAttached = true;
               console.log(`✏️ Sub-book editor activated for footnote: ${subBookId}`);
-              const { getEditToolbar: getToolbar } = await import('../editToolbar/index.js');
+              const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
               getToolbar()?.setBookId(subBookId);
               getToolbar()?.setEditMode(true);
 

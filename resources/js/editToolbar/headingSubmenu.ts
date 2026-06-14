@@ -12,14 +12,25 @@ import {
   hasParentWithTag,
   findClosestBlockParent,
   setCursorAtTextOffset,
-} from "./toolbarDOMUtils.js";
+} from "./toolbarDOMUtils";
 
 /**
  * HeadingSubmenu class
  * Handles all heading submenu interactions
  */
 export class HeadingSubmenu {
-  constructor(options = {}) {
+  headingSubmenu: any;
+  headingButton: any;
+  selectionManager: any;
+  buttonStateManager: any;
+  currentBookId: any;
+  undoManager: any;
+  formatBlockCallback: any;
+  saveToIndexedDBCallback: any;
+  onUndoStackChanged: any;
+  submenuButtonJustClicked: boolean = false;
+
+  constructor(options: any = {}) {
     this.headingSubmenu = options.headingSubmenu || null;
     this.headingButton = options.headingButton || null;
     this.selectionManager = options.selectionManager || null;
@@ -110,24 +121,24 @@ export class HeadingSubmenu {
 
     // Remove old event listeners before adding new ones
     const levelButtons = this.headingSubmenu.querySelectorAll("[data-heading]");
-    levelButtons.forEach(btn => {
+    levelButtons.forEach((btn: any) => {
       // Clone and replace to remove all old listeners
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
-      newBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
+      newBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });
 
       // Add click listener
       newBtn.addEventListener("click", this.handleHeadingSelection);
 
       // Mobile touch handlers
-      newBtn.addEventListener("touchstart", (e) => {
+      newBtn.addEventListener("touchstart", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      newBtn.addEventListener("touchend", (e) => {
+      newBtn.addEventListener("touchend", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -156,17 +167,17 @@ export class HeadingSubmenu {
       removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
-      newRemoveBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
+      newRemoveBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });
 
       newRemoveBtn.addEventListener("click", this.handleRemoveHeading);
 
       // Mobile touch handlers for X button
-      newRemoveBtn.addEventListener("touchstart", (e) => {
+      newRemoveBtn.addEventListener("touchstart", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      newRemoveBtn.addEventListener("touchend", (e) => {
+      newRemoveBtn.addEventListener("touchend", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -201,7 +212,7 @@ export class HeadingSubmenu {
   /**
    * Handle clicks outside the submenu to close it
    */
-  handleClickOutsideSubmenu(e) {
+  handleClickOutsideSubmenu(e: any) {
     const submenu = this.headingSubmenu;
     const headingBtn = this.headingButton;
 
@@ -216,7 +227,7 @@ export class HeadingSubmenu {
   /**
    * Handle selection of a heading level
    */
-  handleHeadingSelection(e) {
+  handleHeadingSelection(e: any) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation(); // Firefox compatibility
@@ -231,7 +242,7 @@ export class HeadingSubmenu {
   /**
    * Handle removing heading (convert to paragraph)
    */
-  handleRemoveHeading(e) {
+  handleRemoveHeading(e: any) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation(); // Firefox compatibility
@@ -266,7 +277,7 @@ export class HeadingSubmenu {
       const oldTag = blockParent.tagName.toLowerCase();
       this.undoManager.recordFormat(
         blockParent.id,
-        (el) => {
+        (el: any) => {
           const r = document.createElement(oldTag);
           r.innerHTML = el.innerHTML;
           r.id = el.id;
@@ -274,7 +285,7 @@ export class HeadingSubmenu {
           el.parentNode.replaceChild(r, el);
           return r;
         },
-        (el) => {
+        (el: any) => {
           const r = document.createElement('p');
           r.innerHTML = el.innerHTML;
           r.id = el.id;
@@ -306,7 +317,7 @@ export class HeadingSubmenu {
   /**
    * Update the currentBookId (called when book changes)
    */
-  setBookId(bookId) {
+  setBookId(bookId: any) {
     this.currentBookId = bookId;
   }
 }
