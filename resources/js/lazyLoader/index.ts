@@ -1,5 +1,9 @@
 import { log, verbose } from '../utilities/logger.js';
-import { attachMarkListeners } from "../hyperlights/index";
+// NOTE: attachMarkListeners / attachUnderlineClickListeners are deliberately NOT imported here.
+// The render engine is a LEAF: both attachers are INJECTED via createLazyLoader's config and held
+// on `instance` (instance.attachMarkListeners / instance.attachUnderlineClickListeners). Importing
+// them upward from hyperlights/hypercites would re-close the render↔feature static-import cycle
+// that crashed prod with a TDZ.
 import { NavigationCompletionBarrier, NavigationProcess } from '../navigation/NavigationCompletionBarrier.js';
 import {
   //saveNodeChunksToIndexedDB,
@@ -7,7 +11,6 @@ import {
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "../indexedDB/index.js";
-import { attachUnderlineClickListeners } from "../hypercites/index";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
@@ -49,6 +52,7 @@ export function createLazyLoader(config: any) {
     loadNextChunk,
     loadPreviousChunk,
     attachMarkListeners: attachMarkers,
+    attachUnderlineClickListeners: attachUnderliners,
     isRestoringFromCache = false,
     isNavigatingToInternalId = false,
     isUpdatingJsonContent = false,
@@ -95,6 +99,9 @@ export function createLazyLoader(config: any) {
   // Create the instance to track lazy-loader state.
   const instance: any = {
     nodes, // Array of chunk objects
+    // Injected render hooks (DI — keeps lazyLoader a leaf; see import note at top of file)
+    attachMarkListeners: attachMarkers,
+    attachUnderlineClickListeners: attachUnderliners,
     currentlyLoadedChunks: new Set(),
     observer: null,
     topSentinel: null,
@@ -975,8 +982,8 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
       );
 
       // ✅ Attach listeners only to this chunk
-      attachMarkListeners(chunkElement);
-      attachUnderlineClickListeners(chunkElement);
+      instance.attachMarkListeners?.(chunkElement);
+      instance.attachUnderlineClickListeners?.(chunkElement);
 
       if (instance.bottomSentinel) {
         instance.bottomSentinel.remove();
@@ -1078,8 +1085,8 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
       container.prepend(instance.topSentinel);
     }
 
-    attachMarkListeners(chunkElement);
-    attachUnderlineClickListeners(chunkElement);
+    instance.attachMarkListeners?.(chunkElement);
+    instance.attachUnderlineClickListeners?.(chunkElement);
 
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {
@@ -1137,8 +1144,8 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
   );
 
   // ✅ Attach listeners only to this chunk
-  attachMarkListeners(chunkElement);
-  attachUnderlineClickListeners(chunkElement);
+  instance.attachMarkListeners?.(chunkElement);
+  instance.attachUnderlineClickListeners?.(chunkElement);
 
   // Re-apply cascade-origin glow if this chunk contains the target highlight
   // (ALL segments — a highlight renders as multiple marks split by overlaps/sups)

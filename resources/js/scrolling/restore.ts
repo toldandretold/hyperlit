@@ -16,6 +16,9 @@ import { navigatedHashes } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { showNavigationLoading } from './navOverlay';
 import { navigateToInternalId } from './internalNav';
+// Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle —
+// the leaf imports nothing). This is the real fix; no dynamic-import cycle-breaker needed.
+import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 
 export async function restoreScrollPosition(): Promise<void> {
   // Convert ?scroll= query param to hash (used by Word doc links to avoid # → %23 encoding)
@@ -71,8 +74,6 @@ export async function restoreScrollPosition(): Promise<void> {
     verbose.nav('RESTORE SCROLL: Search toolbar is open, skipping restoration', 'scrolling/restore');
     return;
   }
-
-  const { currentLazyLoader }: any = await import('../pageLoad/lazyLoaderRegistry');
 
   if (!currentLazyLoader) {
     console.error("Lazy loader instance not available!");

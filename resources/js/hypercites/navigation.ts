@@ -15,7 +15,8 @@ import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';
 import { createOverlappingPolyContainer } from './containers';
 // Container actions via the DI registry leaf — no import into hyperlitContainer/* (no cycle).
 import { closeHyperlitContainer, getCurrentContainer, handleUnifiedContentClick } from '../utilities/containerActions';
-import { currentLazyLoader } from '../pageLoad';
+// Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle).
+import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { showTargetNotFoundToast } from '../utilities/toast.js';
 
 /**
@@ -422,9 +423,12 @@ export async function navigateToHyperciteLink(link: string, clickedHyperciteId =
     const fnSegment = allSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
     const internalId = url.hash ? url.hash.slice(1) : null;
 
+    // openContainerChain/buildChainFromUrl are pageLoad orchestration fns reached at call-time
+    // (genuine cross-layer call; dynamic). currentLazyLoader comes statically from its leaf above.
+    const { openContainerChain, buildChainFromUrl } = await import('../pageLoad');
+
     if (bookSegment === currentBook && fnSegment && hlSegment) {
       console.log("✅ Same-book multi-level cascade detected in hypercite");
-      const { openContainerChain, buildChainFromUrl } = await import('../pageLoad');
       const chain = await buildChainFromUrl(bookSegment, allSegments);
       if (chain.length > 0) {
         await openContainerChain(chain, currentLazyLoader, (internalId || null) as any);

@@ -100,7 +100,6 @@ import {
 import { isPasteOperationActive } from '../paste';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkLoadingState.js';
 import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
-import { initializeMainLazyLoader } from '../pageLoad';
 import { getEditToolbar } from '../editToolbar';
 import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';

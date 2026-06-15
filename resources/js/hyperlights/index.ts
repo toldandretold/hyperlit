@@ -8,6 +8,8 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "..
 
 // Import for internal use
 import { attachMarkListeners as _attachMarkListeners } from './listeners';
+// Injected into createLazyLoader so the render engine stays a leaf (one-way edge: hyperlights → hypercites).
+import { attachUnderlineClickListeners } from '../hypercites/index';
 
 // Re-export all modules for backward compatibility
 export { calculateCleanTextOffset, getRelativeOffsetTop, isNumericalId, findContainerWithNumericalId } from './calculations';
@@ -53,6 +55,7 @@ export function initOrUpdateHighlightLazyLoader(chunks: any[]): any {
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners: _attachMarkListeners,
+      attachUnderlineClickListeners,
       bookId: book,
     });
   }

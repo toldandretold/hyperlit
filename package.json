@@ -20,6 +20,7 @@
         "test:ui": "vitest --ui",
         "test:run": "vitest run",
         "test:tdz": "vite build && node tests/build/tdzProbe.mjs",
+        "verify": "bash scripts/verify.sh",
         "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
         "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed"
     },

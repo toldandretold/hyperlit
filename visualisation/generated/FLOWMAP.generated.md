@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 599 functions in 133 modules · 8 object stores · 6 PG tables · 1365 edges
+**MarkdownDB** schema v27 · 600 functions in 134 modules · 8 object stores · 6 PG tables · 1362 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -573,6 +573,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `waitForBackgroundDownload` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `buildChainFromUrl` | `pageLoad/containerChain` | `footnotes` `hyperlights` | — | — | — |
 | `openContainerChain` | `pageLoad/containerChain` | — | — | read | — |
+| `setCurrentLazyLoader` | `pageLoad/currentLazyLoaderState` | — | — | — | — |
 | `getFirstChunkLoadedResolver` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `resetFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `resolveFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
@@ -612,34 +613,21 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 1** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 20 · lazy-loads (code-split): 89
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 9 · lazy-loads (code-split): 99
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
-### Static-import rings (break these — they crash)
-- `divEditor/index` ↔ `hypercites/index` ↔ `hypercites/listeners` ↔ `hypercites/navigation` ↔ `hyperlights/annotationPaste` ↔ `hyperlights/deleteHighlight` ↔ `hyperlights/index` ↔ `hyperlights/selectionToolbar` ↔ `lazyLoader/index` ↔ `pageLoad/containerChain` ↔ `pageLoad/index` ↔ `pageLoad/lazyLoaderRegistry` ↔ `pageLoad/loadHyperText` ↔ `pageLoad/readerEntry`
-
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (42 modules) `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `divEditor/mutationProcessor`, `editToolbar/index`, `footnotes/footnoteInserter`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `indexedDB/serverSync/flush`, `indexedDB/serverSync/index`, `indexedDB/serverSync/pull`, `lazyLoader/index`, `pageLoad/backgroundDownload`, `pageLoad/containerChain`, `pageLoad/index`, `pageLoad/initialChunk`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (32 modules) `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/containerChain`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
-- `editToolbar/index` → `footnotes/footnoteInserter`
-- `hyperlights/deletion` → `lazyLoader/index`
-- `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
-- `indexedDB/serverSync/flush` → `divEditor/index`
-- `lazyLoader/index` → `hyperlitContainer/index`
-- `pageLoad/containerChain` → `hyperlitContainer/index`
-- `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
-- `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/lazyLoaderRegistry` → `pageLoad/containerChain`
 - `pageLoad/lazyLoaderRegistry` → `pageLoad/loadHyperText`
-- `pageLoad/loadHyperText` → `pageLoad/readerEntry`
 - `scrolling/internalNav` → `hyperlights/index`
 - `scrolling/internalNav` → `hyperlitContainer/index`
 - `scrolling/internalNav` → `lazyLoader/index`
-- `scrolling/restore` → `pageLoad/lazyLoaderRegistry`
 
 ### Lazy-loads (code-split points)
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
@@ -650,9 +638,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/supTagHandler/deleteHandler` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `indexedDB/index`
 - `editToolbar/citationMode` → `citations/citationInserter`
+- `editToolbar/index` → `footnotes/footnoteInserter`
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
+- `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`
 - `hyperlitContainer/brainQuery` → `hyperlights/deletion`
 - `hyperlitContainer/brainQuery` → `hyperlitContainer/core`
@@ -694,12 +684,14 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/stack` → `hyperlitContainer/containerState`
 - `hyperlitContainer/stack` → `hyperlitContainer/core`
 - `hyperlitContainer/stack` → `hyperlitContainer/editMode`
+- `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/subBookLoader` → `hyperlights/index`
 - `hyperlitContainer/subBookLoader` → `indexedDB/core/library`
 - `hyperlitContainer/subBookLoader` → `indexedDB/hydration/rebuild`
 - `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
 - `indexedDB/hypercites/index` → `indexedDB/hydration/rebuild`
 - `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
+- `indexedDB/serverSync/flush` → `divEditor/index`
 - `indexedDB/serverSync/flush` → `footnotes/footnoteAnnotations`
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/master`
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/queue`
@@ -708,15 +700,19 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `lazyLoader/chunkRender` → `divEditor/domUtilities`
 - `lazyLoader/chunkRender` → `indexedDB/index`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`
+- `lazyLoader/index` → `hyperlitContainer/index`
 - `lazyLoader/index` → `indexedDB/hydration/rebuild`
 - `pageLoad/containerChain` → `hypercites/animations`
+- `pageLoad/containerChain` → `hyperlitContainer/index`
 - `pageLoad/containerChain` → `hyperlitContainer/stack`
 - `pageLoad/initialChunk` → `pageLoad/accessGuards`
+- `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
+- `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
+- `pageLoad/loadHyperText` → `pageLoad/readerEntry`
 - `scrolling/internalNav` → `hypercites/animations`
-- `scrolling/internalNav` → `pageLoad/firstChunkPromise`
 
 ## Legend
 

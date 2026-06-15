@@ -17,6 +17,9 @@ import {
   attachMarkListeners,
 } from "../hyperlights/index";
 
+// Injected into createLazyLoader so the render engine stays a leaf (downward edge: pageLoad → hypercites).
+import { attachUnderlineClickListeners } from "../hypercites/index";
+
 import { syncBookDataFromDatabase } from "../indexedDB/serverSync";
 
 import { getFirstChunkLoadedResolver } from './firstChunkPromise';
@@ -28,8 +31,10 @@ import { getFirstChunkLoadedResolver } from './firstChunkPromise';
 // Store multiple lazy loaders by bookId
 export const lazyLoaders: any = {};
 
-// Keep your existing single lazy loader for backward compatibility
-export let currentLazyLoader: any = null;
+// The active lazy loader lives in a zero-import leaf so any layer can read it via a STATIC
+// downward import (no cycle, no dynamic-import breaker). This module is its only writer.
+import { currentLazyLoader, setCurrentLazyLoader } from './currentLazyLoaderState';
+export { currentLazyLoader } from './currentLazyLoaderState';
 
 export let pendingContainerRestorePromise: any = null;
 
@@ -41,7 +46,7 @@ export function resetCurrentLazyLoader() {
       currentLazyLoader.disconnect();
     }
 
-    currentLazyLoader = null;
+    setCurrentLazyLoader(null);
   }
 }
 
@@ -61,13 +66,14 @@ export function initializeMainLazyLoader() {
   }
 
   console.log(`Initializing lazy loader for book: ${book}`);
-  currentLazyLoader = createLazyLoader({
+  setCurrentLazyLoader(createLazyLoader({
     nodes: (window as any).nodes,
     loadNextChunk: loadNextChunkFixed,
     loadPreviousChunk: loadPreviousChunkFixed,
     attachMarkListeners,
+    attachUnderlineClickListeners,
     bookId: book,
-  });
+  }));
 
   return currentLazyLoader;
 }
@@ -113,6 +119,7 @@ export async function initializeLazyLoaderForContainer(bookId: string) {
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
+      attachUnderlineClickListeners,
       bookId: bookId
     });
 
@@ -141,16 +148,17 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: string
     const targetId = openHyperlightID || openFootnoteID;
     const hasNavigationTarget = !!targetId || initialChunkId !== null;
 
-    currentLazyLoader = createLazyLoader({
+    setCurrentLazyLoader(createLazyLoader({
       nodes: (window as any).nodes,
       chunkManifest: (window as any).chunkManifest || null,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
+      attachUnderlineClickListeners,
       bookId: bookId,
       isNavigatingToInternalId: !!targetId,
       onFirstChunkLoaded: getFirstChunkLoadedResolver()
-    });
+    }));
 
     // Eagerly load first chunk for homepage/user page contexts AND reader pages
     // with no target navigation, so the DOM has content before editButton resolves

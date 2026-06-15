@@ -15,6 +15,9 @@ import { navigatedHashes, navTimers } from './navState';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
+// Static, downward import from a zero-import leaf (no cycle). pendingFirstChunkLoadedPromise is a
+// live binding (reset per load) — read at await time.
+import { pendingFirstChunkLoadedPromise } from '../pageLoad/firstChunkPromise';
 
 // Adjusted helper: load default content if container is empty.
 export async function loadDefaultContent(lazyLoader: any): Promise<void> {
@@ -564,7 +567,6 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     verbose.nav(`Waiting for layout completion before scrolling to: ${targetId}`, 'scrolling/internalNav');
 
     try {
-      const { pendingFirstChunkLoadedPromise } = await import('../pageLoad/firstChunkPromise');
       await pendingFirstChunkLoadedPromise;
       verbose.nav('Layout complete, proceeding with scroll', 'scrolling/internalNav');
     } catch (error: any) {

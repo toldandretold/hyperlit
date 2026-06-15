@@ -1,7 +1,7 @@
 
-import { saveAnnotationToIndexedDB } from "./hyperlights/index";
-import { navigateToInternalId } from "./scrolling";
-import { currentLazyLoader } from "./pageLoad";
+// (Removed dead upward imports of hyperlights/index, scrolling and pageLoad: none were used —
+// the only currentLazyLoader reference is `window.currentLazyLoader`. They put this base class,
+// which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
 import { isProcessing, isComplete } from './components/editIndicator.js'
 import { book } from './app.js';
 

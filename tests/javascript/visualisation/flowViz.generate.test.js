@@ -65,19 +65,12 @@ describe('IndexedDB flow viz', () => {
 
   it('import graph: NO real static-import cycles, every import edge classified', () => {
     const viz = collect();
-    // The honest cycle detector: static-import rings are the only TDZ risk.
-    //
-    // SCOPED FOR NOW: the render-layer folders (lazyLoader/scrolling/pageLoad) carry a KNOWN,
-    // VISIBLE cross-folder static-import tangle with the mediator layer (hyperlights/hypercites/
-    // divEditor) — pre-existing debt that a resolver fix in collect.ts newly surfaced, tracked for
-    // de-cycling via dependency-injection (see the plan's boundary-6 follow-up). The init-time TDZ
-    // those rings caused in prod has been removed (eager-alias reads → live re-exports). The DATA
-    // LAYER must stay cycle-free, so the gate fails only on a static ring that involves NO
-    // render-layer module; render-involved rings are drawn in the viz but tolerated here.
-    const RENDER_LAYER = ['lazyLoader/', 'scrolling/', 'pageLoad/'];
-    const involvesRenderLayer = (cycle) => cycle.some((m) => RENDER_LAYER.some((p) => m.startsWith(p)));
-    const dataLayerCycles = viz.cycleSummary.staticCycles.filter((c) => !involvesRenderLayer(c));
-    expect(dataLayerCycles, JSON.stringify(dataLayerCycles)).toEqual([]);
+    // The honest cycle detector: static-import rings are the only TDZ risk. We keep this at 0
+    // (dynamic-import breakers/lazy-loads are intentional and don't crash). A regression here
+    // means someone reintroduced a circular static import. The render layer (lazyLoader/scrolling/
+    // pageLoad) was de-cycled via DI (lazyLoader is a leaf — attachers injected) + dynamic imports
+    // for the few feature→bootstrap back-edges, so this enforces zero static cycles GLOBALLY.
+    expect(viz.cycleSummary.staticCycles, JSON.stringify(viz.cycleSummary.staticCycles)).toEqual([]);
     expect(typeof viz.cycleSummary.breakerCount).toBe('number');
     expect(typeof viz.cycleSummary.lazyCount).toBe('number');
 

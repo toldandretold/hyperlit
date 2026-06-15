@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 599,
-    "moduleCount": 133,
+    "fnCount": 600,
+    "moduleCount": 134,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1365,
+    "edgeCount": 1362,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4655,6 +4655,14 @@
       "leaf": false
     },
     {
+      "id": "pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "label": "setCurrentLazyLoader",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/currentLazyLoaderState",
+      "leaf": true
+    },
+    {
       "id": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
       "label": "getFirstChunkLoadedResolver",
       "kind": "fn",
@@ -6543,6 +6551,15 @@
       "fnIds": [
         "pageLoad/containerChain:buildChainFromUrl",
         "pageLoad/containerChain:openContainerChain"
+      ]
+    },
+    {
+      "id": "pageLoad/currentLazyLoaderState",
+      "label": "pageLoad/currentLazyLoaderState",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/currentLazyLoaderState:setCurrentLazyLoader"
       ]
     },
     {
@@ -13963,18 +13980,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "lazyLoader/index:createLazyLoader__call__hypercites/listeners:attachUnderlineClickListeners",
-      "source": "lazyLoader/index:createLazyLoader",
-      "target": "hypercites/listeners:attachUnderlineClickListeners",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/index:createLazyLoader__call__hyperlights/listeners:attachMarkListeners",
-      "source": "lazyLoader/index:createLazyLoader",
-      "target": "hyperlights/listeners:attachMarkListeners",
-      "rel": "call"
-    },
-    {
       "id": "lazyLoader/index:createLazyLoader__call__hyperlitContainer/index:handleUnifiedContentClick",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "hyperlitContainer/index:handleUnifiedContentClick",
@@ -14072,18 +14077,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "lazyLoader/index:loadNextChunkFixed__call__hypercites/listeners:attachUnderlineClickListeners",
-      "source": "lazyLoader/index:loadNextChunkFixed",
-      "target": "hypercites/listeners:attachUnderlineClickListeners",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/index:loadNextChunkFixed__call__hyperlights/listeners:attachMarkListeners",
-      "source": "lazyLoader/index:loadNextChunkFixed",
-      "target": "hyperlights/listeners:attachMarkListeners",
-      "rel": "call"
-    },
-    {
       "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
@@ -14108,18 +14101,6 @@
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "lazyLoader/index:loadPreviousChunkFixed__call__hypercites/listeners:attachUnderlineClickListeners",
-      "source": "lazyLoader/index:loadPreviousChunkFixed",
-      "target": "hypercites/listeners:attachUnderlineClickListeners",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/index:loadPreviousChunkFixed__call__hyperlights/listeners:attachMarkListeners",
-      "source": "lazyLoader/index:loadPreviousChunkFixed",
-      "target": "hyperlights/listeners:attachMarkListeners",
-      "rel": "call"
     },
     {
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
@@ -14310,6 +14291,12 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
       "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
       "target": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
@@ -14356,6 +14343,18 @@
       "target": "lazyLoader/index:createLazyLoader",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader__call__pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "target": "pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader__call__pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "target": "pageLoad/currentLazyLoaderState:setCurrentLazyLoader",
+      "rel": "call"
     },
     {
       "id": "pageLoad/loadHyperText:generateNodeChunksFromMarkdown__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
@@ -15520,7 +15519,7 @@
     {
       "source": "editToolbar/index",
       "target": "footnotes/footnoteInserter",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "editToolbar/listConverter",
@@ -15664,6 +15663,11 @@
     },
     {
       "source": "hypercites/navigation",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/navigation",
       "target": "scrolling/index",
       "kind": "static"
     },
@@ -15775,7 +15779,7 @@
     {
       "source": "hyperlights/deletion",
       "target": "lazyLoader/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlights/index",
@@ -16320,7 +16324,7 @@
     {
       "source": "hyperlitContainer/stack",
       "target": "hyperlitContainer/noteListener",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/stack",
@@ -16635,7 +16639,7 @@
     {
       "source": "indexedDB/serverSync/flush",
       "target": "divEditor/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "indexedDB/serverSync/flush",
@@ -16764,11 +16768,6 @@
     },
     {
       "source": "lazyLoader/index",
-      "target": "hyperlights/index",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/index",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -16785,7 +16784,7 @@
     {
       "source": "lazyLoader/index",
       "target": "hyperlitContainer/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "lazyLoader/index",
@@ -16820,7 +16819,7 @@
     {
       "source": "pageLoad/containerChain",
       "target": "hyperlitContainer/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "pageLoad/containerChain",
@@ -16854,6 +16853,11 @@
     },
     {
       "source": "pageLoad/lazyLoaderRegistry",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
       "target": "pageLoad/firstChunkPromise",
       "kind": "static"
     },
@@ -16865,12 +16869,12 @@
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "hyperlitContainer/history",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "hyperlitContainer/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "pageLoad/lazyLoaderRegistry",
@@ -16935,7 +16939,7 @@
     {
       "source": "pageLoad/loadHyperText",
       "target": "pageLoad/readerEntry",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "pageLoad/onlineRetry",
@@ -16994,6 +16998,11 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "pageLoad/firstChunkPromise",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "scrolling/navOverlay",
       "kind": "static"
     },
@@ -17028,13 +17037,13 @@
       "kind": "breaker"
     },
     {
-      "source": "scrolling/internalNav",
-      "target": "pageLoad/firstChunkPromise",
-      "kind": "lazy"
+      "source": "scrolling/restore",
+      "target": "indexedDB/index",
+      "kind": "static"
     },
     {
       "source": "scrolling/restore",
-      "target": "indexedDB/index",
+      "target": "pageLoad/currentLazyLoaderState",
       "kind": "static"
     },
     {
@@ -17053,43 +17062,16 @@
       "kind": "static"
     },
     {
-      "source": "scrolling/restore",
-      "target": "pageLoad/lazyLoaderRegistry",
-      "kind": "breaker"
-    },
-    {
       "source": "scrolling/scrollHelpers",
       "target": "scrolling/userScrollDetection",
       "kind": "static"
     }
   ],
   "cycleSummary": {
-    "staticCycles": [
-      [
-        "divEditor/index",
-        "hypercites/index",
-        "hypercites/listeners",
-        "hypercites/navigation",
-        "hyperlights/annotationPaste",
-        "hyperlights/deleteHighlight",
-        "hyperlights/index",
-        "hyperlights/selectionToolbar",
-        "lazyLoader/index",
-        "pageLoad/containerChain",
-        "pageLoad/index",
-        "pageLoad/lazyLoaderRegistry",
-        "pageLoad/loadHyperText",
-        "pageLoad/readerEntry"
-      ]
-    ],
+    "staticCycles": [],
     "latentCycles": [
       [
-        "divEditor/chunkMutationHandler/index",
-        "divEditor/domUtilities",
         "divEditor/index",
-        "divEditor/mutationProcessor",
-        "editToolbar/index",
-        "footnotes/footnoteInserter",
         "hypercites/index",
         "hypercites/listeners",
         "hypercites/navigation",
@@ -17112,14 +17094,9 @@
         "hyperlitContainer/postOpen",
         "hyperlitContainer/stack",
         "hyperlitContainer/subBookLoader",
-        "indexedDB/serverSync/flush",
-        "indexedDB/serverSync/index",
-        "indexedDB/serverSync/pull",
         "lazyLoader/index",
-        "pageLoad/backgroundDownload",
         "pageLoad/containerChain",
         "pageLoad/index",
-        "pageLoad/initialChunk",
         "pageLoad/lazyLoaderRegistry",
         "pageLoad/loadHyperText",
         "pageLoad/readerEntry",
@@ -17128,7 +17105,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 20,
-    "lazyCount": 89
+    "breakerCount": 9,
+    "lazyCount": 99
   }
 }
