@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 600 functions in 134 modules · 8 object stores · 6 PG tables · 1362 edges
+**MarkdownDB** schema v27 · 600 functions in 135 modules · 8 object stores · 6 PG tables · 1361 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -583,9 +583,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeLazyLoaderForContainer` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
-| `generateNodeChunksFromMarkdown` | `pageLoad/loadHyperText` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
 | `loadHyperText` | `pageLoad/loadHyperText` | `library` | — | read | — |
+| `generateNodeChunksFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
 | `hidePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
@@ -613,21 +613,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 9 · lazy-loads (code-split): 99
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 99
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (32 modules) `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/containerChain`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (20 modules) `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
-- `pageLoad/lazyLoaderRegistry` → `pageLoad/containerChain`
-- `pageLoad/lazyLoaderRegistry` → `pageLoad/loadHyperText`
-- `scrolling/internalNav` → `hyperlights/index`
-- `scrolling/internalNav` → `hyperlitContainer/index`
-- `scrolling/internalNav` → `lazyLoader/index`
 
 ### Lazy-loads (code-split points)
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`

@@ -16,7 +16,13 @@ registerAllComponents();
 // import { stopObserving } from "./divEditor/index";
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling";
-import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index";
+import { attachMarkListeners, initializeHighlightManager, openHighlightById } from "./hyperlights/index";
+import { registerContainerActions } from "./utilities/containerActions";
+
+// Register the hyperlights "open highlight" action into the DI leaf so lower layers (scrolling)
+// can call it via a static downward import — no scrolling→hyperlights upward edge. viewManager is
+// a bootstrap entry imported before any navigation, and hyperlights never imports it (cycle-safe).
+registerContainerActions({ openHighlightById });
 import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selectionToolbar";
 import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index";
 import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";

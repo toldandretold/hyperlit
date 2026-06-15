@@ -18,6 +18,9 @@ import { shouldSkipScrollRestoration } from './userScrollDetection';
 // Static, downward import from a zero-import leaf (no cycle). pendingFirstChunkLoadedPromise is a
 // live binding (reset per load) — read at await time.
 import { pendingFirstChunkLoadedPromise } from '../pageLoad/firstChunkPromise';
+// Feature actions via the DI registry leaf (registered at bootstrap) — no upward import into
+// hyperlights / hyperlitContainer, no dynamic-import cycle-breaker.
+import { openHighlightById, handleUnifiedContentClick } from '../utilities/containerActions';
 
 // Adjusted helper: load default content if container is empty.
 export async function loadDefaultContent(lazyLoader: any): Promise<void> {
@@ -75,14 +78,11 @@ export async function loadDefaultContent(lazyLoader: any): Promise<void> {
     });
   }
 
-  // Ensure sentinels are properly positioned
+  // Ensure sentinels are properly positioned. The lazy loader always exposes this as an instance
+  // method (see createLazyLoader), so we call it directly — no import of lazyLoader needed (which
+  // would be an upward edge: lazyLoader already imports scrolling).
   if (typeof lazyLoader.repositionSentinels === "function") {
     lazyLoader.repositionSentinels();
-  } else {
-    const { repositionSentinels }: any = await import('../lazyLoader');
-    if (typeof repositionSentinels === "function") {
-      repositionSentinels(lazyLoader);
-    }
   }
 
   // Verify content was loaded
@@ -621,9 +621,8 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     // For highlights, open the container (cascade-origin is applied there)
     if (targetId.startsWith('HL_')) {
-      setTimeout(async () => {
+      setTimeout(() => {
         verbose.nav(`Opening highlight after navigation: ${targetId}`, 'scrolling/internalNav');
-        const { openHighlightById } = await import('../hyperlights/index');
         openHighlightById(targetId);
       }, 200);
     }
@@ -641,9 +640,8 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         };
         fnEl.addEventListener('animationend', handleEnd);
       }
-      setTimeout(async () => {
+      setTimeout(() => {
         verbose.nav(`Opening footnote after navigation: ${targetId}`, 'scrolling/internalNav');
-        const { handleUnifiedContentClick } = await import('../hyperlitContainer/index');
         const footnoteElement = document.getElementById(targetId);
         if (footnoteElement) {
           handleUnifiedContentClick(footnoteElement);

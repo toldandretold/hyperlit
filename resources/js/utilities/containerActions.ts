@@ -25,6 +25,8 @@ interface ContainerActions {
   handleUnifiedContentClick: (...args: any[]) => Promise<any>;
   handleHyperciteHealthCheck: (...args: any[]) => any;
   handleHyperciteDelete: (...args: any[]) => any;
+  /** Open a highlight's container by id (a hyperlights action; registered by viewManager at bootstrap). */
+  openHighlightById: (...args: any[]) => any;
 }
 
 const impl: Partial<ContainerActions> = {};
@@ -62,3 +64,6 @@ export const handleHyperciteHealthCheck = (...args: any[]): any =>
 
 export const handleHyperciteDelete = (...args: any[]): any =>
   impl.handleHyperciteDelete ? impl.handleHyperciteDelete(...args) : unregistered('handleHyperciteDelete');
+
+export const openHighlightById = (...args: any[]): any =>
+  impl.openHighlightById ? impl.openHighlightById(...args) : unregistered('openHighlightById');

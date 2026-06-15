@@ -23,10 +23,10 @@ import { attachUnderlineClickListeners } from "../hypercites/index";
 import { syncBookDataFromDatabase } from "../indexedDB/serverSync";
 
 import { getFirstChunkLoadedResolver } from './firstChunkPromise';
-// generateNodeChunksFromMarkdown (./loadHyperText) and openContainerChain (./containerChain)
-// are imported DYNAMICALLY at their call sites below — both are call-time-only and importing
-// them statically would close the lazyLoaderRegistry↔loadHyperText↔containerChain static ring
-// (TDZ risk in the rollup bundle).
+// Static (downward) now that the cycles are broken: nodeGen is a low-import util, and containerChain
+// reads currentLazyLoader from the leaf (not this module) — so neither closes a ring.
+import { generateNodeChunksFromMarkdown } from './nodeGen';
+import { openContainerChain } from './containerChain';
 
 // Store multiple lazy loaders by bookId
 export const lazyLoaders: any = {};
@@ -104,7 +104,6 @@ export async function initializeLazyLoaderForContainer(bookId: string) {
 
     if (!nodes || !nodes.length) {
       console.log(`🆕 Generating ${bookId} from markdown`);
-      const { generateNodeChunksFromMarkdown } = await import('./loadHyperText');
       nodes = await generateNodeChunksFromMarkdown(bookId, true);
     }
 
@@ -187,7 +186,7 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: string
     if ((window as any).autoOpenChain && (window as any).autoOpenChain.length > 0) {
       const chain = (window as any).autoOpenChain;
       (window as any).autoOpenChain = null; // Prevent re-triggering
-      import('./containerChain').then(({ openContainerChain }) => openContainerChain(chain, currentLazyLoader));
+      openContainerChain(chain, currentLazyLoader);
     }
 
     // Container stack restoration — if history.state has a serialized stack,

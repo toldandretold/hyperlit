@@ -6,7 +6,9 @@ import { syncBookDataFromDatabase } from "../indexedDB/serverSync";
 
 import { parseSubBookId, buildSubBookId } from '../utilities/subBookIdHelper.js';
 
-import { currentLazyLoader } from './lazyLoaderRegistry';
+// From the zero-import leaf, not lazyLoaderRegistry — so this module doesn't depend on the
+// registry and lazyLoaderRegistry can import openContainerChain statically (no cycle, no breaker).
+import { currentLazyLoader } from './currentLazyLoaderState';
 
 /**
  * Wait for a DOM element to appear (by highlight class or footnote ID).

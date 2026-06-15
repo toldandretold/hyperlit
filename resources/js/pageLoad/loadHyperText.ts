@@ -366,32 +366,8 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
 
 // Note: initializeInteractiveFeatures function removed as it duplicates viewManager.js functionality
 
-// Helper to add cache-busting parameter when needed
-function buildUrl(path: string, forceReload = false) {
-  return forceReload ? `${path}?v=${Date.now()}` : path;
-}
-
-// Updated to accept bookId parameter
-async function fetchMainTextMarkdown(bookId: string, forceReload = false) {
-  const response = await fetch(buildUrl(`/${bookId}/main-text.md`, forceReload));
-  if (!response.ok) {
-    throw new Error(`Failed to fetch main-text.md for ${bookId}`);
-  }
-  return response.text();
-}
-
-// Updated to accept bookId parameter
-export async function generateNodeChunksFromMarkdown(bookId: string, forceReload = false) {
-  const markdown = await fetchMainTextMarkdown(bookId);
-
-  // Parse markdown into nodes
-  const nodes: any = parseMarkdownIntoChunksInitial(markdown);
-  verbose.content(`Generated ${nodes.length} nodes from markdown`, 'initializePage.js');
-
-  // Pass the callback to the save function
-  await saveAllNodeChunksToIndexedDB(nodes, bookId);
-  return nodes;
-}
+// generateNodeChunksFromMarkdown (+ its fetch/url helpers) moved to ./nodeGen so lazyLoaderRegistry
+// can import it statically without the old lazyLoaderRegistry↔loadHyperText dynamic cycle-breaker.
 
 // Your existing function - unchanged
 function navigateToElement(elementId: string) {
