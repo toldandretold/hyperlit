@@ -4,7 +4,7 @@
  * within the hyperlit container's scroller div.
  */
 
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoaderFactory.js';
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoader';
 // NOTE: hyperlights/index.js and hypercites/index.js are imported DYNAMICALLY
 // (inside async functions) to break a circular dependency chain:
 //   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader

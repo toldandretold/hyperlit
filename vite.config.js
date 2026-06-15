@@ -140,7 +140,7 @@ export default defineConfig({
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.ts',
                 'resources/js/initializePage.js',
-                'resources/js/lazyLoaderFactory.js',
+                'resources/js/lazyLoader/index.ts',
                 'resources/js/components/newBookForm.js',
                 'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',

@@ -7,7 +7,7 @@ import {
   createLazyLoader,
   loadNextChunkFixed,
   loadPreviousChunkFixed,
-} from "./lazyLoaderFactory.js";
+} from "./lazyLoader";
 
 import {
   openDatabase,

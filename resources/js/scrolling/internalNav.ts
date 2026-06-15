@@ -76,7 +76,7 @@ export async function loadDefaultContent(lazyLoader: any): Promise<void> {
   if (typeof lazyLoader.repositionSentinels === "function") {
     lazyLoader.repositionSentinels();
   } else {
-    const { repositionSentinels } = await import('../lazyLoaderFactory.js');
+    const { repositionSentinels }: any = await import('../lazyLoader');
     if (typeof repositionSentinels === "function") {
       repositionSentinels(lazyLoader);
     }

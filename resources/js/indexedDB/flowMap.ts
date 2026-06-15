@@ -51,7 +51,7 @@ export const EXTERNAL_TIERS: ExternalTier[] = [
   {
     id: 'dom',
     title: 'DOM / Editor',
-    plain: 'The live contenteditable book. User edits flow up from here (divEditor saveQueue → Capture); rendered content flows back down (Hydrate → lazyLoaderFactory). Not yet mapped — next territory after the IndexedDB layer.',
+    plain: 'The live contenteditable book. User edits flow up from here (divEditor saveQueue → Capture); rendered content flows back down (Hydrate → lazyLoader). Not yet mapped — next territory after the IndexedDB layer.',
     mapped: false,
   },
   {

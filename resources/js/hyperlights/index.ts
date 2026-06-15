@@ -4,7 +4,7 @@
  */
 
 import { book } from '../app.js';
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoaderFactory.js";
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoader";
 import { initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from '../utilities/containerActions';
 
 // Import for internal use
