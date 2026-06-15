@@ -471,7 +471,7 @@ async function _popTopLayerImpl() {
   const btns = document.getElementById('hyperlight-buttons');
   if (btns) btns.style.display = 'none';
 
-  // 1. Detach noteListeners FIRST while DOM is still intact (flushes pending saves)
+  // 1. Detach noteListeners FIRST while DOM is still intact (flushes pending saves) — lazy import
   const { detachNoteListeners }: any = await import('./noteListener.js');
   detachNoteListeners();
 
@@ -561,6 +561,8 @@ async function _popTopLayerImpl() {
   const { isContainerClosing }: any = await import('./core.js');
   const closingNow = isContainerClosing();
   if (!closingNow) {
+    // Dynamic: stack↔editMode↔core is an irreducible intra-orchestrator triangle — one edge stays
+    // deferred. This is a lazy edge (not masking a cross-layer cycle), so the cycle scan stays clean.
     const { applyCurrentEditModeToLayer }: any = await import('./editMode');
     await applyCurrentEditModeToLayer();
   }

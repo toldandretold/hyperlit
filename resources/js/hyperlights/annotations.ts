@@ -4,7 +4,7 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync, updateAnnotationsTimestamp } from "../indexedDB/index";
-import { getCurrentContainer } from "../hyperlitContainer/stack";
+import { getCurrentContainer } from "../utilities/containerActions";
 
 /**
  * Extracts the current HTML content from within the annotation element.

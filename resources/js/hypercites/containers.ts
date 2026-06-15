@@ -10,7 +10,7 @@ import { fetchLibraryFromServer } from './database';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../utilities/auth.js";
-import { openHyperlitContainer } from '../hyperlitContainer/core';
+import { openHyperlitContainer, handleHyperciteHealthCheck, handleHyperciteDelete } from '../utilities/containerActions';
 
 /**
  * Handle poly click - shows "cited by" container with all citations
@@ -144,9 +144,6 @@ export async function createOverlappingPolyContainer(allCitedINLinks: string[], 
     const hyperciteDeleteButtons = document.querySelectorAll('.hypercite-delete-btn');
 
     if (healthCheckButtons.length > 0 || hyperciteDeleteButtons.length > 0) {
-      // Import handlers from hyperlitContainer
-      const { handleHyperciteHealthCheck, handleHyperciteDelete } = await import('../hyperlitContainer/index');
-
       healthCheckButtons.forEach(button => {
         button.addEventListener('click', handleHyperciteHealthCheck);
       });

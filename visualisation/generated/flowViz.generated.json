@@ -6,7 +6,7 @@
     "moduleCount": 109,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1163,
+    "edgeCount": 1144,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8461,12 +8461,6 @@
       "dataPath": true
     },
     {
-      "id": "footnotes/footnoteAnnotations:attachFootnoteListener__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "footnotes/footnoteAnnotations:attachFootnoteListener",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "footnotes/footnoteAnnotations:attachFootnotePlaceholderBehavior__domwrite__dom",
       "source": "footnotes/footnoteAnnotations:attachFootnotePlaceholderBehavior",
       "target": "dom",
@@ -8715,12 +8709,6 @@
       "rel": "call"
     },
     {
-      "id": "hypercites/containers:createOverlappingPolyContainer__call__hyperlitContainer/core:openHyperlitContainer",
-      "source": "hypercites/containers:createOverlappingPolyContainer",
-      "target": "hyperlitContainer/core:openHyperlitContainer",
-      "rel": "call"
-    },
-    {
       "id": "hypercites/containers:createOverlappingPolyContainer__call__indexedDB/core/connection:openDatabase",
       "source": "hypercites/containers:createOverlappingPolyContainer",
       "target": "indexedDB/core/connection:openDatabase",
@@ -8731,12 +8719,6 @@
       "id": "hypercites/containers:PolyClick__call__hypercites/database:fetchLibraryFromServer",
       "source": "hypercites/containers:PolyClick",
       "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "call"
-    },
-    {
-      "id": "hypercites/containers:PolyClick__call__hyperlitContainer/core:openHyperlitContainer",
-      "source": "hypercites/containers:PolyClick",
-      "target": "hyperlitContainer/core:openHyperlitContainer",
       "rel": "call"
     },
     {
@@ -9028,8 +9010,7 @@
       "id": "hypercites/navigation:CoupleClick__call__hypercites/navigation:navigateToHyperciteLink",
       "source": "hypercites/navigation:CoupleClick",
       "target": "hypercites/navigation:navigateToHyperciteLink",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/database:getHyperciteById",
@@ -9042,8 +9023,7 @@
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/navigation:navigateToHyperciteLink",
       "source": "hypercites/navigation:handleOverlappingCouple",
       "target": "hypercites/navigation:navigateToHyperciteLink",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hypercites/navigation:handleOverlappingCouple__call__indexedDB/core/connection:openDatabase",
@@ -9107,12 +9087,6 @@
       "rel": "call"
     },
     {
-      "id": "hypercites/navigation:navigateToFootnoteTarget__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hypercites/navigation:navigateToFootnoteTarget",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "hypercites/navigation:navigateToFootnoteTarget__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "hypercites/navigation:navigateToFootnoteTarget",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -9143,13 +9117,6 @@
       "rel": "call"
     },
     {
-      "id": "hypercites/navigation:navigateToHyperciteLink__call__hyperlitContainer/core:closeHyperlitContainer",
-      "source": "hypercites/navigation:navigateToHyperciteLink",
-      "target": "hyperlitContainer/core:closeHyperlitContainer",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "hypercites/navigation:navigateToHyperciteTarget__call__hypercites/animations:highlightTargetHypercite",
       "source": "hypercites/navigation:navigateToHyperciteTarget",
       "target": "hypercites/animations:highlightTargetHypercite",
@@ -9159,12 +9126,6 @@
       "id": "hypercites/navigation:navigateToHyperciteTarget__call__hypercites/animations:revealGhostIfTombstone",
       "source": "hypercites/navigation:navigateToHyperciteTarget",
       "target": "hypercites/animations:revealGhostIfTombstone",
-      "rel": "call"
-    },
-    {
-      "id": "hypercites/navigation:navigateToHyperciteTarget__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hypercites/navigation:navigateToHyperciteTarget",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
       "rel": "call"
     },
     {
@@ -9217,12 +9178,6 @@
       "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "hyperlights/annotations:attachAnnotationListener__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlights/annotations:attachAnnotationListener",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
     },
     {
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/connection:openDatabase",
@@ -9361,8 +9316,7 @@
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/utils:openHighlightById",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/utils:openHighlightById",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/core/library:updateAnnotationsTimestamp",
@@ -9407,13 +9361,6 @@
       "id": "hyperlights/createHighlight:openBrainFromSelection__call__hyperlights/createHighlight:createHighlightHandler",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "hyperlights/createHighlight:createHighlightHandler",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "hyperlights/createHighlight:openBrainFromSelection__call__hyperlitContainer/index:handleUnifiedContentClick",
-      "source": "hyperlights/createHighlight:openBrainFromSelection",
-      "target": "hyperlitContainer/index:handleUnifiedContentClick",
       "rel": "call",
       "dataPath": true
     },
@@ -9740,13 +9687,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "hyperlights/listeners:handleMarkClick__call__hyperlitContainer/index:handleUnifiedContentClick",
-      "source": "hyperlights/listeners:handleMarkClick",
-      "target": "hyperlitContainer/index:handleUnifiedContentClick",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "hyperlights/listeners:handleMarkHover__call__hyperlights/markGroup:applyGroupHover",
       "source": "hyperlights/listeners:handleMarkHover",
       "target": "hyperlights/markGroup:applyGroupHover",
@@ -9807,12 +9747,6 @@
       "rel": "call"
     },
     {
-      "id": "hyperlights/selectionToolbar:handleSelection__call__hyperlitContainer/stack:isStackPopping",
-      "source": "hyperlights/selectionToolbar:handleSelection",
-      "target": "hyperlitContainer/stack:isStackPopping",
-      "rel": "call"
-    },
-    {
       "id": "hyperlights/selectionToolbar:handleSelection__domwrite__dom",
       "source": "hyperlights/selectionToolbar:handleSelection",
       "target": "dom",
@@ -9850,13 +9784,6 @@
       "source": "hyperlights/utils:attachPlaceholderBehavior",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "hyperlights/utils:openHighlightById__call__hyperlitContainer/index:handleUnifiedContentClick",
-      "source": "hyperlights/utils:openHighlightById",
-      "target": "hyperlitContainer/index:handleUnifiedContentClick",
-      "rel": "call",
-      "dataPath": true
     },
     {
       "id": "hyperlitContainer/brainQuery:cleanupPendingBrainHighlight__call__hyperlights/deletion:deleteHighlightById",
@@ -10449,12 +10376,6 @@
       "rel": "call"
     },
     {
-      "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__domwrite__dom",
       "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
       "target": "dom",
@@ -10497,12 +10418,6 @@
       "rel": "call"
     },
     {
-      "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__domwrite__dom",
       "source": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "target": "dom",
@@ -10512,12 +10427,6 @@
       "id": "hyperlitContainer/editMode:focusTopmostEditableElement__call__hyperlitContainer/editMode:placeCursorAtEnd",
       "source": "hyperlitContainer/editMode:focusTopmostEditableElement",
       "target": "hyperlitContainer/editMode:placeCursorAtEnd",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlitContainer/editMode:focusTopmostEditableElement__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/editMode:focusTopmostEditableElement",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
       "rel": "call"
     },
     {
@@ -10595,22 +10504,10 @@
       "rel": "call"
     },
     {
-      "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/editMode:handleEditButtonClick",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "hyperlitContainer/editMode:handleEditButtonClick__domwrite__dom",
       "source": "hyperlitContainer/editMode:handleEditButtonClick",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "hyperlitContainer/editMode:toggleContentEditableInPlace__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/editMode:toggleContentEditableInPlace",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
     },
     {
       "id": "hyperlitContainer/history:buildContentFromMetadata__call__hyperlitContainer/contentBuild:buildUnifiedContent",
@@ -11086,12 +10983,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "hyperlitContainer/noteListener:attachNoteListeners__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/noteListener:attachNoteListeners",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
       "id": "hyperlitContainer/noteListener:detachNoteListeners__call__footnotes/footnoteAnnotations:saveFootnoteToIndexedDB",
       "source": "hyperlitContainer/noteListener:detachNoteListeners",
       "target": "footnotes/footnoteAnnotations:saveFootnoteToIndexedDB",
@@ -11104,18 +10995,6 @@
       "target": "hyperlights/annotations:saveHighlightAnnotation",
       "rel": "call",
       "dataPath": true
-    },
-    {
-      "id": "hyperlitContainer/noteListener:detachNoteListeners__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/noteListener:detachNoteListeners",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlitContainer/noteListener:initializePlaceholders__call__hyperlitContainer/stack:getCurrentContainer",
-      "source": "hyperlitContainer/noteListener:initializePlaceholders",
-      "target": "hyperlitContainer/stack:getCurrentContainer",
-      "rel": "call"
     },
     {
       "id": "hyperlitContainer/noteListener:initializePlaceholders__domwrite__dom",
@@ -13448,11 +13327,6 @@
     },
     {
       "source": "footnotes/footnoteAnnotations",
-      "target": "hyperlitContainer/stack",
-      "kind": "static"
-    },
-    {
-      "source": "footnotes/footnoteAnnotations",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -13483,18 +13357,8 @@
     },
     {
       "source": "hypercites/containers",
-      "target": "hyperlitContainer/core",
-      "kind": "static"
-    },
-    {
-      "source": "hypercites/containers",
       "target": "indexedDB/index",
       "kind": "static"
-    },
-    {
-      "source": "hypercites/containers",
-      "target": "hyperlitContainer/index",
-      "kind": "breaker"
     },
     {
       "source": "hypercites/copy",
@@ -13542,11 +13406,6 @@
       "kind": "static"
     },
     {
-      "source": "hypercites/listeners",
-      "target": "hyperlitContainer/core",
-      "kind": "static"
-    },
-    {
       "source": "hypercites/navigation",
       "target": "hypercites/animations",
       "kind": "static"
@@ -13563,23 +13422,8 @@
     },
     {
       "source": "hypercites/navigation",
-      "target": "hyperlitContainer/core",
-      "kind": "static"
-    },
-    {
-      "source": "hypercites/navigation",
-      "target": "hyperlitContainer/stack",
-      "kind": "static"
-    },
-    {
-      "source": "hypercites/navigation",
       "target": "indexedDB/index",
       "kind": "static"
-    },
-    {
-      "source": "hypercites/navigation",
-      "target": "hyperlitContainer/index",
-      "kind": "breaker"
     },
     {
       "source": "hyperlights/annotationPaste",
@@ -13594,11 +13438,6 @@
     {
       "source": "hyperlights/annotationPaste",
       "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/annotations",
-      "target": "hyperlitContainer/stack",
       "kind": "static"
     },
     {
@@ -13640,11 +13479,6 @@
       "source": "hyperlights/createHighlight",
       "target": "indexedDB/index",
       "kind": "static"
-    },
-    {
-      "source": "hyperlights/createHighlight",
-      "target": "hyperlitContainer/index",
-      "kind": "lazy"
     },
     {
       "source": "hyperlights/database",
@@ -13747,18 +13581,8 @@
       "kind": "static"
     },
     {
-      "source": "hyperlights/index",
-      "target": "hyperlitContainer/index",
-      "kind": "static"
-    },
-    {
       "source": "hyperlights/listeners",
       "target": "hyperlights/markGroup",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/listeners",
-      "target": "hyperlitContainer/index",
       "kind": "static"
     },
     {
@@ -13779,16 +13603,6 @@
     {
       "source": "hyperlights/selectionToolbar",
       "target": "hyperlights/listeners",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/selectionToolbar",
-      "target": "hyperlitContainer/stack",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/utils",
-      "target": "hyperlitContainer/index",
       "kind": "static"
     },
     {
@@ -13884,7 +13698,7 @@
     {
       "source": "hyperlitContainer/contentBuilders/displayHypercites",
       "target": "hyperlights/index",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayHypercites",
@@ -13924,7 +13738,7 @@
     {
       "source": "hyperlitContainer/core",
       "target": "hyperlitContainer/noteListener",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/core",
@@ -13959,11 +13773,6 @@
     {
       "source": "hyperlitContainer/editMode",
       "target": "hyperlitContainer/core",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/editMode",
-      "target": "hyperlitContainer/stack",
       "kind": "static"
     },
     {
@@ -14173,11 +13982,6 @@
     },
     {
       "source": "hyperlitContainer/noteListener",
-      "target": "hyperlitContainer/stack",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/noteListener",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -14244,12 +14048,12 @@
     {
       "source": "hyperlitContainer/stack",
       "target": "hyperlitContainer/editMode",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/stack",
       "target": "hyperlitContainer/noteListener",
-      "kind": "breaker"
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/stack",
@@ -14604,40 +14408,8 @@
   ],
   "cycleSummary": {
     "staticCycles": [],
-    "latentCycles": [
-      [
-        "divEditor/index",
-        "footnotes/footnoteAnnotations",
-        "hypercites/containers",
-        "hypercites/index",
-        "hypercites/listeners",
-        "hypercites/navigation",
-        "hyperlights/annotationPaste",
-        "hyperlights/annotations",
-        "hyperlights/createHighlight",
-        "hyperlights/deleteHighlight",
-        "hyperlights/deletion",
-        "hyperlights/index",
-        "hyperlights/listeners",
-        "hyperlights/selectionToolbar",
-        "hyperlights/utils",
-        "hyperlitContainer/contentBuild",
-        "hyperlitContainer/contentBuilders/displayHypercites",
-        "hyperlitContainer/contentTypes/footnoteHandler",
-        "hyperlitContainer/contentTypes/hyperciteHandler",
-        "hyperlitContainer/contentTypes/hyperlightHandler",
-        "hyperlitContainer/contentTypes/registry",
-        "hyperlitContainer/core",
-        "hyperlitContainer/editMode",
-        "hyperlitContainer/history",
-        "hyperlitContainer/index",
-        "hyperlitContainer/noteListener",
-        "hyperlitContainer/permissions",
-        "hyperlitContainer/postOpen",
-        "hyperlitContainer/stack"
-      ]
-    ],
-    "breakerCount": 7,
-    "lazyCount": 72
+    "latentCycles": [],
+    "breakerCount": 0,
+    "lazyCount": 76
   }
 }

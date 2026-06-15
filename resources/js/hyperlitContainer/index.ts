@@ -82,16 +82,17 @@ import { book } from '../app.js';
 import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth.js";
-import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core.js';
+import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose, closeHyperlitContainer, initializeHyperlitManager } from './core.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
 import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
-import { buildHyperciteContent } from './contentBuilders/displayHypercites.js';
+import { buildHyperciteContent, handleHyperciteHealthCheck, handleHyperciteDelete } from './contentBuilders/displayHypercites.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
-import { getCurrentContainer } from './stack.js';
+import { getCurrentContainer, isStackPopping } from './stack.js';
+import { registerContainerActions } from '../utilities/containerActions';
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 
 // ============================================================================
@@ -131,6 +132,16 @@ import { buildUnifiedContent } from './contentBuild';
 import { handlePostOpenActions } from './postOpen';
 import { checkIfUserHasAnyEditPermission } from './permissions';
 export { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission };
+
+// Wire the container's public actions into the DI registry so feature modules (hypercites,
+// hyperlights) can drive the container WITHOUT importing hyperlitContainer/* (breaking the
+// feature↔orchestrator cycle). Runs at module load — footnotesCitations.js (the Vite entry)
+// imports this module at bootstrap, before any feature invokes an action.
+registerContainerActions({
+  openHyperlitContainer, closeHyperlitContainer, initializeHyperlitManager,
+  getCurrentContainer, isStackPopping,
+  handleUnifiedContentClick, handleHyperciteHealthCheck, handleHyperciteDelete,
+});
 
 
 

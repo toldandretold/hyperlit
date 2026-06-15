@@ -14,6 +14,7 @@ import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesBy
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations';
 import { modifyNewMarks } from './marks';
 import { attachMarkListeners } from './listeners';
+import { handleUnifiedContentClick } from '../utilities/containerActions';
 import { addToHighlightsTable } from './database';
 import { reprocessHighlightsForNodes } from './deletion';
 import { generateHighlightID, openHighlightById } from './utils';
@@ -216,7 +217,6 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
   const markElement = document.querySelector(`mark.${highlightId}`);
 
   // Open hyperlit container with brain mode flag
-  const { handleUnifiedContentClick } = await import('../hyperlitContainer/index');
   await handleUnifiedContentClick(
     markElement as any,
     [highlightId],

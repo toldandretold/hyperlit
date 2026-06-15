@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 531 functions in 109 modules · 8 object stores · 6 PG tables · 1163 edges
+**MarkdownDB** schema v27 · 531 functions in 109 modules · 8 object stores · 6 PG tables · 1144 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -544,21 +544,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 72
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 76
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
-
-### Cycles masked by dynamic imports (coupling debt)
-These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (29 modules) `divEditor/index`, `footnotes/footnoteAnnotations`, `hypercites/containers`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/annotations`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/listeners`, `hyperlights/selectionToolbar`, `hyperlights/utils`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentBuilders/displayHypercites`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperciteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`
-
-### Dynamic cycle-breakers (debt — could become one-way via events/DI)
-- `hypercites/containers` → `hyperlitContainer/index`
-- `hypercites/navigation` → `hyperlitContainer/index`
-- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlights/index`
-- `hyperlitContainer/core` → `hyperlitContainer/noteListener`
-- `hyperlitContainer/stack` → `hyperlitContainer/editMode`
-- `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
 
 ### Lazy-loads (code-split points)
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
@@ -573,7 +561,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
-- `hyperlights/createHighlight` → `hyperlitContainer/index`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`
 - `hyperlitContainer/brainQuery` → `hyperlights/deletion`
 - `hyperlitContainer/brainQuery` → `hyperlitContainer/core`
@@ -584,12 +571,14 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/containerListeners` → `editToolbar/index`
 - `hyperlitContainer/contentBuilders/displayCitations` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayFootnotes` → `indexedDB/index`
+- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlights/index`
 - `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/core`
 - `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayHyperlights` → `hyperlitContainer/utils`
 - `hyperlitContainer/core` → `footnotes/footnoteAnnotations`
 - `hyperlitContainer/core` → `hyperlitContainer/brainQuery`
 - `hyperlitContainer/core` → `hyperlitContainer/containerListeners`
+- `hyperlitContainer/core` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/core` → `hyperlitContainer/stack`
 - `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/core` → `indexedDB/index`
@@ -611,6 +600,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/stack` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerState`
 - `hyperlitContainer/stack` → `hyperlitContainer/core`
+- `hyperlitContainer/stack` → `hyperlitContainer/editMode`
+- `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/subBookLoader` → `hyperlights/index`
 - `hyperlitContainer/subBookLoader` → `indexedDB/core/library`

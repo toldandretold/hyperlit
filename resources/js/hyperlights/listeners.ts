@@ -2,7 +2,7 @@
  * Listeners module - Handles event listeners for mark elements
  */
 
-import { handleUnifiedContentClick } from '../hyperlitContainer/index';
+import { handleUnifiedContentClick } from '../utilities/containerActions';
 import { applyGroupHover, clearGroupHover } from './markGroup';
 import { verbose } from '../utilities/logger.js';
 

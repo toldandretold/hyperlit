@@ -5,7 +5,7 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
-import { getCurrentContainer } from "../hyperlitContainer/stack";
+import { getCurrentContainer } from "../utilities/containerActions";
 import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 
 /**

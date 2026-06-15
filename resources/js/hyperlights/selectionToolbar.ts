@@ -16,7 +16,7 @@ import { addTouchAndClickListener } from './listeners';
 import { createHighlightHandler, openBrainFromSelection } from './createHighlight';
 import { deleteHighlightHandler } from './deleteHighlight';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
-import { isStackPopping } from '../hyperlitContainer/stack';
+import { isStackPopping } from '../utilities/containerActions';
 import { log, verbose } from '../utilities/logger.js';
 
 // Track whether document listeners are attached

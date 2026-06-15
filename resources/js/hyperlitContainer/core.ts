@@ -564,7 +564,7 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
         await destroyAllSubBooks(); // DOM elements destroyed here
         console.log('[HyperlitContainer] ✅ Sub-books destroyed');
 
-        // STEP 3: Other cleanup (order less critical)
+        // STEP 3: Other cleanup (order less critical) — lazy import (note-editing machinery)
         const { detachNoteListeners }: any = await import('./noteListener.js');
         await detachNoteListeners();
 

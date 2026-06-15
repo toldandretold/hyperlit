@@ -12,7 +12,7 @@ import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from '../utilities/BroadcastListener.js';
-import { getCurrentContainer } from './stack.js';
+import { getCurrentContainer } from '../utilities/containerActions';
 
 // Track debounce timers by ID
 const debounceTimers = new Map();
