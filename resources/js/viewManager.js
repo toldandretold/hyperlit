@@ -15,7 +15,7 @@ registerAllComponents();
 // ✅ Lazy-loaded edit modules (only loaded when editing)
 // import { stopObserving } from "./divEditor/index";
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
-import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling";
 import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index";
 import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selectionToolbar";
 import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index";

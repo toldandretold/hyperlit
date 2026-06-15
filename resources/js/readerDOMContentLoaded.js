@@ -17,7 +17,7 @@ import { generateTableOfContents } from "./components/toc.js";
 import { attachMarkListeners } from "./hyperlights/index";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
-import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
+import { showNavigationLoading, hideNavigationLoading } from "./scrolling";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
 import { initializeUserProfilePage } from "./components/userProfilePage.js";

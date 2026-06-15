@@ -385,10 +385,10 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
       const groupMarks = getMarkGroup(element);
       (groupMarks.length > 0 ? groupMarks : [element]).forEach((m: any) => m.classList.add('cascade-origin'));
       // Fire-and-forget: persist cascade-origin ID for chunk re-renders
-      // (dynamic import avoids circular dependency with scrolling.js)
+      // (dynamic import avoids circular dependency with scrolling)
       const hlId = getHighlightIdsFromMark(element)[0];
       if (hlId) {
-        import('../scrolling.js').then(({ setCascadeOriginId }: any) => setCascadeOriginId(hlId));
+        import('../scrolling').then(({ setCascadeOriginId }: any) => setCascadeOriginId(hlId));
       }
     }
 

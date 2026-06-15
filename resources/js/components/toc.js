@@ -3,7 +3,7 @@
 // Import your helper functions and container manager.
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from "../indexedDB/index.js";
 import { book } from "../app.js";
-import { navigateToInternalId, showNavigationLoading } from "../scrolling.js"; // your internal navigation function
+import { navigateToInternalId, showNavigationLoading } from "../scrolling"; // your internal navigation function
 import { ContainerManager } from "../containerManager.js";
 import { currentLazyLoader } from "../initializePage.js";
 import { log, verbose } from "../utilities/logger.js";

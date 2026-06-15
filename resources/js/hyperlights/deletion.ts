@@ -6,7 +6,7 @@ import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueFor
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database';
 import { attachMarkListeners } from './listeners';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
-import { getCascadeOriginId } from '../scrolling.js';
+import { getCascadeOriginId } from '../scrolling';
 import { buildSubBookId } from '../utilities/subBookIdHelper.js';
 import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
 

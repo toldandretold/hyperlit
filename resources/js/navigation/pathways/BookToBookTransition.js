@@ -19,7 +19,7 @@ import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
 import { navigateToHyperciteTarget } from '../../hypercites/index';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation';
-import { navigateToInternalId, resetUserScrollState } from '../../scrolling.js';
+import { navigateToInternalId, resetUserScrollState } from '../../scrolling';
 
 export class BookToBookTransition {
   static isTransitioning = false;

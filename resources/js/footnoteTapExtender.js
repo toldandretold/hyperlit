@@ -3,7 +3,7 @@
 // so text selection (long-press + drag) works normally.
 // Only fires on quick taps (<250ms, <10px movement, no text selected).
 
-import { isActivelyScrollingForLinkBlock } from './scrolling.js';
+import { isActivelyScrollingForLinkBlock } from './scrolling';
 import { handleFootnoteOrCitationClick } from './footnotesCitations.js';
 
 const TAP_MAX_DURATION = 250;  // ms

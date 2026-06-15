@@ -1,6 +1,6 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from './app.js';
 import { log, verbose } from './utilities/logger.js';
-import { navigateToInternalId } from './scrolling.js';
+import { navigateToInternalId } from './scrolling';
 import { NavigationCompletionBarrier, NavigationProcess } from './navigation/NavigationCompletionBarrier.js';
 
 import {

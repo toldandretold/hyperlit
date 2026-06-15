@@ -2,8 +2,8 @@
  * Cascade-origin shared state — isolated leaf module (zero imports) to guarantee no TDZ.
  *
  * Tracks the highlight ID that originated a cascade so it survives chunk re-renders.
- * Lives here (not in scrolling.js) because scrolling.js sits in a large circular-import
- * cycle; reading these accessors from a partially-evaluated scrolling.js threw
+ * Lives here (not in scrolling) because scrolling sits in a large circular-import
+ * cycle; reading these accessors from a partially-evaluated scrolling threw
  * "Cannot access 'cascadeOriginTargetId' before initialization". A leaf module with no
  * imports always finishes initializing before anyone reads it, so it cannot TDZ.
  */

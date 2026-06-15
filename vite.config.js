@@ -144,7 +144,7 @@ export default defineConfig({
                 'resources/js/components/newBookForm.js',
                 'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
-                'resources/js/scrolling.js',
+                'resources/js/scrolling/index.ts',
                 'resources/js/components/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',

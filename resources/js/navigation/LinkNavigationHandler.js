@@ -6,7 +6,7 @@ import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
 import { log, verbose } from '../utilities/logger.js';
-import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling.js';
+import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling';
 import { book, bookSlug as _bookSlug } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation';

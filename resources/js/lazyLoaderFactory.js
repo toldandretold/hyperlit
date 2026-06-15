@@ -18,8 +18,8 @@ import {
   isChunkLoadingInProgress,
   scheduleAutoClear
 } from "./utilities/chunkLoadingState.js";
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from './scrolling.js';
-import { scrollElementIntoMainContent } from "./scrolling.js";
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from './scrolling';
+import { scrollElementIntoMainContent } from "./scrolling";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
