@@ -53,7 +53,7 @@ const IDB_ROOT = path.join(RES_ROOT, 'indexedDB');         // the front-end data
  * the heaviest DOM writer, mutation-observer-driven). They form the JS tier
  * between the reader page and the object stores.
  */
-const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar')];
+const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar'), path.join(RES_ROOT, 'footnotes'), path.join(RES_ROOT, 'citations'), path.join(RES_ROOT, 'hyperlitContainer')];
 
 /** Per-store key + index names — what each object store holds — straight from the schema. */
 const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Object.fromEntries(
@@ -169,6 +169,13 @@ export interface FlowViz {
   nodes: GraphNode[];
   modules: GraphModule[];
   edges: GraphEdge[];
+  /** module→module dependency edges, classified static / breaker (dynamic cycle-breaker = debt) /
+   *  lazy (dynamic non-cycle = code-split). Drives the honest "find circular deps" + lazy-load view. */
+  importEdges: { source: string; target: string; kind: 'static' | 'breaker' | 'lazy' }[];
+  /** staticCycles = real TDZ rings (static imports only). latentCycles = rings that appear when the
+   *  dynamic cycle-breakers are treated as static — the structural debt those `await import()`s mask.
+   *  + counts of the two dynamic-import kinds. */
+  cycleSummary: { staticCycles: string[][]; latentCycles: string[][]; breakerCount: number; lazyCount: number };
 }
 
 // ── per-function analysis (raw, pre-fold) ───────────────────────────
@@ -309,7 +316,45 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
 
 /** Re-exports a barrel performs: `export { X as Y } from './m'` (named) + `export * from './m'` (stars). */
 interface Reexports { named: Map<string, string>; stars: string[]; }
-interface ModuleParse { functions: FnRaw[]; importMap: Map<string, string>; reexports: Reexports; }
+interface ModuleParse {
+  functions: FnRaw[];
+  importMap: Map<string, string>;
+  reexports: Reexports;
+  /** module keys this module depends on via runtime STATIC `import … from` (excl `import type`)
+   *  + static re-exports (`export … from`, `export * from`). The TDZ-relevant graph. */
+  staticDeps: Set<string>;
+  /** module keys this module pulls in via `await import()` / `import()` (deferred — TDZ-safe). */
+  dynDeps: Set<string>;
+}
+
+/**
+ * Module-to-module dependency edges, by import kind. Used by the map's cycle detector to tell a
+ * real (static-import) ring — which can crash with a TDZ "Cannot access X before initialization" —
+ * apart from the codebase's deliberate dynamic-import cycle-breakers and plain lazy-loads.
+ */
+function extractModuleDeps(sf: ts.SourceFile, fromAbs: string, known: Set<string>): { staticDeps: Set<string>; dynDeps: Set<string> } {
+  const staticDeps = new Set<string>();
+  const dynDeps = new Set<string>();
+  walk(sf, n => {
+    // static value imports (skip `import type …`)
+    if (ts.isImportDeclaration(n)) {
+      if (n.importClause?.isTypeOnly) return;
+      const t = resolveSpecToModule(fromAbs, stringLiteralValue(n.moduleSpecifier) ?? '', known);
+      if (t) staticDeps.add(t);
+    }
+    // static re-exports `export … from './m'` / `export * from './m'` (skip `export type`)
+    if (ts.isExportDeclaration(n) && n.moduleSpecifier && !n.isTypeOnly) {
+      const t = resolveSpecToModule(fromAbs, stringLiteralValue(n.moduleSpecifier) ?? '', known);
+      if (t) staticDeps.add(t);
+    }
+    // dynamic import() — deferred to call time
+    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const t = resolveSpecToModule(fromAbs, stringLiteralValue(n.arguments[0]) ?? '', known);
+      if (t) dynDeps.add(t);
+    }
+  });
+  return { staticDeps, dynDeps };
+}
 
 function moduleKeyOf(abs: string): string {
   return path.relative(RES_ROOT, abs).replace(/\.(js|ts)$/, '').split(path.sep).join('/');
@@ -407,7 +452,8 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
       }
     }
   }
-  return { functions, importMap, reexports: buildReexports(sf, abs, known) };
+  const { staticDeps, dynDeps } = extractModuleDeps(sf, abs, known);
+  return { functions, importMap, reexports: buildReexports(sf, abs, known), staticDeps, dynDeps };
 }
 
 // ── the collector ───────────────────────────────────────────────────
@@ -425,11 +471,14 @@ export function collect(): FlowViz {
       : key.startsWith('hypercites/') ? 'hypercites'
       : key.startsWith('divEditor/') ? 'divEditor'
       : key.startsWith('editToolbar/') ? 'editToolbar'
+      : key.startsWith('footnotes/') ? 'footnotes'
+      : key.startsWith('citations/') ? 'citations'
+      : key.startsWith('hyperlitContainer/') ? 'hyperlitContainer'
       : 'infra');
 
   /** A module is analyzed if it's a flow-map indexedDB module or lives in a mediator folder. */
   const isAnalyzed = (key: string): boolean =>
-    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/') || key.startsWith('divEditor/') || key.startsWith('editToolbar/');
+    stageOf.has(key) || key.startsWith('hyperlights/') || key.startsWith('hypercites/') || key.startsWith('divEditor/') || key.startsWith('editToolbar/') || key.startsWith('footnotes/') || key.startsWith('citations/') || key.startsWith('hyperlitContainer/');
 
   const allFiles: string[] = [];
   const rec = (dir: string) => {
@@ -446,12 +495,16 @@ export function collect(): FlowViz {
   const fnReg = new Map<string, FnRaw>();
   const importMaps = new Map<string, Map<string, string>>();
   const reexportsByModule = new Map<string, Reexports>();
+  const staticDepsByModule = new Map<string, Set<string>>();
+  const dynDepsByModule = new Map<string, Set<string>>();
   for (const abs of allFiles) {
     const key = moduleKeyOf(abs);
     if (!isAnalyzed(key)) continue;
     const parsed = parseModule(abs, known);
     importMaps.set(key, parsed.importMap);
     reexportsByModule.set(key, parsed.reexports);
+    staticDepsByModule.set(key, parsed.staticDeps);
+    dynDepsByModule.set(key, parsed.dynDeps);
     for (const fn of parsed.functions) fnReg.set(fn.id, fn);
   }
 
@@ -599,6 +652,80 @@ export function collect(): FlowViz {
   nodes.sort((a, b) => a.id.localeCompare(b.id));
   edges.sort((a, b) => a.id.localeCompare(b.id));
 
+  // ── module-level IMPORT graph: real (static) cycles vs intentional dynamic breakers ──
+  // Cycle TRUTH is computed over ALL analyzed modules — INCLUDING pure barrels like
+  // `hypercites/index` (`export *`, no own functions) which carry the re-export edges that
+  // close real rings. Rendered import edges (below) stay between modules that have nodes.
+  const analyzedModules = new Set(staticDepsByModule.keys());
+  const liveModules = new Set(modules.map(m => m.id));
+  const staticAdj = new Map<string, Set<string>>();
+  for (const m of analyzedModules) {
+    const deps = new Set<string>();
+    for (const d of staticDepsByModule.get(m) ?? []) if (analyzedModules.has(d)) deps.add(d);
+    staticAdj.set(m, deps);
+  }
+  // Tarjan SCC over an arbitrary module adjacency → components of size ≥ 2 (cycles).
+  const sccsOf = (adj: Map<string, Set<string>>): string[][] => {
+    const out: string[][] = [];
+    let idx = 0; const stack: string[] = []; const onStack = new Set<string>();
+    const index = new Map<string, number>(); const low = new Map<string, number>();
+    const strongconnect = (v: string): void => {
+      index.set(v, idx); low.set(v, idx); idx++; stack.push(v); onStack.add(v);
+      for (const w of adj.get(v) ?? []) {
+        if (!index.has(w)) { strongconnect(w); low.set(v, Math.min(low.get(v)!, low.get(w)!)); }
+        else if (onStack.has(w)) { low.set(v, Math.min(low.get(v)!, index.get(w)!)); }
+      }
+      if (low.get(v) === index.get(v)) {
+        const comp: string[] = []; let w: string;
+        do { w = stack.pop()!; onStack.delete(w); comp.push(w); } while (w !== v);
+        if (comp.length > 1) out.push(comp.sort());
+      }
+    };
+    for (const v of [...adj.keys()].sort()) if (!index.has(v)) strongconnect(v);
+    return out.sort((a, b) => a.join().localeCompare(b.join()));
+  };
+  // REAL rings (static imports only) — the TDZ risk.
+  const staticCycles = sccsOf(staticAdj);
+  // Does `from` reach `to` along static-import edges? (for classifying dynamic edges)
+  const staticReaches = (from: string, to: string): boolean => {
+    const seen = new Set<string>(); const stack = [from];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const nx of staticAdj.get(cur) ?? []) {
+        if (nx === to) return true;
+        if (!seen.has(nx)) { seen.add(nx); stack.push(nx); }
+      }
+    }
+    return false;
+  };
+  // Classify every dynamic import edge across ALL analyzed modules (the HUD truth):
+  //   breaker = dynamic import that WOULD close a static ring (target already reaches back here
+  //             statically) → structural debt; lazy = dynamic, no cycle → genuine code-split.
+  // Collect the breaker back-edges so we can reveal the rings they MASK (latentCycles).
+  let breakerCount = 0, lazyCount = 0;
+  const latentAdj = new Map<string, Set<string>>();
+  for (const [m, ds] of staticAdj) latentAdj.set(m, new Set(ds));
+  for (const m of analyzedModules) {
+    for (const d of dynDepsByModule.get(m) ?? []) {
+      if (!analyzedModules.has(d) || staticAdj.get(m)?.has(d)) continue; // static dominates
+      if (staticReaches(d, m)) { breakerCount++; (latentAdj.get(m) ?? latentAdj.set(m, new Set()).get(m)!).add(d); }
+      else lazyCount++;
+    }
+  }
+  // LATENT rings: treat the dynamic cycle-breakers as if they were static → the structural cycles
+  // the `await import()`s are masking (would crash as TDZ if made static). The real coupling debt.
+  const latentCycles = sccsOf(latentAdj);
+  // Rendered import edges: only between modules that have nodes (barrels without functions aren't
+  // drawn). source/target are module ids; `kind` styles them (static solid / breaker / lazy dashed).
+  const importEdges: { source: string; target: string; kind: 'static' | 'breaker' | 'lazy' }[] = [];
+  for (const m of [...liveModules].sort()) {
+    for (const d of [...(staticAdj.get(m) ?? [])].sort()) if (liveModules.has(d)) importEdges.push({ source: m, target: d, kind: 'static' });
+    for (const d of [...(dynDepsByModule.get(m) ?? [])].sort()) {
+      if (!liveModules.has(d) || staticAdj.get(m)?.has(d)) continue;
+      importEdges.push({ source: m, target: d, kind: staticReaches(d, m) ? 'breaker' : 'lazy' });
+    }
+  }
+
   return {
     meta: {
       dbName: DB_NAME, dbVersion: DB_VERSION,
@@ -607,7 +734,7 @@ export function collect(): FlowViz {
       sources: ['exported functions (TS AST)', 'indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)', 'core/connection STORE_CONFIGS', 'real fetch/sendBeacon → PG tables (Eloquent $table names)', 'flowMap.ts (stage clustering)'],
       note: 'GENERATED by visualisation/js/collect.ts — do not edit. Run `npm run viz:idb`.',
     },
-    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites', 'divEditor', 'editToolbar'],
+    stageOrder: [...FLOW_STAGES.map(s => s.id), 'hyperlights', 'hypercites', 'divEditor', 'editToolbar', 'footnotes', 'citations', 'hyperlitContainer'],
     legend: [
       { rel: 'read', from: 'store', to: 'fn', desc: 'function reads an IndexedDB object store' },
       { rel: 'write', from: 'fn', to: 'store', desc: 'function writes an IndexedDB object store' },
@@ -620,6 +747,8 @@ export function collect(): FlowViz {
     ],
     storeSchema: STORE_SCHEMA,
     nodes, modules, edges,
+    importEdges,
+    cycleSummary: { staticCycles, latentCycles, breakerCount, lazyCount },
   };
 }
 
@@ -662,6 +791,36 @@ export function renderMarkdown(viz: FlowViz): string {
     L.push(`| \`${f.label}\` | \`${f.module}\` | ${fmt(o.reads)} | ${fmt(o.writes)} | ${dom} | ${pg} |`);
   }
   L.push('');
+  // Import-cycle truth: real static rings (TDZ risk) vs intentional dynamic imports.
+  const cs = viz.cycleSummary;
+  L.push('## Import cycles & dynamic imports');
+  L.push('');
+  L.push(`**Static-import cycles (TDZ crash risk): ${cs.staticCycles.length}** · ` +
+    `cycles masked by a dynamic import: ${cs.latentCycles.length} · ` +
+    `dynamic cycle-breakers (debt): ${cs.breakerCount} · lazy-loads (code-split): ${cs.lazyCount}`);
+  L.push('');
+  L.push('Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". ' +
+    'A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import ' +
+    'there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt ' +
+    '(a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic ' +
+    'import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).');
+  L.push('');
+  if (cs.staticCycles.length) {
+    L.push('### Static-import rings (break these — they crash)');
+    for (const c of cs.staticCycles) L.push(`- ${c.map(m => `\`${m}\``).join(' ↔ ')}`);
+    L.push('');
+  }
+  if (cs.latentCycles.length) {
+    L.push('### Cycles masked by dynamic imports (coupling debt)');
+    L.push('These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:');
+    for (const c of cs.latentCycles) L.push(`- (${c.length} modules) ${c.map(m => `\`${m}\``).join(', ')}`);
+    L.push('');
+  }
+  const byKind = (k: string) => viz.importEdges.filter(e => e.kind === k).map(e => `\`${e.source}\` → \`${e.target}\``);
+  const breakers = byKind('breaker'), lazies = byKind('lazy');
+  if (breakers.length) { L.push('### Dynamic cycle-breakers (debt — could become one-way via events/DI)'); for (const s of breakers) L.push(`- ${s}`); L.push(''); }
+  if (lazies.length) { L.push('### Lazy-loads (code-split points)'); for (const s of lazies) L.push(`- ${s}`); L.push(''); }
+
   L.push('## Legend');
   L.push('');
   for (const l of viz.legend) L.push(`- **${l.rel}** (${l.from} → ${l.to}): ${l.desc}`);
@@ -711,7 +870,8 @@ export function renderHtml(viz: FlowViz): string {
   <button id="expandAll">expand all</button>
   <button id="collapseAll">collapse all</button>
   <button id="toggleCalls" title="show which functions call which — the code's internal wiring (coupling/modularity), a different lens from data flow">show code coupling</button>
-  <button id="findCycles" title="find every circular dependency (feedback loop) in the call graph and highlight them red">find circular deps</button>
+  <button id="findCycles" title="IMPORT graph: red = real static-import cycles (TDZ risk to break); orange dashed = intentional dynamic cycle-breakers (debt); teal dashed = lazy-loads (fine)">find circular deps</button>
+  <button id="lazyBtn" title="highlight the lazy-loads — dynamic imports with NO cycle = genuine code-split points (deferred chunks), the JS-loading-optimisation surface">lazy-loads</button>
   <button id="traceDirBtn" title="flow lens: which direction a click traces. Nothing selected = the whole save/load pipeline.">trace: where it goes ▸</button>
   <button id="fit">fit</button>
 </div>
@@ -720,7 +880,7 @@ export function renderHtml(viz: FlowViz): string {
   <p id="modehint" style="margin:0 0 12px;padding:7px 9px;background:#1e2230;border:1px solid var(--line);border-radius:6px;font-weight:600;">DATA FLOW — lines = data moving: store reads/writes, server push/pull, DOM, + <span style="color:#5fb3a3">teal call-hops</span> that carry data toward a store/server.</p>
   <h2>Legend</h2>
   <div class="legend" id="legend"></div>
-  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other). The <b>find circular deps</b> button scans the entire call graph and lights <b style="color:#ff4d4f">every circular dependency</b> red at once — feedback loops to break.</p>
+  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other).<br><br>The <b>find circular deps</b> button flips to the <b>IMPORT</b> lens (module→module dependencies) and tells the truth about cycles: <b style="color:#ff4d4f">red</b> = a <b>real static-import ring</b> (the only kind that risks a TDZ "Cannot access X before initialization" crash — break these); <b style="color:#e0a44b">orange dashed</b> = a <b>dynamic-import cycle-breaker</b> — a back-edge that <i>would</i> form a static ring, deferred to runtime with <code>await import()</code> (safe, but structural debt: a bidirectional import that ideally becomes one-way via events/DI); <b style="color:#5fb3a3">teal dashed</b> = a <b>lazy-load</b> — a dynamic import with no cycle (genuine code-splitting, fine). The <b>lazy-loads</b> button isolates just those teal edges — your JS-loading-optimisation surface (what's deferred into separate chunks).</p>
   <div id="detail"></div>
 </div>
 <script>
@@ -738,12 +898,14 @@ var mode = "flow";
 var selId = null;        // currently traced node id (null = nothing selected)
 var traceDir = "goes";   // "goes" (downstream/outputs) | "comesFrom" (upstream/inputs) | "both"
 function applyMode(){
-  var couple = mode==="coupling";
-  cy.edges('[rel = "call"]').style("display", couple?"element":"none");
-  cy.edges('[rel != "call"]').style("display", couple?"none":"element");
+  var couple = mode==="coupling", imports = mode==="imports";
+  // IMPORTS lens = module→module dependency edges (the cycle/TDZ view), nothing else.
+  cy.edges('[rel = "import"]').style("display", imports?"element":"none");
+  cy.edges('[rel = "call"]').style("display", (!imports && couple)?"element":"none");
+  cy.edges('[rel != "call"][rel != "import"]').style("display", (!imports && !couple)?"element":"none");
   // FLOW lens also shows data-carrying call hops (calls on a path to a store/server) — the
   // genuine, hop-by-hop data path. Pure-control calls stay coupling-only.
-  if(!couple) cy.edges('[rel = "call"][?dataPath]').style("display","element");
+  if(!imports && !couple) cy.edges('[rel = "call"][?dataPath]').style("display","element");
 }
 
 function rep(id){ if(dataIds[id]) return id; var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod); }
@@ -762,8 +924,8 @@ function rebuild(){
   VIZ.modules.forEach(function(m){ (byBand[m.band]||byBand.store).push(m); });
 
   // folder zones across the X axis. Known folders in a fixed order, extras appended.
-  var FOLDER_ORDER=["indexedDB","hyperlights","hypercites","divEditor","editToolbar"];
-  var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6",editToolbar:"#d18ad0"};
+  var FOLDER_ORDER=["indexedDB","hyperlights","hypercites","divEditor","editToolbar","footnotes","citations","hyperlitContainer"];
+  var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6",editToolbar:"#d18ad0",footnotes:"#c98a5e",citations:"#7bbf6a",hyperlitContainer:"#c45d6d"};
   var folders=[]; VIZ.modules.forEach(function(m){ var f=m.id.split("/")[0]; if(folders.indexOf(f)<0) folders.push(f); });
   folders.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a),ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib||(a<b?-1:1); });
   // a folder gets >1 sub-column only when one band would otherwise stack too tall
@@ -840,6 +1002,14 @@ function rebuild(){
     var cross=(e.rel==="call" && folderOf(s)!==folderOf(t))?1:0;
     els.push({data:{id:k,source:s,target:t,rel:e.rel,cross:cross,dataPath:e.dataPath?1:0,label:e.label||""}});
   });
+  // module→module IMPORT edges (the cycle/TDZ lens) — independent of expand state, between module boxes.
+  (VIZ.importEdges||[]).forEach(function(e){
+    var s="mod:"+e.source, t="mod:"+e.target;
+    if(s===t) return;
+    var k=s+"|"+t+"|import";
+    if(seen[k]) return; seen[k]=true;
+    els.push({data:{id:k,source:s,target:t,rel:"import",kind:e.kind,label:""}});
+  });
   cy.json({elements:els});
   cy.style().update();
   applyMode();
@@ -877,17 +1047,24 @@ var cy = cytoscape({
     {selector:"edge[rel = 'call']",style:{"line-color":REL_COLOR.call,"target-arrow-color":REL_COLOR.call,"line-style":"dashed","opacity":0.4,"arrow-scale":0.6}},
     {selector:"edge[rel = 'call'][?cross]",style:{"line-color":"#e0683c","target-arrow-color":"#e0683c","opacity":0.85,"width":2}},
     {selector:"edge[rel = 'call'][?dataPath]",style:{"line-style":"solid","line-color":REL_COLOR.handoff,"target-arrow-color":REL_COLOR.handoff,"opacity":0.9,"width":2}},
-    {selector:"node.faded",style:{"opacity":0.32}},
-    {selector:"edge.faded",style:{"opacity":0.06}},
+    {selector:"edge[rel = 'import']",style:{"width":1.4,"curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":0.7,"line-color":"#5a6480","target-arrow-color":"#5a6480","line-style":"solid","opacity":0.45}},
+    {selector:"edge[rel = 'import'][kind = 'breaker']",style:{"line-color":"#e0a44b","target-arrow-color":"#e0a44b","line-style":"dashed","opacity":0.8,"width":1.8}},
+    {selector:"edge[rel = 'import'][kind = 'lazy']",style:{"line-color":"#5fb3a3","target-arrow-color":"#5fb3a3","line-style":"dashed","opacity":0.7}},
+    // highlight classes LAST so they win over the base import/call edge colours (cytoscape = last match wins)
+    {selector:"node.faded",style:{"opacity":0.28}},
+    {selector:"edge.faded",style:{"opacity":0.05}},
     {selector:"node.hl",style:{"border-width":2.5,"border-color":"#fff","opacity":1}},
     {selector:"edge.hl",style:{"opacity":1,"width":2.6}},
-    {selector:"edge.cycle",style:{"line-color":"#ff4d4f","target-arrow-color":"#ff4d4f","line-style":"solid","opacity":1,"width":3.2,"z-index":99}}
+    {selector:"node.ring",style:{"border-width":3.5,"border-color":"#ff5a5c","background-color":"#3a1c20","opacity":1}},
+    {selector:"node.latentring",style:{"border-width":3.5,"border-color":"#f0b65e","background-color":"#3a2e18","opacity":1}},
+    {selector:"edge.latent",style:{"line-color":"#f0b65e","target-arrow-color":"#f0b65e","opacity":1,"width":3,"z-index":90}},
+    {selector:"edge.cycle",style:{"line-color":"#ff5a5c","target-arrow-color":"#ff5a5c","line-style":"solid","opacity":1,"width":3.4,"z-index":99}}
   ],
   layout:{name:"preset"}
 });
 
 function relabel(id){ return id.replace(/^store:|^pg:|^mod:/,""); }
-function clearHL(){ cy.elements().removeClass("faded hl cycle"); }
+function clearHL(){ cy.elements().removeClass("faded hl cycle ring"); }
 
 // Edges that belong to the active lens: data-flow edges in "flow", fn-call edges in "coupling".
 function lensEdgeSel(){ return mode==="coupling" ? 'edge[rel = "call"]' : 'edge[rel != "call"], edge[rel = "call"][?dataPath]'; }
@@ -935,6 +1112,7 @@ function paintTrace(r){
 // Re-apply the current selection + direction. FLOW lens honours traceDir (goes/comesFrom/both);
 // COUPLING lens always shows full transitive reach + red feedback-loop cycles.
 function applyTrace(){
+  if(mode==="imports") return;   // imports lens isn't a data/coupling trace — click just shows detail
   cy.elements().addClass("faded").removeClass("hl cycle");
   if(mode==="coupling"){
     if(!selId){ clearHL(); return; }
@@ -960,25 +1138,6 @@ function applyTrace(){
   }
 }
 function highlight(n){ selId=n.id(); applyTrace(); }
-
-// Global circular-dependency scan: Tarjan SCCs over ALL call edges; an edge inside a
-// strongly-connected component of size >= 2 is part of a cycle (a circular dependency).
-function findCyclicCallEdges(){
-  var adj={}, nodeset={};
-  cy.edges('edge[rel = "call"]').forEach(function(e){ var s=e.source().id(), t=e.target().id(); (adj[s]=adj[s]||[]).push(t); nodeset[s]=1; nodeset[t]=1; });
-  var index=0, stack=[], onstack={}, idx={}, low={}, sccOf={}, sccN=0;
-  function sc(v){
-    idx[v]=low[v]=index++; stack.push(v); onstack[v]=1;
-    (adj[v]||[]).forEach(function(w){
-      if(idx[w]===undefined){ sc(w); low[v]=Math.min(low[v],low[w]); }
-      else if(onstack[w]){ low[v]=Math.min(low[v],idx[w]); }
-    });
-    if(low[v]===idx[v]){ var w; do{ w=stack.pop(); onstack[w]=0; sccOf[w]=sccN; }while(w!==v); sccN++; }
-  }
-  Object.keys(nodeset).forEach(function(v){ if(idx[v]===undefined) sc(v); });
-  var size={}; Object.keys(sccOf).forEach(function(v){ size[sccOf[v]]=(size[sccOf[v]]||0)+1; });
-  return cy.edges('edge[rel = "call"]').filter(function(e){ var s=e.source().id(), t=e.target().id(); return sccOf[s]!==undefined && sccOf[s]===sccOf[t] && size[sccOf[s]]>=2; });
-}
 
 function groupsFor(ids){
   var set={}; ids.forEach(function(i){set[i]=true;});
@@ -1065,23 +1224,52 @@ document.getElementById("traceDirBtn").onclick=function(){
   applyTrace();
 };
 
-function setCouplingLens(){
-  if(mode!=="coupling"){
-    mode="coupling"; applyMode();
-    document.getElementById("toggleCalls").textContent="show data flow";
-  }
-}
-document.getElementById("findCycles").onclick=function(){
-  setCouplingLens();                       // circular deps are a call-graph property — show calls
+// Enter the IMPORT lens (module→module deps) — the honest cycle/TDZ view.
+function setImportsLens(){
+  mode="imports"; applyMode();
+  document.getElementById("toggleCalls").textContent="show data flow";
   document.getElementById("traceDirBtn").style.display="none";
   selId=null; clearHL();
-  var cyc=findCyclicCallEdges();
-  var hint=document.getElementById("modehint");
-  if(cyc.length===0){ hint.textContent="CIRCULAR DEPENDENCIES — none found ✓"; return; }
+}
+// Light up just the RINGS (everything else dimmed) so the loop is legible — like the old behaviour.
+// Highlights the ring's member boxes + the ring's edges of the given kind (static for a real ring;
+// breaker for a masked ring — the actual deferred dynamic imports holding the loop apart).
+function lightRings(rings, nodeCls, edgeCls, edgeKind){
+  rings.forEach(function(c){
+    var set={}; c.forEach(function(m){ set["mod:"+m]=1; });
+    c.forEach(function(m){ var el=cy.getElementById("mod:"+m); if(el&&el.length) el.removeClass("faded").addClass(nodeCls); });
+    cy.edges('[rel = "import"][kind = "'+edgeKind+'"]').forEach(function(e){
+      if(set[e.source().id()] && set[e.target().id()]) e.removeClass("faded").addClass(edgeCls);
+    });
+  });
+}
+document.getElementById("findCycles").onclick=function(){
+  setImportsLens();
+  var cs=VIZ.cycleSummary||{staticCycles:[],latentCycles:[],breakerCount:0,lazyCount:0};
   cy.elements().addClass("faded");
-  cyc.removeClass("faded").addClass("cycle");
-  cyc.connectedNodes().removeClass("faded").addClass("hl");
-  hint.textContent="CIRCULAR DEPENDENCIES — "+cyc.length+" cyclic call edge(s) in red (feedback loops to break). Click empty space to clear.";
+  // AMBER: rings masked by a dynamic import — glow the BREAKER edges (the deferred imports doing the
+  // masking) + the ring's modules. The breakers are the actionable "what's hiding a cycle".
+  lightRings(cs.latentCycles, "latentring", "latent", "breaker");
+  // RED on top: real static-import rings (TDZ crash risk — the ones to actually break).
+  lightRings(cs.staticCycles, "ring", "cycle", "static");
+  var nReal=cs.staticCycles.length, nMask=cs.latentCycles.length;
+  document.getElementById("modehint").innerHTML =
+    "CIRCULAR DEPS — <b style='color:"+(nReal?"#ff5a5c":"#54c98a")+"'>real static rings (TDZ crash): "+nReal+(nReal?"":" ✓")+"</b> · "+
+    "<b style='color:#f0b65e'>cycles masked by a dynamic import: "+nMask+"</b>. "+
+    (nReal? "Red = crashes on load, break these. " : "")+
+    "The <b style='color:#f0b65e'>bright amber dashed</b> edges are the <b>"+cs.breakerCount+" dynamic imports masking a cycle</b> — each one is a bidirectional dependency deferred to runtime (real coupling debt; amber boxes = the tangle they hold apart). "+
+    "<span style='color:#5fb3a3'>"+cs.lazyCount+" lazy-loads</span> are fine — the <b>lazy-loads</b> button shows those. Click empty space to clear.";
+};
+document.getElementById("lazyBtn").onclick=function(){
+  setImportsLens();
+  cy.elements().addClass("faded");
+  var lazy=cy.edges('[rel = "import"][kind = "lazy"]');
+  lazy.removeClass("faded").addClass("hl");
+  lazy.connectedNodes().removeClass("faded").addClass("hl");
+  var cs=VIZ.cycleSummary||{lazyCount:0};
+  document.getElementById("modehint").innerHTML =
+    "LAZY-LOADS — <b style='color:#5fb3a3'>"+cs.lazyCount+" dynamic imports with no cycle</b> = genuine code-split points (deferred chunks). "+
+    "This is your JS-loading-optimisation surface: what's pulled in on demand vs eagerly bundled.";
 };
 
 rebuild();

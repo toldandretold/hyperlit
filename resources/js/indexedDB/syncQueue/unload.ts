@@ -5,6 +5,7 @@
 
 import { pendingSyncs } from './queue';
 import { debouncedMasterSync } from './master';
+import { flushPendingEdits } from '../../utilities/pendingEditsRegistry';
 import type { BookId, SyncQueueItem, SyncRecordData } from '../types';
 
 // Dependencies
@@ -167,20 +168,9 @@ export function setupUnloadSync(): void {
   // flush the full save pipeline (divEditor → IndexedDB → server sync).
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden) return;
-    try {
-      const { flushInputDebounce, flushAllPendingSaves } = await import('../../divEditor/index');
-      flushInputDebounce();
-      await flushAllPendingSaves();
-    } catch (e) {
-      // divEditor not loaded (not in edit mode) — nothing to flush
-    }
-    // Flush any footnote annotation debounce timers
-    try {
-      const { flushPendingFootnoteSaves } = await import('../../footnotes/footnoteAnnotations.js');
-      flushPendingFootnoteSaves();
-    } catch (e) {
-      // footnoteAnnotations not loaded — nothing to flush
-    }
+    // Flush the editor input debounce + SaveQueue + footnote debounces via the registry —
+    // no upward import into divEditor/footnotes (no cycle-breaker).
+    await flushPendingEdits();
     // Flush debounced master sync to push everything to the server
     debouncedMasterSync.flush?.();
   });

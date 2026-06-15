@@ -18,6 +18,10 @@ import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
 // Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/batch.test.js
 import { resolveBookIdForBatch } from './bookIdResolver';
+// Direct leaf imports (not the indexedDB/index barrel) — read/rebuild don't import batch, so these
+// are one-way and need no dynamic-import cycle-breaker.
+import { getNodeChunksFromIndexedDB } from './read';
+import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
 import type { BookId, HyperciteRecord, HyperlightRecord, NodeRecord } from '../types';
@@ -386,8 +390,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
             console.log(`[diag][batch] auto-renumber trigger for bookId=${bookId} affectedCount=${nodesWithFootnoteChanges.length}`);
             console.log(`[diag][batch] caller stack:\n${__batchStack}`);
             try {
-              const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService.js');
-              const { getNodeChunksFromIndexedDB } = await import('../index');
+              const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService');
               const allNodes = await getNodeChunksFromIndexedDB(bookId);
               if (allNodes && allNodes.length > 0) {
                 await rebuildAndRenumber(bookId, allNodes);
@@ -688,8 +691,6 @@ export async function batchDeleteIndexedDBRecords(
 
           // ✅ NEW SYSTEM: Rebuild arrays for remaining nodes affected by multi-node highlights/hypercites
           try {
-            const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../index');
-
             // Collect all remaining data-node-ids from deletionMap that weren't deleted
             const deletedDataNodeIDs = Array.from(deletionMap.values()).filter((v): v is string => Boolean(v));
             console.log(`🔄 NEW SYSTEM: Deleted data-node-ids:`, deletedDataNodeIDs);

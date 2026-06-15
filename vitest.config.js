@@ -22,7 +22,10 @@ export default defineConfig({
         'resources/js/editToolbar/**/*.{js,ts}',
         'resources/js/divEditor/**/*.{js,ts}',
         'resources/js/paste/**/*.{js,ts}',
-        'resources/js/indexedDB/**/*.{js,ts}'
+        'resources/js/indexedDB/**/*.{js,ts}',
+        'resources/js/footnotes/**/*.{js,ts}',
+        'resources/js/citations/**/*.{js,ts}',
+        'resources/js/hyperlitContainer/**/*.{js,ts}'
       ],
       exclude: [
         '**/*.test.js',

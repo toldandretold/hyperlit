@@ -354,7 +354,7 @@ export async function ensureEditModeInActiveContainer(page) {
       const editable = top?.querySelector('.sub-book-content');
       if (!editable) return false;
       if (editable.getAttribute('contenteditable') !== 'true') return false;
-      // The hyperlitContainer/index.js handler sets dataset.pasteAttached = 'true'
+      // The hyperlitContainer/index handler sets dataset.pasteAttached = 'true'
       // once addPasteListener has run — gates synchronous paste dispatch.
       return editable.dataset?.pasteAttached === 'true';
     }, null, { timeout: 8000 });

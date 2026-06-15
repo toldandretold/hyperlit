@@ -5,7 +5,7 @@
 
 import { book } from '../app.js';
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoaderFactory.js";
-import { initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from '../hyperlitContainer/index.js';
+import { initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from '../hyperlitContainer/index';
 
 // Import for internal use
 import { attachMarkListeners as _attachMarkListeners } from './listeners';

@@ -43,7 +43,7 @@ import {
   resolveFirstChunkPromise,
   resetCurrentLazyLoader
 } from "./initializePage.js";
-import { closeHyperlitContainer } from './hyperlitContainer/index.js';
+import { closeHyperlitContainer } from './hyperlitContainer/index';
 
 // State management and cleanup are correct.
 let activeKeyboardManager = null;
@@ -108,7 +108,7 @@ window.addEventListener("pageshow", async (event) => {
           await buttonRegistry.reinitializeAll(pageType);
 
           // Rebind container managers that live outside ButtonRegistry
-          const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
+          const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index');
           if (hyperlitManager?.rebindElements) {
             hyperlitManager.rebindElements();
           } else {
@@ -231,7 +231,7 @@ export async function cleanupReaderView() {
   }
 
   try {
-    const { destroyHyperlitManager } = await import('./hyperlitContainer/index.js');
+    const { destroyHyperlitManager } = await import('./hyperlitContainer/index');
     destroyHyperlitManager();
   } catch (e) {
     // Module not loaded yet, nothing to destroy
@@ -397,7 +397,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // 🔥 Rebind container managers AFTER content loads
   // Note: footnoteCitationListeners now handled by ButtonRegistry
   setTimeout(async () => {
-    const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index.js');
+    const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
         verbose.init('Hyperlit container manager rebound after content load', 'viewManager.js');

@@ -6,7 +6,12 @@
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
 import { resolveHypercite } from './helpers';
+import { getHyperciteFromIndexedDB } from './read';
 import type { BookId, HyperciteRecord, NodeRecord, QueueForSyncFn, RelationshipStatus } from '../types';
+
+// Re-export the read primitive (lives in the ./read leaf to avoid a helpers↔index cycle)
+// so the indexedDB barrel + external callers see it unchanged.
+export { getHyperciteFromIndexedDB } from './read';
 
 interface HypercitesDeps {
   updateBookTimestamp: (bookId: BookId) => Promise<unknown>;
@@ -27,34 +32,6 @@ export function initHypercitesDependencies(deps: HypercitesDeps): void {
   queueForSync = deps.queueForSync;
   withPending = deps.withPending;
   getNodeChunksFromIndexedDB = deps.getNodeChunksFromIndexedDB;
-}
-
-/**
- * Get a hypercite from IndexedDB
- * (shared connection singleton — missing key → undefined, errors → null;
- * pinned in hypercites.test.js)
- */
-export async function getHyperciteFromIndexedDB(book: BookId, hyperciteId: string): Promise<HyperciteRecord | null | undefined> {
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction(["hypercites"], "readonly");
-
-    // Get the record using the composite key [book, hyperciteId]
-    const getRequest = tx.objectStore("hypercites").get([book, hyperciteId]);
-
-    return await new Promise((resolve) => {
-      getRequest.onsuccess = () => {
-        resolve(getRequest.result);
-      };
-      getRequest.onerror = () => {
-        console.error(`Error getting hypercite record:`, getRequest.error);
-        resolve(null);
-      };
-    });
-  } catch (error) {
-    console.error("Transaction error:", error);
-    return null;
-  }
 }
 
 /**

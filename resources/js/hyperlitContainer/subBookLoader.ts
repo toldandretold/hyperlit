@@ -29,16 +29,16 @@ export { subBookLoaders };
  * looks up the element by id. Strip the id from the in-popup anchor; the
  * `fn-count-id` attribute is still there for any code that needs the pair.
  */
-function stripDuplicateFnIdsInSubBook(rootEl) {
+function stripDuplicateFnIdsInSubBook(rootEl: any) {
   if (!rootEl) return;
-  rootEl.querySelectorAll('a[fn-count-id][id^="Fn"]').forEach(a => a.removeAttribute('id'));
+  rootEl.querySelectorAll('a[fn-count-id][id^="Fn"]').forEach((a: any) => a.removeAttribute('id'));
 }
 
 /**
  * Insert bottom sentinel to activate lazy loading for remaining chunks.
  * Called when user clicks "[read more]" button.
  */
-function insertBottomSentinel(loader) {
+function insertBottomSentinel(loader: any) {
   const container = loader.container;
   const uniqueId = container.getAttribute('data-book-id') || Math.random().toString(36).substr(2, 5);
   
@@ -74,7 +74,7 @@ function insertBottomSentinel(loader) {
  * @param {HTMLElement} scrollerDiv - The scroller element
  * @param {number} totalNodes - Total number of nodes available
  */
-function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, totalNodes) {
+function addReadMoreButton(subBookId: any, container: any, previewNodeIds: any, scrollerDiv: any, totalNodes: any) {
   console.log(`📊 Checking for [read more] button: ${previewNodeIds.length} preview nodes, ${totalNodes} total nodes`);
   
   // Check if button already exists
@@ -103,7 +103,7 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
   readMoreButton.style.marginBottom = '0.5em';
   
   // Add click handler
-  readMoreButton.addEventListener('click', async (e) => {
+  readMoreButton.addEventListener('click', async (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -122,7 +122,7 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
     const loader = subBookState.loader;
     
     // Get fresh full nodes from IndexedDB
-    const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
+    const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
     if (!freshNodes?.length) {
       console.warn(`⚠️ No nodes found in IndexedDB for "${subBookId}"`);
       return;
@@ -167,9 +167,9 @@ function addReadMoreButton(subBookId, container, previewNodeIds, scrollerDiv, to
  * @param {Array} previewNodeIds - Array of preview node IDs to hydrate
  * @param {Array} freshNodes - Fresh node data from IndexedDB (includes hyperlights/hypercites)
  */
-async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
-  const { attachMarkListeners } = await import('../hyperlights/index');
-  const { attachUnderlineClickListeners } = await import('../hypercites/index');
+async function hydratePreviewNodes(subBookState: any, previewNodeIds: any, freshNodes: any) {
+  const { attachMarkListeners }: any = await import('../hyperlights/index');
+  const { attachUnderlineClickListeners }: any = await import('../hypercites/index');
   const container = subBookState.containerDiv;
 
   if (previewNodeIds.length === 0) {
@@ -180,13 +180,13 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   console.log(`🔄 Hydrating ${previewNodeIds.length} preview nodes with fresh hyperlights`);
 
   // Get fresh data for ONLY the preview nodes
-  const previewNodes = freshNodes.filter(n => previewNodeIds.includes(n.node_id));
+  const previewNodes = freshNodes.filter((n: any) => previewNodeIds.includes(n.node_id));
 
   // Rebuild node arrays from normalized tables — IDB nodes may have stale/empty
   // hyperlights arrays (e.g. when getNodesByDataNodeIDs returned the parent's node
   // at highlight-creation time, leaving the sub-book's node un-updated).
   if (previewNodes.length > 0) {
-    const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild');
+    const { rebuildNodeArrays }: any = await import('../indexedDB/hydration/rebuild');
     await rebuildNodeArrays(previewNodes);
     console.log(`✅ Rebuilt arrays for ${previewNodes.length} preview nodes before hydration`);
   }
@@ -197,8 +197,8 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   }
   
   // Group by chunk ID
-  const nodesByChunk = {};
-  previewNodes.forEach(node => {
+  const nodesByChunk: Record<string, any> = {};
+  previewNodes.forEach((node: any) => {
     if (!nodesByChunk[node.chunk_id]) {
       nodesByChunk[node.chunk_id] = [];
     }
@@ -207,7 +207,7 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   
   // Re-render each chunk with fresh hyperlights/hypercites
   for (const [chunkId, chunkNodes] of Object.entries(nodesByChunk)) {
-    const chunkEl = container.querySelector(`[data-chunk-id="${chunkId}"]`);
+    const chunkEl: any = container.querySelector(`[data-chunk-id="${chunkId}"]`);
     if (!chunkEl) {
       console.warn(`⚠️ No chunk element found for chunk ${chunkId}`);
       continue;
@@ -250,14 +250,14 @@ async function hydratePreviewNodes(subBookState, previewNodeIds, freshNodes) {
   subBookState.nodes = freshNodes;
 }
 
-async function enrichSubBookFromDB(subBookId, subBookState) {
+async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
   if (enrichedSubBooks.has(subBookId)) return;
 
   try {
     // ── Timestamp guard (same pattern as checkAndUpdateIfNeeded in initializePage.js) ──
-    const { fetchLibraryRecordWithStatus, getLibraryObjectFromIndexedDB } = await import('../indexedDB/core/library');
+    const { fetchLibraryRecordWithStatus, getLibraryObjectFromIndexedDB }: any = await import('../indexedDB/core/library');
 
-    const [serverResult, localRecord] = await Promise.all([
+    const [serverResult, localRecord]: any = await Promise.all([
       fetchLibraryRecordWithStatus(subBookId),
       getLibraryObjectFromIndexedDB(subBookId),
     ]);
@@ -273,7 +273,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       serverNewer: serverTimestamp > localTimestamp
     });
 
-    const localNodes = await getNodeChunksFromIndexedDB(subBookId);
+    const localNodes: any = await getNodeChunksFromIndexedDB(subBookId);
     const previewNodeIds = subBookState.previewNodeIds || [];
 
     // Skip destructive sync whenever local is up-to-date.
@@ -312,15 +312,15 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
       if (serverAnnotationsTs > localAnnotationsTs) {
         console.log(`📝 Sub-book "${subBookId}": annotations changed. Syncing annotations only...`);
 
-        const { syncAnnotationsOnly } = await import('../postgreSQL.js');
-        const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library');
+        const { syncAnnotationsOnly }: any = await import('../postgreSQL.js');
+        const { updateLocalAnnotationsTimestamp }: any = await import('../indexedDB/core/library');
 
         await syncAnnotationsOnly(subBookId);
         await updateLocalAnnotationsTimestamp(subBookId, serverAnnotationsTs);
 
         // Re-hydrate preview nodes with fresh annotation data
         if (subBookLoaders.has(subBookId)) {
-          const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
+          const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
           if (freshNodes?.length > 0 && previewNodeIds.length > 0) {
             await hydratePreviewNodes(subBookState, previewNodeIds, freshNodes);
           }
@@ -336,7 +336,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
     const isAIReview = subBookState.creator?.startsWith('AIreview:');
 
     if (!isAIReview && localNodes?.length > 0) {
-      const localHasContent = localNodes.some(n => {
+      const localHasContent = localNodes.some((n: any) => {
         const text = n.content?.replace(/<[^>]+>/g, '').trim();
         return text && text.length > 0;
       });
@@ -348,13 +348,13 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
     }
 
     console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
-    const { syncBookDataFromDatabase } = await import('../postgreSQL.js');
-    const result = await syncBookDataFromDatabase(subBookId);
+    const { syncBookDataFromDatabase }: any = await import('../postgreSQL.js');
+    const result: any = await syncBookDataFromDatabase(subBookId);
 
     // Only process if the sub-book is still mounted (user hasn't closed the container)
     if (result.success && subBookLoaders.has(subBookId)) {
       // Get fresh data from IndexedDB (includes hyperlights/hypercites)
-      const freshNodes = await getNodeChunksFromIndexedDB(subBookId);
+      const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
       console.log(`📚 Enrichment complete: ${freshNodes.length} total nodes, ${previewNodeIds.length} were previewed`);
 
       // Hydrate preview nodes with fresh hyperlights/hypercites data
@@ -367,17 +367,17 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
         const currentText = container?.textContent?.trim();
         if (container && (!currentText || currentText.length === 0)) {
           console.log(`🔄 Container was empty — re-rendering "${subBookId}" with ${freshNodes.length} fresh nodes`);
-          const { attachMarkListeners } = await import('../hyperlights/index');
-          const { attachUnderlineClickListeners } = await import('../hypercites/index');
+          const { attachMarkListeners }: any = await import('../hyperlights/index');
+          const { attachUnderlineClickListeners }: any = await import('../hypercites/index');
           const previewSlice = freshNodes.slice(0, 5);
-          const nodesByChunk = {};
-          previewSlice.forEach(node => {
+          const nodesByChunk: Record<string, any> = {};
+          previewSlice.forEach((node: any) => {
             if (!nodesByChunk[node.chunk_id]) nodesByChunk[node.chunk_id] = [];
             nodesByChunk[node.chunk_id].push(node);
           });
           container.innerHTML = '';
           for (const [chunkId, chunkNodes] of Object.entries(nodesByChunk)) {
-            const chunkEl = createChunkElement(chunkNodes, { bookId: subBookId });
+            const chunkEl: any = createChunkElement(chunkNodes, { bookId: subBookId });
             if (chunkEl) {
               container.appendChild(chunkEl);
               attachMarkListeners(chunkEl);
@@ -385,7 +385,7 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
             }
           }
           // Update preview node IDs on state
-          subBookState.previewNodeIds = previewSlice.map(n => n.node_id);
+          subBookState.previewNodeIds = previewSlice.map((n: any) => n.node_id);
         }
       }
 
@@ -415,12 +415,12 @@ async function enrichSubBookFromDB(subBookId, subBookState) {
  * Fire-and-forget backend create/upsert call — does not block rendering.
  * Pass nodeId so the backend uses the same UUID we already wrote to IndexedDB.
  */
-async function createSubBookOnBackend(subBookId, parentBook, itemId, type, annotationHtml, nodeId = null) {
+async function createSubBookOnBackend(subBookId: any, parentBook: any, itemId: any, type: any, annotationHtml: any, nodeId: any = null) {
   try {
     const xsrfToken = decodeURIComponent(
       document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''
     );
-    const res = await fetch('/api/db/sub-books/create', {
+    const res: any = await fetch('/api/db/sub-books/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -429,7 +429,7 @@ async function createSubBookOnBackend(subBookId, parentBook, itemId, type, annot
       credentials: 'include',
       body: JSON.stringify({ type, parentBook, itemId, previewContent: annotationHtml, nodeId }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     return data.nodeId || null;
   } catch (err) {
     console.error('❌ subBookLoader: Failed to create/upsert sub-book on backend:', err);
@@ -455,28 +455,28 @@ async function createSubBookOnBackend(subBookId, parentBook, itemId, type, annot
  * @returns {Promise<object|null>}  - The lazy loader instance, or null on failure
  */
 export async function loadSubBook(
-  subBookId, parentBook, itemId, type, scrollerDiv,
-  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null } = {}
+  subBookId: any, parentBook: any, itemId: any, type: any, scrollerDiv: any,
+  { annotationHtml = '', previewNodes = null, targetElement = null, mode = 'read', creator = null }: any = {}
 ) {
   // Dynamic imports to break circular dependency (see comment at top of file)
-  const { attachMarkListeners } = await import('../hyperlights/index');
-  const { attachUnderlineClickListeners } = await import('../hypercites/index');
+  const { attachMarkListeners }: any = await import('../hyperlights/index');
+  const { attachUnderlineClickListeners }: any = await import('../hypercites/index');
 
   // Clean up any prior instance
   try {
     destroySubBook(subBookId);
   } catch (e) {
-    console.warn(`⚠️ destroySubBook failed for "${subBookId}":`, e.message);
+    console.warn(`⚠️ destroySubBook failed for "${subBookId}":`, (e as any).message);
   }
 
   // 1. Fetch nodes: previewNodes → IndexedDB → create locally and write to IndexedDB
   // NOTE: We always use previewNodes for initial load to ensure lazy loading works correctly.
   // The full nodes from IndexedDB will be available after async enrichment.
-  let nodes = null;
+  let nodes: any = null;
   let isNewSubBook = false;
 
   // Single IDB fetch — reused for both branch and [read more] check below.
-  const existingNodesFromIDB = await getNodeChunksFromIndexedDB(subBookId);
+  const existingNodesFromIDB: any = await getNodeChunksFromIndexedDB(subBookId);
 
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
@@ -499,7 +499,7 @@ export async function loadSubBook(
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       const synthesizedNode = {
         book: subBookId, startLine: 1, chunk_id: 0, node_id: localNodeId,
-        content: initialHtml, hyperlights: [], hypercites: [],
+        content: initialHtml, hyperlights: [], hypercites: [], footnotes: [],
       };
       await writeNodeChunks([synthesizedNode]);
       console.log(`📝 subBookLoader: Wrote initial node (${localNodeId}) to IndexedDB for "${subBookId}"`);
@@ -535,7 +535,7 @@ export async function loadSubBook(
     console.log(`📝 Loading sub-book "${subBookId}" in ${mode} mode with full lazy loader`);
     
     // Create lazy loader with full data for editing
-    const loader = createLazyLoader({
+    const loader: any = createLazyLoader({
       nodes,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
@@ -553,7 +553,7 @@ export async function loadSubBook(
     }
 
     // Load all chunks (not just preview)
-    const uniqueChunkIds = [...new Set(nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+    const uniqueChunkIds = [...new Set(nodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
     console.log(`📥 subBookLoader: Loading ${uniqueChunkIds.length} chunk(s) for "${subBookId}" (${mode} mode)`);
     
     for (const chunkId of uniqueChunkIds) {
@@ -563,7 +563,7 @@ export async function loadSubBook(
 
     // Register for cleanup
     subBookLoaders.set(subBookId, { loader, containerDiv });
-    lazyLoaders[subBookId] = loader;
+    (lazyLoaders as any)[subBookId] = loader;
 
     // Async enrichment — fetch fresh data from backend
     if (mode === 'edit') {
@@ -579,18 +579,18 @@ export async function loadSubBook(
   
   // Get preview nodes (first 5)
   const firstFiveNodes = nodes.slice(0, 5);
-  const previewNodeIds = firstFiveNodes.map(n => n.node_id);
+  const previewNodeIds = firstFiveNodes.map((n: any) => n.node_id);
   console.log(`📥 subBookLoader: Preparing ${firstFiveNodes.length} preview nodes for "${subBookId}"`);
 
   // Hydrate preview nodes with highlight marks from the normalized hyperlights store.
   // Preview nodes come from highlight.preview_nodes with empty hyperlights arrays —
   // rebuildNodeArrays queries the hyperlights store by node_id and populates them.
-  const { rebuildNodeArrays } = await import('../indexedDB/hydration/rebuild');
+  const { rebuildNodeArrays }: any = await import('../indexedDB/hydration/rebuild');
   await rebuildNodeArrays(firstFiveNodes, { skipWrite: true });
 
   // Create lazy loader with preview nodes only (not all nodes)
   // This enables highlighting while keeping load minimal
-  const loader = createLazyLoader({
+  const loader: any = createLazyLoader({
     nodes: firstFiveNodes,
     loadNextChunk: loadNextChunkFixed,
     loadPreviousChunk: loadPreviousChunkFixed,
@@ -608,16 +608,16 @@ export async function loadSubBook(
   }
 
   // Load only the chunk containing preview nodes
-  const uniqueChunkIds = [...new Set(firstFiveNodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+  const uniqueChunkIds = [...new Set(firstFiveNodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
   console.log(`📥 subBookLoader: Loading ${uniqueChunkIds.length} preview chunk(s) for "${subBookId}"`);
   
   for (const chunkId of uniqueChunkIds) {
     await loader.loadChunk(chunkId, 'down');
     
     // Re-render with ONLY preview nodes (not all nodes in the chunk)
-    const chunkEl = containerDiv.querySelector(`[data-chunk-id="${chunkId}"]`);
+    const chunkEl: any = containerDiv.querySelector(`[data-chunk-id="${chunkId}"]`);
     if (chunkEl) {
-      const previewNodesInChunk = firstFiveNodes.filter(n => n.chunk_id === chunkId);
+      const previewNodesInChunk = firstFiveNodes.filter((n: any) => n.chunk_id === chunkId);
       if (previewNodesInChunk.length > 0) {
         console.log(`🔄 Re-rendering chunk ${chunkId} with ${previewNodesInChunk.length} preview nodes only`);
         const newChunkEl = createChunkElement(previewNodesInChunk, loader);
@@ -664,7 +664,7 @@ export async function loadSubBook(
 
   // Register for cleanup
   subBookLoaders.set(subBookId, { loader, containerDiv });
-  lazyLoaders[subBookId] = loader;
+  (lazyLoaders as any)[subBookId] = loader;
 
   // Check if full nodes exist and add [read more] button (reuses hoisted IDB fetch)
   const totalAvailableNodes = existingNodesFromIDB?.length || nodes.length;
@@ -679,7 +679,7 @@ export async function loadSubBook(
     console.log(`📚 Full data exists (${existingNodesFromIDB.length} nodes) - hydrating preview with hyperlights`);
     loader.nodes = existingNodesFromIDB;
     hydratePreviewNodes({ loader, containerDiv, bookId: subBookId }, previewNodeIds, existingNodesFromIDB)
-      .catch(err => console.warn('⚠️ Preview hydration failed:', err));
+      .catch((err: any) => console.warn('⚠️ Preview hydration failed:', err));
   }
 
   // Async enrichment — fetch fresh data from backend (always run, even for new sub-books,
@@ -704,12 +704,12 @@ export function saveSubBookState() {
 /**
  * Restore subBookLoaders from a snapshot.
  */
-export function restoreSubBookState(saved) {
+export function restoreSubBookState(saved: any) {
   if (!saved) return;
   subBookLoaders.clear();
   for (const [k, v] of saved) {
     subBookLoaders.set(k, v);
-    if (v.loader) lazyLoaders[k] = v.loader;
+    if (v.loader) (lazyLoaders as any)[k] = v.loader;
   }
 }
 
@@ -721,7 +721,7 @@ export function restoreSubBookState(saved) {
 export function resetSubBookState() {
   for (const [id, entry] of subBookLoaders) {
     entry.loader?.disconnect();
-    delete lazyLoaders[id];
+    delete (lazyLoaders as any)[id];
   }
   subBookLoaders.clear();
 }
@@ -730,14 +730,14 @@ export function resetSubBookState() {
  * Disconnect the lazy loader and remove the DOM element for a specific sub-book.
  * @param {string} subBookId
  */
-export function destroySubBook(subBookId) {
+export function destroySubBook(subBookId: any) {
   const entry = subBookLoaders.get(subBookId);
   if (!entry) return;
 
   entry.loader?.disconnect();
   entry.containerDiv?.remove();
   subBookLoaders.delete(subBookId);
-  delete lazyLoaders[subBookId];
+  delete (lazyLoaders as any)[subBookId];
 
   console.log(`🧹 subBookLoader: Destroyed sub-book "${subBookId}"`);
 }

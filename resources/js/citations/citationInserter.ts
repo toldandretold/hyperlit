@@ -17,9 +17,8 @@ import { formatBibtexToCitation } from '../utilities/bibtexProcessor.js';
 /**
  * Generate a unique reference ID
  * Format: Ref{timestamp}_{random}
- * @returns {string}
  */
-export function generateReferenceId() {
+export function generateReferenceId(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 6);
   return `Ref${timestamp}_${random}`;
@@ -27,15 +26,13 @@ export function generateReferenceId() {
 
 /**
  * Parse bibtex to extract author and year for inline citation
- * @param {string} bibtex - The BibTeX string
- * @returns {{author: string, year: string}}
  */
-export function parseAuthorYear(bibtex) {
-  const fields = {};
+export function parseAuthorYear(bibtex: string): { author: string; year: string } {
+  const fields: Record<string, string> = {};
   const fieldRegex = /(\w+)\s*=\s*[{"]([^"}]+)[}"]/g;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = fieldRegex.exec(bibtex)) !== null) {
-    fields[match[1].toLowerCase()] = match[2];
+    fields[match[1]!.toLowerCase()] = match[2]!;
   }
 
   // Extract author - take first author's surname for "et al." format
@@ -48,32 +45,32 @@ export function parseAuthorYear(bibtex) {
 
     if (authors.length === 1) {
       // Single author - extract surname
-      const parts = authors[0].split(',');
+      const parts = authors[0]!.split(',');
       if (parts.length > 1) {
         // "Last, First" format
-        author = parts[0].trim();
+        author = parts[0]!.trim();
       } else {
         // "First Last" format - take last word
-        const words = authors[0].trim().split(/\s+/);
-        author = words[words.length - 1];
+        const words = authors[0]!.trim().split(/\s+/);
+        author = words[words.length - 1]!;
       }
     } else if (authors.length === 2) {
       // Two authors: "Author1 & Author2"
-      const getLastName = (name) => {
+      const getLastName = (name: string): string => {
         const parts = name.split(',');
-        if (parts.length > 1) return parts[0].trim();
+        if (parts.length > 1) return parts[0]!.trim();
         const words = name.trim().split(/\s+/);
-        return words[words.length - 1];
+        return words[words.length - 1]!;
       };
-      author = `${getLastName(authors[0])} & ${getLastName(authors[1])}`;
+      author = `${getLastName(authors[0]!)} & ${getLastName(authors[1]!)}`;
     } else {
       // Three or more: "Author1 et al."
-      const parts = authors[0].split(',');
+      const parts = authors[0]!.split(',');
       if (parts.length > 1) {
-        author = parts[0].trim() + ' et al.';
+        author = parts[0]!.trim() + ' et al.';
       } else {
-        const words = authors[0].trim().split(/\s+/);
-        author = words[words.length - 1] + ' et al.';
+        const words = authors[0]!.trim().split(/\s+/);
+        author = words[words.length - 1]! + ' et al.';
       }
     }
   }
@@ -104,22 +101,38 @@ export function parseAuthorYear(bibtex) {
  *
  * @returns {Promise<{referenceId: string, anchorElement: HTMLElement}>}
  */
-export async function insertCitationAtCursor(range, currentBookId, pickedOrCitedBookId, bibtexOrSaveCallback, saveCallbackOrSourceHasNodes, legacySourceHasNodes = true) {
+interface PickedCitation {
+  book?: string;
+  canonical_source_id?: string | null;
+  bibtex?: string;
+  has_nodes?: boolean;
+}
+
+type SaveCallback = (id: string, html: string) => Promise<void> | void;
+
+export async function insertCitationAtCursor(
+  range: any,
+  currentBookId: string,
+  pickedOrCitedBookId: PickedCitation | string,
+  bibtexOrSaveCallback: SaveCallback | string,
+  saveCallbackOrSourceHasNodes?: SaveCallback,
+  legacySourceHasNodes = true,
+): Promise<{ referenceId: string; anchorElement: HTMLAnchorElement }> {
   if (!range) {
     throw new Error('No valid cursor position');
   }
 
   // Normalise to a single `picked` object.
-  let picked;
-  let saveCallback;
+  let picked: PickedCitation;
+  let saveCallback: SaveCallback | undefined;
   if (pickedOrCitedBookId && typeof pickedOrCitedBookId === 'object') {
     picked = pickedOrCitedBookId;
-    saveCallback = bibtexOrSaveCallback;
+    saveCallback = bibtexOrSaveCallback as SaveCallback;
   } else {
     picked = {
-      book: pickedOrCitedBookId,
+      book: pickedOrCitedBookId as string,
       canonical_source_id: null,
-      bibtex: bibtexOrSaveCallback,
+      bibtex: bibtexOrSaveCallback as string,
       has_nodes: legacySourceHasNodes,
     };
     saveCallback = saveCallbackOrSourceHasNodes;
@@ -177,8 +190,8 @@ export async function insertCitationAtCursor(range, currentBookId, pickedOrCited
 
   // Restore selection without scrolling
   const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 
   // Restore scroll position
   if (scrollContainer) {
@@ -223,7 +236,14 @@ export async function insertCitationAtCursor(range, currentBookId, pickedOrCited
  * @param {boolean} sourceHasNodes - Whether the citation has navigable text
  * @param {string|null} canonicalSourceId - canonical.id when known
  */
-async function createBibliographyRecord(referenceId, bookId, sourceId, content, sourceHasNodes = true, canonicalSourceId = null) {
+async function createBibliographyRecord(
+  referenceId: string,
+  bookId: string,
+  sourceId: string,
+  content: string,
+  sourceHasNodes = true,
+  canonicalSourceId: string | null = null,
+): Promise<void> {
   const db = await openDatabase();
   const tx = db.transaction('bibliography', 'readwrite');
   const store = tx.objectStore('bibliography');
@@ -240,13 +260,13 @@ async function createBibliographyRecord(referenceId, bookId, sourceId, content, 
     updated_at: now
   };
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const request = store.put(bibliographyRecord);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => {
       console.log(`Created bibliography record: ${referenceId}`);
       resolve();

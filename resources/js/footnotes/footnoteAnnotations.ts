@@ -5,29 +5,31 @@
 
 import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
-import { getCurrentContainer } from "../hyperlitContainer/stack.js";
+import { getCurrentContainer } from "../hyperlitContainer/stack";
+import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 
 /**
  * Get the current book ID from the DOM (more reliable than global variable)
  */
-function getCurrentBookId() {
+function getCurrentBookId(): string {
   const mainContent = document.querySelector('.main-content');
   return mainContent?.id || 'most-recent';
 }
 
+interface TrackedListener { element: any; event: string; handler: any; }
+interface PendingTimer { timer: any; save: () => Promise<any>; }
+
 // Track active listeners for cleanup when container closes
-const activeFootnoteListeners = [];
+const activeFootnoteListeners: TrackedListener[] = [];
 
 // Track pending debounce timers so they can be flushed on cleanup
 // Map<footnoteId, { timer, save: () => Promise }>
-const pendingFootnoteTimers = new Map();
+const pendingFootnoteTimers = new Map<string, PendingTimer>();
 
 /**
  * Save footnote content to IndexedDB
- * @param {string} footnoteId
- * @param {string} content
  */
-export const saveFootnoteToIndexedDB = (footnoteId, content) =>
+export const saveFootnoteToIndexedDB = (footnoteId: string, content: string) =>
   withPending(async () => {
     const db = await openDatabase();
     const tx = db.transaction("footnotes", "readwrite");
@@ -35,7 +37,7 @@ export const saveFootnoteToIndexedDB = (footnoteId, content) =>
 
     const bookId = getCurrentBookId();
     const key = [bookId, footnoteId];
-    const record = await new Promise((resolve, reject) => {
+    const record: any = await new Promise((resolve, reject) => {
       const req = store.get(key);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -46,13 +48,13 @@ export const saveFootnoteToIndexedDB = (footnoteId, content) =>
     record.content = content;
     record.updated_at = new Date().toISOString();
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const upd = store.put(record);
       upd.onsuccess = () => resolve();
       upd.onerror = () => reject(upd.error);
     });
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => {
         console.log(`Footnote ${footnoteId} saved to IndexedDB. Queuing for sync.`);
         // Use batched sync queue like highlights do
@@ -68,7 +70,7 @@ export const saveFootnoteToIndexedDB = (footnoteId, content) =>
  * Uses tracked listeners for proper cleanup when container closes
  * @param {string} footnoteId
  */
-export function attachFootnoteListener(footnoteId) {
+export function attachFootnoteListener(footnoteId: string): void {
   const container = getCurrentContainer();
   if (!container || container.classList.contains("hidden")) return;
 
@@ -109,13 +111,13 @@ export function attachFootnoteListener(footnoteId) {
  * Uses tracked listeners for proper cleanup when container closes
  * @param {string} footnoteId
  */
-export function attachFootnotePlaceholderBehavior(footnoteId) {
+export function attachFootnotePlaceholderBehavior(footnoteId: string): void {
   const footnoteEl = document.querySelector(
     `.footnote-text[data-footnote-id="${footnoteId}"]`
   );
   if (!footnoteEl) return;
 
-  const isEffectivelyEmpty = (div) => !div.textContent.trim();
+  const isEffectivelyEmpty = (div: any) => !div.textContent.trim();
 
   const updatePlaceholder = () => {
     if (isEffectivelyEmpty(footnoteEl)) {
@@ -140,7 +142,7 @@ export function attachFootnotePlaceholderBehavior(footnoteId) {
  * Immediately fire all pending footnote annotation saves (clearing their timers).
  * Call before cleanup or container close to prevent data loss.
  */
-export function flushPendingFootnoteSaves() {
+export function flushPendingFootnoteSaves(): void {
   if (pendingFootnoteTimers.size === 0) return;
   console.log(`Flushing ${pendingFootnoteTimers.size} pending footnote save(s)`);
   for (const [footnoteId, { timer, save }] of pendingFootnoteTimers) {
@@ -154,7 +156,7 @@ export function flushPendingFootnoteSaves() {
  * Clean up all footnote listeners
  * Called when the container closes to prevent listener accumulation
  */
-export function cleanupFootnoteListeners() {
+export function cleanupFootnoteListeners(): void {
   // Flush any pending debounced saves before removing listeners
   flushPendingFootnoteSaves();
 
@@ -167,3 +169,7 @@ export function cleanupFootnoteListeners() {
   }
   activeFootnoteListeners.length = 0;
 }
+
+// Register footnote-buffer flushing so the orchestrator/sync layer can flush us on close/unload
+// without importing this module (dependency points down into the registry leaf).
+registerPendingEditFlush(flushPendingFootnoteSaves);

@@ -1,5 +1,6 @@
 import { book } from "../app.js";
 import { getCurrentUserId } from "../utilities/auth.js";
+import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 import {
   updateSingleIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
@@ -41,7 +42,8 @@ import {
   unregisterEditSession,
   verifyMutationSource,
   isEventInActiveDiv,
-  getActiveEditSession
+  getActiveEditSession,
+  setPreemptStop
 } from './editSessionManager';
 import {
   handleHyperciteRemoval,
@@ -638,6 +640,11 @@ function initializeCurrentChunks(editableDiv: any) {
 // - Tracking state and references
 // ================================================================
 
+// Inject the observer-stop into the session manager so it can preempt a previous
+// session without importing back from this module (breaks the index↔session cycle).
+// stopObserving is a hoisted function declaration, so this is safe at module load.
+setPreemptStop(stopObserving);
+
 export async function stopObserving() {
   if (observer) {
     const oldTarget = observedEditableDiv?.id || observedEditableDiv?.getAttribute('data-book-id') || 'unknown';
@@ -1005,3 +1012,11 @@ function ensureMinimumDocumentStructure() {
 //
 // All are imported at the top of this file and re-exported for backward compatibility
 // ================================================================
+
+// Register editor-buffer flushing so the orchestrator/sync layer can flush us on close/unload
+// without importing divEditor (dependency points down into the registry leaf). Order preserved:
+// input debounce (captures pending typing into the SaveQueue) → drain the SaveQueue.
+registerPendingEditFlush(async () => {
+  flushInputDebounce();
+  await flushAllPendingSaves();
+});

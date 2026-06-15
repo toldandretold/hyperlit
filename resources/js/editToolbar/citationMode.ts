@@ -984,7 +984,7 @@ export class CitationMode {
 
     try {
       // Dynamic import to avoid circular dependencies
-      const { insertCitationAtCursor } = await import('../citations/citationInserter.js');
+      const { insertCitationAtCursor } = await import('../citations/citationInserter');
 
       await insertCitationAtCursor(
         range,

@@ -1414,7 +1414,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       }
       setTimeout(async () => {
         verbose.nav(`Opening footnote after navigation: ${targetId}`, 'scrolling.js');
-        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
+        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index');
         const footnoteElement = document.getElementById(targetId);
         if (footnoteElement) {
           handleUnifiedContentClick(footnoteElement);

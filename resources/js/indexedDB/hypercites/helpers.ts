@@ -4,7 +4,7 @@
  */
 
 import { openDatabase } from '../core/connection';
-import { getHyperciteFromIndexedDB } from './index';
+import { getHyperciteFromIndexedDB } from './read';
 import type { BookId, HyperciteRecord, NodeRecord } from '../types';
 
 /**

@@ -6,7 +6,7 @@ import {
     loadHypercitesToIndexedDB,
 } from './postgreSQL.js';
 import { log, verbose } from './utilities/logger.js';
-import { rebuildAndRenumber } from './footnotes/FootnoteNumberingService.js';
+import { rebuildAndRenumber } from './footnotes/FootnoteNumberingService';
 import { appendGateParam } from './components/gateFilter.js';
 
 /**

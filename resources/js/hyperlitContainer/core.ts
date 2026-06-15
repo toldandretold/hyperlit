@@ -7,11 +7,12 @@ import { ContainerManager } from '../containerManager.js';
 import { log, verbose } from '../utilities/logger.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
 import { clearCascadeOriginId } from '../scrolling.js';
+import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
 
 // Create the hyperlit container manager instance
-export let hyperlitManager = null;
+export let hyperlitManager: any = null;
 
 // Re-entrancy guard for saveAndCloseHyperlitContainer (prevents double-tap)
 let isClosing = false;
@@ -48,7 +49,7 @@ export function getHyperlitEditMode() {
  * Set edit mode state
  * @param {boolean} enabled - Whether to enable edit mode
  */
-export function setHyperlitEditMode(enabled) {
+export function setHyperlitEditMode(enabled: any) {
   isHyperlitEditMode = enabled;
   console.log(`✏️ Hyperlit edit mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
 }
@@ -145,7 +146,7 @@ function initializeHyperlitManagerInternal() {
  * @param {string} content - HTML content to display
  * @param {boolean} isBackNavigation - Whether this is a back navigation
  */
-export function openHyperlitContainer(content, isBackNavigation = false) {
+export function openHyperlitContainer(content: any, isBackNavigation: any = false) {
   if (!hyperlitManager) {
     initializeHyperlitManager();
   }
@@ -219,7 +220,7 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     scroller.innerHTML = content;
 
     // Force layout flush before focus - Safari needs this to finalize contenteditable setup
-    void scroller.offsetHeight;
+    void (scroller as HTMLElement).offsetHeight;
 
     console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
 
@@ -249,7 +250,7 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
  * @param {string} content - HTML content to display
  * @param {boolean} isBackNavigation - Whether this is a back navigation
  */
-export function prepareHyperlitContainer(content, isBackNavigation = false) {
+export function prepareHyperlitContainer(content: any, isBackNavigation: any = false) {
   if (!hyperlitManager) {
     initializeHyperlitManager();
   }
@@ -297,7 +298,7 @@ export function prepareHyperlitContainer(content, isBackNavigation = false) {
   if (scroller) {
     console.log(`📝 Setting content in scroller (off-screen prepare) (${content.length} chars)`);
     scroller.innerHTML = content;
-    void scroller.offsetHeight; // Force layout flush
+    void (scroller as HTMLElement).offsetHeight; // Force layout flush
     console.log(`✅ Content set off-screen. Scroller innerHTML length: ${scroller.innerHTML.length}`);
     attachScrollContainment(scroller);
   }
@@ -334,42 +335,28 @@ export function animateHyperlitContainerOpen() {
  */
 export async function prepareContainerClose() {
   // Check if we're in edit mode
-  if (!window.isEditing) {
+  if (!(window as any).isEditing) {
     console.log('[HyperlitContainer] Reader mode - no save needed');
     return; // Nothing to save in reader mode
   }
   
   console.log('[HyperlitContainer] Edit mode - preparing to close...');
   
-  // Flush footnote annotation debounce timers first (independent of divEditor pipeline)
-  try {
-    const { flushPendingFootnoteSaves } = await import('../footnotes/footnoteAnnotations.js');
-    flushPendingFootnoteSaves();
-  } catch (e) {
-    // footnoteAnnotations not loaded — nothing to flush
-  }
-
-  // Import divEditor functions
-  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
-
-  // 🔑 CRITICAL: First flush input debounce to capture any pending typing
-  // This forces the 200ms debounced input handler to execute immediately
-  flushInputDebounce();
-
-  // 🔑 CRITICAL: Then flush saveQueue BEFORE calling stopObserving()
-  // stopObserving() sets saveQueue = null, so we must flush first!
-  console.log('[HyperlitContainer] Flushing save queue...');
-  await flushAllPendingSaves();
+  // Flush every registered edit buffer (footnote debounces + divEditor input debounce + SaveQueue)
+  // via the pendingEdits registry — no upward import into divEditor/footnotes (no cycle-breaker).
+  // 🔑 CRITICAL: must run BEFORE stopObserving() below, which sets saveQueue = null.
+  console.log('[HyperlitContainer] Flushing pending edits...');
+  await flushPendingEdits();
 
   // 🔑 CRITICAL: Flush debounced master sync so queued items reach the server
   // before the container teardown. Race with a 5s timeout so a slow network
   // doesn't block the close indefinitely.
   console.log('[HyperlitContainer] Flushing master sync...');
   try {
-    const { debouncedMasterSync } = await import('../indexedDB/syncQueue/master');
+    const { debouncedMasterSync }: any = await import('../indexedDB/syncQueue/master');
     await Promise.race([
       debouncedMasterSync.flush(),
-      new Promise(resolve => setTimeout(resolve, 5000)),
+      new Promise((resolve: any) => setTimeout(resolve, 5000)),
     ]);
   } catch (e) {
     console.warn('[HyperlitContainer] Master sync flush failed (non-fatal):', e);
@@ -391,16 +378,16 @@ export async function savePreviewNodes() {
     // Read the shared Map from the zero-import leaf, not the heavy subBookLoader.js
     // re-export — importing the entangled module mid-cycle can leave the binding in
     // the TDZ ("Cannot access 'subBookLoaders' before initialization").
-    const { subBookLoaders } = await import('./subBookState.js');
-    const { getNodeChunksFromIndexedDB, openDatabase } = await import('../indexedDB/index');
+    const { subBookLoaders }: any = await import('./subBookState.js');
+    const { getNodeChunksFromIndexedDB, openDatabase }: any = await import('../indexedDB/index');
 
-    const { parseSubBookId } = await import('../utilities/subBookIdHelper.js');
+    const { parseSubBookId }: any = await import('../utilities/subBookIdHelper.js');
 
     for (const [subBookId] of subBookLoaders) {
-      const nodes = await getNodeChunksFromIndexedDB(subBookId);
+      const nodes: any = await getNodeChunksFromIndexedDB(subBookId);
       if (!nodes?.length) continue;
 
-      const previewNodes = nodes.slice(0, 5).map(n => ({
+      const previewNodes = nodes.slice(0, 5).map((n: any) => ({
         book: n.book, chunk_id: n.chunk_id, startLine: n.startLine,
         node_id: n.node_id, content: n.content,
         footnotes: n.footnotes || [], hyperlights: n.hyperlights || [],
@@ -409,12 +396,12 @@ export async function savePreviewNodes() {
 
       const { foundation: parentBook, itemId } = parseSubBookId(subBookId);
       if (!itemId) continue;
-      const db = await openDatabase();
+      const db: any = await openDatabase();
 
       if (itemId.includes('_Fn') || /^Fn\d/.test(itemId)) {
         const tx = db.transaction('footnotes', 'readwrite');
         const store = tx.objectStore('footnotes');
-        const existing = await new Promise(r => {
+        const existing: any = await new Promise((r: any) => {
           const req = store.get([parentBook, itemId]);
           req.onsuccess = () => r(req.result);
           req.onerror = () => r(null);
@@ -422,13 +409,13 @@ export async function savePreviewNodes() {
         if (existing) {
           existing.preview_nodes = previewNodes;
           store.put(existing);
-          await new Promise(r => { tx.oncomplete = r; });
+          await new Promise((r: any) => { tx.oncomplete = r; });
         }
       } else if (itemId.startsWith('HL_')) {
         const tx = db.transaction('hyperlights', 'readwrite');
         const store = tx.objectStore('hyperlights');
         const idx = store.index('hyperlight_id');
-        const existing = await new Promise(r => {
+        const existing: any = await new Promise((r: any) => {
           const req = idx.get(itemId);
           req.onsuccess = () => r(req.result);
           req.onerror = () => r(null);
@@ -436,7 +423,7 @@ export async function savePreviewNodes() {
         if (existing) {
           existing.preview_nodes = previewNodes;
           store.put(existing);
-          await new Promise(r => { tx.oncomplete = r; });
+          await new Promise((r: any) => { tx.oncomplete = r; });
         }
       }
       console.log(`💾 Saved preview_nodes for ${subBookId} (${previewNodes.length} nodes)`);
@@ -450,7 +437,7 @@ export async function savePreviewNodes() {
  * Close the hyperlit container
  * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
-export async function closeHyperlitContainer(silent = false, skipPrepare = false) {
+export async function closeHyperlitContainer(silent: any = false, skipPrepare: any = false) {
   console.log(`[closeHyperlitContainer] ENTER. silent=${silent}, skipPrepare=${skipPrepare}, isClosingContainer=${isClosingContainer}`);
   if (isClosingContainer) {
     console.log('[closeHyperlitContainer] BLOCKED — already closing');
@@ -471,7 +458,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
     // before closing the base layer.
     // =========================================================================
     try {
-      const { getDepth, popTopLayer, clear: clearStack } = await import('./stack.js');
+      const { getDepth, popTopLayer, clear: clearStack }: any = await import('./stack.js');
       // Pop all dynamic layers (depth > 1 means there are stacked layers above base)
       while (getDepth() > 1) {
         await popTopLayer();
@@ -489,7 +476,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
       const survivors = document.querySelectorAll('.hyperlit-container-stacked, .hyperlit-overlay-stacked');
       if (survivors.length > 0) {
         console.warn(`[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync)`);
-        survivors.forEach(el => el.remove());
+        survivors.forEach((el: any) => el.remove());
       }
 
       // Clear legacy hyperlitContainer state and strip ?cs= URL param.
@@ -534,7 +521,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
 
     // Clean up abandoned brain query highlights (no-op when no brain query is pending)
     try {
-      const { cleanupPendingBrainHighlight } = await import('./brainQuery.js');
+      const { cleanupPendingBrainHighlight }: any = await import('./brainQuery.js');
       await cleanupPendingBrainHighlight();
     } catch (e) {
       console.warn('Brain query cleanup failed:', e);
@@ -551,7 +538,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
         // 🔑 CRITICAL: Sequence cleanup
         // STEP 1: Flush any remaining saves
         console.log('[HyperlitContainer] 💾 Final cleanup...');
-        const { cleanupContainerListeners } = await import('./index.js');
+        const { cleanupContainerListeners }: any = await import('./containerListeners');
         await cleanupContainerListeners();
         console.log('[HyperlitContainer] ✅ Cleanup complete');
 
@@ -561,7 +548,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
         // it, mismatches / orphans / duplicate ids in a sub-book would
         // pass silently on container close.
         try {
-          const { runIntegritySweep } = await import('../integrity/verifier.js');
+          const { runIntegritySweep }: any = await import('../integrity/verifier.js');
           const container = document.getElementById('hyperlit-container');
           const subBooks = container ? container.querySelectorAll('.sub-book-content[data-book-id]') : [];
           for (const el of subBooks) {
@@ -573,15 +560,15 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
         }
 
         // STEP 2: Now safe to destroy sub-books (after saves complete)
-        const { destroyAllSubBooks } = await import('./subBookLoader.js');
+        const { destroyAllSubBooks }: any = await import('./subBookLoader.js');
         await destroyAllSubBooks(); // DOM elements destroyed here
         console.log('[HyperlitContainer] ✅ Sub-books destroyed');
 
         // STEP 3: Other cleanup (order less critical)
-        const { detachNoteListeners } = await import('./noteListener.js');
+        const { detachNoteListeners }: any = await import('./noteListener.js');
         await detachNoteListeners();
 
-        const { cleanupFootnoteListeners } = await import('../footnotes/footnoteAnnotations.js');
+        const { cleanupFootnoteListeners }: any = await import('../footnotes/footnoteAnnotations.js');
         await cleanupFootnoteListeners();
 
         // Remove scroll containment handlers (container already validated at function start)
@@ -602,7 +589,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
           const bookSlug = pathSegments[0] || '';
 
           // Check if any path segments after the book slug are cascade segments (HL_, Fn, Fnref, etc.)
-          const hasCascadeSegments = pathSegments.slice(1).some(seg =>
+          const hasCascadeSegments = pathSegments.slice(1).some((seg: any) =>
             seg.startsWith('HL_') ||
             seg.includes('_Fn') ||
             /^Fn\d/.test(seg) ||
@@ -652,7 +639,7 @@ export async function closeHyperlitContainer(silent = false, skipPrepare = false
 
     // Remove cascade-origin glow from ALL base mark segments (the glow is
     // applied to every mark of the highlight's group, not just one element)
-    document.querySelectorAll('.cascade-origin').forEach((el) => {
+    document.querySelectorAll('.cascade-origin').forEach((el: any) => {
       el.classList.remove('cascade-origin');
     });
     clearCascadeOriginId();
@@ -685,7 +672,7 @@ export async function saveAndCloseHyperlitContainer() {
     console.log('[HyperlitContainer] saveAndCloseHyperlitContainer() called');
 
     // Check if we're in edit mode with pending changes
-    if (!window.isEditing) {
+    if (!(window as any).isEditing) {
       console.log('[HyperlitContainer] Reader mode - closing without save');
       await closeHyperlitContainer(false, true);
       return;
@@ -706,10 +693,10 @@ export async function saveAndCloseHyperlitContainer() {
       await prepareContainerClose();
 
       // Update progress to 100%
-      ProgressOverlayConductor.updateProgress(100, 'Save complete');
+      ProgressOverlayConductor.updateProgress(100, 'Save complete' as any);
 
       // Small delay to show "Save complete" message before hiding
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve: any) => setTimeout(resolve, 150));
 
       console.log('[HyperlitContainer] Save complete, hiding overlay and closing container');
 
@@ -752,7 +739,7 @@ export function destroyHyperlitManager() {
  * @param {HTMLElement} scroller - The scroller element
  * @private
  */
-function attachScrollContainment(scroller) {
+function attachScrollContainment(scroller: any) {
   // Remove existing listeners if present
   if (scroller._scrollHandler) {
     scroller.removeEventListener('wheel', scroller._scrollHandler);
@@ -760,7 +747,7 @@ function attachScrollContainment(scroller) {
   }
 
   // Wheel event handler (mouse/trackpad scrolling)
-  scroller._scrollHandler = function(e) {
+  scroller._scrollHandler = function(e: any) {
     const scrollTop = scroller.scrollTop;
     const scrollHeight = scroller.scrollHeight;
     const clientHeight = scroller.clientHeight;
@@ -784,7 +771,7 @@ function attachScrollContainment(scroller) {
 
   // Touch event handler (mobile scrolling)
   let touchStartY = 0;
-  scroller._touchHandler = function(e) {
+  scroller._touchHandler = function(e: any) {
     if (e.type === 'touchstart') {
       touchStartY = e.touches[0].clientY;
       return;
@@ -830,7 +817,7 @@ function attachScrollContainment(scroller) {
  * @param {HTMLElement} scroller - The scroller element
  * @private
  */
-function removeScrollContainment(scroller) {
+function removeScrollContainment(scroller: any) {
   if (scroller && scroller._scrollHandler) {
     scroller.removeEventListener('wheel', scroller._scrollHandler);
     scroller.removeEventListener('touchstart', scroller._touchHandler);

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { handleUnifiedContentClick } = vi.hoisted(() => ({ handleUnifiedContentClick: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('../../../resources/js/hyperlitContainer/index.js', () => ({ handleUnifiedContentClick }));
+vi.mock('../../../resources/js/hyperlitContainer/index', () => ({ handleUnifiedContentClick }));
 
 import { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from '../../../resources/js/hyperlights/utils';
 

@@ -14,8 +14,8 @@ import { openDatabase } from '../indexedDB/index';
  * @param {IDBDatabase} db - Reused database connection
  * @returns {Promise<Array>} Array of content type objects
  */
-export async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null, db = null) {
-  const contentTypes = [];
+export async function detectContentTypes(element: any, providedHighlightIds: string[] | null = null, directHyperciteId: string | null = null, db: any = null): Promise<any[]> {
+  const contentTypes: any[] = [];
 
   // 1. Check for footnotes (highest priority)
   const footnoteData = detectFootnote(element);
@@ -59,7 +59,7 @@ export async function detectContentTypes(element, providedHighlightIds = null, d
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Footnote data or null
  */
-export function detectFootnote(element) {
+export function detectFootnote(element: any): any | null {
   // Check if element is a sup with fn-count-id (handles both new and old format)
   if (element.tagName === 'SUP' && element.hasAttribute('fn-count-id')) {
     // New format: sup.id directly contains footnoteId
@@ -120,7 +120,7 @@ export function detectFootnote(element) {
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Citation data or null
  */
-export function detectCitation(element) {
+export function detectCitation(element: any): any | null {
   // Check if element is an old-style citation link
   if (element.tagName === 'A' && element.classList.contains('in-text-citation')) {
     const href = element.getAttribute('href');
@@ -196,25 +196,25 @@ export function detectCitation(element) {
  * @param {IDBDatabase} db - Reused database connection (unused here but kept for consistency)
  * @returns {Promise<Object|null>} Highlight data or null
  */
-export async function detectHighlights(element, providedHighlightIds = null, db = null) {
+export async function detectHighlights(element: any, providedHighlightIds: string[] | null = null, db: any = null): Promise<any | null> {
   let highlightIds = providedHighlightIds;
   let highlightElement = element;
 
   // If not provided, extract from element classes or parent mark element
   if (!highlightIds) {
     if (element.tagName === 'MARK') {
-      highlightIds = Array.from(element.classList).filter(cls => cls.startsWith('HL_'));
+      highlightIds = (Array.from(element.classList) as string[]).filter(cls => cls.startsWith('HL_'));
     } else {
       // Check if this element is inside a mark with highlight classes
       const parentMark = element.closest('mark');
       if (parentMark) {
-        highlightIds = Array.from(parentMark.classList).filter(cls => cls.startsWith('HL_'));
+        highlightIds = (Array.from(parentMark.classList) as string[]).filter(cls => cls.startsWith('HL_'));
         highlightElement = parentMark;
       } else {
         // Check if there are mark elements inside this element
         const childMark = element.querySelector('mark');
         if (childMark) {
-          highlightIds = Array.from(childMark.classList).filter(cls => cls.startsWith('HL_'));
+          highlightIds = (Array.from(childMark.classList) as string[]).filter(cls => cls.startsWith('HL_'));
           highlightElement = childMark;
         }
       }
@@ -239,22 +239,22 @@ export async function detectHighlights(element, providedHighlightIds = null, db 
  * @param {URL} url - Parsed URL object
  * @returns {Object} { targetBook, isHyperlightURL, isFootnoteURL, hlDepth }
  */
-function extractBookAndStructure(url) {
+function extractBookAndStructure(url: URL): { targetBook: string; isHyperlightURL: boolean; isFootnoteURL: boolean; hlDepth: number } {
   const pathParts = url.pathname.split('/').filter(p => p);
   const hlSegments = pathParts.filter(p => p.startsWith('HL_'));
   const isHyperlightURL = hlSegments.length > 0;
   const isFootnoteURL = pathParts.some(p => p.includes('_Fn') || /^Fn\d/.test(p));
 
-  let bookID;
+  let bookID: string | undefined;
   // Helper: check if a segment is a Fn segment (e.g. "Fn1772693037349_rc76")
-  const isFnSegment = (p) => /^Fn\d/.test(p) || p.includes('_Fn');
+  const isFnSegment = (p: string) => /^Fn\d/.test(p) || p.includes('_Fn');
 
   if (isHyperlightURL) {
     // Book ID is the segment before the first HL_, skipping page numbers and Fn segments
     for (let i = 0; i < pathParts.length; i++) {
-      if (pathParts[i].startsWith('HL_') && i > 0) {
+      if (pathParts[i]!.startsWith('HL_') && i > 0) {
         for (let j = i - 1; j >= 0; j--) {
-          if (!/^\d+$/.test(pathParts[j]) && !isFnSegment(pathParts[j])) {
+          if (!/^\d+$/.test(pathParts[j]!) && !isFnSegment(pathParts[j]!)) {
             bookID = pathParts[j];
             break;
           }
@@ -279,7 +279,7 @@ function extractBookAndStructure(url) {
   }
 
   return {
-    targetBook: bookID,
+    targetBook: bookID || '',
     isHyperlightURL,
     isFootnoteURL,
     hlDepth: hlSegments.length
@@ -291,7 +291,7 @@ function extractBookAndStructure(url) {
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Hypercite citation data or null
  */
-export function detectHyperciteCitation(element) {
+export function detectHyperciteCitation(element: any): any | null {
   // Check if element is an <a> tag with href containing #hypercite_
   if (element.tagName === 'A' && element.href) {
     const url = new URL(element.href, window.location.origin);
@@ -347,9 +347,9 @@ export function detectHyperciteCitation(element) {
  * @param {IDBDatabase} db - Reused database connection
  * @returns {Promise<Object|null>} Hypercite data or null
  */
-export async function detectHypercites(element, directHyperciteId = null, db = null) {
-  let hyperciteElement = null;
-  let hyperciteIdFromElement = null;
+export async function detectHypercites(element: any, directHyperciteId: string | null = null, db: any = null): Promise<any | null> {
+  let hyperciteElement: any = null;
+  let hyperciteIdFromElement: string | null = null;
   let relationshipStatus = 'single'; // Default to single
   let cachedData = null; // 🚀 Cache full hypercite data to avoid re-querying
 
@@ -377,24 +377,24 @@ export async function detectHypercites(element, directHyperciteId = null, db = n
   }
 
   if (hyperciteIdFromElement) {
-    let hyperciteIds = [];
-    let primaryHyperciteId = hyperciteIdFromElement;
+    let hyperciteIds: string[] = [];
+    let primaryHyperciteId: string = hyperciteIdFromElement;
 
     // Check if this is an overlapping hypercite
     if (hyperciteElement && hyperciteElement.id.startsWith('hypercite_overlapping') && hyperciteElement.hasAttribute('data-overlapping')) {
       // Extract actual hypercite IDs from data-overlapping attribute
       const overlappingData = hyperciteElement.getAttribute('data-overlapping');
-      hyperciteIds = overlappingData.split(',').map(id => id.trim());
+      hyperciteIds = overlappingData.split(',').map((id: string) => id.trim());
 
       // For overlapping hypercites, we need to determine which hypercite to use as primary
       // Use the first one as primary for data-content-id purposes
-      primaryHyperciteId = hyperciteIds[0];
+      primaryHyperciteId = hyperciteIds[0]!;
 
       console.log(`🔄 Detected overlapping hypercite with IDs: ${JSON.stringify(hyperciteIds)}, using primary: ${primaryHyperciteId}`);
     } else if (hyperciteElement && hyperciteElement.hasAttribute('data-overlapping')) {
       // Regular overlapping case
-      hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',').map(id => id.trim());
-      primaryHyperciteId = hyperciteIds[0];
+      hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',').map((id: string) => id.trim());
+      primaryHyperciteId = hyperciteIds[0]!;
     } else {
       // Single hypercite
       hyperciteIds = [hyperciteIdFromElement];
@@ -423,7 +423,7 @@ export async function detectHypercites(element, directHyperciteId = null, db = n
       const store = tx.objectStore("hypercites");
       const index = store.index("hyperciteId");
       const req = index.get(primaryHyperciteId);
-      const result = await new Promise((resolve) => {
+      const result: any = await new Promise((resolve) => {
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
       });

@@ -7,6 +7,7 @@
  */
 
 import { book } from '../app.js';
+import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 
 // ============================================================================
 // STACK DATA STRUCTURE
@@ -25,7 +26,7 @@ import { book } from '../app.js';
  * @property {boolean} savedEditMode - isHyperlitEditMode for this layer
  */
 
-const layers = [];
+const layers: any[] = [];
 
 let isPopping = false;
 
@@ -39,8 +40,8 @@ export function isStackPopPending() { return isPopPending; }
 
 const SHRINK_FACTOR = 0.98;    // each level is 98% of previous width
 const LEVELS_PER_FLIP = 5;     // alternates gap side every 5 levels
-let cachedBaseWidthPx = null;
-let cachedBaseRightPx = null;
+let cachedBaseWidthPx: any = null;
+let cachedBaseRightPx: any = null;
 
 // ============================================================================
 // CASCADE POSITIONING
@@ -86,14 +87,14 @@ function getBaseContainerMetrics() {
  * @param {number} depth
  * @returns {{ widthPx: number, rightPx: number }}
  */
-function calculateCascadePosition(depth) {
+function calculateCascadePosition(depth: any) {
   const { baseWidthPx, baseRightPx } = getBaseContainerMetrics();
 
   const group = Math.floor((depth - 1) / LEVELS_PER_FLIP);
   const localDepth = ((depth - 1) % LEVELS_PER_FLIP) + 1;
   const widthPx = baseWidthPx * Math.pow(SHRINK_FACTOR, localDepth);
 
-  let rightPx;
+  let rightPx: any;
   if (group % 2 === 0) {
     // Even group: right edge aligned with base, gap on LEFT
     rightPx = baseRightPx;
@@ -151,7 +152,7 @@ export function getCurrentScroller() {
 // STACK MUTATIONS
 // ============================================================================
 
-export function pushLayer(layerData) {
+export function pushLayer(layerData: any) {
   layers.push(layerData);
   console.log(`📚 Stack push → depth ${layers.length}`);
 }
@@ -189,14 +190,14 @@ export function clear() {
  * @param {number} depth - The depth index (1-based for dynamic layers)
  * @returns {{ container: HTMLElement, overlay: HTMLElement, scroller: HTMLElement }}
  */
-export function createStackedContainerDOM(depth) {
+export function createStackedContainerDOM(depth: any) {
   // --- Overlay ---
   const overlay = document.createElement('div');
   overlay.className = 'hyperlit-overlay-stacked';
   overlay.setAttribute('data-layer', depth);
   // Interleaved z-index: overlays sit between containers
   // Layer 1 overlay: 1003 (between base container 1002 and stacked container 1004)
-  overlay.style.zIndex = 1001 + (depth * 2);
+  overlay.style.zIndex = String(1001 + (depth * 2));
   // First 2 overlays dim noticeably; deeper ones stay subtle
   // so page edges remain visible without compounding darkness
   const opacity = depth <= 2 ? 0.15 : 0.06;
@@ -208,7 +209,7 @@ export function createStackedContainerDOM(depth) {
   container.setAttribute('data-layer', depth);
   // Interleaved z-index: containers sit above their preceding overlay
   // Layer 1 container: 1004 (above overlay 1003)
-  container.style.zIndex = 1002 + (depth * 2);
+  container.style.zIndex = String(1002 + (depth * 2));
 
   // Pixel-based cascade: each level is 2% narrower, gap side alternates
   const { widthPx, rightPx, group } = calculateCascadePosition(depth);
@@ -246,7 +247,7 @@ export function createStackedContainerDOM(depth) {
 /**
  * Remove dynamic DOM elements for a stacked layer.
  */
-export function removeStackedContainerDOM(container, overlay) {
+export function removeStackedContainerDOM(container: any, overlay: any) {
   container?.remove();
   overlay?.remove();
 }
@@ -261,7 +262,7 @@ export function removeStackedContainerDOM(container, overlay) {
  *
  * @param {number} newBaseWidthPx - The new width for #hyperlit-container
  */
-export function resizeAllLayers(newBaseWidthPx) {
+export function resizeAllLayers(newBaseWidthPx: any) {
   const base = document.getElementById('hyperlit-container');
   if (!base) return;
 
@@ -284,7 +285,7 @@ export function resizeAllLayers(newBaseWidthPx) {
     const localDepth = ((depth - 1) % LEVELS_PER_FLIP) + 1;
     const widthPx = newBaseWidthPx * Math.pow(SHRINK_FACTOR, localDepth);
 
-    let rightPx;
+    let rightPx: any;
     if (group % 2 === 0) {
       rightPx = baseRightPx;
     } else {
@@ -299,8 +300,8 @@ export function resizeAllLayers(newBaseWidthPx) {
 /**
  * Get depth info needed to reverse-derive base width from a stacked container's width.
  */
-window.resizeAllLayers = resizeAllLayers;
-window.getStackDepthInfo = (depth) => ({
+(window as any).resizeAllLayers = resizeAllLayers;
+(window as any).getStackDepthInfo = (depth: any) => ({
   localDepth: ((depth - 1) % LEVELS_PER_FLIP) + 1,
   shrinkFactor: SHRINK_FACTOR
 });
@@ -315,7 +316,7 @@ window.getStackDepthInfo = (depth) => ({
  */
 export function serializeStack() {
   if (layers.length === 0) return null;
-  return layers.map(layer => ({
+  return layers.map((layer: any) => ({
     depth: layer.depth,
     contentMetadata: layer.contentMetadata || null,
     savedUrl: layer.savedUrl || null,
@@ -338,7 +339,7 @@ export function serializeStack() {
  *   mutations that *aren't* a fresh open (pop, restore-from-state,
  *   mutate-in-place).
  */
-export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride = null } = {}) {
+export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride = null }: any = {}) {
   const serialized = serializeStack();
   const depth = serialized?.length ?? 0;
 
@@ -363,8 +364,8 @@ export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride 
     containerStack: serialized,
     containerStackBookId: depth > 0 ? book : null,
     // Keep legacy field for backward compat
-    hyperlitContainer: serialized?.length > 0
-      ? serialized[serialized.length - 1].contentMetadata
+    hyperlitContainer: serialized && serialized.length > 0
+      ? serialized[serialized.length - 1]!.contentMetadata
       : null,
   };
 
@@ -396,7 +397,7 @@ export async function saveAndPopTopLayer() {
   isPopPending = true;
 
   try {
-    const { getHyperlitEditMode } = await import('./core.js');
+    const { getHyperlitEditMode }: any = await import('./core.js');
 
     if (!getHyperlitEditMode()) {
       // Read mode — just pop, no save needed
@@ -404,21 +405,19 @@ export async function saveAndPopTopLayer() {
     }
 
     // Show progress overlay (same as saveAndCloseHyperlitContainer)
-    const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
+    const { ProgressOverlayConductor }: any = await import('../navigation/ProgressOverlayConductor.js');
     ProgressOverlayConductor.showSPATransition(50, 'Saving your changes...', true);
 
     try {
       // prepareContainerClose equivalent: flush + save preview_nodes
-      const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
-      flushInputDebounce();
-      await flushAllPendingSaves();
+      await flushPendingEdits();
 
       // Save preview_nodes for active sub-books (same as prepareContainerClose)
-      const { savePreviewNodes } = await import('./core.js');
+      const { savePreviewNodes }: any = await import('./core.js');
       await savePreviewNodes();
 
       ProgressOverlayConductor.updateProgress(100, 'Save complete');
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve: any) => setTimeout(resolve, 150));
       await ProgressOverlayConductor.hide();
 
       // Now pop the layer (saves already flushed — popTopLayer's internal flush is a no-op)
@@ -463,27 +462,25 @@ async function _popTopLayerImpl() {
   // Flush pending saves BEFORE clearing selection.
   // The debounced input handler uses window.getSelection() to locate the
   // target node — clearing ranges first makes the flush silently skip the save.
-  const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
-  flushInputDebounce();
-  await flushAllPendingSaves();
+  await flushPendingEdits();
 
   // NOW safe to clear selection (saves already captured)
   try {
-    window.getSelection().removeAllRanges();
+    window.getSelection()?.removeAllRanges();
   } catch (_) {}
   const btns = document.getElementById('hyperlight-buttons');
   if (btns) btns.style.display = 'none';
 
   // 1. Detach noteListeners FIRST while DOM is still intact (flushes pending saves)
-  const { detachNoteListeners } = await import('./noteListener.js');
+  const { detachNoteListeners }: any = await import('./noteListener.js');
   detachNoteListeners();
 
   // 2. Flush saves + cleanup on current layer (skip editor restore — layer below handles it)
-  const { cleanupContainerListeners } = await import('./index.js');
+  const { cleanupContainerListeners }: any = await import('./containerListeners');
   await cleanupContainerListeners({ stackPop: true });
 
   // 2.5 Save preview_nodes for active sub-books BEFORE destroying them
-  const { savePreviewNodes } = await import('./core.js');
+  const { savePreviewNodes }: any = await import('./core.js');
   await savePreviewNodes();
 
   // 3. Destroy ONLY the sub-books that live inside the layer being popped.
@@ -498,8 +495,8 @@ async function _popTopLayerImpl() {
   // while that module is mid circular-import was throwing "Cannot access 'subBookLoaders'
   // before initialization", which made this fast-path pop fall back to full close+restore
   // (the source of the on-close scroll jump).
-  const { subBookLoaders } = await import('./subBookState.js');
-  const { destroySubBook } = await import('./subBookLoader.js');
+  const { subBookLoaders }: any = await import('./subBookState.js');
+  const { destroySubBook }: any = await import('./subBookLoader.js');
   const idsInTopLayer = [];
   for (const [id, entry] of subBookLoaders) {
     if (top.container && entry.containerDiv && top.container.contains(entry.containerDiv)) {
@@ -520,17 +517,17 @@ async function _popTopLayerImpl() {
   if (isEmpty()) {
     try {
       // Restore module state before full close
-      const { restoreModuleState } = await import('./index.js');
+      const { restoreModuleState }: any = await import('./containerState');
       restoreModuleState(top.savedModuleState);
 
-      const { restoreSubBookState } = await import('./subBookLoader.js');
+      const { restoreSubBookState }: any = await import('./subBookLoader.js');
       restoreSubBookState(top.savedSubBookState);
     } catch (err) {
       console.warn('Error restoring state during close (non-fatal):', err);
     }
 
     // Full close sequence — always reached even if restore above threw
-    const { closeHyperlitContainer } = await import('./core.js');
+    const { closeHyperlitContainer }: any = await import('./core.js');
     await closeHyperlitContainer();
     return;
   }
@@ -540,10 +537,10 @@ async function _popTopLayerImpl() {
   if (!newTop) return;
 
   // Restore module state + sub-book state (always needed, even during bulk close)
-  const { restoreModuleState } = await import('./index.js');
+  const { restoreModuleState }: any = await import('./containerState');
   restoreModuleState(newTop.savedModuleState);
 
-  const { restoreSubBookState } = await import('./subBookLoader.js');
+  const { restoreSubBookState }: any = await import('./subBookLoader.js');
   restoreSubBookState(newTop.savedSubBookState);
 
   // Reset saved state — this layer is now active, not paused.
@@ -561,10 +558,10 @@ async function _popTopLayerImpl() {
   // Apply the current global edit mode to the restored layer's DOM.
   // Skip during bulk close (closeHyperlitContainer unwinds the stack —
   // no need for heavyweight observer/toolbar work on each intermediate layer).
-  const { isContainerClosing } = await import('./core.js');
+  const { isContainerClosing }: any = await import('./core.js');
   const closingNow = isContainerClosing();
   if (!closingNow) {
-    const { applyCurrentEditModeToLayer } = await import('./index.js');
+    const { applyCurrentEditModeToLayer }: any = await import('./editMode');
     await applyCurrentEditModeToLayer();
   }
 

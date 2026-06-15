@@ -130,7 +130,7 @@ export class ContainerManager {
           // keeps browser history aligned with the visible stack so
           // back/forward behaves as the user expects (one container per step).
           if (this.containerId === 'hyperlit-container') {
-            const { isStackPopPending } = await import('./hyperlitContainer/stack.js');
+            const { isStackPopPending } = await import('./hyperlitContainer/stack');
             if (isStackPopPending()) {
               console.warn('Overlay click BLOCKED — pop already in flight');
               return;

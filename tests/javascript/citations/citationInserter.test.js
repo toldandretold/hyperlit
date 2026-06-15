@@ -46,7 +46,7 @@ import {
   generateReferenceId,
   parseAuthorYear,
   insertCitationAtCursor,
-} from '../../../resources/js/citations/citationInserter.js';
+} from '../../../resources/js/citations/citationInserter';
 
 beforeEach(() => {
   putSpy.mockClear();

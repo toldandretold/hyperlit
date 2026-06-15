@@ -216,7 +216,7 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
   const markElement = document.querySelector(`mark.${highlightId}`);
 
   // Open hyperlit container with brain mode flag
-  const { handleUnifiedContentClick } = await import('../hyperlitContainer/index.js');
+  const { handleUnifiedContentClick } = await import('../hyperlitContainer/index');
   await handleUnifiedContentClick(
     markElement as any,
     [highlightId],

@@ -16,7 +16,7 @@ import DOMPurify from 'dompurify';
  * @param {boolean} editModeEnabled - Whether edit mode is currently enabled
  * @returns {Promise<string>} HTML string for highlight content
  */
-export async function buildHighlightContent(contentType, newHighlightIds = [], db = null, editModeEnabled = true) {
+export async function buildHighlightContent(contentType: any, newHighlightIds: any = [], db: any = null, editModeEnabled: any = true) {
   try {
     const { highlightIds } = contentType;
     console.log(`🎨 Building highlight content for IDs:`, highlightIds);
@@ -31,18 +31,18 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     const idx = store.index("hyperlight_id");
 
     // Fetch all highlights in parallel
-    const reads = highlightIds.map((id) =>
-      new Promise((res, rej) => {
+    const reads = highlightIds.map((id: any) =>
+      new Promise((res: any, rej: any) => {
         const req = idx.get(id);
         req.onsuccess = () => res(req.result);
         req.onerror = () => rej(req.error);
       })
     );
 
-    const results = await Promise.all(reads);
+    const results: any = await Promise.all(reads);
     console.log(`📊 Highlight DB results:`, results);
 
-    const validResults = results.filter((r) => r);
+    const validResults = results.filter((r: any) => r);
     console.log(`✅ Valid highlight results:`, validResults);
 
     // Check which highlights have sub-book nodes in IndexedDB (handles same-session re-open)
@@ -52,7 +52,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       const nodesBookIdx = nodesTx.objectStore("nodes").index("book");
       for (const h of validResults) {
         const subBookId = buildSubBookId(h.book, h.hyperlight_id);
-        const count = await new Promise(res => {
+        const count: any = await new Promise((res: any) => {
           const req = nodesBookIdx.count(IDBKeyRange.only(subBookId));
           req.onsuccess = () => res(req.result);
           req.onerror = () => res(0);
@@ -69,7 +69,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     // Cache highlight records and ownership for reuse by checkIfUserHasAnyEditPermission and handlePostOpenActions
     contentType.cachedHighlightRecords = validResults;
     contentType.highlightOwnership = new Map(
-      validResults.map(h => [h.hyperlight_id,
+      validResults.map((h: any) => [h.hyperlight_id,
         h.is_user_highlight === true
         || (currentUser && h.creator && (
              h.creator === currentUser.name     ||
@@ -91,27 +91,27 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
 
     // Check if current user can edit any of the books these highlights belong to
-    const { canUserEditBook } = await import('../../utilities/auth.js');
+    const { canUserEditBook }: any = await import('../../utilities/auth.js');
     const bookPermissions = new Map();
 
     // Get unique book IDs and check permissions (parallel)
-    const uniqueBooks = [...new Set(validResults.map(h => h.book))];
-    await Promise.all(uniqueBooks.map(async (bookId) => {
-      const canEdit = await canUserEditBook(bookId);
+    const uniqueBooks = [...new Set(validResults.map((h: any) => h.book))];
+    await Promise.all(uniqueBooks.map(async (bookId: any) => {
+      const canEdit: any = await canUserEditBook(bookId);
       bookPermissions.set(bookId, canEdit);
     }));
 
     // Import formatRelativeTime from utils
-    const { formatRelativeTime } = await import('../utils.js');
+    const { formatRelativeTime }: any = await import('../utils.js');
 
     let html = `<div class="highlights-section">
 <br>
 <h1>Hyperlights</h1>
 <br>
 `;
-    let firstUserAnnotation = null;
+    let firstUserAnnotation: any = null;
 
-    validResults.forEach((h, index) => {
+    validResults.forEach((h: any, index: any) => {
       // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
       // Fall back to local comparison only for locally-created highlights not yet synced
       const isUserHighlight = h.is_user_highlight === true
@@ -129,7 +129,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       // Sanitize user-controlled content to prevent XSS
       const authorName = DOMPurify.sanitize(h.creator || "Anon", { ALLOWED_TAGS: [] });
       const relativeTime = formatRelativeTime(h.time_since);
-      let rawMeta = {};
+      let rawMeta: any = {};
       try {
         rawMeta = typeof h.raw_json === 'string' ? JSON.parse(h.raw_json) : (h.raw_json || {});
       } catch {}

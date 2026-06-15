@@ -752,7 +752,7 @@ class EditToolbar {
 
     try {
       // Dynamic import to avoid circular dependencies
-      const { insertFootnoteAtCursor, openFootnoteForEditing } = await import('../footnotes/footnoteInserter.js');
+      const { insertFootnoteAtCursor, openFootnoteForEditing } = await import('../footnotes/footnoteInserter');
 
       // Snapshot the parent block BEFORE insertion for undo tracking
       const focusNode = selection.focusNode;

@@ -16,7 +16,7 @@ import { showTargetNotFoundToast } from '../../utilities/toast.js';
  * Build the full-data API URL, handling sub-book IDs with slashes.
  * e.g. "book_X/FnY" → "/api/database-to-indexeddb/books/book_X/FnY/data"
  */
-function buildBookDataUrl(bookId) {
+function buildBookDataUrl(bookId: any) {
   const slashIndex = bookId.indexOf('/');
   if (slashIndex !== -1) {
     const parentBook = bookId.substring(0, slashIndex);
@@ -31,7 +31,7 @@ function buildBookDataUrl(bookId) {
  * @param {string} url - The URL to validate
  * @returns {string} Safe URL or '#' if dangerous
  */
-function sanitizeUrl(url) {
+function sanitizeUrl(url: any) {
   if (!url) return '#';
   try {
     // Handle relative URLs by using current origin as base
@@ -62,22 +62,22 @@ function sanitizeUrl(url) {
  * @param {boolean} isHyperlightURL - Whether this is a hyperlight URL
  * @returns {string|null} The content item ID (footnoteId or hyperlightId)
  */
-function extractContentIdFromUrl(urlPart, isFootnoteURL, isHyperlightURL) {
-  const pathParts = urlPart.split("/").filter(p => p);
+function extractContentIdFromUrl(urlPart: any, isFootnoteURL: any, isHyperlightURL: any) {
+  const pathParts = urlPart.split("/").filter((p: any) => p);
 
   if (isHyperlightURL) {
     // Format: /bookId/HL_xxx → hyperlightId = "HL_xxx"
-    const hlPart = pathParts.find(p => p.startsWith("HL_"));
+    const hlPart = pathParts.find((p: any) => p.startsWith("HL_"));
     return hlPart || null;
   }
 
   if (isFootnoteURL) {
     // New format: /bookId/FnTimestamp_random → footnoteId = "FnTimestamp_random"
-    const fnPart = pathParts.find(p => /^Fn\d/.test(p));
+    const fnPart = pathParts.find((p: any) => /^Fn\d/.test(p));
     if (fnPart) return fnPart;
 
     // Old format: /bookId_FnN (single segment) → footnoteId = "bookId_FnN"
-    const fnSegment = pathParts.find(p => p.includes("_Fn"));
+    const fnSegment = pathParts.find((p: any) => p.includes("_Fn"));
     return fnSegment || null;
   }
 
@@ -90,7 +90,7 @@ function extractContentIdFromUrl(urlPart, isFootnoteURL, isHyperlightURL) {
  * @param {IDBDatabase} db - Reused database connection
  * @returns {Promise<string>} HTML string for hypercite content
  */
-export async function buildHyperciteContent(contentType, db = null) {
+export async function buildHyperciteContent(contentType: any, db: any = null) {
   try {
     const { hyperciteId, hyperciteIds, relationshipStatus, cachedData } = contentType;
     // Use the original clicked hyperciteId as the data-content-id for all links
@@ -125,7 +125,7 @@ export async function buildHyperciteContent(contentType, db = null) {
 
       for (const id of idsToProcess) {
         const getRequest = index.get(id);
-        const hyperciteData = await new Promise((resolve, reject) => {
+        const hyperciteData: any = await new Promise((resolve: any, reject: any) => {
           getRequest.onsuccess = () => resolve(getRequest.result);
           getRequest.onerror = () => reject(getRequest.error);
         });
@@ -158,10 +158,10 @@ export async function buildHyperciteContent(contentType, db = null) {
 `;
 
     // Collect all citedIN links with their corresponding hypercite IDs
-    const citedINLinksWithIds = [];
+    const citedINLinksWithIds: any[] = [];
     for (const hyperciteData of hyperciteDataArray) {
       if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
-        hyperciteData.citedIN.forEach(link => {
+        hyperciteData.citedIN.forEach((link: any) => {
           citedINLinksWithIds.push({
             link: link,
             hyperciteId: hyperciteData.hyperciteId
@@ -171,20 +171,20 @@ export async function buildHyperciteContent(contentType, db = null) {
     }
 
     // Remove duplicates based on link URL (but keep the hyperciteId association)
-    const uniqueCitedINLinks = citedINLinksWithIds.filter((item, index, self) =>
-      index === self.findIndex(t => t.link === item.link)
+    const uniqueCitedINLinks = citedINLinksWithIds.filter((item: any, index: any, self: any) =>
+      index === self.findIndex((t: any) => t.link === item.link)
     );
 
     if (uniqueCitedINLinks.length > 0) {
       // 🚀 PERFORMANCE: Extract all bookIDs first
-      const citationMetadata = uniqueCitedINLinks.map(citationItem => {
+      const citationMetadata = uniqueCitedINLinks.map((citationItem: any) => {
         const { link: citationID, hyperciteId } = citationItem;
         const citationParts = citationID.split("#");
         const urlPart = citationParts[0];
         const isHyperlightURL = urlPart.includes("/HL_");
         const isFootnoteURL = urlPart.includes("_Fn") || /\/Fn\d/.test(urlPart);
 
-        let bookID;
+        let bookID: any;
         if (isHyperlightURL) {
           const pathParts = urlPart.split("/");
           for (let i = 0; i < pathParts.length; i++) {
@@ -200,10 +200,10 @@ export async function buildHyperciteContent(contentType, db = null) {
             }
           }
           if (!bookID) {
-            bookID = pathParts.filter(part => part && !part.startsWith("HL_") && !(/^Fn\d/.test(part)) && !(/^\d+$/.test(part)))[0] || "";
+            bookID = pathParts.filter((part: any) => part && !part.startsWith("HL_") && !(/^Fn\d/.test(part)) && !(/^\d+$/.test(part)))[0] || "";
           }
         } else if (isFootnoteURL) {
-          const pathParts = urlPart.split("/").filter(p => p);
+          const pathParts = urlPart.split("/").filter((p: any) => p);
           if (pathParts.length > 1) {
             // Multi-segment: /craftingtheuser/seq1_Fn... → first segment is book slug
             bookID = pathParts[0];
@@ -220,7 +220,7 @@ export async function buildHyperciteContent(contentType, db = null) {
 
         // Extract content item ID and sub-book ID for footnote/hyperlight health checks
         // Find the **last** Fn*/HL_* segment — this is the deepest content item
-        const allPathParts = urlPart.split("/").filter(p => p);
+        const allPathParts = urlPart.split("/").filter((p: any) => p);
         let lastItemIndex = -1;
         for (let i = allPathParts.length - 1; i >= 0; i--) {
           if (allPathParts[i].startsWith("HL_") || /^Fn\d/.test(allPathParts[i]) || allPathParts[i].includes("_Fn")) {
@@ -260,15 +260,15 @@ export async function buildHyperciteContent(contentType, db = null) {
       });
 
       // 🚀 PERFORMANCE: Batch all library queries at once
-      const uniqueBookIDs = [...new Set(citationMetadata.map(m => m.bookID))];
+      const uniqueBookIDs = [...new Set(citationMetadata.map((m: any) => m.bookID))];
       console.log(`⚡ Batch fetching ${uniqueBookIDs.length} library records instead of ${citationMetadata.length} sequential queries`);
 
       const libraryTx = database.transaction("library", "readonly");
       const libraryStore = libraryTx.objectStore("library");
       const libraryDataMap = new Map();
 
-      await Promise.all(uniqueBookIDs.map(bookID =>
-        new Promise((resolve) => {
+      await Promise.all(uniqueBookIDs.map((bookID: any) =>
+        new Promise((resolve: any) => {
           const req = libraryStore.get(bookID);
           req.onsuccess = () => {
             libraryDataMap.set(bookID, req.result);
@@ -282,11 +282,11 @@ export async function buildHyperciteContent(contentType, db = null) {
       ));
 
       // Import fetchLibraryFromServer from utils
-      const { fetchLibraryFromServer } = await import('../utils.js');
+      const { fetchLibraryFromServer }: any = await import('../utils.js');
 
       // 🚀 PERFORMANCE: Process all citations with cached library data
-      const linksHTML = await Promise.all(
-        citationMetadata.map(async (meta) => {
+      const linksHTML: any = await Promise.all(
+        citationMetadata.map(async (meta: any) => {
           const { citationID, hyperciteId, bookID, isHyperlightURL, isFootnoteURL, hasHyperciteInUrl, hyperciteIdFromUrl, contentType, contentItemId, subBookId } = meta;
 
           // 🚀 PERFORMANCE: Skip permission check during initial render (deferred to post-render)
@@ -313,7 +313,7 @@ export async function buildHyperciteContent(contentType, db = null) {
           }
 
           if (libraryData && libraryData.bibtex) {
-            const rawFormattedCitation = await formatBibtexToCitation(libraryData.bibtex);
+            const rawFormattedCitation: any = await formatBibtexToCitation(libraryData.bibtex);
             // Sanitize citation to prevent XSS from malicious bibtex data
             const formattedCitation = DOMPurify.sanitize(rawFormattedCitation, { ALLOWED_TAGS: ['i', 'em', 'b', 'strong'] });
 
@@ -389,11 +389,11 @@ ${linksHTML.join("")}
  * @param {string} hyperciteId - The hypercite ID to search for (e.g., "hypercite_zlpx0209")
  * @returns {Promise<{exists: boolean, chunkKey: string|null}>}
  */
-export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'node', contentItemId = null, subBookId = '', indexedDBOnly = false) {
+export async function checkHyperciteExists(bookId: any, hyperciteId: any, contentType: any = 'node', contentItemId: any = null, subBookId: any = '', indexedDBOnly: any = false) {
   try {
     console.log(`🔍 Checking if hypercite ${hyperciteId} exists in book ${bookId} (type=${contentType}, itemId=${contentItemId})`);
 
-    const db = await openDatabase();
+    const db: any = await openDatabase();
     const idPattern = `id="${hyperciteId}"`;
 
     // --- Footnote check ---
@@ -403,7 +403,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       const fnStore = fnTx.objectStore('footnotes');
       const fnRequest = fnStore.get([bookId, contentItemId]);
 
-      const footnote = await new Promise((resolve, reject) => {
+      const footnote: any = await new Promise((resolve: any, reject: any) => {
         fnRequest.onsuccess = () => resolve(fnRequest.result);
         fnRequest.onerror = () => reject(fnRequest.error);
       });
@@ -416,14 +416,14 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           const nodesTx = db.transaction('nodes', 'readonly');
           const nodesStore = nodesTx.objectStore('nodes');
           const bookIndex = nodesStore.index('book');
-          const nodes = await new Promise((resolve, reject) => {
+          const nodes: any = await new Promise((resolve: any, reject: any) => {
             const req = bookIndex.getAll(bookId);
             req.onsuccess = () => resolve(req.result || []);
             req.onerror = () => reject(req.error);
           });
 
-          const footnoteStillActive = nodes.some(node =>
-            node.footnotes?.some(fn => {
+          const footnoteStillActive = nodes.some((node: any) =>
+            node.footnotes?.some((fn: any) => {
               const id = typeof fn === 'string' ? fn : fn?.id;
               return id === contentItemId;
             })
@@ -445,7 +445,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         // Guard: skip if the book has been deleted
         const libCheckTx = db.transaction('library', 'readonly');
         const libCheckStore = libCheckTx.objectStore('library');
-        const libRecord = await new Promise((resolve) => {
+        const libRecord: any = await new Promise((resolve: any) => {
           const req = libCheckStore.get(bookId);
           req.onsuccess = () => resolve(req.result);
           req.onerror = () => resolve(null);
@@ -458,7 +458,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           const fnSubBookTx = db.transaction('nodes', 'readonly');
           const fnSubBookStore = fnSubBookTx.objectStore('nodes');
           const fnSubBookIndex = fnSubBookStore.index('book');
-          const fnSubBookNodes = await new Promise((resolve, reject) => {
+          const fnSubBookNodes: any = await new Promise((resolve: any, reject: any) => {
             const req = fnSubBookIndex.getAll(subBookId);
             req.onsuccess = () => resolve(req.result || []);
             req.onerror = () => reject(req.error);
@@ -479,17 +479,17 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       if (!indexedDBOnly) {
         console.log(`📡 Footnote not in IndexedDB, checking PostgreSQL for book ${bookId}`);
         try {
-          const response = await fetch(buildBookDataUrl(bookId), {
+          const response: any = await fetch(buildBookDataUrl(bookId), {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
             },
             credentials: 'include'
           });
 
           if (response.ok) {
-            const data = await response.json();
+            const data: any = await response.json();
             const fnData = data.footnotes?.data;
             if (fnData && fnData[contentItemId]) {
               const fnContent = fnData[contentItemId];
@@ -501,17 +501,17 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
             // Check sub-book nodes in PostgreSQL (library deletion already guarded above)
             if (subBookId) {
-              const subResponse = await fetch(buildBookDataUrl(subBookId), {
+              const subResponse: any = await fetch(buildBookDataUrl(subBookId), {
                 method: 'GET',
                 headers: {
                   'Content-Type': 'application/json',
-                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 credentials: 'include'
               });
 
               if (subResponse.ok) {
-                const subData = await subResponse.json();
+                const subData: any = await subResponse.json();
                 const pgFnSubBookNodes = subData.nodes || [];
                 console.log(`📚 Found ${pgFnSubBookNodes.length} PostgreSQL sub-book nodes for footnote ${subBookId}`);
                 for (const node of pgFnSubBookNodes) {
@@ -541,8 +541,8 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       // e.g. HL inside a footnote: subBookId = "book_X/2/FnY/HL_Z" → hlBook = "book_X/FnY"
       let hlActualBook = bookId;
       let skipIndexedDBHLChecks = false;
-      let parentFnId = null;
-      let foundationBook = null;
+      let parentFnId: any = null;
+      let foundationBook: any = null;
 
       if (subBookId) {
         const parsed = parseSubBookId(subBookId);
@@ -555,14 +555,14 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           const fnCheckTx = db.transaction('nodes', 'readonly');
           const fnCheckStore = fnCheckTx.objectStore('nodes');
           const fnCheckIndex = fnCheckStore.index('book');
-          const fnCheckNodes = await new Promise((resolve, reject) => {
+          const fnCheckNodes: any = await new Promise((resolve: any, reject: any) => {
             const req = fnCheckIndex.getAll(parsed.foundation);
             req.onsuccess = () => resolve(req.result || []);
             req.onerror = () => reject(req.error);
           });
 
-          const parentFnStillActive = fnCheckNodes.some(node =>
-            node.footnotes?.some(fn => {
+          const parentFnStillActive = fnCheckNodes.some((node: any) =>
+            node.footnotes?.some((fn: any) => {
               const id = typeof fn === 'string' ? fn : fn?.id;
               return id === parsed.parentItemId;
             })
@@ -581,7 +581,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
         const hlStore = hlTx.objectStore('hyperlights');
         const hlRequest = hlStore.get([hlActualBook, contentItemId]);
 
-        const hyperlight = await new Promise((resolve, reject) => {
+        const hyperlight: any = await new Promise((resolve: any, reject: any) => {
           hlRequest.onsuccess = () => resolve(hlRequest.result);
           hlRequest.onerror = () => reject(hlRequest.error);
         });
@@ -603,7 +603,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           const subBookTx = db.transaction('nodes', 'readonly');
           const subBookNodesStore = subBookTx.objectStore('nodes');
           const subBookIndex = subBookNodesStore.index('book');
-          const subBookNodes = await new Promise((resolve, reject) => {
+          const subBookNodes: any = await new Promise((resolve: any, reject: any) => {
             const req = subBookIndex.getAll(hlSubBookId);
             req.onsuccess = () => resolve(req.result || []);
             req.onerror = () => reject(req.error);
@@ -624,26 +624,26 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       if (!indexedDBOnly) {
         console.log(`📡 Not found in IndexedDB, checking PostgreSQL for book ${hlActualBook}`);
         try {
-          const response = await fetch(buildBookDataUrl(hlActualBook), {
+          const response: any = await fetch(buildBookDataUrl(hlActualBook), {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
             },
             credentials: 'include'
           });
 
           if (response.ok) {
-            const data = await response.json();
+            const data: any = await response.json();
 
             // If parent footnote check was skipped in IndexedDB, verify it in PostgreSQL first
             if (skipIndexedDBHLChecks && parentFnId && foundationBook) {
               // Fetch the foundation book data (not hlActualBook) to check parent footnote
-              const fnPgResponse = await fetch(buildBookDataUrl(foundationBook), {
+              const fnPgResponse: any = await fetch(buildBookDataUrl(foundationBook), {
                 method: 'GET',
                 headers: {
                   'Content-Type': 'application/json',
-                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 credentials: 'include'
               });
@@ -653,10 +653,10 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
                 return { exists: false, chunkKey: null };
               }
 
-              const fnPgData = await fnPgResponse.json();
+              const fnPgData: any = await fnPgResponse.json();
               const pgNodes = fnPgData.nodes || [];
-              const parentFnActiveInPG = pgNodes.some(node =>
-                node.footnotes?.some(fn => {
+              const parentFnActiveInPG = pgNodes.some((node: any) =>
+                node.footnotes?.some((fn: any) => {
                   const id = typeof fn === 'string' ? fn : fn?.id;
                   return id === parentFnId;
                 })
@@ -671,7 +671,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
 
             // Check annotation field in PostgreSQL hyperlights
             const hyperlights = data.hyperlights || [];
-            const match = hyperlights.find(hl => hl.hyperlight_id === contentItemId);
+            const match = hyperlights.find((hl: any) => hl.hyperlight_id === contentItemId);
             if (match && match.annotation && typeof match.annotation === 'string') {
               if (match.annotation.includes(idPattern)) {
                 console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL hyperlight ${contentItemId}`);
@@ -682,17 +682,17 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
             // Check sub-book nodes in PostgreSQL data — only if hyperlight still exists
             if (match) {
               // Fetch sub-book data from its own endpoint (parent API doesn't return sub-book nodes)
-              const subResponse = await fetch(buildBookDataUrl(hlSubBookId), {
+              const subResponse: any = await fetch(buildBookDataUrl(hlSubBookId), {
                 method: 'GET',
                 headers: {
                   'Content-Type': 'application/json',
-                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 credentials: 'include'
               });
 
               if (subResponse.ok) {
-                const subData = await subResponse.json();
+                const subData: any = await subResponse.json();
                 const pgSubBookNodes = subData.nodes || [];
                 console.log(`📚 Found ${pgSubBookNodes.length} PostgreSQL sub-book nodes for ${hlSubBookId}`);
                 for (const node of pgSubBookNodes) {
@@ -721,7 +721,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
     const bookIndex = nodesStore.index('book');
     const nodesRequest = bookIndex.getAll(bookId);
 
-    const nodes = await new Promise((resolve, reject) => {
+    const nodes: any = await new Promise((resolve: any, reject: any) => {
       nodesRequest.onsuccess = () => resolve(nodesRequest.result || []);
       nodesRequest.onerror = () => reject(nodesRequest.error);
     });
@@ -746,11 +746,11 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
       console.log(`📡 No chunks in IndexedDB, checking PostgreSQL for book ${bookId}`);
 
       try {
-        const response = await fetch(buildBookDataUrl(bookId), {
+        const response: any = await fetch(buildBookDataUrl(bookId), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
           },
           credentials: 'include'
         });
@@ -760,7 +760,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
           return { exists: false, chunkKey: null };
         }
 
-        const data = await response.json();
+        const data: any = await response.json();
         const pgChunks = data.nodes || [];
         console.log(`📚 Found ${pgChunks.length} chunks for book ${bookId} in PostgreSQL`);
 
@@ -792,7 +792,7 @@ export async function checkHyperciteExists(bookId, hyperciteId, contentType = 'n
  * Handle manage citations button click - injects management buttons after auth check
  * @param {Event} event - The click event
  */
-export async function handleManageCitationsClick(event) {
+export async function handleManageCitationsClick(event: any) {
   const svg = event.currentTarget;
 
   // Show loading state
@@ -804,23 +804,23 @@ export async function handleManageCitationsClick(event) {
 
   // Check permissions for source book (Book A - the one being viewed) AND citing books (Book B)
   // Either creator should be able to delete a broken citation link
-  const canEditSource = await canUserEditBook(book);
+  const canEditSource: any = await canUserEditBook(book);
 
   const citingBookIds = new Set();
-  buttonPlaceholders.forEach(placeholder => {
+  buttonPlaceholders.forEach((placeholder: any) => {
     const bookId = placeholder.dataset.bookId;
     if (bookId) citingBookIds.add(bookId);
   });
 
   // Batch permission checks for citing books
   const citingPermissionsMap = new Map();
-  await Promise.all(Array.from(citingBookIds).map(async (bookId) => {
-    const canEdit = await canUserEditBook(bookId);
+  await Promise.all(Array.from(citingBookIds).map(async (bookId: any) => {
+    const canEdit: any = await canUserEditBook(bookId);
     citingPermissionsMap.set(bookId, canEdit);
   }));
 
   // Inject buttons for all citations (everyone gets health check, source OR citing editors get delete)
-  buttonPlaceholders.forEach(placeholder => {
+  buttonPlaceholders.forEach((placeholder: any) => {
     const bookId = placeholder.dataset.bookId;
     const canEditCiting = citingPermissionsMap.get(bookId);
     const canDelete = canEditSource || canEditCiting;
@@ -871,12 +871,12 @@ export async function handleManageCitationsClick(event) {
 
   // Attach listeners to newly injected buttons
   const healthCheckButtons = document.querySelectorAll('.hypercite-health-check-btn');
-  healthCheckButtons.forEach(btn => {
+  healthCheckButtons.forEach((btn: any) => {
     btn.addEventListener('click', handleHyperciteHealthCheck);
   });
 
   const hyperciteDeleteButtons = document.querySelectorAll('.hypercite-delete-btn');
-  hyperciteDeleteButtons.forEach(btn => {
+  hyperciteDeleteButtons.forEach((btn: any) => {
     btn.addEventListener('click', handleHyperciteDelete);
   });
 
@@ -885,7 +885,7 @@ export async function handleManageCitationsClick(event) {
 
   // Auto-trigger all health checks immediately and await results
   console.log(`🏥 Auto-triggering ${healthCheckButtons.length} health checks...`);
-  const healthCheckPromises = Array.from(healthCheckButtons).map(btn => {
+  const healthCheckPromises = Array.from(healthCheckButtons).map((btn: any) => {
     return handleHyperciteHealthCheck({
       currentTarget: btn,
       preventDefault: () => {},
@@ -907,7 +907,7 @@ export async function handleManageCitationsClick(event) {
       <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6h10z"/>
     </svg>`;
     bulkDeleteBtn.addEventListener('click', handleDeleteAllDisconnected);
-    headerDiv.appendChild(bulkDeleteBtn);
+    headerDiv!.appendChild(bulkDeleteBtn);
   }
 
   // Hide the manage SVG after injection
@@ -918,7 +918,7 @@ export async function handleManageCitationsClick(event) {
  * Handle health check button click for hypercites
  * @param {Event} event - The click event
  */
-export async function handleHyperciteHealthCheck(event) {
+export async function handleHyperciteHealthCheck(event: any) {
   event.preventDefault();
   event.stopPropagation();
 
@@ -946,7 +946,7 @@ export async function handleHyperciteHealthCheck(event) {
   const svg = button.querySelector('svg');
 
   // --- Phase 1: IndexedDB only (fast, tentative) ---
-  const phase1 = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId, subBookId, true);
+  const phase1: any = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId, subBookId, true);
 
   if (phase1.exists) {
     // Found in IndexedDB — definitive green, no need for phase 2
@@ -965,7 +965,7 @@ export async function handleHyperciteHealthCheck(event) {
   button.title = 'Checking server...';
 
   // --- Phase 2: Full check including PostgreSQL (definitive) ---
-  const phase2 = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId, subBookId, false);
+  const phase2: any = await checkHyperciteExists(citingBook, hyperciteId, contentType, contentItemId, subBookId, false);
 
   if (phase2.exists) {
     // Found on server — green
@@ -994,11 +994,11 @@ export async function handleHyperciteHealthCheck(event) {
  * @param {Array<string>} sourceHyperciteIds - Array of source hypercite IDs
  * @param {Array<{url: string, sourceHyperciteId: string}>} brokenCitations - Citations to remove
  */
-async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCitations) {
-  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('../../indexedDB/index');
-  const db = await openDatabase();
+async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any, brokenCitations: any) {
+  const { queueForSync, debouncedMasterSync, updateBookTimestamp }: any = await import('../../indexedDB/index');
+  const db: any = await openDatabase();
 
-  const brokenUrls = brokenCitations.map(c => c.url);
+  const brokenUrls = brokenCitations.map((c: any) => c.url);
   console.log(`🔧 Removing citations: ${JSON.stringify(brokenUrls)}`);
 
   const updatedNodeChunks = [];
@@ -1009,12 +1009,12 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
     const readStore = readTx.objectStore('hypercites');
     const hyperciteRequest = readStore.get([sourceBook, sourceHyperciteId]);
 
-    const hypercite = await new Promise((resolve, reject) => {
+    const hypercite: any = await new Promise((resolve: any, reject: any) => {
       hyperciteRequest.onsuccess = () => resolve(hyperciteRequest.result);
       hyperciteRequest.onerror = () => reject(hyperciteRequest.error);
     });
 
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve: any, reject: any) => {
       readTx.oncomplete = () => resolve();
       readTx.onerror = () => reject(readTx.error);
     });
@@ -1026,7 +1026,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
 
     // Filter out broken citations from citedIN array
     const originalLength = hypercite.citedIN ? hypercite.citedIN.length : 0;
-    hypercite.citedIN = (hypercite.citedIN || []).filter(url => !brokenUrls.includes(url));
+    hypercite.citedIN = (hypercite.citedIN || []).filter((url: any) => !brokenUrls.includes(url));
     const newLength = hypercite.citedIN.length;
 
     console.log(`📊 Updated citedIN: ${originalLength} → ${newLength} citations`);
@@ -1047,7 +1047,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
     const writeStore = writeTx.objectStore('hypercites');
     const putRequest = writeStore.put(hypercite);
 
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve: any, reject: any) => {
       putRequest.onsuccess = () => {
         console.log(`✅ Updated hypercite ${sourceHyperciteId} in IndexedDB`);
         resolve();
@@ -1055,7 +1055,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
       putRequest.onerror = () => reject(putRequest.error);
     });
 
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve: any, reject: any) => {
       writeTx.oncomplete = () => resolve();
       writeTx.onerror = () => reject(writeTx.error);
     });
@@ -1079,7 +1079,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
     const bookIndex = nodesStore.index('book');
 
     // Get all nodes for this book
-    const allNodeChunks = await new Promise((resolve, reject) => {
+    const allNodeChunks: any = await new Promise((resolve: any, reject: any) => {
       const request = bookIndex.getAll(sourceBook);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
@@ -1088,12 +1088,12 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
     console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${sourceHyperciteId}`);
 
     // Find the nodeChunk that contains this hypercite
-    let foundNodeChunk = null;
+    let foundNodeChunk: any = null;
     let foundHyperciteIndex = -1;
 
     for (const nodeChunk of allNodeChunks) {
       if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
-        const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === sourceHyperciteId);
+        const index = nodeChunk.hypercites.findIndex((hc: any) => hc.hyperciteId === sourceHyperciteId);
         if (index !== -1) {
           foundNodeChunk = nodeChunk;
           foundHyperciteIndex = index;
@@ -1113,7 +1113,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
 
       // Update the nodeChunk in IndexedDB
       const updateRequest = nodesStore.put(foundNodeChunk);
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
       });
@@ -1127,7 +1127,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
       console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
     }
 
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve: any, reject: any) => {
       nodesTx.oncomplete = () => resolve();
       nodesTx.onerror = () => reject(nodesTx.error);
     });
@@ -1142,16 +1142,16 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
   console.log('✅ Sync queue flushed');
 
   // Broadcast changes to other tabs
-  const { broadcastToOpenTabs } = await import('../../utilities/BroadcastListener.js');
-  updatedNodeChunks.forEach(chunk => {
+  const { broadcastToOpenTabs }: any = await import('../../utilities/BroadcastListener.js');
+  updatedNodeChunks.forEach((chunk: any) => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });
   console.log('📡 Broadcasted citation removal to other tabs');
 
   // Re-render affected nodes so <u> tags reflect updated relationship status
   if (updatedNodeChunks.length > 0) {
-    const { reprocessHighlightsForNodes } = await import('../../hyperlights/index');
-    const affectedStartLines = updatedNodeChunks.map(chunk => chunk.startLine);
+    const { reprocessHighlightsForNodes }: any = await import('../../hyperlights/index');
+    const affectedStartLines = updatedNodeChunks.map((chunk: any) => chunk.startLine);
     await reprocessHighlightsForNodes(sourceBook, affectedStartLines);
   }
 }
@@ -1160,7 +1160,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
  * Handle bulk deletion of all disconnected (red) citations
  * @param {Event} event - The click event
  */
-async function handleDeleteAllDisconnected(event) {
+async function handleDeleteAllDisconnected(event: any) {
   event.preventDefault();
   event.stopPropagation();
 
@@ -1170,16 +1170,16 @@ async function handleDeleteAllDisconnected(event) {
   if (!confirm(`Delete ${enabledBtns.length} disconnected citation(s)?`)) return;
 
   const sourceHyperciteIdSet = new Set();
-  const brokenCitations = [];
+  const brokenCitations: any[] = [];
 
-  enabledBtns.forEach(btn => {
+  enabledBtns.forEach((btn: any) => {
     const idStr = btn.getAttribute('data-source-hypercite-id');
     const url = btn.getAttribute('data-citation-url');
-    if (idStr) idStr.split(',').forEach(id => sourceHyperciteIdSet.add(id.trim()));
+    if (idStr) idStr.split(',').forEach((id: any) => sourceHyperciteIdSet.add(id.trim()));
     if (url) brokenCitations.push({ url });
   });
 
-  const sourceBook = enabledBtns[0].getAttribute('data-source-book');
+  const sourceBook = enabledBtns[0]!.getAttribute('data-source-book');
 
   try {
     await removeSpecificCitations(
@@ -1188,7 +1188,7 @@ async function handleDeleteAllDisconnected(event) {
       brokenCitations
     );
 
-    const { closeHyperlitContainer } = await import('../core.js');
+    const { closeHyperlitContainer }: any = await import('../core.js');
     await closeHyperlitContainer();
   } catch (error) {
     console.error('Error bulk-deleting citations:', error);
@@ -1200,7 +1200,7 @@ async function handleDeleteAllDisconnected(event) {
  * Handle delete button click for hypercites
  * @param {Event} event - The click event
  */
-export async function handleHyperciteDelete(event) {
+export async function handleHyperciteDelete(event: any) {
   event.preventDefault();
   event.stopPropagation();
 
@@ -1215,7 +1215,7 @@ export async function handleHyperciteDelete(event) {
   }
 
   // Handle comma-separated IDs (for overlapping hypercites)
-  const sourceHyperciteIds = sourceHyperciteIdStr.split(',').map(id => id.trim());
+  const sourceHyperciteIds = sourceHyperciteIdStr.split(',').map((id: any) => id.trim());
 
   console.log(`🗑️ Deleting specific citation: ${citationUrl} from hypercite(s): ${sourceHyperciteIds.join(', ')}`);
 
@@ -1229,7 +1229,7 @@ export async function handleHyperciteDelete(event) {
     await removeSpecificCitations(sourceBook, sourceHyperciteIds, [{ url: citationUrl }]);
 
     // Import closeHyperlitContainer from core
-    const { closeHyperlitContainer } = await import('../core.js');
+    const { closeHyperlitContainer }: any = await import('../core.js');
 
     // Close container and reload to show updated state
     await closeHyperlitContainer();

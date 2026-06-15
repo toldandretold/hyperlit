@@ -32,8 +32,8 @@ imports by hand:
 - **`generated/flowViz.generated.json`** — the raw `{nodes, modules, edges}` graph; filter
   it to answer "what writes store X?", "what's coupled to file Y?", "what does folder Z depend on?".
 
-Caveats: covers only the data layer (the 4 folders + the API seam), and it's *function-level
-data flow*, not business logic. It's only trustworthy because CI byte-checks it — regenerate
+Caveats: covers only the data layer (indexedDB + the 7 DOM/feature folders + the API seam), and
+it's *function-level data flow*, not business logic. It's only trustworthy because CI byte-checks it — regenerate
 with `npm run viz:idb` and commit after changing scanned code. (See `Hyperlit/CLAUDE.md` for
 the standing review gate.)
 
@@ -86,10 +86,25 @@ A 2-D grid — **both axes mean something**:
 So a box sits at **folder × role**. A box in a row that doesn't match its folder's natural
 role = code acting out of place (a refactor candidate), visible at a glance.
 
-**Two lenses** (toolbar toggle):
+**Three lenses** (toolbar):
 - **Data flow** (default) — lines are data moving (store reads/writes, server push/pull, DOM read/write).
-- **Code coupling** — lines become *which function calls which*; **orange = a call crossing
-  folders** (modules reaching into each other = the modularity smell).
+- **Code coupling** (`show code coupling`) — lines become *which function calls which*; **orange =
+  a call crossing folders** (modules reaching into each other = the modularity smell).
+- **Imports / cycles** (`find circular deps`) — module→module *import* edges, classified honestly:
+  - <span style="color:#ff4d4f">**red**</span> = a **real static-import ring** — the only kind that
+    can crash with a TDZ `Cannot access X before initialization`. **These are the ones to break.**
+  - <span style="color:#e0a44b">**orange dashed**</span> = a **dynamic-import cycle-breaker** — a
+    back-edge deferred to runtime with `await import()` because a static import there *would* form a
+    ring. Safe, but **structural debt** (a bidirectional import that ideally becomes one-way via
+    events/DI).
+  - <span style="color:#5fb3a3">**teal dashed**</span> = a **lazy-load** — a dynamic import with no
+    cycle: genuine code-splitting. The `lazy-loads` button isolates just these — your
+    **JS-loading-optimisation surface** (what's deferred into separate chunks vs eagerly bundled).
+
+  Why this matters: the naive "scan the call graph for loops" lights up every `await import()` red and
+  makes a healthy codebase look broken. Only **static** imports risk TDZ; the generator separates the
+  three so the button is an honest TDZ detector. Counts (cycles / breakers / lazy) show in the header
+  bar and in `FLOWMAP.generated.md` (`## Import cycles & dynamic imports`).
 
 **Interactions:** single-click traces a node's connections (rest dims but stays legible);
 double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
@@ -100,7 +115,8 @@ double-click a module box drills into its functions; expand/collapse all + fit; 
 
 Pure on import (only `writeArtifacts()` touches disk) and deterministic (no `Date`/`Math.random`)
 so the no-drift gate can byte-compare. It walks `resources/js/indexedDB/` plus the DOM-facing
-`EXTRA_ROOTS` (`hyperlights`, `hypercites`, `divEditor`, `editToolbar`) and, per **top-level
+`EXTRA_ROOTS` (`hyperlights`, `hypercites`, `divEditor`, `editToolbar`, `footnotes`, `citations`,
+`hyperlitContainer`) and, per **top-level
 exported function AND class method** (`ClassName.method` — so class-per-file code like
 editToolbar is represented, not just function-first modules), uses the **TypeScript compiler
 API** (AST, not regex) to detect: stores read/written, API endpoints

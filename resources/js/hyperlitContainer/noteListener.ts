@@ -6,7 +6,8 @@
 import { saveHighlightAnnotation } from '../hyperlights/annotations';
 import { saveFootnoteToIndexedDB } from '../footnotes/footnoteAnnotations.js';
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
-import { parseHyperciteHref, attachUnderlineClickListeners } from '../hypercites/index';
+import { parseHyperciteHref } from '../hypercites/utils';
+import { attachUnderlineClickListeners } from '../hypercites/listeners';
 import { extractQuotedText } from '../utilities/textExtraction.js';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
@@ -20,17 +21,17 @@ const debounceTimers = new Map();
 let isAttached = false;
 
 // Store handler references for cleanup
-let inputHandler = null;
-let pasteHandler = null;
-let focusHandler = null;
-let blurHandler = null;
-let supEscapeHandler = null;
+let inputHandler: any = null;
+let pasteHandler: any = null;
+let focusHandler: any = null;
+let blurHandler: any = null;
+let supEscapeHandler: any = null;
 
 /**
  * SUP TAG ESCAPE: Prevent typing inside sup elements
  * Sup tags contain generated content (hypercite arrows) - never user-editable
  */
-function handleSupEscape(e) {
+function handleSupEscape(e: any) {
   // Only handle text insertion events
   if (!e.inputType || !e.inputType.startsWith('insert')) return;
 
@@ -42,7 +43,7 @@ function handleSupEscape(e) {
   if (!node) return;
 
   // Get the element (if text node, get parent)
-  let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  let element: any = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
   if (!element) return;
 
   // Only handle if inside our contenteditable elements
@@ -141,7 +142,7 @@ export function detachNoteListeners() {
  * Flush all pending debounced saves immediately
  * Called when exiting edit mode to ensure no content is lost
  */
-function flushPendingSaves(container) {
+function flushPendingSaves(container: any) {
   if (debounceTimers.size === 0) return;
 
   console.log(`Flushing ${debounceTimers.size} pending save(s)...`);
@@ -168,7 +169,7 @@ function flushPendingSaves(container) {
  * Handle input events on contenteditable elements
  * Debounces saves to avoid excessive writes
  */
-function handleInput(e) {
+function handleInput(e: any) {
   const target = e.target;
 
   // Find the contenteditable parent (input target might be a child element)
@@ -205,7 +206,7 @@ function handleInput(e) {
  * Handle paste events
  * Prevents double-paste bug and handles hypercite pasting
  */
-async function handlePaste(e) {
+async function handlePaste(e: any) {
   const target = e.target;
 
   // Find the contenteditable parent (paste target might be a child element)
@@ -226,7 +227,7 @@ async function handlePaste(e) {
 
   // Check for hypercite paste
   const contentId = highlightId || footnoteId;
-  const wasHypercite = await processHypercitePaste(clipboardHtml, contentId);
+  const wasHypercite: any = await processHypercitePaste(clipboardHtml, contentId);
 
   if (!wasHypercite) {
     // Plain text paste
@@ -249,7 +250,7 @@ async function handlePaste(e) {
 /**
  * Handle focus/blur for placeholder behavior
  */
-function updatePlaceholder(e) {
+function updatePlaceholder(e: any) {
   const target = e.target;
   updatePlaceholderForTarget(target);
 }
@@ -257,7 +258,7 @@ function updatePlaceholder(e) {
 /**
  * Update placeholder class for a specific target
  */
-function updatePlaceholderForTarget(target) {
+function updatePlaceholderForTarget(target: any) {
   // Check if it's one of our contenteditable elements
   const isAnnotation = target.classList.contains('annotation');
   const isFootnote = target.classList.contains('footnote-text');
@@ -276,7 +277,7 @@ function updatePlaceholderForTarget(target) {
 /**
  * Route save to appropriate handler based on type
  */
-async function saveContent(type, id, content) {
+async function saveContent(type: any, id: any, content: any) {
   try {
     if (type === 'highlight') {
       await saveHighlightAnnotation(id, content);
@@ -294,14 +295,14 @@ async function saveContent(type, id, content) {
  * Process pasted hypercite links
  * Extracted from annotationPaste.js for shared use
  */
-async function processHypercitePaste(clipboardHtml, contentId) {
+async function processHypercitePaste(clipboardHtml: any, contentId: any) {
   if (!clipboardHtml) return false;
 
   const pasteWrapper = document.createElement('div');
   pasteWrapper.innerHTML = sanitizeHtml(clipboardHtml);
 
   // Detect hypercite link — new format: <a class="open-icon">, old format: <a><sup/span class="open-icon">
-  let citeLink = pasteWrapper.querySelector('a.open-icon[id^="hypercite_"]');
+  let citeLink: any = pasteWrapper.querySelector('a.open-icon[id^="hypercite_"]');
   if (!citeLink) {
     const innerIcon = pasteWrapper.querySelector('a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon');
     citeLink = innerIcon?.parentElement;
@@ -314,7 +315,7 @@ async function processHypercitePaste(clipboardHtml, contentId) {
   console.log('Detected hypercite in paste');
 
   const originalHref = citeLink.getAttribute('href');
-  const parsed = parseHyperciteHref(originalHref);
+  const parsed = parseHyperciteHref(originalHref || '');
   if (!parsed) return false;
 
   const { booka, hyperciteIDa, citationIDa } = parsed;
@@ -328,13 +329,13 @@ async function processHypercitePaste(clipboardHtml, contentId) {
   let textNode = citeLink.previousSibling;
   while (textNode) {
     if (textNode.nodeType === Node.TEXT_NODE) {
-      const text = textNode.textContent.trim();
+      const text = textNode.textContent?.trim() || '';
       if (text) {
         quotedText = text;
         break;
       }
     } else if (textNode.nodeType === Node.ELEMENT_NODE) {
-      const textContent = textNode.textContent.trim();
+      const textContent = textNode.textContent?.trim() || '';
       if (textContent) {
         quotedText = textContent;
         break;
@@ -373,7 +374,7 @@ async function processHypercitePaste(clipboardHtml, contentId) {
 
   // Update the original hypercite in the database
   try {
-    const updateResult = await updateCitationForExistingHypercite(
+    const updateResult: any = await updateCitationForExistingHypercite(
       booka,
       hyperciteIDa,
       citationIDb
@@ -398,12 +399,12 @@ export function initializePlaceholders() {
   if (!container) return;
 
   // Check all annotations
-  container.querySelectorAll('.annotation').forEach(el => {
+  container.querySelectorAll('.annotation').forEach((el: any) => {
     updatePlaceholderForTarget(el);
   });
 
   // Check all footnotes
-  container.querySelectorAll('.footnote-text').forEach(el => {
+  container.querySelectorAll('.footnote-text').forEach((el: any) => {
     updatePlaceholderForTarget(el);
   });
 }

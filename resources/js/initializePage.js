@@ -32,7 +32,7 @@ import { loadChunkForTarget } from "./navigation/chunkLoadRouter.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 import { registerBookOpen } from "./utilities/BroadcastListener.js";
 
-import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService.js';
+import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from './footnotes/FootnoteNumberingService';
 import { parseSubBookId, buildSubBookId } from './utilities/subBookIdHelper.js';
 
 let isRetrying = false; // Prevents multiple retries at once
@@ -750,7 +750,7 @@ async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = n
       const savedBookId = history.state.containerStackBookId;
       const compatLegacyState = !savedBookId; // older entries didn't stamp the book id
       if (renderedBookId && (compatLegacyState || savedBookId === renderedBookId)) {
-        pendingContainerRestorePromise = import('./hyperlitContainer/history.js').then(({ restoreContainerStack }) => {
+        pendingContainerRestorePromise = import('./hyperlitContainer/history').then(({ restoreContainerStack }) => {
           return restoreContainerStack(history.state.containerStack, { callsite: 'initializePage.fresh' });
         });
       } else if (!renderedBookId) {
@@ -775,7 +775,7 @@ async function initializeLazyLoader(openHyperlightID, bookId, openFootnoteID = n
       const urlHasCs = new URLSearchParams(loc.search).has('cs');
 
       if (urlHasCascade || urlHasHash || urlHasCs) {
-        import('./hyperlitContainer/index.js').then(({ restoreHyperlitContainerFromHistory }) => {
+        import('./hyperlitContainer/index').then(({ restoreHyperlitContainerFromHistory }) => {
           restoreHyperlitContainerFromHistory();
         });
       } else {
@@ -952,7 +952,7 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null) {
   const isContainerCurrentlyOpen = document.body.classList.contains('hyperlit-container-open');
   if (isContainerCurrentlyOpen) {
     try {
-      const { closeHyperlitContainer } = await import('./hyperlitContainer/index.js');
+      const { closeHyperlitContainer } = await import('./hyperlitContainer/index');
       await closeHyperlitContainer(true);
     } catch (e) { /* ignore */ }
   }
@@ -979,7 +979,7 @@ export async function openContainerChain(chain, lazyLoader, finalHash = null) {
   // After chain is fully opened, scroll to final hash target (e.g. hypercite)
   if (finalHash) {
     await new Promise(r => setTimeout(r, 500));
-    const { getCurrentContainer } = await import('./hyperlitContainer/stack.js');
+    const { getCurrentContainer } = await import('./hyperlitContainer/stack');
     const container = getCurrentContainer();
     if (container) {
       const target = container.querySelector(`#${CSS.escape(finalHash)}`);
@@ -1004,7 +1004,7 @@ async function continueChainOpening(chain) {
 
     // Search inside the current container scroller if one is open,
     // otherwise search document.body (for the first chain item)
-    const { getCurrentScroller } = await import('./hyperlitContainer/stack.js');
+    const { getCurrentScroller } = await import('./hyperlitContainer/stack');
     const isContainerOpen = document.body.classList.contains('hyperlit-container-open');
     const scroller = isContainerOpen ? getCurrentScroller() : null;
 
@@ -1055,7 +1055,7 @@ async function continueChainOpening(chain) {
     }
 
     // Wait for any in-flight click processing to finish before opening next layer
-    const { handleUnifiedContentClick, isClickProcessing } = await import('./hyperlitContainer/index.js');
+    const { handleUnifiedContentClick, isClickProcessing } = await import('./hyperlitContainer/index');
     let waitAttempts = 0;
     while (isClickProcessing() && waitAttempts < 50) {
       await new Promise(r => setTimeout(r, 100));
@@ -1064,7 +1064,7 @@ async function continueChainOpening(chain) {
 
     // Re-query element in current scope — the original reference may be stale
     // if the sub-book DOM was rebuilt during hydration
-    const { getCurrentScroller: getLatestScroller } = await import('./hyperlitContainer/stack.js');
+    const { getCurrentScroller: getLatestScroller } = await import('./hyperlitContainer/stack');
     const containerNowOpen = document.body.classList.contains('hyperlit-container-open');
     const latestScroller = containerNowOpen ? getLatestScroller() : null;
     const selector = itemId.startsWith('HL_')

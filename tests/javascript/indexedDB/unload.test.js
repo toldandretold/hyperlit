@@ -16,7 +16,7 @@ vi.mock('../../../resources/js/divEditor/index.js', () => ({
   flushInputDebounce: vi.fn(),
   flushAllPendingSaves: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../../resources/js/footnotes/footnoteAnnotations.js', () => ({
+vi.mock('../../../resources/js/footnotes/footnoteAnnotations', () => ({
   flushPendingFootnoteSaves: vi.fn(),
 }));
 

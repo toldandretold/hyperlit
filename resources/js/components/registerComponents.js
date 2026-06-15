@@ -96,13 +96,6 @@ import {
   destroyContainerDragger
 } from '../utilities/drag.js';
 
-// ⚠️ DEPRECATED - Citation search is now integrated into edit toolbar
-// See: resources/js/editToolbar/citationMode.js
-// import {
-//   initializeCitationSearch,
-//   destroyCitationSearch
-// } from '../citations/citationSearch.js';
-
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -343,18 +336,6 @@ export function registerAllComponents() {
     dependencies: ['homepageDisplayUnit'],
     required: false
   });
-
-  // ⚠️ DEPRECATED - Citation search is now integrated into edit toolbar
-  // The citation search interface is now part of CitationMode in editToolbar/citationMode.js
-  // No separate initialization needed - it's managed by the EditToolbar class
-  // buttonRegistry.register({
-  //   name: 'citationSearch',
-  //   initFn: initializeCitationSearch,
-  //   destroyFn: destroyCitationSearch,
-  //   pages: ['reader'],
-  //   dependencies: [],
-  //   required: false
-  // });
 
   console.log('✅ All components registered with ButtonRegistry');
 }

@@ -8,8 +8,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
-// deletion.js → ./listeners → hyperlitContainer/index.js breaks under happy-dom.
-vi.mock('../../../resources/js/hyperlitContainer/index.js', () => ({
+// deletion.js → ./listeners → hyperlitContainer/index breaks under happy-dom.
+vi.mock('../../../resources/js/hyperlitContainer/index', () => ({
   handleUnifiedContentClick: vi.fn(), initializeHyperlitManager: vi.fn(),
   openHyperlitContainer: vi.fn(), closeHyperlitContainer: vi.fn(),
 }));

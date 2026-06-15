@@ -8,7 +8,7 @@ import { isLoggedIn } from '../utilities/auth.js';
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
-let pendingBrainHighlightId = null;
+let pendingBrainHighlightId: string | null = null;
 
 // Persistent UI preferences — keep mode/scope/shelf choices across container reopens
 const STORAGE_KEYS = {
@@ -32,7 +32,7 @@ export async function cleanupPendingBrainHighlight() {
     const id = pendingBrainHighlightId;
     pendingBrainHighlightId = null;
     try {
-        const { deleteHighlightById } = await import('../hyperlights/deletion');
+        const { deleteHighlightById }: any = await import('../hyperlights/deletion');
         await deleteHighlightById(id);
     } catch (e) {
         console.warn('BrainQuery: cleanup of pending highlight failed:', e);
@@ -46,7 +46,7 @@ export async function cleanupPendingBrainHighlight() {
  * @param {Object} highlight - The hyperlight record from IndexedDB
  * @param {HTMLElement} scroller - The container scroller element
  */
-export async function injectBrainInput(targetEl, highlight, scroller) {
+export async function injectBrainInput(targetEl: any, highlight: any, scroller: any) {
   if (!scroller) {
     console.warn('BrainQuery: No scroller element');
     return;
@@ -60,7 +60,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   pendingBrainHighlightId = highlightId;
 
   // Auth gate — unauthenticated users cannot use the AI Archivist
-  const loggedIn = await isLoggedIn();
+  const loggedIn: any = await isLoggedIn();
   if (!loggedIn) {
     scroller.innerHTML = `
       <div class="brain-query-section">
@@ -69,16 +69,16 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       </div>`;
 
     scroller.querySelector('.brain-auth-login-link').addEventListener('click', async () => {
-      const { saveAndCloseHyperlitContainer } = await import('./core.js');
+      const { saveAndCloseHyperlitContainer }: any = await import('./core.js');
       await saveAndCloseHyperlitContainer();
-      const { initializeUserContainer } = await import('../components/userContainer.js');
+      const { initializeUserContainer }: any = await import('../components/userContainer.js');
       const mgr = initializeUserContainer();
       if (mgr) mgr.showLoginForm();
     });
     scroller.querySelector('.brain-auth-register-link').addEventListener('click', async () => {
-      const { saveAndCloseHyperlitContainer } = await import('./core.js');
+      const { saveAndCloseHyperlitContainer }: any = await import('./core.js');
       await saveAndCloseHyperlitContainer();
-      const { initializeUserContainer } = await import('../components/userContainer.js');
+      const { initializeUserContainer }: any = await import('../components/userContainer.js');
       const mgr = initializeUserContainer();
       if (mgr) mgr.showRegisterForm();
     });
@@ -92,13 +92,13 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   // Read persisted UI preferences (default first-time: Quick Chat + Public scope)
   const savedMode = localStorage.getItem(STORAGE_KEYS.mode) === 'archivist' ? 'archivist' : 'quick';
-  const savedScope = ['public', 'mine', 'shelf'].includes(localStorage.getItem(STORAGE_KEYS.scope))
+  const savedScope = ['public', 'mine', 'shelf'].includes(localStorage.getItem(STORAGE_KEYS.scope) || '')
     ? localStorage.getItem(STORAGE_KEYS.scope)
     : 'public';
   const savedShelfId = localStorage.getItem(STORAGE_KEYS.shelfId) || '';
 
-  const modeActive = (m) => m === savedMode ? ' active' : '';
-  const scopeActive = (s) => s === savedScope ? ' active' : '';
+  const modeActive = (m: any) => m === savedMode ? ' active' : '';
+  const scopeActive = (s: any) => s === savedScope ? ' active' : '';
 
   // Replace entire scroller content with brain-specific UI
   scroller.innerHTML = `
@@ -162,9 +162,9 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     }
   };
 
-  modeBtns.forEach(btn => {
+  modeBtns.forEach((btn: any) => {
     btn.addEventListener('click', () => {
-      modeBtns.forEach(b => b.classList.remove('active'));
+      modeBtns.forEach((b: any) => b.classList.remove('active'));
       btn.classList.add('active');
       try { localStorage.setItem(STORAGE_KEYS.mode, btn.dataset.mode); } catch {}
       applyModeVisibility();
@@ -176,21 +176,21 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     if (shelvesLoaded || !shelfSelect) return;
     shelvesLoaded = true;
     try {
-      const resp = await fetch('/api/shelves', {
+      const resp: any = await fetch('/api/shelves', {
         headers: { 'Accept': 'application/json' },
         credentials: 'same-origin',
       });
-      const data = await resp.json();
+      const data: any = await resp.json();
       const shelves = Array.isArray(data) ? data : (data.shelves || data.data || []);
       if (!shelves.length) {
         shelfSelect.innerHTML = '<option value="">No shelves — create one first</option>';
         return;
       }
       shelfSelect.innerHTML = '<option value="">— pick a shelf —</option>'
-        + shelves.map(s => {
+        + shelves.map((s: any) => {
             const id = s.id || s.shelf_id;
             const count = Number(s.item_count ?? 0);
-            const name = (s.name || s.title || 'Untitled').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+            const name = (s.name || s.title || 'Untitled').replace(/[<>&"]/g, (c: any) => (({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'} as any)[c]));
             const label = count > 0 ? `${name} (${count})` : `${name} (empty)`;
             return `<option value="${id}" data-item-count="${count}">${label}</option>`;
           }).join('');
@@ -212,7 +212,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   }
 
   // Wire up all "?" info toggles
-  section.querySelectorAll('.brain-info-toggle').forEach(toggle => {
+  section.querySelectorAll('.brain-info-toggle').forEach((toggle: any) => {
     let detail = toggle.nextElementSibling;
     if (!detail || !detail.classList.contains('brain-info-detail')) {
       detail = toggle.parentElement.nextElementSibling;
@@ -226,9 +226,9 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
   });
 
   // Scope toggle — only one active at a time
-  scopeBtns.forEach(btn => {
+  scopeBtns.forEach((btn: any) => {
     btn.addEventListener('click', () => {
-      scopeBtns.forEach(b => b.classList.remove('active'));
+      scopeBtns.forEach((b: any) => b.classList.remove('active'));
       btn.classList.add('active');
       try { localStorage.setItem(STORAGE_KEYS.scope, btn.dataset.scope); } catch {}
       applyModeVisibility();
@@ -258,7 +258,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   // Show the edit toolbar for the brain annotation field
   try {
-    const { getEditToolbar } = await import('../editToolbar/index');
+    const { getEditToolbar }: any = await import('../editToolbar/index');
     const toolbar = getEditToolbar();
     if (toolbar) {
       toolbar.setEditMode(true);
@@ -290,7 +290,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     const sourceScope = mode === 'quick'
       ? 'public'
       : (section.querySelector('.brain-scope-btn.active')?.dataset.scope || 'public');
-    let shelfId = null;
+    let shelfId: any = null;
     if (mode === 'archivist' && sourceScope === 'shelf') {
       shelfId = shelfSelect?.value || '';
       if (!shelfId) {
@@ -325,18 +325,18 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     annotation.contentEditable = 'false';
     submitBtn.disabled = true;
     cancelBtn.style.display = 'none';
-    scopeBtns.forEach(b => b.disabled = true);
+    scopeBtns.forEach((b: any) => b.disabled = true);
 
     statusEl.style.display = 'block';
     statusEl.textContent = 'Sending to archivist...';
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
     if (!csrfToken) {
       statusEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
-      scopeBtns.forEach(b => b.disabled = false);
+      scopeBtns.forEach((b: any) => b.disabled = false);
       return;
     }
 
@@ -346,20 +346,20 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
-      scopeBtns.forEach(b => b.disabled = false);
+      scopeBtns.forEach((b: any) => b.disabled = false);
     };
 
-    const showBillingError = (msg) => {
+    const showBillingError = (msg: any) => {
       statusEl.innerHTML = '';
       statusEl.textContent = msg;
       const topUpBtn = document.createElement('a');
       topUpBtn.href = '#';
       topUpBtn.textContent = 'Top Up Balance';
       topUpBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;font-weight:500;';
-      topUpBtn.addEventListener('click', async (e) => {
+      topUpBtn.addEventListener('click', async (e: any) => {
         e.preventDefault();
         try {
-          const resp = await fetch('/api/billing/checkout', {
+          const resp: any = await fetch('/api/billing/checkout', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -369,7 +369,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
             credentials: 'include',
             body: JSON.stringify({ amount: 5, return_url: window.location.href }),
           });
-          const d = await resp.json();
+          const d: any = await resp.json();
           if (d.checkout_url) window.location.href = d.checkout_url;
         } catch (err) {
           console.warn('Top-up checkout failed:', err);
@@ -380,7 +380,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
     };
 
     try {
-      const response = await fetch('/api/ai-brain/query', {
+      const response: any = await fetch('/api/ai-brain/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -404,7 +404,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       // Pre-stream errors (auth, billing, validation) come back as JSON
       if (!response.ok) {
         brainRequestInFlight = false;
-        let data;
+        let data: any;
         try { data = await response.json(); } catch { data = {}; }
         const msg = data.message || 'AI query failed';
         if (response.status === 402) {
@@ -422,17 +422,17 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let data = null;
-      let streamError = null;
+      let data: any = null;
+      let streamError: any = null;
       let eventType = 'message';
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value }: any = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep incomplete line
+        buffer = lines.pop() || ''; // keep incomplete line
         for (const line of lines) {
           if (line.startsWith('event: ')) {
             eventType = line.slice(7).trim();
@@ -470,7 +470,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       }
 
       // Success — turn off edit mode (this is AI-generated content, not user-editable)
-      const { getEditToolbar: getToolbar } = await import('../editToolbar/index');
+      const { getEditToolbar: getToolbar }: any = await import('../editToolbar/index');
       const tb = getToolbar();
       if (tb) {
         tb.setEditMode(false);
@@ -492,7 +492,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
       scroller.appendChild(subBookTarget);
 
       // Load sub-book content into the container
-      const { loadSubBook } = await import('./subBookLoader.js');
+      const { loadSubBook }: any = await import('./subBookLoader.js');
       const subBookId = data.subBookId;
 
       // Pass the FULL node set (including appendix) — we already have it in memory
@@ -530,7 +530,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
 
   // Cancel handler — just close the container; the close flow handles cleanup
   cancelBtn.addEventListener('click', async () => {
-    const { closeHyperlitContainer } = await import('./core.js');
+    const { closeHyperlitContainer }: any = await import('./core.js');
     await closeHyperlitContainer();
   });
 }
@@ -542,7 +542,7 @@ export async function injectBrainInput(targetEl, highlight, scroller) {
  * @param {Object} highlight - The hyperlight record from IndexedDB
  * @param {HTMLElement} scroller - The container scroller element
  */
-export async function injectBrainPolling(highlight, scroller) {
+export async function injectBrainPolling(highlight: any, scroller: any) {
     const highlightId = highlight.hyperlight_id;
     const bookId = highlight.book;
     console.log('BrainPolling: starting for', highlightId);
@@ -554,7 +554,7 @@ export async function injectBrainPolling(highlight, scroller) {
         </div>
     `;
     const statusEl = scroller.querySelector('.brain-status');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
     let attempts = 0;
     const maxAttempts = 60; // 3s × 60 = 3 min
@@ -564,8 +564,8 @@ export async function injectBrainPolling(highlight, scroller) {
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
-            const resp = await fetch(`/api/ai-brain/status/${highlightId}`, {
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            const resp: any = await fetch(`/api/ai-brain/status/${highlightId}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
                 credentials: 'same-origin',
                 signal: controller.signal,
             });
@@ -583,7 +583,7 @@ export async function injectBrainPolling(highlight, scroller) {
                 return;
             }
 
-            const data = await resp.json();
+            const data: any = await resp.json();
 
             if (data.status === 'completed') {
                 statusEl.textContent = 'Result ready — loading...';
@@ -595,7 +595,7 @@ export async function injectBrainPolling(highlight, scroller) {
                 subBookTarget.setAttribute('data-highlight-id', highlightId);
                 scroller.appendChild(subBookTarget);
 
-                const { loadSubBook } = await import('./subBookLoader.js');
+                const { loadSubBook }: any = await import('./subBookLoader.js');
                 await loadSubBook(data.sub_book_id, bookId, highlightId, 'hyperlight', scroller, {
                     previewNodes: data.preview_nodes || null,
                     targetElement: subBookTarget,
@@ -638,12 +638,12 @@ export async function injectBrainPolling(highlight, scroller) {
 /**
  * Write library, nodes, hyperlight, and hypercites from the API response to IndexedDB.
  */
-async function writeRecordsToIndexedDB(data) {
+async function writeRecordsToIndexedDB(data: any) {
   const { nodes, library, hyperlight, hypercites } = data;
 
   try {
-    const { openDatabase } = await import('../indexedDB/index');
-    const db = await openDatabase();
+    const { openDatabase }: any = await import('../indexedDB/index');
+    const db: any = await openDatabase();
 
     // Write library record
     if (library) {
@@ -658,7 +658,7 @@ async function writeRecordsToIndexedDB(data) {
         timestamp: 0,
         raw_json: '[]',
       });
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         libTx.oncomplete = resolve;
         libTx.onerror = () => reject(libTx.error);
       });
@@ -679,7 +679,7 @@ async function writeRecordsToIndexedDB(data) {
           raw_json: '[]',
         });
       }
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         nodeTx.oncomplete = resolve;
         nodeTx.onerror = () => reject(nodeTx.error);
       });
@@ -703,7 +703,7 @@ async function writeRecordsToIndexedDB(data) {
         raw_json: hyperlight.raw_json || { brain_query: true },
         hidden: false,
       });
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         hlTx.oncomplete = resolve;
         hlTx.onerror = () => reject(hlTx.error);
       });
@@ -727,7 +727,7 @@ async function writeRecordsToIndexedDB(data) {
           raw_json: '{}',
         });
       }
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         hcTx.oncomplete = resolve;
         hcTx.onerror = () => reject(hcTx.error);
       });
@@ -740,16 +740,16 @@ async function writeRecordsToIndexedDB(data) {
 /**
  * Update the existing hyperlight record in IndexedDB with sub_book_id and preview_nodes.
  */
-async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes, rawJson = null) {
+async function updateHyperlightInIndexedDB(highlightId: any, subBookId: any, previewNodes: any, rawJson: any = null) {
   try {
-    const { openDatabase } = await import('../indexedDB/index');
-    const db = await openDatabase();
+    const { openDatabase }: any = await import('../indexedDB/index');
+    const db: any = await openDatabase();
 
     const tx = db.transaction(['hyperlights'], 'readwrite');
     const store = tx.objectStore('hyperlights');
     const idx = store.index('hyperlight_id');
 
-    const existing = await new Promise((resolve) => {
+    const existing: any = await new Promise((resolve: any) => {
       const req = idx.get(highlightId);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
@@ -762,7 +762,7 @@ async function updateHyperlightInIndexedDB(highlightId, subBookId, previewNodes,
         existing.raw_json = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
       }
       store.put(existing);
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve: any, reject: any) => {
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
       });

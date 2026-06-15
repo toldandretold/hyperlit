@@ -28,7 +28,7 @@ vi.mock('../../../resources/js/integrity/reporter.js', () => ({
 }));
 // Dynamically imported by batch.js only when footnote counts change; mocked so
 // an accidental trigger can't drag in the footnote engine.
-vi.mock('../../../resources/js/footnotes/FootnoteNumberingService.js', () => ({
+vi.mock('../../../resources/js/footnotes/FootnoteNumberingService', () => ({
   rebuildAndRenumber: vi.fn(),
 }));
 // master.js (reachable via the dynamic `import('../index.js')`) imports auth.js,

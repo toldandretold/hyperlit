@@ -18,7 +18,7 @@ vi.mock('../../../resources/js/integrity/reporter.js', () => ({
   reportIntegrityFailure: vi.fn(),
   reportServerError: vi.fn(),
 }));
-vi.mock('../../../resources/js/footnotes/FootnoteNumberingService.js', () => ({
+vi.mock('../../../resources/js/footnotes/FootnoteNumberingService', () => ({
   rebuildAndRenumber: vi.fn(),
 }));
 vi.mock('../../../resources/js/utilities/auth.js', () => ({

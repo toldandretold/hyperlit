@@ -31,7 +31,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // to open. Full mock (the real module's import chain — divEditor → toc.js custom
 // elements — doesn't load under happy-dom); stub the other exports the rest of
 // the import graph pulls from this module.
-vi.mock('../../../resources/js/hyperlitContainer/index.js', () => ({
+vi.mock('../../../resources/js/hyperlitContainer/index', () => ({
   handleUnifiedContentClick: vi.fn().mockResolvedValue(undefined),
   initializeHyperlitManager: vi.fn(),
   openHyperlitContainer: vi.fn(),
@@ -46,7 +46,7 @@ vi.mock('../../../resources/js/divEditor/index.js', () => ({
   isEditorObserving: vi.fn(() => false),
 }));
 
-import { handleUnifiedContentClick } from '../../../resources/js/hyperlitContainer/index.js';
+import { handleUnifiedContentClick } from '../../../resources/js/hyperlitContainer/index';
 import { handleMarkClick } from '../../../resources/js/hyperlights/listeners';
 import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector';
 import { applyHighlights } from '../../../resources/js/lazyLoaderFactory.js';

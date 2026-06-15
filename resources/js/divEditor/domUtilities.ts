@@ -22,6 +22,7 @@ import { verbose } from '../utilities/logger.js';
 import { isPasteOperationActive } from '../paste';
 import { trackChunkNodeCount } from '../chunkManager.js';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
+import { queueNodeForSave } from './editorState';   // its real home (leaf) — not the ./index barrel
 
 type QueueNodeForSaveFn = (id: string, action?: string, bookId?: string | null) => void;
 
@@ -279,7 +280,6 @@ export async function handleHyperciteRemoval(removedNode: any, mutationTarget: a
         targetNode.appendChild(newTombstone);
 
         // Explicitly queue save so batch.js updates node_id promptly
-        const { queueNodeForSave } = await import('./index.js');
         queueNodeForSave(targetNode.id, 'update');
 
         console.log(`👻 Relocated tombstone ${hyperciteId} to ${targetNode.tagName}#${targetNode.id}`);

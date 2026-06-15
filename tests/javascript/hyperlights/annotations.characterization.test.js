@@ -11,7 +11,7 @@ const { queueForSync, updateAnnotationsTimestamp } = vi.hoisted(() => ({
   updateAnnotationsTimestamp: vi.fn(),
 }));
 vi.mock('../../../resources/js/utilities/operationState.js', () => ({ withPending: (fn) => fn() }));
-vi.mock('../../../resources/js/hyperlitContainer/stack.js', () => ({ getCurrentContainer: () => null }));
+vi.mock('../../../resources/js/hyperlitContainer/stack', () => ({ getCurrentContainer: () => null }));
 vi.mock('../../../resources/js/indexedDB/index.js', async () => {
   const conn = await import('../../../resources/js/indexedDB/core/connection');
   return { openDatabase: conn.openDatabase, queueForSync, updateAnnotationsTimestamp };

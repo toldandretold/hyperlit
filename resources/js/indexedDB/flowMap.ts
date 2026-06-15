@@ -127,6 +127,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'footnotes/index', plain: 'Footnote store CRUD.' },
       { path: 'bibliography/index', plain: 'Bibliography store CRUD and reference-target resolution.' },
       { path: 'hypercites/index', plain: 'Hypercite store CRUD and relationship management.' },
+      { path: 'hypercites/read', plain: 'Hypercite read primitive (leaf, no sibling imports — breaks the index↔helpers cycle).' },
       { path: 'hypercites/helpers', plain: 'Hypercite helper utilities.' },
       { path: 'highlights/index', plain: 'Hyperlight store CRUD.' },
     ],

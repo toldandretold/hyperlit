@@ -17,7 +17,7 @@ vi.hoisted(() => {
   };
 });
 // Heavy reader chain that breaks under happy-dom (same stubs as overlapClick test).
-vi.mock('../../../resources/js/hyperlitContainer/index.js', () => ({
+vi.mock('../../../resources/js/hyperlitContainer/index', () => ({
   handleUnifiedContentClick: vi.fn(), initializeHyperlitManager: vi.fn(),
   openHyperlitContainer: vi.fn(), closeHyperlitContainer: vi.fn(),
 }));

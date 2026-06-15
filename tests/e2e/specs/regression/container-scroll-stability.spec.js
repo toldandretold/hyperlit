@@ -11,7 +11,7 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  *
  * Fix = scoped manual scroll restoration: `history.scrollRestoration` is set
  * to 'manual' while a container is open and reset to 'auto' once it fully
- * closes (resources/js/hyperlitContainer/core.js).
+ * closes (resources/js/hyperlitContainer/core).
  *
  * This test asserts BOTH:
  *   1. MECHANISM (deterministic, browser-agnostic): scrollRestoration flips

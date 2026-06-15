@@ -24,7 +24,7 @@ import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
 import { renderCharts } from './utilities/chartRenderer.js';
-import { getDisplayNumber } from './footnotes/FootnoteNumberingService.js';
+import { getDisplayNumber } from './footnotes/FootnoteNumberingService';
 import { restoreScrollAnchor } from './utilities/scrollAnchor.js';
 import { STRUCTURAL_BLOCK_TAGS } from './utilities/blockElements.js';
 
@@ -517,7 +517,7 @@ export function createLazyLoader(config) {
         }
 
         // Import and call unified container handler
-        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
+        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index');
         await handleUnifiedContentClick(link, highlightIds);
         return;
       }

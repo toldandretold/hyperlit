@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 415 functions in 82 modules · 8 object stores · 6 PG tables · 786 edges
+**MarkdownDB** schema v27 · 531 functions in 109 modules · 8 object stores · 6 PG tables · 1163 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -10,6 +10,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 | Function | Module | Reads (store) | Writes (store) | DOM | Postgres |
 |----------|--------|---------------|----------------|-----|----------|
+| `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
+| `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
+| `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
 | `getFirstNodeIdForBook` | `divEditor/chunkMutationHandler/firstNode` | — | — | read | — |
 | `ChunkMutationHandler.clearChunkCache` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.constructor` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
@@ -46,6 +49,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isEventInActiveDiv` | `divEditor/editSessionManager` | — | — | — | — |
 | `printSessionHistory` | `divEditor/editSessionManager` | — | — | — | — |
 | `registerEditSession` | `divEditor/editSessionManager` | — | — | — | — |
+| `setPreemptStop` | `divEditor/editSessionManager` | — | — | — | — |
 | `unregisterEditSession` | `divEditor/editSessionManager` | — | — | — | — |
 | `verifyMutationSource` | `divEditor/editSessionManager` | — | — | — | — |
 | `createAndInsertParagraph` | `divEditor/enterKeyHandler/caretHelpers` | — | — | read/write | — |
@@ -254,6 +258,28 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UndoManager.snapshotForStructural` | `editToolbar/undoManager` | — | — | read | — |
 | `UndoManager.startCapture` | `editToolbar/undoManager` | — | — | read | — |
 | `UndoManager.undo` | `editToolbar/undoManager` | — | — | — | — |
+| `attachFootnoteListener` | `footnotes/footnoteAnnotations` | — | — | read | — |
+| `attachFootnotePlaceholderBehavior` | `footnotes/footnoteAnnotations` | — | — | read/write | — |
+| `cleanupFootnoteListeners` | `footnotes/footnoteAnnotations` | — | — | — | — |
+| `flushPendingFootnoteSaves` | `footnotes/footnoteAnnotations` | — | — | — | — |
+| `saveFootnoteToIndexedDB` | `footnotes/footnoteAnnotations` | `footnotes` | `footnotes` | read | — |
+| `buildFootnoteMap` | `footnotes/footnoteCache` | — | — | — | — |
+| `clearCache` | `footnotes/footnoteCache` | — | — | — | — |
+| `getCurrentBookId` | `footnotes/footnoteCache` | — | — | — | — |
+| `getCurrentMap` | `footnotes/footnoteCache` | — | — | — | — |
+| `getDisplayNumber` | `footnotes/footnoteCache` | — | — | — | — |
+| `getFootnoteId` | `footnotes/footnoteCache` | — | — | — | — |
+| `getMapSize` | `footnotes/footnoteCache` | — | — | — | — |
+| `hasOldFormatFootnotes` | `footnotes/footnoteCache` | — | — | — | — |
+| `isFootnoteId` | `footnotes/footnoteCache` | — | — | — | — |
+| `applyFootnoteMapToStoredHTML` | `footnotes/footnoteDom` | — | — | read/write | — |
+| `extractFootnoteIdsFromContent` | `footnotes/footnoteDom` | — | — | read/write | — |
+| `migrateOldFormatFootnotes` | `footnotes/footnoteDom` | — | — | read/write | — |
+| `updateFootnoteNumbersInDOM` | `footnotes/footnoteDom` | — | — | read/write | — |
+| `generateFootnoteId` | `footnotes/footnoteInserter` | — | — | — | — |
+| `insertFootnoteAtCursor` | `footnotes/footnoteInserter` | — | `footnotes` | read/write | — |
+| `openFootnoteForEditing` | `footnotes/footnoteInserter` | — | — | — | — |
+| `rebuildAndRenumber` | `footnotes/FootnoteNumberingService` | `nodes` | `nodes` | read | — |
 | `highlightTargetHypercite` | `hypercites/animations` | — | — | read/write | — |
 | `restoreNormalHyperciteDisplay` | `hypercites/animations` | — | — | read/write | — |
 | `revealGhostIfTombstone` | `hypercites/animations` | — | — | read/write | — |
@@ -335,6 +361,96 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `attachPlaceholderBehavior` | `hyperlights/utils` | — | — | read/write | — |
 | `generateHighlightID` | `hyperlights/utils` | — | — | — | — |
 | `openHighlightById` | `hyperlights/utils` | — | — | read | — |
+| `cleanupPendingBrainHighlight` | `hyperlitContainer/brainQuery` | — | — | — | — |
+| `injectBrainInput` | `hyperlitContainer/brainQuery` | `hyperlights` | `hypercites` `hyperlights` `library` `nodes` | read/write | — |
+| `injectBrainPolling` | `hyperlitContainer/brainQuery` | `hyperlights` | `hyperlights` | read/write | — |
+| `attachDataContentIdLinkListeners` | `hyperlitContainer/containerListeners` | — | — | read | — |
+| `checkPrivateBookAccess` | `hyperlitContainer/containerListeners` | — | — | read | — |
+| `cleanupContainerListeners` | `hyperlitContainer/containerListeners` | — | — | read/write | — |
+| `isClickProcessing` | `hyperlitContainer/containerState` | — | — | — | — |
+| `registerListener` | `hyperlitContainer/containerState` | — | — | — | — |
+| `resetModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
+| `restoreModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
+| `saveModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
+| `buildUnifiedContent` | `hyperlitContainer/contentBuild` | — | — | — | — |
+| `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `bibliography` `library` | `bibliography` `library` | — | — |
+| `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `library` | `library` | — | — |
+| `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
+| `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
+| `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `library` | — | — | — |
+| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | — |
+| `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
+| `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
+| `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
+| `buildHighlightContent` | `hyperlitContainer/contentBuilders/displayHyperlights` | `hyperlights` `nodes` | — | — | — |
+| `getHandler` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
+| `priorityOf` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
+| `animateHyperlitContainerOpen` | `hyperlitContainer/core` | — | — | read | — |
+| `closeHyperlitContainer` | `hyperlitContainer/core` | — | — | read/write | — |
+| `destroyHyperlitManager` | `hyperlitContainer/core` | — | — | — | — |
+| `getHyperlitEditMode` | `hyperlitContainer/core` | — | — | — | — |
+| `initializeHyperlitManager` | `hyperlitContainer/core` | — | — | read | — |
+| `isContainerClosing` | `hyperlitContainer/core` | — | — | — | — |
+| `openHyperlitContainer` | `hyperlitContainer/core` | — | — | read/write | — |
+| `prepareContainerClose` | `hyperlitContainer/core` | — | — | — | — |
+| `prepareHyperlitContainer` | `hyperlitContainer/core` | — | — | read/write | — |
+| `saveAndCloseHyperlitContainer` | `hyperlitContainer/core` | — | — | — | — |
+| `savePreviewNodes` | `hyperlitContainer/core` | `footnotes` `hyperlights` | `footnotes` `hyperlights` | — | — |
+| `setHyperlitEditMode` | `hyperlitContainer/core` | — | — | — | — |
+| `toggleHyperlitEditMode` | `hyperlitContainer/core` | — | — | — | — |
+| `detectCitation` | `hyperlitContainer/detection` | — | — | read | — |
+| `detectContentTypes` | `hyperlitContainer/detection` | — | — | — | — |
+| `detectFootnote` | `hyperlitContainer/detection` | — | — | read | — |
+| `detectHighlights` | `hyperlitContainer/detection` | — | — | read | — |
+| `detectHyperciteCitation` | `hyperlitContainer/detection` | — | — | read | — |
+| `detectHypercites` | `hyperlitContainer/detection` | `hypercites` | — | read | — |
+| `applyCurrentEditModeToLayer` | `hyperlitContainer/editMode` | — | — | read/write | — |
+| `attachSubBookFocusSwitcher` | `hyperlitContainer/editMode` | — | — | read/write | — |
+| `buildEditButtonHtml` | `hyperlitContainer/editMode` | — | — | — | — |
+| `focusTopmostEditableElement` | `hyperlitContainer/editMode` | — | — | read | — |
+| `handleEditButtonClick` | `hyperlitContainer/editMode` | — | — | read/write | — |
+| `placeCursorAtEnd` | `hyperlitContainer/editMode` | — | — | read | — |
+| `toggleContentEditableInPlace` | `hyperlitContainer/editMode` | — | — | read | — |
+| `buildContentFromMetadata` | `hyperlitContainer/history` | — | — | — | — |
+| `determineSingleContentHash` | `hyperlitContainer/history` | — | — | — | — |
+| `getCurrentContainerState` | `hyperlitContainer/history` | — | — | — | — |
+| `restoreContainerStack` | `hyperlitContainer/history` | — | — | read | — |
+| `restoreHyperlitContainerFromHistory` | `hyperlitContainer/history` | — | — | read | — |
+| `restoreStackedLayer` | `hyperlitContainer/history` | — | — | write | — |
+| `handleUnifiedContentClick` | `hyperlitContainer/index` | — | — | read/write | — |
+| `attachNoteListeners` | `hyperlitContainer/noteListener` | — | — | — | — |
+| `detachNoteListeners` | `hyperlitContainer/noteListener` | — | — | read | — |
+| `initializePlaceholders` | `hyperlitContainer/noteListener` | — | — | read/write | — |
+| `checkIfUserHasAnyEditPermission` | `hyperlitContainer/permissions` | — | — | — | — |
+| `handlePostOpenActions` | `hyperlitContainer/postOpen` | — | — | read/write | — |
+| `clear` | `hyperlitContainer/stack` | — | — | read/write | — |
+| `createStackedContainerDOM` | `hyperlitContainer/stack` | — | — | read/write | — |
+| `getCurrentContainer` | `hyperlitContainer/stack` | — | — | read | — |
+| `getCurrentScroller` | `hyperlitContainer/stack` | — | — | read | — |
+| `getDepth` | `hyperlitContainer/stack` | — | — | — | — |
+| `getLayerBelow` | `hyperlitContainer/stack` | — | — | — | — |
+| `getTopLayer` | `hyperlitContainer/stack` | — | — | — | — |
+| `isEmpty` | `hyperlitContainer/stack` | — | — | — | — |
+| `isStacked` | `hyperlitContainer/stack` | — | — | — | — |
+| `isStackPopPending` | `hyperlitContainer/stack` | — | — | — | — |
+| `isStackPopping` | `hyperlitContainer/stack` | — | — | — | — |
+| `popLayer` | `hyperlitContainer/stack` | — | — | — | — |
+| `popTopLayer` | `hyperlitContainer/stack` | — | — | read | — |
+| `pushLayer` | `hyperlitContainer/stack` | — | — | — | — |
+| `removeStackedContainerDOM` | `hyperlitContainer/stack` | — | — | write | — |
+| `resizeAllLayers` | `hyperlitContainer/stack` | — | — | read | — |
+| `saveAndPopTopLayer` | `hyperlitContainer/stack` | — | — | — | — |
+| `serializeStack` | `hyperlitContainer/stack` | — | — | — | — |
+| `syncStackToHistoryState` | `hyperlitContainer/stack` | — | — | — | — |
+| `destroyAllSubBooks` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `destroySubBook` | `hyperlitContainer/subBookLoader` | — | — | write | — |
+| `loadSubBook` | `hyperlitContainer/subBookLoader` | — | — | read/write | — |
+| `resetSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `restoreSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `saveSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `fetchLibraryFromServer` | `hyperlitContainer/utils` | — | — | read | — |
+| `formatRelativeTime` | `hyperlitContainer/utils` | — | — | — | — |
+| `scrollFocusedElementIntoView` | `hyperlitContainer/utils` | — | — | read | — |
 | `initReferencesDependencies` | `indexedDB/bibliography/index` | — | — | — | — |
 | `resolveBibliographyTarget` | `indexedDB/bibliography/index` | — | — | — | — |
 | `saveAllReferencesToIndexedDB` | `indexedDB/bibliography/index` | — | `bibliography` | — | — |
@@ -374,10 +490,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `rebuildNodeArrays` | `indexedDB/hydration/rebuild` | `hypercites` `hyperlights` | `nodes` | — | — |
 | `resolveHypercite` | `indexedDB/hypercites/helpers` | — | `hypercites` `nodes` | read | — |
 | `addCitationToHypercite` | `indexedDB/hypercites/index` | `nodes` | `nodes` | — | — |
-| `getHyperciteFromIndexedDB` | `indexedDB/hypercites/index` | `hypercites` | `hypercites` | — | — |
 | `initHypercitesDependencies` | `indexedDB/hypercites/index` | — | — | — | — |
 | `updateCitationForExistingHypercite` | `indexedDB/hypercites/index` | — | — | — | — |
 | `updateHyperciteInIndexedDB` | `indexedDB/hypercites/index` | `hypercites` | `hypercites` | — | — |
+| `getHyperciteFromIndexedDB` | `indexedDB/hypercites/read` | `hypercites` | `hypercites` | — | — |
 | `syncHyperciteToPostgreSQL` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
 | `syncHyperciteUpdateImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑hypercites` |
 | `syncHyperciteWithNodeChunkImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
@@ -425,6 +541,84 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `deleteIndexedDBRecordWithRetry` | `indexedDB/utilities/retry` | — | — | — | — |
 | `retryOperation` | `indexedDB/utilities/retry` | — | — | — | — |
+
+## Import cycles & dynamic imports
+
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 72
+
+Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
+
+### Cycles masked by dynamic imports (coupling debt)
+These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
+- (29 modules) `divEditor/index`, `footnotes/footnoteAnnotations`, `hypercites/containers`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/annotations`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/listeners`, `hyperlights/selectionToolbar`, `hyperlights/utils`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentBuilders/displayHypercites`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperciteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`
+
+### Dynamic cycle-breakers (debt — could become one-way via events/DI)
+- `hypercites/containers` → `hyperlitContainer/index`
+- `hypercites/navigation` → `hyperlitContainer/index`
+- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlights/index`
+- `hyperlitContainer/core` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/stack` → `hyperlitContainer/editMode`
+- `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
+
+### Lazy-loads (code-split points)
+- `divEditor/chunkMutationHandler/index` → `hypercites/database`
+- `divEditor/chunkMutationHandler/index` → `hypercites/deletion`
+- `divEditor/domUtilities` → `hypercites/database`
+- `divEditor/domUtilities` → `hypercites/deletion`
+- `divEditor/domUtilities` → `indexedDB/index`
+- `divEditor/supTagHandler/deleteHandler` → `hypercites/database`
+- `divEditor/supTagHandler/deleteHandler` → `indexedDB/index`
+- `editToolbar/citationMode` → `citations/citationInserter`
+- `editToolbar/index` → `footnotes/footnoteInserter`
+- `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
+- `footnotes/FootnoteNumberingService` → `indexedDB/index`
+- `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
+- `hyperlights/createHighlight` → `hyperlitContainer/index`
+- `hyperlitContainer/brainQuery` → `editToolbar/index`
+- `hyperlitContainer/brainQuery` → `hyperlights/deletion`
+- `hyperlitContainer/brainQuery` → `hyperlitContainer/core`
+- `hyperlitContainer/brainQuery` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/brainQuery` → `indexedDB/index`
+- `hyperlitContainer/containerListeners` → `divEditor/editSessionManager`
+- `hyperlitContainer/containerListeners` → `divEditor/index`
+- `hyperlitContainer/containerListeners` → `editToolbar/index`
+- `hyperlitContainer/contentBuilders/displayCitations` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentBuilders/displayFootnotes` → `indexedDB/index`
+- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/core`
+- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentBuilders/displayHyperlights` → `hyperlitContainer/utils`
+- `hyperlitContainer/core` → `footnotes/footnoteAnnotations`
+- `hyperlitContainer/core` → `hyperlitContainer/brainQuery`
+- `hyperlitContainer/core` → `hyperlitContainer/containerListeners`
+- `hyperlitContainer/core` → `hyperlitContainer/stack`
+- `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/core` → `indexedDB/index`
+- `hyperlitContainer/core` → `indexedDB/syncQueue/master`
+- `hyperlitContainer/editMode` → `divEditor/editSessionManager`
+- `hyperlitContainer/editMode` → `divEditor/index`
+- `hyperlitContainer/editMode` → `editToolbar/index`
+- `hyperlitContainer/editMode` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/history` → `divEditor/editSessionManager`
+- `hyperlitContainer/history` → `divEditor/index`
+- `hyperlitContainer/history` → `hyperlitContainer/containerState`
+- `hyperlitContainer/history` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/index` → `divEditor/editSessionManager`
+- `hyperlitContainer/index` → `divEditor/index`
+- `hyperlitContainer/index` → `hyperlights/markGroup`
+- `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/postOpen` → `hyperlitContainer/contentBuilders/displayHypercites`
+- `hyperlitContainer/stack` → `hyperlitContainer/containerListeners`
+- `hyperlitContainer/stack` → `hyperlitContainer/containerState`
+- `hyperlitContainer/stack` → `hyperlitContainer/core`
+- `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/subBookLoader` → `hyperlights/index`
+- `hyperlitContainer/subBookLoader` → `indexedDB/core/library`
+- `hyperlitContainer/subBookLoader` → `indexedDB/hydration/rebuild`
+- `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
+- `indexedDB/hypercites/index` → `indexedDB/hydration/rebuild`
+- `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
+- `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
 
 ## Legend
 

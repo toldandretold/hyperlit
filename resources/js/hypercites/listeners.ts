@@ -7,7 +7,7 @@
 
 import { handleCopyEvent } from './copy';
 import { handleUnderlineClick } from './navigation';
-import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
+import { initializeHyperlitManager } from '../hyperlitContainer/core';
 import { log, verbose } from '../utilities/logger.js';
 import { getActiveBook } from '../utilities/activeContext.js';
 

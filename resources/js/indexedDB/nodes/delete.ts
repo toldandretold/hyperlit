@@ -235,17 +235,6 @@ export async function deleteIndexedDBRecord(id: string | number): Promise<boolea
           queueForSync("hypercites", record.hyperciteId, "delete", record);
         });
 
-        // ✅ Dynamically import toolbar (only exists when editing)
-        try {
-          const { getEditToolbar } = await import('../../editToolbar/index');
-          const toolbar = getEditToolbar();
-          if (toolbar) {
-              await toolbar.updateHistoryButtonStates();
-          }
-        } catch (e) {
-          // Toolbar not loaded (not in edit mode)
-        }
-
         resolve(true);
       };
 

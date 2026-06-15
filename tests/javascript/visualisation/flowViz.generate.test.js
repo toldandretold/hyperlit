@@ -63,6 +63,23 @@ describe('IndexedDB flow viz', () => {
     for (const id of fnIds) expect(grouped.has(id), `${id} should belong to a module`).toBe(true);
   });
 
+  it('import graph: NO real static-import cycles, every import edge classified', () => {
+    const viz = collect();
+    // The honest cycle detector: static-import rings are the only TDZ risk. We keep this at 0
+    // (dynamic-import breakers/lazy-loads are intentional and don't crash). A regression here
+    // means someone reintroduced a circular static import.
+    expect(viz.cycleSummary.staticCycles, JSON.stringify(viz.cycleSummary.staticCycles)).toEqual([]);
+    expect(typeof viz.cycleSummary.breakerCount).toBe('number');
+    expect(typeof viz.cycleSummary.lazyCount).toBe('number');
+
+    const moduleIds = new Set(viz.modules.map(m => m.id));
+    for (const e of viz.importEdges) {
+      expect(['static', 'breaker', 'lazy']).toContain(e.kind);
+      expect(moduleIds.has(e.source), `import source ${e.source}`).toBe(true);
+      expect(moduleIds.has(e.target), `import target ${e.target}`).toBe(true);
+    }
+  });
+
   const targets = [
     ['json', ARTIFACTS.json],
     ['md', ARTIFACTS.md],

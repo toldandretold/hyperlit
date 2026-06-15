@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // listeners.js statically imports the container module, whose import chain
 // doesn't load under happy-dom — same stubs as overlapClick.characterization.
-vi.mock('../../../resources/js/hyperlitContainer/index.js', () => ({
+vi.mock('../../../resources/js/hyperlitContainer/index', () => ({
   handleUnifiedContentClick: vi.fn().mockResolvedValue(undefined),
   initializeHyperlitManager: vi.fn(),
   openHyperlitContainer: vi.fn(),

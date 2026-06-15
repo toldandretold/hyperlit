@@ -4,8 +4,8 @@
  */
 
 import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index';
-import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService.js';
-import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
+import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService';
+import { handleUnifiedContentClick } from '../hyperlitContainer/index';
 
 /**
  * Generate a unique footnote ID
@@ -13,11 +13,13 @@ import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
  * @param {string} bookId - Not used, kept for API compatibility
  * @returns {string}
  */
-export function generateFootnoteId(bookId) {
+export function generateFootnoteId(bookId?: string): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 6);
   return `Fn${timestamp}_${random}`;
 }
+
+type FootnoteSaveCallback = (id: string, html: string, options?: any) => Promise<void> | void;
 
 /**
  * Insert a footnote at the current cursor position
@@ -26,7 +28,11 @@ export function generateFootnoteId(bookId) {
  * @param {Function} saveCallback - Callback to save node to IndexedDB (id, html, options)
  * @returns {Promise<{footnoteId: string, supElement: HTMLElement}>}
  */
-export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
+export async function insertFootnoteAtCursor(
+  range: any,
+  bookId: string,
+  saveCallback?: FootnoteSaveCallback,
+): Promise<{ footnoteId: string; supElement: HTMLElement }> {
   if (!range) {
     throw new Error('No valid cursor position');
   }
@@ -58,8 +64,8 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
 
   // Restore selection without scrolling
   const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 
   // Restore scroll position (browser may have scrolled during insertion)
   if (scrollContainer) {
@@ -110,7 +116,7 @@ export async function insertFootnoteAtCursor(range, bookId, saveCallback) {
  * @param {string} footnoteId
  * @param {string} bookId
  */
-async function createFootnoteRecord(footnoteId, bookId) {
+async function createFootnoteRecord(footnoteId: string, bookId: string): Promise<void> {
   const db = await openDatabase();
   const tx = db.transaction('footnotes', 'readwrite');
   const store = tx.objectStore('footnotes');
@@ -124,13 +130,13 @@ async function createFootnoteRecord(footnoteId, bookId) {
     updated_at: now
   };
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const request = store.put(footnoteRecord);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => {
       console.log(`Created footnote record: ${footnoteId}`);
       resolve();
@@ -147,9 +153,9 @@ async function createFootnoteRecord(footnoteId, bookId) {
  * @param {string} footnoteId
  * @param {HTMLElement} supElement
  */
-export async function openFootnoteForEditing(footnoteId, supElement) {
+export async function openFootnoteForEditing(footnoteId: string, supElement: any): Promise<void> {
   // Use handleUnifiedContentClick with the sup element
   // This will detect it as a footnote and build the content
   // Pass isNewFootnote=true so the container knows to auto-focus
-  await handleUnifiedContentClick(supElement, null, [], false, false, null, true);
+  await handleUnifiedContentClick(supElement, null as any, [], false, false, null as any, true);
 }

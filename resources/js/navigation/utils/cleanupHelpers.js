@@ -8,7 +8,7 @@ import { resetEditModeState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
 import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../components/logoNavToggle.js';
-import { closeHyperlitContainer } from '../../hyperlitContainer/index.js';
+import { closeHyperlitContainer } from '../../hyperlitContainer/index';
 import { buttonRegistry } from '../../utilities/buttonRegistry.js';
 
 /**

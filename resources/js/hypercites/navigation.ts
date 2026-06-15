@@ -13,8 +13,15 @@ import { getLocalStorageKey, openDatabase } from '../indexedDB/index';
 import { getHyperciteData, getHyperciteById } from './database';
 import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';
 import { createOverlappingPolyContainer } from './containers';
-import { handleUnifiedContentClick, closeHyperlitContainer } from '../hyperlitContainer/index.js';
-import { getCurrentContainer } from '../hyperlitContainer/stack.js';
+import { closeHyperlitContainer } from '../hyperlitContainer/core';
+import { getCurrentContainer } from '../hyperlitContainer/stack';
+
+// Dynamic to break the hypercites ↔ hyperlitContainer/index static ring (TDZ-safe — the container
+// orchestrator is only invoked at click time). Surfaces in the data map as a dynamic cycle-breaker.
+const handleUnifiedContentClick = async (...args: any[]): Promise<any> => {
+  const m: any = await import('../hyperlitContainer/index');
+  return m.handleUnifiedContentClick(...args);
+};
 import { currentLazyLoader } from '../initializePage.js';
 import { showTargetNotFoundToast } from '../utilities/toast.js';
 

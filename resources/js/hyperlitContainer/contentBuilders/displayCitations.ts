@@ -13,7 +13,7 @@ import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index';
  * Build an ancestor chain for a sub-book ID (innermost parent first).
  * e.g. "bookX/2/FnY/HL_abc" → ["bookX/FnY", "bookX"]
  */
-function buildAncestorChain(bookId) {
+function buildAncestorChain(bookId: any) {
   if (!bookId.includes('/')) return [];
   const parts = bookId.split('/');
   if (parts.length === 2) {
@@ -31,14 +31,14 @@ function buildAncestorChain(bookId) {
  * already linked the title via the bibtex `url` field). Handles books
  * (`<i>Title</i>`), articles/chapters (`"Title"`), and bare title text.
  */
-function linkTitleInCitation(html, title, href) {
+function linkTitleInCitation(html: any, title: any, href: any) {
   if (!html || !title || !href) return html;
   if (/<a\s[^>]*href=/i.test(html)) return html;
 
-  const escapeHtml = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapeHtml = (s: any) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const escapedTitle = escapeHtml(title);
   const safeHref = String(href).replace(/"/g, '&quot;');
-  const wrap = inner => `<a href="${safeHref}" target="_blank" rel="noopener">${inner}</a>`;
+  const wrap = (inner: any) => `<a href="${safeHref}" target="_blank" rel="noopener">${inner}</a>`;
 
   const italicized = `<i>${escapedTitle}</i>`;
   if (html.includes(italicized)) return html.replace(italicized, wrap(italicized));
@@ -51,12 +51,12 @@ function linkTitleInCitation(html, title, href) {
 /**
  * Walk up the ancestor chain to find the first surviving (non-deleted) book.
  */
-async function findSurvivingAncestor(bookId) {
+async function findSurvivingAncestor(bookId: any) {
   const ancestors = buildAncestorChain(bookId);
   for (const ancestorId of ancestors) {
     try {
-      const { fetchLibraryFromServer } = await import('../utils.js');
-      const record = await fetchLibraryFromServer(ancestorId);
+      const { fetchLibraryFromServer }: any = await import('../utils.js');
+      const record: any = await fetchLibraryFromServer(ancestorId);
       if (record && record.visibility !== 'deleted') {
         return { bookId: ancestorId, libraryData: record };
       }
@@ -72,7 +72,7 @@ async function findSurvivingAncestor(bookId) {
  * @param {IDBDatabase} db - Reused database connection
  * @returns {Promise<string>} HTML string for citation content
  */
-export async function buildCitationContent(contentType, db = null) {
+export async function buildCitationContent(contentType: any, db: any = null) {
   try {
     const { referenceId } = contentType;
 
@@ -93,7 +93,7 @@ export async function buildCitationContent(contentType, db = null) {
 
     for (const refId of ids) {
       const key = [lookupBook, refId];
-      const result = await new Promise((resolve, reject) => {
+      const result: any = await new Promise((resolve: any, reject: any) => {
         const request = bibliographyStore.get(key);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
@@ -114,7 +114,7 @@ export async function buildCitationContent(contentType, db = null) {
         let canonicalResolvedBook = null;
         if (!result.source_id && result.canonical_source_id) {
           try {
-            const resolved = await resolveBibliographyTarget(result);
+            const resolved: any = await resolveBibliographyTarget(result);
             if (resolved?.type === 'library' && resolved.book) {
               canonicalResolvedBook = resolved.book;
             } else if (resolved?.type === 'citation-card') {
@@ -149,7 +149,7 @@ export async function buildCitationContent(contentType, db = null) {
         } else if (result.source_id && sourceHasNodes) {
           // Fetch the library entry to check visibility
           const libraryStore = transaction.objectStore('library');
-          const libraryRecord = await new Promise((resolve) => {
+          const libraryRecord: any = await new Promise((resolve: any) => {
             const request = libraryStore.get(result.source_id);
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => resolve(null);
@@ -161,7 +161,7 @@ export async function buildCitationContent(contentType, db = null) {
           const isDeleted = libraryRecord && libraryRecord.visibility === 'deleted';
 
           if (isPrivate) {
-            const { canUserEditBook } = await import('../../utilities/auth.js');
+            const { canUserEditBook }: any = await import('../../utilities/auth.js');
             hasAccess = await canUserEditBook(result.source_id);
           }
 
@@ -229,7 +229,7 @@ export async function buildCitationContent(contentType, db = null) {
  * @param {IDBDatabase} db - Reused database connection
  * @returns {Promise<string>} HTML string for hypercite citation content
  */
-export async function buildHyperciteCitationContent(contentType, db = null) {
+export async function buildHyperciteCitationContent(contentType: any, db: any = null) {
   try {
     const { targetBook, targetHyperciteId, targetUrl } = contentType;
 
@@ -239,7 +239,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
     const transaction = database.transaction(['library'], 'readonly');
     const store = transaction.objectStore('library');
 
-    const result = await new Promise((resolve, reject) => {
+    const result: any = await new Promise((resolve: any, reject: any) => {
       const request = store.get(targetBook);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -252,8 +252,8 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       formattedCitation = await formatBibtexToCitation(result.bibtex);
     } else {
       // Fallback: try to fetch from server - import fetchLibraryFromServer from utils
-      const { fetchLibraryFromServer } = await import('../utils.js');
-      const serverLibraryData = await fetchLibraryFromServer(targetBook);
+      const { fetchLibraryFromServer }: any = await import('../utils.js');
+      const serverLibraryData: any = await fetchLibraryFromServer(targetBook);
       libraryData = serverLibraryData; // Update libraryData with server result
       if (serverLibraryData && serverLibraryData.bibtex) {
         formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
@@ -270,7 +270,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
     let ghostCitedText = '';
     let hyperciteBook = null;
     try {
-      const hyperciteData = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
+      const hyperciteData: any = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
       if (hyperciteData?.relationshipStatus === 'ghost') {
         isGhost = true;
         ghostCitedText = hyperciteData.hypercitedText || '';
@@ -394,7 +394,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
  * @param {Object} contentType - The hypercite-citation content type
  * @param {IDBDatabase|null} db - Optional reused database connection
  */
-export async function resolveButtonStatus(contentType, db, container = null) {
+export async function resolveButtonStatus(contentType: any, db: any, container: any = null) {
   try {
     const { targetBook, targetHyperciteId } = contentType;
 
@@ -408,9 +408,9 @@ export async function resolveButtonStatus(contentType, db, container = null) {
     // Handle access check for private books
     const accessCheckBtn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
     if (accessCheckBtn) {
-      const { canUserEditBook } = await import('../../utilities/auth.js');
+      const { canUserEditBook }: any = await import('../../utilities/auth.js');
       const bookId = accessCheckBtn.getAttribute('data-book-id');
-      const hasAccess = await canUserEditBook(bookId);
+      const hasAccess: any = await canUserEditBook(bookId);
 
       accessCheckBtn.removeAttribute('data-needs-access-check');
       const spinner = accessCheckBtn.querySelector('.btn-spinner');
@@ -430,7 +430,7 @@ export async function resolveButtonStatus(contentType, db, container = null) {
         // Update button text — ghost+private gets distinct denied text
         const isGhost = accessCheckBtn.hasAttribute('data-ghost');
         const deniedText = isGhost ? 'Ghost in private source ' : 'source text private ';
-        accessCheckBtn.childNodes.forEach(node => {
+        accessCheckBtn.childNodes.forEach((node: any) => {
           if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
             node.textContent = deniedText;
           }
@@ -443,7 +443,7 @@ export async function resolveButtonStatus(contentType, db, container = null) {
     if (ancestorCheckEl) {
       const hyperciteBook = ancestorCheckEl.getAttribute('data-hypercite-book');
       if (hyperciteBook) {
-        const ancestor = await findSurvivingAncestor(hyperciteBook);
+        const ancestor: any = await findSurvivingAncestor(hyperciteBook);
         if (ancestor) {
           const ancestorTitle = ancestor.libraryData.title || ancestor.bookId;
           ancestorCheckEl.innerHTML = `<a href="/${encodeURIComponent(ancestor.bookId)}" style="color: #4EACAE; text-decoration: none; font-size: 13px;">View in containing book: ${ancestorTitle} ↗</a>`;

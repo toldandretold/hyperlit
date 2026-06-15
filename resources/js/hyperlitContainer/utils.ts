@@ -8,7 +8,7 @@
  * @param {number} timeSince - Unix timestamp in seconds
  * @returns {string} Formatted relative time string
  */
-export function formatRelativeTime(timeSince) {
+export function formatRelativeTime(timeSince: number | null | undefined): string {
   if (!timeSince) return 'prehistoric';
 
   const now = Math.floor(Date.now() / 1000);
@@ -35,13 +35,13 @@ export function formatRelativeTime(timeSince) {
  * @param {string} bookId - The book ID to fetch library data for
  * @returns {Promise<Object|null>} Library data object or null if not found
  */
-export async function fetchLibraryFromServer(bookId) {
+export async function fetchLibraryFromServer(bookId: string): Promise<any | null> {
   try {
     const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
       },
       credentials: 'include'
     });
@@ -82,7 +82,7 @@ export async function fetchLibraryFromServer(bookId) {
  * (Note: Currently unused - auto-scroll was removed per user request)
  * @param {HTMLElement} container - The container element
  */
-export function scrollFocusedElementIntoView(container) {
+export function scrollFocusedElementIntoView(container: any): void {
   const scroller = container.querySelector('.scroller');
   if (!scroller) return;
 

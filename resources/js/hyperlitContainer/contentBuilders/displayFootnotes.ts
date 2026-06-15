@@ -15,7 +15,7 @@ import { getDisplayNumber, getCurrentBookId, buildFootnoteMap } from '../../foot
  * @param {boolean} editModeEnabled - Unused (kept for signature compatibility)
  * @returns {Promise<string>} HTML string for footnote content
  */
-export async function buildFootnoteContent(contentType, db = null, editModeEnabled = true) {
+export async function buildFootnoteContent(contentType: any, db: any = null, editModeEnabled: any = true) {
   console.time('buildFootnoteContent-total');
   try {
     const { fnCountId, parentBookId } = contentType;
@@ -29,8 +29,8 @@ export async function buildFootnoteContent(contentType, db = null, editModeEnabl
 
     // Ensure footnote map is built for the correct parent book
     if (parentBookId && getCurrentBookId() !== parentBookId) {
-      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
-      const nodes = await getNodeChunksFromIndexedDB(parentBookId);
+      const { getNodeChunksFromIndexedDB }: any = await import('../../indexedDB/index');
+      const nodes: any = await getNodeChunksFromIndexedDB(parentBookId);
       buildFootnoteMap(parentBookId, nodes);
     }
 

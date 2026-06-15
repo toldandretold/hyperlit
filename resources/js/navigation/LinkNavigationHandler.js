@@ -12,7 +12,7 @@ import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation';
 import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
 import { getLocalStorageKey } from '../indexedDB/index';
-import { closeHyperlitContainer } from '../hyperlitContainer/index.js';
+import { closeHyperlitContainer } from '../hyperlitContainer/index';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler = null;
@@ -592,7 +592,7 @@ export class LinkNavigationHandler {
     // Falls through to the full close+rebuild path for stack-shape changes
     // that aren't one-level deltas (cross-book hops, sibling chains, etc.).
     try {
-      const { getDepth, serializeStack, popTopLayer } = await import('../hyperlitContainer/stack.js');
+      const { getDepth, serializeStack, popTopLayer } = await import('../hyperlitContainer/stack');
       const currentDepth = getDepth();
       const savedDepth = capturedStack?.length || 0;
       const currentSerialized = serializeStack();
@@ -621,7 +621,7 @@ export class LinkNavigationHandler {
         if (savedDepth === currentDepth + 1) {
           const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
           if (newTopMeta?.contentTypes?.length) {
-            const { restoreStackedLayer } = await import('../hyperlitContainer/history.js');
+            const { restoreStackedLayer } = await import('../hyperlitContainer/history');
             console.log(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`);
             const ok = await restoreStackedLayer(newTopMeta);
             if (ok) return;
@@ -641,7 +641,7 @@ export class LinkNavigationHandler {
     // Container stack restoration — if we captured a serialized stack, restore it
     if (capturedStack?.length > 0) {
       try {
-        const { restoreContainerStack } = await import('../hyperlitContainer/history.js');
+        const { restoreContainerStack } = await import('../hyperlitContainer/history');
         await restoreContainerStack(capturedStack, { callsite: 'LinkNavigationHandler.popstate' });
         // Scroll to the hash element (the link that triggered the container)
         if (window.location.hash && currentLazyLoader) {

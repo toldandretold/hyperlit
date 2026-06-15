@@ -377,7 +377,7 @@ export async function flushAllPendingEdits() {
 
   // 1. Flush footnote annotation debounces
   try {
-    const { flushPendingFootnoteSaves } = await import('./footnotes/footnoteAnnotations.js');
+    const { flushPendingFootnoteSaves } = await import('./footnotes/footnoteAnnotations');
     flushPendingFootnoteSaves();
   } catch (e) {
     verbose.content(`Footnote flush skipped: ${e.message}`, 'postgreSQL.js');

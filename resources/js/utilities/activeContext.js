@@ -9,7 +9,7 @@
  * insertion, and hypercite operations target the sub-book rather than the
  * main book.
  *
- * Focus listeners in hyperlitContainer/core.js are responsible for calling
+ * Focus listeners in hyperlitContainer/core are responsible for calling
  * setActiveBook() / clearActiveBook() at the right moments.
  */
 

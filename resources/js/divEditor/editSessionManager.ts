@@ -19,6 +19,18 @@ const MAX_HISTORY = 10;
 // Debug flag - set true to enable console diagnostics
 const DEBUG = true;
 
+// Injected preempt-stop (set by ./index at module load) — avoids a dynamic
+// import('./index') inside registerEditSession, which created an index↔session cycle.
+let preemptStop: (() => Promise<void>) | null = null;
+
+/**
+ * Inject the observer-stop used to preempt a previous session.
+ * Called once by ./index so this module never imports back from index.
+ */
+export function setPreemptStop(fn: () => Promise<void>): void {
+  preemptStop = fn;
+}
+
 /**
  * Log with context - minimal console output
  */
@@ -39,8 +51,7 @@ export async function registerEditSession(containerId: string, divElement: HTMLE
     log('PREEMPT', { from: activeSession.containerId, to: containerId });
 
     // Stop the current observer (await to ensure flush completes)
-    const { stopObserving } = await import('./index.js');
-    await stopObserving();
+    await preemptStop?.();
 
     // Record preemption for diagnostics
     recordEvent('preempt', {

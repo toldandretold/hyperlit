@@ -4,7 +4,9 @@
  */
 
 import { detectHypercites, detectHighlights } from './detection.js';
-import { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermission } from './index.js';
+import { buildUnifiedContent } from './contentBuild';
+import { handlePostOpenActions } from './postOpen';
+import { checkIfUserHasAnyEditPermission } from './permissions';
 import { prepareHyperlitContainer, animateHyperlitContainerOpen, hyperlitManager, getHyperlitEditMode } from './core.js';
 import { openDatabase } from '../indexedDB/index';
 import { getCurrentContainer } from './stack.js';
@@ -15,7 +17,7 @@ import { getCurrentContainer } from './stack.js';
  * @param {Array} contentTypes - Array of content type objects
  * @returns {Object|null} { type: 'hash'|'path', value: string, hash?: string } or null
  */
-export function determineSingleContentHash(contentTypes) {
+export function determineSingleContentHash(contentTypes: any) {
   if (contentTypes.length !== 1) {
     return null; // Multiple content types - don't update URL
   }
@@ -70,7 +72,7 @@ export function determineSingleContentHash(contentTypes) {
  * @param {Object} containerState - Serialized container state with contentTypes array
  * @returns {Promise<{html: string, contentTypes: Array, newHighlightIds: Array, hasAnyEditPermission: boolean}|null>}
  */
-export async function buildContentFromMetadata(containerState) {
+export async function buildContentFromMetadata(containerState: any) {
   if (!containerState?.contentTypes?.length) return null;
 
   // Reconstruct content types from stored state
@@ -81,7 +83,7 @@ export async function buildContentFromMetadata(containerState) {
 
     // For hypercites, we might need to refetch some data
     if (storedType.type === 'hypercite' && storedType.hyperciteId) {
-      const hyperciteData = await detectHypercites(null, storedType.hyperciteId);
+      const hyperciteData: any = await detectHypercites(null, storedType.hyperciteId);
       if (hyperciteData) {
         contentType = hyperciteData;
       }
@@ -89,7 +91,7 @@ export async function buildContentFromMetadata(containerState) {
 
     // For highlights, refetch if we have IDs
     if (storedType.type === 'highlight' && storedType.highlightIds) {
-      const highlightData = await detectHighlights(null, storedType.highlightIds);
+      const highlightData: any = await detectHighlights(null, storedType.highlightIds);
       if (highlightData) {
         contentType = highlightData;
       }
@@ -100,12 +102,12 @@ export async function buildContentFromMetadata(containerState) {
 
   if (contentTypes.length === 0) return null;
 
-  const db = await openDatabase();
+  const db: any = await openDatabase();
   const newHighlightIds = containerState.newHighlightIds || [];
   const editModeEnabled = getHyperlitEditMode();
-  const hasAnyEditPermission = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
+  const hasAnyEditPermission: any = await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
 
-  const html = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
+  const html: any = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled, hasAnyEditPermission);
 
   return { html, contentTypes, newHighlightIds, hasAnyEditPermission };
 }
@@ -119,7 +121,7 @@ export async function buildContentFromMetadata(containerState) {
  * @param {boolean} skipAutoFocus - Skip auto-focus (used when edit button handles focus separately)
  * @returns {Promise<boolean>} True if successfully restored
  */
-export async function restoreHyperlitContainerFromHistory(providedContainerState = null, skipUrlUpdate = false, skipAutoFocus = false) {
+export async function restoreHyperlitContainerFromHistory(providedContainerState: any = null, skipUrlUpdate: any = false, skipAutoFocus: any = false) {
   // Use provided state or fall back to history.state
   let containerState = providedContainerState;
 
@@ -134,7 +136,7 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
   console.log('📊 Restoring hyperlit container from history:', containerState);
 
   try {
-    const result = await buildContentFromMetadata(containerState);
+    const result: any = await buildContentFromMetadata(containerState);
     if (!result) return false;
 
     const { html, contentTypes, newHighlightIds, hasAnyEditPermission } = result;
@@ -146,7 +148,7 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
     animateHyperlitContainerOpen();
 
     // Push layer 0 into the stack
-    const { pushLayer, syncStackToHistoryState, isEmpty: isStackEmpty } = await import('./stack.js');
+    const { pushLayer, syncStackToHistoryState, isEmpty: isStackEmpty }: any = await import('./stack.js');
     if (isStackEmpty()) {
       pushLayer({
         depth: 0,
@@ -178,7 +180,7 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
  * @param {Object} containerState - Serialized container state for this layer
  * @returns {Promise<boolean>} True if successfully restored
  */
-export async function restoreStackedLayer(containerState) {
+export async function restoreStackedLayer(containerState: any) {
   if (!containerState?.contentTypes?.length) return false;
 
   try {
@@ -186,23 +188,23 @@ export async function restoreStackedLayer(containerState) {
       pushLayer, getDepth, getTopLayer,
       createStackedContainerDOM, syncStackToHistoryState,
       getCurrentContainer: getContainer, getCurrentScroller: getScroller,
-    } = await import('./stack.js');
-    const { setHyperlitEditMode } = await import('./core.js');
-    const { saveSubBookState, resetSubBookState } = await import('./subBookLoader.js');
-    const { detachNoteListeners } = await import('./noteListener.js');
+    }: any = await import('./stack.js');
+    const { setHyperlitEditMode }: any = await import('./core.js');
+    const { saveSubBookState, resetSubBookState }: any = await import('./subBookLoader.js');
+    const { detachNoteListeners }: any = await import('./noteListener.js');
     const {
       saveModuleState, restoreModuleState, resetModuleState,
-    } = await import('./index.js');
+    }: any = await import('./containerState');
 
     // --- 1. Pause current layer: flush saves, stop editor, detach listeners ---
-    const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
+    const { flushInputDebounce, flushAllPendingSaves }: any = await import('../divEditor/index');
     flushInputDebounce();
     await flushAllPendingSaves();
 
-    const { getActiveEditSession } = await import('../divEditor/editSessionManager');
+    const { getActiveEditSession }: any = await import('../divEditor/editSessionManager');
     const activeSession = getActiveEditSession();
     if (activeSession && activeSession.containerId !== 'main-content') {
-      const { stopObserving } = await import('../divEditor/index');
+      const { stopObserving }: any = await import('../divEditor/index');
       await stopObserving();
     }
 
@@ -241,11 +243,11 @@ export async function restoreStackedLayer(containerState) {
     // entry that opening this layer pushed — call history.back() so the
     // popstate handler's fast-path peels the top layer in DOM. Flush
     // saves first so nothing in flight is lost.
-    newOverlay.addEventListener('click', async (e) => {
+    newOverlay.addEventListener('click', async (e: any) => {
       e.stopPropagation();
       e.preventDefault();
       try {
-        const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
+        const { flushInputDebounce, flushAllPendingSaves }: any = await import('../divEditor/index');
         flushInputDebounce();
         await flushAllPendingSaves();
       } catch (err) {
@@ -268,7 +270,7 @@ export async function restoreStackedLayer(containerState) {
     });
 
     // --- 6. Build content from metadata and render ---
-    const result = await buildContentFromMetadata(containerState);
+    const result: any = await buildContentFromMetadata(containerState);
     if (!result) {
       console.warn('📚 No content built for stacked layer restore, aborting');
       return false;
@@ -317,7 +319,7 @@ export async function restoreStackedLayer(containerState) {
  *   browser console without grepping multiple files.
  * @returns {Promise<boolean>} True if successfully restored
  */
-export async function restoreContainerStack(stack, opts = {}) {
+export async function restoreContainerStack(stack: any, opts: any = {}) {
   const callsite = opts.callsite || 'unknown';
 
   if (!stack?.length) {
@@ -353,7 +355,7 @@ export async function restoreContainerStack(stack, opts = {}) {
   console.log(`📚 [${callsite}] restoreContainerStack START — ${stack.length} layers onto ${renderedBookId} (saved=${savedBookId || 'legacy/none'})`);
 
   // Layer 0: restore via existing path (opens base container + pushes layer 0)
-  const restored = await restoreHyperlitContainerFromHistory(stack[0].contentMetadata);
+  const restored: any = await restoreHyperlitContainerFromHistory(stack[0].contentMetadata);
   if (!restored) {
     console.log(`📚 [${callsite}] restoreContainerStack FAILED — layer 0 did not restore`);
     return false;
@@ -362,8 +364,8 @@ export async function restoreContainerStack(stack, opts = {}) {
   // Layers 1+: restore via direct stacking
   for (let i = 1; i < stack.length; i++) {
     // Wait for sub-book content to load before stacking the next layer
-    await new Promise(r => setTimeout(r, 300));
-    const ok = await restoreStackedLayer(stack[i].contentMetadata);
+    await new Promise((r: any) => setTimeout(r, 300));
+    const ok: any = await restoreStackedLayer(stack[i].contentMetadata);
     if (!ok) {
       console.warn(`📚 [${callsite}] restoreContainerStack stopped at layer ${i}`);
       break;
