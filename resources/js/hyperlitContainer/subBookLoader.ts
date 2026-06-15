@@ -10,7 +10,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 //   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader
 // Static imports here would leave subBookLoaders in the TDZ during module evaluation.
 import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
-import { lazyLoaders } from '../initializePage.js';
+import { lazyLoaders } from '../pageLoad';
 import { generateNodeId } from '../utilities/IDfunctions.js';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 

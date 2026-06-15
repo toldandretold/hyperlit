@@ -418,7 +418,7 @@
        load only, so the resize dragger was missing after in-SPA book opens. It is now
        imported via components/registerComponents.js and lifecycle-managed by ButtonRegistry
        ('containerDragger', pages: ['reader']), so it (re)initialises on every reader entry. --}}
-  @vite(['resources/js/containerCustomization.js', 'resources/js/readerDOMContentLoaded.js'])
+  @vite(['resources/js/containerCustomization.js', 'resources/js/pageLoad/readerEntry.ts'])
 @endsection
     
 

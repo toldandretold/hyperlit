@@ -5,7 +5,7 @@ import { getNodeChunksFromIndexedDB, getLocalStorageKey } from "../indexedDB/ind
 import { book } from "../app.js";
 import { navigateToInternalId, showNavigationLoading } from "../scrolling"; // your internal navigation function
 import { ContainerManager } from "../containerManager.js";
-import { currentLazyLoader } from "../initializePage.js";
+import { currentLazyLoader } from "../pageLoad";
 import { log, verbose } from "../utilities/logger.js";
 
 // Get DOM elements for TOC container, overlay, and toggle button.

@@ -1,7 +1,7 @@
 // In resources/js/homepage.js
 
 import TogglePerimeterButtons from './components/togglePerimeterButtons.js';
-import { initializeLazyLoaderForContainer } from './initializePage.js';
+import { initializeLazyLoaderForContainer } from './pageLoad';
 import { log, verbose } from './utilities/logger.js';
 
 let homepageBookActionsHandler = null;
@@ -57,7 +57,7 @@ export async function initializeHomepage() {
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;
   try {
-    const progressModule = await import('./readerDOMContentLoaded.js');
+    const progressModule = await import('./pageLoad');
     updatePageLoadProgress = progressModule.updatePageLoadProgress;
     hidePageLoadProgress = progressModule.hidePageLoadProgress;
   } catch (e) {

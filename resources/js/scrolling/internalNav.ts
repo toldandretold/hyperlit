@@ -347,7 +347,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         progressIndicator.updateProgress(40, "Loading remaining book data...");
       }
 
-      const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+      const { waitForBackgroundDownload } = await import('../pageLoad');
       await waitForBackgroundDownload();
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded
@@ -564,7 +564,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     verbose.nav(`Waiting for layout completion before scrolling to: ${targetId}`, 'scrolling/internalNav');
 
     try {
-      const { pendingFirstChunkLoadedPromise } = await import('../initializePage.js');
+      const { pendingFirstChunkLoadedPromise } = await import('../pageLoad/firstChunkPromise');
       await pendingFirstChunkLoadedPromise;
       verbose.nav('Layout complete, proceeding with scroll', 'scrolling/internalNav');
     } catch (error: any) {

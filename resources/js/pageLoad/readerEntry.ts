@@ -3,25 +3,25 @@
 // =================================================================
 // THE KEY FIX: Import app.js first to set up initial state.
 // This line ensures the 'book' variable is defined before anything else runs.
-import { book } from "./app.js";
+import { book } from "../app.js";
 // =================================================================
 
-import { log } from "./utilities/logger.js";
-import { openDatabase, initializeDatabaseModules } from "./indexedDB/index.js";
-import { fireAndForgetSync } from "./createNewBook.js";
-import { universalPageInitializer } from "./viewManager.js";
-import { initializeHomepage } from "./homepage.js";
+import { log } from "../utilities/logger.js";
+import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
+import { fireAndForgetSync } from "../createNewBook.js";
+import { universalPageInitializer } from "../viewManager.js";
+import { initializeHomepage } from "../homepage.js";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
-import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
-import { generateTableOfContents } from "./components/toc.js";
-import { attachMarkListeners } from "./hyperlights/index";
+import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
+import { generateTableOfContents } from "../components/toc.js";
+import { attachMarkListeners } from "../hyperlights/index";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
-import { showNavigationLoading, hideNavigationLoading } from "./scrolling";
-import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
-import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
-import { initializeUserProfilePage } from "./components/userProfilePage.js";
-import { initializeLogoNav } from "./components/logoNavToggle.js";
+import { showNavigationLoading, hideNavigationLoading } from "../scrolling";
+import { pendingFirstChunkLoadedPromise } from "./firstChunkPromise";
+import { initializeUserProfileEditor } from "../components/userProfileEditor.js";
+import { initializeUserProfilePage } from "../components/userProfilePage.js";
+import { initializeLogoNav } from "../components/logoNavToggle.js";
 
 // ═════════════════════════════════════════════════════════════════════
 // PROGRESS BAR CONTROL - DELEGATED TO PROGRESSOVERLAYCONDUCTOR
@@ -29,11 +29,11 @@ import { initializeLogoNav } from "./components/logoNavToggle.js";
 // LEGACY: These functions used to directly manipulate DOM, now delegate to Conductor
 // This ensures all overlay management goes through the centralized state machine
 
-export async function updatePageLoadProgress(percent, message = null) {
+export async function updatePageLoadProgress(percent: number, message: any = null) {
   console.log(`📊 [LEGACY] updatePageLoadProgress called (${percent}%, ${message}) - delegating to ProgressOverlayConductor`);
 
   // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
   ProgressOverlayConductor.updateProgress(percent, message);
 }
 
@@ -41,7 +41,7 @@ export async function hidePageLoadProgress() {
   console.log(`📊 [LEGACY] hidePageLoadProgress called - delegating to ProgressOverlayConductor`);
 
   // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
   return await ProgressOverlayConductor.hide();
 }
 
@@ -82,7 +82,7 @@ function handlePendingNewBookSync() {
         // Not a valid new book, clean up immediately
         sessionStorage.removeItem("pending_new_book_sync");
       }
-    } catch (error) {
+    } catch (error: any) {
       log.error("Failed to handle pending book sync", "readerDOMContentLoaded.js", error);
       // Clean up on error
       sessionStorage.removeItem("pending_new_book_sync");
@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   log.init("IndexedDB initialized", "readerDOMContentLoaded.js");
 
   // Initialize database modules with dependencies
-  const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('./components/editIndicator.js');
+  const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('../components/editIndicator.js');
   initializeDatabaseModules({
     book,
     withPending,
@@ -114,25 +114,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     glowCloudGreen,
     glowCloudRed,
     glowCloudLocalSave,
-  });
+  } as any);
   log.init("Database modules initialized", "readerDOMContentLoaded.js");
 
   // Time machine: fetch historical data and store in IndexedDB BEFORE NavigationManager
   // runs loadHyperText, so it finds the data in cache and renders normally.
   if (pageType === 'timemachine') {
-    const { initializeTimeMachine } = await import('./utilities/timeMachine.js');
+    const { initializeTimeMachine } = await import('../utilities/timeMachine.js');
     await initializeTimeMachine();
   }
 
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
   // NavigationManager handles ALL initialization including ButtonRegistry
-  const { NavigationManager } = await import('./navigation/NavigationManager.js');
+  const { NavigationManager } = await import('../navigation/NavigationManager.js');
   await NavigationManager.navigate('fresh-page-load');
 
   // If a vibe-convert job auto-applied a fix to this book, surface the Keep/Revert toast (driven by the
   // persisted vibe_review.json, so it shows even if the original toast was lost to navigation).
   if (book && pageType !== 'timemachine') {
-    import('./conversion/feedbackToast.js')
+    import('../conversion/feedbackToast.js')
       .then(m => m.checkPendingVibeReview(book))
       .catch(() => {});
   }

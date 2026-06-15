@@ -45,7 +45,7 @@ export async function loadChunkForTarget(bookId, target, opts = {}) {
  * This preserves the current buildInitialChunkParams → fetchInitialChunk flow.
  */
 async function fetchFromServer(bookId) {
-  const { fetchInitialChunk } = await import('../initialChunkLoader.js');
+  const { fetchInitialChunk } = await import('../pageLoad');
   return fetchInitialChunk(bookId);
 }
 

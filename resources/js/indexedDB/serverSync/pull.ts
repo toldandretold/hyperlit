@@ -51,7 +51,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
         verbose.content(`Book "${bookId}" has been deleted`, 'serverSync/pull');
 
         if (errorData.error === 'book_deleted') {
-          const { handleDeletedBookAccess } = await import('../../initializePage.js');
+          const { handleDeletedBookAccess } = await import('../../pageLoad/accessGuards');
           await handleDeletedBookAccess(bookId);
           return { success: false, reason: 'book_deleted' };
         }
@@ -64,7 +64,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
 
         if (errorData.error === 'access_denied') {
           // Import handlePrivateBookAccessDenied function
-          const { handlePrivateBookAccessDenied } = await import('../../initializePage.js');
+          const { handlePrivateBookAccessDenied } = await import('../../pageLoad/accessGuards');
           await handlePrivateBookAccessDenied(bookId);
           return { success: false, reason: 'access_denied' };
         }

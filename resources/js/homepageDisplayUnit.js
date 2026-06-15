@@ -1,4 +1,4 @@
-import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
+import { loadHyperText, resetCurrentLazyLoader } from './pageLoad';
 import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling';
 import { log, verbose } from './utilities/logger.js';

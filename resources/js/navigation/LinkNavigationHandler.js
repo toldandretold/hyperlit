@@ -10,7 +10,7 @@ import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } fro
 import { book, bookSlug as _bookSlug } from '../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation';
-import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../initializePage.js';
+import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../pageLoad';
 import { getLocalStorageKey } from '../indexedDB/index';
 import { closeHyperlitContainer } from '../hyperlitContainer/index';
 

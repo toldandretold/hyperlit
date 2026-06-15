@@ -16,7 +16,7 @@ import { updateDatabaseBookId } from '../../indexedDB/index';
 import { setSkipScrollRestoration } from '../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../initializePage.js';
+import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../pageLoad';
 import { navigateToHyperciteTarget } from '../../hypercites/index';
 import { navigateToFootnoteTarget } from '../../hypercites/navigation';
 import { navigateToInternalId, resetUserScrollState } from '../../scrolling';
@@ -165,7 +165,7 @@ export class BookToBookTransition {
 
         // Wait for any container restoration triggered by initializeLazyLoader
         // (happens on back-nav when the restored entry has a matching containerStack)
-        const { pendingContainerRestorePromise } = await import('../../initializePage.js');
+        const { pendingContainerRestorePromise } = await import('../../pageLoad');
         if (pendingContainerRestorePromise) {
           await pendingContainerRestorePromise;
         }

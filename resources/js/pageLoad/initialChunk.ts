@@ -1,4 +1,4 @@
-import { openDatabase } from './indexedDB/index';
+import { openDatabase } from '../indexedDB/index';
 import {
     loadNodeChunksToIndexedDB,
     loadLibraryToIndexedDB,
@@ -6,17 +6,17 @@ import {
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
     clearBookDataFromIndexedDB,
-} from './indexedDB/serverSync';
-import { log, verbose } from './utilities/logger.js';
-import { OpenHyperlightID, OpenFootnoteID } from './app.js';
-import { gateQueryParam } from './components/gateFilter.js';
+} from '../indexedDB/serverSync';
+import { log, verbose } from '../utilities/logger.js';
+import { OpenHyperlightID, OpenFootnoteID } from '../app.js';
+import { gateQueryParam } from '../components/gateFilter.js';
 
 /**
  * Fetch the initial chunk from the server for fast first-render loading.
  * Returns one chunk of nodes + a manifest describing all chunks, so the
  * lazy loader can discover and fetch remaining chunks on demand.
  */
-export async function fetchInitialChunk(bookId) {
+export async function fetchInitialChunk(bookId: string): Promise<any> {
     try {
         // Build query params based on URL context
         const params = buildInitialChunkParams();
@@ -69,7 +69,7 @@ export async function fetchInitialChunk(bookId) {
             metadata: data.metadata,
         };
 
-    } catch (error) {
+    } catch (error: any) {
         log.error(`Initial chunk fetch failed: ${error.message}`, 'initialChunkLoader.js', error);
         return { success: false, error: error.message, reason: 'sync_error' };
     }
@@ -78,7 +78,7 @@ export async function fetchInitialChunk(bookId) {
 /**
  * Build the API URL, handling sub-book IDs with slashes.
  */
-function buildApiUrl(bookId, queryString) {
+function buildApiUrl(bookId: string, queryString: string) {
     // Sub-books have IDs like "parentBook/subId" — route accordingly
     const slashIndex = bookId.indexOf('/');
     let base;
@@ -100,11 +100,11 @@ function buildInitialChunkParams() {
 
     // Priority 0: SPA navigation target (set by BookToBookTransition before loadHyperText)
     // During SPA transitions, window.location.hash hasn't been updated yet
-    const spaTarget = window._pendingChunkTarget;
-    const spaFallback = window._pendingChunkFallbackTarget;
+    const spaTarget = (window as any)._pendingChunkTarget;
+    const spaFallback = (window as any)._pendingChunkFallbackTarget;
     if (spaTarget) {
-        window._pendingChunkTarget = null; // Consume it
-        window._pendingChunkFallbackTarget = null;
+        (window as any)._pendingChunkTarget = null; // Consume it
+        (window as any)._pendingChunkFallbackTarget = null;
         if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
             params.set('target', spaTarget);
             if (spaFallback) {
@@ -117,7 +117,7 @@ function buildInitialChunkParams() {
             return params;
         }
     } else {
-        window._pendingChunkFallbackTarget = null; // Clean up even if no SPA target
+        (window as any)._pendingChunkFallbackTarget = null; // Clean up even if no SPA target
     }
 
     // Priority 1: URL hash target
@@ -161,7 +161,7 @@ function buildInitialChunkParams() {
 /**
  * Inject gate filter param into a URLSearchParams (mutates in place).
  */
-function injectGateParam(params) {
+function injectGateParam(params: URLSearchParams) {
     const gp = gateQueryParam();
     if (gp) {
         // gp is "gate=..." — extract the value part
@@ -178,8 +178,8 @@ function injectGateParam(params) {
  */
 export function resolveBootstrapTarget() {
     // Priority 0: SPA navigation target
-    const spaTarget = window._pendingChunkTarget;
-    const spaFallback = window._pendingChunkFallbackTarget;
+    const spaTarget = (window as any)._pendingChunkTarget;
+    const spaFallback = (window as any)._pendingChunkFallbackTarget;
     if (spaTarget) {
         return { target: spaTarget, fallbackTarget: spaFallback || null };
     }
@@ -212,17 +212,17 @@ export function resolveBootstrapTarget() {
 /**
  * Handle error responses matching the existing pattern in indexedDB/serverSync.
  */
-async function handleErrorResponse(response, bookId) {
+async function handleErrorResponse(response: Response, bookId: string): Promise<any> {
     if (response.status === 404) {
         return { success: false, reason: 'book_not_found' };
     }
     if (response.status === 410) {
-        const { handleDeletedBookAccess } = await import('./initializePage.js');
+        const { handleDeletedBookAccess } = await import('./accessGuards');
         await handleDeletedBookAccess(bookId);
         return { success: false, reason: 'book_deleted' };
     }
     if (response.status === 403) {
-        const { handlePrivateBookAccessDenied } = await import('./initializePage.js');
+        const { handlePrivateBookAccessDenied } = await import('./accessGuards');
         await handlePrivateBookAccessDenied(bookId);
         return { success: false, reason: 'access_denied' };
     }
@@ -233,7 +233,7 @@ async function handleErrorResponse(response, bookId) {
  * Inline footnote loader — mirrors indexedDB/serverSync loadFootnotesToIndexedDB
  * (that function is not exported, so we replicate it here).
  */
-async function loadFootnotesToIndexedDB(db, footnotes) {
+async function loadFootnotesToIndexedDB(db: any, footnotes: any) {
     if (!footnotes || !footnotes.data) {
         return;
     }
@@ -243,7 +243,7 @@ async function loadFootnotesToIndexedDB(db, footnotes) {
     const footnotesData = footnotes.data;
     const promises = [];
 
-    for (const [footnoteId, footnoteData] of Object.entries(footnotesData)) {
+    for (const [footnoteId, footnoteData] of Object.entries(footnotesData) as [string, any][]) {
         const isNewFormat = typeof footnoteData === 'object' && footnoteData !== null;
         const record = {
             book: footnotes.book,
@@ -252,7 +252,7 @@ async function loadFootnotesToIndexedDB(db, footnotes) {
             preview_nodes: isNewFormat ? (footnoteData.preview_nodes ?? null) : null,
         };
 
-        promises.push(new Promise((resolve, reject) => {
+        promises.push(new Promise<void>((resolve, reject) => {
             const request = store.put(record);
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);

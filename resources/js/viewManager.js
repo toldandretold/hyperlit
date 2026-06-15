@@ -42,7 +42,7 @@ import {
   pendingFirstChunkLoadedPromise,
   resolveFirstChunkPromise,
   resetCurrentLazyLoader
-} from "./initializePage.js";
+} from "./pageLoad";
 import { closeHyperlitContainer } from './hyperlitContainer/index';
 
 // State management and cleanup are correct.
@@ -301,7 +301,7 @@ export async function universalPageInitializer(progressCallback = null) {
 
   // ✅ REMOVED: Manual TogglePerimeterButtons management
   // OLD CODE (conflicted with ButtonRegistry):
-  // import('./readerDOMContentLoaded.js').then(module => {
+  // import('./pageLoad').then(module => {
   //   module.togglePerimeterButtons.destroy();
   //   module.togglePerimeterButtons.rebindElements();
   //   module.togglePerimeterButtons.init();

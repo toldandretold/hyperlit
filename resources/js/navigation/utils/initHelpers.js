@@ -9,7 +9,7 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
 import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { currentLazyLoader } from '../../initializePage.js';
+import { currentLazyLoader } from '../../pageLoad';
 
 /**
  * Initialize reader state

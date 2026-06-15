@@ -5,7 +5,7 @@ import { debounce } from "../../utilities/debounce.js";
 import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
 import { getLocalStorageKey } from "../../indexedDB/index.js";
-import { currentLazyLoader } from "../../initializePage.js";
+import { currentLazyLoader } from "../../pageLoad";
 import { buildSearchIndex, searchIndex } from "./searchEngine.js";
 import {
   applySearchHighlight,

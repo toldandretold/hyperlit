@@ -806,7 +806,7 @@ export class UserContainerManager extends ContainerManager {
 
   async triggerContentRefresh(bookId) {
     try {
-      const { currentLazyLoader } = await import('../initializePage.js');
+      const { currentLazyLoader } = await import('../pageLoad');
       if (currentLazyLoader && typeof currentLazyLoader.refresh === 'function') {
         await currentLazyLoader.refresh();
       } else {

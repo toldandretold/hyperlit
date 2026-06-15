@@ -72,7 +72,7 @@ export async function restoreScrollPosition(): Promise<void> {
     return;
   }
 
-  const { currentLazyLoader }: any = await import('../initializePage.js');
+  const { currentLazyLoader }: any = await import('../pageLoad/lazyLoaderRegistry');
 
   if (!currentLazyLoader) {
     console.error("Lazy loader instance not available!");

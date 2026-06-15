@@ -1,7 +1,7 @@
 import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
 import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
 import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
-import { currentLazyLoader } from "../initializePage.js";
+import { currentLazyLoader } from "../pageLoad";
 import { book } from "../app.js";
 import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
@@ -297,7 +297,7 @@ async function renumberAllNodes() {
     // 10. Kick off chunked sync in the background (non-blocking).
     // retryFailedBatches will find the pending WAL entry and send it
     // in 500-node chunks so the server doesn't timeout.
-    import('../initializePage.js').then(({ setupOnlineSyncListener }) => {
+    import('../pageLoad').then(({ setupOnlineSyncListener }) => {
       setupOnlineSyncListener();
     });
 

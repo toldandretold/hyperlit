@@ -48,7 +48,7 @@ export async function handleLargePaste(
 
   // Wait for background download if still in progress (chunked lazy loading)
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../../pageLoad');
     await waitForBackgroundDownload();
   }
 
@@ -363,7 +363,7 @@ export async function undoLastLargePaste() {
     ProgressOverlayConductor.updateProgress(60, 'Refreshing view...');
 
     // 3. Refresh lazy loader (remove all chunks, reload chunk 0)
-    const { initializeMainLazyLoader } = await import('../../initializePage.js');
+    const { initializeMainLazyLoader } = await import('../../pageLoad');
     const loader = initializeMainLazyLoader();
     loader.nodes = await loader.getNodeChunks();
 
