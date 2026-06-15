@@ -5,7 +5,6 @@
 
 import { book } from '../app.js';
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoader";
-import { initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from '../utilities/containerActions';
 
 // Import for internal use
 import { attachMarkListeners as _attachMarkListeners } from './listeners';
@@ -23,10 +22,16 @@ export { generateHighlightID, openHighlightById, attachPlaceholderBehavior } fro
 export { handleHighlightContainerPaste, addHighlightContainerPasteListener } from './annotationPaste';
 export { getAnnotationHTML, saveAnnotationToIndexedDB, attachAnnotationListener, saveHighlightAnnotation } from './annotations';
 
-// Legacy container functions - redirected to unified system
-export const initializeHighlightManager = initializeHyperlitManager;
-export const openHighlightContainer = openHyperlitContainer;
-export const closeHighlightContainer = closeHyperlitContainer;
+// Legacy container functions - redirected to unified system.
+// LIVE re-export (not `const x = importedFn`): a bare `export { … from }` does not READ
+// the imported binding at module-init, so it can't throw a TDZ "Cannot access X before
+// initialization" when this module initialises mid circular-import (containerActions is in a
+// cycle with the reader graph). The eager-alias form was the prod-break culprit.
+export {
+  initializeHyperlitManager as initializeHighlightManager,
+  openHyperlitContainer as openHighlightContainer,
+  closeHyperlitContainer as closeHighlightContainer,
+} from '../utilities/containerActions';
 
 // Lazy loader state
 let highlightId: any;

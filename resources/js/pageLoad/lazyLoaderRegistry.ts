@@ -20,8 +20,10 @@ import {
 import { syncBookDataFromDatabase } from "../indexedDB/serverSync";
 
 import { getFirstChunkLoadedResolver } from './firstChunkPromise';
-import { generateNodeChunksFromMarkdown } from './loadHyperText';
-import { openContainerChain } from './containerChain';
+// generateNodeChunksFromMarkdown (./loadHyperText) and openContainerChain (./containerChain)
+// are imported DYNAMICALLY at their call sites below — both are call-time-only and importing
+// them statically would close the lazyLoaderRegistry↔loadHyperText↔containerChain static ring
+// (TDZ risk in the rollup bundle).
 
 // Store multiple lazy loaders by bookId
 export const lazyLoaders: any = {};
@@ -96,6 +98,7 @@ export async function initializeLazyLoaderForContainer(bookId: string) {
 
     if (!nodes || !nodes.length) {
       console.log(`🆕 Generating ${bookId} from markdown`);
+      const { generateNodeChunksFromMarkdown } = await import('./loadHyperText');
       nodes = await generateNodeChunksFromMarkdown(bookId, true);
     }
 
@@ -174,8 +177,9 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: string
 
     // Auto-open chain for deep nested sub-book URLs (e.g. /book/2/Fn.../HL_...)
     if ((window as any).autoOpenChain && (window as any).autoOpenChain.length > 0) {
-      openContainerChain((window as any).autoOpenChain, currentLazyLoader);
+      const chain = (window as any).autoOpenChain;
       (window as any).autoOpenChain = null; // Prevent re-triggering
+      import('./containerChain').then(({ openContainerChain }) => openContainerChain(chain, currentLazyLoader));
     }
 
     // Container stack restoration — if history.state has a serialized stack,
