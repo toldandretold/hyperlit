@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, expect } from '@playwright/test';
 import { resolve } from 'path';
 
 const authFile = resolve(import.meta.dirname, '.auth-state.json');
@@ -14,11 +14,21 @@ setup('authenticate', async ({ page }) => {
   // DOMContentLoaded is the correct readiness signal here.
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
 
-  // Click the user button to open login form
-  await page.click('#userButton');
-
-  // Wait for the login form to appear
-  await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 10000 });
+  // Click the user button to open the login form.
+  //
+  // #userButton's click handler is attached by ButtonRegistry during SPA
+  // bootstrap, which completes a few hundred ms AFTER domcontentloaded. A click
+  // fired before then hits a button with no listener and is silently dropped —
+  // so we retry the click until the login form actually appears. The guard
+  // (only click when the form isn't already open) prevents a stray retry from
+  // toggling an already-open form shut.
+  const emailInput = page.locator('input[name="email"], input[type="email"]');
+  await expect(async () => {
+    if (!(await emailInput.isVisible())) {
+      await page.click('#userButton');
+    }
+    await expect(emailInput).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
 
   // Fill login credentials
   await page.fill('input[name="email"], input[type="email"]', process.env.E2E_USER_EMAIL || 'test@example.com');
