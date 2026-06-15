@@ -26,7 +26,7 @@ import {
 
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
-import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./postgreSQL.js";
+import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./indexedDB/serverSync";
 import { fetchInitialChunk, resolveBootstrapTarget } from "./initialChunkLoader.js";
 import { loadChunkForTarget } from "./navigation/chunkLoadRouter.js";
 import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";

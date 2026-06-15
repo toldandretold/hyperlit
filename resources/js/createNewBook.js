@@ -8,7 +8,7 @@ import {
   syncNodeChunksToPostgreSQL,
 } from "./indexedDB/index.js";
 import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
-import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { syncIndexedDBtoPostgreSQL } from "./indexedDB/serverSync";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
 import { generateNodeId } from "./utilities/IDfunctions.js";
 

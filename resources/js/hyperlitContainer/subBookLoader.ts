@@ -312,7 +312,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
       if (serverAnnotationsTs > localAnnotationsTs) {
         console.log(`📝 Sub-book "${subBookId}": annotations changed. Syncing annotations only...`);
 
-        const { syncAnnotationsOnly }: any = await import('../postgreSQL.js');
+        const { syncAnnotationsOnly }: any = await import('../indexedDB/serverSync');
         const { updateLocalAnnotationsTimestamp }: any = await import('../indexedDB/core/library');
 
         await syncAnnotationsOnly(subBookId);
@@ -348,7 +348,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
     }
 
     console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
-    const { syncBookDataFromDatabase }: any = await import('../postgreSQL.js');
+    const { syncBookDataFromDatabase }: any = await import('../indexedDB/serverSync');
     const result: any = await syncBookDataFromDatabase(subBookId);
 
     // Only process if the sub-book is still mounted (user hasn't closed the container)

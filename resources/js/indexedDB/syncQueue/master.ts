@@ -609,18 +609,18 @@ export const debouncedMasterSync = debounce(async () => {
  * Sync all IndexedDB data to PostgreSQL for a specific book (BLOCKING)
  *
  * ⚠️ WARNING: This is a BLOCKING sync implementation created during refactor.
- * It reimplements sync logic instead of using the proven postgreSQL.js functions.
+ * It reimplements sync logic instead of using the proven indexedDB/serverSync functions.
  *
  * WHEN TO USE:
  * - ✅ Critical operations requiring immediate sync confirmation
  * - ✅ Full book exports or snapshots
  *
  * WHEN NOT TO USE:
- * - ❌ Background/automatic syncing (use postgreSQL.js:syncIndexedDBtoPostgreSQL() instead)
+ * - ❌ Background/automatic syncing (use indexedDB/serverSync:syncIndexedDBtoPostgreSQL() instead)
  * - ❌ Edit operations (already handled by debouncedMasterSync)
  * - ❌ Import operations (use non-blocking sync)
  *
- * DIFFERENCE FROM postgreSQL.js:syncIndexedDBtoPostgreSQL():
+ * DIFFERENCE FROM indexedDB/serverSync:syncIndexedDBtoPostgreSQL():
  * - This version: Waits for sync to complete, uses unified endpoint
  * - Original version: Returns immediately, uses individual endpoints (proven stable)
  *

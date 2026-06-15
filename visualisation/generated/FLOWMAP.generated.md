@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 531 functions in 109 modules · 8 object stores · 6 PG tables · 1144 edges
+**MarkdownDB** schema v27 · 544 functions in 114 modules · 8 object stores · 6 PG tables · 1184 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -526,6 +526,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `renumberNodeChunksInIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `saveAllNodeChunksToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `writeNodeChunks` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `clearAnnotationsFromIndexedDB` | `indexedDB/serverSync/clear` | — | `hypercites` `hyperlights` | — | — |
+| `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | `library` | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
+| `flushAllPendingEdits` | `indexedDB/serverSync/flush` | — | — | — | — |
+| `loadBibliographyToIndexedDB` | `indexedDB/serverSync/loaders` | — | `bibliography` | — | — |
+| `loadFootnotesToIndexedDB` | `indexedDB/serverSync/loaders` | — | `footnotes` | — | — |
+| `loadHypercitesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
+| `loadHyperlightsToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
+| `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | — | `library` | — | — |
+| `loadNodeChunksToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
+| `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | — |
+| `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
 | `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
 | `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
@@ -544,7 +557,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 76
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 80
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -609,6 +622,10 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
 - `indexedDB/hypercites/index` → `indexedDB/hydration/rebuild`
 - `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
+- `indexedDB/serverSync/flush` → `divEditor/index`
+- `indexedDB/serverSync/flush` → `footnotes/footnoteAnnotations`
+- `indexedDB/serverSync/flush` → `indexedDB/syncQueue/master`
+- `indexedDB/serverSync/flush` → `indexedDB/syncQueue/queue`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
 
 ## Legend

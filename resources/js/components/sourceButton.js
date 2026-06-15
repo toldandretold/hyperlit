@@ -1869,7 +1869,7 @@ export class SourceContainerManager extends ContainerManager {
    */
   async syncPipelineHighlights(bookId) {
     try {
-      const { syncAnnotationsOnly } = await import('../postgreSQL.js');
+      const { syncAnnotationsOnly } = await import('../indexedDB/serverSync');
       const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library');
 
       // Sync highlights + hypercites from server into IndexedDB

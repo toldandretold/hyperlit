@@ -10,7 +10,7 @@
  * Inversion: producers register a flush callback here at module load; consumers call
  * `flushPendingEdits()` — importing only this leaf, never the feature modules. Imports point DOWN.
  *
- * (NB: distinct from postgreSQL.js `flushAllPendingEdits`, which is the broader clear+redownload
+ * (NB: distinct from indexedDB/serverSync `flushAllPendingEdits`, which is the broader clear+redownload
  * pipeline that also kicks masterSync. This one is just the editor/footnote buffers.)
  */
 

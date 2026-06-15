@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 531,
-    "moduleCount": 109,
+    "fnCount": 544,
+    "moduleCount": 114,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1144,
+    "edgeCount": 1184,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -20,6 +20,7 @@
     "capture",
     "queue",
     "push",
+    "serverSync",
     "hydrate",
     "domain",
     "infra",
@@ -4275,6 +4276,110 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "label": "clearAnnotationsFromIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "label": "clearBookDataFromIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "label": "updateEmbeddedAnnotationsInNodes",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "label": "flushAllPendingEdits",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/flush",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "label": "loadBibliographyToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "label": "loadFootnotesToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "label": "loadHypercitesToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "label": "loadHyperlightsToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "label": "loadLibraryToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "label": "loadNodeChunksToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "label": "syncAnnotationsOnly",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/pull",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "label": "syncBookDataFromDatabase",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/pull",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "label": "syncIndexedDBtoPostgreSQL",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/push",
+      "leaf": false
+    },
+    {
       "id": "indexedDB/syncQueue/freshNodeFilter:filterFreshNodesForBook",
       "label": "filterFreshNodesForBook",
       "kind": "fn",
@@ -5804,6 +5909,59 @@
         "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
         "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
         "indexedDB/nodes/write:writeNodeChunks"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/clear",
+      "label": "indexedDB/serverSync/clear",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+        "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+        "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/flush",
+      "label": "indexedDB/serverSync/flush",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/flush:flushAllPendingEdits"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/loaders",
+      "label": "indexedDB/serverSync/loaders",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+        "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+        "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+        "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+        "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+        "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/pull",
+      "label": "indexedDB/serverSync/pull",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/pull:syncAnnotationsOnly",
+        "indexedDB/serverSync/pull:syncBookDataFromDatabase"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/push",
+      "label": "indexedDB/serverSync/push",
+      "stage": "serverSync",
+      "band": "capture",
+      "fnIds": [
+        "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL"
       ]
     },
     {
@@ -7724,6 +7882,12 @@
       "id": "dom__domread__indexedDB/nodes/write:addNodeChunkToIndexedDB",
       "source": "dom",
       "target": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "source": "dom",
+      "target": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
       "rel": "domread"
     },
     {
@@ -12316,6 +12480,236 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB__write__store:hypercites",
+      "source": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB__write__store:hyperlights",
+      "source": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:footnotes",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:hypercites",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:hyperlights",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:library",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:nodes",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes__write__store:nodes",
+      "source": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__divEditor/index:flushAllPendingSaves",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "divEditor/index:flushAllPendingSaves",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__divEditor/index:flushInputDebounce",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "divEditor/index:flushInputDebounce",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__footnotes/footnoteAnnotations:flushPendingFootnoteSaves",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "footnotes/footnoteAnnotations:flushPendingFootnoteSaves",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB__write__store:bibliography",
+      "source": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB__write__store:footnotes",
+      "source": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__write__store:library",
+      "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:bibliography",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:footnotes",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:hypercites",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:hyperlights",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:library",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:nodes",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:bibliography",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
       "target": "pg:bibliography",
@@ -12833,6 +13227,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "source": "store:library",
+      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
       "source": "store:library",
       "target": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
@@ -12980,6 +13380,12 @@
       "id": "store:nodes__read__indexedDB/nodes/write:deleteNodeChunksAfter",
       "source": "store:nodes",
       "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "rel": "read"
+    },
+    {
+      "id": "store:nodes__read__indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "source": "store:nodes",
+      "target": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
       "rel": "read"
     },
     {
@@ -14361,6 +14767,56 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/serverSync/flush",
+      "target": "divEditor/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "footnotes/footnoteAnnotations",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "indexedDB/syncQueue/master",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "indexedDB/syncQueue/queue",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/loaders",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/clear",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/flush",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/loaders",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/push",
+      "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -14410,6 +14866,6 @@
     "staticCycles": [],
     "latentCycles": [],
     "breakerCount": 0,
-    "lazyCount": 76
+    "lazyCount": 80
   }
 }

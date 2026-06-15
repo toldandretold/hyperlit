@@ -4,7 +4,7 @@ import {
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
-} from './postgreSQL.js';
+} from './indexedDB/serverSync';
 import { log, verbose } from './utilities/logger.js';
 import { rebuildAndRenumber } from './footnotes/FootnoteNumberingService';
 import { appendGateParam } from './components/gateFilter.js';

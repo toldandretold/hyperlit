@@ -6,7 +6,7 @@ import {
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
     clearBookDataFromIndexedDB,
-} from './postgreSQL.js';
+} from './indexedDB/serverSync';
 import { log, verbose } from './utilities/logger.js';
 import { OpenHyperlightID, OpenFootnoteID } from './app.js';
 import { gateQueryParam } from './components/gateFilter.js';
@@ -210,7 +210,7 @@ export function resolveBootstrapTarget() {
 }
 
 /**
- * Handle error responses matching the existing pattern in postgreSQL.js.
+ * Handle error responses matching the existing pattern in indexedDB/serverSync.
  */
 async function handleErrorResponse(response, bookId) {
     if (response.status === 404) {
@@ -230,7 +230,7 @@ async function handleErrorResponse(response, bookId) {
 }
 
 /**
- * Inline footnote loader — mirrors postgreSQL.js loadFootnotesToIndexedDB
+ * Inline footnote loader — mirrors indexedDB/serverSync loadFootnotesToIndexedDB
  * (that function is not exported, so we replicate it here).
  */
 async function loadFootnotesToIndexedDB(db, footnotes) {

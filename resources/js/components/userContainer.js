@@ -10,7 +10,7 @@ import {
   refreshAuth,
   broadcastAuthChange,
 } from "../utilities/auth.js";
-import { syncBookDataFromDatabase, flushAllPendingEdits } from "../postgreSQL.js";
+import { syncBookDataFromDatabase, flushAllPendingEdits } from "../indexedDB/serverSync";
 
 // Import extracted modules
 import {

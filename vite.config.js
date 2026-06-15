@@ -142,7 +142,6 @@ export default defineConfig({
                 'resources/js/initializePage.js',
                 'resources/js/lazyLoaderFactory.js',
                 'resources/js/components/newBookForm.js',
-                'resources/js/postgreSQL.js',
                 'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',

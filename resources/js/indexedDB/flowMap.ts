@@ -110,6 +110,19 @@ export const FLOW_STAGES: FlowStage[] = [
     ],
   },
   {
+    id: 'serverSync',
+    title: 'Server sync',
+    plain: 'Pull side: fetch a book (or just its annotations) from the Laravel API and hydrate the IndexedDB stores; also the post-creation push of locally-seeded data back up. Counterpart to the Queue/Push (syncQueue) write path. Formerly the top-level postgreSQL.js.',
+    modules: [
+      { path: 'serverSync/pull', plain: 'Fetch book/annotations from /api/database-to-indexeddb, clear, then load all stores; delegates private/deleted-book UI out to the page-load layer.' },
+      { path: 'serverSync/loaders', plain: 'Pure store-writers: parse + batch-write nodes/footnotes/bibliography/hyperlights/hypercites/library into IndexedDB.' },
+      { path: 'serverSync/clear', plain: 'Clear a book (or just its annotations) from the stores; rebuild the annotations embedded inside node records.' },
+      { path: 'serverSync/push', plain: 'Push IndexedDB state up to the server after new-book creation (library first, then nodes/annotations/footnotes); has the missing-chunk-0 abort guard.' },
+      { path: 'serverSync/flush', plain: 'Drain the whole edit pipeline (footnote debounces → input debounce → SaveQueue → masterSync) before a destructive clear+redownload.' },
+      { path: 'serverSync/index', plain: 'Barrel re-exporting the public server-sync surface.' },
+    ],
+  },
+  {
     id: 'hydrate',
     title: 'Hydrate',
     plain: 'Stored data flows back out of IndexedDB toward the DOM (read direction).',
