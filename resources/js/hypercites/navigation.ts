@@ -7,7 +7,7 @@
 
 import { getActiveBook } from '../utilities/activeContext.js';
 import { book as globalBookId } from '../app.js';
-import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
+import { navigateToInternalId, showNavigationLoading } from '../scrolling';
 import { waitForElementReady } from '../domReadiness.js';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index';
 import { getHyperciteData, getHyperciteById } from './database';
@@ -15,7 +15,7 @@ import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';
 import { createOverlappingPolyContainer } from './containers';
 // Container actions via the DI registry leaf — no import into hyperlitContainer/* (no cycle).
 import { closeHyperlitContainer, getCurrentContainer, handleUnifiedContentClick } from '../utilities/containerActions';
-import { currentLazyLoader } from '../initializePage.js';
+import { currentLazyLoader } from '../pageLoad';
 import { showTargetNotFoundToast } from '../utilities/toast.js';
 
 /**
@@ -424,7 +424,7 @@ export async function navigateToHyperciteLink(link: string, clickedHyperciteId =
 
     if (bookSegment === currentBook && fnSegment && hlSegment) {
       console.log("✅ Same-book multi-level cascade detected in hypercite");
-      const { openContainerChain, buildChainFromUrl } = await import('../initializePage.js');
+      const { openContainerChain, buildChainFromUrl } = await import('../pageLoad');
       const chain = await buildChainFromUrl(bookSegment, allSegments);
       if (chain.length > 0) {
         await openContainerChain(chain, currentLazyLoader, (internalId || null) as any);

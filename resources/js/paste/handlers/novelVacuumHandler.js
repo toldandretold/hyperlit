@@ -16,7 +16,7 @@ import { getInsertionPoint } from '../utils/insertion-point-calculator.js';
 import { handleLargePaste } from './largePasteHandler.js';
 import { getCurrentChunk } from '../../chunkManager.js';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
-import { initializeMainLazyLoader, lazyLoaders } from '../../initializePage.js';
+import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState

@@ -4,7 +4,7 @@ import {
   clearBookDataFromIndexedDB,
   loadNodeChunksToIndexedDB,
   loadLibraryToIndexedDB,
-} from '../postgreSQL.js';
+} from '../indexedDB/serverSync';
 
 /**
  * Virtual book ID for time machine — keeps historical data

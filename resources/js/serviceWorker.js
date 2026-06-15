@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   "/app.js",
   "/readerDOMContentLoaded.js",
   "/initializePage.js",
-  "/lazyLoaderFactory.js",
+  "/lazyLoader.js",
   "/toc.js",
   "/nav-buttons.js",
   "/hyper-lights-cites.js",

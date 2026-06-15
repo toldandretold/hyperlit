@@ -171,7 +171,7 @@ export async function reapplyAnnotationsWithGate(bookId) {
   }
   if (!bookId) return;
 
-  const { syncAnnotationsOnly } = await import('../postgreSQL.js');
+  const { syncAnnotationsOnly } = await import('../indexedDB/serverSync');
   const syncResult = await syncAnnotationsOnly(bookId);
 
   if (!syncResult?.success) {

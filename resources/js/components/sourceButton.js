@@ -1869,7 +1869,7 @@ export class SourceContainerManager extends ContainerManager {
    */
   async syncPipelineHighlights(bookId) {
     try {
-      const { syncAnnotationsOnly } = await import('../postgreSQL.js');
+      const { syncAnnotationsOnly } = await import('../indexedDB/serverSync');
       const { updateLocalAnnotationsTimestamp } = await import('../indexedDB/core/library');
 
       // Sync highlights + hypercites from server into IndexedDB
@@ -2660,7 +2660,7 @@ function citationHtmlToMarkdown(html) {
 async function buildMarkdownForBook(bookId = book || 'latest') {
   // Ensure all chunks are available before exporting
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
   const chunks = await getNodeChunksFromIndexedDB(bookId);
@@ -3002,7 +3002,7 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
 
 async function buildHtmlForBook(bookId = book || 'latest') {
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
   const chunks = await getNodeChunksFromIndexedDB(bookId);
@@ -3024,7 +3024,7 @@ async function buildHtmlForBook(bookId = book || 'latest') {
 
 async function buildDocxBuffer(bookId = book || 'latest') {
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
   const { Document, Packer, Paragraph, TextRun } = await loadDocxLib();
@@ -3437,7 +3437,7 @@ function htmlElementToDocx(node, docxComponents, opts = {}) {
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId = book || 'latest') {
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
   const docxLib = await loadDocxLib();
@@ -3905,7 +3905,7 @@ sup a { text-decoration: none; }
 async function buildEpubBlob(bookId = book || 'latest') {
   // --- Phase 1: Fetch content ---
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
   const JSZip = await loadJSZip();

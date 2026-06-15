@@ -488,7 +488,7 @@ export async function waitForContentReady(bookId, options = {}) {
       // Check 2: Lazy loader must be initialized if required
       if (requireLazyLoader) {
         // Import dynamically to avoid circular dependencies
-        import('./initializePage.js').then(({ currentLazyLoader }) => {
+        import('./pageLoad').then(({ currentLazyLoader }) => {
           if (!currentLazyLoader) {
             if (attempts % 10 === 0) {
               console.log(`⏳ Still waiting for lazy loader... (attempt ${attempts}, ${elapsed}ms)`);

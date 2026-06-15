@@ -1,7 +1,7 @@
 // footnotes-citations.js - New unified system for footnotes and citations
 import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index';
 import { log, verbose } from './utilities/logger.js';
-import { isActivelyScrollingForLinkBlock } from './scrolling.js';
+import { isActivelyScrollingForLinkBlock } from './scrolling';
 
 // Function to open the reference container with content (now redirects to unified system)
 export function openReferenceContainer(content) {

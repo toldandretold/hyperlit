@@ -217,6 +217,6 @@
     window.activeShelfId = @json($activeShelfId ?? null);
 </script>
 @vite([
-    'resources/js/readerDOMContentLoaded.js'
+    'resources/js/pageLoad/readerEntry.ts'
 ])
 @endsection

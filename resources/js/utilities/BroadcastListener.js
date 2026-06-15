@@ -1,7 +1,7 @@
 // BroadcastListener.js
 
 import { book } from "../app.js"; // current book identifier
-import { applyHypercites, applyHighlights } from "../lazyLoaderFactory.js"; // adjust path as needed
+import { applyHypercites, applyHighlights } from "../lazyLoader"; // adjust path as needed
 import { attachUnderlineClickListeners } from "../hypercites/index";
 import { setProgrammaticUpdateInProgress } from "./operationState.js";
 import { openDatabase } from "../indexedDB/core/connection.js";

@@ -24,7 +24,7 @@ import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { marked } from 'marked';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { getCurrentChunk } from '../chunkManager.js';
-import { initializeMainLazyLoader, lazyLoaders } from '../initializePage.js';
+import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/editIndicator.js';
 import {
   setPasteInProgress,

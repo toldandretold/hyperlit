@@ -1,13 +1,13 @@
-import { openDatabase } from './indexedDB/index';
+import { openDatabase } from '../indexedDB/index';
 import {
     loadNodeChunksToIndexedDB,
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
-} from './postgreSQL.js';
-import { log, verbose } from './utilities/logger.js';
-import { rebuildAndRenumber } from './footnotes/FootnoteNumberingService';
-import { appendGateParam } from './components/gateFilter.js';
+} from '../indexedDB/serverSync';
+import { log, verbose } from '../utilities/logger.js';
+import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
+import { appendGateParam } from '../components/gateFilter.js';
 
 /**
  * How many chunks to fetch per batch request.
@@ -27,22 +27,22 @@ const CHUNKS_PER_BATCH = 50;
  *   all batches succeed — preserves "all or nothing" semantics.
  * - Fires backgroundDownloadFailed on failure so UI can show retry.
  */
-export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
+export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoader: any) {
     if (!bookId || !lazyLoader) return;
 
     // Guard against double-download
-    if (window._backgroundDownloadInProgress) {
+    if ((window as any)._backgroundDownloadInProgress) {
         verbose.content('Background download already in progress, skipping', 'backgroundDownloader.js');
         return;
     }
 
-    window._backgroundDownloadInProgress = true;
+    (window as any)._backgroundDownloadInProgress = true;
 
     try {
         verbose.content(`Starting batched background download for: ${bookId}`, 'backgroundDownloader.js');
 
         // If no chunk manifest, fall back to monolithic download
-        const manifest = lazyLoader.chunkManifest || window.chunkManifest;
+        const manifest = lazyLoader.chunkManifest || (window as any).chunkManifest;
         if (!manifest || manifest.length === 0) {
             verbose.content('No chunk manifest available, falling back to full download', 'backgroundDownloader.js');
             await fullDownloadFallback(bookId, lazyLoader);
@@ -50,7 +50,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
         }
 
         // Build batch ranges from the manifest
-        const allChunkIds = manifest.map(c => c.chunk_id).sort((a, b) => a - b);
+        const allChunkIds = manifest.map((c: any) => c.chunk_id).sort((a: number, b: number) => a - b);
         const batches = buildBatchRanges(allChunkIds, CHUNKS_PER_BATCH);
 
         verbose.content(
@@ -70,7 +70,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
                 'backgroundDownloader.js'
             );
 
-            let batchData = null;
+            let batchData: any = null;
             let retried = false;
 
             // Attempt fetch with one retry
@@ -82,7 +82,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
                     }
                     batchData = await response.json();
                     break;
-                } catch (err) {
+                } catch (err: any) {
                     if (attempt === 0) {
                         retried = true;
                         verbose.content(
@@ -121,7 +121,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
 
         // Update window.nodes for other consumers
         if (allNodes.length) {
-            window.nodes = allNodes;
+            (window as any).nodes = allNodes;
 
             // Rebuild footnote map with FULL dataset (initial chunk only had ~100 nodes),
             // update already-rendered DOM sups, AND persist the new numbers to IDB.
@@ -140,7 +140,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
             detail: { bookId }
         }));
 
-    } catch (error) {
+    } catch (error: any) {
         log.error(`Background download failed: ${error.message}`, 'backgroundDownloader.js', error);
 
         // Fire failure event so UI can show retry
@@ -148,7 +148,7 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
             detail: { bookId, error: error.message }
         }));
     } finally {
-        window._backgroundDownloadInProgress = false;
+        (window as any)._backgroundDownloadInProgress = false;
     }
 }
 
@@ -157,8 +157,8 @@ export async function backgroundDownloadRemainingChunks(bookId, lazyLoader) {
  * Used by edit operations (paste, renumber) that need all nodes.
  * Resolves on either success or failure.
  */
-export function waitForBackgroundDownload(timeoutMs = 30000) {
-    if (!window._backgroundDownloadInProgress) {
+export function waitForBackgroundDownload(timeoutMs = 30000): Promise<void> {
+    if (!(window as any)._backgroundDownloadInProgress) {
         return Promise.resolve();
     }
 
@@ -188,8 +188,8 @@ export function waitForBackgroundDownload(timeoutMs = 30000) {
  * Groups consecutive chunks into batches of `batchSize`.
  * Returns [{from, to}, ...] where from/to are chunk_id values (inclusive).
  */
-function buildBatchRanges(sortedChunkIds, batchSize) {
-    const batches = [];
+function buildBatchRanges(sortedChunkIds: number[], batchSize: number): any[] {
+    const batches: any[] = [];
     for (let i = 0; i < sortedChunkIds.length; i += batchSize) {
         const slice = sortedChunkIds.slice(i, i + batchSize);
         batches.push({
@@ -203,7 +203,7 @@ function buildBatchRanges(sortedChunkIds, batchSize) {
 /**
  * Build the batch-data API URL, handling sub-book IDs with slashes.
  */
-function buildBatchUrl(bookId, from, to) {
+function buildBatchUrl(bookId: string, from: number, to: number) {
     const slashIndex = bookId.indexOf('/');
     let url;
     if (slashIndex !== -1) {
@@ -220,7 +220,7 @@ function buildBatchUrl(bookId, from, to) {
 /**
  * Build the full-data API URL (for fallback when no manifest).
  */
-function buildDataUrl(bookId) {
+function buildDataUrl(bookId: string) {
     const slashIndex = bookId.indexOf('/');
     let url;
     if (slashIndex !== -1) {
@@ -237,7 +237,7 @@ function buildDataUrl(bookId) {
  * Fallback: monolithic download when no chunk manifest is available.
  * Preserves the original behavior for sub-books and edge cases.
  */
-async function fullDownloadFallback(bookId, lazyLoader) {
+async function fullDownloadFallback(bookId: string, lazyLoader: any) {
     const url = buildDataUrl(bookId);
     const response = await fetch(url);
 
@@ -266,7 +266,7 @@ async function fullDownloadFallback(bookId, lazyLoader) {
 
     // Update window.nodes for other consumers
     if (data.nodes?.length) {
-        window.nodes = data.nodes;
+        (window as any).nodes = data.nodes;
         // Rebuild + update DOM + persist (see comment in main path above).
         await rebuildAndRenumber(bookId, data.nodes);
     }

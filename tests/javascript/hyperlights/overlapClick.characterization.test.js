@@ -53,7 +53,7 @@ vi.mock('../../../resources/js/divEditor/index.js', () => ({
 import { handleUnifiedContentClick } from '../../../resources/js/utilities/containerActions';
 import { handleMarkClick } from '../../../resources/js/hyperlights/listeners';
 import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector';
-import { applyHighlights } from '../../../resources/js/lazyLoaderFactory.js';
+import { applyHighlights } from '../../../resources/js/lazyLoader';
 
 /** Render a node's HTML with highlights applied, into a detached container. */
 function renderNode(html, highlights) {

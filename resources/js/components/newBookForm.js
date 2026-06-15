@@ -2,7 +2,7 @@ import { openDatabase } from '../indexedDB/index';
 import '../utilities/debugLog.js';
 import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { getCurrentUser, getAnonymousToken, getCurrentUserInfo, isLoggedIn } from "../utilities/auth.js";
-import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
+import { loadFromJSONFiles, loadHyperText } from '../pageLoad';
 import { escapeHtml } from '../paste/utils/normalizer.js';
 import DOMPurify from 'dompurify';
 import { showImportFailureModal } from '../conversion/bugReportModal.js';

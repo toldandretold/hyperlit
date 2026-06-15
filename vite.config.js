@@ -139,13 +139,12 @@ export default defineConfig({
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.ts',
-                'resources/js/initializePage.js',
-                'resources/js/lazyLoaderFactory.js',
+                'resources/js/pageLoad/index.ts',
+                'resources/js/lazyLoader/index.ts',
                 'resources/js/components/newBookForm.js',
-                'resources/js/postgreSQL.js',
-                'resources/js/readerDOMContentLoaded.js',
+                'resources/js/pageLoad/readerEntry.ts',
                 'resources/js/renderOpenBooks.js',
-                'resources/js/scrolling.js',
+                'resources/js/scrolling/index.ts',
                 'resources/js/components/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',

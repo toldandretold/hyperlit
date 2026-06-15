@@ -164,7 +164,7 @@ export function initializeHypercitingControls(currentBookId: string): void {
   copyButton.style.userSelect = "none";
 
   // Re-initialize the ContainerManager for the pop-up
-  initializeHyperciteContainerManager();
+  initializeHyperlitManager();
 }
 
 /**
@@ -210,6 +210,3 @@ export function cleanupUnderlineClickListeners(): void {
     anchorElement.removeAttribute("data-hypercite-link-listener");
   });
 }
-
-// Legacy container functions - redirected to unified system
-const initializeHyperciteContainerManager = initializeHyperlitManager;

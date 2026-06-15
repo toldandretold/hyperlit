@@ -1,6 +1,6 @@
-import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
+import { loadHyperText, resetCurrentLazyLoader } from './pageLoad';
 import { setCurrentBook } from './app.js';
-import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
+import { showNavigationLoading, hideNavigationLoading } from './scrolling';
 import { log, verbose } from './utilities/logger.js';
 import { getAllOfflineAvailableBooks } from './indexedDB/index';
 

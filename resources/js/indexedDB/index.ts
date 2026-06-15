@@ -170,7 +170,7 @@ export {
   updateHistoryLog,
   executeSyncPayload,
   debouncedMasterSync,
-  syncIndexedDBtoPostgreSQLBlocking,  // Renamed to avoid collision with postgreSQL.js version
+  syncIndexedDBtoPostgreSQLBlocking,  // Renamed to avoid collision with indexedDB/serverSync version
   initMasterSyncDependencies,
 } from './syncQueue/master';
 

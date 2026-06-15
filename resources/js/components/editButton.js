@@ -9,7 +9,7 @@ import { incrementPendingOperations, decrementPendingOperations } from '../utili
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
 import { getLibraryObjectFromIndexedDB } from '../indexedDB/index';
 import userManager from "./userContainer.js";
-import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
+import { pendingFirstChunkLoadedPromise } from '../pageLoad';
 
 
 
@@ -195,7 +195,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   // Edit operations (paste, renumber, footnote insert) need the full dataset —
   // block edit mode until all chunks are available.
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../backgroundDownloader.js');
+    const { waitForBackgroundDownload } = await import('../pageLoad');
     await waitForBackgroundDownload();
   }
 

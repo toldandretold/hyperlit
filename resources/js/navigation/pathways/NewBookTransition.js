@@ -23,7 +23,7 @@ import { reinitializeContainerManagers } from '../utils/initHelpers.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook.js';
 import { setInitialBookSyncPromise } from '../../utilities/operationState.js';
-import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
+import { syncIndexedDBtoPostgreSQL } from '../../indexedDB/serverSync';
 
 export class NewBookTransition {
   /**

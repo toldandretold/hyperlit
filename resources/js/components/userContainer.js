@@ -10,7 +10,7 @@ import {
   refreshAuth,
   broadcastAuthChange,
 } from "../utilities/auth.js";
-import { syncBookDataFromDatabase, flushAllPendingEdits } from "../postgreSQL.js";
+import { syncBookDataFromDatabase, flushAllPendingEdits } from "../indexedDB/serverSync";
 
 // Import extracted modules
 import {
@@ -806,7 +806,7 @@ export class UserContainerManager extends ContainerManager {
 
   async triggerContentRefresh(bookId) {
     try {
-      const { currentLazyLoader } = await import('../initializePage.js');
+      const { currentLazyLoader } = await import('../pageLoad');
       if (currentLazyLoader && typeof currentLazyLoader.refresh === 'function') {
         await currentLazyLoader.refresh();
       } else {

@@ -73,6 +73,7 @@ import time
 import random
 import string
 import json
+from urllib.parse import unquote
 from abc import ABC, abstractmethod
 from ebooklib import epub, ITEM_DOCUMENT, ITEM_STYLE, ITEM_NAVIGATION
 from bs4 import BeautifulSoup, NavigableString
@@ -888,7 +889,7 @@ class EpubNormalizer:
                 href = item.get('href')
                 if not href:
                     continue
-                path = os.path.normpath(os.path.join(opf_dir, href))
+                path = os.path.normpath(os.path.join(opf_dir, unquote(href)))
                 if mtype == 'text/css' and os.path.exists(path):
                     with open(path, 'r', encoding='utf-8', errors='replace') as cf:
                         css_parts.append(cf.read())
@@ -914,7 +915,12 @@ class EpubNormalizer:
                 continue
 
             file_href = manifest[idref]
-            file_path = os.path.normpath(os.path.join(opf_dir, file_href))
+            # OPF manifest hrefs are percent-encoded URIs (e.g. "Chapter%2001.xhtml" for a file
+            # named "Chapter 01.xhtml"). Decode before touching the filesystem, or files with spaces
+            # in their names silently fail os.path.exists and get dropped from the spine. NOTE: keep the
+            # ENCODED file_href for spine_id_prefix below — TocIndex feeds the equally-encoded ncx src
+            # to the same helper, so both sides must derive the prefix from the same (encoded) form.
+            file_path = os.path.normpath(os.path.join(opf_dir, unquote(file_href)))
 
             if not os.path.exists(file_path):
                 continue

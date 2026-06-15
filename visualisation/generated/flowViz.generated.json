@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 531,
-    "moduleCount": 109,
+    "fnCount": 599,
+    "moduleCount": 133,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1144,
+    "edgeCount": 1365,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -20,6 +20,7 @@
     "capture",
     "queue",
     "push",
+    "serverSync",
     "hydrate",
     "domain",
     "infra",
@@ -29,7 +30,10 @@
     "editToolbar",
     "footnotes",
     "citations",
-    "hyperlitContainer"
+    "hyperlitContainer",
+    "lazyLoader",
+    "scrolling",
+    "pageLoad"
   ],
   "legend": [
     {
@@ -4275,6 +4279,110 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "label": "clearAnnotationsFromIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "label": "clearBookDataFromIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "label": "updateEmbeddedAnnotationsInNodes",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "label": "flushAllPendingEdits",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/flush",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "label": "loadBibliographyToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "label": "loadFootnotesToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "label": "loadHypercitesToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "label": "loadHyperlightsToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "label": "loadLibraryToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "label": "loadNodeChunksToIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/loaders",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "label": "syncAnnotationsOnly",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/pull",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "label": "syncBookDataFromDatabase",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/pull",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "label": "syncIndexedDBtoPostgreSQL",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/push",
+      "leaf": false
+    },
+    {
       "id": "indexedDB/syncQueue/freshNodeFilter:filterFreshNodesForBook",
       "label": "filterFreshNodesForBook",
       "kind": "fn",
@@ -4395,6 +4503,286 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/chunkRender:applyHighlights",
+      "label": "applyHighlights",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:applyHypercites",
+      "label": "applyHypercites",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement",
+      "label": "createChunkElement",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "label": "ensureNoDeleteMarkerForBook",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:normalizeHyperciteElements",
+      "label": "normalizeHyperciteElements",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:renderMathElements",
+      "label": "renderMathElements",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/chunkRender:throttle",
+      "label": "throttle",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkRender",
+      "leaf": true
+    },
+    {
+      "id": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "label": "applyDynamicFootnoteNumbers",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/footnoteSelfHeal",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/imageState:handleBrokenImages",
+      "label": "handleBrokenImages",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/imageState",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader",
+      "label": "createLazyLoader",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/index",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/index:getLastChunkId",
+      "label": "getLastChunkId",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/index",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed",
+      "label": "loadNextChunkFixed",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/index",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed",
+      "label": "loadPreviousChunkFixed",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/index",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/accessGuards:handleDeletedBookAccess",
+      "label": "handleDeletedBookAccess",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/accessGuards",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "label": "handlePrivateBookAccessDenied",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/accessGuards",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "label": "backgroundDownloadRemainingChunks",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/backgroundDownload",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "label": "waitForBackgroundDownload",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/backgroundDownload",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/containerChain:buildChainFromUrl",
+      "label": "buildChainFromUrl",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/containerChain",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain",
+      "label": "openContainerChain",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/containerChain",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+      "label": "getFirstChunkLoadedResolver",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/firstChunkPromise",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/firstChunkPromise:resetFirstChunkPromise",
+      "label": "resetFirstChunkPromise",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/firstChunkPromise",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/firstChunkPromise:resolveFirstChunkPromise",
+      "label": "resolveFirstChunkPromise",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/firstChunkPromise",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk",
+      "label": "fetchInitialChunk",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/initialChunk",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/initialChunk:resolveBootstrapTarget",
+      "label": "resolveBootstrapTarget",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/initialChunk",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "label": "initializeLazyLoader",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/lazyLoaderRegistry",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+      "label": "initializeLazyLoaderForContainer",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/lazyLoaderRegistry",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "label": "initializeMainLazyLoader",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/lazyLoaderRegistry",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "label": "resetCurrentLazyLoader",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/lazyLoaderRegistry",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:generateNodeChunksFromMarkdown",
+      "label": "generateNodeChunksFromMarkdown",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/loadHyperText",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadFromJSONFiles",
+      "label": "loadFromJSONFiles",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/loadHyperText",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText",
+      "label": "loadHyperText",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/loadHyperText",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/onlineRetry:cleanupOnlineSyncListener",
+      "label": "cleanupOnlineSyncListener",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/onlineRetry",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "label": "setupOnlineSyncListener",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/onlineRetry",
+      "leaf": false
+    },
+    {
+      "id": "pageLoad/readerEntry:hidePageLoadProgress",
+      "label": "hidePageLoadProgress",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/readerEntry",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/readerEntry:updatePageLoadProgress",
+      "label": "updatePageLoadProgress",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/readerEntry",
+      "leaf": true
+    },
+    {
       "id": "pg:bibliography",
       "label": "bibliography",
       "kind": "table"
@@ -4423,6 +4811,166 @@
       "id": "pg:nodes",
       "label": "nodes",
       "kind": "table"
+    },
+    {
+      "id": "scrolling/index:clearNavigatedHashes",
+      "label": "clearNavigatedHashes",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/index",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition",
+      "label": "fallbackScrollPosition",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/internalNav",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/internalNav:loadDefaultContent",
+      "label": "loadDefaultContent",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/internalNav",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId",
+      "label": "navigateToInternalId",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/internalNav",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/navOverlay:hideNavigationLoading",
+      "label": "hideNavigationLoading",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navOverlay",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
+      "label": "restoreNavigationOverlayIfNeeded",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navOverlay",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/navOverlay:showNavigationLoading",
+      "label": "showNavigationLoading",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navOverlay",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition",
+      "label": "restoreScrollPosition",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/restore",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/scrollHelpers:isValidContentElement",
+      "label": "isValidContentElement",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollHelpers",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollHelpers:lockScrollToTarget",
+      "label": "lockScrollToTarget",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollHelpers",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "label": "scrollElementIntoMainContent",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollHelpers",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "label": "scrollElementWithConsistentMethod",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollHelpers",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "label": "waitForElementAndScroll",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollHelpers",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/userScrollDetection:cancelPendingNavigationCleanup",
+      "label": "cancelPendingNavigationCleanup",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "label": "isActivelyScrollingForLinkBlock",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:isUserCurrentlyScrolling",
+      "label": "isUserCurrentlyScrolling",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:resetUserScrollState",
+      "label": "resetUserScrollState",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:setNavigatingState",
+      "label": "setNavigatingState",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:setupUserScrollDetection",
+      "label": "setupUserScrollDetection",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "label": "shouldSkipScrollRestoration",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/userScrollDetection",
+      "leaf": true
     },
     {
       "id": "store:bibliography",
@@ -5807,6 +6355,59 @@
       ]
     },
     {
+      "id": "indexedDB/serverSync/clear",
+      "label": "indexedDB/serverSync/clear",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+        "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+        "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/flush",
+      "label": "indexedDB/serverSync/flush",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/flush:flushAllPendingEdits"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/loaders",
+      "label": "indexedDB/serverSync/loaders",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+        "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+        "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+        "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+        "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+        "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/pull",
+      "label": "indexedDB/serverSync/pull",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/pull:syncAnnotationsOnly",
+        "indexedDB/serverSync/pull:syncBookDataFromDatabase"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/push",
+      "label": "indexedDB/serverSync/push",
+      "stage": "serverSync",
+      "band": "capture",
+      "fnIds": [
+        "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL"
+      ]
+    },
+    {
       "id": "indexedDB/syncQueue/freshNodeFilter",
       "label": "indexedDB/syncQueue/freshNodeFilter",
       "stage": "push",
@@ -5867,6 +6468,213 @@
       "fnIds": [
         "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
         "indexedDB/utilities/retry:retryOperation"
+      ]
+    },
+    {
+      "id": "lazyLoader/chunkRender",
+      "label": "lazyLoader/chunkRender",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/chunkRender:applyHighlights",
+        "lazyLoader/chunkRender:applyHypercites",
+        "lazyLoader/chunkRender:createChunkElement",
+        "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+        "lazyLoader/chunkRender:normalizeHyperciteElements",
+        "lazyLoader/chunkRender:renderMathElements",
+        "lazyLoader/chunkRender:throttle"
+      ]
+    },
+    {
+      "id": "lazyLoader/footnoteSelfHeal",
+      "label": "lazyLoader/footnoteSelfHeal",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers"
+      ]
+    },
+    {
+      "id": "lazyLoader/imageState",
+      "label": "lazyLoader/imageState",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/imageState:handleBrokenImages"
+      ]
+    },
+    {
+      "id": "lazyLoader/index",
+      "label": "lazyLoader/index",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/index:createLazyLoader",
+        "lazyLoader/index:getLastChunkId",
+        "lazyLoader/index:loadNextChunkFixed",
+        "lazyLoader/index:loadPreviousChunkFixed"
+      ]
+    },
+    {
+      "id": "pageLoad/accessGuards",
+      "label": "pageLoad/accessGuards",
+      "stage": "pageLoad",
+      "band": "capture",
+      "fnIds": [
+        "pageLoad/accessGuards:handleDeletedBookAccess",
+        "pageLoad/accessGuards:handlePrivateBookAccessDenied"
+      ]
+    },
+    {
+      "id": "pageLoad/backgroundDownload",
+      "label": "pageLoad/backgroundDownload",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+        "pageLoad/backgroundDownload:waitForBackgroundDownload"
+      ]
+    },
+    {
+      "id": "pageLoad/containerChain",
+      "label": "pageLoad/containerChain",
+      "stage": "pageLoad",
+      "band": "capture",
+      "fnIds": [
+        "pageLoad/containerChain:buildChainFromUrl",
+        "pageLoad/containerChain:openContainerChain"
+      ]
+    },
+    {
+      "id": "pageLoad/firstChunkPromise",
+      "label": "pageLoad/firstChunkPromise",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+        "pageLoad/firstChunkPromise:resetFirstChunkPromise",
+        "pageLoad/firstChunkPromise:resolveFirstChunkPromise"
+      ]
+    },
+    {
+      "id": "pageLoad/initialChunk",
+      "label": "pageLoad/initialChunk",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/initialChunk:fetchInitialChunk",
+        "pageLoad/initialChunk:resolveBootstrapTarget"
+      ]
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry",
+      "label": "pageLoad/lazyLoaderRegistry",
+      "stage": "pageLoad",
+      "band": "capture",
+      "fnIds": [
+        "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+        "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+        "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+        "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader"
+      ]
+    },
+    {
+      "id": "pageLoad/loadHyperText",
+      "label": "pageLoad/loadHyperText",
+      "stage": "pageLoad",
+      "band": "capture",
+      "fnIds": [
+        "pageLoad/loadHyperText:generateNodeChunksFromMarkdown",
+        "pageLoad/loadHyperText:loadFromJSONFiles",
+        "pageLoad/loadHyperText:loadHyperText"
+      ]
+    },
+    {
+      "id": "pageLoad/onlineRetry",
+      "label": "pageLoad/onlineRetry",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/onlineRetry:cleanupOnlineSyncListener",
+        "pageLoad/onlineRetry:setupOnlineSyncListener"
+      ]
+    },
+    {
+      "id": "pageLoad/readerEntry",
+      "label": "pageLoad/readerEntry",
+      "stage": "pageLoad",
+      "band": "store",
+      "fnIds": [
+        "pageLoad/readerEntry:hidePageLoadProgress",
+        "pageLoad/readerEntry:updatePageLoadProgress"
+      ]
+    },
+    {
+      "id": "scrolling/index",
+      "label": "scrolling/index",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/index:clearNavigatedHashes"
+      ]
+    },
+    {
+      "id": "scrolling/internalNav",
+      "label": "scrolling/internalNav",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/internalNav:fallbackScrollPosition",
+        "scrolling/internalNav:loadDefaultContent",
+        "scrolling/internalNav:navigateToInternalId"
+      ]
+    },
+    {
+      "id": "scrolling/navOverlay",
+      "label": "scrolling/navOverlay",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/navOverlay:hideNavigationLoading",
+        "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
+        "scrolling/navOverlay:showNavigationLoading"
+      ]
+    },
+    {
+      "id": "scrolling/restore",
+      "label": "scrolling/restore",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/restore:restoreScrollPosition"
+      ]
+    },
+    {
+      "id": "scrolling/scrollHelpers",
+      "label": "scrolling/scrollHelpers",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/scrollHelpers:isValidContentElement",
+        "scrolling/scrollHelpers:lockScrollToTarget",
+        "scrolling/scrollHelpers:scrollElementIntoMainContent",
+        "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+        "scrolling/scrollHelpers:waitForElementAndScroll"
+      ]
+    },
+    {
+      "id": "scrolling/userScrollDetection",
+      "label": "scrolling/userScrollDetection",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/userScrollDetection:cancelPendingNavigationCleanup",
+        "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+        "scrolling/userScrollDetection:isUserCurrentlyScrolling",
+        "scrolling/userScrollDetection:resetUserScrollState",
+        "scrolling/userScrollDetection:setNavigatingState",
+        "scrolling/userScrollDetection:setupUserScrollDetection",
+        "scrolling/userScrollDetection:shouldSkipScrollRestoration"
       ]
     }
   ],
@@ -6302,6 +7110,12 @@
       "source": "divEditor/index:stopObserving",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/mutationProcessor:MutationProcessor.process__call__editToolbar/index:getEditToolbar",
+      "source": "divEditor/mutationProcessor:MutationProcessor.process",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
     },
     {
       "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:isIDBBroken",
@@ -7727,6 +8541,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "source": "dom",
+      "target": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__indexedDB/syncQueue/master:executeSyncPayload",
       "source": "dom",
       "target": "indexedDB/syncQueue/master:executeSyncPayload",
@@ -7736,6 +8556,144 @@
       "id": "dom__domread__indexedDB/syncQueue/unload:setupUnloadSync",
       "source": "dom",
       "target": "indexedDB/syncQueue/unload:setupUnloadSync",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:applyHighlights",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:applyHighlights",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:applyHypercites",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:applyHypercites",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:createChunkElement",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:createChunkElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:normalizeHyperciteElements",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:normalizeHyperciteElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/chunkRender:renderMathElements",
+      "source": "dom",
+      "target": "lazyLoader/chunkRender:renderMathElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "source": "dom",
+      "target": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/imageState:handleBrokenImages",
+      "source": "dom",
+      "target": "lazyLoader/imageState:handleBrokenImages",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/index:createLazyLoader",
+      "source": "dom",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/index:getLastChunkId",
+      "source": "dom",
+      "target": "lazyLoader/index:getLastChunkId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/index:loadNextChunkFixed",
+      "source": "dom",
+      "target": "lazyLoader/index:loadNextChunkFixed",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/index:loadPreviousChunkFixed",
+      "source": "dom",
+      "target": "lazyLoader/index:loadPreviousChunkFixed",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__pageLoad/accessGuards:handleDeletedBookAccess",
+      "source": "dom",
+      "target": "pageLoad/accessGuards:handleDeletedBookAccess",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "source": "dom",
+      "target": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__pageLoad/containerChain:openContainerChain",
+      "source": "dom",
+      "target": "pageLoad/containerChain:openContainerChain",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "source": "dom",
+      "target": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__pageLoad/loadHyperText:loadHyperText",
+      "source": "dom",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/internalNav:fallbackScrollPosition",
+      "source": "dom",
+      "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/internalNav:navigateToInternalId",
+      "source": "dom",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/restore:restoreScrollPosition",
+      "source": "dom",
+      "target": "scrolling/restore:restoreScrollPosition",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "source": "dom",
+      "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "source": "dom",
+      "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/scrollHelpers:waitForElementAndScroll",
+      "source": "dom",
+      "target": "scrolling/scrollHelpers:waitForElementAndScroll",
       "rel": "domread"
     },
     {
@@ -9010,7 +9968,8 @@
       "id": "hypercites/navigation:CoupleClick__call__hypercites/navigation:navigateToHyperciteLink",
       "source": "hypercites/navigation:CoupleClick",
       "target": "hypercites/navigation:navigateToHyperciteLink",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/database:getHyperciteById",
@@ -9023,7 +9982,8 @@
       "id": "hypercites/navigation:handleOverlappingCouple__call__hypercites/navigation:navigateToHyperciteLink",
       "source": "hypercites/navigation:handleOverlappingCouple",
       "target": "hypercites/navigation:navigateToHyperciteLink",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:handleOverlappingCouple__call__indexedDB/core/connection:openDatabase",
@@ -9093,6 +10053,13 @@
       "rel": "call"
     },
     {
+      "id": "hypercites/navigation:navigateToFootnoteTarget__call__scrolling/internalNav:navigateToInternalId",
+      "source": "hypercites/navigation:navigateToFootnoteTarget",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hypercites/navigation:navigateToFootnoteTarget__domwrite__dom",
       "source": "hypercites/navigation:navigateToFootnoteTarget",
       "target": "dom",
@@ -9108,12 +10075,41 @@
       "id": "hypercites/navigation:navigateToHyperciteLink__call__hypercites/navigation:navigateToFootnoteTarget",
       "source": "hypercites/navigation:navigateToHyperciteLink",
       "target": "hypercites/navigation:navigateToFootnoteTarget",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/navigation:navigateToHyperciteLink__call__hypercites/navigation:navigateToHyperciteTarget",
       "source": "hypercites/navigation:navigateToHyperciteLink",
       "target": "hypercites/navigation:navigateToHyperciteTarget",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteLink__call__pageLoad/containerChain:buildChainFromUrl",
+      "source": "hypercites/navigation:navigateToHyperciteLink",
+      "target": "pageLoad/containerChain:buildChainFromUrl",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteLink__call__pageLoad/containerChain:openContainerChain",
+      "source": "hypercites/navigation:navigateToHyperciteLink",
+      "target": "pageLoad/containerChain:openContainerChain",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteLink__call__scrolling/internalNav:navigateToInternalId",
+      "source": "hypercites/navigation:navigateToHyperciteLink",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteLink__call__scrolling/navOverlay:showNavigationLoading",
+      "source": "hypercites/navigation:navigateToHyperciteLink",
+      "target": "scrolling/navOverlay:showNavigationLoading",
       "rel": "call"
     },
     {
@@ -9133,6 +10129,13 @@
       "source": "hypercites/navigation:navigateToHyperciteTarget",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
       "rel": "call"
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteTarget__call__scrolling/internalNav:navigateToInternalId",
+      "source": "hypercites/navigation:navigateToHyperciteTarget",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener__call__hyperlights/annotationPaste:handleHighlightContainerPaste",
@@ -9663,6 +10666,18 @@
       "dataPath": true
     },
     {
+      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__lazyLoader/chunkRender:applyHighlights",
+      "source": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "target": "lazyLoader/chunkRender:applyHighlights",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__lazyLoader/chunkRender:applyHypercites",
+      "source": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "target": "lazyLoader/chunkRender:applyHypercites",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__domwrite__dom",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
       "target": "dom",
@@ -9679,6 +10694,13 @@
       "source": "hyperlights/deletion:unwrapMark",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/index:initOrUpdateHighlightLazyLoader__call__lazyLoader/index:createLazyLoader",
+      "source": "hyperlights/index:initOrUpdateHighlightLazyLoader",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/listeners:attachMarkListeners__domwrite__dom",
@@ -11296,6 +12318,33 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "hyperlitContainer/subBookLoader:loadSubBook",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "hyperlitContainer/subBookLoader:loadSubBook",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__lazyLoader/chunkRender:createChunkElement",
+      "source": "hyperlitContainer/subBookLoader:loadSubBook",
+      "target": "lazyLoader/chunkRender:createChunkElement",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__lazyLoader/index:createLazyLoader",
+      "source": "hyperlitContainer/subBookLoader:loadSubBook",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlitContainer/subBookLoader:loadSubBook__domwrite__dom",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
       "target": "dom",
@@ -12316,6 +13365,248 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB__write__store:hypercites",
+      "source": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB__write__store:hyperlights",
+      "source": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:footnotes",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:hypercites",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:hyperlights",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:library",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB__write__store:nodes",
+      "source": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes__write__store:nodes",
+      "source": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__divEditor/index:flushAllPendingSaves",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "divEditor/index:flushAllPendingSaves",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__divEditor/index:flushInputDebounce",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "divEditor/index:flushInputDebounce",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__footnotes/footnoteAnnotations:flushPendingFootnoteSaves",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "footnotes/footnoteAnnotations:flushPendingFootnoteSaves",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB__write__store:bibliography",
+      "source": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB__write__store:footnotes",
+      "source": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__write__store:library",
+      "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__pageLoad/accessGuards:handleDeletedBookAccess",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "pageLoad/accessGuards:handleDeletedBookAccess",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:bibliography",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:footnotes",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:hypercites",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:hyperlights",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:library",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__write__store:nodes",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:bibliography",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
       "target": "pg:bibliography",
@@ -12569,6 +13860,885 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/chunkRender:applyHighlights__domwrite__dom",
+      "source": "lazyLoader/chunkRender:applyHighlights",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/chunkRender:applyHypercites__domwrite__dom",
+      "source": "lazyLoader/chunkRender:applyHypercites",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:applyHighlights",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/chunkRender:applyHighlights",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:applyHypercites",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/chunkRender:applyHypercites",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:normalizeHyperciteElements",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/chunkRender:normalizeHyperciteElements",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:renderMathElements",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/chunkRender:renderMathElements",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/imageState:handleBrokenImages",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/imageState:handleBrokenImages",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__domwrite__dom",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__divEditor/domUtilities:getNoDeleteNode",
+      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "target": "divEditor/domUtilities:getNoDeleteNode",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__divEditor/domUtilities:setNoDeleteMarker",
+      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "target": "divEditor/domUtilities:setNoDeleteMarker",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/chunkRender:normalizeHyperciteElements__domwrite__dom",
+      "source": "lazyLoader/chunkRender:normalizeHyperciteElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/chunkRender:renderMathElements__domwrite__dom",
+      "source": "lazyLoader/chunkRender:renderMathElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers__call__footnotes/footnoteCache:getDisplayNumber",
+      "source": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "target": "footnotes/footnoteCache:getDisplayNumber",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers__domwrite__dom",
+      "source": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/imageState:handleBrokenImages__domwrite__dom",
+      "source": "lazyLoader/imageState:handleBrokenImages",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__hyperlights/listeners:attachMarkListeners",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__hyperlitContainer/index:handleUnifiedContentClick",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "hyperlitContainer/index:handleUnifiedContentClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/core/connection:openDatabase",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:createChunkElement",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "lazyLoader/chunkRender:createChunkElement",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:throttle",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "lazyLoader/chunkRender:throttle",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/index:loadNextChunkFixed",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "lazyLoader/index:loadNextChunkFixed",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/index:loadPreviousChunkFixed",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "lazyLoader/index:loadPreviousChunkFixed",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:setNavigatingState",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/userScrollDetection:setNavigatingState",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:setupUserScrollDetection",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/userScrollDetection:setupUserScrollDetection",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__domwrite__dom",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__hyperlights/listeners:attachMarkListeners",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:createChunkElement",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/chunkRender:createChunkElement",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__domwrite__dom",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__hyperlights/listeners:attachMarkListeners",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__domwrite__dom",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "pageLoad/accessGuards:handleDeletedBookAccess__domwrite__dom",
+      "source": "pageLoad/accessGuards:handleDeletedBookAccess",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "pageLoad/accessGuards:handlePrivateBookAccessDenied__domwrite__dom",
+      "source": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__footnotes/FootnoteNumberingService:rebuildAndRenumber",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/core/connection:openDatabase",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/containerChain:buildChainFromUrl__call__indexedDB/core/connection:openDatabase",
+      "source": "pageLoad/containerChain:buildChainFromUrl",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__hypercites/animations:highlightTargetHypercite",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "hypercites/animations:highlightTargetHypercite",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__hyperlitContainer/core:closeHyperlitContainer",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "hyperlitContainer/core:closeHyperlitContainer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__hyperlitContainer/index:handleUnifiedContentClick",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "hyperlitContainer/index:handleUnifiedContentClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__hyperlitContainer/stack:getCurrentContainer",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "hyperlitContainer/stack:getCurrentContainer",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__hyperlitContainer/stack:getCurrentScroller",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "hyperlitContainer/stack:getCurrentScroller",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/containerChain:openContainerChain__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pageLoad/containerChain:openContainerChain",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/core/connection:openDatabase",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__pageLoad/accessGuards:handleDeletedBookAccess",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "pageLoad/accessGuards:handleDeletedBookAccess",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__write__store:footnotes",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__lazyLoader/index:createLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__scrolling/internalNav:navigateToInternalId",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__lazyLoader/index:createLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__pageLoad/loadHyperText:generateNodeChunksFromMarkdown",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
+      "target": "pageLoad/loadHyperText:generateNodeChunksFromMarkdown",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader__call__lazyLoader/index:createLazyLoader",
+      "source": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:generateNodeChunksFromMarkdown__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "source": "pageLoad/loadHyperText:generateNodeChunksFromMarkdown",
+      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
+      "source": "pageLoad/loadHyperText:loadFromJSONFiles",
+      "target": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
+      "source": "pageLoad/loadHyperText:loadFromJSONFiles",
+      "target": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "source": "pageLoad/loadHyperText:loadFromJSONFiles",
+      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__footnotes/footnoteCache:buildFootnoteMap",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "footnotes/footnoteCache:buildFootnoteMap",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__footnotes/footnoteCache:hasOldFormatFootnotes",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "footnotes/footnoteCache:hasOldFormatFootnotes",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__footnotes/footnoteDom:migrateOldFormatFootnotes",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "footnotes/footnoteDom:migrateOldFormatFootnotes",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__hyperlights/deletion:reprocessHighlightsForNodes",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/core/connection:openDatabase",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/core/library:updateLocalAnnotationsTimestamp",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:resetFirstChunkPromise",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/firstChunkPromise:resetFirstChunkPromise",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:resolveFirstChunkPromise",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/firstChunkPromise:resolveFirstChunkPromise",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/initialChunk:fetchInitialChunk",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/initialChunk:fetchInitialChunk",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/initialChunk:resolveBootstrapTarget",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/initialChunk:resolveBootstrapTarget",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/onlineRetry:setupOnlineSyncListener",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/onlineRetry:setupOnlineSyncListener__call__indexedDB/core/connection:openDatabase",
+      "source": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/onlineRetry:setupOnlineSyncListener__call__indexedDB/syncQueue/master:executeSyncPayload",
+      "source": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "target": "indexedDB/syncQueue/master:executeSyncPayload",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/onlineRetry:setupOnlineSyncListener__call__indexedDB/syncQueue/master:updateHistoryLog",
+      "source": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "target": "indexedDB/syncQueue/master:updateHistoryLog",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/internalNav:loadDefaultContent",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "scrolling/internalNav:loadDefaultContent",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__domwrite__dom",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/internalNav:loadDefaultContent__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "scrolling/internalNav:loadDefaultContent",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:loadDefaultContent__domwrite__dom",
+      "source": "scrolling/internalNav:loadDefaultContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__hypercites/animations:highlightTargetHypercite",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "hypercites/animations:highlightTargetHypercite",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__hypercites/animations:revealGhostIfTombstone",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "hypercites/animations:revealGhostIfTombstone",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__hyperlights/utils:openHighlightById",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "hyperlights/utils:openHighlightById",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__hyperlitContainer/index:handleUnifiedContentClick",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "hyperlitContainer/index:handleUnifiedContentClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/internalNav:fallbackScrollPosition",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navOverlay:hideNavigationLoading",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/navOverlay:hideNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navOverlay:showNavigationLoading",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/navOverlay:showNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__domwrite__dom",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/internalNav:navigateToInternalId",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/navOverlay:showNavigationLoading",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/navOverlay:showNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__domwrite__dom",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/scrollHelpers:lockScrollToTarget__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "source": "scrolling/scrollHelpers:lockScrollToTarget",
+      "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementIntoMainContent__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "source": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "source": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "target": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/scrollHelpers:waitForElementAndScroll__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "source": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/scrollHelpers:waitForElementAndScroll__call__scrolling/scrollHelpers:waitForElementAndScroll",
+      "source": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "target": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/userScrollDetection:shouldSkipScrollRestoration__call__scrolling/userScrollDetection:isUserCurrentlyScrolling",
+      "source": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
+      "target": "scrolling/userScrollDetection:isUserCurrentlyScrolling",
+      "rel": "call"
+    },
+    {
       "id": "store:bibliography__read__hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
       "source": "store:bibliography",
       "target": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
@@ -12596,6 +14766,18 @@
       "id": "store:footnotes__read__hyperlitContainer/core:savePreviewNodes",
       "source": "store:footnotes",
       "target": "hyperlitContainer/core:savePreviewNodes",
+      "rel": "read"
+    },
+    {
+      "id": "store:footnotes__read__pageLoad/containerChain:buildChainFromUrl",
+      "source": "store:footnotes",
+      "target": "pageLoad/containerChain:buildChainFromUrl",
+      "rel": "read"
+    },
+    {
+      "id": "store:historyLog__read__pageLoad/onlineRetry:setupOnlineSyncListener",
+      "source": "store:historyLog",
+      "target": "pageLoad/onlineRetry:setupOnlineSyncListener",
       "rel": "read"
     },
     {
@@ -12761,6 +14943,12 @@
       "rel": "read"
     },
     {
+      "id": "store:hyperlights__read__pageLoad/containerChain:buildChainFromUrl",
+      "source": "store:hyperlights",
+      "target": "pageLoad/containerChain:buildChainFromUrl",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__hypercites/containers:createOverlappingPolyContainer",
       "source": "store:library",
       "target": "hypercites/containers:createOverlappingPolyContainer",
@@ -12833,6 +15021,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "source": "store:library",
+      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
       "source": "store:library",
       "target": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
@@ -12842,6 +15036,18 @@
       "id": "store:library__read__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
       "source": "store:library",
       "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__lazyLoader/index:createLazyLoader",
+      "source": "store:library",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__pageLoad/loadHyperText:loadHyperText",
+      "source": "store:library",
+      "target": "pageLoad/loadHyperText:loadHyperText",
       "rel": "read"
     },
     {
@@ -12983,6 +15189,12 @@
       "rel": "read"
     },
     {
+      "id": "store:nodes__read__indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "source": "store:nodes",
+      "target": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "rel": "read"
+    },
+    {
       "id": "store:nodes__read__indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",
       "source": "store:nodes",
       "target": "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",
@@ -13072,6 +15284,11 @@
     },
     {
       "source": "divEditor/index",
+      "target": "divEditor/chunkMutationHandler/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
       "target": "divEditor/domUtilities",
       "kind": "static"
     },
@@ -13087,6 +15304,11 @@
     },
     {
       "source": "divEditor/index",
+      "target": "divEditor/enterKeyHandler/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
       "target": "divEditor/mutationProcessor",
       "kind": "static"
     },
@@ -13097,7 +15319,22 @@
     },
     {
       "source": "divEditor/index",
+      "target": "divEditor/supTagHandler/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
+      "target": "editToolbar/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/mutationProcessor",
+      "target": "editToolbar/index",
       "kind": "static"
     },
     {
@@ -13283,7 +15520,7 @@
     {
       "source": "editToolbar/index",
       "target": "footnotes/footnoteInserter",
-      "kind": "lazy"
+      "kind": "breaker"
     },
     {
       "source": "editToolbar/listConverter",
@@ -13426,6 +15663,11 @@
       "kind": "static"
     },
     {
+      "source": "hypercites/navigation",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
       "source": "hyperlights/annotationPaste",
       "target": "hyperlights/annotations",
       "kind": "static"
@@ -13526,6 +15768,16 @@
       "kind": "static"
     },
     {
+      "source": "hyperlights/deletion",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/deletion",
+      "target": "lazyLoader/index",
+      "kind": "breaker"
+    },
+    {
       "source": "hyperlights/index",
       "target": "hyperlights/annotationPaste",
       "kind": "static"
@@ -13578,6 +15830,11 @@
     {
       "source": "hyperlights/index",
       "target": "hyperlights/utils",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/index",
+      "target": "lazyLoader/index",
       "kind": "static"
     },
     {
@@ -13719,6 +15976,11 @@
       "source": "hyperlitContainer/contentBuilders/displayHyperlights",
       "target": "hyperlitContainer/utils",
       "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/core",
+      "target": "scrolling/index",
+      "kind": "static"
     },
     {
       "source": "hyperlitContainer/core",
@@ -13961,6 +16223,11 @@
       "kind": "lazy"
     },
     {
+      "source": "hyperlitContainer/index",
+      "target": "scrolling/index",
+      "kind": "lazy"
+    },
+    {
       "source": "hyperlitContainer/noteListener",
       "target": "footnotes/footnoteAnnotations",
       "kind": "static"
@@ -14053,16 +16320,21 @@
     {
       "source": "hyperlitContainer/stack",
       "target": "hyperlitContainer/noteListener",
-      "kind": "lazy"
+      "kind": "breaker"
     },
     {
       "source": "hyperlitContainer/stack",
       "target": "hyperlitContainer/subBookLoader",
-      "kind": "lazy"
+      "kind": "breaker"
     },
     {
       "source": "hyperlitContainer/subBookLoader",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/subBookLoader",
+      "target": "lazyLoader/index",
       "kind": "static"
     },
     {
@@ -14361,6 +16633,61 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/serverSync/flush",
+      "target": "divEditor/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "footnotes/footnoteAnnotations",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "indexedDB/syncQueue/master",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "indexedDB/syncQueue/queue",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/loaders",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/clear",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/flush",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "indexedDB/serverSync/loaders",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "pageLoad/accessGuards",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/push",
+      "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -14404,12 +16731,404 @@
       "source": "indexedDB/utilities/retry",
       "target": "indexedDB/nodes/delete",
       "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "lazyLoader/footnoteSelfHeal",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "lazyLoader/imageState",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "divEditor/domUtilities",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/footnoteSelfHeal",
+      "target": "footnotes/FootnoteNumberingService",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/footnoteSelfHeal",
+      "target": "indexedDB/nodes/batch",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "hyperlights/index",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "lazyLoader/chunkRender",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "hyperlitContainer/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/backgroundDownload",
+      "target": "footnotes/FootnoteNumberingService",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/backgroundDownload",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/containerChain",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/containerChain",
+      "target": "pageLoad/lazyLoaderRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/containerChain",
+      "target": "hypercites/animations",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/containerChain",
+      "target": "hyperlitContainer/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/containerChain",
+      "target": "hyperlitContainer/stack",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/initialChunk",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/initialChunk",
+      "target": "pageLoad/accessGuards",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "hyperlights/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "lazyLoader/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "pageLoad/firstChunkPromise",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "hyperlitContainer/history",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "hyperlitContainer/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "pageLoad/containerChain",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "pageLoad/loadHyperText",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "footnotes/FootnoteNumberingService",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "indexedDB/core/library",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/firstChunkPromise",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/initialChunk",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/lazyLoaderRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/onlineRetry",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "hyperlights/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/backgroundDownload",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/readerEntry",
+      "kind": "breaker"
+    },
+    {
+      "source": "pageLoad/onlineRetry",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "hyperlights/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "pageLoad/firstChunkPromise",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/internalNav",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/navOverlay",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/restore",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/scrollHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "scrolling/navOverlay",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "scrolling/scrollHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "hypercites/animations",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "hyperlights/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "hyperlitContainer/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "lazyLoader/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "pageLoad/firstChunkPromise",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "scrolling/internalNav",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "scrolling/navOverlay",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "pageLoad/lazyLoaderRegistry",
+      "kind": "breaker"
+    },
+    {
+      "source": "scrolling/scrollHelpers",
+      "target": "scrolling/userScrollDetection",
+      "kind": "static"
     }
   ],
   "cycleSummary": {
-    "staticCycles": [],
-    "latentCycles": [],
-    "breakerCount": 0,
-    "lazyCount": 76
+    "staticCycles": [
+      [
+        "divEditor/index",
+        "hypercites/index",
+        "hypercites/listeners",
+        "hypercites/navigation",
+        "hyperlights/annotationPaste",
+        "hyperlights/deleteHighlight",
+        "hyperlights/index",
+        "hyperlights/selectionToolbar",
+        "lazyLoader/index",
+        "pageLoad/containerChain",
+        "pageLoad/index",
+        "pageLoad/lazyLoaderRegistry",
+        "pageLoad/loadHyperText",
+        "pageLoad/readerEntry"
+      ]
+    ],
+    "latentCycles": [
+      [
+        "divEditor/chunkMutationHandler/index",
+        "divEditor/domUtilities",
+        "divEditor/index",
+        "divEditor/mutationProcessor",
+        "editToolbar/index",
+        "footnotes/footnoteInserter",
+        "hypercites/index",
+        "hypercites/listeners",
+        "hypercites/navigation",
+        "hyperlights/annotationPaste",
+        "hyperlights/createHighlight",
+        "hyperlights/deleteHighlight",
+        "hyperlights/deletion",
+        "hyperlights/index",
+        "hyperlights/selectionToolbar",
+        "hyperlitContainer/contentBuild",
+        "hyperlitContainer/contentTypes/footnoteHandler",
+        "hyperlitContainer/contentTypes/hyperlightHandler",
+        "hyperlitContainer/contentTypes/registry",
+        "hyperlitContainer/core",
+        "hyperlitContainer/editMode",
+        "hyperlitContainer/history",
+        "hyperlitContainer/index",
+        "hyperlitContainer/noteListener",
+        "hyperlitContainer/permissions",
+        "hyperlitContainer/postOpen",
+        "hyperlitContainer/stack",
+        "hyperlitContainer/subBookLoader",
+        "indexedDB/serverSync/flush",
+        "indexedDB/serverSync/index",
+        "indexedDB/serverSync/pull",
+        "lazyLoader/index",
+        "pageLoad/backgroundDownload",
+        "pageLoad/containerChain",
+        "pageLoad/index",
+        "pageLoad/initialChunk",
+        "pageLoad/lazyLoaderRegistry",
+        "pageLoad/loadHyperText",
+        "pageLoad/readerEntry",
+        "scrolling/index",
+        "scrolling/internalNav",
+        "scrolling/restore"
+      ]
+    ],
+    "breakerCount": 20,
+    "lazyCount": 89
   }
 }

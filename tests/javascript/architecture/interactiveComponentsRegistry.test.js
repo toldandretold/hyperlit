@@ -39,7 +39,7 @@ const JS_ROOT = path.join(ROOT, 'resources/js');
 // @vite. Anything NOT here is presumed an interactive component and must be registered.
 const ALLOWED_READER_VITE_JS = new Set([
   'resources/js/containerCustomization.js', // applies persisted container styles (no listeners)
-  'resources/js/readerDOMContentLoaded.js', // the reader bootstrap entry (imports app.js + viewManager)
+  'resources/js/pageLoad/readerEntry.ts', // the reader bootstrap entry (imports app.js + viewManager)
 ]);
 
 // Files permitted to self-instantiate a `window.X = new Y()` global singleton at module

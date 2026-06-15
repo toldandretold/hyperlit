@@ -15,7 +15,7 @@ import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
 import { resetEditModeState, enforceEditableState, enableEditMode } from '../../components/editButton.js';
 import { cleanupReaderView } from '../../viewManager.js';
 import { setCurrentBook } from '../../app.js';
-import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePage.js';
+import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../pageLoad';
 import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index';

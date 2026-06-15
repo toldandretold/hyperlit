@@ -5,7 +5,7 @@
 //   // ... change font-size, max-width, toggle class, etc. ...
 //   restoreScrollAnchor(scrollableParent, anchor);
 
-import { setNavigatingState } from '../scrolling.js';
+import { setNavigatingState } from '../scrolling';
 
 /**
  * Capture a visual anchor: the first element with an id that is partially

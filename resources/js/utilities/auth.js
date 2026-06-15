@@ -680,7 +680,7 @@ export function initializeAuthStateListener() {
             if (response.status === 404 || response.status === 403) {
               // User no longer has access to this book
               console.log('🔒 User lost access to private book after logout');
-              const { handlePrivateBookAccessDenied } = await import('../initializePage.js');
+              const { handlePrivateBookAccessDenied } = await import('../pageLoad');
               handlePrivateBookAccessDenied(book);
               return; // Don't continue with edit button updates
             }

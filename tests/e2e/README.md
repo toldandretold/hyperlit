@@ -27,6 +27,9 @@ npm run test:e2e -- --grep "drop .md on home"
 
 # Debug a single test (Playwright Inspector)
 npm run test:e2e -- --debug tests/e2e/specs/workflows/file-import-drag-drop.spec.js
+
+# SPA grand tour (good test as it clicks thorugh shit)
+npm run test:e2e -- tests/e2e/specs/workflows/spa-grand-tour.spec.js
 ```
 
 Reports land in `tests/e2e/report/` (HTML) and `tests/e2e/test-results/`

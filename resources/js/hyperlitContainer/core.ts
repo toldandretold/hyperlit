@@ -6,7 +6,7 @@
 import { ContainerManager } from '../containerManager.js';
 import { log, verbose } from '../utilities/logger.js';
 import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
-import { clearCascadeOriginId } from '../scrolling.js';
+import { clearCascadeOriginId } from '../scrolling';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
