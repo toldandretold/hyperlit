@@ -6,7 +6,7 @@
  * This class provides high-level business logic and navigation pathway decisions
  */
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../../utilities/logger.js';
 
 export class ProgressOverlayConductor {
   /**
@@ -70,7 +70,7 @@ export class ProgressOverlayConductor {
   /**
    * Update progress bar and text
    */
-  static updateProgress(percent, message = null) {
+  static updateProgress(percent: any, message: any = null) {
     ProgressOverlayEnactor.update(percent, message);
   }
 
@@ -96,7 +96,7 @@ export class ProgressOverlayConductor {
    * Create a progress callback function for use with async operations
    */
   static createProgressCallback(type = 'spa', bookId = null) {
-    return (percent, message) => {
+    return (percent: any, message: any) => {
       switch (type) {
         case 'initial':
           this.showInitialPageLoad(percent, message);

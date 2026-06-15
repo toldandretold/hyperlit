@@ -2,20 +2,20 @@
  * Initialization Helpers - Shared init logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../utilities/logger.js';
-import { setCurrentBook } from '../../app.js';
-import { updateDatabaseBookId } from '../../indexedDB/index';
-import { universalPageInitializer } from '../../viewManager.js';
-import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { initializeUserContainer } from '../../components/userContainer.js';
-import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { currentLazyLoader } from '../../pageLoad';
+import { log } from '../../../utilities/logger.js';
+import { setCurrentBook } from '../../../app.js';
+import { updateDatabaseBookId } from '../../../indexedDB/index';
+import { universalPageInitializer } from '../../viewManager';
+import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { initializeUserContainer } from '../../../components/userContainer.js';
+import { initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
+import { currentLazyLoader } from '../../../pageLoad';
 
 /**
  * Initialize reader state
  * Extracted from DifferentTemplateTransition.initializeReader()
  */
-export async function initializeReader(bookId, progressCallback) {
+export async function initializeReader(bookId: any, progressCallback: any) {
   log.nav(`Initializing reader page`, '/navigation/utils/initHelpers.js');
 
   try {
@@ -26,7 +26,7 @@ export async function initializeReader(bookId, progressCallback) {
 
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
-    window.isUserPage = false;
+    (window as any).isUserPage = false;
 
     // Initialize reader functionality
     // Already imported statically
@@ -58,7 +58,7 @@ export async function initializeReader(bookId, progressCallback) {
  * Initialize home state
  * Extracted from DifferentTemplateTransition.initializeHome()
  */
-export async function initializeHome(bookId, progressCallback) {
+export async function initializeHome(bookId: any, progressCallback: any) {
   log.nav('Initializing home page', '/navigation/utils/initHelpers.js');
 
   try {
@@ -69,7 +69,7 @@ export async function initializeHome(bookId, progressCallback) {
 
     // Ensure data-page is set to "home"
     document.body.setAttribute('data-page', 'home');
-    window.isUserPage = false;
+    (window as any).isUserPage = false;
 
     // CRITICAL: Reinitialize container managers BEFORE universalPageInitializer
     await reinitializeContainerManagers();
@@ -79,10 +79,10 @@ export async function initializeHome(bookId, progressCallback) {
 
     try {
       // Set flag to prevent double initialization
-      window.containersAlreadyInitialized = true;
+      (window as any).containersAlreadyInitialized = true;
       await universalPageInitializer(progressCallback);
     } finally {
-      delete window.containersAlreadyInitialized;
+      delete (window as any).containersAlreadyInitialized;
     }
 
     // 🔧 Reinitialize logo navigation toggle
@@ -101,7 +101,7 @@ export async function initializeHome(bookId, progressCallback) {
  * Initialize user state
  * Extracted from DifferentTemplateTransition.initializeUser()
  */
-export async function initializeUser(bookId, progressCallback) {
+export async function initializeUser(bookId: any, progressCallback: any) {
   log.nav('Initializing user page', '/navigation/utils/initHelpers.js');
 
   try {
@@ -112,7 +112,7 @@ export async function initializeUser(bookId, progressCallback) {
 
     // Ensure data-page is set to "user"
     document.body.setAttribute('data-page', 'user');
-    window.isUserPage = true;
+    (window as any).isUserPage = true;
 
     // Initialize user-specific features (e.g., profile editor)
     await initializeUserSpecificFeatures(bookId);
@@ -124,10 +124,10 @@ export async function initializeUser(bookId, progressCallback) {
     // Already imported statically
 
     try {
-      window.containersAlreadyInitialized = true;
+      (window as any).containersAlreadyInitialized = true;
       await universalPageInitializer(progressCallback);
     } finally {
-      delete window.containersAlreadyInitialized;
+      delete (window as any).containersAlreadyInitialized;
     }
 
     // 🔧 Reinitialize logo navigation toggle
@@ -146,7 +146,7 @@ export async function initializeUser(bookId, progressCallback) {
  * Initialize user-specific features (profile editor, etc.)
  * Extracted from DifferentTemplateTransition.initializeUserSpecificFeatures()
  */
-export async function initializeUserSpecificFeatures(bookId) {
+export async function initializeUserSpecificFeatures(bookId: any) {
 
   try {
     // Initialize user profile editor if it exists
@@ -155,7 +155,7 @@ export async function initializeUserSpecificFeatures(bookId) {
     if (userLibraryContainer) {
       // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
-        await initializeUserProfileEditor(bookId);
+        await (initializeUserProfileEditor as any)(bookId);
       }
     }
   } catch (error) {
@@ -179,7 +179,7 @@ export async function reinitializeContainerManagers() {
 
     // Dynamically import to avoid circular dependency
     // Note: initializeHomepageButtons is now handled via ButtonRegistry
-    const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
+    const { initializeNewBookContainer } = await import('../../../components/newBookButton.js');
     initializeNewBookContainer();
 
   } catch (error) {
@@ -191,10 +191,10 @@ export async function reinitializeContainerManagers() {
  * Ensure content is loaded for reader pages
  * Extracted from DifferentTemplateTransition.ensureContentLoaded()
  */
-export async function ensureContentLoaded(bookId) {
+export async function ensureContentLoaded(bookId: any) {
 
   try {
-    if (!window.nodes || window.nodes.length === 0) {
+    if (!(window as any).nodes || (window as any).nodes.length === 0) {
       console.warn('No nodes available');
       return;
     }
@@ -212,7 +212,7 @@ export async function ensureContentLoaded(bookId) {
     }
 
     // Load the first chunk
-    const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
+    const firstChunk = (window as any).nodes.find((chunk: any) => chunk.chunk_id === 0) || (window as any).nodes[0];
     if (firstChunk) {
       currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
     }
@@ -226,7 +226,7 @@ export async function ensureContentLoaded(bookId) {
  * Structure-aware initialization dispatcher
  * Routes to the appropriate init function based on page structure
  */
-export async function initializeToStructure(toStructure, bookId, progressCallback) {
+export async function initializeToStructure(toStructure: any, bookId: any, progressCallback: any) {
 
   try {
     switch (toStructure) {

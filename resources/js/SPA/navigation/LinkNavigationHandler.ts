@@ -4,21 +4,22 @@
  */
 import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
-import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
-import { log, verbose } from '../utilities/logger.js';
-import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../scrolling';
-import { book, bookSlug as _bookSlug } from '../app.js';
+import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
+import { log, verbose } from '../../utilities/logger.js';
+import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling';
+import { book, bookSlug as _bookSlug } from '../../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
-import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../hypercites/navigation';
-import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../pageLoad';
-import { getLocalStorageKey } from '../indexedDB/index';
-import { closeHyperlitContainer } from '../hyperlitContainer/index';
+import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../../hypercites/navigation';
+import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../../pageLoad';
+import { getLocalStorageKey } from '../../indexedDB/index';
+import { closeHyperlitContainer } from '../../hyperlitContainer/index';
+import { registerLinkClickHandler } from '../../utilities/linkClickRegistry';
 
 export class LinkNavigationHandler {
-  static globalLinkClickHandler = null;
-  static globalVisibilityHandler = null;
-  static globalFocusHandler = null;
-  static globalPopstateHandler = null;
+  static globalLinkClickHandler: any = null;
+  static globalVisibilityHandler: any = null;
+  static globalFocusHandler: any = null;
+  static globalPopstateHandler: any = null;
   static isReloading = false;
 
 
@@ -54,7 +55,7 @@ export class LinkNavigationHandler {
     };
 
     // Handle browser back/forward navigation
-    this.globalPopstateHandler = async (event) => {
+    this.globalPopstateHandler = async (event: any) => {
       // Prevent reload loops
       if (this.isReloading) {
         verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
@@ -67,7 +68,7 @@ export class LinkNavigationHandler {
         historyLength: window.history.length,
         hasHash: !!window.location.hash,
         hash: window.location.hash
-      });
+      } as any);
 
       // Delegate to the existing robust popstate handler
       await this.handlePopstate(event);
@@ -112,7 +113,7 @@ export class LinkNavigationHandler {
   /**
    * Handle individual link clicks with intelligent routing
    */
-  static async handleLinkClick(event) {
+  static async handleLinkClick(event: any) {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
@@ -166,7 +167,7 @@ export class LinkNavigationHandler {
   /**
    * Check if we should skip handling this link
    */
-  static shouldSkipLinkHandling(link, linkUrl, currentUrl) {
+  static shouldSkipLinkHandling(link: any, linkUrl: any, currentUrl: any) {
     // Skip hypercites and TOC links - they have their own handlers
     const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target') || link.querySelector(':scope > u.couple, :scope > u.poly');
     const isTocLink = link.closest('#toc-container');
@@ -192,7 +193,7 @@ export class LinkNavigationHandler {
   /**
    * Handle progress display for cross-book hypercites
    */
-  static async handleHyperciteProgress(linkUrl) {
+  static async handleHyperciteProgress(linkUrl: any) {
     try {
       // book already imported statically
       const currentBookPath = `/${book}`;
@@ -215,7 +216,7 @@ export class LinkNavigationHandler {
   /**
    * Check if this is same-book navigation
    */
-  static isSameBookNavigation(linkUrl, currentUrl, currentBookPath) {
+  static isSameBookNavigation(linkUrl: any, currentUrl: any, currentBookPath: any) {
     const isSamePageAnchor = linkUrl.pathname === currentUrl.pathname && linkUrl.hash !== '';
     
     // Enhanced same-book detection for hyperlight URLs
@@ -249,7 +250,7 @@ export class LinkNavigationHandler {
   /**
    * Check if this is different book navigation
    */
-  static isDifferentBookNavigation(linkUrl, currentBookPath) {
+  static isDifferentBookNavigation(linkUrl: any, currentBookPath: any) {
     // Extract base book path if current URL is a hyperlight URL
     const linkBasePath = this.isHyperlightUrl(linkUrl.pathname) ? 
       this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
@@ -262,7 +263,7 @@ export class LinkNavigationHandler {
   /**
    * Handle same-book navigation (anchors, internal links)
    */
-  static async handleSameBookNavigation(link, linkUrl) {
+  static async handleSameBookNavigation(link: any, linkUrl: any) {
     verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
 
     try {
@@ -276,8 +277,8 @@ export class LinkNavigationHandler {
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
 
       // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
-      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
-      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const hlSegment = pathSegments.find((p: any) => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find((p: any) => p.includes('_Fn') || /^Fn\d/.test(p));
       const isHyperlightURL = !!hlSegment;
       const isFootnoteURL = !!fnSegment;
 
@@ -288,7 +289,7 @@ export class LinkNavigationHandler {
         // Multi-level sub-book: use chain system (handles any depth)
         const hyperciteId = linkUrl.hash.substring(1);
 
-        verbose.nav(`Same-book multi-level cascade: ${chain.map(c => c.itemId).join(' -> ')} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
+        verbose.nav(`Same-book multi-level cascade: ${chain.map((c: any) => c.itemId).join(' -> ')} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
           const url = new URL(link.href);
@@ -309,7 +310,7 @@ export class LinkNavigationHandler {
           const slugUrl = this.preserveSlugInUrl(url);
           const currentUrl = window.location.pathname + window.location.hash;
           if (currentUrl !== slugUrl) {
-            verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', slugUrl);
+            verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', slugUrl as any);
             window.history.pushState(null, '', slugUrl);
           }
           if (hyperciteId) {
@@ -328,7 +329,7 @@ export class LinkNavigationHandler {
           const slugUrl = this.preserveSlugInUrl(url);
           const currentUrl = window.location.pathname + window.location.hash;
           if (currentUrl !== slugUrl) {
-            verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', slugUrl);
+            verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', slugUrl as any);
             window.history.pushState(null, '', slugUrl);
           }
           await navigateToFootnoteTarget(fnSegment, hyperciteId, currentLazyLoader);
@@ -348,7 +349,7 @@ export class LinkNavigationHandler {
               targetUrl: slugUrl,
               currentUrl: window.location.href,
               historyLength: window.history.length
-            });
+            } as any);
             window.history.pushState(null, '', slugUrl);
           }
 
@@ -363,7 +364,7 @@ export class LinkNavigationHandler {
   /**
    * Handle book-to-book navigation (now structure-aware using NEW SYSTEM)
    */
-  static async handleBookToBookNavigation(link, linkUrl) {
+  static async handleBookToBookNavigation(link: any, linkUrl: any) {
     verbose.nav('Book-to-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
 
     try {
@@ -377,7 +378,7 @@ export class LinkNavigationHandler {
         currentBookId,
         targetBookId,
         linkUrl: linkUrl.href
-      });
+      } as any);
 
       // Stamp current URL with clicked anchor's id so back-button can scroll
       // back to it — but ONLY for links inside the content area. Chrome links
@@ -393,8 +394,8 @@ export class LinkNavigationHandler {
       const targetHash = linkUrl.hash;
 
       // Scan ALL segments for HL_ and Fn patterns (not just index 1 — page numbers may appear before them)
-      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
-      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const hlSegment = pathSegments.find((p: any) => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find((p: any) => p.includes('_Fn') || /^Fn\d/.test(p));
       const isHyperlightURL = !!hlSegment;
       const isFootnoteURL = !!fnSegment;
 
@@ -487,7 +488,7 @@ export class LinkNavigationHandler {
   /**
    * Handle browser back/forward navigation
    */
-  static async handlePopstate(event) {
+  static async handlePopstate(event: any) {
     // Prevent reload loops AND concurrent in-flight popstates. Without this
     // flag actually being set, rapid back/forward fires multiple overlapping
     // BookToBookTransition runs that race on body.innerHTML replacement and
@@ -506,14 +507,14 @@ export class LinkNavigationHandler {
     }
   }
 
-  static async _handlePopstateInner(event) {
+  static async _handlePopstateInner(event: any) {
     verbose.nav('Browser navigation detected (back/forward)', '/navigation/LinkNavigationHandler.js', {
       state: event.state,
       currentURL: window.location.href,
       historyLength: window.history.length,
       hasHash: !!window.location.hash,
       hash: window.location.hash
-    });
+    } as any);
 
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
@@ -540,11 +541,11 @@ export class LinkNavigationHandler {
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
       const pathSegments = window.location.pathname.split('/').filter(Boolean);
-      const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
-      const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+      const hlSegment = pathSegments.find((p: any) => p.startsWith('HL_'));
+      const fnSegment = pathSegments.find((p: any) => p.includes('_Fn') || /^Fn\d/.test(p));
       const hyperciteId = window.location.hash ? window.location.hash.substring(1) : null;
 
-      const navOptions = {
+      const navOptions: any = {
         fromBook: currentBookVariable,
         toBook: urlBookId,
         targetUrl: window.location.href,
@@ -592,10 +593,10 @@ export class LinkNavigationHandler {
     // Falls through to the full close+rebuild path for stack-shape changes
     // that aren't one-level deltas (cross-book hops, sibling chains, etc.).
     try {
-      const { getDepth, serializeStack, popTopLayer } = await import('../hyperlitContainer/stack');
+      const { getDepth, serializeStack, popTopLayer } = await import('../../hyperlitContainer/stack');
       const currentDepth = getDepth();
       const savedDepth = capturedStack?.length || 0;
-      const currentSerialized = serializeStack();
+      const currentSerialized: any = serializeStack();
 
       // Compare the shared-prefix layers (up to min(current, saved)).
       const sharedLayers = Math.min(currentDepth, savedDepth);
@@ -621,7 +622,7 @@ export class LinkNavigationHandler {
         if (savedDepth === currentDepth + 1) {
           const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
           if (newTopMeta?.contentTypes?.length) {
-            const { restoreStackedLayer } = await import('../hyperlitContainer/history');
+            const { restoreStackedLayer } = await import('../../hyperlitContainer/history');
             console.log(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`);
             const ok = await restoreStackedLayer(newTopMeta);
             if (ok) return;
@@ -641,7 +642,7 @@ export class LinkNavigationHandler {
     // Container stack restoration — if we captured a serialized stack, restore it
     if (capturedStack?.length > 0) {
       try {
-        const { restoreContainerStack } = await import('../hyperlitContainer/history');
+        const { restoreContainerStack } = await import('../../hyperlitContainer/history');
         await restoreContainerStack(capturedStack, { callsite: 'LinkNavigationHandler.popstate' });
         // Scroll to the hash element (the link that triggered the container)
         if (window.location.hash && currentLazyLoader) {
@@ -656,15 +657,15 @@ export class LinkNavigationHandler {
 
     // Check URL path for cascade segments (HL_ / Fn patterns)
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    const hlSegment = pathSegments.find(p => p.startsWith('HL_'));
-    const fnSegment = pathSegments.find(p => p.includes('_Fn') || /^Fn\d/.test(p));
+    const hlSegment = pathSegments.find((p: any) => p.startsWith('HL_'));
+    const fnSegment = pathSegments.find((p: any) => p.includes('_Fn') || /^Fn\d/.test(p));
     const hasCascade = !!(hlSegment || fnSegment);
 
     if (hasCascade && currentLazyLoader) {
       // Rebuild nested container chain from URL
-      verbose.nav(`Popstate: rebuilding cascade from URL segments`, '/navigation/LinkNavigationHandler.js', { hlSegment, fnSegment });
+      verbose.nav(`Popstate: rebuilding cascade from URL segments`, '/navigation/LinkNavigationHandler.js', { hlSegment, fnSegment } as any);
       try {
-        const chain = await buildChainFromUrl(pathSegments[0], pathSegments);
+        const chain = await buildChainFromUrl(pathSegments[0] as any, pathSegments);
         if (chain && chain.length > 0) {
           const hyperciteHash = window.location.hash ? window.location.hash.substring(1) : null;
           const finalHash = (hyperciteHash && hyperciteHash.startsWith('hypercite_')) ? hyperciteHash : null;
@@ -693,7 +694,7 @@ export class LinkNavigationHandler {
   /**
    * Check if a hash represents hyperlit content
    */
-  static isHyperlitContentHash(hash) {
+  static isHyperlitContentHash(hash: any) {
     if (!hash) return false;
     
     // Check for hyperlit content patterns
@@ -706,7 +707,7 @@ export class LinkNavigationHandler {
   /**
    * Check if a path is a book page URL
    */
-  static isBookPageUrl(path) {
+  static isBookPageUrl(path: any) {
     // Match patterns like /book-slug/edit or /book-slug/
     return /^\/[^\/]+\/(edit|reader)?(\?.*)?$/.test(path) || /^\/[^\/]+\/?$/.test(path);
   }
@@ -720,7 +721,7 @@ export class LinkNavigationHandler {
    * Link hrefs contain the raw book ID (from citedIN), but we want the URL
    * bar to keep showing the slug when navigating within the same book.
    */
-  static preserveSlugInUrl(linkUrl) {
+  static preserveSlugInUrl(linkUrl: any) {
     const currentSegment = window.location.pathname.split('/').filter(Boolean)[0] || '';
     const linkSegments = linkUrl.pathname.split('/').filter(Boolean);
     // Replace the first segment (book ID) with the current URL's segment (slug)
@@ -728,7 +729,7 @@ export class LinkNavigationHandler {
     return '/' + linkSegments.join('/') + (linkUrl.search || '') + (linkUrl.hash || '');
   }
 
-  static extractBookSlugFromPath(path) {
+  static extractBookSlugFromPath(path: any) {
     const segments = path.split('/').filter(Boolean);
 
     // /u/{username} → extract username as book ID
@@ -748,7 +749,7 @@ export class LinkNavigationHandler {
   /**
    * Check if a path is a hyperlight URL
    */
-  static isHyperlightUrl(pathname) {
+  static isHyperlightUrl(pathname: any) {
     // Check if path matches /book/HL_something pattern
     return /\/[^\/]+\/HL_/.test(pathname);
   }
@@ -756,7 +757,7 @@ export class LinkNavigationHandler {
   /**
    * Extract book path from hyperlight URL
    */
-  static extractBookPathFromHyperlightUrl(pathname) {
+  static extractBookPathFromHyperlightUrl(pathname: any) {
     // Extract /book from /book/HL_something
     const match = pathname.match(/^(\/[^\/]+)\/HL_/);
     return match ? match[1] : pathname;
@@ -779,20 +780,7 @@ export class LinkNavigationHandler {
    * Returns null for main domain, username for user subdomains
    */
   static getSubdomain(hostname = window.location.hostname) {
-    // Handle localhost and IP addresses
-    if (hostname === 'localhost' || hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
-      return null;
-    }
-
-    const parts = hostname.split('.');
-
-    // For hyperlit.test, no subdomain
-    // For sam.hyperlit.test, subdomain is 'sam'
-    if (parts.length > 2) {
-      return parts[0];
-    }
-
-    return null;
+    return getSubdomain(hostname);
   }
 
   /**
@@ -829,7 +817,7 @@ export class LinkNavigationHandler {
   /**
    * Check if navigation is between different templates
    */
-  static isDifferentTemplate(fromUrl, toUrl) {
+  static isDifferentTemplate(fromUrl: any, toUrl: any) {
     const fromTemplate = this.getTemplateType(fromUrl);
     const toTemplate = this.getTemplateType(toUrl);
     return fromTemplate !== toTemplate;
@@ -839,34 +827,7 @@ export class LinkNavigationHandler {
    * Get book ID from URL based on subdomain context and path pattern
    */
   static getBookIdFromUrl(url = window.location.href) {
-    const parsedUrl = new URL(url, window.location.origin);
-    const subdomain = this.getSubdomain(parsedUrl.hostname);
-    const path = parsedUrl.pathname;
-
-    // User subdomain root = username is the book
-    if (subdomain && path === '/') {
-      return subdomain;
-    }
-
-    // Main domain root = most-recent
-    if (!subdomain && path === '/') {
-      return 'most-recent';
-    }
-
-    const pathSegments = path.split('/').filter(Boolean);
-
-    // /u/{username} → username is the book
-    if (pathSegments[0] === 'u' && pathSegments.length >= 2) {
-      return pathSegments[1];
-    }
-
-    // Standalone sub-book routes (e.g., /Accumulation/AIreview)
-    if (pathSegments.length >= 2 && pathSegments[1] === 'AIreview') {
-      return `${pathSegments[0]}/${pathSegments[1]}`;
-    }
-
-    // /{book} or /{book}/HL_xxx → first segment is the book
-    return pathSegments[0] || 'most-recent';
+    return getBookIdFromUrl(url);
   }
 
   /**
@@ -883,7 +844,11 @@ export class LinkNavigationHandler {
    * Only exact same structures are compatible (home and user have different buttons)
    * @deprecated Use areStructuresCompatible from structureDetection.js instead
    */
-  static areStructuresCompatible(structure1, structure2) {
+  static areStructuresCompatible(structure1: any, structure2: any) {
     return areStructuresCompatible(structure1, structure2);
   }
 }
+
+// Register the content link-click handler so lazyLoader can delegate without a
+// static lazyLoader→navigation import (see utilities/linkClickRegistry).
+registerLinkClickHandler((event: any) => LinkNavigationHandler.handleLinkClick(event));

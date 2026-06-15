@@ -7,10 +7,10 @@
  * dynamic imports so this folder has no static import cycle with them.
  */
 import { verbose } from '../utilities/logger.js';
-import { NavigationCompletionBarrier, NavigationProcess } from '../navigation/NavigationCompletionBarrier.js';
+import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
-import { waitForNavigationTarget, waitForElementReady } from '../domReadiness.js';
+import { waitForNavigationTarget, waitForElementReady } from '../utilities/domReadiness';
 import { navigatedHashes, navTimers } from './navState';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
@@ -331,7 +331,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     // Unified resolver: queries IndexedDB stores (hypercites, hyperlights,
     // footnotes, nodes) to find which chunk contains the target.
-    const { resolveTargetChunkId } = await import('../navigation/resolveTargetChunk.js');
+    const { resolveTargetChunkId } = await import('../SPA/navigation/resolveTargetChunk.js');
     let resolution = await resolveTargetChunkId(lazyLoader.bookId, targetId, {
       chunkManifest: lazyLoader.chunkManifest,
       nodes: lazyLoader.nodes,

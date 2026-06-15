@@ -1,6 +1,6 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
 import { log, verbose } from '../utilities/logger.js';
-import { NavigationCompletionBarrier, NavigationProcess } from '../navigation/NavigationCompletionBarrier.js';
+import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 
 import {
   getNodeChunksFromIndexedDB,
@@ -15,7 +15,7 @@ import { parseMarkdownIntoChunksInitial } from "../utilities/convertMarkdown.js"
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "../indexedDB/serverSync";
 import { fetchInitialChunk, resolveBootstrapTarget } from "./initialChunk";
-import { loadChunkForTarget } from "../navigation/chunkLoadRouter.js";
+import { loadChunkForTarget } from "../SPA/navigation/chunkLoadRouter.js";
 import { updateLocalAnnotationsTimestamp } from "../indexedDB/core/library.js";
 import { registerBookOpen } from "../utilities/BroadcastListener.js";
 
@@ -140,7 +140,7 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
       //    so we know which chunk to hydrate and render first
       let resolvedTargetChunkId = null;
       if (spaTarget) {
-        const { resolveTargetChunkId: resolve } = await import('../navigation/resolveTargetChunk.js');
+        const { resolveTargetChunkId: resolve } = await import('../SPA/navigation/resolveTargetChunk.js');
         const resolution = await resolve(currentBook, spaTarget, { nodes: cached });
         if (resolution.resolved) {
           resolvedTargetChunkId = resolution.chunkId;

@@ -4,7 +4,7 @@ import { openDatabase } from "../indexedDB/index.js";
 import { ensureAuthInitialized } from "../utilities/auth.js";
 import { log, verbose } from "../utilities/logger.js";
 
-import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
+import { createNewBook, fireAndForgetSync } from "../SPA/createNewBook";
 import { setInitialBookSyncPromise } from "../utilities/operationState.js";
 
 
@@ -152,7 +152,7 @@ export class NewBookContainerManager extends ContainerManager {
 
       try {
         // Use NavigationManager to ensure overlay lifecycle is managed correctly
-        const { NavigationManager } = await import('../navigation/NavigationManager.js');
+        const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
         await NavigationManager.navigate('create-new-book', { createAndTransition: true });
         log.init('New book transition completed successfully', 'newBookButton.js');
       } catch (error) {

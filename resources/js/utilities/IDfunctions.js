@@ -4,7 +4,7 @@ import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../in
 import { currentLazyLoader } from "../pageLoad";
 import { book } from "../app.js";
 import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/editIndicator.js";
-import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
+import { ProgressOverlayConductor } from "../SPA/navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger.js';
 import { ID_SKIP_TAGS } from './blockElements.js';
 

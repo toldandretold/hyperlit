@@ -1884,7 +1884,7 @@ async function submitToLaravelAndLoad(formData, submitButton) {
 
   try {
     // Use the new ImportBookTransition pathway
-    const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
+    const { ImportBookTransition } = await import('../SPA/navigation/pathways/ImportBookTransition.js');
     
     const result = await ImportBookTransition.handleFormSubmissionAndTransition(formData, submitButton);
     if (!result) {

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 600 functions in 135 modules · 8 object stores · 6 PG tables · 1361 edges
+**MarkdownDB** schema v27 · 769 functions in 158 modules · 8 object stores · 6 PG tables · 1566 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -610,21 +610,211 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setNavigatingState` | `scrolling/userScrollDetection` | — | — | — | — |
 | `setupUserScrollDetection` | `scrolling/userScrollDetection` | — | — | — | — |
 | `shouldSkipScrollRestoration` | `scrolling/userScrollDetection` | — | — | — | — |
+| `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` | — | — |
+| `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | read | — |
+| `clearCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
+| `getCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
+| `setCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
+| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` | — | — | — |
+| `loadChunkForTarget` | `SPA/navigation/chunkLoadRouter` | — | — | — | — |
+| `checkNavigationHealth` | `SPA/navigation/healthCheck` | — | — | read | — |
+| `compareHealth` | `SPA/navigation/healthCheck` | — | — | — | — |
+| `findContentEditables` | `SPA/navigation/healthCheck` | — | — | read | — |
+| `findDuplicateIds` | `SPA/navigation/healthCheck` | — | — | read | — |
+| `startHealthMonitoring` | `SPA/navigation/healthCheck` | — | — | — | — |
+| `stressTestNavigation` | `SPA/navigation/healthCheck` | — | — | — | — |
+| `initializeImportedBook` | `SPA/navigation/index` | — | — | — | — |
+| `initializeReaderView` | `SPA/navigation/index` | — | — | — | — |
+| `smartNavigate` | `SPA/navigation/index` | — | — | — | — |
+| `transitionToReaderView` | `SPA/navigation/index` | — | — | — | — |
+| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.areStructuresCompatible` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.attachGlobalLinkClickHandler` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.extractBookPathFromHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.extractBookSlugFromPath` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.getBookIdFromUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.getPageStructure` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.getSubdomain` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.getTemplateType` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.handleBookToBookNavigation` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
+| `LinkNavigationHandler.handleHyperciteProgress` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.handleLinkClick` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
+| `LinkNavigationHandler.handlePageFocus` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.handlePopstate` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.handleSameBookNavigation` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
+| `LinkNavigationHandler.handleVisibilityChange` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isBookPageUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isDifferentBookNavigation` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isDifferentTemplate` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isHyperlitContentHash` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isSameBookNavigation` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.isUserSubdomain` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.preserveSlugInUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.removeGlobalHandlers` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.shouldSkipLinkHandling` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
+| `LinkNavigationHandler.trackRecentLinkClick` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `loadInitialChunkLocal` | `SPA/navigation/loadInitialChunkLocal` | `footnotes` | — | — | — |
+| `NavigationCompletionBarrier._allProcessesComplete` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._clearSafetyTimeout` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._forceCleanup` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._getPendingCount` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._performCleanup` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._reset` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier._startSafetyTimeout` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.abort` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.completeProcess` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.debug` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.getNavigationTarget` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.isNavigating` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.registerProcess` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationCompletionBarrier.startNavigation` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
+| `NavigationManager.detectStructureFromUrl` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.detectTargetStructure` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.determinePathway` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.handleBookToBookTransition` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.handleCreateNewBook` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.handleFreshPageLoad` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.handleImportBook` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.initializeImportedBook` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.initializeReaderView` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.navigate` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.navigateByStructure` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.smartNavigate` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `NavigationManager.transitionToReaderView` | `SPA/navigation/NavigationManager` | — | — | read | — |
+| `NavigationManager.universalPageInitializer` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `BookToBookTransition.cleanupCurrentReader` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.cleanupNavigationOverlays` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
+| `BookToBookTransition.createBookToBookProgressCallback` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.createDeterministicProgressCallback` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.ensureInitialContentLoaded` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
+| `BookToBookTransition.execute` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
+| `BookToBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.getCurrentBookId` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
+| `BookToBookTransition.handleHashNavigation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
+| `BookToBookTransition.handleHyperlightNavigation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.initializeReader` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.isHyperlightUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.navigateToHyperciteTarget` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.navigateToInternalId` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.parseHyperlightUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.replacePageContent` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
+| `BookToBookTransition.updateUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.updateUrlWithStatePreservation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `DifferentTemplateTransition.detectTargetStructure` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | — | — |
+| `DifferentTemplateTransition.execute` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | read | — |
+| `FreshPageLoader.initialize` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
+| `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
+| `FreshPageLoader.setupFreshPageLoadHandling` | `SPA/navigation/pathways/FreshPageLoader` | — | — | read | — |
+| `ImportBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.clearFormData` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.createImportProgressUI` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
+| `ImportBookTransition.deleteImportedBook` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
+| `ImportBookTransition.enterEditMode` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.execute` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.handleFormSubmissionAndTransition` | `SPA/navigation/pathways/ImportBookTransition` | — | `library` | read/write | — |
+| `ImportBookTransition.initializeImportedReader` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
+| `ImportBookTransition.pollImportProgress` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.replaceBodyContent` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
+| `ImportBookTransition.setupImportedBookSession` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.showFootnoteAuditModal` | `SPA/navigation/pathways/ImportBookTransition` | — | — | write | — |
+| `ImportBookTransition.updateUrl` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `NewBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.createAndTransition` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.ensureOrangeIndicator` | `SPA/navigation/pathways/NewBookTransition` | — | — | read | — |
+| `NewBookTransition.ensurePendingSyncsComplete` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.enterEditMode` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.execute` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.initializeReader` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.rebindUIElementsWhenReady` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.replaceBodyContent` | `SPA/navigation/pathways/NewBookTransition` | — | — | read/write | — |
+| `NewBookTransition.updateUrl` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `NewBookTransition.waitForDOMStable` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
+| `SameTemplateTransition.execute` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
+| `SameTemplateTransition.handleHomeToHome` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
+| `SameTemplateTransition.handleReaderToReader` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
+| `SameTemplateTransition.handleUserToUser` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
+| `ProgressOverlayConductor.createProgressCallback` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.hide` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.isVisible` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.showBookToBookTransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.showInitialPageLoad` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.showSPATransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.updateProgress` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayEnactor._bindElements` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor._performHide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor.debug` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.forceHide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor.getState` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.hide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.init` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.isVisible` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.rebind` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.show` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor.update` | `SPA/navigation/ProgressOverlayEnactor` | — | — | write | — |
+| `resolveTargetChunkId` | `SPA/navigation/resolveTargetChunk` | `hyperlights` `nodes` | — | — | — |
+| `cleanupFromStructure` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `cleanupHome` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `cleanupLogoNav` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `cleanupReader` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `cleanupUser` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `closeOpenContainers` | `SPA/navigation/utils/cleanupHelpers` | — | — | read | — |
+| `fetchHtml` | `SPA/navigation/utils/contentSwapHelpers` | — | — | — | — |
+| `navigateToHash` | `SPA/navigation/utils/contentSwapHelpers` | — | — | read | — |
+| `replaceBodyContent` | `SPA/navigation/utils/contentSwapHelpers` | — | — | read/write | — |
+| `swapHomeContent` | `SPA/navigation/utils/contentSwapHelpers` | — | — | read/write | — |
+| `updateUrl` | `SPA/navigation/utils/contentSwapHelpers` | — | — | — | — |
+| `ensureContentLoaded` | `SPA/navigation/utils/initHelpers` | — | — | read | — |
+| `initializeHome` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
+| `initializeReader` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
+| `initializeToStructure` | `SPA/navigation/utils/initHelpers` | — | — | — | — |
+| `initializeUser` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
+| `initializeUserSpecificFeatures` | `SPA/navigation/utils/initHelpers` | — | — | read | — |
+| `reinitializeContainerManagers` | `SPA/navigation/utils/initHelpers` | — | — | — | — |
+| `areStructuresCompatible` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
+| `getBookIdFromUrl` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
+| `getPageStructure` | `SPA/navigation/utils/structureDetection` | — | — | read | — |
+| `getSubdomain` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
+| `cleanupReaderView` | `SPA/viewManager` | — | — | — | — |
+| `universalPageInitializer` | `SPA/viewManager` | — | — | read | — |
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 99
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 13 · lazy-loads (code-split): 112
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (20 modules) `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (41 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
+- `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
+- `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
+- `pageLoad/loadHyperText` → `pageLoad/readerEntry`
+- `pageLoad/readerEntry` → `SPA/navigation/NavigationManager`
 
 ### Lazy-loads (code-split points)
+- `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/history`
+- `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/stack`
+- `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/BookToBookTransition`
+- `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/FreshPageLoader`
+- `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/ImportBookTransition`
+- `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/NewBookTransition`
+- `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
+- `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
+- `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/BookToBookTransition`
+- `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/DifferentTemplateTransition`
+- `SPA/navigation/resolveTargetChunk` → `indexedDB/hypercites/index`
+- `SPA/viewManager` → `editToolbar/index`
+- `SPA/viewManager` → `indexedDB/core/connection`
+- `SPA/viewManager` → `indexedDB/core/healthMonitor`
+- `SPA/viewManager` → `indexedDB/core/recoveryToast`
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
 - `divEditor/chunkMutationHandler/index` → `hypercites/deletion`
 - `divEditor/domUtilities` → `hypercites/database`
@@ -657,7 +847,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/core` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/core` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/core` → `hyperlitContainer/stack`
-- `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/core` → `indexedDB/index`
 - `hyperlitContainer/core` → `indexedDB/syncQueue/master`
 - `hyperlitContainer/editMode` → `divEditor/editSessionManager`
@@ -668,13 +857,12 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/history` → `divEditor/index`
 - `hyperlitContainer/history` → `hyperlitContainer/containerState`
 - `hyperlitContainer/history` → `hyperlitContainer/noteListener`
-- `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/index` → `divEditor/editSessionManager`
 - `hyperlitContainer/index` → `divEditor/index`
 - `hyperlitContainer/index` → `hyperlights/markGroup`
-- `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/index` → `scrolling/index`
 - `hyperlitContainer/postOpen` → `hyperlitContainer/contentBuilders/displayHypercites`
+- `hyperlitContainer/stack` → `SPA/navigation/ProgressOverlayConductor`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerState`
 - `hyperlitContainer/stack` → `hyperlitContainer/core`
@@ -703,10 +891,12 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/initialChunk` → `pageLoad/accessGuards`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
+- `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
-- `pageLoad/loadHyperText` → `pageLoad/readerEntry`
+- `pageLoad/readerEntry` → `SPA/navigation/ProgressOverlayConductor`
+- `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `hypercites/animations`
 
 ## Legend

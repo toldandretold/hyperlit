@@ -405,7 +405,7 @@ export async function saveAndPopTopLayer() {
     }
 
     // Show progress overlay (same as saveAndCloseHyperlitContainer)
-    const { ProgressOverlayConductor }: any = await import('../navigation/ProgressOverlayConductor.js');
+    const { ProgressOverlayConductor }: any = await import('../SPA/navigation/ProgressOverlayConductor.js');
     ProgressOverlayConductor.showSPATransition(50, 'Saving your changes...', true);
 
     try {

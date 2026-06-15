@@ -845,7 +845,7 @@ export class UserContainerManager extends ContainerManager {
     try {
       this.closeContainer();
 
-      const { NavigationManager } = await import('../navigation/NavigationManager.js');
+      const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
       await NavigationManager.navigateByStructure({
         toBook: encodeURIComponent(sanitizedUsername),
         targetUrl: `/u/${encodeURIComponent(sanitizedUsername)}`,

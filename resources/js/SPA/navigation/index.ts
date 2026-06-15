@@ -25,18 +25,18 @@ export async function initializeReaderView(progressCallback = null) {
   return await NavigationManager.initializeReaderView(progressCallback);
 }
 
-export async function transitionToReaderView(bookId, hash = '', progressCallback = null) {
+export async function transitionToReaderView(bookId: any, hash = '', progressCallback: any = null) {
   const { NavigationManager } = await import('./NavigationManager.js');
   return await NavigationManager.transitionToReaderView(bookId, hash, progressCallback);
 }
 
-export async function initializeImportedBook(bookId) {
+export async function initializeImportedBook(bookId: any) {
   const { NavigationManager } = await import('./NavigationManager.js');
   return await NavigationManager.initializeImportedBook(bookId);
 }
 
 // Smart navigation helper
-export async function smartNavigate(context) {
+export async function smartNavigate(context: any) {
   const { NavigationManager } = await import('./NavigationManager.js');
   return await NavigationManager.smartNavigate(context);
 }

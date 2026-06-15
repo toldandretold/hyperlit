@@ -1100,7 +1100,7 @@ export class SourceContainerManager extends ContainerManager {
    * synchronous shape), we skip polling and use it directly.
    */
   async _awaitReconvert(result, bookId, progressUI) {
-    const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
+    const { ImportBookTransition } = await import('../SPA/navigation/pathways/ImportBookTransition.js');
 
     let completedResult = result;
     if (result?.status === 'processing') {

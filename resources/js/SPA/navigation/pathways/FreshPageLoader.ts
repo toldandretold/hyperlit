@@ -6,7 +6,7 @@
  * NOTE: Overlay lifecycle managed by NavigationManager
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { log } from '../../utilities/logger.js';
+import { log } from '../../../utilities/logger.js';
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 
 export class FreshPageLoader {
@@ -16,14 +16,14 @@ export class FreshPageLoader {
    *
    * Overlay is hidden by NavigationManager after this completes
    */
-  static async initialize(options = {}) {
+  static async initialize(options: any = {}) {
     const { progressCallback } = options;
 
     // Use provided progress callback or create our own
     const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('initial');
 
     // Import the universal page initialization system
-    const { universalPageInitializer } = await import('../../viewManager.js');
+    const { universalPageInitializer } = await import('../../viewManager');
 
     // Delegate to the universal page initializer
     // This handles all UI initialization including NavButtons
@@ -41,7 +41,7 @@ export class FreshPageLoader {
                              !!sessionStorage.getItem('pending_import_book');
     
     const isPageReload = performance.navigation?.type === performance.navigation.TYPE_RELOAD ||
-                        performance.getEntriesByType('navigation')[0]?.type === 'reload';
+                        (performance.getEntriesByType('navigation')[0] as any)?.type === 'reload';
     
     const hasRefererFromSameDomain = document.referrer && 
                                    new URL(document.referrer).origin === window.location.origin;
@@ -69,10 +69,10 @@ export class FreshPageLoader {
           setTimeout(async () => {
             try {
               // Check and update edit permissions
-              const { checkEditPermissionsAndUpdateUI } = await import('../../components/editButton.js');
+              const { checkEditPermissionsAndUpdateUI } = await import('../../../components/editButton.js');
               await checkEditPermissionsAndUpdateUI();
 
-            } catch (error) {
+            } catch (error: any) {
               log.error('Error handling bfcache restore', '/navigation/pathways/FreshPageLoader.js', error);
             }
           }, 200);

@@ -17,7 +17,7 @@
  *   'cleanup' -> All processes done, cleanup in progress
  */
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../../utilities/logger.js';
 
 export const NavigationProcess = {
   SCROLL_COMPLETE: 'scroll_complete',           // Navigation scroll finished
@@ -31,22 +31,22 @@ export class NavigationCompletionBarrier {
   static state = 'idle';  // 'idle' | 'waiting' | 'cleanup'
 
   // Navigation context
-  static targetId = null;
-  static lazyLoader = null;
+  static targetId: any = null;
+  static lazyLoader: any = null;
 
   // Registered processes
-  static registeredProcesses = new Map();
+  static registeredProcesses: Map<any, any> = new Map();
 
   // Completion promise (for callers waiting on full completion)
-  static completionPromise = null;
-  static completionResolver = null;
+  static completionPromise: any = null;
+  static completionResolver: any = null;
 
   // Timeout safety net
-  static safetyTimeout = null;
+  static safetyTimeout: any = null;
   static SAFETY_TIMEOUT_MS = 10000; // 10 seconds max
 
   // User abort flag
-  static userAborted = false;
+  static userAborted: any = false;
 
   /**
    * Start a new navigation barrier session
@@ -54,7 +54,7 @@ export class NavigationCompletionBarrier {
    * @param {object} lazyLoader - LazyLoader instance
    * @returns {Promise} - Resolves when ALL processes complete
    */
-  static startNavigation(targetId, lazyLoader) {
+  static startNavigation(targetId: any, lazyLoader: any) {
     // If navigation already in progress, abort it first
     if (this.state !== 'idle') {
       console.log('⚠️ NavigationCompletionBarrier: New navigation requested, aborting previous');
@@ -85,7 +85,7 @@ export class NavigationCompletionBarrier {
    * Register a process that must complete before cleanup
    * @param {string} processType - From NavigationProcess enum
    */
-  static registerProcess(processType) {
+  static registerProcess(processType: any) {
     if (this.state === 'idle') {
       console.warn(`⚠️ NavigationCompletionBarrier: Cannot register ${processType} - no active navigation`);
       return;
@@ -109,7 +109,7 @@ export class NavigationCompletionBarrier {
    * @param {string} processType - Which process completed
    * @param {boolean} success - Whether it succeeded
    */
-  static completeProcess(processType, success = true) {
+  static completeProcess(processType: any, success = true) {
     if (this.state === 'idle') {
       verbose.debug(`NavigationCompletionBarrier: Ignoring completion of ${processType} - no active navigation`, 'NavigationCompletionBarrier.js');
       return;
@@ -312,6 +312,6 @@ export class NavigationCompletionBarrier {
 
 // Expose to window for debugging
 if (typeof window !== 'undefined') {
-  window.NavigationCompletionBarrier = NavigationCompletionBarrier;
-  window.debugNavigationBarrier = () => NavigationCompletionBarrier.debug();
+  (window as any).NavigationCompletionBarrier = NavigationCompletionBarrier;
+  (window as any).debugNavigationBarrier = () => NavigationCompletionBarrier.debug();
 }

@@ -3,13 +3,13 @@
  * Extracted from DifferentTemplateTransition for reusability
  */
 
-import { cleanupReaderView } from '../../viewManager.js';
-import { resetEditModeState } from '../../components/editButton.js';
-import { destroyUserContainer } from '../../components/userContainer.js';
-import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
-import { destroyLogoNav } from '../../components/logoNavToggle.js';
-import { closeHyperlitContainer } from '../../hyperlitContainer/index';
-import { buttonRegistry } from '../../utilities/buttonRegistry.js';
+import { cleanupReaderView } from '../../viewManager';
+import { resetEditModeState } from '../../../components/editButton.js';
+import { destroyUserContainer } from '../../../components/userContainer.js';
+import { destroyUserProfileEditor } from '../../../components/userProfileEditor.js';
+import { destroyLogoNav } from '../../../components/logoNavToggle.js';
+import { closeHyperlitContainer } from '../../../hyperlitContainer/index';
+import { buttonRegistry } from '../../../utilities/buttonRegistry.js';
 
 /**
  * Clean up reader state
@@ -56,7 +56,7 @@ export async function cleanupHome() {
     }
 
     // Dynamically import to avoid circular dependency
-    const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
+    const { destroyNewBookContainer } = await import('../../../components/newBookButton.js');
     if (typeof destroyNewBookContainer === 'function') {
       destroyNewBookContainer();
     }
@@ -116,7 +116,7 @@ export async function closeOpenContainers() {
     const sourceButton = document.getElementById('cloudRef');
     if (sourceButton) {
       // Dynamically import to avoid circular dependency
-      const sourceButtonModule = await import('../../components/sourceButton.js');
+      const sourceButtonModule = await import('../../../components/sourceButton.js');
       const sourceManager = sourceButtonModule.default;
       if (sourceManager && sourceManager.isOpen) {
         sourceManager.closeContainer();
@@ -131,7 +131,7 @@ export async function closeOpenContainers() {
  * Structure-aware cleanup dispatcher
  * Routes to the appropriate cleanup function based on page structure
  */
-export async function cleanupFromStructure(fromStructure) {
+export async function cleanupFromStructure(fromStructure: any) {
 
   try {
     // 🧹 Cleanup logo navigation toggle (present on all page types)

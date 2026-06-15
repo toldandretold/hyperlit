@@ -18,20 +18,20 @@
  * - ProgressOverlayEnactor.forceHide() - Emergency hide (sync, no animation)
  */
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../../utilities/logger.js';
 
 export class ProgressOverlayEnactor {
   // DOM element references
-  static overlay = null;
-  static progressBar = null;
-  static progressText = null;
-  static progressDetails = null;
+  static overlay: any = null;
+  static progressBar: any = null;
+  static progressText: any = null;
+  static progressDetails: any = null;
 
   // State machine
   static state = 'hidden'; // 'hidden' | 'visible' | 'hiding'
 
   // Hide operation promise (for preventing concurrent hides)
-  static hidePromise = null;
+  static hidePromise: any = null;
 
   // Track contenteditable state
   static wasContentEditable = false;
@@ -175,7 +175,7 @@ export class ProgressOverlayEnactor {
    * Update progress bar and message
    * Can be called any time, even if overlay is hidden
    */
-  static update(percent, message = null) {
+  static update(percent: any, message: any = null) {
     this.init();
 
     if (this.progressBar) {
@@ -357,7 +357,7 @@ export class ProgressOverlayEnactor {
 
 // Expose to window for debugging in console
 if (typeof window !== 'undefined') {
-  window.ProgressOverlayEnactor = ProgressOverlayEnactor;
-  window.debugOverlay = () => ProgressOverlayEnactor.debug();
-  window.forceHideOverlay = () => ProgressOverlayEnactor.forceHide();
+  (window as any).ProgressOverlayEnactor = ProgressOverlayEnactor;
+  (window as any).debugOverlay = () => ProgressOverlayEnactor.debug();
+  (window as any).forceHideOverlay = () => ProgressOverlayEnactor.forceHide();
 }

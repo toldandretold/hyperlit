@@ -6,11 +6,11 @@
  * or the device is offline.
  */
 
-import { getNodeChunksFromIndexedDB } from '../indexedDB/nodes/read';
-import { getLibraryObjectFromIndexedDB } from '../indexedDB/core/library';
-import { openDatabase } from '../indexedDB/core/connection';
+import { getNodeChunksFromIndexedDB } from '../../indexedDB/nodes/read';
+import { getLibraryObjectFromIndexedDB } from '../../indexedDB/core/library';
+import { openDatabase } from '../../indexedDB/core/connection';
 import { resolveTargetChunkId } from './resolveTargetChunk.js';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../../utilities/logger.js';
 
 /**
  * @param {string} bookId
@@ -18,7 +18,7 @@ import { verbose } from '../utilities/logger.js';
  * @param {{ fallbackTarget?: string }} [opts]
  * @returns {Promise<Object>} Same shape as fetchInitialChunk() return value
  */
-export async function loadInitialChunkLocal(bookId, target, opts = {}) {
+export async function loadInitialChunkLocal(bookId: any, target: any, opts: any = {}) {
   const { fallbackTarget = null } = opts;
 
   try {
@@ -107,7 +107,7 @@ export async function loadInitialChunkLocal(bookId, target, opts = {}) {
         source: 'local',
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('loadInitialChunkLocal failed:', error);
     return { success: false, reason: 'local_error', error: error.message };
   }
@@ -117,19 +117,19 @@ export async function loadInitialChunkLocal(bookId, target, opts = {}) {
  * Read all footnotes for a book from IndexedDB.
  * Returns an object { footnoteId: content, ... } or null.
  */
-async function getFootnotesByBook(bookId) {
+async function getFootnotesByBook(bookId: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('footnotes', 'readonly');
     const store = tx.objectStore('footnotes');
     const index = store.index('book');
 
-    return new Promise((resolve) => {
+    return new Promise<any>((resolve) => {
       const request = index.getAll(bookId);
       request.onsuccess = () => {
         const records = request.result || [];
         if (records.length === 0) { resolve(null); return; }
-        const data = {};
+        const data: any = {};
         for (const rec of records) {
           data[rec.footnoteId] = rec.preview_nodes
             ? { content: rec.content, preview_nodes: rec.preview_nodes }

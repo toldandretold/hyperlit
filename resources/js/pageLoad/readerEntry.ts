@@ -8,8 +8,8 @@ import { book } from "../app.js";
 
 import { log } from "../utilities/logger.js";
 import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
-import { fireAndForgetSync } from "../createNewBook.js";
-import { universalPageInitializer } from "../viewManager.js";
+import { fireAndForgetSync } from "../SPA/createNewBook";
+import { universalPageInitializer } from "../SPA/viewManager";
 import { initializeHomepage } from "../homepage.js";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
@@ -33,7 +33,7 @@ export async function updatePageLoadProgress(percent: number, message: any = nul
   console.log(`📊 [LEGACY] updatePageLoadProgress called (${percent}%, ${message}) - delegating to ProgressOverlayConductor`);
 
   // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
+  const { ProgressOverlayConductor } = await import('../SPA/navigation/ProgressOverlayConductor.js');
   ProgressOverlayConductor.updateProgress(percent, message);
 }
 
@@ -41,7 +41,7 @@ export async function hidePageLoadProgress() {
   console.log(`📊 [LEGACY] hidePageLoadProgress called - delegating to ProgressOverlayConductor`);
 
   // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('../navigation/ProgressOverlayConductor.js');
+  const { ProgressOverlayConductor } = await import('../SPA/navigation/ProgressOverlayConductor.js');
   return await ProgressOverlayConductor.hide();
 }
 
@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
   // NavigationManager handles ALL initialization including ButtonRegistry
-  const { NavigationManager } = await import('../navigation/NavigationManager.js');
+  const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
   await NavigationManager.navigate('fresh-page-load');
 
   // If a vibe-convert job auto-applied a fix to this book, surface the Keep/Revert toast (driven by the

@@ -2,24 +2,24 @@
  * Content Swap Helpers - Shared content swapping logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../utilities/logger.js';
+import { log } from '../../../utilities/logger.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../scrolling';
-import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../homepageDisplayUnit.js';
-import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { setCurrentBook, setCurrentBookSlug } from '../../app.js';
-import { updateDatabaseBookId } from '../../indexedDB/index';
-import { resetCurrentLazyLoader, currentLazyLoader } from '../../pageLoad';
+import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling';
+import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../homepageDisplayUnit.js';
+import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
+import { setCurrentBook, setCurrentBookSlug } from '../../../app.js';
+import { updateDatabaseBookId } from '../../../indexedDB/index';
+import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
-// import { togglePerimeterButtons } from '../../pageLoad';
-import { destroyLogoNav, initializeLogoNav } from '../../components/logoNavToggle.js';
-import { initializeUserContainer } from '../../components/userContainer.js';
+// import { togglePerimeterButtons } from '../../../pageLoad';
+import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { initializeUserContainer } from '../../../components/userContainer.js';
 
 /**
  * Fetch HTML for target URL
  * Extracted from DifferentTemplateTransition.fetchHtml()
  */
-export async function fetchHtml(url) {
+export async function fetchHtml(url: any) {
   log.nav('Fetching target page', '/navigation/utils/contentSwapHelpers.js');
 
   const response = await fetch(url);
@@ -35,7 +35,7 @@ export async function fetchHtml(url) {
  * Replace body content with new HTML (full body replacement)
  * Extracted from DifferentTemplateTransition.replaceBodyContent()
  */
-export async function replaceBodyContent(htmlString) {
+export async function replaceBodyContent(htmlString: any) {
   log.nav('Replacing page template', '/navigation/utils/contentSwapHelpers.js');
 
   const parser = new DOMParser();
@@ -88,7 +88,7 @@ export async function replaceBodyContent(htmlString) {
   document.title = newDoc.title;
 
   // Update slug global from new DOM (clear it if navigating away from a slug book)
-  const newMain = document.querySelector('.main-content');
+  const newMain = document.querySelector('.main-content') as HTMLElement | null;
   setCurrentBookSlug(newMain?.dataset?.slug || null);
 }
 
@@ -96,7 +96,7 @@ export async function replaceBodyContent(htmlString) {
  * Swap home/user content using homepageDisplayUnit pattern
  * Extracted from SameTemplateTransition.swapHomeContent()
  */
-export async function swapHomeContent(bookId, showLoader = true) {
+export async function swapHomeContent(bookId: any, showLoader = true) {
   try {
     if (showLoader) {
       // Already imported statically
@@ -158,7 +158,7 @@ export async function swapHomeContent(bookId, showLoader = true) {
     if (currentStructure === 'user') {
       // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
-        await initializeUserProfileEditor(bookId);
+        await (initializeUserProfileEditor as any)(bookId);
       }
     }
 
@@ -205,7 +205,7 @@ export async function swapHomeContent(bookId, showLoader = true) {
  * Navigate to hash target if provided
  * Extracted from SameTemplateTransition.navigateToHash()
  */
-export async function navigateToHash(hash, structure = 'reader') {
+export async function navigateToHash(hash: any, structure = 'reader') {
   if (!hash) return;
 
   try {
@@ -236,7 +236,7 @@ export async function navigateToHash(hash, structure = 'reader') {
  * Update browser URL with state preservation for back button support
  * Modeled after BookToBookTransition.updateUrlWithStatePreservation()
  */
-export function updateUrl(url, options = {}) {
+export function updateUrl(url: any, options: any = {}) {
   try {
     const currentUrl = window.location.pathname + window.location.hash;
     if (currentUrl !== url) {

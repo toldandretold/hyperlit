@@ -32,7 +32,7 @@ export {
   getCascadeOriginId,
   setCascadeOriginId,
   clearCascadeOriginId,
-} from '../navigation/cascadeOriginState.js';
+} from '../SPA/navigation/cascadeOriginState.js';
 
 /**
  * Clear navigated hashes (called on popstate so back/forward re-navigates)

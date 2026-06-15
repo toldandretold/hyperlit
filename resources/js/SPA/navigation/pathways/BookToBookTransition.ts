@@ -7,28 +7,28 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../domReadiness.js';
-import { cleanupReaderView } from '../../viewManager.js';
-import { resetEditModeState, enforceEditableState } from '../../components/editButton.js';
-import { destroyUserContainer } from '../../components/userContainer.js';
-import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../app.js';
-import { updateDatabaseBookId } from '../../indexedDB/index';
-import { setSkipScrollRestoration } from '../../utilities/operationState.js';
-import { universalPageInitializer } from '../../viewManager.js';
-import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../pageLoad';
-import { navigateToHyperciteTarget } from '../../hypercites/index';
-import { navigateToFootnoteTarget } from '../../hypercites/navigation';
-import { navigateToInternalId, resetUserScrollState } from '../../scrolling';
+import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
+import { cleanupReaderView } from '../../viewManager';
+import { resetEditModeState, enforceEditableState } from '../../../components/editButton.js';
+import { destroyUserContainer } from '../../../components/userContainer.js';
+import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../../app.js';
+import { updateDatabaseBookId } from '../../../indexedDB/index';
+import { setSkipScrollRestoration } from '../../../utilities/operationState.js';
+import { universalPageInitializer } from '../../viewManager';
+import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../../pageLoad';
+import { navigateToHyperciteTarget } from '../../../hypercites/index';
+import { navigateToFootnoteTarget } from '../../../hypercites/navigation';
+import { navigateToInternalId, resetUserScrollState } from '../../../scrolling';
 
 export class BookToBookTransition {
   static isTransitioning = false;
-  static currentTransitionPromise = null;
-  static abortController = null;
+  static currentTransitionPromise: any = null;
+  static abortController: any = null;
   /**
    * Execute book-to-book transition
    */
-  static async execute(options = {}) {
+  static async execute(options: any = {}) {
     // Handle concurrent transitions more gracefully
     if (this.isTransitioning && this.currentTransitionPromise) {
       console.log('🔄 BookToBookTransition: Transition in progress, waiting for completion...');
@@ -121,12 +121,12 @@ export class BookToBookTransition {
         const navigationTarget = isMultiLevelCascade
           ? footnoteId
           : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
-        window._pendingChunkTarget = navigationTarget;
+        (window as any)._pendingChunkTarget = navigationTarget;
 
         // When hash (hypercite) takes priority but a hyperlight/footnote also exists,
         // set it as fallback so the backend can load the right chunk if the hypercite is stale
         if (!isMultiLevelCascade && hash && (hyperlightId || footnoteId)) {
-          window._pendingChunkFallbackTarget = hyperlightId || footnoteId;
+          (window as any)._pendingChunkFallbackTarget = hyperlightId || footnoteId;
         }
 
         // Initialize the new reader view
@@ -165,7 +165,7 @@ export class BookToBookTransition {
 
         // Wait for any container restoration triggered by initializeLazyLoader
         // (happens on back-nav when the restored entry has a matching containerStack)
-        const { pendingContainerRestorePromise } = await import('../../pageLoad');
+        const { pendingContainerRestorePromise } = await import('../../../pageLoad');
         if (pendingContainerRestorePromise) {
           await pendingContainerRestorePromise;
         }
@@ -251,7 +251,7 @@ export class BookToBookTransition {
   /**
    * Fetch the reader page HTML for target book
    */
-  static async fetchReaderPageHtml(bookId) {
+  static async fetchReaderPageHtml(bookId: any) {
     console.log(`📥 BookToBookTransition: Fetching reader HTML for ${bookId}`);
     
     const response = await fetch(`/${bookId}`);
@@ -268,7 +268,7 @@ export class BookToBookTransition {
   /**
    * Replace only the page content, preserving navigation elements
    */
-  static async replacePageContent(htmlString, bookId) {
+  static async replacePageContent(htmlString: any, bookId: any) {
     console.log('🔄 BookToBookTransition: Replacing page content (preserving navigation)');
     
     const parser = new DOMParser();
@@ -330,7 +330,7 @@ export class BookToBookTransition {
       const newTag = newDoc.head.querySelector(sel);
       const oldTag = document.head.querySelector(sel);
       if (newTag && oldTag) {
-        oldTag.setAttribute('content', newTag.getAttribute('content'));
+        oldTag.setAttribute('content', newTag.getAttribute('content') as any);
       } else if (newTag && !oldTag) {
         document.head.appendChild(newTag.cloneNode(true));
       }
@@ -344,7 +344,7 @@ export class BookToBookTransition {
     const newCanonical = newDoc.head.querySelector('link[rel="canonical"]');
     const oldCanonical = document.head.querySelector('link[rel="canonical"]');
     if (newCanonical && oldCanonical) {
-      oldCanonical.setAttribute('href', newCanonical.getAttribute('href'));
+      oldCanonical.setAttribute('href', newCanonical.getAttribute('href') as any);
     }
     // Sync JSON-LD structured data
     const oldJsonLd = document.head.querySelector('script[type="application/ld+json"]');
@@ -353,7 +353,7 @@ export class BookToBookTransition {
     if (newJsonLd) document.head.appendChild(newJsonLd.cloneNode(true));
 
     // Read slug from new DOM and update global state
-    const newMain = document.querySelector('.main-content');
+    const newMain = document.querySelector('.main-content') as HTMLElement | null;
     const newSlug = newMain?.dataset?.slug || null;
     setCurrentBookSlug(newSlug);
 
@@ -375,7 +375,7 @@ export class BookToBookTransition {
   /**
    * Initialize the reader for the new book
    */
-  static async initializeReader(bookId, progressCallback, hasHashNavigation = false) {
+  static async initializeReader(bookId: any, progressCallback: any, hasHashNavigation = false) {
     console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}, hasHashNavigation: ${hasHashNavigation}`);
 
     try {
@@ -416,7 +416,7 @@ export class BookToBookTransition {
    * Handle hash-based navigation (hyperlights, hypercites, footnotes, internal links)
    * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, bookId, progress, targetUrl = null) {
+  static async handleHashNavigation(hash: any, hyperlightId: any, hyperciteId: any, footnoteId: any, bookId: any, progress: any, targetUrl: any = null) {
     if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
       console.log('📖 BookToBookTransition: No hash navigation needed');
       return false;
@@ -434,14 +434,14 @@ export class BookToBookTransition {
     // Let the chain system handle it instead of treating it as "not found".
     const isMultiLevelCascade = footnoteId && (hyperlightId || hyperciteId);
 
-    if (window._targetResolved === false) {
-      window._targetResolved = undefined; // Consume to prevent staleness
+    if ((window as any)._targetResolved === false) {
+      (window as any)._targetResolved = undefined; // Consume to prevent staleness
 
       if (!isMultiLevelCascade) {
         console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
 
         // Show toast for the missing citation
-        import('../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        import('../../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast();
         });
 
@@ -534,7 +534,7 @@ export class BookToBookTransition {
   /**
    * Navigate to a hypercite target with deterministic element detection and progress optimization
    */
-  static async navigateToHyperciteTarget(hyperlightId, hyperciteId, progress) {
+  static async navigateToHyperciteTarget(hyperlightId: any, hyperciteId: any, progress: any) {
     console.log(`🎯 BookToBookTransition: Delegating to navigateToHyperciteTarget for ${hyperlightId} -> ${hyperciteId}`);
 
     try {
@@ -567,7 +567,7 @@ export class BookToBookTransition {
   /**
    * Navigate to an internal ID with deterministic element detection and progress optimization
    */
-  static async navigateToInternalId(targetId, progress) {
+  static async navigateToInternalId(targetId: any, progress: any) {
     console.log(`🎯 BookToBookTransition: Navigating to internal ID: ${targetId}`);
 
     try {
@@ -601,7 +601,7 @@ export class BookToBookTransition {
   /**
    * Update the browser URL while preserving container state for back button
    */
-  static updateUrlWithStatePreservation(bookId, hash = '', isPopstate = false) {
+  static updateUrlWithStatePreservation(bookId: any, hash = '', isPopstate = false) {
     // Use slug in URL bar if available, otherwise use bookId
     const urlSegment = _bookSlug || bookId;
     const newUrl = `/${urlSegment}${hash}`;
@@ -659,7 +659,7 @@ export class BookToBookTransition {
   /**
    * Legacy method for compatibility - now delegates to state-preserving version
    */
-  static updateUrl(bookId, hash = '') {
+  static updateUrl(bookId: any, hash = '') {
     return this.updateUrlWithStatePreservation(bookId, hash);
   }
 
@@ -669,7 +669,7 @@ export class BookToBookTransition {
   static getCurrentBookId() {
     // Try to get from current URL first
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    if (pathSegments.length > 0 && !pathSegments[0].startsWith('HL_')) {
+    if (pathSegments.length > 0 && !pathSegments[0]!.startsWith('HL_')) {
       return pathSegments[0];
     }
     
@@ -681,7 +681,7 @@ export class BookToBookTransition {
   /**
    * Handle hyperlight URL navigation (special case of book-to-book) with smart progress management
    */
-  static async handleHyperlightNavigation(options = {}) {
+  static async handleHyperlightNavigation(options: any = {}) {
     const { 
       fromBook, 
       toBook, 
@@ -711,12 +711,12 @@ export class BookToBookTransition {
   /**
    * Parse a hyperlight URL and extract components
    */
-  static parseHyperlightUrl(url) {
+  static parseHyperlightUrl(url: any) {
     try {
       const urlObj = new URL(url, window.location.origin);
       const pathSegments = urlObj.pathname.split('/').filter(Boolean);
       
-      if (pathSegments.length >= 2 && pathSegments[1].startsWith('HL_')) {
+      if (pathSegments.length >= 2 && pathSegments[1]!.startsWith('HL_')) {
         return {
           bookId: pathSegments[0],
           hyperlightId: pathSegments[1],
@@ -734,7 +734,7 @@ export class BookToBookTransition {
   /**
    * Check if a URL represents a hyperlight navigation
    */
-  static isHyperlightUrl(url) {
+  static isHyperlightUrl(url: any) {
     const parsed = this.parseHyperlightUrl(url);
     return parsed !== null;
   }
@@ -742,7 +742,7 @@ export class BookToBookTransition {
   /**
    * Create a deterministic progress callback that shows progress immediately
    */
-  static createDeterministicProgressCallback(toBook) {
+  static createDeterministicProgressCallback(toBook: any) {
     // Always show progress immediately, never suppress
     const progressCallback = ProgressOverlayConductor.createProgressCallback('book-to-book', toBook);
     
@@ -755,7 +755,7 @@ export class BookToBookTransition {
   /**
    * Ensure initial content is actually loaded into the DOM
    */
-  static async ensureInitialContentLoaded(bookId) {
+  static async ensureInitialContentLoaded(bookId: any) {
     console.log(`📄 BookToBookTransition: Ensuring initial content loaded for ${bookId}`);
     
     try {
@@ -780,8 +780,8 @@ export class BookToBookTransition {
       
       // Find the first chunk to load — prefer chunk 0, but during chunked lazy loading
       // the initial chunk may be a different one (e.g. the chunk containing a navigation target)
-      if (window.nodes && window.nodes.length > 0) {
-        let targetChunkId = window.nodes[0].chunk_id;
+      if ((window as any).nodes && (window as any).nodes.length > 0) {
+        let targetChunkId = (window as any).nodes[0].chunk_id;
 
         // Check for saved scroll position to resume at correct chunk
         try {
@@ -790,8 +790,8 @@ export class BookToBookTransition {
           if (scrollData) {
             const parsed = JSON.parse(scrollData);
             if (parsed?.elementId) {
-              const matchingNode = window.nodes.find(
-                n => String(n.startLine) === String(parsed.elementId)
+              const matchingNode = (window as any).nodes.find(
+                (n: any) => String(n.startLine) === String(parsed.elementId)
               );
               if (matchingNode) {
                 targetChunkId = matchingNode.chunk_id;
@@ -808,13 +808,13 @@ export class BookToBookTransition {
         const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
         if (loadedNodeCount < 20) {
           const allChunkIds = currentLazyLoader.chunkManifest
-            ? currentLazyLoader.chunkManifest.map(m => m.chunk_id)
-            : [...new Set(currentLazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
+            ? currentLazyLoader.chunkManifest.map((m: any) => m.chunk_id)
+            : [...new Set(currentLazyLoader.nodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
           const pos = allChunkIds.indexOf(targetChunkId);
           let nextPos = pos + 1;
           while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
             const nextId = allChunkIds[nextPos];
-            const hasNodes = currentLazyLoader.nodes.some(n => n.chunk_id === nextId);
+            const hasNodes = currentLazyLoader.nodes.some((n: any) => n.chunk_id === nextId);
             if (!hasNodes) break;
             await currentLazyLoader.loadChunk(nextId, "down");
             nextPos++;
@@ -838,11 +838,11 @@ export class BookToBookTransition {
   /**
    * Create regular progress callback for non-cached content
    */
-  static createBookToBookProgressCallback(toBook) {
-    const { ProgressOverlayConductor } = window;
+  static createBookToBookProgressCallback(toBook: any) {
+    const { ProgressOverlayConductor } = window as any;
     if (!ProgressOverlayConductor) {
       console.warn('ProgressOverlayConductor not available, using console fallback');
-      return (percent, message) => console.log(`Progress: ${percent}% - ${message}`);
+      return (percent: any, message: any) => console.log(`Progress: ${percent}% - ${message}`);
     }
 
     return ProgressOverlayConductor.showBookToBookTransition(toBook);

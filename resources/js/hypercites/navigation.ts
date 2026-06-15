@@ -8,7 +8,7 @@
 import { getActiveBook } from '../utilities/activeContext.js';
 import { book as globalBookId } from '../app.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling';
-import { waitForElementReady } from '../domReadiness.js';
+import { waitForElementReady } from '../utilities/domReadiness';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index';
 import { getHyperciteData, getHyperciteById } from './database';
 import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';

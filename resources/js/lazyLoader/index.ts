@@ -4,7 +4,7 @@ import { log, verbose } from '../utilities/logger.js';
 // on `instance` (instance.attachMarkListeners / instance.attachUnderlineClickListeners). Importing
 // them upward from hyperlights/hypercites would re-close the render↔feature static-import cycle
 // that crashed prod with a TDZ.
-import { NavigationCompletionBarrier, NavigationProcess } from '../navigation/NavigationCompletionBarrier.js';
+import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
@@ -19,7 +19,7 @@ import {
 } from "../utilities/chunkLoadingState.js";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling';
 import { scrollElementIntoMainContent } from "../scrolling";
-import { LinkNavigationHandler } from '../navigation/LinkNavigationHandler.js';
+import { handleContentLinkClick } from '../utilities/linkClickRegistry';
 import { isCacheDirty, clearCacheDirtyFlag } from '../utilities/cacheState.js';
 import { restoreScrollAnchor } from '../utilities/scrollAnchor.js';
 import {
@@ -236,8 +236,8 @@ export function createLazyLoader(config: any) {
     }
 
     try {
-      // Delegate to LinkNavigationHandler for processing
-      const handled: any = await LinkNavigationHandler.handleLinkClick(event);
+      // Delegate to the registered LinkNavigationHandler via the DI leaf
+      const handled: any = await handleContentLinkClick(event);
 
       if (handled) {
         event.preventDefault();

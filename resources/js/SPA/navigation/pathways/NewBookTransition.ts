@@ -8,28 +8,28 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../components/editIndicator.js';
-import { waitForElementReady, waitForContentReady } from '../../domReadiness.js';
-import { log, verbose } from '../../utilities/logger.js';
-import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../indexedDB/index';
-import { destroyUserContainer } from '../../components/userContainer.js';
-import { destroyNewBookContainer } from '../../components/newBookButton.js';
-import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
-import { cleanupReaderView } from '../../viewManager.js';
-import { enforceEditableState, enableEditMode } from '../../components/editButton.js';
-import { setCurrentBook } from '../../app.js';
-import { universalPageInitializer } from '../../viewManager.js';
+import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../components/editIndicator.js';
+import { waitForElementReady, waitForContentReady } from '../../../utilities/domReadiness';
+import { log, verbose } from '../../../utilities/logger.js';
+import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';
+import { destroyUserContainer } from '../../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../../homepageDisplayUnit.js';
+import { cleanupReaderView } from '../../viewManager';
+import { enforceEditableState, enableEditMode } from '../../../components/editButton.js';
+import { setCurrentBook } from '../../../app.js';
+import { universalPageInitializer } from '../../viewManager';
 import { reinitializeContainerManagers } from '../utils/initHelpers.js';
-import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { createNewBook, fireAndForgetSync } from '../../createNewBook.js';
-import { setInitialBookSyncPromise } from '../../utilities/operationState.js';
-import { syncIndexedDBtoPostgreSQL } from '../../indexedDB/serverSync';
+import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { createNewBook, fireAndForgetSync } from '../../createNewBook';
+import { setInitialBookSyncPromise } from '../../../utilities/operationState.js';
+import { syncIndexedDBtoPostgreSQL } from '../../../indexedDB/serverSync';
 
 export class NewBookTransition {
   /**
    * Execute new book creation and transition
    */
-  static async execute(options = {}) {
+  static async execute(options: any = {}) {
     const { 
       bookId, 
       pendingSyncData, 
@@ -72,7 +72,7 @@ export class NewBookTransition {
 
       // Initialize the reader view
       // Create a scoped progress callback that maps 0-100% to 75-85%
-      const scopedProgress = (percent, message) => {
+      const scopedProgress = (percent: any, message: any) => {
         const scopedPercent = 75 + (percent * 0.10); // Map 0-100% to 75-85%
         progress(scopedPercent, message);
       };
@@ -124,9 +124,9 @@ export class NewBookTransition {
       glowCloudOrange();
 
       // Use deterministic DOM watching instead of polling
-      return new Promise((resolve) => {
+      return new Promise<void>((resolve) => {
         const setOrangeIndicator = () => {
-          const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1');
+          const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null;
           if (cloudSvgPath) {
             cloudSvgPath.style.fill = '#EF8D34';
             verbose.nav('Orange indicator set deterministically', 'NewBookTransition.js');
@@ -172,9 +172,9 @@ export class NewBookTransition {
    * Uses MutationObserver to detect when DOM stops changing
    */
   static waitForDOMStable(timeoutMs = 5000) {
-    return new Promise((resolve) => {
-      let stabilityTimer;
-      let timeoutTimer;
+    return new Promise<void>((resolve) => {
+      let stabilityTimer: any;
+      let timeoutTimer: any;
       
       const cleanup = () => {
         if (observer) observer.disconnect();
@@ -271,7 +271,7 @@ export class NewBookTransition {
   /**
    * Fetch the reader page HTML
    */
-  static async fetchReaderPageHtml(bookId) {
+  static async fetchReaderPageHtml(bookId: any) {
     verbose.nav(`Fetching reader HTML for ${bookId}`, 'NewBookTransition.js');
     
     const response = await fetch(`/${bookId}/edit?target=1`);
@@ -288,7 +288,7 @@ export class NewBookTransition {
   /**
    * Replace body content with reader HTML
    */
-  static async replaceBodyContent(htmlString, bookId) {
+  static async replaceBodyContent(htmlString: any, bookId: any) {
     verbose.nav('Replacing body content (home → reader)', 'NewBookTransition.js');
 
     const parser = new DOMParser();
@@ -347,7 +347,7 @@ export class NewBookTransition {
   /**
    * Initialize the reader view
    */
-  static async initializeReader(bookId, progressCallback) {
+  static async initializeReader(bookId: any, progressCallback: any) {
     verbose.nav(`Initializing reader for ${bookId}`, 'NewBookTransition.js');
     
     try {
@@ -408,7 +408,7 @@ export class NewBookTransition {
 
     try {
       // For new books, target the initial H1 element (id="100")
-      await enableEditMode("100", false); // Pass "100" as target, false = don't force redirect
+      await (enableEditMode as any)("100", false); // Pass "100" as target, false = don't force redirect
 
       verbose.nav('Edit mode enabled', 'NewBookTransition.js');
 
@@ -421,7 +421,7 @@ export class NewBookTransition {
   /**
    * Update the browser URL
    */
-  static updateUrl(bookId, inEditMode = false) {
+  static updateUrl(bookId: any, inEditMode = false) {
     const newUrl = `/${bookId}/edit?target=1${inEditMode ? '&edit=1' : ''}`;
     
     try {

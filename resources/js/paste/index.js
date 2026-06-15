@@ -39,7 +39,7 @@ import { handleHypercitePaste, extractQuotedText } from './handlers/hyperciteHan
 import { handleNovelVacuum } from './handlers/novelVacuumHandler.js';
 
 // Import UI
-import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { showPasteUndoToast } from './ui/pasteUndoToast.js';
 
 // Import utilities

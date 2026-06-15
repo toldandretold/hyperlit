@@ -11,7 +11,7 @@ initializeTheme();
 
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-  import('./navigation/healthCheck.js').then(() => {
+  import('./SPA/navigation/healthCheck.js').then(() => {
     console.log('🏥 Health check loaded. Run window.checkNavigationHealth() in console to diagnose issues.');
   }).catch(() => {
     // Silently fail if health check not available

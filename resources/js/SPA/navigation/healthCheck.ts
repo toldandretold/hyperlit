@@ -4,7 +4,7 @@
  */
 
 export function checkNavigationHealth() {
-  const results = {
+  const results: any = {
     timestamp: new Date().toISOString(),
     issues: [],
     warnings: [],
@@ -26,7 +26,7 @@ export function checkNavigationHealth() {
   }
 
   // Check for visible overlays that should be hidden
-  const visibleOverlays = Array.from(overlays).filter(el => {
+  const visibleOverlays = Array.from(overlays).filter((el: any) => {
     const style = window.getComputedStyle(el);
     return style.display !== 'none' && style.visibility !== 'hidden';
   });
@@ -119,8 +119,8 @@ export function checkNavigationHealth() {
   // ========================================
   // 5. DUPLICATE ID DETECTION
   // ========================================
-  const ids = {};
-  document.querySelectorAll('[id]').forEach(el => {
+  const ids: any = {};
+  document.querySelectorAll('[id]').forEach((el: any) => {
     if (ids[el.id]) {
       ids[el.id]++;
     } else {
@@ -128,7 +128,7 @@ export function checkNavigationHealth() {
     }
   });
 
-  const duplicates = Object.entries(ids).filter(([_, count]) => count > 1);
+  const duplicates = (Object.entries(ids) as [string, any][]).filter(([_, count]) => count > 1);
   if (duplicates.length > 0) {
     results.issues.push(`❌ Duplicate IDs found: ${duplicates.map(([id, count]) => `${id}(${count})`).join(', ')}`);
   }
@@ -144,15 +144,15 @@ export function checkNavigationHealth() {
   // ========================================
   // 7. GLOBAL VARIABLE CHECKS
   // ========================================
-  if (window.NavigationManager?.navigationCount) {
-    results.info.push(`SPA transitions completed: ${window.NavigationManager.navigationCount}`);
+  if ((window as any).NavigationManager?.navigationCount) {
+    results.info.push(`SPA transitions completed: ${(window as any).NavigationManager.navigationCount}`);
   }
 
   // Check for orphaned global listeners
   const globalChecks = {
-    'window.currentLazyLoader': typeof window.currentLazyLoader !== 'undefined',
-    'window.nodes': typeof window.nodes !== 'undefined',
-    'window.book': typeof window.book !== 'undefined'
+    'window.currentLazyLoader': typeof (window as any).currentLazyLoader !== 'undefined',
+    'window.nodes': typeof (window as any).nodes !== 'undefined',
+    'window.book': typeof (window as any).book !== 'undefined'
   };
 
   Object.entries(globalChecks).forEach(([name, exists]) => {
@@ -162,12 +162,12 @@ export function checkNavigationHealth() {
   // ========================================
   // 8. MEMORY ESTIMATION
   // ========================================
-  if (performance.memory) {
-    const memoryMB = (performance.memory.usedJSHeapSize / 1048576).toFixed(2);
-    const totalMB = (performance.memory.totalJSHeapSize / 1048576).toFixed(2);
+  if ((performance as any).memory) {
+    const memoryMB = ((performance as any).memory.usedJSHeapSize / 1048576).toFixed(2);
+    const totalMB = ((performance as any).memory.totalJSHeapSize / 1048576).toFixed(2);
     results.info.push(`JS Heap: ${memoryMB}MB / ${totalMB}MB`);
 
-    if (performance.memory.usedJSHeapSize > 200 * 1048576) {
+    if ((performance as any).memory.usedJSHeapSize > 200 * 1048576) {
       results.warnings.push(`⚠️ High memory usage: ${memoryMB}MB`);
     }
   }
@@ -204,14 +204,15 @@ export function checkNavigationHealth() {
   // ========================================
   // 11. EVENT LISTENER COUNTING (Chrome only)
   // ========================================
-  if (typeof getEventListeners === 'function') {
+  if (typeof (globalThis as any).getEventListeners === 'function') {
     // This function is only available in Chrome DevTools console
     try {
+      const getEventListeners = (globalThis as any).getEventListeners;
       const body = document.body;
       const bodyListeners = getEventListeners(body);
-      const listenerCounts = {};
+      const listenerCounts: any = {};
 
-      Object.entries(bodyListeners).forEach(([event, listeners]) => {
+      (Object.entries(bodyListeners) as [string, any][]).forEach(([event, listeners]) => {
         listenerCounts[event] = listeners.length;
       });
 
@@ -227,7 +228,7 @@ export function checkNavigationHealth() {
           results.warnings.push(`⚠️ Edit button has ${clickCount} click listeners (expected 1-2)`);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       // getEventListeners available but failed
     }
   }
@@ -248,7 +249,7 @@ export function checkNavigationHealth() {
   const contentEditables = document.querySelectorAll('[contenteditable="true"]');
 
   // Filter out expected contenteditable elements (hyperlit container, annotations)
-  const mainContentEditables = Array.from(contentEditables).filter(el => {
+  const mainContentEditables = Array.from(contentEditables).filter((el: any) => {
     // Expected: highlight text and annotations in hyperlit-container
     if (el.closest('#hyperlit-container')) return false;
 
@@ -280,22 +281,22 @@ export function checkNavigationHealth() {
   } else {
     if (results.issues.length > 0) {
       console.error('🔴 ISSUES FOUND:');
-      results.issues.forEach(issue => console.error(issue));
+      results.issues.forEach((issue: any) => console.error(issue));
     }
     if (results.warnings.length > 0) {
       console.warn('⚠️ WARNINGS:');
-      results.warnings.forEach(warning => console.warn(warning));
+      results.warnings.forEach((warning: any) => console.warn(warning));
     }
   }
 
   console.log('\nℹ️ INFO:');
-  results.info.forEach(info => console.log(info));
+  results.info.forEach((info: any) => console.log(info));
 
   console.log('\n=================================\n');
 
   // Store results for comparison
   if (typeof window !== 'undefined') {
-    window._lastHealthCheck = results;
+    (window as any)._lastHealthCheck = results;
   }
 
   return results;
@@ -304,9 +305,9 @@ export function checkNavigationHealth() {
 /**
  * Compare current health with a previous snapshot
  */
-export function compareHealth(previous) {
+export function compareHealth(previous: any) {
   if (!previous) {
-    previous = window._lastHealthCheck;
+    previous = (window as any)._lastHealthCheck;
   }
 
   if (!previous) {
@@ -352,8 +353,8 @@ export function startHealthMonitoring(intervalSeconds = 30) {
     checkCount++;
     const current = checkNavigationHealth();
 
-    const newIssues = current.issues.filter(i => !baseline.issues.includes(i));
-    const newWarnings = current.warnings.filter(w => !baseline.warnings.includes(w));
+    const newIssues = current.issues.filter((i: any) => !baseline.issues.includes(i));
+    const newWarnings = current.warnings.filter((w: any) => !baseline.warnings.includes(w));
 
     if (newIssues.length > 0 || newWarnings.length > 0) {
       console.error(`\n🚨 HEALTH DEGRADATION DETECTED (check #${checkCount}):`);
@@ -383,15 +384,15 @@ export function startHealthMonitoring(intervalSeconds = 30) {
  * Find and display duplicate IDs with full details
  */
 export function findDuplicateIds() {
-  const ids = {};
-  document.querySelectorAll('[id]').forEach(el => {
+  const ids: any = {};
+  document.querySelectorAll('[id]').forEach((el: any) => {
     if (!ids[el.id]) {
       ids[el.id] = [];
     }
     ids[el.id].push(el);
   });
 
-  const duplicates = Object.entries(ids).filter(([_, elements]) => elements.length > 1);
+  const duplicates = (Object.entries(ids) as [string, any][]).filter(([_, elements]) => elements.length > 1);
 
   if (duplicates.length === 0) {
     console.log('✅ No duplicate IDs found');
@@ -402,7 +403,7 @@ export function findDuplicateIds() {
 
   duplicates.forEach(([id, elements]) => {
     console.group(`ID: "${id}" (${elements.length} instances)`);
-    elements.forEach((el, idx) => {
+    elements.forEach((el: any, idx: number) => {
       console.log(`Instance ${idx + 1}:`, {
         element: el,
         tagName: el.tagName,
@@ -427,7 +428,7 @@ export function findContentEditables() {
 
   console.log(`\n🔍 Found ${editables.length} contenteditable element(s):\n`);
 
-  editables.forEach((el, idx) => {
+  editables.forEach((el: any, idx: number) => {
     console.log(`Contenteditable ${idx + 1}:`, {
       element: el,
       id: el.id,
@@ -449,8 +450,8 @@ export function findContentEditables() {
 /**
  * Helper: Get DOM path to element
  */
-function getElementPath(el) {
-  const path = [];
+function getElementPath(el: any) {
+  const path: any[] = [];
   let current = el;
 
   while (current && current !== document.body) {
@@ -501,21 +502,21 @@ export async function stressTestNavigation(iterations = 20) {
 
 // Make everything globally accessible for console debugging
 if (typeof window !== 'undefined') {
-  window.checkNavigationHealth = checkNavigationHealth;
-  window.compareHealth = compareHealth;
-  window.startHealthMonitoring = startHealthMonitoring;
-  window.stressTestNavigation = stressTestNavigation;
-  window.findDuplicateIds = findDuplicateIds;
-  window.findContentEditables = findContentEditables;
+  (window as any).checkNavigationHealth = checkNavigationHealth;
+  (window as any).compareHealth = compareHealth;
+  (window as any).startHealthMonitoring = startHealthMonitoring;
+  (window as any).stressTestNavigation = stressTestNavigation;
+  (window as any).findDuplicateIds = findDuplicateIds;
+  (window as any).findContentEditables = findContentEditables;
 }
 
 // Auto-run health check every 50 transitions in development
-if (import.meta.env?.DEV) {
+if ((import.meta as any).env?.DEV) {
   let lastCheck = 0;
 
   setInterval(() => {
-    if (window.NavigationManager?.navigationCount > 0) {
-      const count = window.NavigationManager.navigationCount;
+    if ((window as any).NavigationManager?.navigationCount > 0) {
+      const count = (window as any).NavigationManager.navigationCount;
 
       if (count % 50 === 0 && count !== lastCheck) {
         lastCheck = count;

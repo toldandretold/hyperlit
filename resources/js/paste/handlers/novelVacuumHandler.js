@@ -261,7 +261,7 @@ export async function handleNovelVacuum(url, targetBookId, isSubBook) {
     );
 
     // Kill the navigation progress overlay that handleLargePaste spawned
-    const { ProgressOverlayConductor } = await import('../../navigation/ProgressOverlayConductor.js');
+    const { ProgressOverlayConductor } = await import('../../SPA/navigation/ProgressOverlayConductor.js');
     await ProgressOverlayConductor.hide();
 
     if (!pasteResult || !pasteResult.chunks || pasteResult.chunks.length === 0) {

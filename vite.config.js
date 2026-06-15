@@ -146,7 +146,7 @@ export default defineConfig({
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling/index.ts',
                 'resources/js/components/toc.js',      // ✅ NEW
-                'resources/js/viewManager.js',
+                'resources/js/SPA/viewManager.ts',
                 'resources/js/homepageDisplayUnit.js',
 
                 // divEditor modules

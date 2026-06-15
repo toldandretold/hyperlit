@@ -4,7 +4,7 @@
  * Conductor owns the actual overlay state machine.
  */
 import { verbose } from '../utilities/logger.js';
-import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 
 export interface NavigationProgressIndicator {
   updateProgress: (percent: number | null, message?: string) => void;

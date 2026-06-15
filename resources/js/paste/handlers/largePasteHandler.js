@@ -16,7 +16,7 @@ import {
 import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
-import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
+import { ProgressOverlayConductor } from '../../SPA/navigation/ProgressOverlayConductor.js';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds.js';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements.js';

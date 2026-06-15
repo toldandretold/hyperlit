@@ -8,25 +8,25 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness.js';
-import { destroyUserContainer } from '../../components/userContainer.js';
-import { destroyNewBookContainer } from '../../components/newBookButton.js';
-import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
-import { resetEditModeState, enforceEditableState, enableEditMode } from '../../components/editButton.js';
-import { cleanupReaderView } from '../../viewManager.js';
-import { setCurrentBook } from '../../app.js';
-import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../pageLoad';
-import { universalPageInitializer } from '../../viewManager.js';
-import { initializeLogoNav } from '../../components/logoNavToggle.js';
-import { openDatabase, updateDatabaseBookId } from '../../indexedDB/index';
-import { showConversionFeedbackToast } from '../../conversion/feedbackToast.js';
-import { showImportFailureModal } from '../../conversion/bugReportModal.js';
+import { waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
+import { destroyUserContainer } from '../../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../../homepageDisplayUnit.js';
+import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton.js';
+import { cleanupReaderView } from '../../viewManager';
+import { setCurrentBook } from '../../../app.js';
+import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../../pageLoad';
+import { universalPageInitializer } from '../../viewManager';
+import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { openDatabase, updateDatabaseBookId } from '../../../indexedDB/index';
+import { showConversionFeedbackToast } from '../../../conversion/feedbackToast.js';
+import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 
 export class ImportBookTransition {
   /**
    * Execute book import and transition
    */
-  static async execute(options = {}) {
+  static async execute(options: any = {}) {
     console.log('🔥 DEBUG: ImportBookTransition.execute() CALLED with options:', options);
 
     const {
@@ -131,7 +131,7 @@ export class ImportBookTransition {
   /**
    * Fetch the reader page HTML for imported book
    */
-  static async fetchReaderPageHtml(bookId) {
+  static async fetchReaderPageHtml(bookId: any) {
     console.log(`📥 ImportBookTransition: Fetching reader HTML for imported book ${bookId}`);
     
     const response = await fetch(`/${bookId}/edit?target=1`);
@@ -148,7 +148,7 @@ export class ImportBookTransition {
   /**
    * Replace body content with reader HTML
    */
-  static async replaceBodyContent(htmlString, bookId) {
+  static async replaceBodyContent(htmlString: any, bookId: any) {
     console.log('🔄 ImportBookTransition: Replacing body content (import form → reader)');
 
     const parser = new DOMParser();
@@ -207,7 +207,7 @@ export class ImportBookTransition {
   /**
    * Set up session storage for imported book handling
    */
-  static setupImportedBookSession(bookId) {
+  static setupImportedBookSession(bookId: any) {
     // Set the session flag for overlay management
     sessionStorage.setItem('pending_import_book', bookId);
     console.log(`🎯 ImportBookTransition: Set pending_import_book flag: ${bookId}`);
@@ -220,7 +220,7 @@ export class ImportBookTransition {
   /**
    * Initialize the imported reader view
    */
-  static async initializeImportedReader(bookId, progressCallback) {
+  static async initializeImportedReader(bookId: any, progressCallback: any) {
     console.log(`🚀 ImportBookTransition: Initializing imported reader for ${bookId}`);
     
     try {
@@ -270,7 +270,7 @@ export class ImportBookTransition {
     console.log('📝 ImportBookTransition: Entering edit mode');
     
     try {
-      await enableEditMode(null, false); // false = don't force redirect
+      await (enableEditMode as any)(null, false); // false = don't force redirect
 
       console.log('✅ ImportBookTransition: Edit mode enabled');
       
@@ -283,7 +283,7 @@ export class ImportBookTransition {
   /**
    * Update the browser URL
    */
-  static updateUrl(bookId, inEditMode = false) {
+  static updateUrl(bookId: any, inEditMode = false) {
     const newUrl = `/${bookId}/edit?target=1${inEditMode ? '&edit=1' : ''}`;
     
     try {
@@ -295,7 +295,7 @@ export class ImportBookTransition {
   }
 
   // Stage labels for progress UI
-  static STAGE_LABELS = {
+  static STAGE_LABELS: any = {
     queued: 'Waiting to start...',
     starting: 'Starting document processing...',
     epub_load: 'Loading EPUB content...',
@@ -323,10 +323,10 @@ export class ImportBookTransition {
   /**
    * Create progress UI by replacing form content
    */
-  static createImportProgressUI(bookId) {
-    const container = document.getElementById('newbook-container');
-    const citeForm = container?.querySelector('#cite-form');
-    const targetEl = citeForm || container;
+  static createImportProgressUI(bookId: any) {
+    const container = document.getElementById('newbook-container') as HTMLElement | null;
+    const citeForm = container?.querySelector('#cite-form') as HTMLElement | null;
+    const targetEl = (citeForm || container) as HTMLElement | null;
 
     if (!targetEl) {
       console.warn('Could not find form container for progress UI');
@@ -335,7 +335,7 @@ export class ImportBookTransition {
 
     // Save original content and layout for potential restoration
     const savedHtml = targetEl.innerHTML;
-    const scroller = container?.querySelector('.scroller');
+    const scroller = container?.querySelector('.scroller') as HTMLElement | null;
     const savedScrollerPosition = scroller?.style.position;
     const savedScrollerHeight = scroller?.style.height;
     const savedContainerHeight = container?.style.height;
@@ -378,14 +378,14 @@ export class ImportBookTransition {
     const detailText = document.getElementById('import-detail-text');
 
     const notifyBtn = document.getElementById('import-notify-btn');
-    const notifyRow = document.getElementById('import-notify-row');
+    const notifyRow = document.getElementById('import-notify-row') as any;
     if (notifyBtn) {
       notifyBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         notifyBtn.style.pointerEvents = 'none';
         notifyBtn.textContent = 'Requesting...';
         try {
-          const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+          const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
           const resp = await fetch(`/api/import-progress/${bookId}/notify`, {
             method: 'POST',
             headers: {
@@ -407,12 +407,12 @@ export class ImportBookTransition {
     }
 
     return {
-      update(pct, msg, detail) {
+      update(pct: any, msg: any, detail: any) {
         if (progressBar && pct != null) progressBar.style.width = `${Math.min(pct, 100)}%`;
         if (stageText && msg) stageText.textContent = msg;
         if (detailText) detailText.textContent = detail || '';
       },
-      showError(msg) {
+      showError(msg: any) {
         if (stageText) {
           stageText.textContent = msg || 'Processing failed';
           stageText.style.color = '#CC8888';
@@ -435,7 +435,7 @@ export class ImportBookTransition {
   /**
    * Poll import progress endpoint
    */
-  static async pollImportProgress(bookId, progressUI) {
+  static async pollImportProgress(bookId: any, progressUI: any) {
     let networkRetries = 0;
     const MAX_NETWORK_RETRIES = 30;
 
@@ -478,7 +478,7 @@ export class ImportBookTransition {
 
         await new Promise(r => setTimeout(r, 2000));
         return poll();
-      } catch (err) {
+      } catch (err: any) {
         console.warn(`[poll] error: ${err.name}: ${err.message}`);
         // Network/server errors — retry with backoff
         if (err.message?.startsWith('Poll failed') || err.name === 'TypeError') {
@@ -503,7 +503,7 @@ export class ImportBookTransition {
    * Handle form submission and backend processing
    * This is the main entry point from newBookForm.js
    */
-  static async handleFormSubmissionAndTransition(formData, submitButton) {
+  static async handleFormSubmissionAndTransition(formData: any, submitButton: any) {
     console.log('ImportBookTransition: Starting form submission and transition');
 
     // Hoisted so the outer catch can restore button layout regardless of
@@ -512,7 +512,7 @@ export class ImportBookTransition {
 
     try {
       // Get CSRF token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
 
       // Sum total bytes of File entries in the FormData so we can show an
       // accurate "X / Y MB" during upload (large PDFs can take 30s+ to upload
@@ -547,7 +547,7 @@ export class ImportBookTransition {
       };
 
       // Submit via XHR (instead of fetch) to get upload-progress events.
-      const response = await new Promise((resolve, reject) => {
+      const response: any = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/import-file');
         xhr.withCredentials = true;
@@ -607,7 +607,7 @@ export class ImportBookTransition {
             isProcessingError = true;
             errorDetails = `File processing failed: ${errorJson.error}`;
           } else if (errorJson.errors) {
-            const validationErrors = Object.entries(errorJson.errors)
+            const validationErrors = (Object.entries(errorJson.errors) as [string, any][])
               .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
               .join('\n');
             errorDetails = `Validation failed:\n${validationErrors}`;
@@ -619,7 +619,7 @@ export class ImportBookTransition {
           errorDetails = errorText;
         }
 
-        const error = new Error(`Server responded with ${response.status}: ${errorDetails}`);
+        const error: any = new Error(`Server responded with ${response.status}: ${errorDetails}`);
         error.isProcessingError = isProcessingError;
         error.status = response.status;
         throw error;
@@ -637,7 +637,7 @@ export class ImportBookTransition {
         const db = await openDatabase();
         const tx = db.transaction('library', 'readwrite');
         tx.objectStore('library').put(result.library);
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
         });
@@ -673,7 +673,7 @@ export class ImportBookTransition {
               const db = await openDatabase();
               const tx = db.transaction('library', 'readwrite');
               tx.objectStore('library').put(completedResult.updatedLibrary);
-              await new Promise((resolve, reject) => {
+              await new Promise<void>((resolve, reject) => {
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error);
               });
@@ -712,7 +712,7 @@ export class ImportBookTransition {
 
           return completedResult;
 
-        } catch (pollError) {
+        } catch (pollError: any) {
           console.error('Import polling failed:', pollError);
           // Restore the form so the user can see the container and try again
           if (progressUI) {
@@ -736,7 +736,7 @@ export class ImportBookTransition {
           } catch (_) { /* modal failures are non-fatal */ }
 
           // Tag so the outer catch in newBookForm.js doesn't open a second modal.
-          pollError.handledByImportFailureModal = true;
+          (pollError as any).handledByImportFailureModal = true;
           throw pollError;
         }
       }
@@ -809,7 +809,7 @@ export class ImportBookTransition {
    * @param {'import'|'reconvert'} [options.mode='import'] - 'reconvert' shows a single OK button
    * @returns {Promise<'proceed'|'resubmit'>}
    */
-  static showFootnoteAuditModal(audit, bookId, options = {}) {
+  static showFootnoteAuditModal(audit: any, bookId: any, options: any = {}) {
     const mode = options.mode || 'import';
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
@@ -890,13 +890,13 @@ export class ImportBookTransition {
         </div>
       `;
 
-      const cleanup = (action) => {
+      const cleanup = (action: any) => {
         overlay.remove();
         alertBox.remove();
         resolve(action);
       };
 
-      alertBox.addEventListener('click', (e) => {
+      alertBox.addEventListener('click', (e: any) => {
         const action = e.target.dataset?.action;
         if (action === 'proceed' || action === 'resubmit') {
           cleanup(action);
@@ -904,7 +904,7 @@ export class ImportBookTransition {
       });
 
       // Escape key dismisses as "proceed"
-      const keyHandler = (e) => {
+      const keyHandler = (e: any) => {
         if (e.key === 'Escape') {
           document.removeEventListener('keydown', keyHandler);
           cleanup('proceed');
@@ -920,14 +920,14 @@ export class ImportBookTransition {
   /**
    * Delete an imported book (for re-submit flow)
    */
-  static async deleteImportedBook(bookId) {
+  static async deleteImportedBook(bookId: any) {
     try {
       // Delete from IndexedDB
-      const { deleteBookFromIndexedDB } = await import('../../indexedDB/index');
+      const { deleteBookFromIndexedDB } = await import('../../../indexedDB/index');
       await deleteBookFromIndexedDB(bookId);
 
       // Delete from server
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
       await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
         method: 'DELETE',
         headers: {

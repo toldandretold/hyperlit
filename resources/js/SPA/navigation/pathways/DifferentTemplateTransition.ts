@@ -7,17 +7,17 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { LinkNavigationHandler } from '../LinkNavigationHandler.js';
+import { getPageStructure, getBookIdFromUrl } from '../utils/structureDetection.js';
 import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
-import { log } from '../../utilities/logger.js';
+import { log } from '../../../utilities/logger.js';
 
 export class DifferentTemplateTransition {
   /**
    * Execute cross-structure transition (full body replacement)
    */
-  static async execute(options = {}) {
+  static async execute(options: any = {}) {
     const {
       fromStructure: providedFromStructure,
       toStructure: providedToStructure,
@@ -29,7 +29,7 @@ export class DifferentTemplateTransition {
     } = options;
 
     // Detect structures if not provided
-    const fromStructure = providedFromStructure || LinkNavigationHandler.getPageStructure();
+    const fromStructure = providedFromStructure || getPageStructure();
     const toStructure = providedToStructure || await this.detectTargetStructure(targetUrl || toBook);
 
     log.nav(`Page template transition (${fromStructure}→${toStructure})`, '/navigation/pathways/DifferentTemplateTransition.js');
@@ -56,7 +56,7 @@ export class DifferentTemplateTransition {
       progress(70, 'Waiting for DOM stabilization...');
 
       // Wait for DOM to stabilize
-      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      const { waitForLayoutStabilization } = await import('../../../utilities/domReadiness');
       await waitForLayoutStabilization();
 
       progress(80, 'Initializing new page...');
@@ -65,20 +65,20 @@ export class DifferentTemplateTransition {
       // (during SPA transitions, window.location.hash hasn't been updated yet)
       if (hash) {
         const target = hash.startsWith('#') ? hash.substring(1) : hash;
-        if (target) window._pendingChunkTarget = target;
+        if (target) (window as any)._pendingChunkTarget = target;
       }
 
       // Step 4: Structure-aware initialization (using shared utility)
       // Resolve real bookId from DOM — server renders <main id="realBookId">,
       // so slugs (e.g. "welcome") get resolved to the actual book ID.
-      const rawBookId = toBook || LinkNavigationHandler.getBookIdFromUrl(targetUrlResolved);
+      const rawBookId = toBook || getBookIdFromUrl(targetUrlResolved);
       const bookId = document.querySelector('.main-content')?.id || rawBookId;
       await initializeToStructure(toStructure, bookId, progress);
 
       // Step 5: Update URL with state preservation for back button (using shared utility)
       const newUrl = hash ? `${targetUrlResolved}${hash}` : targetUrlResolved;
       updateUrl(newUrl, {
-        fromBook: fromStructure === 'reader' ? LinkNavigationHandler.getBookIdFromUrl(window.location.pathname) : null,
+        fromBook: fromStructure === 'reader' ? getBookIdFromUrl(window.location.pathname) : null,
         toBook: bookId,
         fromStructure,
         toStructure,
@@ -110,7 +110,7 @@ export class DifferentTemplateTransition {
   /**
    * Detect target structure from URL
    */
-  static async detectTargetStructure(url) {
+  static async detectTargetStructure(url: any) {
     // For now, use simple heuristics
     // Could be enhanced with fetch + DOM parsing if needed
     const urlObj = new URL(url, window.location.origin);

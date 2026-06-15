@@ -12,7 +12,7 @@
  * NavigationManager is the ONLY place that calls ProgressOverlayEnactor.hide()
  * All pathways just do their work - NavigationManager handles overlay lifecycle
  */
-import { log } from '../utilities/logger.js';
+import { log } from '../../utilities/logger.js';
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
@@ -29,7 +29,7 @@ export class NavigationManager {
    * This is the ONLY method that calls ProgressOverlayEnactor.hide()
    * All pathways delegate overlay lifecycle to NavigationManager
    */
-  static async navigate(pathway, options = {}) {
+  static async navigate(pathway: any, options: any = {}) {
     this.navigationCount++;
     log.nav(`Routing to ${pathway} (transition #${this.navigationCount})`, '/navigation/NavigationManager.js');
 
@@ -60,7 +60,7 @@ export class NavigationManager {
       // ✅ Success - hide overlay
       await ProgressOverlayEnactor.hide();
 
-    } catch (error) {
+    } catch (error: any) {
       log.error(`Navigation failed for pathway ${pathway}`, '/navigation/NavigationManager.js', error);
 
       // ✅ Error - still hide overlay (guaranteed via finally block in ProgressOverlayEnactor)
@@ -74,7 +74,7 @@ export class NavigationManager {
    * PATHWAY 1: Fresh page load (user refresh or direct URL)
    * Uses full initialization without SPA transitions
    */
-  static async handleFreshPageLoad(options = {}) {
+  static async handleFreshPageLoad(options: any = {}) {
     log.nav('Fresh page load pathway', '/navigation/NavigationManager.js');
 
     const { FreshPageLoader } = await import('./pathways/FreshPageLoader.js');
@@ -85,7 +85,7 @@ export class NavigationManager {
    * PATHWAY 2: Create new book (home.blade.php → reader.blade.php)
    * Full body replacement, enters edit mode
    */
-  static async handleCreateNewBook(options = {}) {
+  static async handleCreateNewBook(options: any = {}) {
     log.nav('Create new book pathway', '/navigation/NavigationManager.js');
 
     const { NewBookTransition } = await import('./pathways/NewBookTransition.js');
@@ -104,7 +104,7 @@ export class NavigationManager {
    * PATHWAY 3: Import book (form submission → reader.blade.php)
    * Backend processing with full body replacement
    */
-  static async handleImportBook(options = {}) {
+  static async handleImportBook(options: any = {}) {
     log.nav('Import book pathway', '/navigation/NavigationManager.js');
 
     const { ImportBookTransition } = await import('./pathways/ImportBookTransition.js');
@@ -115,7 +115,7 @@ export class NavigationManager {
    * PATHWAY 4: Book-to-book navigation (reader → reader)
    * Content replacement only, preserves navigation
    */
-  static async handleBookToBookTransition(options = {}) {
+  static async handleBookToBookTransition(options: any = {}) {
     log.nav('Book-to-book transition pathway', '/navigation/NavigationManager.js');
 
     const { BookToBookTransition } = await import('./pathways/BookToBookTransition.js');
@@ -126,7 +126,7 @@ export class NavigationManager {
   /**
    * Determine which pathway should be used based on context
    */
-  static determinePathway(context = {}) {
+  static determinePathway(context: any = {}) {
     const {
       currentPageType,
       targetPageType,
@@ -165,7 +165,7 @@ export class NavigationManager {
   /**
    * Smart navigation - automatically determines and executes the right pathway
    */
-  static async smartNavigate(context = {}) {
+  static async smartNavigate(context: any = {}) {
     const pathway = this.determinePathway(context);
     return await this.navigate(pathway, context);
   }
@@ -177,7 +177,7 @@ export class NavigationManager {
    * ✅ CENTRALIZED OVERLAY MANAGEMENT
    * This method also hides overlay on completion/error
    */
-  static async navigateByStructure(options = {}) {
+  static async navigateByStructure(options: any = {}) {
     this.navigationCount++;
     log.nav(`Structure-aware navigation (transition #${this.navigationCount})`, '/navigation/NavigationManager.js');
 
@@ -208,7 +208,7 @@ export class NavigationManager {
       // ✅ Success - hide overlay
       await ProgressOverlayEnactor.hide();
 
-    } catch (error) {
+    } catch (error: any) {
       log.error('Structure-aware navigation failed', '/navigation/NavigationManager.js', error);
 
       // ✅ Error - still hide overlay
@@ -221,7 +221,7 @@ export class NavigationManager {
   /**
    * Detect target structure from navigation options
    */
-  static async detectTargetStructure(options = {}) {
+  static async detectTargetStructure(options: any = {}) {
     const { targetUrl, toBook, targetStructure } = options;
 
     // If explicitly provided, use it
@@ -247,7 +247,7 @@ export class NavigationManager {
    * Detect structure type from URL using simple pattern matching
    * Fast, offline-friendly, no fetching required!
    */
-  static async detectStructureFromUrl(url) {
+  static async detectStructureFromUrl(url: any) {
     try {
       const urlObj = new URL(url, window.location.origin);
       const path = urlObj.pathname;
@@ -267,7 +267,7 @@ export class NavigationManager {
       // Everything else is reader (/{book}, /{book}/HL_xxx, etc.)
       return 'reader';
 
-    } catch (error) {
+    } catch (error: any) {
       log.error('Could not detect structure from URL', '/navigation/NavigationManager.js', error);
       return 'reader';
     }
@@ -276,15 +276,15 @@ export class NavigationManager {
   /**
    * Legacy compatibility methods for existing code
    */
-  static async initializeReaderView(progressCallback = null) {
+  static async initializeReaderView(progressCallback: any = null) {
     return await this.navigate('fresh-page-load', { progressCallback });
   }
 
-  static async universalPageInitializer(progressCallback = null) {
+  static async universalPageInitializer(progressCallback: any = null) {
     return await this.navigate('fresh-page-load', { progressCallback });
   }
 
-  static async transitionToReaderView(bookId, hash = '', progressCallback = null) {
+  static async transitionToReaderView(bookId: any, hash = '', progressCallback: any = null) {
     // Determine if this is book-to-book or create new book based on current state
     const currentPageType = document.body.getAttribute('data-page');
 
@@ -303,7 +303,7 @@ export class NavigationManager {
     }
   }
 
-  static async initializeImportedBook(bookId) {
+  static async initializeImportedBook(bookId: any) {
     return await this.navigate('import-book', { bookId });
   }
 }

@@ -5,8 +5,8 @@
  * or from the server, based on cache freshness and online status.
  */
 
-import { openDatabase } from '../indexedDB/core/connection';
-import { verbose } from '../utilities/logger.js';
+import { openDatabase } from '../../indexedDB/core/connection';
+import { verbose } from '../../utilities/logger.js';
 
 /**
  * Load the initial chunk for a target, choosing the optimal source.
@@ -16,7 +16,7 @@ import { verbose } from '../utilities/logger.js';
  * @param {{ fallbackTarget?: string }} [opts]
  * @returns {Promise<Object>} Same shape as fetchInitialChunk() return value
  */
-export async function loadChunkForTarget(bookId, target, opts = {}) {
+export async function loadChunkForTarget(bookId: any, target: any, opts: any = {}) {
   const fresh = await isLocalCacheFresh(bookId);
   const online = navigator.onLine;
 
@@ -44,8 +44,8 @@ export async function loadChunkForTarget(bookId, target, opts = {}) {
  * Fetch from server using the existing initialChunkLoader.
  * This preserves the current buildInitialChunkParams → fetchInitialChunk flow.
  */
-async function fetchFromServer(bookId) {
-  const { fetchInitialChunk } = await import('../pageLoad');
+async function fetchFromServer(bookId: any) {
+  const { fetchInitialChunk } = await import('../../pageLoad');
   return fetchInitialChunk(bookId);
 }
 
@@ -58,7 +58,7 @@ async function fetchFromServer(bookId) {
  * @param {string} bookId
  * @returns {Promise<boolean>} true if local data is fresh (or server unreachable)
  */
-export async function isLocalCacheFresh(bookId) {
+export async function isLocalCacheFresh(bookId: any) {
   // If offline, treat as fresh (can't check anyway)
   if (!navigator.onLine) return true;
 
@@ -75,7 +75,7 @@ export async function isLocalCacheFresh(bookId) {
   } catch { /* ignore */ }
 
   try {
-    const [serverRecord, localRecord] = await Promise.all([
+    const [serverRecord, localRecord]: [any, any] = await Promise.all([
       getLibraryTimestamp(bookId),
       getLocalLibraryTimestamp(bookId),
     ]);
@@ -98,7 +98,7 @@ export async function isLocalCacheFresh(bookId) {
  * Get the timestamp from the server's library record.
  * Lightweight — only fetches the library metadata, not full book data.
  */
-async function getLibraryTimestamp(bookId) {
+async function getLibraryTimestamp(bookId: any) {
   try {
     const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
       headers: {
@@ -121,13 +121,13 @@ async function getLibraryTimestamp(bookId) {
 /**
  * Get the timestamp from the local IndexedDB library record.
  */
-async function getLocalLibraryTimestamp(bookId) {
+async function getLocalLibraryTimestamp(bookId: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('library', 'readonly');
     const store = tx.objectStore('library');
 
-    return new Promise((resolve) => {
+    return new Promise<any>((resolve) => {
       const request = store.get(bookId);
       request.onsuccess = () => {
         const record = request.result;

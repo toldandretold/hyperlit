@@ -7,15 +7,15 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { LinkNavigationHandler } from '../LinkNavigationHandler.js';
+import { getPageStructure, getBookIdFromUrl } from '../utils/structureDetection.js';
 import { swapHomeContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
 
 export class SameTemplateTransition {
   /**
    * Execute same-structure transition (content-only replacement)
    */
-  static async execute(options = {}) {
-    const currentStructure = LinkNavigationHandler.getPageStructure();
+  static async execute(options: any = {}) {
+    const currentStructure = getPageStructure();
     console.log(`🔄 SameTemplateTransition: ${currentStructure}→${currentStructure} transition`, options);
 
     try {
@@ -43,7 +43,7 @@ export class SameTemplateTransition {
    * Handle reader→reader transition (delegates to BookToBookTransition)
    * This is the most complex case with hash navigation, hyperlights, etc.
    */
-  static async handleReaderToReader(options = {}) {
+  static async handleReaderToReader(options: any = {}) {
     console.log('📖 SameTemplateTransition: Delegating reader→reader to BookToBookTransition');
 
     // Import and delegate to the battle-tested BookToBookTransition
@@ -56,7 +56,7 @@ export class SameTemplateTransition {
    * Handle home→home transition (content swap only)
    * Uses the homepageDisplayUnit pattern: remove old .main-content, create new, load content
    */
-  static async handleHomeToHome(options = {}) {
+  static async handleHomeToHome(options: any = {}) {
     const { toBook, hash = '', isPopstate = false, progressCallback } = options;
 
     console.log('🏠 SameTemplateTransition: Home→Home content swap', { toBook });
@@ -71,8 +71,7 @@ export class SameTemplateTransition {
 
       // Update URL with state preservation for back button (using shared utility)
       const newUrl = `/${toBook}${hash}`;
-      const { LinkNavigationHandler } = await import('../LinkNavigationHandler.js');
-      const currentBook = LinkNavigationHandler.getBookIdFromUrl(window.location.pathname);
+      const currentBook = getBookIdFromUrl(window.location.pathname);
       updateUrl(newUrl, {
         fromBook: currentBook,
         toBook: toBook,
@@ -105,7 +104,7 @@ export class SameTemplateTransition {
    * User→User requires full body replacement because ownership,
    * arranger buttons, shelves, and globals all change between users
    */
-  static async handleUserToUser(options = {}) {
+  static async handleUserToUser(options: any = {}) {
     const { targetUrl, hash = '', isPopstate = false, progressCallback } = options;
 
     console.log('👤 SameTemplateTransition: User→User delegating to DifferentTemplateTransition');

@@ -83,7 +83,7 @@ import { clearActiveBook } from '../utilities/activeContext.js';
 import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth.js";
 import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose, closeHyperlitContainer, initializeHyperlitManager } from './core.js';
-import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';

@@ -6,7 +6,7 @@
  * @param {HTMLElement} element - The element to check
  * @returns {boolean} - True if element is ready
  */
-function isElementFullyRendered(element) {
+function isElementFullyRendered(element: any) {
   if (!element) return false;
 
   // Check basic DOM presence
@@ -82,7 +82,7 @@ function isElementFullyRendered(element) {
  * @param {Object} options - Configuration options
  * @returns {Promise<HTMLElement>} - Resolves with the element when ready
  */
-export function waitForElementReady(targetId, options = {}) {
+export function waitForElementReady(targetId: string, options: any = {}) {
   const {
     maxAttempts = 20,        // Maximum number of attempts
     checkInterval = 50,      // Milliseconds between checks
@@ -91,7 +91,7 @@ export function waitForElementReady(targetId, options = {}) {
     onProgress = null        // Progress callback function
   } = options;
   
-  return new Promise((resolve, reject) => {
+  return new Promise<any>((resolve, reject) => {
     let attempts = 0;
     let startTime = Date.now();
     
@@ -113,7 +113,7 @@ export function waitForElementReady(targetId, options = {}) {
         const overlappingElements = container.querySelectorAll('u[data-overlapping]');
         for (const overlappingElement of overlappingElements) {
           const overlappingIds = overlappingElement.getAttribute('data-overlapping');
-          if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
+          if (overlappingIds && overlappingIds.split(',').map((id: any) => id.trim()).includes(targetId)) {
             console.log(`🎯 Found hypercite ${targetId} in overlapping element during DOM readiness check`);
             element = overlappingElement;
             break;
@@ -179,7 +179,7 @@ export function waitForElementReady(targetId, options = {}) {
  * @param {Object} options - Configuration options
  * @returns {Promise<HTMLElement>} - Resolves with the element when ready
  */
-export function waitForElementReadyWithProgress(targetId, progressCallback, options = {}) {
+export function waitForElementReadyWithProgress(targetId: string, progressCallback: any, options: any = {}) {
   const {
     hideProgressAtPercent = 95,  // Hide progress when element is ready but before navigation
     hideProgressMessage = 'Element ready',
@@ -192,7 +192,7 @@ export function waitForElementReadyWithProgress(targetId, progressCallback, opti
   
   return waitForElementReady(targetId, {
     ...waitOptions,
-    onProgress: ({ attempts, targetId, found }) => {
+    onProgress: ({ attempts, targetId, found }: any) => {
       if (found && !progressHidden) {
         // Element exists - check if it's visually ready
         const element = document.querySelector(`#${CSS.escape(targetId)}`);
@@ -202,7 +202,7 @@ export function waitForElementReadyWithProgress(targetId, progressCallback, opti
           progressCallback(hideProgressAtPercent, `${targetId} ${hideProgressMessage}`);
           
           // Import and hide progress overlay
-          import('./navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
+          import('../SPA/navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
             ProgressOverlayEnactor.hide();
           }).catch(err => {
             console.warn('Could not hide progress overlay:', err);
@@ -223,10 +223,10 @@ export function waitForElementReadyWithProgress(targetId, progressCallback, opti
  * @param {Object} options - Configuration options
  * @returns {Promise<HTMLElement[]>} - Resolves with array of elements when all ready
  */
-export function waitForMultipleElementsReady(targetIds, options = {}) {
+export function waitForMultipleElementsReady(targetIds: any[], options: any = {}) {
   console.log(`⏳ Waiting for multiple elements: ${targetIds.join(', ')}`);
   
-  const promises = targetIds.map(id => waitForElementReady(id, options));
+  const promises = targetIds.map((id: any) => waitForElementReady(id, options));
   
   return Promise.all(promises).then(elements => {
     console.log(`✅ All elements ready: ${targetIds.join(', ')}`);
@@ -242,7 +242,7 @@ export function waitForMultipleElementsReady(targetIds, options = {}) {
  * @param {Object} options - Configuration options
  * @returns {Promise<HTMLElement[]>} - Resolves with array of elements when all ready
  */
-export function waitForMultipleElementsReadyWithProgress(targetIds, progressCallback, options = {}) {
+export function waitForMultipleElementsReadyWithProgress(targetIds: any[], progressCallback: any, options: any = {}) {
   const {
     hideProgressAtPercent = 95,
     hideProgressMessage = 'Elements ready',
@@ -254,10 +254,10 @@ export function waitForMultipleElementsReadyWithProgress(targetIds, progressCall
   let progressHidden = false;
   let readyCount = 0;
   
-  const promises = targetIds.map(id => 
+  const promises = targetIds.map((id: any) => 
     waitForElementReady(id, {
       ...waitOptions,
-      onProgress: ({ attempts, targetId, found }) => {
+      onProgress: ({ attempts, targetId, found }: any) => {
         if (found && !progressHidden) {
           const element = document.querySelector(`#${CSS.escape(targetId)}`);
           if (element && isElementFullyRendered(element)) {
@@ -268,7 +268,7 @@ export function waitForMultipleElementsReadyWithProgress(targetIds, progressCall
               console.log(`✅ Hiding progress - all ${targetIds.length} elements are visually ready`);
               progressCallback(hideProgressAtPercent, hideProgressMessage);
 
-              import('./navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
+              import('../SPA/navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
                 ProgressOverlayEnactor.hide();
               }).catch(err => {
                 console.warn('Could not hide progress overlay:', err);
@@ -297,10 +297,10 @@ export function waitForMultipleElementsReadyWithProgress(targetIds, progressCall
  * @param {number} timeoutMs - Maximum time to wait
  * @returns {Promise<void>} - Resolves when chunk loading appears complete
  */
-export function waitForChunkLoadingComplete(container, chunkId, timeoutMs = 5000) {
-  return new Promise((resolve, reject) => {
+export function waitForChunkLoadingComplete(container: any, chunkId: any, timeoutMs = 5000) {
+  return new Promise<void>((resolve, reject) => {
     const startTime = Date.now();
-    let mutationTimer = null;
+    let mutationTimer: any = null;
     let hasSeenChunk = false;
     
     console.log(`⏳ Waiting for chunk ${chunkId} loading to complete...`);
@@ -321,8 +321,8 @@ export function waitForChunkLoadingComplete(container, chunkId, timeoutMs = 5000
           mutation.addedNodes.forEach(node => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // Check if this is our chunk or contains our chunk
-              if (node.getAttribute?.('data-chunk-id') == chunkId || 
-                  node.querySelector?.(` [data-chunk-id="${chunkId}"]`)) {
+              if ((node as any).getAttribute?.('data-chunk-id') == chunkId || 
+                  (node as any).querySelector?.(` [data-chunk-id="${chunkId}"]`)) {
                 hasSeenChunk = true;
                 chunkMutationDetected = true;
               }
@@ -387,7 +387,7 @@ async function waitForFontsReady() {
  * @returns {Promise<void>}
  */
 export async function waitForLayoutStabilization() {
-  return new Promise(resolve => {
+  return new Promise<void>(resolve => {
     console.log(`📐 Waiting for layout stabilization...`);
     
     // Wait for any pending layout operations
@@ -409,7 +409,7 @@ export async function waitForLayoutStabilization() {
  * @param {Object} options - Additional options
  * @returns {Promise<HTMLElement>} - Resolves with ready element
  */
-export async function waitForNavigationTarget(targetId, container, expectedChunkId = null, options = {}) {
+export async function waitForNavigationTarget(targetId: string, container: any, expectedChunkId: any = null, options: any = {}) {
   const { 
     maxWaitTime = 10000,
     requireVisible = false 
@@ -453,14 +453,14 @@ export async function waitForNavigationTarget(targetId, container, expectedChunk
  * @param {Object} options - Configuration options
  * @returns {Promise<void>} - Resolves when content is ready
  */
-export async function waitForContentReady(bookId, options = {}) {
+export async function waitForContentReady(bookId: string, options: any = {}) {
   const {
     maxWaitTime = 15000,    // Maximum time to wait (15 seconds)
     checkInterval = 100,    // Check every 100ms
     requireLazyLoader = true // Whether to require lazy loader to be ready
   } = options;
   
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const startTime = Date.now();
     let attempts = 0;
     
@@ -477,7 +477,7 @@ export async function waitForContentReady(bookId, options = {}) {
       }
       
       // Check 1: nodes must be available
-      if (!window.nodes || window.nodes.length === 0) {
+      if (!(window as any).nodes || (window as any).nodes.length === 0) {
         if (attempts % 10 === 0) {
           console.log(`⏳ Still waiting for nodes... (attempt ${attempts}, ${elapsed}ms)`);
         }
@@ -488,7 +488,7 @@ export async function waitForContentReady(bookId, options = {}) {
       // Check 2: Lazy loader must be initialized if required
       if (requireLazyLoader) {
         // Import dynamically to avoid circular dependencies
-        import('./pageLoad').then(({ currentLazyLoader }) => {
+        import('../pageLoad').then(({ currentLazyLoader }) => {
           if (!currentLazyLoader) {
             if (attempts % 10 === 0) {
               console.log(`⏳ Still waiting for lazy loader... (attempt ${attempts}, ${elapsed}ms)`);
@@ -518,7 +518,7 @@ export async function waitForContentReady(bookId, options = {}) {
           
           // All checks passed!
           console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms)`);
-          console.log(`   - nodes: ${window.nodes.length} chunks available`);
+          console.log(`   - nodes: ${(window as any).nodes.length} chunks available`);
           console.log(`   - lazyLoader: initialized with book ${currentLazyLoader.bookId}`);
           console.log(`   - container: #${bookId} found in DOM`);
           resolve();
@@ -544,7 +544,7 @@ export async function waitForContentReady(bookId, options = {}) {
         
         // All checks passed (without lazy loader)
         console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms) - no lazy loader required`);
-        console.log(`   - nodes: ${window.nodes.length} chunks available`);
+        console.log(`   - nodes: ${(window as any).nodes.length} chunks available`);
         console.log(`   - container: #${bookId} found in DOM`);
         resolve();
       }
@@ -562,7 +562,7 @@ export async function waitForContentReady(bookId, options = {}) {
  * @param {Object} options - Configuration options
  * @returns {Promise<void>} - Resolves when everything is ready
  */
-export async function waitForCompleteReadiness(bookId, options = {}) {
+export async function waitForCompleteReadiness(bookId: string, options: any = {}) {
   const {
     targetId = null,        // Optional navigation target to wait for
     maxWaitTime = 20000,    // Total maximum wait time

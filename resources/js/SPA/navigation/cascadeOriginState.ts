@@ -8,7 +8,7 @@
  * imports always finishes initializing before anyone reads it, so it cannot TDZ.
  */
 
-let cascadeOriginTargetId = null;
+let cascadeOriginTargetId: any = null;
 
 /** Get the current cascade-origin highlight ID (for re-applying after chunk loads) */
 export function getCascadeOriginId() {
@@ -16,7 +16,7 @@ export function getCascadeOriginId() {
 }
 
 /** Set the cascade-origin highlight ID (for persisting across chunk re-renders) */
-export function setCascadeOriginId(id) {
+export function setCascadeOriginId(id: any) {
   cascadeOriginTargetId = id;
 }
 

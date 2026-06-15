@@ -15,9 +15,9 @@
  * Returns { chunkId, resolved, reason, fallbackUsed }
  */
 
-import { openDatabase } from '../indexedDB/core/connection';
+import { openDatabase } from '../../indexedDB/core/connection';
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../../utilities/logger.js';
 
 /**
  * @param {string} bookId
@@ -25,7 +25,7 @@ import { verbose } from '../utilities/logger.js';
  * @param {{ fallbackTarget?: string, chunkManifest?: Array, nodes?: Array }} [opts]
  * @returns {Promise<{ chunkId: number, resolved: boolean, reason: string, fallbackUsed: string|null }>}
  */
-export async function resolveTargetChunkId(bookId, target, opts = {}) {
+export async function resolveTargetChunkId(bookId: any, target: any, opts: any = {}) {
   const { fallbackTarget = null, chunkManifest = null, nodes = null } = opts;
 
   // Step 1: Direct chunk_id (numeric string prefixed with "chunk_")
@@ -86,7 +86,7 @@ export async function resolveTargetChunkId(bookId, target, opts = {}) {
  * Try to resolve a single target to a chunk_id from IndexedDB.
  * Returns { chunkId, reason } or null.
  */
-async function resolveTargetToChunkIdLocal(bookId, target) {
+async function resolveTargetToChunkIdLocal(bookId: any, target: any) {
   // Step 2: Hypercite
   if (target.startsWith('hypercite_')) {
     const chunkId = await resolveHyperciteChunk(bookId, target);
@@ -132,12 +132,12 @@ async function resolveTargetToChunkIdLocal(bookId, target) {
 
 // ── Branch implementations ──────────────────────────────────────────
 
-async function resolveHyperciteChunk(bookId, hyperciteId) {
+async function resolveHyperciteChunk(bookId: any, hyperciteId: any) {
   try {
     // Local-only lookup — no server fallback. If the hypercite isn't in
     // local IDB (e.g. citation arrows), the resolver's content-scan
     // fallback (step 6) will find it instead.
-    const { getHyperciteFromIndexedDB } = await import('../indexedDB/hypercites/index');
+    const { getHyperciteFromIndexedDB } = await import('../../indexedDB/hypercites/index');
     const record = await getHyperciteFromIndexedDB(bookId, hyperciteId);
     if (record && Array.isArray(record.node_id) && record.node_id.length > 0) {
       return await nodeIdToChunkId(bookId, record.node_id[0]);
@@ -148,13 +148,13 @@ async function resolveHyperciteChunk(bookId, hyperciteId) {
   return null;
 }
 
-async function resolveHyperlightChunk(bookId, hyperlightId) {
+async function resolveHyperlightChunk(bookId: any, hyperlightId: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('hyperlights', 'readonly');
     const store = tx.objectStore('hyperlights');
 
-    const record = await idbGet(store, [bookId, hyperlightId]);
+    const record: any = await idbGet(store, [bookId, hyperlightId]);
     if (record && Array.isArray(record.node_id) && record.node_id.length > 0) {
       return await nodeIdToChunkId(bookId, record.node_id[0]);
     }
@@ -164,16 +164,16 @@ async function resolveHyperlightChunk(bookId, hyperlightId) {
   return null;
 }
 
-async function resolveFootnoteChunk(bookId, target) {
+async function resolveFootnoteChunk(bookId: any, target: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
     const store = tx.objectStore('nodes');
     const index = store.index('book');
 
-    return new Promise((resolve) => {
+    return new Promise<any>((resolve) => {
       const request = index.openCursor(bookId);
-      request.onsuccess = (e) => {
+      request.onsuccess = (e: any) => {
         const cursor = e.target.result;
         if (!cursor) { resolve(null); return; }
 
@@ -192,14 +192,14 @@ async function resolveFootnoteChunk(bookId, target) {
   }
 }
 
-async function resolveStartLineChunk(bookId, startLine) {
+async function resolveStartLineChunk(bookId: any, startLine: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
     const store = tx.objectStore('nodes');
 
     // Primary key is [book, startLine] — direct O(1) lookup
-    const node = await idbGet(store, [bookId, startLine]);
+    const node: any = await idbGet(store, [bookId, startLine]);
     if (node) return node.chunk_id;
   } catch (e) {
     console.warn('resolveStartLineChunk failed:', e);
@@ -207,7 +207,7 @@ async function resolveStartLineChunk(bookId, startLine) {
   return null;
 }
 
-async function resolveContentScanChunk(bookId, target) {
+async function resolveContentScanChunk(bookId: any, target: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
@@ -216,9 +216,9 @@ async function resolveContentScanChunk(bookId, target) {
     const regex = new RegExp(`id=['"]${escapeRegex(target)}['"]`, 'i');
     const normalizedTarget = target.toLowerCase();
 
-    return new Promise((resolve) => {
+    return new Promise<any>((resolve) => {
       const request = index.openCursor(bookId);
-      request.onsuccess = (e) => {
+      request.onsuccess = (e: any) => {
         const cursor = e.target.result;
         if (!cursor) { resolve(null); return; }
 
@@ -268,7 +268,7 @@ async function resolveContentScanChunk(bookId, target) {
  * Checks content, embedded hypercites, and embedded hyperlights.
  * Used when IndexedDB lookups fail (e.g. stale embedded arrays).
  */
-function resolveTargetInMemory(target, nodes) {
+function resolveTargetInMemory(target: any, nodes: any) {
   const normalizedTarget = target.toLowerCase();
   const regex = new RegExp(`id=['"]${escapeRegex(target)}['"]`, 'i');
 
@@ -302,18 +302,18 @@ function resolveTargetInMemory(target, nodes) {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-async function nodeIdToChunkId(bookId, nodeId) {
+async function nodeIdToChunkId(bookId: any, nodeId: any) {
   try {
     const db = await openDatabase();
     const tx = db.transaction('nodes', 'readonly');
     const store = tx.objectStore('nodes');
     const index = store.index('node_id');
 
-    return new Promise((resolve) => {
+    return new Promise<any>((resolve) => {
       const request = index.getAll(nodeId);
       request.onsuccess = () => {
         const results = request.result || [];
-        const match = results.find(n => n.book === bookId);
+        const match = results.find((n: any) => n.book === bookId);
         resolve(match ? match.chunk_id : null);
       };
       request.onerror = () => resolve(null);
@@ -324,15 +324,15 @@ async function nodeIdToChunkId(bookId, nodeId) {
   }
 }
 
-function idbGet(store, key) {
-  return new Promise((resolve) => {
+function idbGet(store: any, key: any) {
+  return new Promise<any>((resolve) => {
     const request = store.get(key);
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => resolve(null);
   });
 }
 
-function getSavedPosition(bookId) {
+function getSavedPosition(bookId: any) {
   try {
     const key = `scrollPosition_${bookId}`;
     const saved = sessionStorage.getItem(key);
@@ -348,13 +348,13 @@ function getSavedPosition(bookId) {
   return null;
 }
 
-function getLowestChunkId(chunkManifest) {
+function getLowestChunkId(chunkManifest: any) {
   if (Array.isArray(chunkManifest) && chunkManifest.length > 0) {
     return chunkManifest[0].chunk_id;
   }
   return 0;
 }
 
-function escapeRegex(str) {
+function escapeRegex(str: any) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

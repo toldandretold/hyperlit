@@ -6,20 +6,20 @@ import {
   updateBookTimestamp,
   addNewBookToIndexedDB,
   syncNodeChunksToPostgreSQL,
-} from "./indexedDB/index.js";
-import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
-import { syncIndexedDBtoPostgreSQL } from "./indexedDB/serverSync";
-import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
-import { generateNodeId } from "./utilities/IDfunctions.js";
+} from "../indexedDB/index.js";
+import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
+import { syncIndexedDBtoPostgreSQL } from "../indexedDB/serverSync";
+import { getCurrentUser, getAnonymousToken } from "../utilities/auth.js";
+import { generateNodeId } from "../utilities/IDfunctions.js";
 
 
 
 // Helper remains the same
 function generateUUID() {
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+  return (([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
     (
       c ^
-      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
+      (crypto.getRandomValues(new Uint8Array(1))[0]! & (15 >> (c / 4)))
     ).toString(16)
   );
 }
@@ -35,12 +35,12 @@ function generateUUID() {
 // In createNewBook.js
 
 export async function fireAndForgetSync(
-  bookId,
+  bookId: any,
   isNewBook = false,
-  payload = null
+  payload: any = null
 ) {
   // This function now returns a promise that resolves when the critical sync is done.
-  return new Promise(async (resolve, reject) => {
+  return new Promise<void>(async (resolve, reject) => {
     try {
       // Store the sync start time to avoid overwriting newer local changes
       const syncStartTime = Date.now();
@@ -63,7 +63,7 @@ export async function fireAndForgetSync(
           const store = tx.objectStore("library");
           
           // Get current local record to check for modifications
-          const currentLocal = await new Promise((resolve, reject) => {
+          const currentLocal: any = await new Promise<any>((resolve, reject) => {
             const req = store.get(bookId);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
@@ -107,7 +107,7 @@ export async function fireAndForgetSync(
           }
 
           // Wait for transaction to complete using proper IndexedDB API
-          await new Promise((resolve, reject) => {
+          await new Promise<void>((resolve, reject) => {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
           });
@@ -144,7 +144,7 @@ export async function fireAndForgetSync(
  */
 // In createNewBook.js
 
-async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
+async function syncNewBookToPostgreSQL(bookId: any, libraryData: any = null) {
   try {
     let libraryRecord;
 
@@ -153,12 +153,12 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
       const store = tx.objectStore("library");
-      const freshRecord = await new Promise((resolve, reject) => {
+      const freshRecord = await new Promise<any>((resolve, reject) => {
         const req = store.get(bookId);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
@@ -194,7 +194,7 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
           Accept: "application/json",
           // ✅ THE FIX: Add the CSRF token header, just like in your other sync functions.
           "X-CSRF-TOKEN":
-            document.querySelector('meta[name="csrf-token"]')?.content,
+            (document.querySelector('meta[name="csrf-token"]') as any)?.content,
         },
         credentials: "include", // This correctly sends the session cookie
         body: JSON.stringify(payload),
@@ -234,7 +234,7 @@ export async function createNewBook() {
     const username = user?.username || null;
     const anonToken = username ? null : await getAnonymousToken();
 
-    const newLibraryRecord = {
+    const newLibraryRecord: any = {
       book: bookId,
       title: "Untitled",
       author: username || (anonToken ? "anon" : null), // Use username, or "anon" if anonymous
@@ -270,9 +270,9 @@ export async function createNewBook() {
       tx,
     );
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
-      tx.onerror = (e) => reject(e.target.error);
+      tx.onerror = (e: any) => reject(e.target.error);
     });
 
     // ✅ THE CHANGE: Create the full data object here.
@@ -305,7 +305,7 @@ export async function createNewBook() {
 /**
  * Store failed syncs for later retry
  */
-async function storeFallbackSync(bookId, error, isNewBook = false) {
+async function storeFallbackSync(bookId: any, error: any, isNewBook = false) {
   try {
     const db = await openDatabase();
     
@@ -350,12 +350,12 @@ async function retryFailedSyncs() {
     // Step 1: Get the list of all failed syncs in a readonly transaction.
     const readTx = db.transaction(['failedSyncs'], 'readonly');
     const failedSyncsStore = readTx.objectStore('failedSyncs');
-    const failedSyncs = await new Promise((resolve, reject) => {
+    const failedSyncs: any = await new Promise<any>((resolve, reject) => {
         const request = failedSyncsStore.getAll();
         request.onsuccess = () => resolve(request.result);
-        request.onerror = (e) => reject(e.target.error);
+        request.onerror = (e: any) => reject(e.target.error);
     });
-    await readTx.done;
+    await (readTx as any).done;
 
     if (failedSyncs.length === 0) {
         console.log('✅ No failed syncs to retry.');
@@ -379,7 +379,7 @@ async function retryFailedSyncs() {
         // If sync is successful, open a NEW transaction to remove it from the failed list.
         const writeTxSuccess = db.transaction(['failedSyncs'], 'readwrite');
         await writeTxSuccess.objectStore('failedSyncs').delete(sync.bookId);
-        await writeTxSuccess.done;
+        await (writeTxSuccess as any).done;
         
         console.log(`✅ Retry successful for: ${sync.bookId}`);
         
@@ -398,7 +398,7 @@ async function retryFailedSyncs() {
           console.error(`🚫 Max retries reached for: ${sync.bookId}. Removing from queue.`);
           await store.delete(sync.bookId);
         }
-        await writeTxFail.done;
+        await (writeTxFail as any).done;
       }
     }
     console.log('✅ All failed syncs have been processed.');
@@ -412,21 +412,21 @@ async function retryFailedSyncs() {
  * @param {string} bookId
  * @param {Array<object>} [chunksData] - Optional pre-fetched node chunks
  */
-async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime = null) {
+async function syncNodeChunksForNewBook(bookId: any, chunksData: any = null, syncStartTime: any = null) {
   try {
     // Check if book content was modified after sync started by checking library timestamp
     if (syncStartTime) {
       console.log("🔍 Checking library timestamp to detect if content was modified after sync started...");
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
-      const libraryRecord = await new Promise((resolve, reject) => {
+      const libraryRecord: any = await new Promise<any>((resolve, reject) => {
         const req = tx.objectStore("library").get(bookId);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
 
       // Wait for transaction to complete using proper IndexedDB API
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
@@ -445,10 +445,10 @@ async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime
     const db = await openDatabase();
     const tx = db.transaction(["nodes"], "readonly");
     const index = tx.objectStore("nodes").index("book");
-    const currentNodeChunks = await index.getAll(bookId);
+    const currentNodeChunks: any = await index.getAll(bookId);
 
     // Wait for transaction to complete using proper IndexedDB API
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

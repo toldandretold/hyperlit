@@ -1,59 +1,59 @@
 
-import { log, verbose } from './utilities/logger.js';
-import { book, setCurrentBook } from "./app.js";
-import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "./utilities/auth.js";
-import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
+import { log, verbose } from '../utilities/logger.js';
+import { book, setCurrentBook } from "../app.js";
+import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth.js";
+import { checkEditPermissionsAndUpdateUI } from "../components/editButton.js";
 
 // ✅ ButtonRegistry - Centralized component initialization
-import { buttonRegistry } from './utilities/buttonRegistry.js';
-import { registerAllComponents } from './components/registerComponents.js';
+import { buttonRegistry } from '../utilities/buttonRegistry.js';
+import { registerAllComponents } from '../components/registerComponents.js';
 
 // ✅ Register all UI components with ButtonRegistry
 // This must happen at module load time before any initialization
 registerAllComponents();
 
 // ✅ Lazy-loaded edit modules (only loaded when editing)
-// import { stopObserving } from "./divEditor/index";
-// import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
-import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling";
-import { attachMarkListeners, initializeHighlightManager, openHighlightById } from "./hyperlights/index";
-import { registerContainerActions } from "./utilities/containerActions";
+// import { stopObserving } from "../divEditor/index";
+// import { initEditToolbar, destroyEditToolbar } from "../editToolbar";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "../scrolling";
+import { attachMarkListeners, initializeHighlightManager, openHighlightById } from "../hyperlights/index";
+import { registerContainerActions } from "../utilities/containerActions";
 
 // Register the hyperlights "open highlight" action into the DI leaf so lower layers (scrolling)
 // can call it via a static downward import — no scrolling→hyperlights upward edge. viewManager is
 // a bootstrap entry imported before any navigation, and hyperlights never imports it (cycle-safe).
 registerContainerActions({ openHighlightById });
-import { initializeHighlightingControls, cleanupHighlightingControls } from "./hyperlights/selectionToolbar";
-import { initializeHypercitingControls, cleanupHypercitingControls } from "./hypercites/index";
-import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
-import { setupUnloadSync } from "./indexedDB/index.js";
-import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
-import { destroySettingsManager, initializeSettingsManager } from "./components/settingsContainer.js";
-import { KeyboardManager } from "./keyboardManager.js";
+import { initializeHighlightingControls, cleanupHighlightingControls } from "../hyperlights/selectionToolbar";
+import { initializeHypercitingControls, cleanupHypercitingControls } from "../hypercites/index";
+import { initializeBroadcastListener } from "../utilities/BroadcastListener.js";
+import { setupUnloadSync } from "../indexedDB/index.js";
+import { generateTableOfContents, destroyTocManager, initializeTocManager } from "../components/toc.js";
+import { destroySettingsManager, initializeSettingsManager } from "../components/settingsContainer.js";
+import { KeyboardManager } from "../keyboardManager.js";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
   handleAutoEdit,
   enforceEditableState
-} from "./components/editButton.js";
-import { initializeSourceButtonListener } from "./components/sourceButton.js";
+} from "../components/editButton.js";
+import { initializeSourceButtonListener } from "../components/sourceButton.js";
 import {
   initializeSelectionHandler,
   destroySelectionHandler,
-} from "./utilities/selectionHandler.js";
-import { SelectionDeletionHandler } from "./utilities/selectionDelete.js";
-import { queueNodeForDeletion, queueNodeForSave } from "./divEditor/index";
+} from "../utilities/selectionHandler.js";
+import { SelectionDeletionHandler } from "../utilities/selectionDelete.js";
+import { queueNodeForDeletion, queueNodeForSave } from "../divEditor/index";
+import { loadHyperText } from "../pageLoad/loadHyperText";
 import {
-  loadHyperText,
   pendingFirstChunkLoadedPromise,
-  resolveFirstChunkPromise,
-  resetCurrentLazyLoader
-} from "./pageLoad";
-import { closeHyperlitContainer } from './hyperlitContainer/index';
+  resolveFirstChunkPromise
+} from "../pageLoad/firstChunkPromise";
+import { resetCurrentLazyLoader } from "../pageLoad/lazyLoaderRegistry";
+import { closeHyperlitContainer } from '../hyperlitContainer/index';
 
 // State management and cleanup are correct.
-let activeKeyboardManager = null;
-let activeSelectionDeletionHandler = null;
+let activeKeyboardManager: any = null;
+let activeSelectionDeletionHandler: any = null;
 
 // Track when this page was loaded to compare with cache invalidation timestamp
 let pageLoadTimestamp = null;
@@ -88,8 +88,8 @@ window.addEventListener("pageshow", async (event) => {
 
     // Proactive IDB warm-up: iOS kills IDB connections during suspension.
     // Show a toast while we attempt to reconnect, with a refresh escape hatch.
-    const { openDatabase } = await import('./indexedDB/core/connection');
-    const { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } = await import('./indexedDB/core/recoveryToast');
+    const { openDatabase } = await import('../indexedDB/core/connection');
+    const { showIDBRecoveryToast, updateIDBRecoveryToast, hideIDBRecoveryToast } = await import('../indexedDB/core/recoveryToast');
 
     showIDBRecoveryToast();
     try {
@@ -111,10 +111,10 @@ window.addEventListener("pageshow", async (event) => {
         try {
           // Reinitialize all ButtonRegistry components (TOC, footnotes, settings, etc.)
           // reinitializeAll = destroyAll() + initializeAll(), handles both destroyed and active states
-          await buttonRegistry.reinitializeAll(pageType);
+          await buttonRegistry.reinitializeAll(pageType as any);
 
           // Rebind container managers that live outside ButtonRegistry
-          const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index');
+          const { hyperlitManager, initializeHyperlitManager } = await import('../hyperlitContainer/index');
           if (hyperlitManager?.rebindElements) {
             hyperlitManager.rebindElements();
           } else {
@@ -132,7 +132,7 @@ window.addEventListener("pageshow", async (event) => {
           initializeSelectionHandler();
 
         } catch (error) {
-          log.error('Error reinitializing after bfcache restore', 'viewManager.js', error);
+          log.error('Error reinitializing after bfcache restore', 'viewManager.js', error as any);
         }
       }, 200);
     }
@@ -150,8 +150,8 @@ document.addEventListener('visibilitychange', async () => {
   if (pageType !== 'reader') return;
 
   try {
-    const { openDatabase } = await import('./indexedDB/core/connection');
-    const { reportIDBSuccess, reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor');
+    const { openDatabase } = await import('../indexedDB/core/connection');
+    const { reportIDBSuccess, reportIDBFailure, attemptRecovery } = await import('../indexedDB/core/healthMonitor');
 
     const db = await openDatabase();
 
@@ -174,7 +174,7 @@ document.addEventListener('visibilitychange', async () => {
   } catch (e) {
     console.warn('[viewManager] IDB health probe failed on visibility change:', e);
 
-    const { reportIDBFailure, attemptRecovery } = await import('./indexedDB/core/healthMonitor');
+    const { reportIDBFailure, attemptRecovery } = await import('../indexedDB/core/healthMonitor');
     // Report twice to immediately cross the failure threshold
     reportIDBFailure(e);
     reportIDBFailure(e);
@@ -206,14 +206,14 @@ export async function cleanupReaderView() {
 
   // ✅ Dynamically import edit modules only if they were loaded
   try {
-    const { destroyEditToolbar } = await import('./editToolbar/index');
+    const { destroyEditToolbar } = await import('../editToolbar/index');
     destroyEditToolbar();
   } catch (e) {
     // Module not loaded yet, nothing to destroy
   }
 
   try {
-    const { stopObserving } = await import('./divEditor/index');
+    const { stopObserving } = await import('../divEditor/index');
     await stopObserving();
   } catch (e) {
     // Module not loaded yet, nothing to stop
@@ -223,21 +223,21 @@ export async function cleanupReaderView() {
 
   // ✅ Clean up content-specific listeners (hyperlights, hypercites)
   try {
-    const { cleanupHighlightingControls } = await import('./hyperlights/selectionToolbar');
+    const { cleanupHighlightingControls } = await import('../hyperlights/selectionToolbar');
     cleanupHighlightingControls();
   } catch (e) {
     // Module not loaded yet, nothing to cleanup
   }
 
   try {
-    const { cleanupUnderlineClickListeners } = await import('./hypercites/index');
+    const { cleanupUnderlineClickListeners } = await import('../hypercites/index');
     cleanupUnderlineClickListeners();
   } catch (e) {
     // Module not loaded yet, nothing to cleanup
   }
 
   try {
-    const { destroyHyperlitManager } = await import('./hyperlitContainer/index');
+    const { destroyHyperlitManager } = await import('../hyperlitContainer/index');
     destroyHyperlitManager();
   } catch (e) {
     // Module not loaded yet, nothing to destroy
@@ -278,9 +278,9 @@ export async function universalPageInitializer(progressCallback = null) {
   enforceEditableState();
 
   // Re-apply vibe CSS after SPA navigation so the canvas + theme persist
-  import('./utilities/themeSwitcher.js').then(({ getCurrentTheme, THEMES }) => {
+  import('../utilities/themeSwitcher.js').then(({ getCurrentTheme, THEMES }) => {
     if (getCurrentTheme() === THEMES.VIBE) {
-      import('./components/vibeCSS.js').then(m => m.applyVibeCSS());
+      import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
     }
   });
 
@@ -298,7 +298,7 @@ export async function universalPageInitializer(progressCallback = null) {
   }
 
   // Wait for DOM to be properly stable before initializing UI components
-  const { waitForLayoutStabilization } = await import('./domReadiness.js');
+  const { waitForLayoutStabilization } = await import('../utilities/domReadiness');
 
   // Wait for both content loading and layout stabilization to complete
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
@@ -307,7 +307,7 @@ export async function universalPageInitializer(progressCallback = null) {
 
   // ✅ REMOVED: Manual TogglePerimeterButtons management
   // OLD CODE (conflicted with ButtonRegistry):
-  // import('./pageLoad').then(module => {
+  // import('../pageLoad').then(module => {
   //   module.togglePerimeterButtons.destroy();
   //   module.togglePerimeterButtons.rebindElements();
   //   module.togglePerimeterButtons.init();
@@ -322,7 +322,7 @@ export async function universalPageInitializer(progressCallback = null) {
     // This must happen BEFORE early return for home/user pages
     const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
     LinkNavigationHandler.attachGlobalLinkClickHandler();
-    verbose.init('Navigation handlers attached', '/navigation/LinkNavigationHandler.js');
+    verbose.init('Navigation handlers attached', '/SPA/navigation/LinkNavigationHandler.js');
 
     // Initialize auth listeners for ALL page types
     initializeAuthBroadcastListener();  // Cross-tab sync
@@ -345,11 +345,11 @@ export async function universalPageInitializer(progressCallback = null) {
     initializeSelectionHandler();
     
     // Initialize user profile page functionality if user owns this book
-    const { getCurrentUser } = await import('./utilities/auth.js');
+    const { getCurrentUser } = await import('../utilities/auth.js');
     const user = await getCurrentUser();
     verbose.init(`User profile check: user=${user?.name || 'null'}, currentBookId=${currentBookId}`, 'viewManager.js');
     if (user && user.name === currentBookId) {
-      const { initializeUserProfilePage } = await import('./components/userProfilePage.js');
+      const { initializeUserProfilePage } = await import('../components/userProfilePage.js');
       initializeUserProfilePage();
       verbose.init('User profile page functionality initialized', 'viewManager.js');
     }
@@ -367,7 +367,7 @@ export async function universalPageInitializer(progressCallback = null) {
     }
     
     // ✅ Dynamically import edit toolbar only when needed
-    const { initEditToolbar } = await import('./editToolbar/index');
+    const { initEditToolbar } = await import('../editToolbar/index');
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",
@@ -386,7 +386,7 @@ export async function universalPageInitializer(progressCallback = null) {
   attachMarkListeners();
 
   // ✅ Attach hypercite click listeners after content loads
-  const { attachUnderlineClickListeners } = await import('./hypercites/index');
+  const { attachUnderlineClickListeners } = await import('../hypercites/index');
   attachUnderlineClickListeners();
 
   // Note: LinkNavigationHandler.attachGlobalLinkClickHandler() now called earlier for all page types
@@ -403,7 +403,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // 🔥 Rebind container managers AFTER content loads
   // Note: footnoteCitationListeners now handled by ButtonRegistry
   setTimeout(async () => {
-    const { hyperlitManager, initializeHyperlitManager } = await import('./hyperlitContainer/index');
+    const { hyperlitManager, initializeHyperlitManager } = await import('../hyperlitContainer/index');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
         verbose.init('Hyperlit container manager rebound after content load', 'viewManager.js');
@@ -438,7 +438,7 @@ function syncHistoryStateAfterBfcache() {
     verbose.init(`bfcache restored page type: ${pageType}, URL: ${currentUrl}`, 'viewManager.js');
     
     // Create a clean history state that matches the current page
-    const cleanState = {
+    const cleanState: any = {
       timestamp: Date.now(),
       restoredFromBfcache: true,
       pageType: pageType
@@ -496,7 +496,7 @@ function syncHistoryStateAfterBfcache() {
 /**
  * Initialize components that work on both homepage and reader pages
  */
-async function initializeUniversalComponents(pageType) {
+async function initializeUniversalComponents(pageType: any) {
   try {
     verbose.init(`Initializing universal components for page type: ${pageType}`, 'viewManager.js');
 
@@ -508,7 +508,7 @@ async function initializeUniversalComponents(pageType) {
 
     // SPA Transition Fix: If the transition pathway has already initialized
     // containers, skip doing it again here to prevent state corruption.
-    if (window.containersAlreadyInitialized) {
+    if ((window as any).containersAlreadyInitialized) {
         verbose.init('[SPA] Skipping container/homepage initialization as it was handled by the transition', 'viewManager.js');
     } else {
         // ✅ NOTE: userContainer initialization now handled by ButtonRegistry above
@@ -519,7 +519,7 @@ async function initializeUniversalComponents(pageType) {
         if (pageType === 'home' || pageType === 'user') {
           try {
             verbose.init(`Initializing homepage components for ${pageType} page`, 'viewManager.js');
-            const { initializeHomepage } = await import('./homepage.js');
+            const { initializeHomepage } = await import('../homepage.js');
             await initializeHomepage();
             verbose.init('Homepage components initialized successfully', 'viewManager.js');
           } catch (error) {
@@ -531,7 +531,7 @@ async function initializeUniversalComponents(pageType) {
         if (pageType === 'user') {
           try {
             verbose.init('Initializing user profile editor', 'viewManager.js');
-            const { initializeUserProfileEditor } = await import('./components/userProfileEditor.js');
+            const { initializeUserProfileEditor } = await import('../components/userProfileEditor.js');
             await initializeUserProfileEditor();
             verbose.init('User profile editor initialized successfully', 'viewManager.js');
           } catch (error) {

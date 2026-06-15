@@ -11,7 +11,7 @@
 import { containerState, registerListener } from './containerState';
 import { getCurrentContainer } from '../utilities/containerActions';
 import { getHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core';
-import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
+import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 
 // ============================================================================
 // EDIT BUTTON HELPERS
