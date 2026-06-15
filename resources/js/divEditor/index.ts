@@ -96,7 +96,7 @@ import {
   NODE_LIMIT,
   chunkNodeCounts,
   getCurrentChunk
-} from '../chunkManager.js';
+} from './chunkManager';
 import { isPasteOperationActive } from '../paste';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkLoadingState.js';
 import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
@@ -596,6 +596,13 @@ export async function startObserving(editableDiv: any, bookId: any = null) {
   console.log(`[Observer] 🔌 CONNECTED to ${targetId}`);
 
   // NEW: Set the current observed chunk after everything is set up
+  // ⚠️ BUG (currently broken, preserved as-is): getCurrentChunk() returns the chunk-id
+  // STRING (or null) — NOT a DOM element. A string has no `.dataset`, so the condition
+  // below is ALWAYS false and this never calls setCurrentObservedChunk(): we always fall
+  // through to the else and leave currentObservedChunk null. To fix later, either use the
+  // id string directly (`setCurrentObservedChunk(currentChunk)`) or make getCurrentChunk
+  // return the `.chunk` element. Left untouched during the chunkManager TS move to avoid
+  // changing long-standing runtime behavior.
   const currentChunk = getCurrentChunk();
   if (currentChunk && currentChunk.dataset) {
     const chunkId = currentChunk.dataset.chunkId || currentChunk.id;

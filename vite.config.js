@@ -130,24 +130,23 @@ export default defineConfig({
 
                 // JAVASCRIPT (sorted, with new files added)
                 'resources/js/app.js',
-                'resources/js/chunkManager.js',
-                'resources/js/containerCustomization.js',
+                'resources/js/divEditor/chunkManager.ts',
+                'resources/js/components/containerCustomization.js',
                 'resources/js/utilities/convertMarkdown.js',
                 // drag.js is imported via components/registerComponents.js (ButtonRegistry-managed),
                 // no longer a standalone entry — see reader.blade.php note.
                 'resources/js/editToolbar/index.ts',
-                'resources/js/footnotesCitations.js',
-                'resources/js/homepage.js',                 // ✅ NEW
+                'resources/js/hyperlitContainer/footnotesCitations.ts',
+                'resources/js/components/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.ts',
                 'resources/js/pageLoad/index.ts',
                 'resources/js/lazyLoader/index.ts',
                 'resources/js/components/newBookForm.js',
                 'resources/js/pageLoad/readerEntry.ts',
-                'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling/index.ts',
                 'resources/js/components/toc.js',      // ✅ NEW
                 'resources/js/SPA/viewManager.ts',
-                'resources/js/homepageDisplayUnit.js',
+                'resources/js/components/homepageDisplayUnit.js',
 
                 // divEditor modules
                 'resources/js/divEditor/index.ts',

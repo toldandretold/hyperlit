@@ -1,7 +1,7 @@
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../indexedDB/index';
 import { canUserEditBook } from "../utilities/auth.js";
 import { book } from '../app.js';
-import { fixHeaderSpacing } from '../homepageDisplayUnit.js';
+import { fixHeaderSpacing } from './homepageDisplayUnit.js';
 
 let titleDebounceTimer = null;
 let bioDebounceTimer = null;

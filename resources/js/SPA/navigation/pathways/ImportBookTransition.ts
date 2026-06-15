@@ -11,7 +11,7 @@ import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
 import { destroyUserContainer } from '../../../components/userContainer.js';
 import { destroyNewBookContainer } from '../../../components/newBookButton.js';
-import { destroyHomepageDisplayUnit } from '../../../homepageDisplayUnit.js';
+import { destroyHomepageDisplayUnit } from '../../../components/homepageDisplayUnit.js';
 import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton.js';
 import { cleanupReaderView } from '../../viewManager';
 import { setCurrentBook } from '../../../app.js';

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 769 functions in 158 modules · 8 object stores · 6 PG tables · 1566 edges
+**MarkdownDB** schema v27 · 783 functions in 163 modules · 8 object stores · 6 PG tables · 1597 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -13,6 +13,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
 | `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
 | `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
+| `getCurrentChunk` | `divEditor/chunkManager` | — | — | read | — |
+| `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
+| `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
 | `getFirstNodeIdForBook` | `divEditor/chunkMutationHandler/firstNode` | — | — | read | — |
 | `ChunkMutationHandler.clearChunkCache` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.constructor` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
@@ -411,6 +414,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleEditButtonClick` | `hyperlitContainer/editMode` | — | — | read/write | — |
 | `placeCursorAtEnd` | `hyperlitContainer/editMode` | — | — | read | — |
 | `toggleContentEditableInPlace` | `hyperlitContainer/editMode` | — | — | read | — |
+| `closeReferenceContainer` | `hyperlitContainer/footnotesCitations` | — | — | — | — |
+| `destroyFootnoteCitationListeners` | `hyperlitContainer/footnotesCitations` | — | — | — | — |
+| `handleFootnoteOrCitationClick` | `hyperlitContainer/footnotesCitations` | — | — | — | — |
+| `initializeFootnoteCitationListeners` | `hyperlitContainer/footnotesCitations` | — | — | read | — |
+| `openReferenceContainer` | `hyperlitContainer/footnotesCitations` | — | — | — | — |
+| `hasFootnoteTapTarget` | `hyperlitContainer/footnoteTapExtender` | — | — | — | — |
+| `initFootnoteTapExtender` | `hyperlitContainer/footnoteTapExtender` | — | — | read | — |
 | `buildContentFromMetadata` | `hyperlitContainer/history` | — | — | — | — |
 | `determineSingleContentHash` | `hyperlitContainer/history` | — | — | — | — |
 | `getCurrentContainerState` | `hyperlitContainer/history` | — | — | — | — |
@@ -554,6 +564,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `deleteIndexedDBRecordWithRetry` | `indexedDB/utilities/retry` | — | — | — | — |
 | `retryOperation` | `indexedDB/utilities/retry` | — | — | — | — |
+| `fetchSingleChunkFromServer` | `lazyLoader/chunkFetcher` | — | — | — | — |
+| `storeSingleChunkToIndexedDB` | `lazyLoader/chunkFetcher` | — | `nodes` | — | — |
 | `applyHighlights` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `applyHypercites` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `createChunkElement` | `lazyLoader/chunkRender` | — | — | read/write | — |
@@ -597,6 +609,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hideNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
 | `restoreNavigationOverlayIfNeeded` | `scrolling/navOverlay` | — | — | — | — |
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
+| `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | — |
+| `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | — |
 | `restoreScrollPosition` | `scrolling/restore` | — | — | read/write | — |
 | `isValidContentElement` | `scrolling/scrollHelpers` | — | — | — | — |
 | `lockScrollToTarget` | `scrolling/scrollHelpers` | — | — | — | — |
@@ -782,16 +796,17 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 13 · lazy-loads (code-split): 112
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 14 · lazy-loads (code-split): 114
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (41 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (44 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
+- `divEditor/chunkManager` → `divEditor/index`
 - `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
@@ -885,6 +900,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`
 - `lazyLoader/index` → `hyperlitContainer/index`
 - `lazyLoader/index` → `indexedDB/hydration/rebuild`
+- `lazyLoader/index` → `lazyLoader/chunkFetcher`
+- `lazyLoader/index` → `scrolling/readingPosition`
 - `pageLoad/containerChain` → `hypercites/animations`
 - `pageLoad/containerChain` → `hyperlitContainer/index`
 - `pageLoad/containerChain` → `hyperlitContainer/stack`

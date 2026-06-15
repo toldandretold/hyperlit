@@ -38,7 +38,7 @@ const JS_ROOT = path.join(ROOT, 'resources/js');
 // Non-component bootstrap scripts legitimately loaded directly by reader.blade.php's
 // @vite. Anything NOT here is presumed an interactive component and must be registered.
 const ALLOWED_READER_VITE_JS = new Set([
-  'resources/js/containerCustomization.js', // applies persisted container styles (no listeners)
+  'resources/js/components/containerCustomization.js', // applies persisted container styles (no listeners)
   'resources/js/pageLoad/readerEntry.ts', // the reader bootstrap entry (imports app.js + viewManager)
 ]);
 

@@ -1,4 +1,4 @@
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "./containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB/index.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";

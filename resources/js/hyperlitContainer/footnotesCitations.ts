@@ -1,21 +1,22 @@
-// footnotes-citations.js - New unified system for footnotes and citations
-import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index';
-import { log, verbose } from './utilities/logger.js';
-import { isActivelyScrollingForLinkBlock } from './scrolling';
+// footnotesCitations.ts - Unified click router for footnotes and citations.
+// Capture-phase listener that turns a tap on any footnote/citation marker into
+// an "open the hyperlit container" call. Lives alongside the container it opens.
+import { handleUnifiedContentClick, openHyperlitContainer, closeHyperlitContainer } from './index';
+import { log, verbose } from '../utilities/logger.js';
+import { isActivelyScrollingForLinkBlock } from '../scrolling';
 
 // Function to open the reference container with content (now redirects to unified system)
-export function openReferenceContainer(content) {
-  console.log('🔧 DEBUG: openReferenceContainer called - redirecting to unified container');
+export function openReferenceContainer(content: any): void {
   openHyperlitContainer(content);
 }
 
 // Function to close the reference container (now redirects to unified system)
-export async function closeReferenceContainer() {
+export async function closeReferenceContainer(): Promise<void> {
   await closeHyperlitContainer();
 }
 
 // Main click handler for footnotes and citations (now uses unified system)
-export async function handleFootnoteOrCitationClick(element) {
+export async function handleFootnoteOrCitationClick(element: any): Promise<void> {
   try {
     // Use unified container system for all footnote/citation clicks
     await handleUnifiedContentClick(element);
@@ -26,18 +27,18 @@ export async function handleFootnoteOrCitationClick(element) {
 
 
 // Store the handler reference so we can remove it
-let footnoteClickHandler = null;
+let footnoteClickHandler: ((event: MouseEvent) => void) | null = null;
 
 // Initialize click listeners
-export function initializeFootnoteCitationListeners() {
+export function initializeFootnoteCitationListeners(): void {
   // Remove existing listeners if they exist (prevent duplicates)
   if (footnoteClickHandler) {
     document.removeEventListener('click', footnoteClickHandler, true);
-    verbose.init('Removed existing footnote/citation click listener', '/footnotesCitations.js');
+    verbose.init('Removed existing footnote/citation click listener', '/hyperlitContainer/footnotesCitations.ts');
   }
 
   // Create the click handler
-  footnoteClickHandler = (event) => {
+  footnoteClickHandler = (event: MouseEvent) => {
     // Prevent footnote clicks during active scrolling.
     // Same guard used by lazyLoaderFactory.js for <a> link clicks.
     // Without this, a touch-scroll over a sup[fn-count-id] fires a synthetic
@@ -46,7 +47,8 @@ export function initializeFootnoteCitationListeners() {
       return;
     }
 
-    const target = event.target;
+    const target = event.target as HTMLElement;
+    if (!target) return;
 
     // Check if the clicked element or its parent is a footnote or citation
     // New format: <sup fn-count-id="1" id="..." class="footnote-ref">1</sup>
@@ -54,30 +56,10 @@ export function initializeFootnoteCitationListeners() {
     if (target.tagName === 'SUP' && target.hasAttribute('fn-count-id')) {
       event.preventDefault();
       event.stopPropagation();
-
-      // 🔍 DEBUG: Add IMMEDIATE keydown listener to see when events start
-      const clickTime = performance.now();
-      console.log(`🔍 FOOTNOTE CLICK at ${clickTime.toFixed(0)}ms - adding immediate keydown listener`);
-      const immediateKeyHandler = (e) => {
-        console.log(`🔍 IMMEDIATE KEYDOWN at ${performance.now().toFixed(0)}ms (${(performance.now() - clickTime).toFixed(0)}ms after click) - key: ${e.key}`);
-        document.removeEventListener('keydown', immediateKeyHandler, true);
-      };
-      document.addEventListener('keydown', immediateKeyHandler, true);
-
       handleFootnoteOrCitationClick(target);
     } else if (target.tagName === 'A' && target.classList.contains('footnote-ref')) {
       event.preventDefault();
       event.stopPropagation();
-
-      // 🔍 DEBUG: Add IMMEDIATE keydown listener to see when events start
-      const clickTime = performance.now();
-      console.log(`🔍 FOOTNOTE CLICK at ${clickTime.toFixed(0)}ms - adding immediate keydown listener`);
-      const immediateKeyHandler = (e) => {
-        console.log(`🔍 IMMEDIATE KEYDOWN at ${performance.now().toFixed(0)}ms (${(performance.now() - clickTime).toFixed(0)}ms after click) - key: ${e.key}`);
-        document.removeEventListener('keydown', immediateKeyHandler, true);
-      };
-      document.addEventListener('keydown', immediateKeyHandler, true);
-
       handleFootnoteOrCitationClick(target);
     } else if (target.tagName === 'A' && target.classList.contains('in-text-citation')) {
       event.preventDefault();
@@ -102,17 +84,17 @@ export function initializeFootnoteCitationListeners() {
   // Add new listener
   document.addEventListener('click', footnoteClickHandler, true); // Use capture phase
 
-  log.init('Footnote and citation listeners initialized', '/footnotesCitations.js');
+  log.init('Footnote and citation listeners initialized', '/hyperlitContainer/footnotesCitations.ts');
 }
 
 /**
  * Destroy footnote/citation click listeners
  * Used by buttonRegistry for proper cleanup on SPA transitions
  */
-export function destroyFootnoteCitationListeners() {
+export function destroyFootnoteCitationListeners(): void {
   if (footnoteClickHandler) {
     document.removeEventListener('click', footnoteClickHandler, true);
     footnoteClickHandler = null;
-    verbose.init('Footnote/citation listeners destroyed', '/footnotesCitations.js');
+    verbose.init('Footnote/citation listeners destroyed', '/hyperlitContainer/footnotesCitations.ts');
   }
 }

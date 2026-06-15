@@ -5,7 +5,7 @@
 import { log } from '../../../utilities/logger.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling';
-import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../homepageDisplayUnit.js';
+import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepageDisplayUnit.js';
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
 import { setCurrentBook, setCurrentBookSlug } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';

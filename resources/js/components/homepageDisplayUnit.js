@@ -1,8 +1,8 @@
-import { loadHyperText, resetCurrentLazyLoader } from './pageLoad';
-import { setCurrentBook } from './app.js';
-import { showNavigationLoading, hideNavigationLoading } from './scrolling';
-import { log, verbose } from './utilities/logger.js';
-import { getAllOfflineAvailableBooks } from './indexedDB/index';
+import { loadHyperText, resetCurrentLazyLoader } from '../pageLoad';
+import { setCurrentBook } from '../app.js';
+import { showNavigationLoading, hideNavigationLoading } from '../scrolling';
+import { log, verbose } from '../utilities/logger.js';
+import { getAllOfflineAvailableBooks } from '../indexedDB/index';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
@@ -160,7 +160,7 @@ export async function initializeHomepageButtons() {
         if (data.bookId) {
           activeButton.dataset.content = data.bookId;
           await transitionToBookContent(data.bookId, false);
-          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
           showShelfHeader({
             shelfId,
             shelfName,
@@ -198,7 +198,7 @@ export async function initializeHomepageButtons() {
       // Show shelf header for initial Library tab on user page
       if (window.isUserPage) {
         if (filter === 'library') {
-          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
           const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
@@ -222,7 +222,7 @@ export async function initializeHomepageButtons() {
 
       // Show shelf header for visitors so search works on library tab
       if (window.isUserPage && !window.isOwner) {
-        const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+        const { showShelfHeader } = await import('./shelves/shelfHeader.js');
         showShelfHeader({
           shelfId: null,
           shelfName: 'Library',
@@ -271,7 +271,7 @@ export async function initializeHomepageButtons() {
 
         if (bookId) {
           await transitionToBookContent(bookId, true);
-          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
           showShelfHeader({
             shelfId,
             shelfName,
@@ -315,7 +315,7 @@ export async function initializeHomepageButtons() {
       // Show/hide shelf header on user page
       if (window.isUserPage) {
         if (filter === 'library') {
-          const { showShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
           const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
@@ -327,7 +327,7 @@ export async function initializeHomepageButtons() {
             username: window.username,
           });
         } else {
-          const { removeShelfHeader } = await import('./components/shelves/shelfHeader.js');
+          const { removeShelfHeader } = await import('./shelves/shelfHeader.js');
           removeShelfHeader();
         }
       }

@@ -1,12 +1,12 @@
-import { openDatabase, parseNodeId } from './indexedDB/index';
-import { verbose } from './utilities/logger.js';
-import { appendGateParam } from './components/gateFilter.js';
+import { openDatabase, parseNodeId } from '../indexedDB/index';
+import { verbose } from '../utilities/logger.js';
+import { appendGateParam } from '../components/gateFilter.js';
 
 /**
  * Fetch a single chunk from the server by chunk_id.
  * Used when the lazy loader needs a chunk that hasn't been downloaded yet.
  */
-export async function fetchSingleChunkFromServer(bookId, chunkId) {
+export async function fetchSingleChunkFromServer(bookId: string, chunkId: string | number): Promise<any[]> {
     try {
         const url = buildChunkUrl(bookId, chunkId);
         verbose.content(`Fetching chunk ${chunkId} from server: ${url}`, 'chunkFetcher.js');
@@ -28,7 +28,7 @@ export async function fetchSingleChunkFromServer(bookId, chunkId) {
 /**
  * Store a single chunk's nodes to IndexedDB using put() (upsert) semantics.
  */
-export async function storeSingleChunkToIndexedDB(nodes) {
+export async function storeSingleChunkToIndexedDB(nodes: any[]): Promise<void> {
     if (!nodes || nodes.length === 0) return;
 
     const db = await openDatabase();
@@ -56,7 +56,7 @@ export async function storeSingleChunkToIndexedDB(nodes) {
         store.put(processedChunk);
     }
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });
@@ -65,7 +65,7 @@ export async function storeSingleChunkToIndexedDB(nodes) {
 /**
  * Build API URL for fetching a single chunk, handling sub-book IDs.
  */
-function buildChunkUrl(bookId, chunkId) {
+function buildChunkUrl(bookId: string, chunkId: string | number): string {
     const slashIndex = bookId.indexOf('/');
     let url;
     if (slashIndex !== -1) {

@@ -2,35 +2,45 @@
 // Unlike the toolbar tapAreaExtender, this does NOT preventDefault on touchstart,
 // so text selection (long-press + drag) works normally.
 // Only fires on quick taps (<250ms, <10px movement, no text selected).
+//
+// Touch counterpart of footnotesCitations.ts: both turn a marker tap into a
+// handleFootnoteOrCitationClick call — this one with expanded tap zones.
 
-import { isActivelyScrollingForLinkBlock } from './scrolling';
-import { handleFootnoteOrCitationClick } from './footnotesCitations.js';
+import { isActivelyScrollingForLinkBlock } from '../scrolling';
+import { handleFootnoteOrCitationClick } from './footnotesCitations';
 
 const TAP_MAX_DURATION = 250;  // ms
 const TAP_MAX_MOVEMENT = 10;   // px
 const ZONE_MAIN = 8;           // matches disabled CSS ::before inset
 const ZONE_CONTAINER = 16;     // matches disabled container CSS ::before inset
 
+interface TouchState {
+  target: Element;
+  startX: number;
+  startY: number;
+  startTime: number;
+}
+
 // Flag set during touchstart when a footnote/citation is nearby (direct hit or expanded zone).
 // Consumed by togglePerimeterButtons to avoid toggling buttons on near-miss footnote taps.
 let _nearbyFootnoteDetected = false;
 
-export function hasFootnoteTapTarget() {
+export function hasFootnoteTapTarget(): boolean {
   return _nearbyFootnoteDetected;
 }
 
-export function initFootnoteTapExtender() {
+export function initFootnoteTapExtender(): { destroy(): void } {
   const isTouchDevice = matchMedia('(hover: none) and (pointer: coarse)').matches;
   if (!isTouchDevice) return { destroy() {} };
 
-  let touchState = null;
+  let touchState: TouchState | null = null;
 
-  function findNearestTarget(x, y, touchContext) {
+  function findNearestTarget(x: number, y: number, touchContext: Element | null): Element | null {
     // Collect all footnote/citation elements currently in the DOM
     const selectors = 'sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]';
     const elements = document.querySelectorAll(selectors);
 
-    let best = null;
+    let best: Element | null = null;
     let bestDist = Infinity;
 
     for (const el of elements) {
@@ -64,7 +74,7 @@ export function initFootnoteTapExtender() {
     return best;
   }
 
-  function onTouchStart(e) {
+  function onTouchStart(e: TouchEvent) {
     _nearbyFootnoteDetected = false;
 
     // Only track single-finger taps
@@ -74,25 +84,30 @@ export function initFootnoteTapExtender() {
     }
 
     const touch = e.touches[0];
+    if (!touch) {
+      touchState = null;
+      return;
+    }
+    const touchTarget = touch.target as Element | null;
 
     // If the touch landed on an overlay, bail out — let the overlay's
     // click handler close the container. We must not call preventDefault
     // on touchend (which would suppress the synthetic click).
-    if (touch.target?.closest?.('#ref-overlay, .hyperlit-overlay-stacked')) {
+    if (touchTarget?.closest?.('#ref-overlay, .hyperlit-overlay-stacked')) {
       touchState = null;
       return;
     }
 
     // If the touch directly hit a footnote/citation element, let the existing
-    // click handler in footnotesCitations.js deal with it — return null target.
-    const directHit = touch.target?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');
+    // click handler in footnotesCitations.ts deal with it — return null target.
+    const directHit = touchTarget?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');
     if (directHit) {
       _nearbyFootnoteDetected = true;
       touchState = null;
       return;
     }
 
-    const touchContainer = touch.target?.closest?.('#hyperlit-container, .hyperlit-container-stacked') || null;
+    const touchContainer = touchTarget?.closest?.('#hyperlit-container, .hyperlit-container-stacked') || null;
     const target = findNearestTarget(touch.clientX, touch.clientY, touchContainer);
     if (!target) {
       touchState = null;
@@ -110,13 +125,14 @@ export function initFootnoteTapExtender() {
     };
   }
 
-  function onTouchEnd(e) {
+  function onTouchEnd(e: TouchEvent) {
     if (!touchState) return;
 
     const state = touchState;
     touchState = null;
 
     const touch = e.changedTouches[0];
+    if (!touch) return;
     const duration = performance.now() - state.startTime;
     const dx = Math.abs(touch.clientX - state.startX);
     const dy = Math.abs(touch.clientY - state.startY);
@@ -138,7 +154,7 @@ export function initFootnoteTapExtender() {
     // All guards passed — fire the appropriate handler
     e.preventDefault();
     if (state.target.matches('a[id^="hypercite_"]')) {
-      state.target.click();
+      (state.target as HTMLElement).click();
     } else {
       handleFootnoteOrCitationClick(state.target);
     }

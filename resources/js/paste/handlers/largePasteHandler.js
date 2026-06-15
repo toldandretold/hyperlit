@@ -6,7 +6,7 @@
  */
 
 import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions.js';
-import { NODE_LIMIT } from '../../chunkManager.js';
+import { NODE_LIMIT } from '../../divEditor/chunkManager';
 import {
   getNodeChunksAfter,
   deleteNodeChunksAfter,

@@ -4,7 +4,7 @@
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from "../indexedDB/index.js";
 import { book } from "../app.js";
 import { navigateToInternalId, showNavigationLoading } from "../scrolling"; // your internal navigation function
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "./containerManager.js";
 import { currentLazyLoader } from "../pageLoad";
 import { log, verbose } from "../utilities/logger.js";
 

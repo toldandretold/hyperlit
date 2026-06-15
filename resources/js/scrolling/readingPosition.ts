@@ -5,21 +5,23 @@
  * with a 5-second debounce. Also fires on page unload via sendBeacon.
  */
 
-let debounceTimer = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_MS = 5000;
+
+type ChunkId = string | number | null | undefined;
 
 /**
  * Debounced save of reading position to server.
  * Called from lazyLoaderFactory.js forceSavePosition().
  */
-export function debouncedServerSave(bookId, elementId, chunkId) {
+export function debouncedServerSave(bookId: string, elementId: string, chunkId: ChunkId): void {
     if (!bookId || !elementId) return;
     // Sub-books (id contains '/', e.g. "book_X/HL_Y") are preview popovers, not
     // top-to-bottom reads — there's no resume position worth persisting, and the
     // '/' breaks the books/{bookId}/... route (404). Skip them entirely.
     if (bookId.includes('/')) return;
 
-    clearTimeout(debounceTimer);
+    if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
         saveToServer(bookId, elementId, chunkId);
     }, DEBOUNCE_MS);
@@ -29,7 +31,7 @@ export function debouncedServerSave(bookId, elementId, chunkId) {
  * Immediate save via sendBeacon (for beforeunload).
  * sendBeacon doesn't need CSRF tokens — the route is excluded from CSRF verification.
  */
-export function sendBeaconSave(bookId, elementId, chunkId) {
+export function sendBeaconSave(bookId: string, elementId: string, chunkId: ChunkId): void {
     if (!bookId || !elementId) return;
     if (bookId.includes('/')) return; // Skip sub-books — see debouncedServerSave
 
@@ -50,9 +52,9 @@ export function sendBeaconSave(bookId, elementId, chunkId) {
 /**
  * Save reading position via fetch (normal path).
  */
-async function saveToServer(bookId, elementId, chunkId) {
+async function saveToServer(bookId: string, elementId: string, chunkId: ChunkId): Promise<void> {
     try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         const url = buildPositionUrl(bookId);
 
         await fetch(url, {
@@ -67,15 +69,15 @@ async function saveToServer(bookId, elementId, chunkId) {
                 chunk_id: chunkId,
             }),
         });
-    } catch (error) {
+    } catch (error: any) {
         // Silently fail — position saving is best-effort
-        console.debug('Reading position save failed:', error.message);
+        console.debug('Reading position save failed:', error?.message);
     }
 }
 
 /**
  * Build the API URL for saving position, handling sub-book IDs.
  */
-function buildPositionUrl(bookId) {
+function buildPositionUrl(bookId: string): string {
     return `/api/database-to-indexeddb/books/${encodeURIComponent(bookId)}/reading-position`;
 }

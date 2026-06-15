@@ -14,7 +14,7 @@ import { log, verbose } from '../../../utilities/logger.js';
 import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';
 import { destroyUserContainer } from '../../../components/userContainer.js';
 import { destroyNewBookContainer } from '../../../components/newBookButton.js';
-import { destroyHomepageDisplayUnit } from '../../../homepageDisplayUnit.js';
+import { destroyHomepageDisplayUnit } from '../../../components/homepageDisplayUnit.js';
 import { cleanupReaderView } from '../../viewManager';
 import { enforceEditableState, enableEditMode } from '../../../components/editButton.js';
 import { setCurrentBook } from '../../../app.js';

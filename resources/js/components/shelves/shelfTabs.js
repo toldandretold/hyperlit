@@ -5,7 +5,7 @@
 
 // Dynamic import to avoid blocking module loading
 async function getTransitionFn() {
-    const mod = await import('../../homepageDisplayUnit.js');
+    const mod = await import('../homepageDisplayUnit.js');
     return mod.transitionToBookContent;
 }
 

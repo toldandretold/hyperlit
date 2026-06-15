@@ -67,12 +67,12 @@ import {
 import {
   initializeHomepageButtons,
   destroyHomepageDisplayUnit
-} from '../homepageDisplayUnit.js';
+} from './homepageDisplayUnit.js';
 
 import {
   initializeHomepageBookActions,
   destroyHomepageListeners
-} from '../homepage.js';
+} from './homepage.js';
 
 import {
   initializeUserProfilePage,
@@ -87,9 +87,9 @@ import {
 import {
   initializeFootnoteCitationListeners,
   destroyFootnoteCitationListeners
-} from '../footnotesCitations.js';
+} from '../hyperlitContainer/footnotesCitations';
 
-import { initFootnoteTapExtender } from '../footnoteTapExtender.js';
+import { initFootnoteTapExtender } from '../hyperlitContainer/footnoteTapExtender';
 
 import {
   initContainerDragger,

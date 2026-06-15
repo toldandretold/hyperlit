@@ -12,7 +12,7 @@
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState.js";
 import { isNumericalId, ensureNodeHasValidId } from "../../utilities/IDfunctions.js";
 import { movedNodesByOverflow } from '../editorState';
-import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../../chunkManager.js';
+import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/toc.js';
 import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
 import { isPasteOperationActive } from '../../paste';

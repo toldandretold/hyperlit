@@ -1,5 +1,5 @@
 // userContainer.js - User authentication container manager
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "./containerManager.js";
 import { book } from "../app.js";
 import { log, verbose } from "../utilities/logger.js";
 import {

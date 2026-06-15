@@ -3,7 +3,7 @@
  * Reuses the ref-overlay backdrop pattern.
  */
 
-import { fetchSingleChunkFromServer } from '../../chunkFetcher.js';
+import { fetchSingleChunkFromServer } from '../../lazyLoader/chunkFetcher';
 
 let previewOverlay = null;
 let previewContainer = null;

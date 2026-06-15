@@ -1,7 +1,7 @@
 import { cancelForcedVisibility, isProcessing } from './editIndicator.js';
 import { log, verbose } from '../utilities/logger.js';
 import { setPerimeterButtonsHidden } from '../utilities/operationState.js';
-import { hasFootnoteTapTarget } from '../footnoteTapExtender.js';
+import { hasFootnoteTapTarget } from '../hyperlitContainer/footnoteTapExtender';
 
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {

@@ -29,7 +29,7 @@ import { initializeBroadcastListener } from "../utilities/BroadcastListener.js";
 import { setupUnloadSync } from "../indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "../components/toc.js";
 import { destroySettingsManager, initializeSettingsManager } from "../components/settingsContainer.js";
-import { KeyboardManager } from "../keyboardManager.js";
+import { KeyboardManager } from "../components/keyboardManager.js";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
@@ -519,7 +519,7 @@ async function initializeUniversalComponents(pageType: any) {
         if (pageType === 'home' || pageType === 'user') {
           try {
             verbose.init(`Initializing homepage components for ${pageType} page`, 'viewManager.js');
-            const { initializeHomepage } = await import('../homepage.js');
+            const { initializeHomepage } = await import('../components/homepage.js');
             await initializeHomepage();
             verbose.init('Homepage components initialized successfully', 'viewManager.js');
           } catch (error) {

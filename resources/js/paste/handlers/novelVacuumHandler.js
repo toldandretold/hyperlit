@@ -14,7 +14,7 @@ import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
 import { preprocessMarkdownFootnotes, footnoteDefinitionsToHtml, processMarkdownInChunks } from '../utils/markdown-processor.js';
 import { getInsertionPoint } from '../utils/insertion-point-calculator.js';
 import { handleLargePaste } from './largePasteHandler.js';
-import { getCurrentChunk } from '../../chunkManager.js';
+import { getCurrentChunk } from '../../divEditor/chunkManager';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
 import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad';
 import {

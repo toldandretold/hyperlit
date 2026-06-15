@@ -1,8 +1,8 @@
 // In resources/js/homepage.js
 
-import TogglePerimeterButtons from './components/togglePerimeterButtons.js';
-import { initializeLazyLoaderForContainer } from './pageLoad';
-import { log, verbose } from './utilities/logger.js';
+import TogglePerimeterButtons from './togglePerimeterButtons.js';
+import { initializeLazyLoaderForContainer } from '../pageLoad';
+import { log, verbose } from '../utilities/logger.js';
 
 let homepageBookActionsHandler = null;
 
@@ -34,15 +34,15 @@ export function initializeHomepageBookActions() {
       { id: 'add-to-shelf', label: 'Add to shelf', icon: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
     ];
 
-    const { showFloatingMenu } = await import('./components/floatingActionMenu.js');
+    const { showFloatingMenu } = await import('./floatingActionMenu.js');
     showFloatingMenu(target, menuItems, async (action) => {
       switch (action) {
         case 'preview':
-          const { showShelfPreview } = await import('./components/shelves/shelfPreview.js');
+          const { showShelfPreview } = await import('./shelves/shelfPreview.js');
           showShelfPreview(bookId);
           break;
         case 'add-to-shelf':
-          const { showAddToShelfMenu } = await import('./components/shelves/addToShelfMenu.js');
+          const { showAddToShelfMenu } = await import('./shelves/addToShelfMenu.js');
           showAddToShelfMenu(target, bookId);
           break;
       }
@@ -57,7 +57,7 @@ export async function initializeHomepage() {
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;
   try {
-    const progressModule = await import('./pageLoad');
+    const progressModule = await import('../pageLoad');
     updatePageLoadProgress = progressModule.updatePageLoadProgress;
     hidePageLoadProgress = progressModule.hidePageLoadProgress;
   } catch (e) {
@@ -76,7 +76,7 @@ export async function initializeHomepage() {
   // Rebind button managers after SPA transition to ensure they reference correct DOM elements
   try {
     // Import and rebind userContainer manager
-    const userContainerModule = await import('./components/userContainer.js');
+    const userContainerModule = await import('./userContainer.js');
     if (userContainerModule.default && userContainerModule.default.rebindElements) {
       userContainerModule.default.rebindElements();
       verbose.init('User button rebound after SPA transition', 'homepage.js');
@@ -88,7 +88,7 @@ export async function initializeHomepage() {
     }
 
     // Import and initialize newBookButton manager
-    const newBookModule = await import('./components/newBookButton.js');
+    const newBookModule = await import('./newBookButton.js');
     const newBookManager = newBookModule.initializeNewBookContainer();
     if (newBookManager) {
       verbose.init('New book button initialized', 'homepage.js');

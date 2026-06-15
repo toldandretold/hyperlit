@@ -1,29 +1,27 @@
-import { updateSingleIndexedDBRecord } from './indexedDB/index';
-import { generateIdBetween } from './utilities/IDfunctions.js';
-import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
-import { verbose } from './utilities/logger.js';
-// ✅ Lazy-loaded: divEditor only used during editing
-// import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor/index';
+import { updateSingleIndexedDBRecord } from '../indexedDB/index';
+import { generateIdBetween } from '../utilities/IDfunctions.js';
+import { setChunkOverflowInProgress, currentObservedChunk } from '../utilities/operationState.js';
+import { verbose } from '../utilities/logger.js';
+// ✅ Lazy-loaded: divEditor index only used during editing
+// import { startObserving, stopObserving, movedNodesByOverflow } from './index';
 
 // Object to store node counts for each chunk
-export const chunkNodeCounts = {};
+export const chunkNodeCounts: Record<string, number> = {};
 
 // Define the node limit constant
 export const NODE_LIMIT = 100;
 
 /**
  * Helper: Count numerical ID nodes efficiently
- * @param {HTMLElement} container - Container to count within
- * @returns {number} - Count of nodes with numerical IDs
  */
-function countNumericalNodes(container) {
+function countNumericalNodes(container: HTMLElement): number {
   // 🚀 PERFORMANCE: Single query + filter is 3-5x faster than 9 separate queries
   const allNodes = container.querySelectorAll('[id]');
   let count = 0;
   const numericIdRegex = /^\d+(\.\d+)?$/;
 
-  for (let i = 0; i < allNodes.length; i++) {
-    if (numericIdRegex.test(allNodes[i].id)) {
+  for (const node of allNodes) {
+    if (numericIdRegex.test(node.id)) {
       count++;
     }
   }
@@ -33,10 +31,8 @@ function countNumericalNodes(container) {
 
 /**
  * Count nodes in a chunk and track changes
- * @param {HTMLElement} chunk - The chunk element to count nodes in
- * @param {MutationRecord[]} mutations - Optional mutations to process
  */
-export function trackChunkNodeCount(chunk, mutations = null) {
+export function trackChunkNodeCount(chunk: HTMLElement | null, mutations: MutationRecord[] | null = null): void {
   verbose.content('trackChunkNodeCount started', 'chunkManager.js');
   if (!chunk) return;
 
@@ -76,13 +72,10 @@ export function trackChunkNodeCount(chunk, mutations = null) {
 
 /**
  * Handle overflow when a chunk reaches the node limit
- * @param {HTMLElement} currentChunk - The current chunk that's full
- * @param {MutationRecord[]} mutations - The mutations that triggered the overflow
  */
-
-export async function handleChunkOverflow(currentChunk, mutations) {
+export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: MutationRecord[] | null): Promise<boolean | undefined> {
   // ✅ Dynamically import divEditor functions (only used during editing)
-  const { startObserving, stopObserving, movedNodesByOverflow } = await import('./divEditor/index');
+  const { startObserving, stopObserving, movedNodesByOverflow } = await import('./index');
 
   // Set flag at the beginning
   setChunkOverflowInProgress(true);
@@ -98,114 +91,115 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   try {
     // IMPORTANT: Capture the active node and selection BEFORE any changes
     const selection = document.getSelection();
-    let activeNode = null;
+    let activeNode: any = null;
     let selectionOffset = 0;
-    
-    if (selection.rangeCount > 0) {
+
+    if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      let node = range.startContainer;
+      let node: any = range.startContainer;
       selectionOffset = range.startOffset;
-      
+
       // Get the relevant element node
       if (node.nodeType !== Node.ELEMENT_NODE) {
         activeNode = node.parentElement;
       } else {
         activeNode = node;
       }
-      
+
       // Find the closest parent with an ID
       while (activeNode && !activeNode.id) {
         activeNode = activeNode.parentElement;
       }
     }
-    
-    const activeNodeId = activeNode?.id;
+
+    const activeNodeId: string | undefined = activeNode?.id;
     const activeNodeIsInCurrentChunk = activeNode && currentChunk.contains(activeNode);
-    
+
     // NEW: Also find the next sibling node - this would be the target of the next Enter press
-    let nextSiblingNode = null;
+    let nextSiblingNode: any = null;
     if (activeNode) {
       nextSiblingNode = activeNode.nextElementSibling;
     }
-    const nextSiblingId = nextSiblingNode?.id;
-    
-    console.log("Active node before overflow:", activeNodeId, 
+    const nextSiblingId: string | undefined = nextSiblingNode?.id;
+
+    console.log("Active node before overflow:", activeNodeId,
                 "Next sibling node:", nextSiblingId,
                 "In current chunk:", activeNodeIsInCurrentChunk);
-  
-  
+
+
     // Get the current chunk ID
-    const currentChunkId = currentChunk.getAttribute('data-chunk-id');
-    
+    const currentChunkId = currentChunk.getAttribute('data-chunk-id')!;
+
     // Get all nodes in the current chunk with numeric IDs
-    const allNodesInChunk = Array.from(currentChunk.querySelectorAll('[id]')).filter(node => 
+    const allNodesInChunk = Array.from(currentChunk.querySelectorAll('[id]')).filter(node =>
       /^\d+(\.\d+)?$/.test(node.id)
     );
-    
+
     // Sort nodes by their ID numerically to ensure we're moving the last nodes
     allNodesInChunk.sort((a, b) => {
       const idA = parseFloat(a.id);
       const idB = parseFloat(b.id);
       return idA - idB;
     });
-    
+
     // If we don't have enough nodes to overflow, reset the inflated count and exit
     if (allNodesInChunk.length <= NODE_LIMIT) {
       chunkNodeCounts[currentChunkId] = allNodesInChunk.length;
       return false;
     }
-    
+
     // Determine which nodes need to be moved (always the last ones)
     const nodesToKeep = allNodesInChunk.slice(0, NODE_LIMIT);
     const overflowNodes = allNodesInChunk.slice(NODE_LIMIT);
-    
+
     console.log(`Chunk ${currentChunkId} has ${allNodesInChunk.length} nodes. Moving ${overflowNodes.length} nodes to a new chunk.`);
-    
+
     if (overflowNodes.length === 0) return;
 
     // Check if the active node is among the nodes being moved
     const activeNodeWillMove = activeNodeId && overflowNodes.some(node => node.id === activeNodeId);
     const nextSiblingWillMove = nextSiblingId && overflowNodes.some(node => node.id === nextSiblingId);
-    
-    console.log("Active node will move:", activeNodeWillMove, 
+
+    console.log("Active node will move:", activeNodeWillMove,
                 "Next sibling will move:", nextSiblingWillMove);
-    
+
     // Find the first and last overflow node
     const firstOverflowNode = overflowNodes[0];
     const lastOverflowNode = overflowNodes[overflowNodes.length - 1];
-    
+    if (!firstOverflowNode || !lastOverflowNode) return false;
+
     // Check if there's a next chunk and if it has room
     const nextChunk = currentChunk.nextElementSibling;
     const nextChunkIsChunk = nextChunk && nextChunk.classList.contains('chunk');
-    
-    let targetChunk;
-    let newChunkId;
-    
-    
+
+    let targetChunk: any;
+    let newChunkId: any;
+
+
     if (nextChunkIsChunk) {
       // Get the next chunk ID
-      const nextChunkId = nextChunk.getAttribute('data-chunk-id');
-      
+      const nextChunkId = nextChunk!.getAttribute('data-chunk-id')!;
+
       // Check if the next chunk has room using our tracking system
       const nextChunkNodeCount = chunkNodeCounts[nextChunkId] || 0;
-      
+
       // If the next chunk has room, use it instead of creating a new one
       if (nextChunkNodeCount + overflowNodes.length <= NODE_LIMIT) {
         console.log(`Using existing chunk ${nextChunkId} for overflow nodes (current count: ${nextChunkNodeCount})`);
         targetChunk = nextChunk;
         newChunkId = nextChunkId;
-        
+
         // Move the next chunk div to be positioned right after the current chunk's kept nodes
         const range = document.createRange();
         range.setStartBefore(firstOverflowNode);
         range.setEndAfter(lastOverflowNode);
-        
+
         // Extract the overflow nodes
         const overflowFragment = range.extractContents();
-        
+
         // Insert the next chunk div before the first overflow node's original position
-        currentChunk.parentNode.insertBefore(targetChunk, currentChunk.nextSibling);
-        
+        currentChunk.parentNode!.insertBefore(targetChunk, currentChunk.nextSibling);
+
         // Insert the overflow nodes at the beginning of the next chunk
         if (targetChunk.firstChild) {
           targetChunk.insertBefore(overflowFragment, targetChunk.firstChild);
@@ -214,9 +208,9 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         }
 
         // 🧹 Clean up any orphaned text nodes left behind after extractContents
-        const parent = currentChunk.parentNode;
+        const parent = currentChunk.parentNode!;
         Array.from(parent.childNodes).forEach(node => {
-          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
             console.warn('🧹 Cleaning orphaned text node:', node.textContent);
             // Move orphaned text to the last paragraph in current chunk
             const lastP = currentChunk.querySelector('p:last-of-type');
@@ -233,22 +227,22 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         // Use generateIdBetween to create an ID between current and next chunks
         newChunkId = generateIdBetween(currentChunkId, nextChunkId);
         targetChunk.setAttribute('data-chunk-id', newChunkId);
-        
+
         // Use Range to extract the overflow nodes and place them in the new chunk
         const range = document.createRange();
         range.setStartBefore(firstOverflowNode);
         range.setEndAfter(lastOverflowNode);
-        
+
         // Insert the new chunk after the current chunk but before the next chunk
-        currentChunk.parentNode.insertBefore(targetChunk, nextChunk);
+        currentChunk.parentNode!.insertBefore(targetChunk, nextChunk);
 
         // Move the range contents into the new chunk
         targetChunk.appendChild(range.extractContents());
 
         // 🧹 Clean up any orphaned text nodes left behind after extractContents
-        const parent = currentChunk.parentNode;
+        const parent = currentChunk.parentNode!;
         Array.from(parent.childNodes).forEach(node => {
-          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
             console.warn('🧹 Cleaning orphaned text node:', node.textContent);
             // Move orphaned text to the last paragraph in current chunk
             const lastP = currentChunk.querySelector('p:last-of-type');
@@ -263,10 +257,10 @@ export async function handleChunkOverflow(currentChunk, mutations) {
       // No next chunk, create a new one
       targetChunk = document.createElement('div');
       targetChunk.className = 'chunk';
-      
+
       // Parse the current chunk ID
       const currentId = parseFloat(currentChunkId);
-      
+
       // If it's a valid number, increment it appropriately
       if (!isNaN(currentId)) {
         if (Number.isInteger(currentId)) {
@@ -280,24 +274,24 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         // Fallback if ID isn't numeric
         newChunkId = generateIdBetween(currentChunkId, null);
       }
-      
+
       targetChunk.setAttribute('data-chunk-id', newChunkId);
-      
+
       // Use Range to extract the overflow nodes and place them in the new chunk
       const range = document.createRange();
       range.setStartBefore(firstOverflowNode);
       range.setEndAfter(lastOverflowNode);
-      
+
       // Insert the new chunk after the current chunk
-      currentChunk.parentNode.insertBefore(targetChunk, currentChunk.nextSibling);
+      currentChunk.parentNode!.insertBefore(targetChunk, currentChunk.nextSibling);
 
       // Move the range contents into the new chunk
       targetChunk.appendChild(range.extractContents());
 
       // 🧹 Clean up any orphaned text nodes left behind after extractContents
-      const parent = currentChunk.parentNode;
+      const parent = currentChunk.parentNode!;
       Array.from(parent.childNodes).forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
           console.warn('🧹 Cleaning orphaned text node:', node.textContent);
           // Move orphaned text to the last paragraph in current chunk
           const lastP = currentChunk.querySelector('p:last-of-type');
@@ -314,18 +308,18 @@ export async function handleChunkOverflow(currentChunk, mutations) {
       id: node.id,
       html: node.outerHTML
     }));
-    
+
     // Wait a short time to allow the mutation observer to process the removals
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Now re-create the nodes in IndexedDB with the new chunk_id
-    const savePromises = [];
-    
+    const savePromises: Promise<any>[] = [];
+
     overflowNodeData.forEach(({ id, html }) => {
       // Find the node in its new location to get the current HTML
       const movedNode = targetChunk.querySelector(`#${CSS.escape(id)}`);
       const currentHtml = movedNode ? movedNode.outerHTML : html;
-      
+
       // Create a new record in IndexedDB with the new chunk_id
       savePromises.push(
         updateSingleIndexedDBRecord({
@@ -333,29 +327,29 @@ export async function handleChunkOverflow(currentChunk, mutations) {
           html: currentHtml,
           chunk_id: parseFloat(newChunkId),
           action: "update" // Change to 'update' to ensure upsert behavior if ID exists
-        }).catch(error => console.error(`Error updating node ${id}:`, error))
+        } as any).catch((error: any) => console.error(`Error updating node ${id}:`, error))
       );
     });
-    
+
     // Update node counts for both chunks
     chunkNodeCounts[currentChunkId] = NODE_LIMIT;
-    
+
     if (nextChunkIsChunk && targetChunk === nextChunk) {
       // If we used an existing chunk, add to its count
-      chunkNodeCounts[newChunkId] += overflowNodes.length;
+      chunkNodeCounts[newChunkId] = (chunkNodeCounts[newChunkId] as number) + overflowNodes.length;
     } else {
       // If we created a new chunk, set its count
       chunkNodeCounts[newChunkId] = overflowNodes.length;
     }
-    
+
     // Re-count nodes in both chunks to ensure accuracy
     trackChunkNodeCount(currentChunk);
     trackChunkNodeCount(targetChunk);
-    
+
     // Wait for all saves to complete
     await Promise.all(savePromises);
     console.log(`Re-created ${overflowNodeData.length} nodes in chunk ${newChunkId}`);
-    
+
     // *** ADD THIS SECTION ***
     // Mark these nodes as being handled by the overflow process
     overflowNodeData.forEach(({ id }) => {
@@ -363,38 +357,38 @@ export async function handleChunkOverflow(currentChunk, mutations) {
     });
     //console.log("Moved nodes added to movedNodesByOverflow set:", Array.from(movedNodesByOverflow));
     // IMPROVED CURSOR POSITIONING FOR ENTER KEY PRESSES:
-    
+
     // First check: If this appears to be an Enter key press (looking for newly created empty paragraph)
-    const isLikelyEnterPress = mutations && mutations.some(m => 
-      m.addedNodes.length === 1 && 
-      m.addedNodes[0].nodeName === 'P' && 
-      (!m.addedNodes[0].textContent.trim() || m.addedNodes[0].innerHTML === '<br>')
+    const isLikelyEnterPress = mutations && mutations.some(m =>
+      m.addedNodes.length === 1 &&
+      m.addedNodes[0]?.nodeName === 'P' &&
+      (!m.addedNodes[0]?.textContent?.trim() || (m.addedNodes[0] as HTMLElement).innerHTML === '<br>')
     );
-    
+
     if (isLikelyEnterPress && nextSiblingWillMove) {
       // This is likely an Enter key press and the next node was moved
       console.log("Enter key detected and next node moved - positioning cursor in next node");
-      
+
       // Find the node in its new location
-      const movedNextNode = document.getElementById(nextSiblingId);
+      const movedNextNode = document.getElementById(nextSiblingId!);
       if (movedNextNode) {
-        const newSelection = document.getSelection();
+        const newSelection = document.getSelection()!;
         const newRange = document.createRange();
-        
+
         // Position at the beginning of the next node
         if (movedNextNode.firstChild && movedNextNode.firstChild.nodeType === Node.TEXT_NODE) {
           newRange.setStart(movedNextNode.firstChild, 0);
         } else {
           newRange.setStart(movedNextNode, 0);
         }
-        
+
         newRange.collapse(true);
         newSelection.removeAllRanges();
         newSelection.addRange(newRange);
-        
+
         // Ensure the node is visible
         movedNextNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // Also update the observer to watch the new chunk
         if (currentObservedChunk !== targetChunk) {
           setChunkOverflowInProgress(true);
@@ -406,29 +400,29 @@ export async function handleChunkOverflow(currentChunk, mutations) {
     } else if (activeNodeWillMove) {
       // Standard case: active node was moved
       console.log("Active node was moved - updating cursor position");
-      
+
       // Find the active node in its new location
-      const movedActiveNode = document.getElementById(activeNodeId);
+      const movedActiveNode = document.getElementById(activeNodeId!);
       if (movedActiveNode) {
-        const newSelection = document.getSelection();
+        const newSelection = document.getSelection()!;
         const newRange = document.createRange();
-        
+
         // Try to position at the same location
         if (movedActiveNode.firstChild && movedActiveNode.firstChild.nodeType === Node.TEXT_NODE) {
-          const maxOffset = movedActiveNode.firstChild.length;
+          const maxOffset = (movedActiveNode.firstChild as Text).length;
           const offset = Math.min(selectionOffset, maxOffset);
           newRange.setStart(movedActiveNode.firstChild, offset);
         } else {
           newRange.setStart(movedActiveNode, 0);
         }
-        
+
         newRange.collapse(true);
         newSelection.removeAllRanges();
         newSelection.addRange(newRange);
-        
+
         // Ensure the node is visible
         movedActiveNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // Also update the observer to watch the new chunk
         if (currentObservedChunk !== targetChunk) {
           await stopObserving();
@@ -442,7 +436,7 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         await startObserving(targetChunk);
       }
     }
-    
+
     return true;
   } catch (error) {
     console.error("Error in handleChunkOverflow:", error);
@@ -463,43 +457,20 @@ export async function handleChunkOverflow(currentChunk, mutations) {
 }
 
 
-
-
-
-
-export function getCurrentChunk() {
+// NOTE: returns the chunk id STRING (or null) — annotated `any` to preserve the
+// original untyped contract. A caller in divEditor/index.ts treats the result as a
+// DOM element (`.dataset`/`.id`); that is a pre-existing latent bug, left untouched
+// by this move.
+export function getCurrentChunk(): any {
   const selection = document.getSelection();
-  if (selection.rangeCount > 0) {
+  if (selection && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    let node = range.startContainer;
+    let node: any = range.startContainer;
     if (node.nodeType !== Node.ELEMENT_NODE) {
       node = node.parentElement;
     }
-    const chunkElement = node.closest(".chunk");
-    return chunkElement ? chunkElement.id || chunkElement.dataset.chunkId : null;
+    const chunkElement = node?.closest(".chunk");
+    return chunkElement ? (chunkElement.id || chunkElement.dataset.chunkId) : null;
   }
   return null;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

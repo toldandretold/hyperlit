@@ -1,4 +1,4 @@
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "./containerManager.js";
 import { openDatabase } from "../indexedDB/index.js";
 // Navigation imports moved to new system - see createBookHandler function
 import { ensureAuthInitialized } from "../utilities/auth.js";

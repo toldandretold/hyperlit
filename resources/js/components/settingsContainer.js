@@ -1,6 +1,6 @@
 // settingsContainer.js - Manages the bottom-up settings panel
 
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "./containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../search/inTextSearch/searchToolbar.js";

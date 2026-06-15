@@ -10,7 +10,7 @@ import { log } from "../utilities/logger.js";
 import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
 import { fireAndForgetSync } from "../SPA/createNewBook";
 import { universalPageInitializer } from "../SPA/viewManager";
-import { initializeHomepage } from "../homepage.js";
+import { initializeHomepage } from "../components/homepage.js";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
 import { generateTableOfContents } from "../components/toc.js";

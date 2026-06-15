@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 769,
-    "moduleCount": 158,
+    "fnCount": 783,
+    "moduleCount": 163,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1566,
+    "edgeCount": 1597,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -169,6 +169,30 @@
       "stage": "citations",
       "module": "citations/citationInserter",
       "leaf": true
+    },
+    {
+      "id": "divEditor/chunkManager:getCurrentChunk",
+      "label": "getCurrentChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkManager",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkManager:handleChunkOverflow",
+      "label": "handleChunkOverflow",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkManager",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkManager:trackChunkNodeCount",
+      "label": "trackChunkNodeCount",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkManager",
+      "leaf": false
     },
     {
       "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
@@ -3360,6 +3384,62 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/footnotesCitations:closeReferenceContainer",
+      "label": "closeReferenceContainer",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnotesCitations",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:destroyFootnoteCitationListeners",
+      "label": "destroyFootnoteCitationListeners",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnotesCitations",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "label": "handleFootnoteOrCitationClick",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnotesCitations",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+      "label": "initializeFootnoteCitationListeners",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnotesCitations",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:openReferenceContainer",
+      "label": "openReferenceContainer",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnotesCitations",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/footnoteTapExtender:hasFootnoteTapTarget",
+      "label": "hasFootnoteTapTarget",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnoteTapExtender",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "label": "initFootnoteTapExtender",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/footnoteTapExtender",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/history:buildContentFromMetadata",
       "label": "buildContentFromMetadata",
       "kind": "fn",
@@ -4504,6 +4584,22 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "label": "fetchSingleChunkFromServer",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkFetcher",
+      "leaf": true
+    },
+    {
+      "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "label": "storeSingleChunkToIndexedDB",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/chunkFetcher",
+      "leaf": false
+    },
+    {
       "id": "lazyLoader/chunkRender:applyHighlights",
       "label": "applyHighlights",
       "kind": "fn",
@@ -4875,6 +4971,22 @@
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/navOverlay",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/readingPosition:debouncedServerSave",
+      "label": "debouncedServerSave",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingPosition",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/readingPosition:sendBeaconSave",
+      "label": "sendBeaconSave",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingPosition",
       "leaf": true
     },
     {
@@ -6387,6 +6499,17 @@
       ]
     },
     {
+      "id": "divEditor/chunkManager",
+      "label": "divEditor/chunkManager",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/chunkManager:getCurrentChunk",
+        "divEditor/chunkManager:handleChunkOverflow",
+        "divEditor/chunkManager:trackChunkNodeCount"
+      ]
+    },
+    {
       "id": "divEditor/chunkMutationHandler/firstNode",
       "label": "divEditor/chunkMutationHandler/firstNode",
       "stage": "divEditor",
@@ -7329,6 +7452,29 @@
       ]
     },
     {
+      "id": "hyperlitContainer/footnotesCitations",
+      "label": "hyperlitContainer/footnotesCitations",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/footnotesCitations:closeReferenceContainer",
+        "hyperlitContainer/footnotesCitations:destroyFootnoteCitationListeners",
+        "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+        "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+        "hyperlitContainer/footnotesCitations:openReferenceContainer"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/footnoteTapExtender",
+      "label": "hyperlitContainer/footnoteTapExtender",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/footnoteTapExtender:hasFootnoteTapTarget",
+        "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender"
+      ]
+    },
+    {
       "id": "hyperlitContainer/history",
       "label": "hyperlitContainer/history",
       "stage": "hyperlitContainer",
@@ -7832,6 +7978,16 @@
       ]
     },
     {
+      "id": "lazyLoader/chunkFetcher",
+      "label": "lazyLoader/chunkFetcher",
+      "stage": "lazyLoader",
+      "band": "store",
+      "fnIds": [
+        "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+        "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB"
+      ]
+    },
+    {
       "id": "lazyLoader/chunkRender",
       "label": "lazyLoader/chunkRender",
       "stage": "lazyLoader",
@@ -8016,6 +8172,16 @@
         "scrolling/navOverlay:hideNavigationLoading",
         "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
         "scrolling/navOverlay:showNavigationLoading"
+      ]
+    },
+    {
+      "id": "scrolling/readingPosition",
+      "label": "scrolling/readingPosition",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/readingPosition:debouncedServerSave",
+        "scrolling/readingPosition:sendBeaconSave"
       ]
     },
     {
@@ -8448,11 +8614,61 @@
       "rel": "write"
     },
     {
+      "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "divEditor/chunkManager:handleChunkOverflow",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/index:startObserving",
+      "source": "divEditor/chunkManager:handleChunkOverflow",
+      "target": "divEditor/index:startObserving",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/index:stopObserving",
+      "source": "divEditor/chunkManager:handleChunkOverflow",
+      "target": "divEditor/index:stopObserving",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkManager:handleChunkOverflow__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "source": "divEditor/chunkManager:handleChunkOverflow",
+      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/chunkManager:handleChunkOverflow__domwrite__dom",
+      "source": "divEditor/chunkManager:handleChunkOverflow",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk__call__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkManager:handleChunkOverflow",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "divEditor/chunkManager:handleChunkOverflow",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
@@ -8549,6 +8765,12 @@
       "source": "divEditor/domUtilities:cleanupStyledSpans",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
     },
     {
       "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/domUtilities:findAllNumericalIdNodesInChunks",
@@ -8777,6 +8999,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/index:startObserving__call__divEditor/chunkManager:getCurrentChunk",
+      "source": "divEditor/index:startObserving",
+      "target": "divEditor/chunkManager:getCurrentChunk",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/index:startObserving__call__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "divEditor/index:startObserving",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/index:startObserving__call__divEditor/domUtilities:ensureMinimumDocumentStructure",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
@@ -8955,6 +9189,24 @@
       "id": "dom__domread__citations/citationInserter:insertCitationAtCursor",
       "source": "dom",
       "target": "citations/citationInserter:insertCitationAtCursor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkManager:getCurrentChunk",
+      "source": "dom",
+      "target": "divEditor/chunkManager:getCurrentChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkManager:handleChunkOverflow",
+      "source": "dom",
+      "target": "divEditor/chunkManager:handleChunkOverflow",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkManager:trackChunkNodeCount",
+      "source": "dom",
+      "target": "divEditor/chunkManager:trackChunkNodeCount",
       "rel": "domread"
     },
     {
@@ -10038,6 +10290,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+      "source": "dom",
+      "target": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "source": "dom",
+      "target": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/history:restoreContainerStack",
       "source": "dom",
       "target": "hyperlitContainer/history:restoreContainerStack",
@@ -10401,6 +10665,12 @@
       "id": "dom__domread__scrolling/internalNav:navigateToInternalId",
       "source": "dom",
       "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/readingPosition:debouncedServerSave",
+      "source": "dom",
+      "target": "scrolling/readingPosition:debouncedServerSave",
       "rel": "domread"
     },
     {
@@ -13491,6 +13761,52 @@
       "rel": "domwrite"
     },
     {
+      "id": "hyperlitContainer/footnotesCitations:closeReferenceContainer__call__hyperlitContainer/core:closeHyperlitContainer",
+      "source": "hyperlitContainer/footnotesCitations:closeReferenceContainer",
+      "target": "hyperlitContainer/core:closeHyperlitContainer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick__call__hyperlitContainer/index:handleUnifiedContentClick",
+      "source": "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "target": "hyperlitContainer/index:handleUnifiedContentClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners__call__hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "source": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+      "target": "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "source": "hyperlitContainer/footnotesCitations:initializeFootnoteCitationListeners",
+      "target": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/footnotesCitations:openReferenceContainer__call__hyperlitContainer/core:openHyperlitContainer",
+      "source": "hyperlitContainer/footnotesCitations:openReferenceContainer",
+      "target": "hyperlitContainer/core:openHyperlitContainer",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender__call__hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "source": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "target": "hyperlitContainer/footnotesCitations:handleFootnoteOrCitationClick",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "source": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "target": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/history:buildContentFromMetadata__call__hyperlitContainer/contentBuild:buildUnifiedContent",
       "source": "hyperlitContainer/history:buildContentFromMetadata",
       "target": "hyperlitContainer/contentBuild:buildUnifiedContent",
@@ -15819,6 +16135,25 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__write__store:nodes",
+      "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
       "id": "lazyLoader/chunkRender:applyHighlights__domwrite__dom",
       "source": "lazyLoader/chunkRender:applyHighlights",
       "target": "dom",
@@ -16032,6 +16367,19 @@
       "dataPath": true
     },
     {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:createChunkElement",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "lazyLoader/chunkRender:createChunkElement",
@@ -16054,6 +16402,19 @@
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -18643,8 +19004,23 @@
       "kind": "static"
     },
     {
+      "source": "divEditor/chunkManager",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/chunkManager",
+      "target": "divEditor/index",
+      "kind": "breaker"
+    },
+    {
       "source": "divEditor/chunkMutationHandler/firstNode",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/chunkMutationHandler/index",
+      "target": "divEditor/chunkManager",
       "kind": "static"
     },
     {
@@ -18684,6 +19060,11 @@
     },
     {
       "source": "divEditor/domUtilities",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/domUtilities",
       "target": "divEditor/editorState",
       "kind": "static"
     },
@@ -18715,6 +19096,11 @@
     {
       "source": "divEditor/enterKeyHandler/index",
       "target": "divEditor/enterKeyHandler/caretHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
+      "target": "divEditor/chunkManager",
       "kind": "static"
     },
     {
@@ -19508,6 +19894,26 @@
       "kind": "lazy"
     },
     {
+      "source": "hyperlitContainer/footnoteTapExtender",
+      "target": "hyperlitContainer/footnotesCitations",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/footnoteTapExtender",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/footnotesCitations",
+      "target": "hyperlitContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/footnotesCitations",
+      "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
       "source": "hyperlitContainer/history",
       "target": "hyperlitContainer/contentBuild",
       "kind": "static"
@@ -20193,6 +20599,11 @@
       "kind": "static"
     },
     {
+      "source": "lazyLoader/chunkFetcher",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
       "source": "lazyLoader/chunkRender",
       "target": "lazyLoader/footnoteSelfHeal",
       "kind": "static"
@@ -20250,6 +20661,16 @@
     {
       "source": "lazyLoader/index",
       "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "lazyLoader/chunkFetcher",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "scrolling/readingPosition",
       "kind": "lazy"
     },
     {
@@ -20587,6 +21008,9 @@
         "SPA/navigation/utils/contentSwapHelpers",
         "SPA/navigation/utils/initHelpers",
         "SPA/viewManager",
+        "divEditor/chunkManager",
+        "divEditor/chunkMutationHandler/index",
+        "divEditor/domUtilities",
         "divEditor/index",
         "hypercites/index",
         "hypercites/listeners",
@@ -20620,7 +21044,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 13,
-    "lazyCount": 112
+    "breakerCount": 14,
+    "lazyCount": 114
   }
 }

@@ -20,7 +20,7 @@ import { book } from '../app.js';
 import { isNumericalId, setElementIds } from "../utilities/IDfunctions.js";
 import { verbose } from '../utilities/logger.js';
 import { isPasteOperationActive } from '../paste';
-import { trackChunkNodeCount } from '../chunkManager.js';
+import { trackChunkNodeCount } from './chunkManager';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
 import { queueNodeForSave } from './editorState';   // its real home (leaf) — not the ./index barrel
 

@@ -2,8 +2,8 @@
 // (Removed dead upward imports of hyperlights/index, scrolling and pageLoad: none were used —
 // the only currentLazyLoader reference is `window.currentLazyLoader`. They put this base class,
 // which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
-import { isProcessing, isComplete } from './components/editIndicator.js'
-import { book } from './app.js';
+import { isProcessing, isComplete } from './editIndicator.js'
+import { book } from '../app.js';
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = [], options = {}) {
@@ -130,7 +130,7 @@ export class ContainerManager {
           // keeps browser history aligned with the visible stack so
           // back/forward behaves as the user expects (one container per step).
           if (this.containerId === 'hyperlit-container') {
-            const { isStackPopPending } = await import('./hyperlitContainer/stack');
+            const { isStackPopPending } = await import('../hyperlitContainer/stack');
             if (isStackPopPending()) {
               console.warn('Overlay click BLOCKED — pop already in flight');
               return;
@@ -139,7 +139,7 @@ export class ContainerManager {
             // (popstate handler will flush again as part of its teardown,
             // but flushing here too keeps autosave timing tight).
             try {
-              const { flushInputDebounce, flushAllPendingSaves } = await import('./divEditor/index');
+              const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
               flushInputDebounce();
               await flushAllPendingSaves();
             } catch (err) {

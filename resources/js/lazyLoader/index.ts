@@ -327,7 +327,7 @@ export function createLazyLoader(config: any) {
           // Save to server (debounced) for cross-device resume
           const chunkEl = topVisible.closest('[data-chunk-id]');
           const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id')!, 10) : 0;
-          import('../readingPosition.js').then(({ debouncedServerSave }) => {
+          import('../scrolling/readingPosition').then(({ debouncedServerSave }) => {
             debouncedServerSave(instance.bookId, detectedId, chunkId);
           }).catch(() => {}); // Best-effort
         }
@@ -368,7 +368,7 @@ export function createLazyLoader(config: any) {
           const el = document.getElementById(scrollData.elementId);
           const chunkEl = el?.closest('[data-chunk-id]');
           const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id')!, 10) : 0;
-          import('../readingPosition.js').then(({ sendBeaconSave }) => {
+          import('../scrolling/readingPosition').then(({ sendBeaconSave }) => {
             sendBeaconSave(instance.bookId, scrollData.elementId, chunkId);
           }).catch(() => {});
         }
@@ -952,7 +952,7 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
     // Server fallback: chunk not yet downloaded
     if (nextNodes.length === 0 && !instance.isFullyLoaded) {
       try {
-        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB }: any = await import('../chunkFetcher.js');
+        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB }: any = await import('./chunkFetcher');
         nextNodes = await fetchSingleChunkFromServer(instance.bookId, nextChunkId);
         if (nextNodes.length > 0) {
           await storeSingleChunkToIndexedDB(nextNodes);
@@ -1040,7 +1040,7 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
     // Server fallback: chunk not yet downloaded
     if (prevNodes.length === 0 && !instance.isFullyLoaded) {
       try {
-        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB }: any = await import('../chunkFetcher.js');
+        const { fetchSingleChunkFromServer, storeSingleChunkToIndexedDB }: any = await import('./chunkFetcher');
         prevNodes = await fetchSingleChunkFromServer(instance.bookId, prevChunkId);
         if (prevNodes.length > 0) {
           await storeSingleChunkToIndexedDB(prevNodes);

@@ -9,7 +9,7 @@
  * - Wraps plain text in HTML paragraphs
  */
 
-import { NODE_LIMIT } from '../../chunkManager.js';
+import { NODE_LIMIT } from '../../divEditor/chunkManager';
 import { getNextIntegerId, generateNodeId } from "../../utilities/IDfunctions.js";
 
 /**
