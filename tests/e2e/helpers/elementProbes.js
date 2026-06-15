@@ -198,6 +198,19 @@ export async function probeResizeHandle(page, spa, {
       const c = document.querySelector(open);
       const e = c && c.querySelector(edge);
       if (!e) return false;
+      // The slide-in transform must have reached REST before we measure. Checking
+      // only "edge centre is inside the viewport and topmost" (below) is satisfied
+      // far too early for a panel sliding in from the LEFT (e.g. #toc-container,
+      // probed via its `.resize-right` edge): that edge is the FIRST thing to cross
+      // x=0, so the guard passed while the panel was still ~99% off-screen (edge at
+      // x≈1) — geometry captured mid-animation, and the real drag then landed on a
+      // moving target (mousedown missed the edge → no resize). #hyperlit-container
+      // slides in from the right and its `.resize-left` edge is the LAST thing in,
+      // so it happened to be robust; this makes both safe. Both panels rest at
+      // translateX(0), so require the horizontal translate to be ~0 first.
+      const t = getComputedStyle(c).transform;
+      const tx = t && t !== 'none' ? new DOMMatrixReadOnly(t).m41 : 0;
+      if (Math.abs(tx) > 1) return false;
       const r = e.getBoundingClientRect();
       const x = r.x + r.width / 2, y = r.y + r.height / 2;
       if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
