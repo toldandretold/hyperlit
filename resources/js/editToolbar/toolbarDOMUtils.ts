@@ -5,7 +5,7 @@
  * These functions have no dependencies on class state and can be used independently.
  */
 
-import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
+import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { placeCaretInEmptyListItem } from '../utilities/listItemCaret';
 
 /**

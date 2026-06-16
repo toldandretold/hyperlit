@@ -14,7 +14,7 @@ import { debounce } from '../../utilities/debounce';
 import { withPending } from '../../utilities/operationState';
 import { queueForSync } from '../syncQueue/queue';
 import { reportIntegrityFailure } from '../../integrity/reporter';
-import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';
+import { INLINE_SKIP_TAGS } from '../../utilities/blockElements';
 // Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/batch.test.js
 import { resolveBookIdForBatch } from './bookIdResolver';

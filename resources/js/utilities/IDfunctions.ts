@@ -6,7 +6,7 @@ import { book } from "../app.js";
 import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/cloudRef/editIndicator";
 import { ProgressOverlayConductor } from "../SPA/navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger';
-import { ID_SKIP_TAGS } from './blockElements.js';
+import { ID_SKIP_TAGS } from './blockElements';
 
 // 🚀 PERFORMANCE: Cache regex pattern (compiled once, used everywhere)
 export const NUMERICAL_ID_PATTERN = /^\d+(\.\d+)?$/;

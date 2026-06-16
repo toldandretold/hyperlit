@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { normalizeQuotes, normalizeSpaces, normalizeContent, escapeHtml } from '../../../resources/js/paste/utils/normalizer.js';
+import { normalizeQuotes, normalizeSpaces, normalizeContent, escapeHtml } from '../../../resources/js/paste/utils/normalizer';
 
 describe('normalizeQuotes', () => {
   it('should convert smart quotes to regular quotes', () => {

@@ -55,7 +55,7 @@ async function main() {
   // Dynamic import AFTER globals exist (DOMPurify binds to window on load).
   let detector;
   try {
-    detector = await import('../resources/js/paste/format-detection/format-detector.js');
+    detector = await import('./generated/paste-engine.mjs');
   } catch (e) {
     return fail('engine_load_failed', e.stack || e.message);
   }

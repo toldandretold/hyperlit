@@ -80,7 +80,7 @@ export async function handleEditButtonClick() {
       firstEditable.contentEditable = 'true';
       await startObserving(firstEditable, subBookId);
       if (!firstEditable.dataset.pasteAttached) {
-        const { addPasteListener }: any = await import('../paste/index.js');
+        const { addPasteListener }: any = await import('../paste/index');
         addPasteListener(firstEditable);
         firstEditable.dataset.pasteAttached = 'true';
       }
@@ -280,7 +280,7 @@ export async function applyCurrentEditModeToLayer() {
       firstEditable.contentEditable = 'true';
       await startObserving(firstEditable, subBookId);
       if (!firstEditable.dataset.pasteAttached) {
-        const { addPasteListener }: any = await import('../paste/index.js');
+        const { addPasteListener }: any = await import('../paste/index');
         addPasteListener(firstEditable);
         firstEditable.dataset.pasteAttached = 'true';
       }
@@ -351,7 +351,7 @@ export function attachSubBookFocusSwitcher() {
 
     // Guard against duplicate paste listeners
     if (!subBookEl.dataset.pasteAttached) {
-      const { addPasteListener }: any = await import('../paste/index.js');
+      const { addPasteListener }: any = await import('../paste/index');
       addPasteListener(subBookEl);
       subBookEl.dataset.pasteAttached = 'true';
     }

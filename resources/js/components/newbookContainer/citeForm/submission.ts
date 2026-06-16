@@ -8,7 +8,7 @@ import { getAllowedResubmitBookId, setAllowedResubmitBookId } from './state';
 import { validateFileInput, showInsufficientBalanceBanner } from './fileUpload';
 import { updateBookUrlPreview } from './bookId';
 import { isLoggedIn } from '../../../utilities/auth/index';
-import { escapeHtml } from '../../../paste/utils/normalizer.js';
+import { escapeHtml } from '../../../paste/utils/normalizer';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 
 export function setupFormSubmission() {

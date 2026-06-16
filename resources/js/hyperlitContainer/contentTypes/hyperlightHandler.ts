@@ -243,7 +243,7 @@ export const hyperlightHandler: ContentTypeHandler = {
               if (!(window as any).isEditing) (window as any).isEditing = true;
               await startObserving(subBookEl, subBookId);
               if (!subBookEl.dataset.pasteAttached) {
-                const { addPasteListener }: any = await import('../../paste/index.js');
+                const { addPasteListener }: any = await import('../../paste/index');
                 addPasteListener(subBookEl);
                 subBookEl.dataset.pasteAttached = 'true';
               }

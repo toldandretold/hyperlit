@@ -5,7 +5,7 @@
 import { $, qs } from './dom';
 import { getAllowedResubmitBookId } from './state';
 import { hideInsufficientBalanceBanner, handleFileMetadataExtraction } from './fileUpload';
-import { escapeHtml } from '../../../paste/utils/normalizer.js';
+import { escapeHtml } from '../../../paste/utils/normalizer';
 
 export function setupRealTimeValidation() {
   // Validation functions

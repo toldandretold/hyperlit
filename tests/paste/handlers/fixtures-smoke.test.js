@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { detectFormat, getProcessorForContent } from '../../../resources/js/paste/format-detection/format-detector.js';
+import { detectFormat, getProcessorForContent } from '../../../resources/js/paste/format-detection/format-detector';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = join(__dirname, '..', 'fixtures', 'clipboard');

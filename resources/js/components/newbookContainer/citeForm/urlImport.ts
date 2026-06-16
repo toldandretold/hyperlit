@@ -5,7 +5,7 @@
 // humanFetchReason / humanError / suggestBookId + STAGE_LABELS of newBookForm.js.
 import { $ } from './dom';
 import { isLoggedIn } from '../../../utilities/auth/index';
-import { escapeHtml } from '../../../paste/utils/normalizer.js';
+import { escapeHtml } from '../../../paste/utils/normalizer';
 
 export function setupUrlImport() {
   const urlInput = $('import-url-input');

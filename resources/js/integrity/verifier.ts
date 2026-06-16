@@ -10,7 +10,7 @@
  */
 
 import { openDatabase } from '../indexedDB/core/connection';
-import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements.js';
+import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements';
 
 /**
  * Normalise text for comparison: trim and collapse all whitespace runs

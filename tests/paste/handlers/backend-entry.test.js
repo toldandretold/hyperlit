@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getProcessorForContent } from '../../../resources/js/paste/format-detection/format-detector.js';
+import { getProcessorForContent } from '../../../resources/js/paste/format-detection/format-detector';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = join(__dirname, '..', 'fixtures', 'clipboard');

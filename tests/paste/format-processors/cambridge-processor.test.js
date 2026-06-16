@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CambridgeProcessor } from '../../../resources/js/paste/format-processors/cambridge-processor.js';
+import { CambridgeProcessor } from '../../../resources/js/paste/format-processors/cambridge-processor';
 
 describe('CambridgeProcessor', () => {
   let processor;

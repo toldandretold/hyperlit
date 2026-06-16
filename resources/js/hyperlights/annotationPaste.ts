@@ -2,7 +2,7 @@
  * Paste module - Handles paste operations in annotation areas
  */
 
-import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
+import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index";
 import { extractQuotedText } from '../utilities/textExtraction';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';

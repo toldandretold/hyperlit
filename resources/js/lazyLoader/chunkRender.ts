@@ -1,11 +1,11 @@
 import katex from 'katex';
 import { verbose } from '../utilities/logger';
 import { renderBlockToHtml } from "../utilities/convertMarkdown";
-import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
+import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { applyGateFilter } from "../components/utilities/gateFilter";
 import { isNewlyCreatedHighlight } from "../utilities/operationState";
 import { renderCharts } from './chartRenderer';
-import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
+import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { applyDynamicFootnoteNumbers } from './footnoteSelfHeal';
 import { handleBrokenImages } from './imageState';
 

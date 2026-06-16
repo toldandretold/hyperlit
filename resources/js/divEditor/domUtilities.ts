@@ -19,9 +19,9 @@
 import { book } from '../app.js';
 import { isNumericalId, setElementIds } from "../utilities/IDfunctions";
 import { verbose } from '../utilities/logger';
-import { isPasteOperationActive } from '../paste/index.js';
+import { isPasteOperationActive } from '../paste/index';
 import { trackChunkNodeCount } from './chunkManager';
-import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
+import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements';
 import { queueNodeForSave } from './editorState';   // its real home (leaf) — not the ./index barrel
 
 type QueueNodeForSaveFn = (id: string, action?: string, bookId?: string | null) => void;

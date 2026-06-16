@@ -5,7 +5,7 @@
 
 import { saveHighlightAnnotation } from '../hyperlights/annotations';
 import { saveFootnoteToIndexedDB } from '../footnotes/footnoteAnnotations.js';
-import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
+import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { parseHyperciteHref } from '../hypercites/utils';
 import { attachUnderlineClickListeners } from '../hypercites/listeners';
 import { extractQuotedText } from '../utilities/textExtraction';

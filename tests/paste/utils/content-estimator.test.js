@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { estimatePasteNodeCount, isSmallPaste } from '../../../resources/js/paste/utils/content-estimator.js';
+import { estimatePasteNodeCount, isSmallPaste } from '../../../resources/js/paste/utils/content-estimator';
 
 describe('estimatePasteNodeCount', () => {
   it('should count HTML block elements', () => {

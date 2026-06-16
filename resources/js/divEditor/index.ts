@@ -86,7 +86,7 @@ import {
 } from '../utilities/BroadcastListener';
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
-import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
+import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements';
 import { listItemIsEmpty, placeCaretAtEndOfListItem } from '../utilities/listItemCaret';
 import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle';
 
@@ -97,7 +97,7 @@ import {
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager';
-import { isPasteOperationActive } from '../paste/index.js';
+import { isPasteOperationActive } from '../paste/index';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../lazyLoader/utilities/chunkLoadingState';
 import { SelectionDeletionHandler } from './selectionDelete';
 import { getEditToolbar } from '../editToolbar/index';

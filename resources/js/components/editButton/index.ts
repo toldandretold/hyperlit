@@ -229,7 +229,7 @@ export async function enableEditMode(targetElementId: any = null, isNewBook = fa
 
         // ✅ Dynamically import divEditor and paste modules
         const { startObserving } = await import('../../divEditor/index');
-        const { addPasteListener } = await import('../../paste/index.js');
+        const { addPasteListener } = await import('../../paste/index');
 
         startObserving(editableDiv, book);
         addPasteListener(editableDiv);

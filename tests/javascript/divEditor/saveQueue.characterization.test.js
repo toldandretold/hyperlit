@@ -32,8 +32,8 @@ vi.mock('../../../resources/js/search/inTextSearch/searchToolbar', () => ({ inva
 vi.mock('../../../resources/js/utilities/BroadcastListener', () => ({ TAB_ID: 'test-tab', markBookEditedLocally: vi.fn() }));
 vi.mock('../../../resources/js/integrity/verifier', () => ({ verifyNodesIntegrity: vi.fn().mockResolvedValue({ ok: [], mismatches: [], missingFromIDB: [], duplicateIds: [] }), findOrphanedNodes: () => [], healVerbatimDuplicates: () => [] }));
 vi.mock('../../../resources/js/integrity/reporter', () => ({ reportIntegrityFailure: vi.fn() }));
-vi.mock('../../../resources/js/paste/ui/pasteUndoToast.js', () => ({ hidePasteUndoToast: vi.fn() }));
-vi.mock('../../../resources/js/paste/handlers/largePasteHandler.js', () => ({ clearPasteSnapshot: vi.fn() }));
+vi.mock('../../../resources/js/paste/ui/pasteUndoToast', () => ({ hidePasteUndoToast: vi.fn() }));
+vi.mock('../../../resources/js/paste/handlers/largePasteHandler', () => ({ clearPasteSnapshot: vi.fn() }));
 // Mock ../paste and ../app.js to keep this test LIGHT (they'd otherwise drag in the
 // whole paste/search/app transitive graph). NB: these are no longer needed to dodge
 // the circular-import TDZ — index.js now imports `debounce` from the zero-import leaf,

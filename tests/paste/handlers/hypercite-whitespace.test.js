@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ensureSpaceAfterAnchor } from '../../../resources/js/paste/utils/anchorSpacing.js';
+import { ensureSpaceAfterAnchor } from '../../../resources/js/paste/utils/anchorSpacing';
 
 function buildAnchor(doc = document) {
   const a = doc.createElement('a');

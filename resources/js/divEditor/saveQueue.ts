@@ -10,7 +10,7 @@ import {
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
 } from '../indexedDB/index';
-import { isPasteOperationActive } from '../paste/index.js';
+import { isPasteOperationActive } from '../paste/index';
 import { verbose } from '../utilities/logger';
 import { clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 import { markCacheDirty } from '../lazyLoader/utilities/cacheState';
@@ -24,9 +24,9 @@ import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/
 // reporter.js is JS; its inferred param type is narrower than the (varied) shapes
 // we pass — widen to accept the optional selfHealed/duplicateIds/orphanedNodes fields.
 const reportIntegrityFailure: (arg: any) => void = _reportIntegrityFailure as any;
-import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast.js';
-import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler.js';
-import { INLINE_SKIP_TAGS } from '../utilities/blockElements.js';
+import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast';
+import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler';
+import { INLINE_SKIP_TAGS } from '../utilities/blockElements';
 
 // Re-export debounce for backwards compatibility
 export { debounce };

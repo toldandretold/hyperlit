@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { sanitizeHtml, SANITIZE_CONFIG } from '../../../resources/js/utilities/sanitizeConfig.js';
+import { sanitizeHtml, SANITIZE_CONFIG } from '../../../resources/js/utilities/sanitizeConfig';
 
 // =============================================================================
 // SCRIPT TAG REMOVAL TESTS
