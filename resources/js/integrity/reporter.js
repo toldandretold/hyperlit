@@ -588,7 +588,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
       const openAuthForm = async (formType) => {
         // Hide modal so userContainer (z-index 1000) is accessible
         backdrop.style.display = 'none';
-        const { initializeUserContainer } = await import('../components/userContainer.js');
+        const { initializeUserContainer } = await import('../components/userButton/userButton');
         const mgr = initializeUserContainer();
         if (mgr) {
           if (formType === 'register') mgr.showRegisterForm();

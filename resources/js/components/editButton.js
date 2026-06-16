@@ -8,7 +8,7 @@ import { log, verbose } from "../utilities/logger.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
 import { getLibraryObjectFromIndexedDB } from '../indexedDB/index';
-import userManager from "./userContainer.js";
+import userManager from "./userButton/userButton";
 import { pendingFirstChunkLoadedPromise } from '../pageLoad';
 
 

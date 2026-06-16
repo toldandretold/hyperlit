@@ -76,7 +76,7 @@ export async function initializeHomepage() {
   // Rebind button managers after SPA transition to ensure they reference correct DOM elements
   try {
     // Import and rebind userContainer manager
-    const userContainerModule = await import('./userContainer.js');
+    const userContainerModule = await import('./userButton/userButton');
     if (userContainerModule.default && userContainerModule.default.rebindElements) {
       userContainerModule.default.rebindElements();
       verbose.init('User button rebound after SPA transition', 'homepage.js');
@@ -88,7 +88,7 @@ export async function initializeHomepage() {
     }
 
     // Import and initialize newBookButton manager
-    const newBookModule = await import('./newBookButton.js');
+    const newBookModule = await import('./newBookButton/newBookButton');
     const newBookManager = newBookModule.initializeNewBookContainer();
     if (newBookManager) {
       verbose.init('New book button initialized', 'homepage.js');

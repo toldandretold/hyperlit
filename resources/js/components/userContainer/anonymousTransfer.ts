@@ -1,27 +1,79 @@
-// anonymousContentManager.js - Anonymous content transfer utilities
-
+// anonymousTransfer.ts - Anonymous → account content migration. Holds the
+// in-panel "bring your anonymous content in?" prompt (showAnonymousContentTransfer,
+// takes the manager as `self`) plus the pure transfer helpers (was
+// userContainer/anonymousContentManager.js): book ownership reassignment,
+// the associate-content API call, and the content-summary builder.
 import { getAnonymousToken } from '../../utilities/auth.js';
-import { getTransferConfirmationHTML } from './formTemplates.js';
+import { getTransferConfirmationHTML, getTransferPromptHTML } from './forms';
+import { clearAllCachedData } from './cache';
 
-/**
- * Gets CSRF token from cookie
- * @returns {string|null}
- */
-function getCsrfTokenFromCookie() {
+/** Gets CSRF token from cookie */
+function getCsrfTokenFromCookie(): string | null {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; XSRF-TOKEN=`);
   if (parts.length === 2) {
-    return decodeURIComponent(parts.pop().split(";").shift());
+    return decodeURIComponent(parts.pop()!.split(";").shift()!);
   }
   return null;
 }
 
 /**
- * Handles the anonymous book transfer flow
- * @param {object} user - Current logged-in user
- * @returns {Promise<void>}
+ * In-panel prompt offering to migrate content created while logged out.
+ * Takes the SourceContainerManager-style `self` (the UserContainerManager).
  */
-export async function handleAnonymousBookTransfer(user) {
+export function showAnonymousContentTransfer(self: any, anonymousContent: any) {
+  // Clean up any existing alert boxes
+  const customAlert = document.querySelector(".custom-alert");
+  if (customAlert) {
+    const overlay = document.querySelector(".custom-alert-overlay");
+    if (overlay) overlay.remove();
+    customAlert.remove();
+  }
+
+  if (!self.isOpen) {
+    self.openContainer("transfer-prompt");
+  }
+
+  const contentSummary = buildContentSummary(anonymousContent);
+  self.container.innerHTML = getTransferPromptHTML(contentSummary);
+
+  // Add event listeners
+  const confirmButton = document.getElementById('confirmContentTransfer');
+  const skipButton = document.getElementById('skipContentTransfer');
+
+  if (confirmButton) {
+    (confirmButton as any).onclick = async () => {
+      await transferAnonymousContent(anonymousContent.token);
+      await clearAllCachedData();
+      const pageType = document.body.getAttribute('data-page');
+      if (pageType === 'reader' || pageType === 'user') {
+        window.location.reload();
+        return;
+      }
+      setTimeout(() => self.showUserProfile(), 500);
+    };
+  }
+
+  if (skipButton) {
+    (skipButton as any).onclick = async () => {
+      try {
+        await clearAllCachedData();
+        const pageType = document.body.getAttribute('data-page');
+        if (pageType === 'reader' || pageType === 'user') {
+          window.location.reload();
+          return;
+        }
+        self.showUserProfile();
+      } catch (error) {
+        console.error("❌ Error during cache clearing:", error);
+        window.location.reload();
+      }
+    };
+  }
+}
+
+/** Handles the anonymous book transfer flow */
+export async function handleAnonymousBookTransfer(user: any) {
   if (!user) return;
 
   const anonId = await getAnonymousToken();
@@ -43,15 +95,11 @@ export async function handleAnonymousBookTransfer(user) {
   }
 }
 
-/**
- * Gets all books created anonymously with the given token
- * @param {string} anonId - Anonymous token
- * @returns {Promise<object[]>}
- */
-export async function getAnonymousBooks(anonId) {
+/** Gets all books created anonymously with the given token */
+export async function getAnonymousBooks(anonId: any): Promise<any[]> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('MarkdownDB');
-    request.onsuccess = (event) => {
+    request.onsuccess = (event: any) => {
       const db = event.target.result;
       const transaction = db.transaction(['library'], 'readonly');
       const store = transaction.objectStore('library');
@@ -59,7 +107,7 @@ export async function getAnonymousBooks(anonId) {
 
       getAllRequest.onsuccess = () => {
         const allBooks = getAllRequest.result;
-        const books = allBooks.filter(book => {
+        const books = allBooks.filter((book: any) => {
           const hasMatchingToken = book.creator_token === anonId;
           const hasNoCreator = !book.creator || book.creator === null;
           return hasMatchingToken && hasNoCreator;
@@ -73,12 +121,8 @@ export async function getAnonymousBooks(anonId) {
   });
 }
 
-/**
- * Shows confirmation dialog for book transfer
- * @param {object[]} books - Array of books to transfer
- * @returns {Promise<boolean>}
- */
-export async function confirmBookTransfer(books) {
+/** Shows confirmation dialog for book transfer */
+export async function confirmBookTransfer(books: any[]): Promise<boolean> {
   return new Promise((resolve) => {
     const bookTitles = books.map(book => book.title || 'Untitled').join(', ');
     const message = `You have ${books.length} book(s) created while not logged in: ${bookTitles}. Would you like to transfer ownership to your account?`;
@@ -87,12 +131,8 @@ export async function confirmBookTransfer(books) {
   });
 }
 
-/**
- * Creates and displays the transfer confirmation modal
- * @param {string} message - Confirmation message
- * @param {Function} callback - Callback with boolean result
- */
-export function showTransferConfirmation(message, callback) {
+/** Creates and displays the transfer confirmation modal */
+export function showTransferConfirmation(message: string, callback: (result: boolean) => void) {
   const modal = document.createElement('div');
   modal.style.cssText = `
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -104,24 +144,19 @@ export function showTransferConfirmation(message, callback) {
 
   document.body.appendChild(modal);
 
-  modal.querySelector('#confirmTransfer').onclick = () => {
+  (modal.querySelector('#confirmTransfer') as any).onclick = () => {
     document.body.removeChild(modal);
     callback(true);
   };
 
-  modal.querySelector('#cancelTransfer').onclick = () => {
+  (modal.querySelector('#cancelTransfer') as any).onclick = () => {
     document.body.removeChild(modal);
     callback(false);
   };
 }
 
-/**
- * Transfers books to user account
- * @param {object[]} books - Array of books to transfer
- * @param {string} anonId - Anonymous token
- * @param {string} userName - Username to transfer to
- */
-export async function transferBooksToUser(books, anonId, userName) {
+/** Transfers books to user account */
+export async function transferBooksToUser(books: any[], anonId: any, userName: any) {
   for (const bookRecord of books) {
     try {
       const bookId = bookRecord.book;
@@ -139,15 +174,11 @@ export async function transferBooksToUser(books, anonId, userName) {
   }
 }
 
-/**
- * Updates book ownership in local IndexedDB
- * @param {string} bookId - Book ID
- * @param {string} userName - New owner username
- */
-export async function updateBookOwnership(bookId, userName) {
-  return new Promise((resolve, reject) => {
+/** Updates book ownership in local IndexedDB */
+export async function updateBookOwnership(bookId: any, userName: any) {
+  return new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('MarkdownDB');
-    request.onsuccess = (event) => {
+    request.onsuccess = (event: any) => {
       const db = event.target.result;
       const transaction = db.transaction(['library'], 'readwrite');
       const store = transaction.objectStore('library');
@@ -178,12 +209,8 @@ export async function updateBookOwnership(bookId, userName) {
   });
 }
 
-/**
- * Updates book ownership on the backend
- * @param {string} bookId - Book ID
- * @param {string} anonId - Anonymous token
- */
-export async function updateBookOwnershipBackend(bookId, anonId) {
+/** Updates book ownership on the backend */
+export async function updateBookOwnershipBackend(bookId: any, anonId: any) {
   const csrfToken = getCsrfTokenFromCookie();
 
   const response = await fetch(`/books/${bookId}/transfer-ownership`, {
@@ -192,7 +219,7 @@ export async function updateBookOwnershipBackend(bookId, anonId) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      'X-XSRF-TOKEN': csrfToken
+      'X-XSRF-TOKEN': csrfToken as any,
     },
     credentials: 'include',
     body: JSON.stringify({ anonymous_token: anonId })
@@ -203,11 +230,8 @@ export async function updateBookOwnershipBackend(bookId, anonId) {
   }
 }
 
-/**
- * Associates anonymous content with logged-in user via API
- * @param {string} token - Anonymous token
- */
-export async function transferAnonymousContent(token) {
+/** Associates anonymous content with logged-in user via API */
+export async function transferAnonymousContent(token: any) {
   try {
     const csrfToken = getCsrfTokenFromCookie();
     const response = await fetch('/api/auth/associate-content', {
@@ -216,7 +240,7 @@ export async function transferAnonymousContent(token) {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'X-XSRF-TOKEN': csrfToken
+        'X-XSRF-TOKEN': csrfToken as any,
       },
       credentials: 'include',
       body: JSON.stringify({ anonymous_token: token })
@@ -230,17 +254,13 @@ export async function transferAnonymousContent(token) {
   }
 }
 
-/**
- * Builds content summary from anonymous content data
- * @param {object} anonymousContent - Object with books, highlights, cites arrays
- * @returns {string[]}
- */
-export function buildContentSummary(anonymousContent) {
+/** Builds content summary from anonymous content data */
+export function buildContentSummary(anonymousContent: any): string[] {
   const totalBooks = anonymousContent.books?.length || 0;
   const totalHighlights = anonymousContent.highlights?.length || 0;
   const totalCites = anonymousContent.cites?.length || 0;
 
-  const contentSummary = [];
+  const contentSummary: string[] = [];
   if (totalBooks > 0) contentSummary.push(`${totalBooks} book${totalBooks > 1 ? 's' : ''}`);
   if (totalHighlights > 0) contentSummary.push(`${totalHighlights} highlight${totalHighlights > 1 ? 's' : ''}`);
   if (totalCites > 0) contentSummary.push(`${totalCites} citation${totalCites > 1 ? 's' : ''}`);

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 879,
-    "moduleCount": 179,
+    "fnCount": 1020,
+    "moduleCount": 206,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1757,
+    "edgeCount": 2011,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -170,6 +170,454 @@
       "stage": "citations",
       "module": "citations/citationInserter",
       "leaf": true
+    },
+    {
+      "id": "components/newBookButton/newBookButton:destroyNewBookContainer",
+      "label": "destroyNewBookContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newBookButton/newBookButton",
+      "leaf": true
+    },
+    {
+      "id": "components/newBookButton/newBookButton:initializeNewBookContainer",
+      "label": "initializeNewBookContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newBookButton/newBookButton",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "label": "checkBibtexAndReveal",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bibtex",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "label": "populateFieldsFromBibtex",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bibtex",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal",
+      "label": "setupBibtexModeAutoReveal",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bibtex",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "label": "findAvailableBookId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "label": "generateBookIdFromMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:sanitizeBookIdValue",
+      "label": "sanitizeBookIdValue",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "label": "setupBookIdSanitization",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+      "label": "setupBookUrlPreview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "label": "updateBookUrlPreview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/bookId",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/dom:$",
+      "label": "$",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/dom",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/dom:qs",
+      "label": "qs",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/dom",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/dom:qsa",
+      "label": "qsa",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/dom",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "label": "showFieldsForType",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fields",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "label": "handleFileMetadataExtraction",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "label": "handlePdfCostEstimate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "label": "hideInsufficientBalanceBanner",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "label": "hidePdfCostEstimate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "label": "setupInlineDropzone",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+      "label": "showInsufficientBalanceBanner",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
+      "label": "validateFileInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/fileUpload",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "label": "initializeCitationFormListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:setupFormSubmissionHandler",
+      "label": "setupFormSubmissionHandler",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:setupModeSwitching",
+      "label": "setupModeSwitching",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/modes",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "label": "switchImportMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/modes",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "label": "loadFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/persistence",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:saveFormData",
+      "label": "saveFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/persistence",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "label": "setupClearButton",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/persistence",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupFormPersistence",
+      "label": "setupFormPersistence",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/persistence",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "label": "setupImportSearch",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/search",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle",
+      "label": "setupSourceToggle",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/sourceToggle",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "label": "getAllowedResubmitBookId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/state",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "label": "setAllowedResubmitBookId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/state",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "label": "setupFormSubmission",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/submission",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "label": "getCiteFormHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/template",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "label": "setupUrlImport",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/urlImport",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "label": "setupRealTimeValidation",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/validation",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.cleanupResizeListener",
+      "label": "NewBookContainerManager.cleanupResizeListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
+      "label": "NewBookContainerManager.clearSavedFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "label": "NewBookContainerManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.constructor",
+      "label": "NewBookContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.destroy",
+      "label": "NewBookContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.handleFocus",
+      "label": "NewBookContainerManager.handleFocus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.handleVisibilityChange",
+      "label": "NewBookContainerManager.handleVisibilityChange",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "label": "NewBookContainerManager.loadFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.openContainer",
+      "label": "NewBookContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
+      "label": "NewBookContainerManager.resetAnimationState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
+      "label": "NewBookContainerManager.restoreOriginalContent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
+      "label": "NewBookContainerManager.saveFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
+      "label": "NewBookContainerManager.setResponsiveFormSize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
+      "label": "NewBookContainerManager.setupButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setupNewBookContainerStyles",
+      "label": "NewBookContainerManager.setupNewBookContainerStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
+      "label": "NewBookContainerManager.setupResizeListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "label": "NewBookContainerManager.showImportForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "label": "NewBookContainerManager.toggleOptionalFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": false
     },
     {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
@@ -937,6 +1385,686 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userButton/userButton:destroyUserContainer",
+      "label": "destroyUserContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userButton/userButton",
+      "leaf": true
+    },
+    {
+      "id": "components/userButton/userButton:initializeUserContainer",
+      "label": "initializeUserContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userButton/userButton",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:buildContentSummary",
+      "label": "buildContentSummary",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:confirmBookTransfer",
+      "label": "confirmBookTransfer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "label": "getAnonymousBooks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+      "label": "handleAnonymousBookTransfer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "label": "showAnonymousContentTransfer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "label": "showTransferConfirmation",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:transferAnonymousContent",
+      "label": "transferAnonymousContent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:transferBooksToUser",
+      "label": "transferBooksToUser",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:updateBookOwnership",
+      "label": "updateBookOwnership",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:updateBookOwnershipBackend",
+      "label": "updateBookOwnershipBackend",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/anonymousTransfer",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/auth:handleLogin",
+      "label": "handleLogin",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/auth:handleLogout",
+      "label": "handleLogout",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/auth:handleRegister",
+      "label": "handleRegister",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/auth:performLogoutCleanup",
+      "label": "performLogoutCleanup",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/auth:showLoginError",
+      "label": "showLoginError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/auth:showLoginForm",
+      "label": "showLoginForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/auth:showRegisterError",
+      "label": "showRegisterError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/auth:showRegisterForm",
+      "label": "showRegisterForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/auth",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/cache:clearAllCachedData",
+      "label": "clearAllCachedData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/cache",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/cache:clearAndRefreshDatabase",
+      "label": "clearAndRefreshDatabase",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/cache",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/cache:clearBrowserCache",
+      "label": "clearBrowserCache",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/cache",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/email:handleChangeEmail",
+      "label": "handleChangeEmail",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/email",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/email:handleResendVerification",
+      "label": "handleResendVerification",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/email",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/email:showChangeEmailForm",
+      "label": "showChangeEmailForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/email",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/email:showVerifyEmailScreen",
+      "label": "showVerifyEmailScreen",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/email",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/forgotPassword:handleForgotPassword",
+      "label": "handleForgotPassword",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forgotPassword",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "label": "showForgotPasswordForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forgotPassword",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/forms:getChangeEmailHTML",
+      "label": "getChangeEmailHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/forms:getErrorHTML",
+      "label": "getErrorHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getForgotPasswordFormHTML",
+      "label": "getForgotPasswordFormHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getForgotPasswordSentHTML",
+      "label": "getForgotPasswordSentHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/forms:getLoginFormHTML",
+      "label": "getLoginFormHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getProfileHTML",
+      "label": "getProfileHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getRegisterFormHTML",
+      "label": "getRegisterFormHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getTransferConfirmationHTML",
+      "label": "getTransferConfirmationHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getTransferPromptHTML",
+      "label": "getTransferPromptHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/forms:getVerifyEmailHTML",
+      "label": "getVerifyEmailHTML",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/forms",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
+      "label": "UserContainerManager.attachProfileButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.closeContainer",
+      "label": "UserContainerManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.constructor",
+      "label": "UserContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.destroy",
+      "label": "UserContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.forceServerDataRefresh",
+      "label": "UserContainerManager.forceServerDataRefresh",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.getCsrfTokenFromCookie",
+      "label": "UserContainerManager.getCsrfTokenFromCookie",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleChangeEmail",
+      "label": "UserContainerManager.handleChangeEmail",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleDocumentClick",
+      "label": "UserContainerManager.handleDocumentClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleForgotPassword",
+      "label": "UserContainerManager.handleForgotPassword",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleLogin",
+      "label": "UserContainerManager.handleLogin",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleLogout",
+      "label": "UserContainerManager.handleLogout",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleMyBooksClick",
+      "label": "UserContainerManager.handleMyBooksClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleRegister",
+      "label": "UserContainerManager.handleRegister",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleResendVerification",
+      "label": "UserContainerManager.handleResendVerification",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.initializeUser",
+      "label": "UserContainerManager.initializeUser",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.navigateToUserBooks",
+      "label": "UserContainerManager.navigateToUserBooks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.openContainer",
+      "label": "UserContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.performLogoutCleanup",
+      "label": "UserContainerManager.performLogoutCleanup",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.proceedAfterLogin",
+      "label": "UserContainerManager.proceedAfterLogin",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.sanitizeUsername",
+      "label": "UserContainerManager.sanitizeUsername",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.setPostLoginAction",
+      "label": "UserContainerManager.setPostLoginAction",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.setupUserContainerStyles",
+      "label": "UserContainerManager.setupUserContainerStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.setupUserListeners",
+      "label": "UserContainerManager.setupUserListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showAnonymousContentTransfer",
+      "label": "UserContainerManager.showAnonymousContentTransfer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showChangeEmailForm",
+      "label": "UserContainerManager.showChangeEmailForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showError",
+      "label": "UserContainerManager.showError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showForgotPasswordForm",
+      "label": "UserContainerManager.showForgotPasswordForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showLoginError",
+      "label": "UserContainerManager.showLoginError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showLoginForm",
+      "label": "UserContainerManager.showLoginForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showOfflineStatus",
+      "label": "UserContainerManager.showOfflineStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showRegisterError",
+      "label": "UserContainerManager.showRegisterError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showRegisterForm",
+      "label": "UserContainerManager.showRegisterForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showUserProfile",
+      "label": "UserContainerManager.showUserProfile",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showVerifiedToast",
+      "label": "UserContainerManager.showVerifiedToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showVerifyEmailScreen",
+      "label": "UserContainerManager.showVerifyEmailScreen",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.toggleContainer",
+      "label": "UserContainerManager.toggleContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.triggerContentRefresh",
+      "label": "UserContainerManager.triggerContentRefresh",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.updateButtonColor",
+      "label": "UserContainerManager.updateButtonColor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/profile:attachProfileButtonListeners",
+      "label": "attachProfileButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/profile",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/profile:showUserProfile",
+      "label": "showUserProfile",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/profile",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/validation:attachValidationListeners",
+      "label": "attachValidationListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/validation:showValidationMessage",
+      "label": "showValidationMessage",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/validation:validateEmail",
+      "label": "validateEmail",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/validation:validateForm",
+      "label": "validateForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/validation:validatePassword",
+      "label": "validatePassword",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/validation:validateUsername",
+      "label": "validateUsername",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/validation",
       "leaf": true
     },
     {
@@ -7268,6 +8396,198 @@
       ]
     },
     {
+      "id": "components/newBookButton/newBookButton",
+      "label": "components/newBookButton/newBookButton",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newBookButton/newBookButton:destroyNewBookContainer",
+        "components/newBookButton/newBookButton:initializeNewBookContainer"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex",
+      "label": "components/newbookContainer/citeForm/bibtex",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+        "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+        "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId",
+      "label": "components/newbookContainer/citeForm/bookId",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+        "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+        "components/newbookContainer/citeForm/bookId:sanitizeBookIdValue",
+        "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+        "components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+        "components/newbookContainer/citeForm/bookId:updateBookUrlPreview"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/dom",
+      "label": "components/newbookContainer/citeForm/dom",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/dom:$",
+        "components/newbookContainer/citeForm/dom:qs",
+        "components/newbookContainer/citeForm/dom:qsa"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fields",
+      "label": "components/newbookContainer/citeForm/fields",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/newbookContainer/citeForm/fields:showFieldsForType"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload",
+      "label": "components/newbookContainer/citeForm/fileUpload",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+        "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+        "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+        "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+        "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+        "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+        "components/newbookContainer/citeForm/fileUpload:validateFileInput"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index",
+      "label": "components/newbookContainer/citeForm/index",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+        "components/newbookContainer/citeForm/index:setupFormSubmissionHandler"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes",
+      "label": "components/newbookContainer/citeForm/modes",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/modes:setupModeSwitching",
+        "components/newbookContainer/citeForm/modes:switchImportMode"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence",
+      "label": "components/newbookContainer/citeForm/persistence",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/persistence:loadFormData",
+        "components/newbookContainer/citeForm/persistence:saveFormData",
+        "components/newbookContainer/citeForm/persistence:setupClearButton",
+        "components/newbookContainer/citeForm/persistence:setupFormPersistence"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search",
+      "label": "components/newbookContainer/citeForm/search",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/search:setupImportSearch"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/sourceToggle",
+      "label": "components/newbookContainer/citeForm/sourceToggle",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/state",
+      "label": "components/newbookContainer/citeForm/state",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+        "components/newbookContainer/citeForm/state:setAllowedResubmitBookId"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission",
+      "label": "components/newbookContainer/citeForm/submission",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/newbookContainer/citeForm/submission:setupFormSubmission"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/template",
+      "label": "components/newbookContainer/citeForm/template",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/citeForm/template:getCiteFormHTML"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport",
+      "label": "components/newbookContainer/citeForm/urlImport",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/newbookContainer/citeForm/urlImport:setupUrlImport"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation",
+      "label": "components/newbookContainer/citeForm/validation",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/newbookContainer/citeForm/validation:setupRealTimeValidation"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/index",
+      "label": "components/newbookContainer/index",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/newbookContainer/index:NewBookContainerManager.cleanupResizeListener",
+        "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
+        "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+        "components/newbookContainer/index:NewBookContainerManager.constructor",
+        "components/newbookContainer/index:NewBookContainerManager.destroy",
+        "components/newbookContainer/index:NewBookContainerManager.handleFocus",
+        "components/newbookContainer/index:NewBookContainerManager.handleVisibilityChange",
+        "components/newbookContainer/index:NewBookContainerManager.loadFormData",
+        "components/newbookContainer/index:NewBookContainerManager.openContainer",
+        "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
+        "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
+        "components/newbookContainer/index:NewBookContainerManager.saveFormData",
+        "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
+        "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
+        "components/newbookContainer/index:NewBookContainerManager.setupNewBookContainerStyles",
+        "components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
+        "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+        "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields"
+      ]
+    },
+    {
       "id": "components/topRightContainer/cloudRef/cloudRefButton",
       "label": "components/topRightContainer/cloudRef/cloudRefButton",
       "stage": "components",
@@ -7489,6 +8809,171 @@
         "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
         "components/topRightContainer/sourceContainer/index:SourceContainerManager.validateUrl",
         "components/topRightContainer/sourceContainer/index:destroySourceManager"
+      ]
+    },
+    {
+      "id": "components/userButton/userButton",
+      "label": "components/userButton/userButton",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/userButton/userButton:destroyUserContainer",
+        "components/userButton/userButton:initializeUserContainer"
+      ]
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer",
+      "label": "components/userContainer/anonymousTransfer",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/userContainer/anonymousTransfer:buildContentSummary",
+        "components/userContainer/anonymousTransfer:confirmBookTransfer",
+        "components/userContainer/anonymousTransfer:getAnonymousBooks",
+        "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+        "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+        "components/userContainer/anonymousTransfer:showTransferConfirmation",
+        "components/userContainer/anonymousTransfer:transferAnonymousContent",
+        "components/userContainer/anonymousTransfer:transferBooksToUser",
+        "components/userContainer/anonymousTransfer:updateBookOwnership",
+        "components/userContainer/anonymousTransfer:updateBookOwnershipBackend"
+      ]
+    },
+    {
+      "id": "components/userContainer/auth",
+      "label": "components/userContainer/auth",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/userContainer/auth:handleLogin",
+        "components/userContainer/auth:handleLogout",
+        "components/userContainer/auth:handleRegister",
+        "components/userContainer/auth:performLogoutCleanup",
+        "components/userContainer/auth:showLoginError",
+        "components/userContainer/auth:showLoginForm",
+        "components/userContainer/auth:showRegisterError",
+        "components/userContainer/auth:showRegisterForm"
+      ]
+    },
+    {
+      "id": "components/userContainer/cache",
+      "label": "components/userContainer/cache",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/userContainer/cache:clearAllCachedData",
+        "components/userContainer/cache:clearAndRefreshDatabase",
+        "components/userContainer/cache:clearBrowserCache"
+      ]
+    },
+    {
+      "id": "components/userContainer/email",
+      "label": "components/userContainer/email",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/userContainer/email:handleChangeEmail",
+        "components/userContainer/email:handleResendVerification",
+        "components/userContainer/email:showChangeEmailForm",
+        "components/userContainer/email:showVerifyEmailScreen"
+      ]
+    },
+    {
+      "id": "components/userContainer/forgotPassword",
+      "label": "components/userContainer/forgotPassword",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/userContainer/forgotPassword:handleForgotPassword",
+        "components/userContainer/forgotPassword:showForgotPasswordForm"
+      ]
+    },
+    {
+      "id": "components/userContainer/forms",
+      "label": "components/userContainer/forms",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/userContainer/forms:getChangeEmailHTML",
+        "components/userContainer/forms:getErrorHTML",
+        "components/userContainer/forms:getForgotPasswordFormHTML",
+        "components/userContainer/forms:getForgotPasswordSentHTML",
+        "components/userContainer/forms:getLoginFormHTML",
+        "components/userContainer/forms:getProfileHTML",
+        "components/userContainer/forms:getRegisterFormHTML",
+        "components/userContainer/forms:getTransferConfirmationHTML",
+        "components/userContainer/forms:getTransferPromptHTML",
+        "components/userContainer/forms:getVerifyEmailHTML"
+      ]
+    },
+    {
+      "id": "components/userContainer/index",
+      "label": "components/userContainer/index",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
+        "components/userContainer/index:UserContainerManager.closeContainer",
+        "components/userContainer/index:UserContainerManager.constructor",
+        "components/userContainer/index:UserContainerManager.destroy",
+        "components/userContainer/index:UserContainerManager.forceServerDataRefresh",
+        "components/userContainer/index:UserContainerManager.getCsrfTokenFromCookie",
+        "components/userContainer/index:UserContainerManager.handleChangeEmail",
+        "components/userContainer/index:UserContainerManager.handleDocumentClick",
+        "components/userContainer/index:UserContainerManager.handleForgotPassword",
+        "components/userContainer/index:UserContainerManager.handleLogin",
+        "components/userContainer/index:UserContainerManager.handleLogout",
+        "components/userContainer/index:UserContainerManager.handleMyBooksClick",
+        "components/userContainer/index:UserContainerManager.handleRegister",
+        "components/userContainer/index:UserContainerManager.handleResendVerification",
+        "components/userContainer/index:UserContainerManager.initializeUser",
+        "components/userContainer/index:UserContainerManager.navigateToUserBooks",
+        "components/userContainer/index:UserContainerManager.openContainer",
+        "components/userContainer/index:UserContainerManager.performLogoutCleanup",
+        "components/userContainer/index:UserContainerManager.proceedAfterLogin",
+        "components/userContainer/index:UserContainerManager.sanitizeUsername",
+        "components/userContainer/index:UserContainerManager.setPostLoginAction",
+        "components/userContainer/index:UserContainerManager.setupUserContainerStyles",
+        "components/userContainer/index:UserContainerManager.setupUserListeners",
+        "components/userContainer/index:UserContainerManager.showAnonymousContentTransfer",
+        "components/userContainer/index:UserContainerManager.showChangeEmailForm",
+        "components/userContainer/index:UserContainerManager.showError",
+        "components/userContainer/index:UserContainerManager.showForgotPasswordForm",
+        "components/userContainer/index:UserContainerManager.showLoginError",
+        "components/userContainer/index:UserContainerManager.showLoginForm",
+        "components/userContainer/index:UserContainerManager.showOfflineStatus",
+        "components/userContainer/index:UserContainerManager.showRegisterError",
+        "components/userContainer/index:UserContainerManager.showRegisterForm",
+        "components/userContainer/index:UserContainerManager.showUserProfile",
+        "components/userContainer/index:UserContainerManager.showVerifiedToast",
+        "components/userContainer/index:UserContainerManager.showVerifyEmailScreen",
+        "components/userContainer/index:UserContainerManager.toggleContainer",
+        "components/userContainer/index:UserContainerManager.triggerContentRefresh",
+        "components/userContainer/index:UserContainerManager.updateButtonColor"
+      ]
+    },
+    {
+      "id": "components/userContainer/profile",
+      "label": "components/userContainer/profile",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/userContainer/profile:attachProfileButtonListeners",
+        "components/userContainer/profile:showUserProfile"
+      ]
+    },
+    {
+      "id": "components/userContainer/validation",
+      "label": "components/userContainer/validation",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/userContainer/validation:attachValidationListeners",
+        "components/userContainer/validation:showValidationMessage",
+        "components/userContainer/validation:validateEmail",
+        "components/userContainer/validation:validateForm",
+        "components/userContainer/validation:validatePassword",
+        "components/userContainer/validation:validateUsername"
       ]
     },
     {
@@ -9607,6 +11092,684 @@
       "rel": "write"
     },
     {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "target": "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal__call__components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "source": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal",
+      "target": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization__call__components/newbookContainer/citeForm/bookId:sanitizeBookIdValue",
+      "source": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "target": "components/newbookContainer/citeForm/bookId:sanitizeBookIdValue",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fields:showFieldsForType__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fields:showFieldsForType__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fields:showFieldsForType__call__components/newbookContainer/citeForm/dom:qsa",
+      "source": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "target": "components/newbookContainer/citeForm/dom:qsa",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:validateFileInput__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:validateFileInput__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/bibtex:setupBibtexModeAutoReveal",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/bookId:setupBookIdSanitization",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/bookId:setupBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/fields:showFieldsForType",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/modes:setupModeSwitching",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/modes:setupModeSwitching",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:loadFormData",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:setupClearButton",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:setupFormPersistence",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/persistence:setupFormPersistence",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/search:setupImportSearch",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/sourceToggle:setupSourceToggle",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:setupFormSubmissionHandler__call__components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "source": "components/newbookContainer/citeForm/index:setupFormSubmissionHandler",
+      "target": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:setupModeSwitching__call__components/newbookContainer/citeForm/dom:qsa",
+      "source": "components/newbookContainer/citeForm/modes:setupModeSwitching",
+      "target": "components/newbookContainer/citeForm/dom:qsa",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:setupModeSwitching__call__components/newbookContainer/citeForm/modes:switchImportMode",
+      "source": "components/newbookContainer/citeForm/modes:setupModeSwitching",
+      "target": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:switchImportMode__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/modes:switchImportMode__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/fields:showFieldsForType",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/modes:switchImportMode",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:saveFormData__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/persistence:saveFormData",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:saveFormData__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/persistence:saveFormData",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/dom:qsa",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/dom:qsa",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/fileUpload:hidePdfCostEstimate",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/modes:switchImportMode",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/modes:switchImportMode",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupFormPersistence__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/persistence:setupFormPersistence",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/fields:showFieldsForType",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/fileUpload:showInsufficientBalanceBanner",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/fileUpload:validateFileInput",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/dom:qs",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/fileUpload:hideInsufficientBalanceBanner",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer__domwrite__dom",
+      "source": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.loadFormData__domwrite__dom",
+      "source": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.openContainer__domwrite__dom",
+      "source": "components/newbookContainer/index:NewBookContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent__domwrite__dom",
+      "source": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__call__components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "source": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "target": "components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__domwrite__dom",
+      "source": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
       "source": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
       "target": "dom",
@@ -10335,6 +12498,504 @@
       "rel": "call"
     },
     {
+      "id": "components/userContainer/anonymousTransfer:confirmBookTransfer__call__components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "source": "components/userContainer/anonymousTransfer:confirmBookTransfer",
+      "target": "components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:getAnonymousBooks__write__store:library",
+      "source": "components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer__call__components/userContainer/anonymousTransfer:confirmBookTransfer",
+      "source": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+      "target": "components/userContainer/anonymousTransfer:confirmBookTransfer",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer__call__components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "source": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+      "target": "components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer__call__components/userContainer/anonymousTransfer:transferBooksToUser",
+      "source": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+      "target": "components/userContainer/anonymousTransfer:transferBooksToUser",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__call__components/userContainer/anonymousTransfer:buildContentSummary",
+      "source": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "target": "components/userContainer/anonymousTransfer:buildContentSummary",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__call__components/userContainer/anonymousTransfer:transferAnonymousContent",
+      "source": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "target": "components/userContainer/anonymousTransfer:transferAnonymousContent",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__call__components/userContainer/cache:clearAllCachedData",
+      "source": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__call__components/userContainer/forms:getTransferPromptHTML",
+      "source": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "target": "components/userContainer/forms:getTransferPromptHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__domwrite__dom",
+      "source": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showTransferConfirmation__call__components/userContainer/forms:getTransferConfirmationHTML",
+      "source": "components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "target": "components/userContainer/forms:getTransferConfirmationHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:showTransferConfirmation__domwrite__dom",
+      "source": "components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:transferBooksToUser__call__components/userContainer/anonymousTransfer:updateBookOwnership",
+      "source": "components/userContainer/anonymousTransfer:transferBooksToUser",
+      "target": "components/userContainer/anonymousTransfer:updateBookOwnership",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:transferBooksToUser__call__components/userContainer/anonymousTransfer:updateBookOwnershipBackend",
+      "source": "components/userContainer/anonymousTransfer:transferBooksToUser",
+      "target": "components/userContainer/anonymousTransfer:updateBookOwnershipBackend",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:updateBookOwnership__write__store:library",
+      "source": "components/userContainer/anonymousTransfer:updateBookOwnership",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/userContainer/auth:handleLogin__call__components/userContainer/cache:clearAllCachedData",
+      "source": "components/userContainer/auth:handleLogin",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/auth:handleLogin__call__components/userContainer/validation:validateForm",
+      "source": "components/userContainer/auth:handleLogin",
+      "target": "components/userContainer/validation:validateForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:handleLogout__call__components/userContainer/cache:clearAllCachedData",
+      "source": "components/userContainer/auth:handleLogout",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/auth:handleLogout__call__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "components/userContainer/auth:handleLogout",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:handleRegister__call__components/userContainer/cache:clearAllCachedData",
+      "source": "components/userContainer/auth:handleRegister",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/auth:handleRegister__call__components/userContainer/validation:validateForm",
+      "source": "components/userContainer/auth:handleRegister",
+      "target": "components/userContainer/validation:validateForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:showLoginForm__call__components/userContainer/forms:getLoginFormHTML",
+      "source": "components/userContainer/auth:showLoginForm",
+      "target": "components/userContainer/forms:getLoginFormHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:showLoginForm__call__components/userContainer/validation:attachValidationListeners",
+      "source": "components/userContainer/auth:showLoginForm",
+      "target": "components/userContainer/validation:attachValidationListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:showLoginForm__domwrite__dom",
+      "source": "components/userContainer/auth:showLoginForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/auth:showRegisterForm__call__components/userContainer/forms:getRegisterFormHTML",
+      "source": "components/userContainer/auth:showRegisterForm",
+      "target": "components/userContainer/forms:getRegisterFormHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:showRegisterForm__call__components/userContainer/validation:attachValidationListeners",
+      "source": "components/userContainer/auth:showRegisterForm",
+      "target": "components/userContainer/validation:attachValidationListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/auth:showRegisterForm__domwrite__dom",
+      "source": "components/userContainer/auth:showRegisterForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/cache:clearAllCachedData__call__components/userContainer/cache:clearBrowserCache",
+      "source": "components/userContainer/cache:clearAllCachedData",
+      "target": "components/userContainer/cache:clearBrowserCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/cache:clearAllCachedData__call__indexedDB/utilities/cleanup:clearDatabase",
+      "source": "components/userContainer/cache:clearAllCachedData",
+      "target": "indexedDB/utilities/cleanup:clearDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/cache:clearAndRefreshDatabase__call__components/userContainer/cache:clearBrowserCache",
+      "source": "components/userContainer/cache:clearAndRefreshDatabase",
+      "target": "components/userContainer/cache:clearBrowserCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/cache:clearAndRefreshDatabase__call__indexedDB/utilities/cleanup:clearDatabase",
+      "source": "components/userContainer/cache:clearAndRefreshDatabase",
+      "target": "indexedDB/utilities/cleanup:clearDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/email:handleChangeEmail__domwrite__dom",
+      "source": "components/userContainer/email:handleChangeEmail",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/email:handleResendVerification__domwrite__dom",
+      "source": "components/userContainer/email:handleResendVerification",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/email:showChangeEmailForm__call__components/userContainer/forms:getChangeEmailHTML",
+      "source": "components/userContainer/email:showChangeEmailForm",
+      "target": "components/userContainer/forms:getChangeEmailHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/email:showChangeEmailForm__domwrite__dom",
+      "source": "components/userContainer/email:showChangeEmailForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/email:showVerifyEmailScreen__call__components/userContainer/forms:getVerifyEmailHTML",
+      "source": "components/userContainer/email:showVerifyEmailScreen",
+      "target": "components/userContainer/forms:getVerifyEmailHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/email:showVerifyEmailScreen__domwrite__dom",
+      "source": "components/userContainer/email:showVerifyEmailScreen",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/forgotPassword:handleForgotPassword__call__components/userContainer/forms:getForgotPasswordSentHTML",
+      "source": "components/userContainer/forgotPassword:handleForgotPassword",
+      "target": "components/userContainer/forms:getForgotPasswordSentHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/forgotPassword:handleForgotPassword__domwrite__dom",
+      "source": "components/userContainer/forgotPassword:handleForgotPassword",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/forgotPassword:showForgotPasswordForm__call__components/userContainer/forms:getForgotPasswordFormHTML",
+      "source": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "target": "components/userContainer/forms:getForgotPasswordFormHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/forgotPassword:showForgotPasswordForm__domwrite__dom",
+      "source": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/forms:getChangeEmailHTML__domwrite__dom",
+      "source": "components/userContainer/forms:getChangeEmailHTML",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/forms:getForgotPasswordSentHTML__domwrite__dom",
+      "source": "components/userContainer/forms:getForgotPasswordSentHTML",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/forms:getVerifyEmailHTML__domwrite__dom",
+      "source": "components/userContainer/forms:getVerifyEmailHTML",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners__call__components/userContainer/profile:attachProfileButtonListeners",
+      "source": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
+      "target": "components/userContainer/profile:attachProfileButtonListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.closeContainer__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.forceServerDataRefresh__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "components/userContainer/index:UserContainerManager.forceServerDataRefresh",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleChangeEmail__call__components/userContainer/email:handleChangeEmail",
+      "source": "components/userContainer/index:UserContainerManager.handleChangeEmail",
+      "target": "components/userContainer/email:handleChangeEmail",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleForgotPassword__call__components/userContainer/forgotPassword:handleForgotPassword",
+      "source": "components/userContainer/index:UserContainerManager.handleForgotPassword",
+      "target": "components/userContainer/forgotPassword:handleForgotPassword",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleLogin__call__components/userContainer/auth:handleLogin",
+      "source": "components/userContainer/index:UserContainerManager.handleLogin",
+      "target": "components/userContainer/auth:handleLogin",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleLogout__call__components/userContainer/auth:handleLogout",
+      "source": "components/userContainer/index:UserContainerManager.handleLogout",
+      "target": "components/userContainer/auth:handleLogout",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleRegister__call__components/userContainer/auth:handleRegister",
+      "source": "components/userContainer/index:UserContainerManager.handleRegister",
+      "target": "components/userContainer/auth:handleRegister",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.handleResendVerification__call__components/userContainer/email:handleResendVerification",
+      "source": "components/userContainer/index:UserContainerManager.handleResendVerification",
+      "target": "components/userContainer/email:handleResendVerification",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.openContainer__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.performLogoutCleanup__call__components/userContainer/auth:performLogoutCleanup",
+      "source": "components/userContainer/index:UserContainerManager.performLogoutCleanup",
+      "target": "components/userContainer/auth:performLogoutCleanup",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.proceedAfterLogin__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.proceedAfterLogin",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showAnonymousContentTransfer__call__components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "source": "components/userContainer/index:UserContainerManager.showAnonymousContentTransfer",
+      "target": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showChangeEmailForm__call__components/userContainer/email:showChangeEmailForm",
+      "source": "components/userContainer/index:UserContainerManager.showChangeEmailForm",
+      "target": "components/userContainer/email:showChangeEmailForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showError__call__components/userContainer/forms:getErrorHTML",
+      "source": "components/userContainer/index:UserContainerManager.showError",
+      "target": "components/userContainer/forms:getErrorHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showError__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.showError",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showForgotPasswordForm__call__components/userContainer/forgotPassword:showForgotPasswordForm",
+      "source": "components/userContainer/index:UserContainerManager.showForgotPasswordForm",
+      "target": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showLoginError__call__components/userContainer/auth:showLoginError",
+      "source": "components/userContainer/index:UserContainerManager.showLoginError",
+      "target": "components/userContainer/auth:showLoginError",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showLoginForm__call__components/userContainer/auth:showLoginForm",
+      "source": "components/userContainer/index:UserContainerManager.showLoginForm",
+      "target": "components/userContainer/auth:showLoginForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showOfflineStatus__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.showOfflineStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showRegisterError__call__components/userContainer/auth:showRegisterError",
+      "source": "components/userContainer/index:UserContainerManager.showRegisterError",
+      "target": "components/userContainer/auth:showRegisterError",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showRegisterForm__call__components/userContainer/auth:showRegisterForm",
+      "source": "components/userContainer/index:UserContainerManager.showRegisterForm",
+      "target": "components/userContainer/auth:showRegisterForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showUserProfile__call__components/userContainer/profile:showUserProfile",
+      "source": "components/userContainer/index:UserContainerManager.showUserProfile",
+      "target": "components/userContainer/profile:showUserProfile",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showVerifiedToast__domwrite__dom",
+      "source": "components/userContainer/index:UserContainerManager.showVerifiedToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.showVerifyEmailScreen__call__components/userContainer/email:showVerifyEmailScreen",
+      "source": "components/userContainer/index:UserContainerManager.showVerifyEmailScreen",
+      "target": "components/userContainer/email:showVerifyEmailScreen",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/profile:showUserProfile__call__components/userContainer/forms:getProfileHTML",
+      "source": "components/userContainer/profile:showUserProfile",
+      "target": "components/userContainer/forms:getProfileHTML",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/profile:showUserProfile__domwrite__dom",
+      "source": "components/userContainer/profile:showUserProfile",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/validation:attachValidationListeners__call__components/userContainer/validation:showValidationMessage",
+      "source": "components/userContainer/validation:attachValidationListeners",
+      "target": "components/userContainer/validation:showValidationMessage",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:attachValidationListeners__call__components/userContainer/validation:validateEmail",
+      "source": "components/userContainer/validation:attachValidationListeners",
+      "target": "components/userContainer/validation:validateEmail",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:attachValidationListeners__call__components/userContainer/validation:validatePassword",
+      "source": "components/userContainer/validation:attachValidationListeners",
+      "target": "components/userContainer/validation:validatePassword",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:attachValidationListeners__call__components/userContainer/validation:validateUsername",
+      "source": "components/userContainer/validation:attachValidationListeners",
+      "target": "components/userContainer/validation:validateUsername",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:showValidationMessage__domwrite__dom",
+      "source": "components/userContainer/validation:showValidationMessage",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userContainer/validation:validateForm__call__components/userContainer/validation:showValidationMessage",
+      "source": "components/userContainer/validation:validateForm",
+      "target": "components/userContainer/validation:showValidationMessage",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:validateForm__call__components/userContainer/validation:validateEmail",
+      "source": "components/userContainer/validation:validateForm",
+      "target": "components/userContainer/validation:validateEmail",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:validateForm__call__components/userContainer/validation:validatePassword",
+      "source": "components/userContainer/validation:validateForm",
+      "target": "components/userContainer/validation:validatePassword",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/validation:validateForm__call__components/userContainer/validation:validateUsername",
+      "source": "components/userContainer/validation:validateForm",
+      "target": "components/userContainer/validation:validateUsername",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkManager:handleChunkOverflow",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -10913,6 +13574,150 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/newBookButton/newBookButton:initializeNewBookContainer",
+      "source": "dom",
+      "target": "components/newBookButton/newBookButton:initializeNewBookContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/dom:$",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/dom:qs",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/dom:qsa",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/dom:qsa",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/fileUpload:setupInlineDropzone",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/search:setupImportSearch",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "source": "dom",
+      "target": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.constructor",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.openContainer",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.openContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.saveFormData",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "source": "dom",
+      "target": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
       "source": "dom",
       "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
@@ -11114,6 +13919,144 @@
       "id": "dom__domread__components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userButton/userButton:initializeUserContainer",
+      "source": "dom",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "source": "dom",
+      "target": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "source": "dom",
+      "target": "components/userContainer/anonymousTransfer:showTransferConfirmation",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/auth:handleLogin",
+      "source": "dom",
+      "target": "components/userContainer/auth:handleLogin",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/auth:handleRegister",
+      "source": "dom",
+      "target": "components/userContainer/auth:handleRegister",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/auth:showLoginForm",
+      "source": "dom",
+      "target": "components/userContainer/auth:showLoginForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/auth:showRegisterForm",
+      "source": "dom",
+      "target": "components/userContainer/auth:showRegisterForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/email:handleChangeEmail",
+      "source": "dom",
+      "target": "components/userContainer/email:handleChangeEmail",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/email:handleResendVerification",
+      "source": "dom",
+      "target": "components/userContainer/email:handleResendVerification",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/email:showChangeEmailForm",
+      "source": "dom",
+      "target": "components/userContainer/email:showChangeEmailForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/email:showVerifyEmailScreen",
+      "source": "dom",
+      "target": "components/userContainer/email:showVerifyEmailScreen",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/forgotPassword:handleForgotPassword",
+      "source": "dom",
+      "target": "components/userContainer/forgotPassword:handleForgotPassword",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/forgotPassword:showForgotPasswordForm",
+      "source": "dom",
+      "target": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.constructor",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.handleDocumentClick",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.handleDocumentClick",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.openContainer",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.openContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.proceedAfterLogin",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.proceedAfterLogin",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.showError",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.showError",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager.updateButtonColor",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager.updateButtonColor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/profile:attachProfileButtonListeners",
+      "source": "dom",
+      "target": "components/userContainer/profile:attachProfileButtonListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/validation:attachValidationListeners",
+      "source": "dom",
+      "target": "components/userContainer/validation:attachValidationListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/validation:showValidationMessage",
+      "source": "dom",
+      "target": "components/userContainer/validation:showValidationMessage",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/validation:validateForm",
+      "source": "dom",
+      "target": "components/userContainer/validation:validateForm",
       "rel": "domread"
     },
     {
@@ -14963,6 +17906,12 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/brainQuery:injectBrainInput__call__components/userButton/userButton:initializeUserContainer",
+      "source": "hyperlitContainer/brainQuery:injectBrainInput",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/brainQuery:injectBrainInput__call__editToolbar/index:getEditToolbar",
       "source": "hyperlitContainer/brainQuery:injectBrainInput",
       "target": "editToolbar/index:getEditToolbar",
@@ -18363,6 +21312,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "pageLoad/accessGuards:handlePrivateBookAccessDenied__call__components/userButton/userButton:initializeUserContainer",
+      "source": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/accessGuards:handlePrivateBookAccessDenied__domwrite__dom",
       "source": "pageLoad/accessGuards:handlePrivateBookAccessDenied",
       "target": "dom",
@@ -19349,6 +22304,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader__call__components/userButton/userButton:destroyUserContainer",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader",
+      "target": "components/userButton/userButton:destroyUserContainer",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader__call__SPA/viewManager:cleanupReaderView",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader",
       "target": "SPA/viewManager:cleanupReaderView",
@@ -19480,6 +22441,18 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/newBookButton/newBookButton:destroyNewBookContainer",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
+      "target": "components/newBookButton/newBookButton:destroyNewBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/userButton/userButton:destroyUserContainer",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
+      "target": "components/userButton/userButton:destroyUserContainer",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__SPA/viewManager:cleanupReaderView",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
       "target": "SPA/viewManager:cleanupReaderView",
@@ -19555,6 +22528,18 @@
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.showFootnoteAuditModal",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState__call__components/newBookButton/newBookButton:destroyNewBookContainer",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState",
+      "target": "components/newBookButton/newBookButton:destroyNewBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState__call__components/userButton/userButton:destroyUserContainer",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState",
+      "target": "components/userButton/userButton:destroyUserContainer",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState__call__SPA/viewManager:cleanupReaderView",
@@ -19735,11 +22720,29 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupHome__call__components/newBookButton/newBookButton:destroyNewBookContainer",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupHome",
+      "target": "components/newBookButton/newBookButton:destroyNewBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupHome__call__components/userButton/userButton:destroyUserContainer",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupHome",
+      "target": "components/userButton/userButton:destroyUserContainer",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupHome__call__SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
       "source": "SPA/navigation/utils/cleanupHelpers:cleanupHome",
       "target": "SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__components/userButton/userButton:destroyUserContainer",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "target": "components/userButton/userButton:destroyUserContainer",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
@@ -19781,6 +22784,12 @@
       "source": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/userButton/userButton:initializeUserContainer",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__indexedDB/index:updateDatabaseBookId",
@@ -19836,6 +22845,12 @@
       "source": "SPA/navigation/utils/initHelpers:initializeHome",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeReader__call__components/userButton/userButton:initializeUserContainer",
+      "source": "SPA/navigation/utils/initHelpers:initializeReader",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/initHelpers:initializeReader__call__indexedDB/index:updateDatabaseBookId",
@@ -19913,6 +22928,18 @@
       "source": "SPA/navigation/utils/initHelpers:initializeUser",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers__call__components/newBookButton/newBookButton:initializeNewBookContainer",
+      "source": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers",
+      "target": "components/newBookButton/newBookButton:initializeNewBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers__call__components/userButton/userButton:initializeUserContainer",
+      "source": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/structureDetection:getBookIdFromUrl__call__SPA/navigation/utils/structureDetection:getSubdomain",
@@ -20284,6 +23311,18 @@
       "id": "store:hyperlights__read__SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
       "source": "store:hyperlights",
       "target": "SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "source": "store:library",
+      "target": "components/userContainer/anonymousTransfer:getAnonymousBooks",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__components/userContainer/anonymousTransfer:updateBookOwnership",
+      "source": "store:library",
+      "target": "components/userContainer/anonymousTransfer:updateBookOwnership",
       "rel": "read"
     },
     {
@@ -20751,6 +23790,11 @@
     },
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "hypercites/navigation",
       "kind": "static"
     },
@@ -20816,6 +23860,16 @@
     },
     {
       "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -20846,7 +23900,17 @@
     },
     {
       "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
       "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/userButton/userButton",
       "kind": "static"
     },
     {
@@ -20896,8 +23960,18 @@
     },
     {
       "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
       "target": "hyperlitContainer/index",
       "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "lazy"
     },
     {
       "source": "SPA/navigation/utils/cleanupHelpers",
@@ -20907,6 +23981,11 @@
     {
       "source": "SPA/navigation/utils/contentSwapHelpers",
       "target": "SPA/navigation/ProgressOverlayEnactor",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "components/userButton/userButton",
       "kind": "static"
     },
     {
@@ -20926,8 +24005,18 @@
     },
     {
       "source": "SPA/navigation/utils/initHelpers",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/initHelpers",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/initHelpers",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "lazy"
     },
     {
       "source": "SPA/viewManager",
@@ -21008,6 +24097,241 @@
       "source": "citations/citationInserter",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "components/newBookButton/newBookButton",
+      "target": "components/newbookContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/bibtex",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/bibtex",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/bookId",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/fields",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/fileUpload",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/fileUpload",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/bibtex",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/fields",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/fileUpload",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/modes",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/persistence",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/search",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/sourceToggle",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/submission",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/urlImport",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/validation",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/modes",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/modes",
+      "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/fields",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/fileUpload",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/modes",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/bibtex",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/fields",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/sourceToggle",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/bookId",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/fileUpload",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "SPA/navigation/pathways/ImportBookTransition",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/urlImport",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/urlImport",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/validation",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/validation",
+      "target": "components/newbookContainer/citeForm/fileUpload",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/validation",
+      "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/citeForm/template",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "SPA/navigation/NavigationManager",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/citeForm/index",
+      "kind": "lazy"
     },
     {
       "source": "components/topRightContainer/cloudRef/cloudRefButton",
@@ -21167,6 +24491,91 @@
     {
       "source": "components/topRightContainer/sourceContainer/index",
       "target": "components/topRightContainer/sourceContainer/editForm",
+      "kind": "static"
+    },
+    {
+      "source": "components/userButton/userButton",
+      "target": "components/userContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/anonymousTransfer",
+      "target": "components/userContainer/cache",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/anonymousTransfer",
+      "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/auth",
+      "target": "components/userContainer/cache",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/auth",
+      "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/auth",
+      "target": "components/userContainer/validation",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/cache",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/email",
+      "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/forgotPassword",
+      "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/anonymousTransfer",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/auth",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/email",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/forgotPassword",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/userContainer/profile",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "SPA/navigation/NavigationManager",
+      "kind": "breaker"
+    },
+    {
+      "source": "components/userContainer/profile",
+      "target": "components/userContainer/forms",
       "kind": "static"
     },
     {
@@ -21863,6 +25272,11 @@
       "source": "hyperlights/selectionToolbar",
       "target": "hyperlights/listeners",
       "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/brainQuery",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/brainQuery",
@@ -22855,6 +26269,11 @@
       "kind": "lazy"
     },
     {
+      "source": "pageLoad/accessGuards",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
       "source": "pageLoad/backgroundDownload",
       "target": "footnotes/FootnoteNumberingService",
       "kind": "static"
@@ -23208,6 +26627,8 @@
         "components/topRightContainer/sourceContainer/creatorTools/reconvert",
         "components/topRightContainer/sourceContainer/downloads",
         "components/topRightContainer/sourceContainer/index",
+        "components/userButton/userButton",
+        "components/userContainer/index",
         "divEditor/chunkManager",
         "divEditor/chunkMutationHandler/index",
         "divEditor/domUtilities",
@@ -23244,7 +26665,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 17,
-    "lazyCount": 122
+    "breakerCount": 18,
+    "lazyCount": 132
   }
 }

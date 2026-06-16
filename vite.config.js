@@ -141,7 +141,7 @@ export default defineConfig({
                 'resources/js/hyperlights/index.ts',
                 'resources/js/pageLoad/index.ts',
                 'resources/js/lazyLoader/index.ts',
-                'resources/js/components/newBookForm.js',
+                'resources/js/components/newbookContainer/citeForm/index.ts',
                 'resources/js/pageLoad/readerEntry.ts',
                 'resources/js/scrolling/index.ts',
                 'resources/js/components/toc.js',      // ✅ NEW

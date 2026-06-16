@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 879 functions in 179 modules · 8 object stores · 6 PG tables · 1757 edges
+**MarkdownDB** schema v27 · 1020 functions in 206 modules · 8 object stores · 6 PG tables · 2011 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -13,6 +13,62 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
 | `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
 | `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
+| `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
+| `initializeNewBookContainer` | `components/newBookButton/newBookButton` | — | — | read | — |
+| `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
+| `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
+| `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
+| `findAvailableBookId` | `components/newbookContainer/citeForm/bookId` | — | — | read | — |
+| `generateBookIdFromMetadata` | `components/newbookContainer/citeForm/bookId` | — | — | — | — |
+| `sanitizeBookIdValue` | `components/newbookContainer/citeForm/bookId` | — | — | — | — |
+| `setupBookIdSanitization` | `components/newbookContainer/citeForm/bookId` | — | — | — | — |
+| `setupBookUrlPreview` | `components/newbookContainer/citeForm/bookId` | — | — | — | — |
+| `updateBookUrlPreview` | `components/newbookContainer/citeForm/bookId` | — | — | write | — |
+| `$` | `components/newbookContainer/citeForm/dom` | — | — | read | — |
+| `qs` | `components/newbookContainer/citeForm/dom` | — | — | read | — |
+| `qsa` | `components/newbookContainer/citeForm/dom` | — | — | read | — |
+| `showFieldsForType` | `components/newbookContainer/citeForm/fields` | — | — | — | — |
+| `handleFileMetadataExtraction` | `components/newbookContainer/citeForm/fileUpload` | — | — | read/write | — |
+| `handlePdfCostEstimate` | `components/newbookContainer/citeForm/fileUpload` | — | — | read/write | — |
+| `hideInsufficientBalanceBanner` | `components/newbookContainer/citeForm/fileUpload` | — | — | write | — |
+| `hidePdfCostEstimate` | `components/newbookContainer/citeForm/fileUpload` | — | — | write | — |
+| `setupInlineDropzone` | `components/newbookContainer/citeForm/fileUpload` | — | — | read/write | — |
+| `showInsufficientBalanceBanner` | `components/newbookContainer/citeForm/fileUpload` | — | — | write | — |
+| `validateFileInput` | `components/newbookContainer/citeForm/fileUpload` | — | — | write | — |
+| `initializeCitationFormListeners` | `components/newbookContainer/citeForm/index` | — | — | read | — |
+| `setupFormSubmissionHandler` | `components/newbookContainer/citeForm/index` | — | — | — | — |
+| `setupModeSwitching` | `components/newbookContainer/citeForm/modes` | — | — | — | — |
+| `switchImportMode` | `components/newbookContainer/citeForm/modes` | — | — | write | — |
+| `loadFormData` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
+| `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
+| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | — | write | — |
+| `setupFormPersistence` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
+| `setupImportSearch` | `components/newbookContainer/citeForm/search` | — | — | read/write | — |
+| `setupSourceToggle` | `components/newbookContainer/citeForm/sourceToggle` | — | — | write | — |
+| `getAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
+| `setAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
+| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | — | — | read/write | — |
+| `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
+| `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
+| `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
+| `NewBookContainerManager.cleanupResizeListener` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.clearSavedFormData` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.closeContainer` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.constructor` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.destroy` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.handleFocus` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.handleVisibilityChange` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.loadFormData` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.openContainer` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.resetAnimationState` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.restoreOriginalContent` | `components/newbookContainer/index` | — | — | write | — |
+| `NewBookContainerManager.saveFormData` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.setResponsiveFormSize` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.setupButtonListeners` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.setupNewBookContainerStyles` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.setupResizeListener` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.showImportForm` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.toggleOptionalFields` | `components/newbookContainer/index` | — | — | read | — |
 | `destroySourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/topRightContainer/cloudRef/editIndicator` | — | — | — | — |
@@ -109,6 +165,91 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
+| `destroyUserContainer` | `components/userButton/userButton` | — | — | — | — |
+| `initializeUserContainer` | `components/userButton/userButton` | — | — | read | — |
+| `buildContentSummary` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `confirmBookTransfer` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `getAnonymousBooks` | `components/userContainer/anonymousTransfer` | `library` | `library` | — | — |
+| `handleAnonymousBookTransfer` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `showAnonymousContentTransfer` | `components/userContainer/anonymousTransfer` | — | — | read/write | — |
+| `showTransferConfirmation` | `components/userContainer/anonymousTransfer` | — | — | read/write | — |
+| `transferAnonymousContent` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `transferBooksToUser` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `updateBookOwnership` | `components/userContainer/anonymousTransfer` | `library` | `library` | — | — |
+| `updateBookOwnershipBackend` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `handleLogin` | `components/userContainer/auth` | — | — | read | — |
+| `handleLogout` | `components/userContainer/auth` | — | — | — | — |
+| `handleRegister` | `components/userContainer/auth` | — | — | read | — |
+| `performLogoutCleanup` | `components/userContainer/auth` | — | — | — | — |
+| `showLoginError` | `components/userContainer/auth` | — | — | — | — |
+| `showLoginForm` | `components/userContainer/auth` | — | — | read/write | — |
+| `showRegisterError` | `components/userContainer/auth` | — | — | — | — |
+| `showRegisterForm` | `components/userContainer/auth` | — | — | read/write | — |
+| `clearAllCachedData` | `components/userContainer/cache` | — | — | — | — |
+| `clearAndRefreshDatabase` | `components/userContainer/cache` | — | — | — | — |
+| `clearBrowserCache` | `components/userContainer/cache` | — | — | — | — |
+| `handleChangeEmail` | `components/userContainer/email` | — | — | read/write | — |
+| `handleResendVerification` | `components/userContainer/email` | — | — | read/write | — |
+| `showChangeEmailForm` | `components/userContainer/email` | — | — | read/write | — |
+| `showVerifyEmailScreen` | `components/userContainer/email` | — | — | read/write | — |
+| `handleForgotPassword` | `components/userContainer/forgotPassword` | — | — | read/write | — |
+| `showForgotPasswordForm` | `components/userContainer/forgotPassword` | — | — | read/write | — |
+| `getChangeEmailHTML` | `components/userContainer/forms` | — | — | write | — |
+| `getErrorHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getForgotPasswordFormHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getForgotPasswordSentHTML` | `components/userContainer/forms` | — | — | write | — |
+| `getLoginFormHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getProfileHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getRegisterFormHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getTransferConfirmationHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getTransferPromptHTML` | `components/userContainer/forms` | — | — | — | — |
+| `getVerifyEmailHTML` | `components/userContainer/forms` | — | — | write | — |
+| `UserContainerManager.attachProfileButtonListeners` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.closeContainer` | `components/userContainer/index` | — | — | write | — |
+| `UserContainerManager.constructor` | `components/userContainer/index` | — | — | read | — |
+| `UserContainerManager.destroy` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.forceServerDataRefresh` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.getCsrfTokenFromCookie` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleChangeEmail` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleDocumentClick` | `components/userContainer/index` | — | — | read | — |
+| `UserContainerManager.handleForgotPassword` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleLogin` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleLogout` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleMyBooksClick` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleRegister` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.handleResendVerification` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.initializeUser` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.navigateToUserBooks` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.openContainer` | `components/userContainer/index` | — | — | read/write | — |
+| `UserContainerManager.performLogoutCleanup` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.proceedAfterLogin` | `components/userContainer/index` | — | — | read/write | — |
+| `UserContainerManager.sanitizeUsername` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.setPostLoginAction` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.setupUserContainerStyles` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.setupUserListeners` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showAnonymousContentTransfer` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showChangeEmailForm` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showError` | `components/userContainer/index` | — | — | read/write | — |
+| `UserContainerManager.showForgotPasswordForm` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showLoginError` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showLoginForm` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showOfflineStatus` | `components/userContainer/index` | — | — | write | — |
+| `UserContainerManager.showRegisterError` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showRegisterForm` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showUserProfile` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.showVerifiedToast` | `components/userContainer/index` | — | — | write | — |
+| `UserContainerManager.showVerifyEmailScreen` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.toggleContainer` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.triggerContentRefresh` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager.updateButtonColor` | `components/userContainer/index` | — | — | read | — |
+| `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read | — |
+| `showUserProfile` | `components/userContainer/profile` | — | — | write | — |
+| `attachValidationListeners` | `components/userContainer/validation` | — | — | read | — |
+| `showValidationMessage` | `components/userContainer/validation` | — | — | read/write | — |
+| `validateEmail` | `components/userContainer/validation` | — | — | — | — |
+| `validateForm` | `components/userContainer/validation` | — | — | read | — |
+| `validatePassword` | `components/userContainer/validation` | — | — | — | — |
+| `validateUsername` | `components/userContainer/validation` | — | — | — | — |
 | `getCurrentChunk` | `divEditor/chunkManager` | — | — | read | — |
 | `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
 | `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
@@ -892,18 +1033,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 17 · lazy-loads (code-split): 122
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 18 · lazy-loads (code-split): 132
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/topRightContainer/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (49 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (51 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
 - `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
+- `components/userContainer/index` → `SPA/navigation/NavigationManager`
 - `divEditor/chunkManager` → `divEditor/index`
 - `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
@@ -925,11 +1067,18 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/BookToBookTransition`
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/DifferentTemplateTransition`
 - `SPA/navigation/resolveTargetChunk` → `indexedDB/hypercites/index`
+- `SPA/navigation/utils/cleanupHelpers` → `components/newBookButton/newBookButton`
 - `SPA/navigation/utils/cleanupHelpers` → `components/topRightContainer/sourceContainer/index`
+- `SPA/navigation/utils/initHelpers` → `components/newBookButton/newBookButton`
 - `SPA/viewManager` → `editToolbar/index`
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
+- `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
+- `components/newbookContainer/citeForm/submission` → `components/userButton/userButton`
+- `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
+- `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
+- `components/newbookContainer/index` → `components/newbookContainer/citeForm/index`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/topRightContainer/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
@@ -947,6 +1096,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
 - `hyperlights/deletion` → `lazyLoader/index`
+- `hyperlitContainer/brainQuery` → `components/userButton/userButton`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`
 - `hyperlitContainer/brainQuery` → `hyperlights/deletion`
 - `hyperlitContainer/brainQuery` → `hyperlitContainer/core`
@@ -1006,6 +1156,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `lazyLoader/index` → `indexedDB/hydration/rebuild`
 - `lazyLoader/index` → `lazyLoader/chunkFetcher`
 - `lazyLoader/index` → `scrolling/readingPosition`
+- `pageLoad/accessGuards` → `components/userButton/userButton`
 - `pageLoad/containerChain` → `hypercites/animations`
 - `pageLoad/containerChain` → `hyperlitContainer/index`
 - `pageLoad/containerChain` → `hyperlitContainer/stack`

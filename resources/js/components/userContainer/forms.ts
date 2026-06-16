@@ -1,10 +1,10 @@
-// formTemplates.js - HTML templates for authentication forms
+// forms.ts - HTML templates for the user-container authentication forms
+// (login / register / profile / transfer / forgot-password / verify-email /
+// change-email / error). Pure string builders — no DOM side effects. Leaf
+// module (was userContainer/formTemplates.js).
 
-/**
- * Generates login form HTML with validation message placeholders
- * @returns {string} HTML string
- */
-export function getLoginFormHTML() {
+/** Generates login form HTML with validation message placeholders */
+export function getLoginFormHTML(): string {
   return `
     <div class="user-form">
       <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Login</h3>
@@ -36,11 +36,8 @@ export function getLoginFormHTML() {
   `;
 }
 
-/**
- * Generates registration form HTML with validation message placeholders
- * @returns {string} HTML string
- */
-export function getRegisterFormHTML() {
+/** Generates registration form HTML with validation message placeholders */
+export function getRegisterFormHTML(): string {
   return `
     <div class="user-form">
       <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Register</h3>
@@ -76,12 +73,8 @@ export function getRegisterFormHTML() {
   `;
 }
 
-/**
- * Generates user profile HTML with My Library and Logout buttons
- * @param {boolean} emailVerified - Whether the user's email is verified
- * @returns {string} HTML string
- */
-export function getProfileHTML(emailVerified = true) {
+/** Generates user profile HTML with My Library and Logout buttons */
+export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
       <button id="verifyEmailBtn" class="fucked-buttons"
               style="width: 100%; padding: 8px; background: transparent; color: var(--color-secondary); border: 1px solid var(--color-secondary); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 12px;">
@@ -101,12 +94,8 @@ export function getProfileHTML(emailVerified = true) {
   `;
 }
 
-/**
- * Generates anonymous content transfer prompt HTML
- * @param {string[]} contentSummary - Array of content descriptions (e.g., ["2 books", "5 highlights"])
- * @returns {string} HTML string
- */
-export function getTransferPromptHTML(contentSummary) {
+/** Generates anonymous content transfer prompt HTML */
+export function getTransferPromptHTML(contentSummary: string[]): string {
   return `
     <div class="user-form">
       <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Welcome back!</h3>
@@ -125,12 +114,8 @@ export function getTransferPromptHTML(contentSummary) {
   `;
 }
 
-/**
- * Generates book transfer confirmation modal HTML
- * @param {string} message - Confirmation message
- * @returns {string} HTML string
- */
-export function getTransferConfirmationHTML(message) {
+/** Generates book transfer confirmation modal HTML */
+export function getTransferConfirmationHTML(message: string): string {
   return `
     <div style="background: var(--container-solid-bg); padding: 20px; border-radius: 8px; max-width: 400px; color: var(--color-text);">
       <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Transfer Anonymous Books?</h3>
@@ -149,22 +134,15 @@ export function getTransferConfirmationHTML(message) {
   `;
 }
 
-/**
- * Escape HTML special characters to prevent XSS
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
+/** Escape HTML special characters to prevent XSS */
+function escapeHtml(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
 
-/**
- * Generates forgot password form HTML
- * @returns {string} HTML string
- */
-export function getForgotPasswordFormHTML() {
+/** Generates forgot password form HTML */
+export function getForgotPasswordFormHTML(): string {
   return `
     <div class="user-form">
       <h3 style="color: var(--color-secondary); margin-bottom: 10px;">Reset Password</h3>
@@ -190,12 +168,8 @@ export function getForgotPasswordFormHTML() {
   `;
 }
 
-/**
- * Generates forgot password success HTML
- * @param {string} email - The email that was submitted (escaped to prevent XSS)
- * @returns {string} HTML string
- */
-export function getForgotPasswordSentHTML(email) {
+/** Generates forgot password success HTML (email is escaped to prevent XSS) */
+export function getForgotPasswordSentHTML(email: string): string {
   const safeEmail = escapeHtml(email);
   return `
     <div class="user-form">
@@ -211,12 +185,8 @@ export function getForgotPasswordSentHTML(email) {
   `;
 }
 
-/**
- * Generates verify email prompt HTML shown after registration
- * @param {string} email - The user's email address
- * @returns {string} HTML string
- */
-export function getVerifyEmailHTML(email) {
+/** Generates verify email prompt HTML shown after registration */
+export function getVerifyEmailHTML(email: string): string {
   const safeEmail = escapeHtml(email);
   return `
     <div class="user-form">
@@ -240,12 +210,8 @@ export function getVerifyEmailHTML(email) {
   `;
 }
 
-/**
- * Generates change email form HTML
- * @param {string} currentEmail - The user's current email address
- * @returns {string} HTML string
- */
-export function getChangeEmailHTML(currentEmail) {
+/** Generates change email form HTML */
+export function getChangeEmailHTML(currentEmail: string): string {
   const safeEmail = escapeHtml(currentEmail);
   return `
     <div class="user-form">
@@ -272,16 +238,12 @@ export function getChangeEmailHTML(currentEmail) {
   `;
 }
 
-/**
- * Generates error message HTML for form errors
- * @param {string|object} errors - Error message or object with field-specific errors
- * @returns {string} HTML string
- */
-export function getErrorHTML(errors) {
+/** Generates error message HTML for form errors */
+export function getErrorHTML(errors: any): string {
   let errorContent;
 
   if (typeof errors === 'object' && errors !== null) {
-    const errorMessages = [];
+    const errorMessages: any[] = [];
     for (const [field, messages] of Object.entries(errors)) {
       if (Array.isArray(messages)) {
         errorMessages.push(...messages);

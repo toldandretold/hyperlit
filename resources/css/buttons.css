@@ -415,7 +415,7 @@ black #221F20;
 }
 
 /* Expanded clickable area for specific navigation buttons only */
-#newBook.open::before,
+#newBookButton.open::before,
 #userButton.open::before,
 #editButton.open::before,
 #toc-toggle-button.open::before {

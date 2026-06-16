@@ -7,7 +7,7 @@ import { setCurrentBook } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNavToggle.js';
-import { initializeUserContainer } from '../../../components/userContainer.js';
+import { initializeUserContainer } from '../../../components/userButton/userButton';
 import { initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
 import { currentLazyLoader } from '../../../pageLoad';
 
@@ -179,7 +179,7 @@ export async function reinitializeContainerManagers() {
 
     // Dynamically import to avoid circular dependency
     // Note: initializeHomepageButtons is now handled via ButtonRegistry
-    const { initializeNewBookContainer } = await import('../../../components/newBookButton.js');
+    const { initializeNewBookContainer } = await import('../../../components/newBookButton/newBookButton');
     initializeNewBookContainer();
 
   } catch (error) {

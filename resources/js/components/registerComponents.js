@@ -25,7 +25,7 @@ import {
 import {
   initializeUserContainer,
   destroyUserContainer
-} from './userContainer.js';
+} from './userButton/userButton';
 
 import {
   initializeTocManager,
@@ -35,7 +35,7 @@ import {
 import {
   initializeNewBookContainer,
   destroyNewBookContainer
-} from './newBookButton.js';
+} from './newBookButton/newBookButton';
 
 import {
   initializeHomepageDropTarget,

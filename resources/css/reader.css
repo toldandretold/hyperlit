@@ -424,7 +424,7 @@
 }
 
 /* New Book button in menu */
-#logoNavMenu #newBook {
+#logoNavMenu #newBookButton {
   width: 36px;
   height: 36px;
   margin: 0;
@@ -441,8 +441,8 @@
 
 /* Expanded clickable area for new-book button (horizontal only — vertical
    expansion would overlap with user/home buttons stacked in the menu).
-   Overrides the all-sides expansion from buttons.css `#newBook.open::before`. */
-#logoNavMenu #newBook::before {
+   Overrides the all-sides expansion from buttons.css `#newBookButton.open::before`. */
+#logoNavMenu #newBookButton::before {
   content: '';
   position: absolute;
   top: 0;
@@ -452,7 +452,7 @@
   z-index: 1;
 }
 
-#logoNavMenu #newBook .icon {
+#logoNavMenu #newBookButton .icon {
   font-size: 28px;
   line-height: 1;
 }
@@ -474,12 +474,12 @@
     height: 18px;
   }
 
-  #logoNavMenu #newBook {
+  #logoNavMenu #newBookButton {
     width: 24px;
     height: 18px;
   }
 
-  #logoNavMenu #newBook .icon {
+  #logoNavMenu #newBookButton .icon {
     font-size: 20px;
   }
 

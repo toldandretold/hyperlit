@@ -373,14 +373,14 @@ export function showVibeGallery(container, loggedIn, callbacks) {
       content.querySelector('.vibe-auth-login')?.addEventListener('click', async (e) => {
         e.preventDefault();
         document.getElementById('settings-overlay')?.click();
-        const { initializeUserContainer } = await import('./userContainer.js');
+        const { initializeUserContainer } = await import('./userButton/userButton');
         const mgr = initializeUserContainer();
         if (mgr) mgr.showLoginForm();
       });
       content.querySelector('.vibe-auth-register')?.addEventListener('click', async (e) => {
         e.preventDefault();
         document.getElementById('settings-overlay')?.click();
-        const { initializeUserContainer } = await import('./userContainer.js');
+        const { initializeUserContainer } = await import('./userButton/userButton');
         const mgr = initializeUserContainer();
         if (mgr) mgr.showRegisterForm();
       });
@@ -661,14 +661,14 @@ export function showVibeGallery(container, loggedIn, callbacks) {
             msg.querySelector('.vibe-auth-login')?.addEventListener('click', async (e) => {
               e.preventDefault();
               document.getElementById('settings-overlay')?.click();
-              const { initializeUserContainer } = await import('./userContainer.js');
+              const { initializeUserContainer } = await import('./userButton/userButton');
               const mgr = initializeUserContainer();
               if (mgr) mgr.showLoginForm();
             });
             msg.querySelector('.vibe-auth-register')?.addEventListener('click', async (e) => {
               e.preventDefault();
               document.getElementById('settings-overlay')?.click();
-              const { initializeUserContainer } = await import('./userContainer.js');
+              const { initializeUserContainer } = await import('./userButton/userButton');
               const mgr = initializeUserContainer();
               if (mgr) mgr.showRegisterForm();
             });

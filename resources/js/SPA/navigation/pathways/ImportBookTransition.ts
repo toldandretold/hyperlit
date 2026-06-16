@@ -9,8 +9,8 @@
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
-import { destroyUserContainer } from '../../../components/userContainer.js';
-import { destroyNewBookContainer } from '../../../components/newBookButton.js';
+import { destroyUserContainer } from '../../../components/userButton/userButton';
+import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
 import { destroyHomepageDisplayUnit } from '../../../components/homepageDisplayUnit.js';
 import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton.js';
 import { cleanupReaderView } from '../../viewManager';

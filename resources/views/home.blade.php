@@ -112,7 +112,7 @@
 
   <!-- Right Column: The New Book Button -->
   <div id="topRightContainer" class="loading">
-    <button type="button" id="newBook" class="open"><span class="icon">+</span></button>
+    <button type="button" id="newBookButton" class="open"><span class="icon">+</span></button>
   </div>
 
 </div> <!-- End of #app-container -->

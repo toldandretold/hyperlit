@@ -71,14 +71,14 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     scroller.querySelector('.brain-auth-login-link').addEventListener('click', async () => {
       const { saveAndCloseHyperlitContainer }: any = await import('./core.js');
       await saveAndCloseHyperlitContainer();
-      const { initializeUserContainer }: any = await import('../components/userContainer.js');
+      const { initializeUserContainer }: any = await import('../components/userButton/userButton');
       const mgr = initializeUserContainer();
       if (mgr) mgr.showLoginForm();
     });
     scroller.querySelector('.brain-auth-register-link').addEventListener('click', async () => {
       const { saveAndCloseHyperlitContainer }: any = await import('./core.js');
       await saveAndCloseHyperlitContainer();
-      const { initializeUserContainer }: any = await import('../components/userContainer.js');
+      const { initializeUserContainer }: any = await import('../components/userButton/userButton');
       const mgr = initializeUserContainer();
       if (mgr) mgr.showRegisterForm();
     });

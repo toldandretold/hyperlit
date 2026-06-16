@@ -61,7 +61,7 @@
       </a>
 
       <!-- New Book Button -->
-      <button type="button" id="newBook" class="open" aria-label="New book"><span class="icon">+</span></button>
+      <button type="button" id="newBookButton" class="open" aria-label="New book"><span class="icon">+</span></button>
     </div>
   </div>
 

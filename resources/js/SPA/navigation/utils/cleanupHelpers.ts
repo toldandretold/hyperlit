@@ -5,7 +5,7 @@
 
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState } from '../../../components/editButton.js';
-import { destroyUserContainer } from '../../../components/userContainer.js';
+import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyUserProfileEditor } from '../../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../../components/logoNavToggle.js';
 import { closeHyperlitContainer } from '../../../hyperlitContainer/index';
@@ -56,7 +56,7 @@ export async function cleanupHome() {
     }
 
     // Dynamically import to avoid circular dependency
-    const { destroyNewBookContainer } = await import('../../../components/newBookButton.js');
+    const { destroyNewBookContainer } = await import('../../../components/newBookButton/newBookButton');
     if (typeof destroyNewBookContainer === 'function') {
       destroyNewBookContainer();
     }

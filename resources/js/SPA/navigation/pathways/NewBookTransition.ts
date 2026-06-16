@@ -12,8 +12,8 @@ import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../componen
 import { waitForElementReady, waitForContentReady } from '../../../utilities/domReadiness';
 import { log, verbose } from '../../../utilities/logger.js';
 import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';
-import { destroyUserContainer } from '../../../components/userContainer.js';
-import { destroyNewBookContainer } from '../../../components/newBookButton.js';
+import { destroyUserContainer } from '../../../components/userButton/userButton';
+import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
 import { destroyHomepageDisplayUnit } from '../../../components/homepageDisplayUnit.js';
 import { cleanupReaderView } from '../../viewManager';
 import { enforceEditableState, enableEditMode } from '../../../components/editButton.js';

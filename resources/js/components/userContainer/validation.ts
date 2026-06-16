@@ -1,11 +1,11 @@
-// formValidation.js - Authentication form validation utilities
+// validation.ts - Authentication form validation utilities (username / email /
+// password), real-time listener attachment, and pre-submit validation. Pure
+// leaf module (was userContainer/formValidation.js).
 
-/**
- * Validates username for URL safety and UX constraints
- * @param {string} username
- * @returns {{ valid: boolean, error: string|null }}
- */
-export function validateUsername(username) {
+type ValidationResult = { valid: boolean; error: string | null };
+
+/** Validates username for URL safety and UX constraints */
+export function validateUsername(username: string): ValidationResult {
   if (!username || username.trim() === '') {
     return { valid: false, error: 'Username is required' };
   }
@@ -33,12 +33,8 @@ export function validateUsername(username) {
   return { valid: true, error: null };
 }
 
-/**
- * Validates email format
- * @param {string} email
- * @returns {{ valid: boolean, error: string|null }}
- */
-export function validateEmail(email) {
+/** Validates email format */
+export function validateEmail(email: string): ValidationResult {
   if (!email || email.trim() === '') {
     return { valid: false, error: 'Email is required' };
   }
@@ -56,13 +52,8 @@ export function validateEmail(email) {
   return { valid: true, error: null };
 }
 
-/**
- * Validates password
- * @param {string} password
- * @param {boolean} isRegistration - If true, enforces minimum length
- * @returns {{ valid: boolean, error: string|null }}
- */
-export function validatePassword(password, isRegistration = false) {
+/** Validates password (enforces minimum length on registration) */
+export function validatePassword(password: string, isRegistration = false): ValidationResult {
   if (!password) {
     return { valid: false, error: 'Password is required' };
   }
@@ -74,12 +65,8 @@ export function validatePassword(password, isRegistration = false) {
   return { valid: true, error: null };
 }
 
-/**
- * Displays validation message for a form field
- * @param {string} elementId - The ID of the error display element (without 'Error' suffix)
- * @param {{ valid: boolean, error: string|null }} result - Validation result
- */
-export function showValidationMessage(elementId, result) {
+/** Displays validation message for a form field */
+export function showValidationMessage(elementId: string, result: ValidationResult) {
   const errorDiv = document.getElementById(`${elementId}Error`);
   if (!errorDiv) return;
 
@@ -104,16 +91,13 @@ export function showValidationMessage(elementId, result) {
   }
 }
 
-/**
- * Attaches real-time validation listeners to form inputs
- * @param {string} formType - 'login' or 'register'
- */
-export function attachValidationListeners(formType) {
+/** Attaches real-time validation listeners to form inputs */
+export function attachValidationListeners(formType: string) {
   const isRegistration = formType === 'register';
 
   // Email validation
   const emailId = isRegistration ? 'registerEmail' : 'loginEmail';
-  const emailInput = document.getElementById(emailId);
+  const emailInput = document.getElementById(emailId) as HTMLInputElement | null;
   if (emailInput) {
     emailInput.addEventListener('input', () => {
       const result = validateEmail(emailInput.value);
@@ -127,7 +111,7 @@ export function attachValidationListeners(formType) {
 
   // Password validation
   const passwordId = isRegistration ? 'registerPassword' : 'loginPassword';
-  const passwordInput = document.getElementById(passwordId);
+  const passwordInput = document.getElementById(passwordId) as HTMLInputElement | null;
   if (passwordInput) {
     passwordInput.addEventListener('input', () => {
       const result = validatePassword(passwordInput.value, isRegistration);
@@ -141,7 +125,7 @@ export function attachValidationListeners(formType) {
 
   // Username validation (registration only)
   if (isRegistration) {
-    const usernameInput = document.getElementById('registerName');
+    const usernameInput = document.getElementById('registerName') as HTMLInputElement | null;
     if (usernameInput) {
       usernameInput.addEventListener('input', () => {
         const result = validateUsername(usernameInput.value);
@@ -155,18 +139,14 @@ export function attachValidationListeners(formType) {
   }
 }
 
-/**
- * Validates all fields in a form before submission
- * @param {string} formType - 'login' or 'register'
- * @returns {{ valid: boolean, errors: string[] }}
- */
-export function validateForm(formType) {
-  const errors = [];
+/** Validates all fields in a form before submission */
+export function validateForm(formType: string): { valid: boolean; errors: (string | null)[] } {
+  const errors: (string | null)[] = [];
   const isRegistration = formType === 'register';
 
   // Validate email
   const emailId = isRegistration ? 'registerEmail' : 'loginEmail';
-  const emailInput = document.getElementById(emailId);
+  const emailInput = document.getElementById(emailId) as HTMLInputElement | null;
   if (emailInput) {
     const result = validateEmail(emailInput.value);
     showValidationMessage(emailId, result);
@@ -175,7 +155,7 @@ export function validateForm(formType) {
 
   // Validate password
   const passwordId = isRegistration ? 'registerPassword' : 'loginPassword';
-  const passwordInput = document.getElementById(passwordId);
+  const passwordInput = document.getElementById(passwordId) as HTMLInputElement | null;
   if (passwordInput) {
     const result = validatePassword(passwordInput.value, isRegistration);
     showValidationMessage(passwordId, result);
@@ -184,7 +164,7 @@ export function validateForm(formType) {
 
   // Validate username (registration only)
   if (isRegistration) {
-    const usernameInput = document.getElementById('registerName');
+    const usernameInput = document.getElementById('registerName') as HTMLInputElement | null;
     if (usernameInput) {
       const result = validateUsername(usernameInput.value);
       showValidationMessage('registerName', result);

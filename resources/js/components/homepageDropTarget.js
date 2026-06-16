@@ -15,7 +15,7 @@
 
 import { log, verbose } from '../utilities/logger.js';
 import { isLoggedIn } from '../utilities/auth.js';
-import { initializeUserContainer } from './userContainer.js';
+import { initializeUserContainer } from './userButton/userButton';
 import {
   attachFilesToInput,
   isAcceptableImportExt,

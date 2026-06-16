@@ -80,7 +80,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         loginBtn.textContent = 'Log in';
         loginBtn.addEventListener('click', async () => {
             close();
-            const { initializeUserContainer } = await import('../userContainer.js');
+            const { initializeUserContainer } = await import('../userButton/userButton');
             const mgr = initializeUserContainer();
             if (mgr) mgr.showLoginForm();
         });
@@ -90,7 +90,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         registerBtn.textContent = 'Register';
         registerBtn.addEventListener('click', async () => {
             close();
-            const { initializeUserContainer } = await import('../userContainer.js');
+            const { initializeUserContainer } = await import('../userButton/userButton');
             const mgr = initializeUserContainer();
             if (mgr) mgr.showRegisterForm();
         });

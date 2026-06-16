@@ -10,7 +10,7 @@ import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState, enforceEditableState } from '../../../components/editButton.js';
-import { destroyUserContainer } from '../../../components/userContainer.js';
+import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { setSkipScrollRestoration } from '../../../utilities/operationState.js';

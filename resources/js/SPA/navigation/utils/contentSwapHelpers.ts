@@ -13,7 +13,7 @@ import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
 // import { togglePerimeterButtons } from '../../../pageLoad';
 import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNavToggle.js';
-import { initializeUserContainer } from '../../../components/userContainer.js';
+import { initializeUserContainer } from '../../../components/userButton/userButton';
 
 /**
  * Fetch HTML for target URL

@@ -1,10 +1,11 @@
-// cacheManager.js - Cache and storage management utilities
-
+// cache.ts - Cache/storage management for auth changes: the "nuclear option"
+// that clears IndexedDB + CacheStorage + local/sessionStorage (preserving a few
+// critical keys). Leaf module (was userContainer/cacheManager.js).
 import { clearDatabase } from '../../indexedDB/index';
 
 /**
- * Clears all cached data - the "nuclear option" for auth changes
- * Clears IndexedDB, localStorage, sessionStorage, and CacheStorage API
+ * Clears all cached data - the "nuclear option" for auth changes.
+ * Clears IndexedDB, localStorage, sessionStorage, and CacheStorage API.
  */
 export async function clearAllCachedData() {
   try {
@@ -12,7 +13,7 @@ export async function clearAllCachedData() {
 
     // 1. Set cache invalidation timestamp
     const invalidationTimestamp = Date.now();
-    localStorage.setItem('auth_cache_invalidation', invalidationTimestamp);
+    localStorage.setItem('auth_cache_invalidation', String(invalidationTimestamp));
 
     // 2. Clear IndexedDB
     await clearDatabase();
@@ -22,10 +23,11 @@ export async function clearAllCachedData() {
 
     // 4. Clear localStorage (preserve critical keys)
     const localStoragePreserve = ['auth_cache_invalidation'];
-    const localStorageData = {};
+    const localStorageData: Record<string, string> = {};
     localStoragePreserve.forEach(key => {
-      if (localStorage.getItem(key)) {
-        localStorageData[key] = localStorage.getItem(key);
+      const v = localStorage.getItem(key);
+      if (v) {
+        localStorageData[key] = v;
       }
     });
     localStorage.clear();
@@ -35,10 +37,11 @@ export async function clearAllCachedData() {
 
     // 5. Clear sessionStorage (preserve critical keys)
     const sessionStoragePreserve = ['pending_new_book_sync', 'imported_book_flag'];
-    const sessionStorageData = {};
+    const sessionStorageData: Record<string, string> = {};
     sessionStoragePreserve.forEach(key => {
-      if (sessionStorage.getItem(key)) {
-        sessionStorageData[key] = sessionStorage.getItem(key);
+      const v = sessionStorage.getItem(key);
+      if (v) {
+        sessionStorageData[key] = v;
       }
     });
     sessionStorage.clear();
@@ -54,9 +57,7 @@ export async function clearAllCachedData() {
   }
 }
 
-/**
- * Clears all caches managed by the CacheStorage API
- */
+/** Clears all caches managed by the CacheStorage API */
 export async function clearBrowserCache() {
   if ('caches' in window) {
     try {
@@ -68,11 +69,8 @@ export async function clearBrowserCache() {
   }
 }
 
-/**
- * Clears database and triggers server refresh
- * @param {Function} serverRefreshFn - Function to call for server data refresh
- */
-export async function clearAndRefreshDatabase(serverRefreshFn) {
+/** Clears database and triggers server refresh */
+export async function clearAndRefreshDatabase(serverRefreshFn: any) {
   try {
     await clearDatabase();
     await clearBrowserCache();

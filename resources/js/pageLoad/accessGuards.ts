@@ -54,7 +54,7 @@ function showPrivateBookLoginPrompt(bookId: string) {
       window.location.href = "/";
     } else if (targetId === "showLoginButton") {
       // Dynamically import userContainer to avoid circular dependency
-      const { initializeUserContainer } = await import('../components/userContainer.js');
+      const { initializeUserContainer } = await import('../components/userButton/userButton');
 
       // Initialize userManager singleton if not already initialized
       const userManager = initializeUserContainer();
