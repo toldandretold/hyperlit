@@ -1,16 +1,15 @@
 import { updateSingleIndexedDBRecord } from '../indexedDB/index';
-import { generateIdBetween } from '../utilities/IDfunctions';
+import { generateIdBetween } from '../utilities/idHelpers';
 import { movedNodesByOverflow } from './editorState';
 import { setChunkOverflowInProgress } from '../utilities/operationState';
 import { verbose } from '../utilities/logger';
 // ✅ Lazy-loaded: divEditor index only used during editing
 // import { startObserving, stopObserving, movedNodesByOverflow } from './index';
 
-// Object to store node counts for each chunk
-export const chunkNodeCounts: Record<string, number> = {};
-
-// Define the node limit constant
-export const NODE_LIMIT = 100;
+// chunkNodeCounts / NODE_LIMIT / getCurrentChunk live in the zero-import ../utilities/chunkState leaf
+// (outside divEditor/ so paste/eager code never statically imports the editor folder). Re-exported here.
+import { chunkNodeCounts, NODE_LIMIT, getCurrentChunk } from '../utilities/chunkState';
+export { chunkNodeCounts, NODE_LIMIT, getCurrentChunk } from '../utilities/chunkState';
 
 /**
  * Helper: Count numerical ID nodes efficiently
@@ -450,15 +449,4 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
 // Returns the id STRING of the `.chunk` the caret is currently in, or null when there's
 // no selection / no enclosing chunk. Consumed as a string by setCurrentObservedChunk and
 // the selectionchange focus tracker in divEditor/index.ts.
-export function getCurrentChunk(): string | null {
-  const selection = document.getSelection();
-  if (selection && selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    const node: Node = range.startContainer;
-    const el: Element | null =
-      node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-    const chunkElement = el?.closest<HTMLElement>(".chunk");
-    return chunkElement ? (chunkElement.id || chunkElement.dataset.chunkId || null) : null;
-  }
-  return null;
-}
+// getCurrentChunk moved to ../utilities/chunkState (re-exported above).

@@ -10,7 +10,7 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId } from "../../utilities/IDfunctions";
+import { isNumericalId, ensureNodeHasValidId } from "../../utilities/idHelpers";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
@@ -20,7 +20,7 @@ import { verbose } from '../../utilities/logger';
 import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadingState';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
-import { NUMERICAL_ID_PATTERN } from '../../utilities/IDfunctions';
+import { NUMERICAL_ID_PATTERN } from '../../utilities/idHelpers';
 
 // 🆕 NO-DELETE-ID MARKER SYSTEM
 import {

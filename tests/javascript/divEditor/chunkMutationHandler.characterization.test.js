@@ -19,7 +19,8 @@ vi.mock('../../../resources/js/utilities/operationState', () => ({
   chunkOverflowInProgress: false,
   userDeletionInProgress: false,
 }));
-vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
+// Pure ID helpers moved to utilities/idHelpers (chunkMutationHandler imports them from there now).
+vi.mock('../../../resources/js/utilities/idHelpers', () => ({
   isNumericalId: (id) => !!id && NUMERICAL_ID_PATTERN.test(id),
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
   NUMERICAL_ID_PATTERN,

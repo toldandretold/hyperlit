@@ -9,9 +9,13 @@ const { queueNodeForSave } = vi.hoisted(() => ({ queueNodeForSave: vi.fn() }));
 vi.mock('../../../resources/js/app.js', () => ({ book: 'bookA' }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ queueNodeForSave }));
 vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
-vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
+// Pure ID helpers moved to utilities/idHelpers (caretHelpers imports them from there now);
+// triggerRenumberingWithModal stays in IDfunctions (dynamically imported).
+vi.mock('../../../resources/js/utilities/idHelpers', () => ({
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
   setElementIds: (el, before) => { el.id = before ? `${before}.1` : '1'; el.setAttribute('data-node-id', `N${el.id}`); },
+}));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   triggerRenumberingWithModal: vi.fn(),
 }));
 

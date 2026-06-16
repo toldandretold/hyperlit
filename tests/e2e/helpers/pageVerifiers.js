@@ -246,12 +246,12 @@ export async function verifyReaderPage(page, spa) {
   // The button is registered + present in the menu, hidden until the user
   // taps the logo. Open the menu, verify the + is visible, then close it
   // via a second tap on the logo.
-  expect(await page.locator('#newBook').count()).toBe(1);
+  expect(await page.locator('#newBookButton').count()).toBe(1);
   expect(await page.evaluate(() => !!document.getElementById('newBook')?.closest('#logoNavMenu'))).toBe(true);
-  await expect(page.locator('#newBook')).toBeHidden();
+  await expect(page.locator('#newBookButton')).toBeHidden();
   await page.click('#logoContainer');
   await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
-  await expect(page.locator('#newBook')).toBeVisible();
+  await expect(page.locator('#newBookButton')).toBeVisible();
   await page.click('#logoContainer');
   await page.waitForSelector('#logoNavMenu.hidden', { timeout: 3000 });
 

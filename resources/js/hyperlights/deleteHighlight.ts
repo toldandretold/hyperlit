@@ -9,8 +9,9 @@
 import { queueForSync, updateBookTimestamp } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database';
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
-import { queueNodeForSave } from '../divEditor/index';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
+// queueNodeForSave loaded lazily (edit-only, below) so this read-mode highlight module doesn't
+// statically pull the divEditor (editor) chunk into the eager bundle.
 
 /**
  * Delete highlight(s) that overlap with selected text
@@ -128,8 +129,10 @@ export async function deleteHighlightHandler(event: Event, bookId: string): Prom
     setProgrammaticUpdateInProgress(false);
   }
 
-  // Queue affected nodes for save if links were unwrapped (links have no IndexedDB records)
+  // Queue affected nodes for save if links were unwrapped (links have no IndexedDB records).
+  // linksToUnwrap is only populated in edit mode (above), so the editor chunk loads lazily here.
   if (linksToUnwrap.length > 0) {
+    const { queueNodeForSave } = await import('../divEditor/index');
     affectedNodeChunks.forEach(nodeId => {
       queueNodeForSave(nodeId, 'update');
     });

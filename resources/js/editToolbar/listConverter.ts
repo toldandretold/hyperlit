@@ -15,7 +15,7 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
-} from "../utilities/IDfunctions";
+} from "../utilities/idHelpers";
 
 /**
  * ListConverter class

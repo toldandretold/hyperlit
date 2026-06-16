@@ -19,7 +19,7 @@ test.describe('Full authoring workflow', () => {
     expect(await spa.getStructure(page)).toBe('home');
 
     // Open new-book container and create
-    await page.click('#newBook');
+    await page.click('#newBookButton');
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';
@@ -286,7 +286,7 @@ test.describe('Full authoring workflow', () => {
     // ──────────────────────────────────────────────────────────
     // Phase 7: Create Book 2
     // ──────────────────────────────────────────────────────────
-    await page.click('#newBook');
+    await page.click('#newBookButton');
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';

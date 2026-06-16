@@ -23,7 +23,7 @@
 import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { marked } from 'marked';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
-import { getCurrentChunk } from '../divEditor/chunkManager';
+import { getCurrentChunk } from '../utilities/chunkState';
 import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad/index';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/cloudRef/editIndicator';
 import {

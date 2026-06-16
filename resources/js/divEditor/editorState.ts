@@ -12,7 +12,7 @@
  * SaveQueue import is type-only and erased), so both index AND the handlers can
  * import from here without re-forming the cycle.
  */
-import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions';
+import { NUMERICAL_ID_PATTERN } from '../utilities/idHelpers';
 import { glowCloudOrange } from '../components/cloudRef/editIndicator';
 import { verbose } from '../utilities/logger';
 import type { SaveQueue } from './saveQueue';

@@ -43,8 +43,8 @@ import {
   initializeSelectionHandler,
   destroySelectionHandler,
 } from "../components/selectionHandler/selectionHandler";
-import { SelectionDeletionHandler } from "../divEditor/selectionDelete";
-import { queueNodeForDeletion, queueNodeForSave } from "../divEditor/index";
+// SelectionDeletionHandler + node-queue fns load lazily at reader-init (below) so this EAGER module
+// never statically imports the divEditor (editor) chunk — keeping that chunk lazy.
 import { loadHyperText } from "../pageLoad/loadHyperText";
 import {
   pendingFirstChunkLoadedPromise,
@@ -354,14 +354,20 @@ export async function universalPageInitializer(progressCallback = null) {
       verbose.init('User profile page functionality initialized', 'viewManager.js');
     }
     
-    // Initialize SelectionDeletionHandler for handling selection deletions
+    // Initialize SelectionDeletionHandler. The editor chunk (divEditor) is lazy — load it in the
+    // background here (non-blocking) so it's warm before the user edits, without a static import that
+    // would pin the chunk eager on every page.
     const editorContainer = document.querySelector('.main-content');
     if (editorContainer) {
-      activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
-        queueNodeForDeletion: queueNodeForDeletion,
-        queueNodeForSave: queueNodeForSave
-      });
-      verbose.init('SelectionDeletionHandler initialized', 'viewManager.js');
+      Promise.all([import('../divEditor/selectionDelete'), import('../divEditor/index')])
+        .then(([{ SelectionDeletionHandler }, { queueNodeForDeletion, queueNodeForSave }]) => {
+          activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
+            queueNodeForDeletion,
+            queueNodeForSave,
+          });
+          verbose.init('SelectionDeletionHandler initialized (lazy editor chunk)', 'viewManager.js');
+        })
+        .catch((e) => console.warn('Failed to init SelectionDeletionHandler:', e));
     } else {
       verbose.init(`No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`, 'viewManager.js');
     }

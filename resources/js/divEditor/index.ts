@@ -80,7 +80,7 @@ import { generateIdBetween,
          NUMERICAL_ID_PATTERN,
          findPreviousElementId,
          findNextElementId,
-          } from "../utilities/IDfunctions";
+          } from "../utilities/idHelpers";
 import {
   broadcastToOpenTabs
 } from '../utilities/BroadcastListener';

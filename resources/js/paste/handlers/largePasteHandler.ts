@@ -8,7 +8,7 @@
 import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions';
 import { getPasteSnapshot, setPasteSnapshot } from '../pasteSnapshot';
 export { clearPasteSnapshot } from '../pasteSnapshot';
-import { NODE_LIMIT } from '../../divEditor/chunkManager';
+import { NODE_LIMIT } from '../../utilities/chunkState';
 import {
   getNodeChunksAfter,
   deleteNodeChunksAfter,

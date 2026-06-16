@@ -1,0 +1,20 @@
+{
+  "pages": {
+    "reader": {
+      "eagerChunks": 23,
+      "eagerKB": 604.4,
+      "eagerGzipKB": 191.9
+    },
+    "home": {
+      "eagerChunks": 22,
+      "eagerKB": 602.3,
+      "eagerGzipKB": 191
+    },
+    "user": {
+      "eagerChunks": 22,
+      "eagerKB": 602.3,
+      "eagerGzipKB": 191
+    }
+  },
+  "features": {}
+}

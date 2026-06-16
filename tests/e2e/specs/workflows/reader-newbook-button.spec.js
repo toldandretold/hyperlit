@@ -43,7 +43,7 @@ test.describe('Reader page: new-book button in logo nav menu', () => {
       const registry = await spa.getRegistryStatus(page);
       expect(registry?.activeComponents).toContain('newBookButton');
 
-      const newBookExists = await page.locator('#newBook').count();
+      const newBookExists = await page.locator('#newBookButton').count();
       expect(newBookExists).toBe(1);
 
       const popupExists = await page.locator('#newbook-container').count();
@@ -56,16 +56,16 @@ test.describe('Reader page: new-book button in logo nav menu', () => {
       expect(buttonParentHasMenu).toBe(true);
 
       // Menu starts hidden → + is not visible to the user yet
-      await expect(page.locator('#newBook')).toBeHidden();
+      await expect(page.locator('#newBookButton')).toBeHidden();
 
       // ──────────────────────────────────────────────────────────
       // Phase 2: Open logo nav → + becomes visible
       // ──────────────────────────────────────────────────────────
       await page.click('#logoContainer');
       await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
-      await expect(page.locator('#newBook')).toBeVisible();
+      await expect(page.locator('#newBookButton')).toBeVisible();
 
-      const newBookRect = await page.locator('#newBook').boundingBox();
+      const newBookRect = await page.locator('#newBookButton').boundingBox();
       expect(newBookRect).not.toBeNull();
       await testInfo.attach(`${viewport.label}-01-menu-open.png`, {
         body: await page.screenshot(),
@@ -75,7 +75,7 @@ test.describe('Reader page: new-book button in logo nav menu', () => {
       // ──────────────────────────────────────────────────────────
       // Phase 3: Click + → buttons popup opens with New + Import
       // ──────────────────────────────────────────────────────────
-      await page.click('#newBook');
+      await page.click('#newBookButton');
 
       await page.waitForFunction(() => {
         const c = document.getElementById('newbook-container');

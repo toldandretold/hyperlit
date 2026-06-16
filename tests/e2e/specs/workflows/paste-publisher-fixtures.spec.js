@@ -58,7 +58,7 @@ async function createFreshBook(page, spa) {
   await page.waitForLoadState('networkidle');
   expect(await spa.getStructure(page)).toBe('home');
 
-  await page.click('#newBook');
+  await page.click('#newBookButton');
   await page.waitForFunction(() => {
     const c = document.getElementById('newbook-container');
     return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';

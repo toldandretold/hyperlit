@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1483 functions in 303 modules · 8 object stores · 6 PG tables · 2798 edges
+**MarkdownDB** schema v27 · 1482 functions in 303 modules · 8 object stores · 6 PG tables · 2795 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -450,7 +450,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `KeyboardManager.resetInlineStyles` | `components/utilities/keyboardManager` | — | — | — | — |
 | `KeyboardManager.scrollCaretIntoView` | `components/utilities/keyboardManager` | — | — | read | — |
 | `registerAllComponents` | `components/utilities/registerComponents` | — | — | — | — |
-| `getCurrentChunk` | `divEditor/chunkManager` | — | — | read | — |
 | `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
 | `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
 | `getFirstNodeIdForBook` | `divEditor/chunkMutationHandler/firstNode` | — | — | read | — |
@@ -1496,7 +1495,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 201
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 204
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1526,6 +1525,8 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `SPA/viewManager` → `components/settingsContainer/themeSwitcher`
 - `SPA/viewManager` → `components/userProfile/userProfileEditor`
 - `SPA/viewManager` → `components/userProfile/userProfilePage`
+- `SPA/viewManager` → `divEditor/index`
+- `SPA/viewManager` → `divEditor/selectionDelete`
 - `SPA/viewManager` → `editToolbar/index`
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
@@ -1577,6 +1578,7 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
 - `hypercites/navigation` → `pageLoad/containerChain`
+- `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`

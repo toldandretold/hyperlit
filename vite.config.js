@@ -19,34 +19,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // ✅ Code-splitting optimization for edit-only modules
-
-          // Paste system (lazy loaded only when editing)
-          if (id.includes('/resources/js/paste/')) {
-            return 'paste-system';
-          }
-
-          // divEditor (lazy loaded only when editing)
-          if (id.includes('/resources/js/divEditor/')) {
-            return 'editor';
-          }
-
-          // editToolbar (lazy loaded only when editing)
-          if (id.includes('/resources/js/editToolbar/')) {
-            return 'editor';
-          }
-
-          // Highlighting system (core feature - keep separate)
-          if (id.includes('/resources/js/hyperlights/') ||
-              id.includes('/resources/js/hypercites/')) {
-            return 'highlights';
-          }
-
-          // Large vendor libraries
+          // Trust rollup's automatic code-splitting. The source now has clean dynamic-import
+          // boundaries (edit-only divEditor/editToolbar/paste are reached only via `await import()`
+          // from edit entry; no EAGER module statically imports them), so rollup auto-creates lazy
+          // chunks for them and places shared infra (serverSync/pageLoad/IDfunctions) at the eager
+          // common-dominator. Hand-written `manualChunks` groupings were FOLDING that shared infra
+          // into the lazy feature chunks and pinning them eager — so we only keep the vendor split.
           if (id.includes('node_modules')) {
-            if (id.includes('rangy')) {
-              return 'vendor-rangy';
-            }
+            if (id.includes('rangy')) return 'vendor-rangy';
           }
         }
       }
@@ -103,42 +83,15 @@ export default defineConfig({
                 'resources/css/theme/sepia-theme.css',
                 'resources/css/theme/custom-theme-template.css',
 
-                // JAVASCRIPT (sorted, with new files added)
-                'resources/js/app.js',
-                'resources/js/divEditor/chunkManager.ts',
-                'resources/js/components/utilities/containerCustomization.ts',
-                'resources/js/utilities/convertMarkdown.ts',
-                // drag.js is imported via components/registerComponents.js (ButtonRegistry-managed),
-                // no longer a standalone entry — see reader.blade.php note.
-                'resources/js/editToolbar/index.ts',
-                'resources/js/hyperlitContainer/footnotesCitations.ts',
-                'resources/js/components/homepage/homepage.ts',                 // ✅ NEW
-                'resources/js/hyperlights/index.ts',
-                'resources/js/pageLoad/index.ts',
-                'resources/js/lazyLoader/index.ts',
-                'resources/js/components/newbookContainer/citeForm/index.ts',
-                'resources/js/pageLoad/readerEntry.ts',
-                'resources/js/scrolling/index.ts',
-                'resources/js/components/tocContainer/index.ts',      // ✅ NEW
-                'resources/js/SPA/viewManager.ts',
-                'resources/js/components/homepage/homepageDisplayUnit.ts',
-
-                // divEditor modules
-                'resources/js/divEditor/index.ts',
-                'resources/js/divEditor/saveQueue.ts',
-                'resources/js/divEditor/mutationProcessor.ts',
-                'resources/js/divEditor/enterKeyHandler/index.ts',
-                'resources/js/divEditor/chunkMutationHandler/index.ts',
-                'resources/js/divEditor/domUtilities.ts',
-
-                // editToolbar modules
-                'resources/js/editToolbar/toolbarDOMUtils.ts',
-                'resources/js/editToolbar/selectionManager.ts',
-                'resources/js/editToolbar/buttonStateManager.ts',
-                'resources/js/editToolbar/headingSubmenu.ts',
-                'resources/js/editToolbar/textFormatter.ts',
-                'resources/js/editToolbar/listConverter.ts',
-                'resources/js/editToolbar/blockFormatter.ts',
+                // JAVASCRIPT — ONLY the real page entries blade @vite()s. Everything else
+                // (divEditor/*, editToolbar/*, hyperlights/index, scrolling, pageLoad/index,
+                // viewManager, tocContainer, homepage*, citeForm, …) used to be listed here as
+                // legacy entries, which forced each into its own entry chunk and made rollup IGNORE
+                // manualChunks for them — defeating lazy-splitting. They're reached via imports now,
+                // so rollup chunks + code-splits them properly. Keep this list = the blade entries.
+                'resources/js/app.js',                                       // layouts/{app,guest}.blade
+                'resources/js/components/utilities/containerCustomization.ts',// reader.blade
+                'resources/js/pageLoad/readerEntry.ts',                      // reader/home/user.blade
 
                 // Quantizer view
                 'resources/css/quantizer.css',

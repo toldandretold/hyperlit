@@ -14,6 +14,7 @@
     "dev:all": "node show-ip.js && concurrently -r -n PHP,IMP1,IMP2,CITE,VIBE,EMBED,DEV,MAIL -c \"cyan,magenta,magenta,red,blue,gray,green,yellow\" --kill-others-on-fail --restart-tries 3 --restart-after 1000 \"npm:php\" \"npm:queue:import\" \"npm:queue:import\" \"npm:queue:citation\" \"npm:queue:vibe\" \"npm:queue:embeddings\" \"npm:dev\" \"npm:mail\"",
     "dev:network": "export APP_URL=http://$(node show-ip.js --ip-only):8000 && node show-ip.js --network && concurrently -r -n PHP,IMP1,IMP2,CITE,VIBE,EMBED,DEV,MAIL -c \"cyan,magenta,magenta,red,blue,gray,green,yellow\" --kill-others-on-fail --restart-tries 3 --restart-after 1000 \"npm:php:network\" \"npm:queue:import\" \"npm:queue:import\" \"npm:queue:citation\" \"npm:queue:vibe\" \"npm:queue:embeddings\" \"npm:dev\" \"npm:mail\"",
     "build": "vite build && node scripts/bundle-paste-engine.mjs",
+    "measure:bundle": "vite build && node scripts/measure-eager-bundle.mjs",
     "typecheck": "tsc --noEmit",
     "viz:idb": "WRITE_FLOWVIZ=1 vitest run tests/javascript/visualisation/flowViz.generate.test.js",
     "test": "vitest",

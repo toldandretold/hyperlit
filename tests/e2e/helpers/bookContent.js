@@ -85,7 +85,7 @@ export async function importMarkdownBook(page, spa, opts) {
     // Open the import form, then attach the real file via setInputFiles —
     // binary-safe (epub/docx/pdf) and bypasses synthetic drag.
     expectedName = path.basename(filePath);
-    await page.click('#newBook');
+    await page.click('#newBookButton');
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';

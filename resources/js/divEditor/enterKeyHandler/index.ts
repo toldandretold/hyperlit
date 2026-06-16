@@ -10,7 +10,7 @@
 
 import { chunkOverflowInProgress } from "../../utilities/operationState";
 import { book } from '../../app.js';
-import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/IDfunctions";
+import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/idHelpers";
 import { queueNodeForSave } from '../editorState';
 import { verbose } from '../../utilities/logger';
 import { placeCaretInEmptyListItem, listItemIsEmpty } from '../../utilities/listItemCaret';

@@ -13,12 +13,15 @@ vi.mock('../../../resources/js/app.js', () => ({ book: 'bookA' }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ queueNodeForSave }));
 vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
 vi.mock('../../../resources/js/utilities/operationState', () => ({ chunkOverflowInProgress: false }));
-vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
+// Pure ID helpers moved to utilities/idHelpers; triggerRenumberingWithModal stays in IDfunctions.
+vi.mock('../../../resources/js/utilities/idHelpers', () => ({
   generateIdBetween: () => '1.5',
   setElementIds: (el, before) => { el.id = before ? `${before}.1` : '1'; el.setAttribute('data-node-id', `N${el.id}`); },
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
   findPreviousElementId: () => null,
   findNextElementId: () => null,
+}));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   triggerRenumberingWithModal: vi.fn(),
 }));
 vi.mock('../../../resources/js/utilities/listItemCaret', () => ({

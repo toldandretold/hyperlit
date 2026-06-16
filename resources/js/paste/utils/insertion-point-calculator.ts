@@ -9,7 +9,7 @@
  * - Returns complete insertion context
  */
 
-import { chunkNodeCounts } from '../../divEditor/chunkManager';
+import { chunkNodeCounts } from '../../utilities/chunkState';
 
 /**
  * Calculate insertion point for paste operation

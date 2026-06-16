@@ -196,7 +196,7 @@ export async function setupTourAnchor(page, spa) {
 export async function createNewBookFromReader(page) {
   await page.click('#logoContainer');
   await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
-  await page.click('#newBook');
+  await page.click('#newBookButton');
   await page.waitForFunction(() => {
     const c = document.getElementById('newbook-container');
     if (!c) return false;

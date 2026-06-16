@@ -4,7 +4,7 @@
  * enterKeyHandler.js (module-level functions; no `this`).
  */
 import { book } from '../../app.js';
-import { ensureNodeHasValidId, setElementIds } from '../../utilities/IDfunctions';
+import { ensureNodeHasValidId, setElementIds } from '../../utilities/idHelpers';
 import { queueNodeForSave } from '../editorState';
 import { verbose } from '../../utilities/logger';
 

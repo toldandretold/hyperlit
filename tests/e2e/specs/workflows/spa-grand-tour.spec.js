@@ -470,9 +470,9 @@ test.describe.serial('SPA Grand Tour', () => {
     // Open the logo nav → + → buttons popup
     await page.click('#logoContainer');
     await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
-    await expect(page.locator('#newBook')).toBeVisible();
+    await expect(page.locator('#newBookButton')).toBeVisible();
 
-    await page.click('#newBook');
+    await page.click('#newBookButton');
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       if (!c) return false;
@@ -573,7 +573,7 @@ test.describe.serial('SPA Grand Tour', () => {
     const createOneNewBook = async () => {
       await page.click('#logoContainer');
       await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
-      await page.click('#newBook');
+      await page.click('#newBookButton');
       await page.waitForFunction(() => {
         const c = document.getElementById('newbook-container');
         if (!c) return false;

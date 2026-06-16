@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1483,
+    "fnCount": 1482,
     "moduleCount": 303,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2798,
+    "edgeCount": 2795,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3666,14 +3666,6 @@
       "stage": "components",
       "module": "components/utilities/registerComponents",
       "leaf": true
-    },
-    {
-      "id": "divEditor/chunkManager:getCurrentChunk",
-      "label": "getCurrentChunk",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/chunkManager",
-      "leaf": false
     },
     {
       "id": "divEditor/chunkManager:handleChunkOverflow",
@@ -13206,7 +13198,6 @@
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
-        "divEditor/chunkManager:getCurrentChunk",
         "divEditor/chunkManager:handleChunkOverflow",
         "divEditor/chunkManager:trackChunkNodeCount"
       ]
@@ -19545,12 +19536,6 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/index:startObserving__call__divEditor/chunkManager:getCurrentChunk",
-      "source": "divEditor/index:startObserving",
-      "target": "divEditor/chunkManager:getCurrentChunk",
-      "rel": "call"
-    },
-    {
       "id": "divEditor/index:startObserving__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -20848,12 +20833,6 @@
       "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView",
       "source": "dom",
       "target": "components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__divEditor/chunkManager:getCurrentChunk",
-      "source": "dom",
-      "target": "divEditor/chunkManager:getCurrentChunk",
       "rel": "domread"
     },
     {
@@ -30657,12 +30636,6 @@
       "rel": "call"
     },
     {
-      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__divEditor/chunkManager:getCurrentChunk",
-      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
-      "target": "divEditor/chunkManager:getCurrentChunk",
-      "rel": "call"
-    },
-    {
       "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
@@ -33955,16 +33928,6 @@
     },
     {
       "source": "SPA/viewManager",
-      "target": "divEditor/index",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/viewManager",
-      "target": "divEditor/selectionDelete",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/viewManager",
       "target": "hyperlights/index",
       "kind": "static"
     },
@@ -34031,6 +33994,16 @@
     {
       "source": "SPA/viewManager",
       "target": "components/userProfile/userProfilePage",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "divEditor/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "divEditor/selectionDelete",
       "kind": "lazy"
     },
     {
@@ -35675,11 +35648,6 @@
     },
     {
       "source": "hyperlights/deleteHighlight",
-      "target": "divEditor/index",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/deleteHighlight",
       "target": "hyperlights/database",
       "kind": "static"
     },
@@ -35692,6 +35660,11 @@
       "source": "hyperlights/deleteHighlight",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "hyperlights/deleteHighlight",
+      "target": "divEditor/index",
+      "kind": "lazy"
     },
     {
       "source": "hyperlights/deletion",
@@ -37480,11 +37453,6 @@
     },
     {
       "source": "paste/handlers/largePasteHandler",
-      "target": "divEditor/chunkManager",
-      "kind": "static"
-    },
-    {
-      "source": "paste/handlers/largePasteHandler",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -37521,11 +37489,6 @@
     {
       "source": "paste/handlers/novelVacuumHandler",
       "target": "components/cloudRef/editIndicator",
-      "kind": "static"
-    },
-    {
-      "source": "paste/handlers/novelVacuumHandler",
-      "target": "divEditor/chunkManager",
       "kind": "static"
     },
     {
@@ -37576,11 +37539,6 @@
     {
       "source": "paste/index",
       "target": "components/cloudRef/editIndicator",
-      "kind": "static"
-    },
-    {
-      "source": "paste/index",
-      "target": "divEditor/chunkManager",
       "kind": "static"
     },
     {
@@ -37686,16 +37644,6 @@
     {
       "source": "paste/utils/citation-linker",
       "target": "paste/utils/reference-key-generator",
-      "kind": "static"
-    },
-    {
-      "source": "paste/utils/content-converter",
-      "target": "divEditor/chunkManager",
-      "kind": "static"
-    },
-    {
-      "source": "paste/utils/insertion-point-calculator",
-      "target": "divEditor/chunkManager",
       "kind": "static"
     },
     {
@@ -37878,6 +37826,6 @@
     "staticCycles": [],
     "latentCycles": [],
     "breakerCount": 0,
-    "lazyCount": 201
+    "lazyCount": 204
   }
 }
